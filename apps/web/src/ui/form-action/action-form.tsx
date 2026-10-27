@@ -2,20 +2,20 @@
 
 import type { ReactNode } from 'react';
 import {
-  initialMockForm,
-  mockFormUnavailable,
-  type MockFormState,
-} from '../../features/mock-form/form';
+  initialFormState,
+  formUnavailable,
+  type FormState,
+} from '../../features/forms/form-state';
 import { useFocusAfterAnswer, useFormAction } from './form-action';
 import { useMovedOn } from './use-moved-on';
 
-export type MockFormAction = (
-  state: MockFormState,
+export type FormStateAction = (
+  state: FormState,
   form: FormData,
-) => Promise<MockFormState>;
+) => Promise<FormState>;
 
-/** What a mock form's body is given: the answer so far and whether it is busy. */
-export type MockFormBody = {
+/** What an action form's body is given: the answer so far and whether it is busy. */
+export type ActionFormBody = {
   readonly values: Readonly<Record<string, string>>;
   readonly error: string | undefined;
   readonly pending: boolean;
@@ -27,24 +27,24 @@ export type MockFormBody = {
  * and navigates to the answered `next`. The typed values come back with a
  * refusal so nothing is lost.
  */
-export function MockForm({
+export function ActionForm({
   action,
   label,
   className,
   focusOnRefusal,
   children,
 }: {
-  readonly action: MockFormAction;
+  readonly action: FormStateAction;
   readonly label: string;
   readonly className?: string;
   /** The element that takes focus once a refusal renders (ISSUE-107). */
   readonly focusOnRefusal?: string;
-  readonly children: (body: MockFormBody) => ReactNode;
+  readonly children: (body: ActionFormBody) => ReactNode;
 }) {
   const [answered, post, posting] = useFormAction(
     action,
-    initialMockForm,
-    mockFormUnavailable,
+    initialFormState,
+    formUnavailable,
   );
   useMovedOn(answered.next);
   const pending = posting || answered.next !== undefined;

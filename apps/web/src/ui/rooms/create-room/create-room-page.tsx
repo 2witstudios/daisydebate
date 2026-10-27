@@ -3,7 +3,7 @@ import { destinationHref } from '../../../features/coming-soon/launch';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
-import type { MockFormAction } from '../../form-action/mock-form';
+import type { FormStateAction } from '../../form-action/action-form';
 import { cn } from '../../cn';
 import { CreateAssemblyForm } from './create-assembly-form';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
@@ -18,7 +18,7 @@ export function CreateRoomPage({
   freshRoom = false,
 }: {
   readonly freshRoom?: boolean;
-  readonly action: MockFormAction;
+  readonly action: FormStateAction;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
 }) {

@@ -18,7 +18,7 @@ import {
   scoreField,
   type BallotDebaters,
 } from '../../../features/judge/ballot';
-import { formValues } from '../../../features/mock-form/form';
+import { formValues } from '../../../features/forms/form-state';
 import { formatClock } from '../../../features/debate-room/clock';
 import {
   ballotHeadingClass,

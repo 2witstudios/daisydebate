@@ -11,7 +11,10 @@ import {
 import { buttonClass } from '../../components/button/button-class';
 import { FormError, FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { MockForm, type MockFormAction } from '../../form-action/mock-form';
+import {
+  ActionForm,
+  type FormStateAction,
+} from '../../form-action/action-form';
 
 function Check({
   name,
@@ -52,11 +55,11 @@ export function ProfileForm({
   action,
   prefs,
 }: {
-  readonly action: MockFormAction;
+  readonly action: FormStateAction;
   readonly prefs: ProfilePrefs;
 }) {
   return (
-    <MockForm action={action} label="Profile" className="flex flex-col gap-4">
+    <ActionForm action={action} label="Profile" className="flex flex-col gap-4">
       {({ values, error, pending }) => (
         <>
           <FormField
@@ -100,7 +103,7 @@ export function ProfileForm({
           </button>
         </>
       )}
-    </MockForm>
+    </ActionForm>
   );
 }
 
@@ -109,11 +112,11 @@ export function NotificationsForm({
   action,
   prefs,
 }: {
-  readonly action: MockFormAction;
+  readonly action: FormStateAction;
   readonly prefs: NotificationPrefs;
 }) {
   return (
-    <MockForm
+    <ActionForm
       action={action}
       label="Notifications"
       className="flex flex-col gap-4"
@@ -150,7 +153,7 @@ export function NotificationsForm({
           </button>
         </>
       )}
-    </MockForm>
+    </ActionForm>
   );
 }
 
@@ -159,11 +162,11 @@ export function PrivacyForm({
   action,
   prefs,
 }: {
-  readonly action: MockFormAction;
+  readonly action: FormStateAction;
   readonly prefs: PrivacyPrefs;
 }) {
   return (
-    <MockForm action={action} label="Privacy" className="flex flex-col gap-4">
+    <ActionForm action={action} label="Privacy" className="flex flex-col gap-4">
       {({ error, pending }) => (
         <>
           <Check
@@ -202,6 +205,6 @@ export function PrivacyForm({
           </button>
         </>
       )}
-    </MockForm>
+    </ActionForm>
   );
 }

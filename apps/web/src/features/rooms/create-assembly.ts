@@ -6,7 +6,7 @@ import {
   roomRefusalSchema,
   roomViewSchema,
 } from '@daisy/protocol';
-import { field } from '../mock-form/form';
+import { field } from '../forms/form-state';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Created =

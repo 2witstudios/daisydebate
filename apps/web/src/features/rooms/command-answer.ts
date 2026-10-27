@@ -1,14 +1,14 @@
 import type { RoomView } from '@daisy/protocol';
-import { refused, type MockFormState } from '../mock-form/form';
+import { refused, type FormState } from '../forms/form-state';
 import type { submitAssembly } from './submit-assembly';
 
 /**
  * A room form's answer. A hydrated page gets the accepted canonical view and
  * hands it to room sync instead of navigating (ADR 0066).
  */
-export type RoomFormState = MockFormState & { readonly view?: RoomView };
+export type RoomFormState = FormState & { readonly view?: RoomView };
 
-export const commandUnavailable = (form: FormData): MockFormState =>
+export const commandUnavailable = (form: FormData): FormState =>
   refused(
     form,
     'The command is not acknowledged. Review the room and try again.',

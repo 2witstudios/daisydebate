@@ -7,7 +7,7 @@ import {
 } from './assembly-settings-controls';
 
 import type { RoomView } from '@daisy/protocol';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { FormState } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
@@ -19,7 +19,7 @@ import { openOnInvalid } from './room-setup-modal';
 type Props = {
   readonly view: RoomView;
   readonly commandId: string;
-  readonly state: MockFormState;
+  readonly state: FormState;
   readonly pending: boolean;
 };
 export function AssemblySettingsFields({

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import { accept, field, refuse, type Parsed } from '../mock-form/form';
+import { accept, field, refuse, type Parsed } from '../forms/form-state';
 
 export const regionChoices = [
   'Europe',

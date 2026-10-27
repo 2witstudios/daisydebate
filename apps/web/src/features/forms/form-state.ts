@@ -1,16 +1,16 @@
 /**
- * The shared shape of a mock form: the typed values, an error to show, and,
- * once the post is accepted, where to go next. There is no backend, so an
- * accepted post only moves on; it keeps nothing.
+ * The shared shape of a posted form's answer: the typed values, an error to
+ * show, and, once the post is accepted, where to go next. Room, ballot,
+ * Round-command and settings forms all answer with it.
  */
-export type MockFormState = {
+export type FormState = {
   /** What was typed, so a refusal renders it again. */
   readonly values: Readonly<Record<string, string>>;
   readonly error?: string;
   readonly next?: string;
 };
 
-export const initialMockForm: MockFormState = { values: {} };
+export const initialFormState: FormState = { values: {} };
 
 /** How one posted form was read: a value, or the message that refuses it. */
 export type Parsed<T> =
@@ -35,13 +35,13 @@ export const field = (form: FormData, name: string): string => {
 };
 
 /** The state a failed post answers with. */
-export const refused = (form: FormData, error: string): MockFormState => ({
+export const refused = (form: FormData, error: string): FormState => ({
   values: formValues(form),
   error,
 });
 
 /** The state an unreachable server answers with, typed values kept. */
-export const mockFormUnavailable = (form: FormData): MockFormState => ({
+export const formUnavailable = (form: FormData): FormState => ({
   values: formValues(form),
   error: 'Something went wrong. Try again.',
 });

@@ -1,5 +1,5 @@
 import { createAssembly } from './create-assembly';
-import { refused, type MockFormState } from '../mock-form/form';
+import { refused, type FormState } from '../forms/form-state';
 import { moveOn } from '../../server/form-action';
 
 /** The assembling Room an active-room answer names, if it is one. */
@@ -34,7 +34,7 @@ export async function submitRoomCreation(
   form: unknown,
   path = '/api/rooms',
   beforeMoveOn: (roomId: string) => Promise<void> = async () => {},
-): Promise<MockFormState> {
+): Promise<FormState> {
   const submitted = form instanceof FormData ? form : new FormData();
   const result = await createAssembly(
     (_, init) => fetch(path, init),

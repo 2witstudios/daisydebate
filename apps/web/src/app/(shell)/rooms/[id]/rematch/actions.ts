@@ -1,6 +1,6 @@
 'use server';
 import { headers } from 'next/headers';
-import type { MockFormState } from '../../../../../features/mock-form/form';
+import type { FormState } from '../../../../../features/forms/form-state';
 import { submitRoomCreation } from '../../../../../features/rooms/create-room-form';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
@@ -13,9 +13,9 @@ const rematch = processRoute(
 );
 export async function createFreshRoomAction(
   sourceRoomId: string,
-  _state: MockFormState,
+  _state: FormState,
   form: unknown,
-): Promise<MockFormState> {
+): Promise<FormState> {
   const incoming = new Headers(await headers());
   return submitRoomCreation(
     inProcessFetch(rematch, incoming),

@@ -1,9 +1,6 @@
-import { refused, type MockFormState } from '../mock-form/form';
+import { refused, type FormState } from '../forms/form-state';
 
-type CommandAction = (
-  state: MockFormState,
-  form: FormData,
-) => Promise<MockFormState>;
+type CommandAction = (state: FormState, form: FormData) => Promise<FormState>;
 
 type Consent = {
   readonly readSnapshot: () => {

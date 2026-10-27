@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { FormState } from '../../../features/forms/form-state';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 
@@ -18,9 +18,9 @@ export async function roomTemplates() {
 
 /** Durable create uses the same authenticated/same-origin handler as the API. */
 export async function createRoomAction(
-  _state: MockFormState,
+  _state: FormState,
   form: unknown,
-): Promise<MockFormState> {
+): Promise<FormState> {
   const incoming = new Headers(await headers());
   return submitRoomCreation(inProcessFetch(create, incoming), incoming, form);
 }
