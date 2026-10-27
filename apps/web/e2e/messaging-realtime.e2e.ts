@@ -83,6 +83,7 @@ test('an authenticated DM doorbell refetches current history in the other real b
   }
 });
 
+const unreadableNotice = 'This conversation could not be marked read.';
 for (const javaScriptEnabled of [true, false]) {
   test(`a recipient accepts a DM and sends durable history with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
     browser,
@@ -116,10 +117,20 @@ for (const javaScriptEnabled of [true, false]) {
         const viewed = await sender.request.get(
           `/api/messaging/channels/${journey.channelId}/preferences`,
         );
+        expect(viewed.status()).toBe(200);
         expect((await viewed.json()).unread).toBeGreaterThanOrEqual(1);
         await sender
           .getByRole('button', { name: 'Mark as read', exact: true })
           .click();
+        // Back on the conversation with no submitted values and no notice.
+        await expect(sender).toHaveURL(
+          new RegExp(`/messages/${journey.channelId}$`),
+        );
+        await expect(sender.getByText(unreadableNotice)).toHaveCount(0);
+        await sender.goto(
+          `/messages/${journey.channelId}?notice=read-unavailable`,
+        );
+        await expect(sender.getByText(unreadableNotice)).toBeVisible();
       }
       await expect(async () => {
         await sender.goto('/messages');

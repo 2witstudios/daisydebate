@@ -29,8 +29,8 @@ const markRead = processRoute((routes) => routes.messaging.markRead);
 
 /**
  * ISSUE-606: marks a conversation read through `sequence` by native POST,
- * never on a GET, answering whether the route accepted it. A refusal
- * leaves it unread.
+ * never on a GET, answering whether the route accepted it for this channel.
+ * A refusal leaves it unread.
  */
 async function markReadThrough(
   incoming: Headers,
@@ -39,15 +39,15 @@ async function markReadThrough(
 ): Promise<boolean> {
   if (sequence === null) return false;
   try {
-    const response = await inProcessFetch(markRead, incoming)(
-      '/api/messaging/read',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
-      },
+    return (
+      (await submitMessagingForm(
+        incoming,
+        markRead,
+        '/api/messaging/read',
+        messagingMarkReadBody(channelId, sequence),
+        { field: 'channelId', value: channelId },
+      )) === 'accepted'
     );
-    return response.ok;
   } catch {
     // The next visit with JavaScript, or the next native post, marks it.
     return false;
@@ -65,7 +65,7 @@ export async function markReadAction(
   const incoming = new Headers(await headers());
   const id = idSchema.parse(channelId);
   const marked = await markReadThrough(incoming, id, sequence);
-  revalidatePath('/messages');
+  if (marked) revalidatePath('/messages');
   moveOn(incoming, markReadDestination(id, marked));
 }
 export async function sendMessageAction(
