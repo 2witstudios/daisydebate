@@ -14563,7 +14563,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_contact_pairs_low_actor_id_actors_id_fkey",
+      "name": "contact_pairs_low_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "contact_pairs"
@@ -14580,7 +14580,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_contact_pairs_high_actor_id_actors_id_fkey",
+      "name": "contact_pairs_high_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "contact_pairs"
@@ -14841,7 +14841,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "messaging_friend_challenges_room_id_rooms_id_fkey",
+      "name": "friend_challenges_room_id_rooms_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "friend_challenges"
@@ -14858,7 +14858,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_friend_challenges_challenger_actor_id_actors_id_fkey",
+      "name": "friend_challenges_challenger_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "friend_challenges"
@@ -14875,7 +14875,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_friend_challenges_challenged_actor_id_actors_id_fkey",
+      "name": "friend_challenges_challenged_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "friend_challenges"
@@ -14892,7 +14892,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_friendships_low_actor_id_actors_id_fkey",
+      "name": "friendships_low_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "friendships"
@@ -14909,7 +14909,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_friendships_high_actor_id_actors_id_fkey",
+      "name": "friendships_high_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "friendships"
@@ -15613,7 +15613,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_presence_settings_actor_id_actors_id_fkey",
+      "name": "presence_settings_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "presence_settings"
@@ -17105,7 +17105,7 @@
         "high_actor_id"
       ],
       "nameExplicit": false,
-      "name": "messaging_contact_pairs_pkey",
+      "name": "contact_pairs_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "contact_pairs"
@@ -17183,7 +17183,7 @@
         "high_actor_id"
       ],
       "nameExplicit": false,
-      "name": "messaging_friendships_pkey",
+      "name": "friendships_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "friendships"
@@ -17586,7 +17586,7 @@
         "room_id"
       ],
       "nameExplicit": false,
-      "name": "messaging_friend_challenges_pkey",
+      "name": "friend_challenges_pkey",
       "schema": "public",
       "table": "friend_challenges",
       "entityType": "pks"
@@ -17706,7 +17706,7 @@
         "actor_id"
       ],
       "nameExplicit": false,
-      "name": "messaging_presence_settings_pkey",
+      "name": "presence_settings_pkey",
       "schema": "public",
       "table": "presence_settings",
       "entityType": "pks"

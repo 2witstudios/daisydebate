@@ -60,6 +60,19 @@ ALTER INDEX "messaging_friend_challenges_challenged_idx" RENAME TO "friend_chall
 ALTER INDEX "messaging_friend_challenges_challenger_idx" RENAME TO "friend_challenges_challenger_idx";--> statement-breakpoint
 ALTER INDEX "messaging_friendships_high_actor_idx" RENAME TO "friendships_high_actor_idx";--> statement-breakpoint
 ALTER TABLE "friendships" RENAME CONSTRAINT "messaging_friendships_contact_fk" TO "friendships_contact_fk";--> statement-breakpoint
+-- Primary and foreign keys take their concept's table name too.
+ALTER TABLE "contact_pairs" RENAME CONSTRAINT "messaging_contact_pairs_high_actor_id_actors_id_fkey" TO "contact_pairs_high_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "contact_pairs" RENAME CONSTRAINT "messaging_contact_pairs_low_actor_id_actors_id_fkey" TO "contact_pairs_low_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "contact_pairs" RENAME CONSTRAINT "messaging_contact_pairs_pkey" TO "contact_pairs_pkey";--> statement-breakpoint
+ALTER TABLE "friend_challenges" RENAME CONSTRAINT "messaging_friend_challenges_challenged_actor_id_actors_id_fkey" TO "friend_challenges_challenged_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "friend_challenges" RENAME CONSTRAINT "messaging_friend_challenges_challenger_actor_id_actors_id_fkey" TO "friend_challenges_challenger_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "friend_challenges" RENAME CONSTRAINT "messaging_friend_challenges_pkey" TO "friend_challenges_pkey";--> statement-breakpoint
+ALTER TABLE "friend_challenges" RENAME CONSTRAINT "messaging_friend_challenges_room_id_rooms_id_fkey" TO "friend_challenges_room_id_rooms_id_fkey";--> statement-breakpoint
+ALTER TABLE "friendships" RENAME CONSTRAINT "messaging_friendships_high_actor_id_actors_id_fkey" TO "friendships_high_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "friendships" RENAME CONSTRAINT "messaging_friendships_low_actor_id_actors_id_fkey" TO "friendships_low_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "friendships" RENAME CONSTRAINT "messaging_friendships_pkey" TO "friendships_pkey";--> statement-breakpoint
+ALTER TABLE "presence_settings" RENAME CONSTRAINT "messaging_presence_settings_actor_id_actors_id_fkey" TO "presence_settings_actor_id_actors_id_fkey";--> statement-breakpoint
+ALTER TABLE "presence_settings" RENAME CONSTRAINT "messaging_presence_settings_pkey" TO "presence_settings_pkey";--> statement-breakpoint
 CREATE INDEX "contact_commands_counterpart_actor_idx" ON "contact_commands" ("counterpart_actor_id");--> statement-breakpoint
 CREATE INDEX "social_request_declines_pair_idx" ON "social_request_declines" ("low_actor_id","high_actor_id");--> statement-breakpoint
 CREATE INDEX "social_request_declines_requester_idx" ON "social_request_declines" ("requester_actor_id");--> statement-breakpoint
