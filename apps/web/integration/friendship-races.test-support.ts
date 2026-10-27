@@ -141,6 +141,9 @@ export async function raceBehindAccountLock<T extends readonly unknown[]>(
   return (await Promise.all(racing)) as unknown as T;
 }
 
+/** A text[] literal; Bun binds a JS array as one joined string. Seeded ids are cuid2, so need no quoting. */
+const textArray = (values: readonly string[]) => `{${values.join(',')}}`;
+
 type Member = { readonly userId: string; readonly actorId: string };
 
 /** Members who may be named; `adult` ones also carry an account age, as the fixture's members do. */
@@ -156,16 +159,16 @@ export async function seedMembers(
   const userIds = members.map((member) => member.userId);
   await client.unsafe(
     'insert into users(id,username,email_verified) select id,id,true from unnest($1::text[]) as id',
-    [userIds],
+    [textArray(userIds)],
   );
   await client.unsafe(
     "insert into actors(id,kind,user_id) select a,'human',u from unnest($1::text[],$2::text[]) as t(a,u)",
-    [members.map((member) => member.actorId), userIds],
+    [textArray(members.map((member) => member.actorId)), textArray(userIds)],
   );
   if (adult)
     await client.unsafe(
-      "insert into account_age(user_id,birth_month,version,recorded_at) select id,'2000-01',1,$2 from unnest($1::text[]) as id",
-      [userIds, now],
+      "insert into account_age(user_id,birth_month,version,recorded_at) select id,'2000-01',1,$2::timestamptz from unnest($1::text[]) as id",
+      [textArray(userIds), now],
     );
   return members;
 }
@@ -190,11 +193,17 @@ export async function seedFriendships(
   const highs = pairs.map(([, high]) => high!);
   await client.unsafe(
     'insert into messaging_contact_pairs(low_actor_id,high_actor_id) select * from unnest($1::text[],$2::text[])',
-    [lows, highs],
+    [textArray(lows), textArray(highs)],
   );
   await client.unsafe(
-    "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4,$5,case when $4 = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
-    [lows, highs, members.map(requesterActorId), state, now],
+    "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4::text,$5::timestamptz,case when $4::text = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
+    [
+      textArray(lows),
+      textArray(highs),
+      textArray(members.map(requesterActorId)),
+      state,
+      now,
+    ],
   );
 }
 
@@ -204,16 +213,16 @@ export async function removeMembers(client: SQL, members: readonly Member[]) {
   const userIds = members.map((member) => member.userId);
   await client.unsafe(
     'delete from messaging_contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
-    [actorIds],
+    [textArray(actorIds)],
   );
   await client.unsafe('delete from actors where id = any($1::text[])', [
-    actorIds,
+    textArray(actorIds),
   ]);
   await client.unsafe(
     'delete from account_age where user_id = any($1::text[])',
-    [userIds],
+    [textArray(userIds)],
   );
   await client.unsafe('delete from users where id = any($1::text[])', [
-    userIds,
+    textArray(userIds),
   ]);
 }
