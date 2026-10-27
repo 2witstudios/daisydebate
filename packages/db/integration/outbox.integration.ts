@@ -49,10 +49,10 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
   const roundId = createId();
-  const topic = `debate:${roundId}`;
+  const topic = `round:${roundId}`;
   const payload = {
     entityVersion: 1,
-    kind: 'debate.phase-changed' as const,
+    kind: 'round.phase-changed' as const,
     ids: [roundId],
   };
   const notifications = notificationLog();
@@ -62,7 +62,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
       const committed = await testOnly.transaction((tx) =>
         appendOutboxEvent(tx, {
           topic,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           version: 1,
           payload,
         }),
@@ -73,11 +73,11 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
         await testOnly.transaction(async (tx) => {
           await appendOutboxEvent(tx, {
             topic,
-            kind: 'debate.phase-changed',
+            kind: 'round.phase-changed',
             version: 1,
             payload: {
               entityVersion: 1,
-              kind: 'debate.phase-changed',
+              kind: 'round.phase-changed',
               ids: [roundId],
             },
           });
@@ -119,7 +119,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
           rolledBack: true,
           hasTxid: true,
           deliveredCount: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           seqMatches: true,
           payload,
           payloadIsObject: true,
@@ -137,7 +137,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
 });
 
 test('two transactions that commit out of seq order never let the drain skip a row', async () => {
-  const topic = `debate:${createId()}`;
+  const topic = `round:${createId()}`;
   const { connA, connB, connC, drizzleC, rowA, rowB, commitA } =
     await openOutOfOrderTransactions(url, topic);
   try {
@@ -181,7 +181,7 @@ test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at 
   const reader = new SQL(url);
   const actorId = createId();
   const inboxTopic = buildUserInboxTopic(actorId);
-  const debateTopic = `debate:${createId()}`;
+  const debateTopic = `round:${createId()}`;
 
   const countFor = async (topic: string): Promise<number> => {
     const [row] = await reader.unsafe(

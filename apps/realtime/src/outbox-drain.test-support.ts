@@ -36,10 +36,10 @@ export function recordingLogger(): {
 export const fakeRow = (seq: bigint): OutboxRow => ({
   txid: '1',
   seq,
-  topic: 'debate:fake',
-  kind: 'debate.phase-changed',
+  topic: 'round:fake',
+  kind: 'round.phase-changed',
   version: 1,
-  payload: { entityVersion: 1, kind: 'debate.phase-changed', ids: ['fake'] },
+  payload: { entityVersion: 1, kind: 'round.phase-changed', ids: ['fake'] },
   createdAt: '2026-09-23T00:00:00.000Z',
 });
 

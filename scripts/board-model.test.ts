@@ -304,7 +304,7 @@ describe('leafBody and appendRelated', () => {
 
   test('keeps placeholders that look like tags intact', () => {
     assert({
-      given: 'a page whose text holds debate:<id>:presence',
+      given: 'a page whose text holds round:<id>:presence',
       should: 'leave it byte for byte',
       actual: appendRelated('<p>debate:&lt;id&gt;:presence</p>', {
         label: 'Plan',

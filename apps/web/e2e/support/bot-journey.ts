@@ -77,7 +77,7 @@ export async function proveHumanBotJourney(browser: Browser) {
           const message = JSON.parse(String(frame.payload));
           if (
             message.type === 'event' &&
-            message.payload?.kind === 'debate.transcript-changed'
+            message.payload?.kind === 'round.transcript-changed'
           )
             transcriptDoorbells++;
         } catch {

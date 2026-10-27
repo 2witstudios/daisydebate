@@ -11,15 +11,15 @@ const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const otherId = 'm8q3w1z7c5n6b4d2k2v9x0f4';
 
 describe('outbox payload schema', () => {
-  test('never accepts debate.presence-changed as a doorbell kind: presence is never written to the outbox (ADR 0033 §1)', () => {
+  test('never accepts round.presence-changed as a doorbell kind: presence is never written to the outbox (ADR 0033 §1)', () => {
     assert({
       given:
         'a doorbell payload of each outbox doorbell kind and the presence kind',
       should: 'accept exactly the two kinds delivered through the outbox',
       actual: [
-        'debate.phase-changed',
+        'round.phase-changed',
         'standings.updated',
-        'debate.presence-changed',
+        'round.presence-changed',
       ].map((kind) =>
         parseOutcome(outboxPayloadSchema, {
           entityVersion: 1,
@@ -28,7 +28,7 @@ describe('outbox payload schema', () => {
         }),
       ),
       expected: [
-        { data: { entityVersion: 1, kind: 'debate.phase-changed', ids: [id] } },
+        { data: { entityVersion: 1, kind: 'round.phase-changed', ids: [id] } },
         { data: { entityVersion: 1, kind: 'standings.updated', ids: [id] } },
         { issues: ['kind'] },
       ],
@@ -41,13 +41,13 @@ describe('outbox payload schema', () => {
       should: 'accept it',
       actual: parseOutcome(outboxPayloadSchema, {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: {
         data: {
           entityVersion: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         },
       },
@@ -68,13 +68,13 @@ describe('outbox payload schema', () => {
         'accept it: entityVersion is the entity version, not a fixed schema literal',
       actual: parseOutcome(outboxPayloadSchema, {
         entityVersion: 7,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: {
         data: {
           entityVersion: 7,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         },
       },
@@ -87,7 +87,7 @@ describe('outbox payload schema', () => {
       should: 'reject it: version names a schema version elsewhere',
       actual: parseOutcome(outboxPayloadSchema, {
         version: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: { issues: ['entityVersion', '(root)'] },
@@ -101,17 +101,17 @@ describe('outbox payload schema', () => {
       actual: [
         parseOutcome(outboxPayloadSchema, {
           entityVersion: 0,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
         parseOutcome(outboxPayloadSchema, {
           entityVersion: -1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
         parseOutcome(outboxPayloadSchema, {
           entityVersion: 1.5,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
       ],
@@ -129,7 +129,7 @@ describe('outbox payload schema', () => {
       should: 'reject it',
       actual: parseOutcome(outboxPayloadSchema, {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
         phase: 'active',
       }),
@@ -189,10 +189,10 @@ describe('outbox payload schema', () => {
     });
   });
 
-  test('access.revoked requires exactly [actorId, debateId], never a single id', () => {
+  test('access.revoked requires exactly [actorId, roundId], never a single id', () => {
     assert({
       given: 'an access.revoked payload with only one id',
-      should: 'reject it: the actor and the debate topic are both required',
+      should: 'reject it: the actor and the Round topic are both required',
       actual: parseOutcome(outboxPayloadSchema, {
         entityVersion: 1,
         kind: 'access.revoked',
@@ -206,22 +206,22 @@ describe('outbox payload schema', () => {
 describe('payload-to-topic-family storage binding', () => {
   test('accepts a payload whose kind belongs to the topic family', () => {
     assert({
-      given: "a debate.phase-changed doorbell on the debate's own topic",
+      given: "a round.phase-changed doorbell on the debate's own topic",
       should: 'be allowed',
-      actual: isPayloadStorableOnTopic(`debate:${id}`, {
+      actual: isPayloadStorableOnTopic(`round:${id}`, {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: true,
     });
   });
 
-  test('rejects an owner-only inbox delta stored on a public debate topic', () => {
+  test('rejects an owner-only inbox delta stored on a public Round topic', () => {
     assert({
-      given: 'a user.notification-delivered payload on a debate topic',
-      should: 'be refused: only debate.phase-changed belongs to that family',
-      actual: isPayloadStorableOnTopic(`debate:${id}`, {
+      given: 'a user.notification-delivered payload on a Round topic',
+      should: 'be refused: only round.phase-changed belongs to that family',
+      actual: isPayloadStorableOnTopic(`round:${id}`, {
         entityVersion: 1,
         kind: 'user.notification-delivered',
         ids: [id],
@@ -234,9 +234,9 @@ describe('payload-to-topic-family storage binding', () => {
 
   test('rejects a foreign doorbell kind on the wrong public family', () => {
     assert({
-      given: 'a standings.updated doorbell on a debate topic',
-      should: 'be refused: the debate family only allows debate.phase-changed',
-      actual: isPayloadStorableOnTopic(`debate:${id}`, {
+      given: 'a standings.updated doorbell on a Round topic',
+      should: 'be refused: the round family only allows its own doorbells',
+      actual: isPayloadStorableOnTopic(`round:${id}`, {
         entityVersion: 1,
         kind: 'standings.updated',
         ids: [otherId],
@@ -245,27 +245,27 @@ describe('payload-to-topic-family storage binding', () => {
     });
   });
 
-  test('rejects any payload on a debate:presence topic, since presence is delivered as a direct doorbell, not the outbox', () => {
+  test('rejects any payload on a round:presence topic, since presence is delivered as a direct doorbell, not the outbox', () => {
     assert({
       given:
-        'a debate.phase-changed doorbell on a debate:presence topic (ADR 0033 §1: presence is never in the outbox)',
-      should: 'be refused: debate:presence allows no outbox kind',
-      actual: isPayloadStorableOnTopic(`debate:${id}:presence`, {
+        'a round.phase-changed doorbell on a round:presence topic (ADR 0033 §1: presence is never in the outbox)',
+      should: 'be refused: round:presence allows no outbox kind',
+      actual: isPayloadStorableOnTopic(`round:${id}:presence`, {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: false,
     });
   });
 
-  test('rejects any payload on a chat topic, since chat delivery is not built yet', () => {
+  test('rejects any payload on a chat-suffixed Round topic: in-Round chat is a messaging channel, not a topic family (ISSUE-763)', () => {
     assert({
-      given: 'a debate.phase-changed doorbell on the (unbuilt) chat topic',
-      should: 'be refused: debate:chat allows no kind yet',
-      actual: isPayloadStorableOnTopic(`debate:${id}:chat`, {
+      given: 'a round.phase-changed doorbell on round:<id>:chat',
+      should: 'be refused: the family does not exist',
+      actual: isPayloadStorableOnTopic(`round:${id}:chat`, {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [id],
       }),
       expected: false,

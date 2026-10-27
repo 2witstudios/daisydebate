@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   authoredRoundCommand,
@@ -64,7 +64,7 @@ test('segment-only projection commits the same revision as event and command rec
       );
       const events = await fixture.sql.unsafe(
         'select payload from outbox where topic = $1 order by seq',
-        [buildDebateTopic(roundId)],
+        [buildRoundTopic(roundId)],
       );
       assert({
         given: 'segment-only insert followed by true no-op',

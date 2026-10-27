@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import {
-  buildDebateTopic,
+  buildRoundTopic,
   roomViewSchema,
   type RoomView,
 } from '@daisy/protocol';
@@ -182,7 +182,7 @@ export async function withHumanJudgeHttpRound(
     if (roomId)
       await withSql(async (sql) => {
         if (roundId)
-          await sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
+          await sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
         await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from outbox where topic=${`room:${roomId}`}`;
         await sql`delete from rooms where id=${roomId}`;

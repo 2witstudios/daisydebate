@@ -1,4 +1,4 @@
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assembleJudgedRoom } from './round-judges.test-support';
 import { playOut } from './round-judging.test-support';
@@ -83,7 +83,7 @@ for (const revoked of [false, true])
         });
       } finally {
         if (roundId) {
-          await f.sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
+          await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
           await f.sql`delete from rounds where id=${roundId}`;
         }
         if (roomId) {

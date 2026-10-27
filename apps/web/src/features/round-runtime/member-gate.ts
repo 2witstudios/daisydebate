@@ -41,7 +41,7 @@ export function createRoundMemberGate(d: RoundMemberRouteDependencies) {
         if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
         await consumeOrThrow(
           d.limiter(),
-          `round:${operation}:${identity.principal.userId}`,
+          `round-member:${operation}:${identity.principal.userId}`,
           d.limits[operation],
         );
         const actor = await d.getActorByUserId(identity.principal.userId);

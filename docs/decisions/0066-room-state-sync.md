@@ -26,8 +26,8 @@ What a resource-level design needs already existed:
 
 - every accepted room mutation publishes a content-free `room.changed`
   doorbell carrying the room's `changeVersion` on `room:<id>`, and every
-  persisted round revision a `debate.phase-changed` doorbell carrying the
-  round's version on `debate:<id>` ([ADR 0049](0049-room-debate-turn.md)
+  persisted round revision a `round.phase-changed` doorbell carrying the
+  round's version on `round:<id>` ([ADR 0049](0049-room-debate-turn.md)
   §7, [ADR 0032](0032-transactional-outbox-delivery.md));
 - `readAssembly` and `readRoundReceipt` read `/api/rooms/:id` and
   `/api/rounds/:id` and answer `found | missing | unavailable` without

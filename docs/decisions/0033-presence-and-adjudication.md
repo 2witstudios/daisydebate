@@ -80,7 +80,7 @@ guessing.
      scored by lease expiry.
    - `<namespace>:v1:presence:online`: sorted set of `actorId` scored by the
      actor's latest lease expiry.
-   - `<namespace>:v1:presence:debate:<debateId>:spectators`: sorted set of
+   - `<namespace>:v1:presence:round:<roundId>:spectators`: sorted set of
      `actorId` scored by lease expiry, built by RT-3.3.
 
    Every create, refresh and delete is one atomic Lua op in `@daisy/redis`

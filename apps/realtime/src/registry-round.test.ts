@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol';
 import { fixture, row } from './registry.test-support';
 setupRitewayBun();
 for (const mode of ['round', 'inbox'] as const)
@@ -15,11 +15,11 @@ for (const mode of ['round', 'inbox'] as const)
     const roundId = 'b'.repeat(24);
     const topic =
       mode === 'round'
-        ? buildDebateTopic(roundId)
+        ? buildRoundTopic(roundId)
         : buildUserInboxTopic(f.connection.principal.actorId);
     const payload =
       mode === 'round'
-        ? { kind: 'debate.phase-changed', ids: [roundId], entityVersion: 1 }
+        ? { kind: 'round.phase-changed', ids: [roundId], entityVersion: 1 }
         : { kind: 'messaging.inbox.changed' };
     await f.registry.subscribe(f.connection, { id: 'round', topic });
     allowed = false;

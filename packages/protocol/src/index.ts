@@ -92,7 +92,7 @@ export type {
 export {
   parseTopic,
   buildUserInboxTopic,
-  buildDebateTopic,
+  buildRoundTopic,
   buildChannelTopic,
   buildRoomTopic,
 } from './topics';

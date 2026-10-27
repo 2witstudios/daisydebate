@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createScheduledRound,
@@ -39,7 +39,7 @@ test('accepted Round projections append one phase signal with the stored version
       });
       const rows = (await fixture.sql.unsafe(
         'select kind, version, payload from outbox where topic = $1 order by seq',
-        [buildDebateTopic(roundId)],
+        [buildRoundTopic(roundId)],
       )) as Array<{
         kind: string;
         version: number;
@@ -51,10 +51,10 @@ test('accepted Round projections append one phase signal with the stored version
         actual: rows,
         expected: [
           {
-            kind: 'debate.phase-changed',
+            kind: 'round.phase-changed',
             version: 1,
             payload: {
-              kind: 'debate.phase-changed',
+              kind: 'round.phase-changed',
               ids: [roundId],
               entityVersion: before.version + 1,
             },
@@ -184,7 +184,7 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
         );
       const rows = await fixture.sql.unsafe(
         'select payload from outbox where topic = $1 order by seq',
-        [buildDebateTopic(roundId)],
+        [buildRoundTopic(roundId)],
       );
       assert({
         given:

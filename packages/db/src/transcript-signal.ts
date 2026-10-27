@@ -1,4 +1,4 @@
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { appendOutboxEvent } from './outbox';
 
@@ -9,11 +9,11 @@ export async function appendTranscriptChanged(
   entityVersion: number,
 ) {
   await appendOutboxEvent(tx, {
-    topic: buildDebateTopic(roundId),
-    kind: 'debate.transcript-changed',
+    topic: buildRoundTopic(roundId),
+    kind: 'round.transcript-changed',
     version: 1,
     payload: {
-      kind: 'debate.transcript-changed',
+      kind: 'round.transcript-changed',
       ids: [roundId],
       entityVersion,
     },

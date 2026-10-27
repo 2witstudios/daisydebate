@@ -54,13 +54,13 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
   test('refuses the two doorbell kinds as storable on the inbox: the widening is control kinds only', () => {
     assert({
       given:
-        'debate.phase-changed and standings.updated tested against isPayloadStorableOnTopic on user:inbox',
+        'round.phase-changed and standings.updated tested against isPayloadStorableOnTopic on user:inbox',
       should:
         'both be refused: storageFamilyPayloadKinds widens user:inbox by the three control kinds, not by every kind',
       actual: [
         isPayloadStorableOnTopic(inbox, {
           entityVersion: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
         isPayloadStorableOnTopic(inbox, {
@@ -75,9 +75,8 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
 
   test('refuses each control kind as storable on every family the rule does not widen', () => {
     const nonInboxTopics = [
-      `debate:${id}`,
-      `debate:${id}:presence`,
-      `debate:${id}:chat`,
+      `round:${id}`,
+      `round:${id}:presence`,
       'standings:2026',
     ];
     const controlKindPayloads = [
@@ -91,7 +90,7 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
     ];
     assert({
       given:
-        'each of the three control kinds tested against debate, debate:presence, debate:chat and standings',
+        'each of the three control kinds tested against round, round:presence and standings',
       should:
         'be refused on every one: only user:inbox is widened to accept control kinds',
       actual: nonInboxTopics.flatMap((topic) =>
@@ -108,17 +107,17 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
   test('still refuses every other family the storage-side rule does not widen', () => {
     assert({
       given:
-        'a debate.phase-changed doorbell tested against both rules on its own topic',
+        'a round.phase-changed doorbell tested against both rules on its own topic',
       should: 'agree: storage and delivery are identical outside user:inbox',
       actual: [
-        isPayloadStorableOnTopic(`debate:${id}`, {
+        isPayloadStorableOnTopic(`round:${id}`, {
           entityVersion: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
-        isPayloadStorableOnTopic(`debate:${id}:presence`, {
+        isPayloadStorableOnTopic(`round:${id}:presence`, {
           entityVersion: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [id],
         }),
       ],
