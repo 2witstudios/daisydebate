@@ -147,7 +147,9 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
             className="sr-only"
             value="custom"
             defaultChecked={standing.kind === 'custom'}
-            disabled={standing.kind !== 'custom'}
+            // A status, never a choice: any edit makes the room Custom, and a
+            // disabled control is never posted.
+            disabled
           />
           <span className="font-strong">Custom</span>
           <span className="text-xs text-ink-muted">
@@ -168,12 +170,9 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
 }
 
 /** What the room changed from its basis, and Back to a standard basis. */
-function CustomCard({ view, choices, ids, action }: FormProps) {
+function CustomCard({ view, ids, action }: FormProps) {
   const { standing, basis } = view.format;
   if (standing.kind !== 'custom') return null;
-  const basisDraws = choices.find(
-    (choice) => choice.formatId === basis?.formatId,
-  )?.preset.config.resolutionDraw.enabled;
   return (
     <section
       aria-label="Custom format"
@@ -193,7 +192,7 @@ function CustomCard({ view, choices, ids, action }: FormProps) {
         <AssemblyCommandForm action={action}>
           <CommandFields view={view} commandId={ids.reset} intent="reset" />
           <input type="hidden" name="format" value={tuple(basis)} />
-          {drawing(view) && basisDraws === false ? (
+          {drawing(view) && !basis.strikes ? (
             <ResolutionField id="room-reset-topic" />
           ) : null}
           <button type="submit" className={buttonClass('secondary')}>

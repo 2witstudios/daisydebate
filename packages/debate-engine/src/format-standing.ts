@@ -7,6 +7,7 @@ import type {
   RoomExecutionPlan,
   RoundRules,
 } from '@daisy/protocol';
+import { freezeRoomExecutionPlan } from '@daisy/protocol';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 type ActiveFormat = {
@@ -124,6 +125,11 @@ function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
       kind: 'yield',
       from: from.rules.interaction.yield,
       to: to.rules.interaction.yield,
+    },
+    {
+      kind: 'resolution-draw',
+      from: freezeRoomExecutionPlan(from.plan).resolutionDraw,
+      to: freezeRoomExecutionPlan(to.plan).resolutionDraw,
     },
   ].filter((change) =>
     'fromMs' in change

@@ -1,5 +1,9 @@
 import type { FormatChange } from '@daisy/protocol';
-import { crossExModeLabel, interruptionLabel } from '../debate-room/vocabulary';
+import {
+  crossExModeLabel,
+  interruptionLabel,
+  strikeSummary,
+} from '../debate-room/vocabulary';
 import { clockDuration } from './duration-input';
 
 const roleLabel = {
@@ -15,6 +19,9 @@ const onOff = (value: { readonly allowed: boolean } | null) =>
 const interruptions = (
   value: Extract<FormatChange, { kind: 'interruptions' }>['from'],
 ) => interruptionLabel[value?.allowed ?? 'disabled'];
+const strikeOrOff = (
+  draw: Extract<FormatChange, { kind: 'resolution-draw' }>['from'],
+) => (draw.enabled ? strikeSummary(draw) : 'off');
 const listed = (verb: string, keys: readonly string[]) =>
   keys.length ? `${verb} ${keys.join(', ')}` : null;
 
@@ -48,6 +55,8 @@ const lines: Lines = {
   interruptions: (c) =>
     `Interruptions: ${interruptions(c.from)} → ${interruptions(c.to)}`,
   yield: (c) => `Ending a speech early: ${onOff(c.from)} → ${onOff(c.to)}`,
+  'resolution-draw': (c) =>
+    `Resolution strike: ${strikeOrOff(c.from)} → ${strikeOrOff(c.to)}`,
 };
 
 /** One line of the Custom card: what changed from the room's basis, before → after. */

@@ -194,6 +194,7 @@ describe('projectRoom format (FMT-1)', () => {
             name: 'Value',
             formatVersion: base.formatVersion,
             presetVersion: 3,
+            strikes: false,
           },
           standing: { kind: 'standard', formatId: 'value' },
         },

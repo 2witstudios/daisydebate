@@ -65,6 +65,24 @@ export const resolutionCategoryLabel: Readonly<
   Record<'policy' | 'value' | 'fact', string>
 > = { policy: 'Policy', value: 'Value', fact: 'Fact' };
 
+/** "Policy, Value and Fact": an English list of the drawn categories. */
+const listOf = (words: readonly string[]) =>
+  words.length > 1
+    ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+    : (words[0] ?? '');
+
+/** A strike's settings in one line, from its public frozen shape. */
+export function strikeSummary(
+  draw: Extract<RoomView['config']['resolutionDraw'], { enabled: true }>,
+): string {
+  const source =
+    draw.source.kind === 'bank'
+      ? `Daisy’s ${listOf(draw.source.categories.map((c) => resolutionCategoryLabel[c]))} resolutions`
+      : 'the host’s list';
+  const first = draw.firstStriker === 'negative' ? 'Negative' : 'Affirmative';
+  return `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`;
+}
+
 /** Who struck a drawn resolution, from the viewer's side of the table. */
 export function strikeLabel(
   strike: {

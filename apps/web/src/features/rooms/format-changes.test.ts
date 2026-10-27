@@ -69,6 +69,28 @@ describe('formatChangeLine', () => {
           from: { allowed: true, returnsTime: true },
           to: null,
         }),
+        formatChangeLine({
+          kind: 'resolution-draw',
+          from: {
+            enabled: true,
+            drawSize: 5,
+            strikeWindowMs: 60_000,
+            firstStriker: 'negative',
+            source: { kind: 'bank', categories: ['policy', 'value', 'fact'] },
+          },
+          to: { enabled: false },
+        }),
+        formatChangeLine({
+          kind: 'resolution-draw',
+          from: { enabled: false },
+          to: {
+            enabled: true,
+            drawSize: 3,
+            strikeWindowMs: 90_000,
+            firstStriker: 'affirmative',
+            source: { kind: 'host', count: 4 },
+          },
+        }),
       ],
       expected: [
         'Judges 1 → 3',
@@ -77,6 +99,8 @@ describe('formatChangeLine', () => {
         'Cross-examination: Questioner leads → Open floor',
         'Interruptions: Only during cross-examination → Off',
         'Ending a speech early: on → off',
+        'Resolution strike: 5 from Daisy’s Policy, Value and Fact resolutions · Negative strikes first · 1:00 per strike → off',
+        'Resolution strike: off → 3 from the host’s list · Affirmative strikes first · 1:30 per strike',
       ],
     });
   });

@@ -1,8 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+import type {
+  FormatChange,
+  FormatDefinition,
+  RoomConfig,
+} from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneConfig } from './runtime.test-support';
 import { formatStanding, type StandingBasis } from './format-standing';
+import { drawRoom } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -199,6 +204,46 @@ describe('formatStanding', () => {
             to: 3,
           },
           { kind: 'segments', added: [], removed: [removed], changed: [] },
+        ],
+      },
+    });
+  });
+
+  test('resolution strike changes', () => {
+    const drawn = drawRoom({ kind: 'bank', categories: ['policy', 'value'] });
+    const strikeBasis = basis({
+      formatId: 'freestyle',
+      definition: drawn.definition,
+      config: drawn.config,
+    });
+    const strikeActive = (config: RoomConfig) =>
+      active(config, { formatId: 'freestyle', definition: drawn.definition });
+    const frozen: FormatChange & { kind: 'resolution-draw' } extends {
+      from: infer F;
+    }
+      ? F
+      : never = {
+      enabled: true,
+      drawSize: 5,
+      strikeWindowMs: 60_000,
+      firstStriker: 'negative',
+      source: { kind: 'bank', categories: ['policy', 'value'] },
+    };
+    assert({
+      given: 'a striking standard whose host turned the strike off',
+      should: 'list the strike change in the public frozen shape',
+      actual: formatStanding({
+        active: strikeActive({
+          ...drawn.config,
+          resolutionDraw: { enabled: false },
+        }),
+        basis: strikeBasis,
+      }),
+      expected: {
+        kind: 'custom',
+        basis: { formatId: 'freestyle', role: 'standard' },
+        changes: [
+          { kind: 'resolution-draw', from: frozen, to: { enabled: false } },
         ],
       },
     });

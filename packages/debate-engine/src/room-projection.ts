@@ -146,6 +146,7 @@ export function projectRoom(
         name: room.basis.name,
         formatVersion: room.basis.formatVersion,
         presetVersion: room.basis.presetVersion,
+        strikes: room.basis.config.resolutionDraw.enabled,
       },
       standing: formatStanding({
         active: {

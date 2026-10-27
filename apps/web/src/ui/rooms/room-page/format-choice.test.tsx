@@ -90,6 +90,7 @@ const valueStandard: RoomView['format'] = {
     name: 'Value',
     formatVersion: 1,
     presetVersion: 2,
+    strikes: false,
   },
   standing: { kind: 'standard', formatId: 'value' },
 };
@@ -146,6 +147,11 @@ describe('FormatChoice', () => {
         'check Custom, say what it is based on, list the change and offer Back to the pinned standard',
       actual: {
         customChecked: checked(html, 'custom'),
+        // Disabled controls are never posted: Custom is a status, not a choice.
+        customNeverPosts: (html.match(/<input [^>]*>/g) ?? []).some(
+          (input) =>
+            input.includes('value="custom"') && input.includes('disabled=""'),
+        ),
         basedOn: html.includes('Custom, based on Value'),
         change: html.includes('Prep per side 4:00 → 5:00'),
         back: html.includes('Back to Value'),
@@ -154,6 +160,7 @@ describe('FormatChoice', () => {
       },
       expected: {
         customChecked: true,
+        customNeverPosts: true,
         basedOn: true,
         change: true,
         back: true,
@@ -173,6 +180,7 @@ describe('FormatChoice', () => {
         name: unequalTemplate.label,
         formatVersion: unequalTemplate.formatVersion,
         presetVersion: unequalTemplate.preset.version,
+        strikes: false,
       },
       standing: {
         kind: 'custom',
@@ -266,6 +274,38 @@ describe('FormatChoice', () => {
         'ask for the resolution a set-resolution format needs, in the standards and league forms',
       actual: html.match(/name="topic"/g)?.length,
       expected: 2,
+    });
+  });
+
+  test('Back from a draw to a standard that sets its resolution', () => {
+    const fields = (strikes: boolean) =>
+      render(
+        {
+          ...valueStandard,
+          basis: { ...valueStandard.basis!, strikes },
+          standing: {
+            kind: 'custom',
+            basis: { formatId: 'value', role: 'standard' },
+            changes: [],
+          },
+        },
+        {
+          view: {
+            topic: null,
+            executionPlan: {
+              ...assemblySnapshot.executionPlan,
+              resolutionDraw: strike,
+            },
+          },
+        },
+      ).match(/name="topic"/g)?.length;
+    assert({
+      given:
+        'a Value room whose host turned a strike on, and a room whose pinned basis itself strikes',
+      should:
+        'ask Back for the resolution only when the pinned basis sets one, whatever the catalog now offers',
+      actual: [fields(false), fields(true)],
+      expected: [3, 2],
     });
   });
 });

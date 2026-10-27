@@ -1,11 +1,10 @@
 import { isNamedSeat, type RoomRefusal, type RoomView } from '@daisy/protocol';
 import {
-  resolutionCategoryLabel,
+  strikeSummary,
   roundLength,
   ruleRows,
   shapeLabel,
 } from '../../../features/debate-room/vocabulary';
-import { clockDuration } from '../../../features/rooms/duration-input';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
@@ -164,28 +163,11 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
   return growSteps[Math.min(Math.max(minutes, 1), growSteps.length) - 1]!;
 }
 
-/** "Policy, Value and Fact": an English list of the drawn categories. */
-const listOf = (words: readonly string[]) =>
-  words.length > 1
-    ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
-    : (words[0] ?? '');
-
 /** How a draw Room chooses its resolution, in one line; none without a draw. */
 function strikeRows(
   draw: RoomView['config']['resolutionDraw'],
 ): readonly (readonly [string, string])[] {
-  if (!draw.enabled) return [];
-  const source =
-    draw.source.kind === 'bank'
-      ? `Daisy’s ${listOf(draw.source.categories.map((c) => resolutionCategoryLabel[c]))} resolutions`
-      : 'the host’s list';
-  const first = draw.firstStriker === 'negative' ? 'Negative' : 'Affirmative';
-  return [
-    [
-      'Resolution strike',
-      `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`,
-    ],
-  ];
+  return draw.enabled ? [['Resolution strike', strikeSummary(draw)]] : [];
 }
 
 /** The saved configuration as label/value rows, in the room's vocabulary. */

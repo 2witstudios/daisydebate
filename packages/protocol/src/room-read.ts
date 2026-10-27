@@ -103,6 +103,8 @@ export const roomViewSchema = z.strictObject({
         name: z.string().min(1),
         formatVersion: version,
         presetVersion: version,
+        /** Whether the pinned basis preset strikes its resolution: Back must know. */
+        strikes: z.boolean(),
       })
       .nullable(),
     standing: formatStandingSchema,

@@ -110,6 +110,7 @@ export const assemblySnapshot = {
       name: unequalTemplate.label,
       formatVersion: unequalTemplate.formatVersion,
       presetVersion: unequalTemplate.preset.version,
+      strikes: false,
     },
     standing: {
       kind: 'custom',

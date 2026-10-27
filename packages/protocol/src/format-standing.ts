@@ -3,6 +3,7 @@ import type { FormatDefinition } from './format';
 import type { RoomConfig } from './room';
 import { crossExModeSchema, interruptionModeSchema } from './format';
 import { debateRoleSchema } from './primitives';
+import { frozenResolutionDrawSchema } from './resolution-draw';
 
 const msSchema = z.int().min(0);
 const keySchema = z.string().trim().min(1).max(8);
@@ -67,6 +68,12 @@ const formatChangeSchema = z.discriminatedUnion('kind', [
     kind: z.literal('yield'),
     from: yieldSchema,
     to: yieldSchema,
+  }),
+  /** The public frozen strike settings: a host's list shows only its count. */
+  z.strictObject({
+    kind: z.literal('resolution-draw'),
+    from: frozenResolutionDrawSchema,
+    to: frozenResolutionDrawSchema,
   }),
 ]);
 export type FormatChange = z.infer<typeof formatChangeSchema>;
