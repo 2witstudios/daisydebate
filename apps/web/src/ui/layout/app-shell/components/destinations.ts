@@ -1,5 +1,9 @@
 import type { DestinationSlug } from '../../../../features/coming-soon/destinations';
-import { launched } from '../../../../features/coming-soon/launch';
+import {
+  launched,
+  launchedPlaces,
+  type PlaceLaunchConfig,
+} from '../../../../features/coming-soon/launch';
 import type { IconName } from '../../../components/icon/icon';
 import type { ShellAccount } from '../account';
 
@@ -81,6 +85,20 @@ export const memberDestinations = {
   messages: { href: '/messages', icon: 'message', label: 'Messages' },
   friends: { href: '/friends', icon: 'users', label: 'Friends' },
 } as const satisfies Readonly<Record<string, Destination>>;
+
+const notifications = {
+  href: '/notifications',
+  icon: 'bell',
+  label: 'Notifications',
+} as const satisfies Destination;
+
+/**
+ * Notifications, once its launch flag is set; until then the nav leaves it
+ * out rather than linking a page of sample data.
+ */
+export const notificationsDestination = (
+  config: PlaceLaunchConfig = launchedPlaces,
+): typeof notifications | null => (config.notifications ? notifications : null);
 
 /** The accessible name of the Friends link, with the count in it. */
 export const friendsLabel = (online: number): string =>
