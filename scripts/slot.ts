@@ -264,6 +264,23 @@ const describeOrphans = (ids: readonly string[]) =>
 
 const slotDatabases = (slot: Slot) =>
   [slot.database, slot.testDatabase, slot.e2eDatabase] as const;
+/** The admin app's own databases, migrated by its own migrator (ADR 0076). */
+const adminDatabases = (slot: Slot) =>
+  [slot.adminTestDatabase, slot.adminE2eDatabase] as const;
+
+/** The checkout's own admin migrator, as the cluster owner. */
+async function migrateAdmin(
+  databaseUrl: string,
+  checkoutPath: string,
+): Promise<void> {
+  const migrator = join(checkoutPath, 'apps/admin/src/db/migrate.ts');
+  // A checkout from before the admin app has no admin databases to migrate.
+  if (!(await Bun.file(migrator).exists())) return;
+  await run(['bun', migrator], checkoutPath, {
+    ...process.env,
+    ADMIN_MIGRATION_DATABASE_URL: databaseUrl,
+  });
+}
 
 async function up(checkout: Checkout, envPath: string) {
   const content = await readEnvFile(envPath);
@@ -288,7 +305,10 @@ async function up(checkout: Checkout, envPath: string) {
       async () => {
         const pruned = await prune(services, checkout);
         const created: string[] = [];
-        for (const database of slotDatabases(slot))
+        for (const database of [
+          ...slotDatabases(slot),
+          ...adminDatabases(slot),
+        ])
           if (await createSlotDatabase(services.admin, database))
             created.push(database);
         const portBlock =
@@ -313,6 +333,11 @@ async function up(checkout: Checkout, envPath: string) {
             withDatabase(env.DATABASE_URL ?? '', database),
             checkout.path,
           );
+        for (const database of adminDatabases(slot))
+          await migrateAdmin(
+            withDatabase(env.DATABASE_URL ?? '', database),
+            checkout.path,
+          );
         await provisionTestRoles(services.admin, testLogins);
         return { pruned, created, values };
       },
@@ -322,7 +347,7 @@ async function up(checkout: Checkout, envPath: string) {
     process.stdout.write(
       [
         `Slot ${slot.id} (${slot.kind})`,
-        `  databases: ${slotDatabases(slot).join(', ')} (created: ${created.join(', ') || 'none'}; migrated)`,
+        `  databases: ${[...slotDatabases(slot), ...adminDatabases(slot)].join(', ')} (created: ${created.join(', ') || 'none'}; migrated)`,
         `  redis namespaces: ${slot.namespace}, ${slot.e2eNamespace}`,
         `  test redis: ${values.TEST_REDIS_URL}`,
         `  ports: app ${values.PORT}, e2e ${values.E2E_PORT}`,
@@ -347,7 +372,7 @@ async function down(checkout: Checkout, envPath: string) {
     const removed = await withSlotLock(services.admin, async () => {
       // Run databases first (ISSUE-238): a run's own copy of the slot's test database.
       await dropAllTestRunDatabases(services.admin, slot.testDatabase);
-      for (const database of slotDatabases(slot))
+      for (const database of [...slotDatabases(slot), ...adminDatabases(slot)])
         await dropSlotDatabase(services.admin, database);
       let removed = 0;
       for (const client of services.redis)
@@ -358,7 +383,7 @@ async function down(checkout: Checkout, envPath: string) {
       return removed;
     });
     process.stdout.write(
-      `Slot ${slot.id}: dropped ${slotDatabases(slot).join(', ')}; deleted ${removed} Redis keys\n`,
+      `Slot ${slot.id}: dropped ${[...slotDatabases(slot), ...adminDatabases(slot)].join(', ')}; deleted ${removed} Redis keys\n`,
     );
   } finally {
     await services.close();

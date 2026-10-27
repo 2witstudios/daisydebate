@@ -136,6 +136,8 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
       DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
       TEST_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
+      # The admin app's own test database (ADR 0076), created and migrated below.
+      TEST_ADMIN_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_admin_test
       REDIS_URL: redis://127.0.0.1:6379/1
       TEST_REDIS_URL: redis://127.0.0.1:6379/1
       REDIS_NAMESPACE: ci
@@ -175,6 +177,11 @@ jobs:
       # The one place test logins are provisioned (packages/db/src/slots.ts),
       # after the baseline has created daisy_web.
       - run: bun db:roles
+      - name: Create and migrate the admin test database
+        run: |
+          bun -e "const sql = new Bun.SQL(process.env.DATABASE_URL); await sql.unsafe('create database daisy_admin_test'); await sql.close();"
+          ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
+          ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
       - run: bun test:integration
       # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
       # per-PR cost at one Chromium run; bun evidence enforces the split).
