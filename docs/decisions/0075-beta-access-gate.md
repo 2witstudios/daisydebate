@@ -147,6 +147,28 @@ The rest of this record describes BETA-2.
 - **Realtime.** Live sockets close through the existing `session.revoked`
   control row within one outbox drain interval. Ticket redemption,
   subscription admission and delivery re-check the fact.
+- **Expand and contract (rolling-safe).** The fence's new result shape
+  ships as versioned producers, `daisy_authorization_accounts_v2` and
+  `daisy_room_read_account_v2`. The v1 functions keep their exact
+  five-column result, rewritten in place to compute from v2, so a
+  statement a live instance prepared against v1 stays valid across the
+  migration. Every web and realtime caller moves to v2 in the same
+  release. A separate contract step drops v1 once no instance runs the
+  old binary: the BETA-2C leaf. It also repoints the age reader's own
+  fence call to v2.
+- **One age validity rule.** `daisy_age_band` is the single SQL rule for
+  a durable age record: positive version, finite recorded time no later
+  than the evaluation instant, and a birth month not after it. Both the
+  fence's band and the age reader use it. The fence classifies at
+  `clock_timestamp()`, sampled after its lock waits.
+- **What the band is.** `ageBand` is an account authorization fact for
+  participant admission only. It is not public profile data, not
+  consent, and not a social-eligibility grant. Social policy keeps using
+  the age reader's revisioned fact with `validUntil`.
+- **Activation point.** The gate is enforced once every web and realtime
+  instance runs this release. During a rolling deploy an old instance
+  does not enforce it; staging accepts that window, and production needs
+  its own cutover decision.
 - **Rollback.** Activation is forward-only. Redeploying a pre-activation
   binary would reopen access, so a defect in activation is fixed forward.
 
