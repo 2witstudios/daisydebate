@@ -1,7 +1,9 @@
+import { admitsCapability } from './participant-access';
+export { accountEntitlements } from './account-entitlements';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
-import { roomAllowed, roundReadable } from './authorization-room';
+import { roomAllowed, roundAllowed } from './authorization-room';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
@@ -24,6 +26,7 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from './authorization-facts';
+export { ageAdmitted, participantAccess } from './participant-access';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,
@@ -82,7 +85,7 @@ function validResourceKind(
     return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))
     return resource.kind === 'foundation';
-  if (capability === 'round.read') return resource.kind === 'round';
+  if (capability.startsWith('round.')) return resource.kind === 'round';
   if (['room.create', 'room.list'].includes(capability))
     return resource.kind === 'room_collection';
   return (
@@ -195,9 +198,22 @@ export function authorize({
     return serviceDecision(principal, capability, resource);
   if (resource.kind === 'foundation') return deny('missing-capability');
   if (principal.kind !== 'user') return deny('unauthenticated');
-  if (!boundMember(principal, context.account))
+  if (!admittedMember(principal, capability, context.account))
     return deny('missing-capability');
   return memberDecision(principal.actorId, capability, resource, context);
+}
+/**
+ * A bound member holds a capability only with participant access (ADR
+ * 0075), except the withdrawals every member keeps.
+ */
+function admittedMember(
+  principal: UserPrincipal,
+  capability: AuthorizationCapability,
+  account: AccountAuthorizationFact | null,
+): principal is UserPrincipal & { actorId: string } {
+  return (
+    boundMember(principal, account) && admitsCapability(capability, account)
+  );
 }
 const decision = (allowed: boolean): AuthorizationDecision =>
   allowed ? allow : deny('missing-capability');
@@ -271,7 +287,7 @@ function memberDecision(
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
   if (resolved.kind === 'round')
-    return decision(roundReadable(actorId, resolved));
+    return decision(roundAllowed(actorId, capability, resolved, context));
   return resolved.kind === 'room'
     ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);

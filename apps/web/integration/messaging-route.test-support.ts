@@ -52,7 +52,8 @@ export async function seedMessagingRouteDm(
   now: string,
 ) {
   await client.unsafe(
-    "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
+    // Sign-up already answered the age step; pin the fact these suites read.
+    "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3) on conflict (user_id) do update set birth_month=excluded.birth_month, version=excluded.version, recorded_at=excluded.recorded_at",
     [me.userId, peer.userId, now],
   );
   await seedMessagingTestDm(client, {

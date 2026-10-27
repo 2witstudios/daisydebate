@@ -35,7 +35,7 @@ export function YourRoom({ room }: { readonly room: ActiveRoomSummary }) {
   return (
     <section
       aria-label="Your room"
-      className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-border bg-hue-sky-soft px-5 py-4 text-ink"
+      className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-border bg-hue-teal-soft px-5 py-4 text-ink"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="flex items-center gap-2 text-xs font-heavy tracking-wider text-ink-muted uppercase">

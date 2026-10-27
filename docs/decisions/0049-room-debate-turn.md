@@ -115,6 +115,15 @@ record adds no entity between the debate and its turns.
 
 ### 6. Matchmaking and tournaments create rooms
 
+Current planning note: match offers (`MTCH-1.1`) and queue pairing (`RATE-2.1`)
+are unselected product intent, not scheduled implementation leaves. The
+[Ranked capability intent](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/abwvypn6ug4ml7lh183n8qqq)
+retains their shape and current constraints; the
+[preserved source ledger](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/mtxf5mjbqr5pukkzgtzrcv9f)
+retains their exact original criteria under both task codes and page IDs. This
+changes planning navigation only; the shared Room path below remains the
+architectural contract.
+
 An accepted match offer (MTCH-1.1) creates a room with both seats filled and
 both members ready, then starts it through section 3, so queue-made,
 invite-made and tournament-made debates take one path. A ranked offer never

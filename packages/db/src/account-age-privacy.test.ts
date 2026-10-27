@@ -1,8 +1,6 @@
-import type { SQL } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountAgePrivacyAdopter } from './account-age';
-import type { AuthorizationTransaction } from './authorization';
+import { scriptedTransaction } from './scripted-transaction.test-support';
 
 setupRitewayBun();
 const input = {
@@ -10,22 +8,12 @@ const input = {
   birthMonth: '2000-01',
   now: '2026-10-09T00:00:00.000Z',
 };
-function ageDatabase(responses: unknown[][]) {
-  const remaining = [...responses];
-  const queries: { sql: string; params: unknown[] }[] = [];
-  const dialect = new PgDialect();
-  const tx = {
-    execute: async (statement: SQL) => {
-      queries.push(dialect.sqlToQuery(statement));
-      const result = remaining.shift();
-      if (!result) throw new Error('Unexpected age query');
-      return result;
-    },
-  } as unknown as AuthorizationTransaction;
-  return { tx, queries };
-}
+const ageDatabase = (responses: unknown[][]) =>
+  scriptedTransaction(responses, () => {
+    throw new Error('Unexpected age query');
+  });
 
-test('age adopter binds own export/delete and keeps collection policies pending', async () => {
+test('age adopter binds own export/delete under the approved age-step policy', async () => {
   const subject = { userId: input.userId, actorId: 'a'.repeat(24) };
   const fixture = ageDatabase([
     [],
@@ -61,13 +49,23 @@ test('age adopter binds own export/delete and keeps collection policies pending'
     ],
   });
   assert({
-    given: 'pending age collection and retention decisions',
+    given: 'the owner’s age-step decision (DEC-244)',
     should:
-      'name the actual retention owner without granting collection approval',
-    actual: accountAgePrivacyAdopter.fields.map(({ retention }) => retention),
-    expected: Array.from({ length: 4 }, () => ({
-      status: 'pending',
-      decision: 'njiorsf64z4iqjm2dbfa3zuu',
-    })),
+      'classify the birth month under legal obligation and contract, kept for the life of the account',
+    actual: accountAgePrivacyAdopter.fields.map(
+      ({ lawfulBasis, retention }) => [lawfulBasis, retention],
+    ),
+    expected: Array.from({ length: 4 }, () => [
+      {
+        status: 'approved' as const,
+        decision: 'cnl34yx54fgtuxwvekobc657',
+        rule: 'legal obligation and contract',
+      },
+      {
+        status: 'approved' as const,
+        decision: 'cnl34yx54fgtuxwvekobc657',
+        rule: 'life of the account',
+      },
+    ]),
   });
 });

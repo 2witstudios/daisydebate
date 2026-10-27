@@ -1,3 +1,9 @@
+/**
+ * The portable privacy declaration contract (ADR 0036): every stored column
+ * names its category, visibility, purpose, lawful basis, retention and
+ * erasure. `@daisy/db` and the admin app each declare their own columns
+ * against it; the transaction-bound adopter stays in `@daisy/db`.
+ */
 import { z } from 'zod';
 
 const text = z.string().trim().min(1);
@@ -45,6 +51,24 @@ const declaration = z
         message: 'Secrets cannot be exported',
       });
   });
+/** Policies name actual decision records; pending never confers activation authority. */
+type PrivacyPolicy = z.infer<typeof policy>;
+
+export type PrivacyFieldDeclaration = {
+  readonly table: string;
+  readonly column: string;
+  readonly category:
+    'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
+  readonly visibility?: 'public' | 'private';
+  readonly storage: 'postgres';
+  readonly owner: string;
+  readonly purpose: string;
+  readonly lawfulBasis: PrivacyPolicy;
+  readonly retention: PrivacyPolicy;
+  readonly erasure: 'delete' | 'scrub' | 'retain-nonpersonal';
+  readonly exportable: boolean;
+};
+
 export type PrivacyExpectedColumns = Readonly<
   Record<string, readonly string[]>
 >;

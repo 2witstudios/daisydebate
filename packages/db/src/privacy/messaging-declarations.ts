@@ -1,4 +1,4 @@
-import type { PrivacyFieldDeclaration } from './contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 /** Dedicated MSG schema inputs include file source b493460b and F4 source f589971c. */
 const messagingColumns = {

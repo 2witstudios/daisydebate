@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 import { hydrated } from './hydration';
 import { enrollFromSettings, signInWithPasskey } from './webauthn';
+import { approveBetaAccounts } from './beta-access';
 
 /**
  * Real accounts for the browser suite. Every step goes through the production
@@ -48,6 +49,19 @@ export async function emailedLink(
  * never has to duplicate the request-link-then-confirm flow.
  */
 export async function signUpProvisionalResponse(request: APIRequestContext) {
+  const signedUp = await signUpBeforeAge(request);
+  // The age step comes first (WAIT-4.6); an adult's answer lets every
+  // later onboarding step proceed as before.
+  const aged = await request.post('/api/account/age', {
+    headers: { origin },
+    data: { month: 1, year: 1990, terms: true },
+  });
+  expect(aged.status()).toBe(200);
+  return signedUp;
+}
+
+/** A new account signed in through the real handlers, at the age step. */
+export async function signUpBeforeAge(request: APIRequestContext) {
   await resetRateLimits(request);
   const email = freshEmail();
   const requested = await request.post('/api/auth/sign-in/magic-link', {
@@ -73,8 +87,18 @@ export async function signUpProvisional(request: APIRequestContext) {
   return { email };
 }
 
-/** Signs the context's browser in as a new member with a claimed username. */
+/**
+ * Signs the context's browser in as a new member with a claimed username,
+ * approved for the beta (ADR 0075) as an operator would.
+ */
 export async function signUpMember(request: APIRequestContext) {
+  const { email, username } = await signUpWaitlisted(request);
+  await approveBetaAccounts(email);
+  return { email, username };
+}
+
+/** A new account with a claimed username, still waiting on the beta list. */
+export async function signUpWaitlisted(request: APIRequestContext) {
   const { email } = await signUpProvisional(request);
   const username = uniqueName('member');
   const claimed = await request.post('/api/account/username', {
@@ -106,8 +130,37 @@ export async function reachOnboarding(page: Page, request: APIRequestContext) {
   await page.goto('/sign-in');
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username/);
   return email;
+}
+
+/**
+ * A visitor sent from /ranked to sign-in signs up through the real
+ * handlers and reaches the username step still carrying /ranked; returns
+ * the email for the later approval (ADR 0075).
+ */
+export async function reachOnboardingFromRanked(
+  page: Page,
+  request: APIRequestContext,
+) {
+  await page.goto('/ranked');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
+  const email = freshEmail();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
+  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  return email;
+}
+
+/** Answers the age step as an adult through the real form (WAIT-4.6). */
+export async function answerAgeStep(page: Page) {
+  await expect(page).toHaveURL(/\/onboarding\/age/);
+  await page.getByLabel('Month').selectOption('1');
+  await page.getByLabel('Year').selectOption('1990');
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
 }
 
 /** Enrolls a passkey from account security settings on the page's device. */

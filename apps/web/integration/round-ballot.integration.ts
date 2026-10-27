@@ -78,11 +78,13 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       code: 'CONFLICT',
     });
     const ownRead = await f.store.readRoundBallot({
+      authorizeCoaching: () => true,
       roundId,
       caller: judges[0]!,
       authorize: (round, account) => canReadRound(judges[0]!, round, account),
     });
     const opponentRead = await f.store.readRoundBallot({
+      authorizeCoaching: () => true,
       roundId,
       caller: f.guest,
       authorize: (round, account) => canReadRound(f.guest, round, account),
@@ -186,6 +188,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     // only the reader's own side's feedback; the transcript is for seats.
     const readAs = (caller: { userId: string; actorId: string }) =>
       f.store.readRoundBallot({
+        authorizeCoaching: () => true,
         roundId,
         caller,
         authorize: (round, account) => canReadRound(caller, round, account),

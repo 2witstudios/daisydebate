@@ -12,6 +12,14 @@ import {
   createRevokeSessionHandler,
 } from '../features/account/sessions';
 import { createOnboardingHandler } from '../features/onboarding/save-answers';
+import { createAgeStepHandler } from '../features/account/age-step';
+import { ACCOUNT_AGE_FLOOR } from '@daisy/auth/age-floor';
+import { TERMS_VERSION } from '../features/legal/versions';
+import {
+  deriveRecipientSubkey,
+  recipientKey,
+} from '../features/auth/mail/recipient-key';
+import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
@@ -107,6 +115,29 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.auth().limiter,
         claim: (input) => database.claimUsername(input),
+        hasRecordedAge: (userId) => database.hasRecordedAge(userId),
+      }),
+    },
+    age: {
+      POST: createAgeStepHandler({
+        logger,
+        origin,
+        identify: (request) => identify(app.auth(), request.headers),
+        limiter: () => app.auth().limiter,
+        clock: app.clock,
+        floor: ACCOUNT_AGE_FLOOR,
+        termsVersion: TERMS_VERSION,
+        record: (input) => database.recordAgeStep(input),
+        forget: (userId) =>
+          database.deleteProvisionalUser({
+            userId,
+            signInPurpose: 'sign-in',
+            recipientHashOf: (email) =>
+              recipientKey(
+                deriveRecipientSubkey(app.auth().config.RECIPIENT_HASH_SECRET),
+                email,
+              ),
+          }),
       }),
     },
     onboarding: {
@@ -116,7 +147,11 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.auth().limiter,
         clock: app.clock,
-        save: (userId, answers) => database.saveOnboardingStep(userId, answers),
+        save: (input) =>
+          database.saveOnboardingStep({
+            ...input,
+            admits: admitsOptionalAnswers,
+          }),
         complete: (userId, at) => database.completeOnboarding(userId, at),
       }),
     },

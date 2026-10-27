@@ -4,6 +4,7 @@ type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Claim = { readonly scope: Target; readonly token: string };
 type Entry<C> = {
   readonly claim: C;
+  readonly freeCapacity: () => void;
   readonly abort: AbortController;
   running: boolean;
   work: Promise<void>;
@@ -28,6 +29,9 @@ export function startRoundJudgingService<C extends Claim>(input: {
       token: string,
     ) => Promise<{ readonly pendingBallot: unknown | null }>;
   };
+  /** Reserve before the durable claim; refusal must not leave a lease behind. */
+  readonly reserveCapacity: () => (() => void) | null;
+  /** Uses the entry's reserved slot, including saved-ballot retries. */
   readonly execute: (claim: C, signal: AbortSignal) => Promise<unknown>;
   readonly limits: {
     readonly parallel: number;
@@ -45,9 +49,15 @@ export function startRoundJudgingService<C extends Claim>(input: {
     renewing: Promise<void> | null = null;
   const key = (target: Target) =>
     `${target.roundId}:${target.judgeParticipantId}`;
+  const remove = (entry: Entry<C>) => {
+    const target = key(entry.claim.scope);
+    // A delayed renewal belongs to its original claim, never its replacement.
+    if (entries.get(target) === entry) entries.delete(target);
+    entry.freeCapacity();
+  };
   const release = (entry: Entry<C>) => {
     entry.abort.abort();
-    if (!entry.running) entries.delete(key(entry.claim.scope));
+    if (!entry.running) remove(entry);
   };
   const execute = (entry: Entry<C>) => {
     if (entry.running || entry.abort.signal.aborted) return;
@@ -74,7 +84,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
         input.failed(error, 'execute');
       } finally {
         entry.running = false;
-        if (entry.abort.signal.aborted) entries.delete(key(entry.claim.scope));
+        if (entry.abort.signal.aborted) remove(entry);
       }
     })();
   };
@@ -89,11 +99,19 @@ export function startRoundJudgingService<C extends Claim>(input: {
         for (const target of targets) {
           if (stopped || entries.size >= input.limits.parallel) break;
           if (entries.has(key(target))) continue;
+          const freeCapacity = input.reserveCapacity();
+          if (!freeCapacity) break;
           try {
             const claim = await input.store.claimRoundJudgingJob(target);
-            if (stopped) break;
+            if (stopped) {
+              // A successful durable claim recovers by lease expiry. This
+              // process has not started execution; never clear an unfenced lease.
+              freeCapacity();
+              break;
+            }
             const entry: Entry<C> = {
               claim,
+              freeCapacity,
               abort: new AbortController(),
               running: false,
               work: Promise.resolve(),
@@ -102,6 +120,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entries.set(key(target), entry);
             execute(entry);
           } catch {
+            freeCapacity();
             /* Discovery is advisory; another process may win the claim. */
           }
         }

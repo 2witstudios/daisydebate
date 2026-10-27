@@ -1,6 +1,8 @@
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
+import { notificationsDestination } from './components/destinations';
+import { launchedPlaces } from '../../../features/coming-soon/launch';
 import type { ShellAccount } from './account';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { occurrences, renderInStore } from '../../test-support/render-in-store';
@@ -183,6 +185,26 @@ describe('AppShell', () => {
         render(member).includes('Return to room'),
       ],
       expected: [true, true, false],
+    });
+  });
+});
+
+describe('Notifications behind its launch flag (ISSUE-634)', () => {
+  test('the nav lists Notifications only once it is launched', () => {
+    const [rail, tabBar] = navs(render(member));
+    assert({
+      given:
+        'the flag off and on, then a member’s rail and phone More sheet with the shipped flag',
+      should:
+        'offer Notifications only when launched, and link /notifications nowhere in the nav while it is not',
+      actual: [
+        notificationsDestination({ notifications: false }),
+        notificationsDestination({ notifications: true })?.href,
+        launchedPlaces.notifications,
+        hrefsOf(rail).includes('/notifications'),
+        hrefsOf(tabBar).includes('/notifications'),
+      ],
+      expected: [null, '/notifications', false, false, false],
     });
   });
 });

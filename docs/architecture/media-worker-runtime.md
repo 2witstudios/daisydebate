@@ -65,8 +65,10 @@ The assigned-session application claims a real lease, reads scoped history,
 calibrates using the actual signed web path and joins with the actual hidden
 subscribe-only broker credential. The same process monotonic clock brackets the
 HTTP calibration and pre-SDK-queue native frame copies. It renews its lease at
-five seconds, refreshes history/calibration at 250 ms and cancels on lost authority
-or transport failure. No network/acoustic origin bound is claimed.
+five seconds on an independent heartbeat, including while history, native work
+or graceful draining is pending. The heartbeat never adopts a different epoch.
+It refreshes history/calibration at 250 ms and cancels on lost authority or
+transport failure. No network/acoustic origin bound is claimed.
 
 There are two different memory boundaries. Private ingress-validation staging
 requires a known actual Round, segment, mapped seat and full calibrated bracket
@@ -81,8 +83,13 @@ frames, as well as after the settle window. Fresh signed history
 and a post-lock PG horizon must validate each remaining frame before WAV, STT or
 competitive clip queue. A segment change reads that exact historical segment;
 no PCM waits for a new grant or receives a different segment label. The history
-reader has a 500 ms deadline and a 16,384-interval resource ceiling; exhaustion
-refuses rather than truncating authority.
+reader has a 500 ms deadline per complete acquisition and a 16,384-interval
+resource ceiling. Its own acquisition timeout restarts at page one within the
+same live process, discarding all partial pages while retaining bounded staged
+PCM. No frame is validated from an incomplete or mixed snapshot. Caller aborts
+and definite server refusals still stop capture. The independent heartbeat
+keeps authority alive during retries; resource-ceiling exhaustion refuses
+rather than truncating authority (ISSUE-663).
 
 The competitive FIFO is capped at ten clips, 20 MiB and 120,000 ms, dropping
 oldest on overflow. Clips use the shared sixty-second/silence-bound WAV encoder.

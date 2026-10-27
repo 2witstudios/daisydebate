@@ -80,6 +80,14 @@ write `backend_start::text` directly; Date/ISO millisecond conversion loses PG
 microseconds. Attendance deadline authority likewise compares native PG stamps
 or preserves their full precision, never a rounded browser instant.
 
+Opening locks the matching Round `FOR KEY SHARE` and inserts its marker from
+that parent in one statement. A missing parent leaves the control transaction
+empty; only after its confirmed COMMIT does the attendance entrypoint refuse
+`NOT_FOUND`, before attendance work. Its aborted closure needs no marker.
+Unknown control outcomes remain infrastructure failures, and a missing marker
+after a successful insertion is never reclassified as definite absence
+(ISSUE-653).
+
 Attempts start pending with no resolution timestamp, then close once as
 committed or aborted with a resolution timestamp. Closed outcomes cannot reopen
 or flip. Pending markers cannot be directly pruned and persist indefinitely,

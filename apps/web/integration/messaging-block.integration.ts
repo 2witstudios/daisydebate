@@ -1,10 +1,12 @@
-import { openMessagingFixture } from './messaging-fixture.test-support';
+import {
+  blockDependencies,
+  openMessagingFixture,
+} from './messaging-fixture.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -15,19 +17,7 @@ test('same-transaction participant safety controls require no age or posting pol
     fixture,
     principal,
   } = await openMessagingFixture(databaseUrl);
-  const clock = { now: () => fixture.now };
-  const dependencies = {
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    clock,
-    limit: async () => {},
-    store: database.messagingSocialStore(
-      messagingSocialAuthorizationFence({
-        principal,
-        clock,
-        operation: { kind: 'block' },
-      }),
-    ),
-  };
+  const dependencies = blockDependencies({ database, fixture }, principal);
   const command = {
     version: 1,
     requestId: createId(),

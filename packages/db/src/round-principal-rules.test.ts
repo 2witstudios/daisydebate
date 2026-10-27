@@ -135,6 +135,8 @@ test('a human Round principal needs its own live member account', async () => {
     userId: `user-${actorId}`,
     actorId,
     member,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
     erased,
     revision: 1,
   });

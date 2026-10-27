@@ -34,7 +34,7 @@
     "./attendance": "./src/attendance.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test src",
     "test:integration": "bun ../../scripts/test-integration.ts",
     "db:generate": "bun --bun x drizzle-kit generate",
@@ -51,6 +51,7 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
+    "@daisy/auth": "workspace:*",
     "drizzle-kit": "1.0.0-rc.4",
     "riteway": "9.3.0"
   }

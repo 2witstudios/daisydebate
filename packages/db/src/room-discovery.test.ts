@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createTestDatabase } from './index.test-support';
-import { caller, accountFact } from './room-command-operations.test-support';
+import { caller, accountRow } from './room-command-operations.test-support';
 setupRitewayBun();
 const ids = ['a'.repeat(24), 'b'.repeat(24), 'c'.repeat(24)];
 const entry = {
@@ -143,11 +143,11 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
 
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {
   return createTestDatabase([
-    [accountFact()],
+    [accountRow()],
     ids.map((id) => ({ id })),
     [],
     [],
-    [accountFact()],
+    [accountRow()],
     rows,
   ]);
 }

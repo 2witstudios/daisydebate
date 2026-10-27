@@ -14,6 +14,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { seatLabel } from './assembly-controls';
 import { speechName } from '../../../features/debate-room/vocabulary';
+import { openOnInvalid } from './room-setup-modal';
 
 type Props = {
   readonly view: RoomView;
@@ -43,9 +44,7 @@ export function AssemblySettingsFields({
       <PreparationFields view={view} state={state} disabled={disabled} />
       <details
         open={state.error ? true : undefined}
-        onInvalidCapture={(event) => {
-          event.currentTarget.open = true;
-        }}
+        onInvalidCapture={openOnInvalid}
         className="border-t border-border pt-2"
       >
         <summary className="flex min-h-room-target cursor-pointer flex-col justify-center">

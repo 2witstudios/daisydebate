@@ -28,6 +28,8 @@ export const input: AuthorizationInput = {
       userId: actorId,
       actorId,
       member: true,
+      beta: { state: 'approved', revision: 1 },
+      ageBand: 'adult',
       erased: false,
       revision: 4,
     },

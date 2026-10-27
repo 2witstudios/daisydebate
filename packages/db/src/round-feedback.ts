@@ -1,12 +1,18 @@
-import { createAppError } from '@daisy/errors';
 import {
-  ballotFeedbackSchema,
-  debateSides,
-  type DebateSide,
-} from '@daisy/protocol';
+  readRoundCoachingFacts,
+  type RoundCoachingFacts,
+} from './round-coaching-facts';
+export {
+  readRoundCoachingFacts,
+  type RoundCoachingFacts,
+} from './round-coaching-facts';
+import {
+  readRoundCoachingAccess,
+  type RoundCoachingAccess,
+} from './round-coaching-access';
+import { createAppError } from '@daisy/errors';
+import { ballotFeedbackSchema, type DebateSide } from '@daisy/protocol';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { z } from 'zod';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
@@ -15,89 +21,8 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
-type Reader = Pick<BunSQLDatabase, 'execute'>;
-
-const instant = z
-  .union([z.date(), z.string()])
-  .transform((value) => new Date(value).toISOString());
-const factsSchema = z.object({
-  status: z.string(),
-  completed_at: instant.nullable(),
-  frozen: z.boolean(),
-  lines: z.coerce.number().int().nonnegative(),
-  ai_ballots: z.array(
-    z.object({ submitted: z.boolean(), sides: z.array(z.string()) }),
-  ),
-  pass: z
-    .object({
-      status: z.enum(['leased', 'succeeded', 'failed']),
-      attempts: z.number().int().positive(),
-      leaseExpiresAt: instant.nullable(),
-      feedback: ballotFeedbackSchema.nullable(),
-    })
-    .nullable(),
-});
-
-/**
- * Plain facts the coaching decision is made from (ADR 0071). The decision,
- * its window and its budget belong to the coaching feature, not here.
- */
-export type RoundCoachingFacts = {
-  readonly status: string;
-  readonly completedAt: string | null;
-  /** Whether the Round froze a transcript, and how many lines it has. */
-  readonly frozen: boolean;
-  readonly lines: number;
-  /** Each AI judge ballot: whether it is submitted, and the sides it coached. */
-  readonly aiBallots: readonly {
-    readonly submitted: boolean;
-    readonly sides: readonly DebateSide[];
-  }[];
-  /** The coaching pass's row, once any attempt was claimed. */
-  readonly pass: {
-    readonly status: 'leased' | 'succeeded' | 'failed';
-    readonly attempts: number;
-    readonly leaseExpiresAt: string | null;
-    readonly feedback: Readonly<Partial<Record<DebateSide, string>>> | null;
-  } | null;
-};
-
 /** What the coaching feature decided for one claim. */
 export type CoachingClaimDecision = 'claim' | 'skip' | 'fail';
-
-export async function readRoundCoachingFacts(
-  reader: Reader,
-  roundId: string,
-): Promise<RoundCoachingFacts> {
-  const [row] = (await reader.execute(sql`select r.status, r.completed_at,
-    exists (select 1 from round_transcript_freezes z where z.round_id = r.id) as frozen,
-    (select count(*) from utterances u where u.round_id = r.id) as lines,
-    coalesce((select json_agg(json_build_object(
-        'submitted', b.status = 'submitted',
-        'sides', (select coalesce(json_agg(k), '[]'::json)
-          from jsonb_object_keys(coalesce(b.feedback, '{}'::jsonb)) k)))
-      from ballots b
-      join round_participants p on p.id = b.judge_participant_id
-      join actors a on a.id = p.actor_id
-      where b.round_id = r.id and a.kind = 'bot'), '[]'::json) as ai_ballots,
-    (select json_build_object('status', f.status, 'attempts', f.attempts,
-        'leaseExpiresAt', f.lease_expires_at, 'feedback', f.feedback)
-      from round_feedback f where f.round_id = r.id) as pass
-    from rounds r where r.id = ${roundId}`)) as unknown as unknown[];
-  if (!row) throw createAppError('NOT_FOUND');
-  const facts = factsSchema.parse(row);
-  return {
-    status: facts.status,
-    completedAt: facts.completed_at,
-    frozen: facts.frozen,
-    lines: facts.lines,
-    aiBallots: facts.ai_ballots.map((ballot) => ({
-      submitted: ballot.submitted,
-      sides: debateSides.filter((side) => ballot.sides.includes(side)),
-    })),
-    pass: facts.pass,
-  };
-}
 
 /** The Round's row while this token still holds its lease. */
 const heldBy = (roundId: string, token: string) =>
@@ -146,6 +71,8 @@ export function createRoundFeedbackJobs(input: {
   )
     throw createAppError('VALIDATION');
   if (!input.model.trim()) throw createAppError('VALIDATION');
+  let cursor: { readonly completedAt: Date; readonly roundId: string } | null =
+    null;
   return {
     /**
      * Candidates only: frozen Rounds with lines, completed after `since`,
@@ -154,7 +81,11 @@ export function createRoundFeedbackJobs(input: {
      * The prefilter only keeps Rounds that cannot need coaching from holding
      * the batch; the decision stays the authority.
      */
-    scan: (limit: number, since: string) => {
+    scan: (
+      limit: number,
+      since: string,
+      authorize: (access: RoundCoachingAccess) => boolean,
+    ) => {
       const from = new Date(since);
       if (
         !Number.isSafeInteger(limit) ||
@@ -165,9 +96,10 @@ export function createRoundFeedbackJobs(input: {
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const rows =
-          (await tx.execute(sql`select r.id as "roundId" from rounds r
+          (await tx.execute(sql`select r.id as "roundId", r.completed_at as "completedAt" from rounds r
           left join round_feedback f on f.round_id = r.id
-          where r.status = 'completed' and (
+          where r.status = 'completed'
+          and (${cursor === null} or (r.completed_at, r.id) > (${cursor?.completedAt ?? from}, ${cursor?.roundId ?? ''})) and (
             (f.round_id is null and r.completed_at > ${from}
               and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
               and exists (select 1 from utterances u where u.round_id = r.id)
@@ -179,8 +111,21 @@ export function createRoundFeedbackJobs(input: {
             or (f.status = 'leased' and f.lease_expires_at <= clock_timestamp()))
           order by r.completed_at, r.id limit ${limit}`)) as unknown as {
             roundId: string;
+            completedAt: Date;
           }[];
-        return rows.map((row) => row.roundId);
+        // Denied candidates cannot permanently monopolize the bounded scan.
+        const last = rows.at(-1);
+        cursor = rows.length === limit && last ? last : null;
+        const permitted: string[] = [];
+        for (const row of rows) {
+          if (
+            authorize(
+              await readRoundCoachingAccess(tx, row.roundId, 'discovery'),
+            )
+          )
+            permitted.push(row.roundId);
+        }
+        return permitted;
       });
     },
     /**
@@ -190,13 +135,20 @@ export function createRoundFeedbackJobs(input: {
      */
     claim: (
       roundId: string,
-      decide: (facts: RoundCoachingFacts) => CoachingClaimDecision,
+      decide: (
+        facts: RoundCoachingFacts,
+        access: RoundCoachingAccess,
+      ) => CoachingClaimDecision,
     ) =>
       input.run(async (tx) => {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${roundId},59004))`,
         );
-        const decision = decide(await readRoundCoachingFacts(tx, roundId));
+        const access = await readRoundCoachingAccess(tx, roundId, 'claim');
+        const decision = decide(
+          await readRoundCoachingFacts(tx, roundId),
+          access,
+        );
         if (decision === 'fail') {
           const failed = failLease(roundId);
           await tx.update(roundFeedback).set(failed.set).where(failed.where);
