@@ -10,7 +10,7 @@ invocations, the four separate test configs, `--noEmit`, and web's preceding
 `next typegen`. No compiler options, Turbo dependency ordering, concurrency,
 or check coverage change.
 
-Keep `typescript` **6.0.3** installed for Next **16.3.5**, its editor plugin,
+Keep `typescript` **6.0.3** installed for Next **16.4.2**, its editor plugin,
 TypeScript ESLint **8.70.0**, and other compiler API consumers. The native
 package exposes a separate binary, so it does not replace `tsc` or the
 `typescript` module. This is a CLI optimization, not a TypeScript API upgrade.
@@ -83,7 +83,7 @@ Version-matched official sources read before installation:
   [README](https://github.com/microsoft/typescript-go/blob/9977d6d38fcc78de8ae71770f3aa08256e6cc861/README.md)
   and [intentional differences](https://github.com/microsoft/typescript-go/blob/9977d6d38fcc78de8ae71770f3aa08256e6cc861/CHANGES.md).
   Build mode and incremental checking are supported; the JavaScript API is not.
-- Next 16.3.5's installed
+- Next 16.4.2's installed
   `dist/docs/01-app/03-api-reference/05-config/02-typescript.md` distinguishes
   the CLI checker from its editor plugin and compiler API.
 
