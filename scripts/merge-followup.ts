@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /**
  * Runs after every merge to main (.github/workflows/notify-merge.yml). It
- * moves each task the PR names to Done when the PR's latest review verdict
- * approves (reviews are PR comments, ADR 0083), and otherwise to Merged,
+ * moves each task the PR names to Done when the PR's latest collaborator
+ * review verdict approves its merged head (reviews are PR comments, ADR
+ * 0083), and otherwise to Merged,
  * where the board keeper reconciles it.
  */
 import {
@@ -19,6 +20,7 @@ export type MergedPr = {
   readonly title: string;
   readonly body: string;
   readonly branch: string;
+  readonly headSha: string;
 };
 
 type PageNode = Parameters<typeof findTaskPages>[0][number];
@@ -86,7 +88,7 @@ export type FollowupDeps = {
     taskId: string,
     status: string,
   ) => Promise<void>;
-  /** The PR's comment bodies, oldest first. */
+  /** The bodies of the PR's comments by repository collaborators, oldest first. */
   readonly comments: () => Promise<readonly string[]>;
 };
 
@@ -127,7 +129,7 @@ export async function followUpMerge(
   const pages = findTaskPages(await deps.drivePages()).filter((page) =>
     codes.includes(page.code),
   );
-  const approved = approvedByReview(await deps.comments());
+  const approved = approvedByReview(await deps.comments(), pr.headSha);
   return {
     moved: await moveTasks(deps, pages, approved),
     status: approved ? 'completed' : MERGED_STATUS.slug,
@@ -186,7 +188,8 @@ function liveDeps(repository: string, pr: number): FollowupDeps {
           '--paginate',
           `repos/${repository}/issues/${pr}/comments`,
           '--jq',
-          '.[].body | @json',
+          // Collaborators only: anyone can comment on a public repository.
+          '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | .body | @json',
         ],
         { stdout: 'pipe', stderr: 'inherit' },
       );
@@ -209,9 +212,16 @@ if (import.meta.main) {
     title: env.MERGE_TITLE ?? '',
     body: env.MERGE_BODY ?? '',
     branch: env.MERGE_BRANCH ?? '',
+    headSha: env.MERGE_HEAD_SHA ?? '',
   };
-  if (!Number.isInteger(pr.number) || pr.number <= 0) {
-    process.stderr.write('merge-followup: MERGE_PR is required\n');
+  if (
+    !Number.isInteger(pr.number) ||
+    pr.number <= 0 ||
+    !/^[0-9a-f]{40}$/.test(pr.headSha)
+  ) {
+    process.stderr.write(
+      'merge-followup: MERGE_PR and MERGE_HEAD_SHA are required\n',
+    );
     process.exit(2);
   }
   const result = await followUpMerge(

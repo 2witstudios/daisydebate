@@ -155,31 +155,54 @@ describe('missingSelectedSpecs', () => {
 });
 
 describe('native path filter', () => {
-  test('a PR runs Isolated Room Launch only when its paths change', () => {
-    for (const [file, runs] of [
-      ['apps/web/src/features/theme/theme.ts', false],
-      ['packages/auth/src/index.ts', false],
-      ['scripts/policy.ts', false],
-      ['docs/development/testing.md', false],
-      ['apps/web/src/features/rooms/action.ts', true],
-      ['apps/web/src/ui/debate-room/view.tsx', true],
-      ['apps/web/src/features/round-commands/action.ts', true],
-      ['apps/realtime/src/index.ts', true],
-      ['apps/web/src/features/messaging/send.ts', true],
-      ['packages/media/src/index.ts', true],
-      ['packages/debate-engine/src/engine.ts', true],
-      ['packages/protocol/src/index.ts', true],
-      ['apps/web/e2e/room-launch.e2e.ts', true],
-      ['apps/web/e2e/support/room-launch-runner.ts', true],
-      ['.github/workflows/e2e.yml', true],
-      ['scripts/affected-e2e.ts', true],
-    ] as const)
+  const runs = (files: string[]) =>
+    selectBrowserSpecs(files, 'pull_request', false).runNative;
+  test('a PR runs Isolated Room Launch for room paths, shared runtime and anything unknown', () => {
+    for (const file of [
+      'apps/web/src/features/rooms/action.ts',
+      'apps/web/src/ui/debate-room/view.tsx',
+      'apps/web/src/features/round-commands/action.ts',
+      'apps/realtime/src/index.ts',
+      'apps/web/src/features/messaging/send.ts',
+      'packages/media/src/index.ts',
+      'packages/debate-engine/src/engine.ts',
+      'packages/protocol/src/index.ts',
+      'packages/auth/src/session.ts',
+      'apps/web/src/features/auth/x.ts',
+      'packages/db/src/schema.ts',
+      'packages/redis/src/index.ts',
+      'bun.lock',
+      'package.json',
+      'apps/web/src/proxy.ts',
+      'apps/web/e2e/room-launch.e2e.ts',
+      'apps/web/e2e/support/room-launch-runner.ts',
+      '.github/workflows/e2e.yml',
+      'scripts/affected-e2e.ts',
+      'scripts/slot.ts',
+    ])
       assert({
         given: `a PR changing ${file}`,
-        should: runs ? 'run the native suite' : 'skip the native suite',
-        actual: selectBrowserSpecs([file], 'pull_request', false).runNative,
-        expected: runs,
+        should: 'run the native suite',
+        actual: runs([file]),
+        expected: true,
       });
+  });
+  test('a PR skips it only when every file is documentation or a known non-room area', () => {
+    assert({
+      given:
+        'docs only, theme only, admin only, process files, a mix of those, a mix with one room file, and an empty diff',
+      should: 'skip all but the last two',
+      actual: [
+        ['docs/development/testing.md', 'README.md'],
+        ['apps/web/src/features/theme/theme.ts'],
+        ['apps/admin/src/page.tsx'],
+        ['.claude/skills/task/SKILL.md', 'policy/agent-pipeline/builder.html'],
+        ['docs/a.md', 'apps/web/src/ui/dashboard/x.tsx'],
+        ['docs/a.md', 'apps/web/src/features/rooms/action.ts'],
+        [],
+      ].map(runs),
+      expected: [false, false, false, false, false, true, true],
+    });
   });
   test('main, queue, nightly and dispatch runs always run it', () => {
     assert({

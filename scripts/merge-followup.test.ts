@@ -25,9 +25,14 @@ const pr: MergedPr = {
   title: 'feat(guard): autonomy guardrails (GRD-6.1)',
   body: 'Tasks: GRD-6.1',
   branch: 'pu/grd-6-autonomy',
+  headSha: 'd'.repeat(40),
 };
 
-const approve = '0 blocker / 0 major / 1 minor / 0 nit — APPROVE WITH MINORS';
+const review = (verdict: string) =>
+  `## Review: guardrails at ${pr.headSha}\n\nReviewer: ag-rev · Builder: ag-build\n\n### Verdict\n\n${verdict}\n`;
+const approve = review(
+  '0 blocker / 0 major / 1 minor / 0 nit — APPROVE WITH MINORS',
+);
 
 function fakes(
   options: { statuses?: string[]; comments?: string[]; leaf1?: string } = {},
@@ -83,9 +88,9 @@ describe('merge follow-up', () => {
   test('moves a merge whose latest review verdict approves straight to Done', async () => {
     const { deps, log } = fakes({
       comments: [
-        '## Review\n\n1 blocker / 0 major / 0 minor / 0 nit — CHANGES REQUESTED',
+        review('1 blocker / 0 major / 0 minor / 0 nit — CHANGES REQUESTED'),
         'Fixed in abc123.',
-        `## Verdict\n\n${approve}\n\nRecord: https://pagespace.ai/x`,
+        approve,
       ],
     });
     const result = await followUpMerge(deps, pr);
@@ -101,8 +106,8 @@ describe('merge follow-up', () => {
     const { deps, log } = fakes({
       statuses: ['merged'],
       comments: [
-        `${approve}`,
-        '0 blocker / 1 major / 0 minor / 0 nit — CHANGES REQUESTED',
+        approve,
+        review('0 blocker / 1 major / 0 minor / 0 nit — CHANGES REQUESTED'),
       ],
     });
     await followUpMerge(deps, pr);

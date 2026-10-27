@@ -78,16 +78,16 @@ reconciles them.
 
 ### Lean gates
 
-| Gate                                                     | Now                                                                                                                                                                                            |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quick check (`check:affected`)                           | Once per push, from `ci.yml` only. Owns format, lint, boundaries, styling, root script tests and turbo typecheck and unit tests (affected on PRs, full on main).                               |
-| CI matrix                                                | `policy`, `invariants`, `build`, plus image, audit, migrations and Infrastructure contracts. Nothing the quick check runs.                                                                     |
-| ESLint `max-lines` / `complexity`                        | Warnings. The loop's `/simplify` pass acts on them.                                                                                                                                            |
-| Coverage floors (`metrics:check`), jscpd, `bun evidence` | Reports in the non-blocking "Advisory reports" job. Not in `bun check`.                                                                                                                        |
-| knip                                                     | Warns on PRs; blocks the nightly scheduled CI run on main, which posts failures to Incidents.                                                                                                  |
-| Playwright                                               | Chromium only on PRs, main pushes and the queue. The nightly run on main runs every project: engines, mobile layouts and visual.                                                               |
-| Isolated Room Launch                                     | Required, but it runs on a PR only when the PR changes room, round, realtime, messaging or media paths, the shared domain, or the suite's harness. Otherwise the gate passes as a scoped skip. |
-| `review-record`                                          | Deleted with its workflow, scripts, App wiring and review-debt automation.                                                                                                                     |
+| Gate                                                     | Now                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quick check (`check:affected`)                           | Once per push, from `ci.yml` only. Owns format, lint, boundaries, styling, root script tests and turbo typecheck and unit tests (affected on PRs, full on main).                                                                                                   |
+| CI matrix                                                | `policy`, `invariants`, `build`, plus image, audit, migrations and Infrastructure contracts. Nothing the quick check runs.                                                                                                                                         |
+| ESLint `max-lines` / `complexity`                        | Warnings. The loop's `/simplify` pass acts on them.                                                                                                                                                                                                                |
+| Coverage floors (`metrics:check`), jscpd, `bun evidence` | Reports in the non-blocking "Advisory reports" job. Not in `bun check`.                                                                                                                                                                                            |
+| knip                                                     | Warns on PRs; blocks the nightly scheduled CI run on main, which posts failures to Incidents.                                                                                                                                                                      |
+| Playwright                                               | Chromium only on PRs, main pushes and the queue. The nightly run on main runs every project: engines, mobile layouts and visual.                                                                                                                                   |
+| Isolated Room Launch                                     | Required, but a PR skips it when every changed file is documentation or in a known non-room area (admin, theme, dashboard, shell, beta gate, agent process files). Anything else runs it, unknown paths included, and the gate passes a skip only for that reason. |
+| `review-record`                                          | Deleted with its workflow, scripts, App wiring and review-debt automation.                                                                                                                                                                                         |
 
 The required checks are now CI gate, Playwright E2E and Isolated Room Launch
 E2E, all from GitHub Actions. `bun check` mirrors the blocking CI gates:
@@ -103,10 +103,24 @@ format, lint, policy, invariants, typecheck, unit tests and build.
   silently on main, because the nightly run fails on it.
 - **Cross-browser and visual regressions surface nightly, not per PR.** A
   nightly failure posts to Incidents and is fixed by the owning slice.
-- **A path filter can miss.** A Room Launch regression from a file outside
-  its paths (an auth or dependency change, say) is caught on the main push
-  that follows. Main pushes, merge groups and dispatches always run the
-  suite.
+- **The path filter fails safe.** It skips only on an allowlist of
+  non-room areas, so a new or unknown path runs the suite. A regression that
+  comes through an allowlisted area is caught on the main push that
+  follows; main pushes, merge groups and dispatches always run the suite.
+- **Affected-only checks can still break main.** PRs run typecheck and
+  unit tests on the affected turbo graph, and no merge queue retests a PR
+  against the latest main. Two PRs can each pass and still conflict once
+  both merge. Every main push runs the full quick check, and a red main is
+  fixed first. The flow sweep merges at most two PRs per cycle and checks
+  main after each batch.
+- **Done needs a trusted approval of the merged head.** A merge moves tasks
+  to Done only when the PR's latest `## Review:` comment from a repository
+  collaborator names the merged head SHA, declares a reviewer other than the
+  builder, and approves on a whole verdict line. Until the agent machine
+  identity exists (GRD-6.2), builders and reviewers share the owner's
+  account, so the Reviewer/Builder line is a declaration, not a proof.
+  Anything short of these conditions leaves the tasks in Merged for the
+  board keeper.
 - **Review quality is the loop's job, not a status check.** `PR_READY`
   cannot be emitted with an unresolved thread or a red check.
 - **The live ruleset changes only through the owner.** The owner applies it

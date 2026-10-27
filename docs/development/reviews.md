@@ -63,11 +63,22 @@ SUSPECTED (what would confirm it).
 <n> blocker / <n> major / <n> minor / <n> nit — APPROVE | APPROVE WITH MINORS | CHANGES REQUESTED
 ```
 
-Write the verdict line exactly as shown. When the PR merges,
-`scripts/merge-followup.ts` reads the PR's latest verdict line: it moves the
-PR's tasks to Done only when that line approves with zero blockers and zero
-majors. Otherwise it moves them to Merged, where the board keeper reconciles
-them. A later `CHANGES REQUESTED` supersedes an earlier approval.
+Write the verdict line exactly as shown, on a line of its own. When the PR
+merges, `scripts/merge-followup.ts` reads the comments from repository
+collaborators only (anyone can comment on a public repository) and takes the
+latest comment that starts with `## Review:` and carries a verdict line. It
+moves the PR's tasks to Done only when all of these hold:
+
+- that comment names the merged head SHA;
+- its Reviewer differs from its Builder;
+- its verdict approves with zero blockers and zero majors.
+
+Otherwise the tasks move to Merged, where the board keeper reconciles them.
+The latest verdict always wins, in either direction. A reply that quotes a
+verdict counts for nothing, because only a whole line in a `## Review:`
+comment does. A fix pushed after an approval moves the head, so ask for a
+fresh `/review` before `PR_READY` if the board should reach Done
+automatically.
 
 ## Rules
 

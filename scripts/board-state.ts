@@ -86,16 +86,34 @@ export function mergedTarget(
 
 // The verdict line a /review comment carries (docs/development/reviews.md).
 const VERDICT =
-  /(\d+) blockers? \/ (\d+) majors? \/ \d+ minors? \/ \d+ nits? — (APPROVE WITH MINORS|APPROVE|CHANGES REQUESTED)/g;
+  /^(\d+) blockers? \/ (\d+) majors? \/ \d+ minors? \/ \d+ nits? — (APPROVE WITH MINORS|APPROVE|CHANGES REQUESTED)$/gm;
+const REVIEWER = /^Reviewer: (\S+) · Builder: (\S+)/m;
 
 /**
- * Whether a PR's latest review verdict, across its comments in order,
- * approves with no open blocker or major.
+ * Whether the PR's latest review verdict approves the merged head: the last
+ * `## Review:` comment carrying a whole-line verdict must name `headSha`, declare a reviewer
+ * other than the builder, and approve with no open blocker or major. The
+ * caller passes only comments from repository collaborators.
  */
-export function approvedByReview(comments: readonly string[]): boolean {
-  const last = comments.flatMap((body) => [...body.matchAll(VERDICT)]).at(-1);
+export function approvedByReview(
+  comments: readonly string[],
+  headSha: string,
+): boolean {
+  const body = comments
+    .filter(
+      (text) =>
+        text.trimStart().startsWith('## Review:') && text.match(VERDICT),
+    )
+    .at(-1);
+  const last =
+    body === undefined ? undefined : [...body.matchAll(VERDICT)].at(-1);
+  const people = body === undefined ? null : REVIEWER.exec(body);
   return (
+    body !== undefined &&
     last !== undefined &&
+    body.includes(headSha) &&
+    people !== null &&
+    people[1] !== people[2] &&
     last[3] !== 'CHANGES REQUESTED' &&
     last[1] === '0' &&
     last[2] === '0'

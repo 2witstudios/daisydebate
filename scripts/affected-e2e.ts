@@ -80,24 +80,25 @@ const native = new Set(
 );
 const launch = [...native].filter((spec) => !spec.includes('realtime'));
 const standard = Object.keys(browserOwners).filter((spec) => !native.has(spec));
-// A PR runs Isolated Room Launch only when it changes what that suite
-// proves: rooms, rounds, realtime, messaging, media, the domain they share,
-// or the suite's own harness (ADR 0083).
-const nativeTriggers = [
-  ...room,
-  ...round,
-  ...realtime,
-  ...messaging,
-  ...media,
-  'packages/debate-engine/',
-  'packages/protocol/',
-  ...[...native].map((spec) => `apps/web/e2e/${spec}`),
-  'apps/web/e2e/support/',
-  'apps/web/playwright.config.ts',
-  '.github/workflows/e2e.yml',
-  'scripts/affected-e2e.ts',
-  'scripts/select-e2e.ts',
+// A PR skips Isolated Room Launch only when every changed file is
+// documentation or sits in a known area the suite does not exercise; room,
+// round, realtime, messaging and media paths, auth, the database, Redis,
+// dependencies and anything unknown all run it (ADR 0083).
+const nonNative = [
+  'docs/',
+  '.claude/',
+  '.opencode/',
+  'policy/agent-pipeline/',
+  'apps/admin/',
+  ...theme,
+  'apps/web/src/ui/dashboard/',
+  'apps/web/src/ui/shell/',
+  'apps/web/src/ui/beta/',
+  'apps/web/src/features/access/',
+  'apps/web/src/app/(bare)/beta/',
 ];
+const skipsNative = (file: string) =>
+  file.endsWith('.md') || nonNative.some((prefix) => file.startsWith(prefix));
 // Per-change runs (PRs, main pushes, the queue) use Chromium alone; the
 // nightly and manual runs keep every engine, mobile layout and the visual
 // project (ADR 0083).
@@ -155,9 +156,8 @@ export function selectBrowserSpecs(
     nativeSpecs,
     runNative:
       event !== 'pull_request' ||
-      files.some((file) =>
-        nativeTriggers.some((prefix) => file.startsWith(prefix)),
-      ),
+      files.length === 0 ||
+      !files.every(skipsNative),
     projectArgs: chromiumOnly ? ['--project=chromium'] : [],
     browsers: chromiumOnly ? 'chromium' : 'chromium firefox webkit',
     mode: full ? 'full' : 'affected',

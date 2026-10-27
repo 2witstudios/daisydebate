@@ -220,8 +220,8 @@ it runs: stop idle ones.
   gate for an exact clean candidate pushed to main.
 - CI on a PR: the quick check, then `policy`, `invariants` and `build`,
   plus image, audit, migrations, and Infrastructure contracts; Chromium
-  Playwright; and Isolated Room Launch only when the PR changes room, round,
-  realtime, messaging or media paths. The nightly main run adds every
+  Playwright; and Isolated Room Launch unless every changed file is
+  documentation or in a known non-room area. The nightly main run adds every
   Playwright project, and knip blocks there. Required checks: CI gate,
   Playwright E2E, Isolated Room Launch E2E.
 - `bun migrations:check`: fails a branch that rewrites, reorders, truncates,

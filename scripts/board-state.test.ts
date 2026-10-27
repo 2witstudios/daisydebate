@@ -95,34 +95,44 @@ describe('mergedTarget', () => {
 });
 
 describe('approvedByReview', () => {
-  test('the latest verdict line decides', () => {
-    const changes = '0 blocker / 1 major / 2 minor / 0 nit — CHANGES REQUESTED';
-    const approve = '0 blocker / 0 major / 0 minor / 3 nit — APPROVE';
-    const minors =
-      '0 blocker / 0 major / 2 minor / 0 nit — APPROVE WITH MINORS';
+  const head = 'a'.repeat(40);
+  const review = (verdict: string, sha = head, reviewer = 'ag-rev') =>
+    `## Review: x at ${sha}\n\nReviewer: ${reviewer} · Builder: ag-build\n\n### Verdict\n\n${verdict}\n`;
+  const changes = '0 blocker / 1 major / 2 minor / 0 nit — CHANGES REQUESTED';
+  const approve = '0 blocker / 0 major / 0 minor / 3 nit — APPROVE';
+  const minors = '0 blocker / 0 major / 2 minor / 0 nit — APPROVE WITH MINORS';
+
+  test('the latest verdict on the merged head decides', () => {
     assert({
       given: 'no verdict, approvals, and approvals before or after changes',
       should: 'approve only when the last verdict approves',
       actual: [
         [],
         ['LGTM', 'Fixed in abc.'],
-        [`## Verdict\n\n${approve}\n`],
-        [`**${minors}**`],
-        [changes, 'fixed', minors],
-        [minors, changes],
-      ].map(approvedByReview),
+        [review(approve)],
+        [review(minors)],
+        [review(changes), 'fixed', review(minors)],
+        [review(minors), review(changes)],
+      ].map((comments) => approvedByReview(comments, head)),
       expected: [false, false, true, true, true, false],
     });
   });
-  test('an approval that still counts a blocker or major never approves', () => {
+
+  test('an approval of another head, by the builder, or counting a blocker never approves', () => {
     assert({
-      given: 'an APPROVE verdict counting an open blocker, then a major',
+      given:
+        'an approval naming an earlier head, one whose reviewer is the builder, a bare verdict line, approvals counting a blocker or a major, a reply quoting an approval, and a verdict embedded mid-line',
       should: 'not approve',
       actual: [
-        ['1 blocker / 0 major / 0 minor / 0 nit — APPROVE'],
-        ['0 blocker / 2 major / 0 minor / 0 nit — APPROVE WITH MINORS'],
-      ].map(approvedByReview),
-      expected: [false, false],
+        [review(approve, 'b'.repeat(40))],
+        [review(approve, head, 'ag-build')],
+        [approve],
+        [review('1 blocker / 0 major / 0 minor / 0 nit — APPROVE')],
+        [review('0 blocker / 2 major / 0 minor / 0 nit — APPROVE WITH MINORS')],
+        [review(changes), `> ${review(approve).split('\n').join('\n> ')}`],
+        [review(changes), `${review(changes)}\nlgtm ${approve}`],
+      ].map((comments) => approvedByReview(comments, head)),
+      expected: [false, false, false, false, false, false, false],
     });
   });
 });

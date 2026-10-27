@@ -65,6 +65,7 @@ jobs:
           MERGE_TITLE: ${{ github.event.pull_request.title }}
           MERGE_BODY: ${{ github.event.pull_request.body }}
           MERGE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          MERGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bun scripts/merge-followup.ts
 
   documentation-event:

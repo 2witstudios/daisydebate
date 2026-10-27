@@ -85,7 +85,8 @@ touched. CI is the full gate. Heavy commands queue machine-wide through
   `bun metrics:check` are reports. CI runs them in its non-blocking
   "Advisory reports" job, and knip blocks only the nightly main run.
 - CI runs the quick check once per push. Chromium Playwright runs on every
-  PR, and Isolated Room Launch runs only when a PR changes its paths. The
+  PR, and Isolated Room Launch is skipped only when every changed file is
+  documentation or in a known non-room area. The
   nightly run on main adds every Playwright project.
 - Run `bun migrations:check` whenever migrations change.
 

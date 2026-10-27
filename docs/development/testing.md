@@ -559,12 +559,16 @@ cascades into browser reds.
   webkit-mobile and visual) and posts a failure to the drive's Incidents
   channel.
 - **Isolated Room Launch.** A light `scope` job runs the same selector
-  without installing anything. On a PR it starts the native suite only when
-  the diff touches one of these:
-  - rooms, rounds, realtime, messaging or media sources;
-  - `packages/debate-engine` or `packages/protocol`;
-  - a native spec, `apps/web/e2e/support/`, the Playwright config, or the
-    browser workflow and its selection scripts.
+  without installing anything. It fails safe: a PR skips the native suite
+  only when every changed file is documentation (`docs/` or any `.md`) or
+  sits in a known area the suite does not exercise:
+  - agent process files (`.claude/`, `.opencode/`, `policy/agent-pipeline/`);
+  - the admin app;
+  - theme, dashboard, shell, and the beta gate and access screens.
+
+  Anything else runs it, including room, round, realtime, messaging, media,
+  auth, database, Redis, dependency and unknown paths, and so does an empty
+  diff.
 
   Main pushes, merge groups, the nightly run and dispatches always run it.
   The required `Isolated Room Launch E2E` check passes when the suite
