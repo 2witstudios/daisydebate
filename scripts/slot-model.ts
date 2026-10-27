@@ -20,7 +20,8 @@ export type Slot = {
   readonly testDatabase: string;
   /** The browser suite's own database, so integration never sees its rows. */
   readonly e2eDatabase: string;
-  /** The admin app's own databases (ADR 0076): integration and browser. */
+  /** The admin app's own databases (ADR 0076): dev, integration, browser. */
+  readonly adminDatabase: string;
   readonly adminTestDatabase: string;
   readonly adminE2eDatabase: string;
   readonly namespace: string;
@@ -70,6 +71,7 @@ export function worktreeSlot(id: string): Slot {
     database: `${worktreeDatabasePrefix}${id}`,
     testDatabase: `${worktreeDatabasePrefix}${id}_test`,
     e2eDatabase: `${worktreeDatabasePrefix}${id}_e2e`,
+    adminDatabase: `${worktreeDatabasePrefix}${id}_admin`,
     adminTestDatabase: `${worktreeDatabasePrefix}${id}_admin_test`,
     adminE2eDatabase: `${worktreeDatabasePrefix}${id}_admin_e2e`,
     namespace: `${worktreeNamespacePrefix}${hyphenated}`,
@@ -83,6 +85,7 @@ const mainSlot: Slot = {
   database: prefix,
   testDatabase: `${prefix}_test`,
   e2eDatabase: `${prefix}_e2e`,
+  adminDatabase: `${prefix}_admin`,
   adminTestDatabase: `${prefix}_admin_test`,
   adminE2eDatabase: `${prefix}_admin_e2e`,
   namespace: prefix,
@@ -165,7 +168,7 @@ const idOfDatabase = (name: string): string | undefined => {
   const id = name
     .slice(worktreeDatabasePrefix.length)
     .replace(/_test_run_[0-9a-f]{8}$/, '')
-    .replace(/_admin_(?:test|e2e)$|_(?:test|e2e)$/, '');
+    .replace(/_admin(?:_test|_e2e)?$|_(?:test|e2e)$/, '');
   return isSlotId(id) ? id : undefined;
 };
 
@@ -309,6 +312,7 @@ const slotEnvKeys = [
   'MEDIA_WORKER_DATABASE_URL',
   'TEST_ADMIN_DATABASE_URL',
   'E2E_ADMIN_DATABASE_URL',
+  'ADMIN_DATABASE_URL',
 ] as const;
 
 /**
@@ -359,9 +363,10 @@ export function slotEnvValues({
       mediaWorkerRole,
     ),
     // The admin app's owner URLs; its suites and browser server derive the
-    // DML-only logins themselves (ADR 0076).
+    // DML-only logins themselves, and dev runs as the owner (ADR 0076).
     TEST_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminTestDatabase),
     E2E_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminE2eDatabase),
+    ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminDatabase),
   };
 }
 

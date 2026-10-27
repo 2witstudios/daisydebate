@@ -22,8 +22,10 @@ describe('orphan detection', () => {
           'daisy_wt_gone_test',
           'daisy_wt_gone_e2e',
           'daisy_wt_gone_test_run_0a1b2c3d',
+          'daisy_wt_gone_admin',
           'daisy_wt_gone_admin_test',
           'daisy_wt_gone_admin_e2e',
+          'daisy_wt_live1_admin',
           'daisy_wt_live1_admin_test',
           'daisy_wt_live1_test_run_0a1b2c3d',
           'daisy_wt_Bad',
@@ -44,6 +46,7 @@ describe('orphan detection', () => {
         ids: ['gone'],
         databases: [
           'daisy_wt_gone',
+          'daisy_wt_gone_admin',
           'daisy_wt_gone_admin_e2e',
           'daisy_wt_gone_admin_test',
           'daisy_wt_gone_e2e',

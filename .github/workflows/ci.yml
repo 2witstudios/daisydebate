@@ -85,7 +85,7 @@ jobs:
   image:
     name: Web and migrator image
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,6 +96,22 @@ jobs:
         run: >-
           docker run --rm --entrypoint bun daisy-web-ci --eval
           'await import("@daisy/ingress/client-ip"); await import("../../packages/media/src/index.ts");'
+      # ADR 0076: the admin stages deploy from this Dockerfile too, so they
+      # are built and booted here before any deploy does it first.
+      - name: Build the admin and admin migrator stages
+        run: |
+          docker build --progress=plain -f apps/web/Dockerfile --target admin -t daisy-admin-ci .
+          docker build --progress=plain -f apps/web/Dockerfile --target admin-migrate -t daisy-admin-migrate-ci .
+      - name: Boot each admin image to its configuration refusal
+        run: |
+          refuses() {
+            if output=$(docker run --rm "$1" 2>&1); then
+              echo "$1 started without its configuration"; exit 1
+            fi
+            grep -F "$2" <<<"$output" || { echo "$output"; exit 1; }
+          }
+          refuses daisy-admin-ci 'Invalid admin configuration: ADMIN_DATABASE_URL'
+          refuses daisy-admin-migrate-ci 'Invalid admin configuration: ADMIN_MIGRATION_DATABASE_URL'
 
   audit:
     name: Dependency vulnerability audit

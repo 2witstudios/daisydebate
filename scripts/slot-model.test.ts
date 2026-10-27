@@ -33,6 +33,7 @@ describe('slot derivation', () => {
         database: 'daisy',
         testDatabase: 'daisy_test',
         e2eDatabase: 'daisy_e2e',
+        adminDatabase: 'daisy_admin',
         adminTestDatabase: 'daisy_admin_test',
         adminE2eDatabase: 'daisy_admin_e2e',
         namespace: 'daisy',
@@ -55,6 +56,7 @@ describe('slot derivation', () => {
         database: 'daisy_wt_3ctbm0tw',
         testDatabase: 'daisy_wt_3ctbm0tw_test',
         e2eDatabase: 'daisy_wt_3ctbm0tw_e2e',
+        adminDatabase: 'daisy_wt_3ctbm0tw_admin',
         adminTestDatabase: 'daisy_wt_3ctbm0tw_admin_test',
         adminE2eDatabase: 'daisy_wt_3ctbm0tw_admin_e2e',
         namespace: 'daisy-wt-3ctbm0tw',
@@ -88,12 +90,13 @@ describe('slot derivation', () => {
         postgresIdentifierRule.test(slot.database),
         postgresIdentifierRule.test(slot.testDatabase),
         postgresIdentifierRule.test(slot.e2eDatabase),
+        postgresIdentifierRule.test(slot.adminDatabase),
         postgresIdentifierRule.test(slot.adminTestDatabase),
         postgresIdentifierRule.test(slot.adminE2eDatabase),
         redisNamespaceRule.test(slot.namespace),
         redisNamespaceRule.test(slot.e2eNamespace),
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true, true],
     });
   });
 
@@ -260,6 +263,8 @@ describe('slot .env values', () => {
           'postgres://daisy:local-development-only@localhost:15432/daisy_admin_test',
         E2E_ADMIN_DATABASE_URL:
           'postgres://daisy:local-development-only@localhost:15432/daisy_admin_e2e',
+        ADMIN_DATABASE_URL:
+          'postgres://daisy:local-development-only@localhost:15432/daisy_admin',
       },
     });
   });
@@ -297,6 +302,8 @@ describe('slot .env values', () => {
           'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin_test',
         E2E_ADMIN_DATABASE_URL:
           'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin_e2e',
+        ADMIN_DATABASE_URL:
+          'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin',
       },
     });
   });

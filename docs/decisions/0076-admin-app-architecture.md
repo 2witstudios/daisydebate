@@ -54,8 +54,8 @@ how operators authenticate, how they are authorized, and what the app records.
   database, roles and CONNECT revocation do not already give. The accepted
   residual risk is a compromise of the cluster superuser or host.
   **A separate production cluster is a production gate.**
-- `bun slot:up` creates and migrates `<slot>_admin_test` and `<slot>_admin_e2e`
-  beside the participant databases; CI creates `daisy_admin_test`
+- `bun slot:up` creates and migrates `<slot>_admin` (dev), `<slot>_admin_test`
+  and `<slot>_admin_e2e` beside the participant databases; CI creates `daisy_admin_test`
   (`TEST_ADMIN_DATABASE_URL`), which `requireAdminTestDatabase` guards.
 
 ### 3. Operator authentication

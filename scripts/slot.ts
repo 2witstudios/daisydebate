@@ -266,7 +266,7 @@ const slotDatabases = (slot: Slot) =>
   [slot.database, slot.testDatabase, slot.e2eDatabase] as const;
 /** The admin app's own databases, migrated by its own migrator (ADR 0076). */
 const adminDatabases = (slot: Slot) =>
-  [slot.adminTestDatabase, slot.adminE2eDatabase] as const;
+  [slot.adminDatabase, slot.adminTestDatabase, slot.adminE2eDatabase] as const;
 
 /** The checkout's own admin migrator, as the cluster owner. */
 async function migrateAdmin(

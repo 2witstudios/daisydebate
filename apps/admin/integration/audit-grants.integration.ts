@@ -31,7 +31,11 @@ const append = async (count: number) => {
     );
 };
 
-/** Runs `statement` as daisy_admin_app; returns 'ok' or the SQLSTATE class. */
+/**
+ * Runs `statement` as daisy_admin_app: 'ok', 'denied' only for
+ * insufficient_privilege (42501), else the error itself, so a statement that
+ * fails for another reason cannot pass as a grant proof.
+ */
 const asRuntime = (statement: ReturnType<typeof sql>) =>
   db
     .transaction(async (tx) => {
@@ -39,7 +43,13 @@ const asRuntime = (statement: ReturnType<typeof sql>) =>
       await tx.execute(statement);
       return 'ok';
     })
-    .catch(() => 'denied');
+    .catch((error: unknown) => (sqlState(error) === '42501' ? 'denied' : error));
+
+const sqlState = (error: unknown): unknown => {
+  for (let current = error; current instanceof Error; current = current.cause)
+    if ('errno' in current) return current.errno;
+  return undefined;
+};
 
 test('the runtime role may only append to and read the audit chain', async () => {
   await append(1);
