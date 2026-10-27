@@ -2,7 +2,14 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
-import type { DebateSide, RoundSeat, RoundView } from '@daisy/protocol';
+import type { DebateSide, RoundView } from '@daisy/protocol';
+import {
+  floorSideOf,
+  isLiveRound,
+  isSeat,
+  judgeKindOf,
+  sideName,
+} from '../round-runtime/round-reading';
 
 /**
  * Why a viewer watches a Round they hold no seat in. Today only its seatless
@@ -54,38 +61,17 @@ export type SpectatorView = {
   readonly judge: 'ai' | 'human' | null;
 };
 
-type Seat = RoundSeat & { role: DebateSide };
-type Participant = RoundView['participants'][number];
-
-const sideName: Readonly<Record<DebateSide, string>> = {
-  affirmative: 'Affirmative',
-  negative: 'Negative',
-};
-
-const isSeat = (p: Participant): p is Seat => p.role !== 'judge';
-
-const live = (view: RoundView) =>
-  view.status === 'scheduled' || view.status === 'active';
-
 /** The audience a viewer watches as; null when they debate, or the Round is over or not theirs to watch. */
 export function spectatorAudienceOf(
   view: RoundView,
   actorId: string,
 ): SpectatorAudience | null {
-  if (!live(view) || !view.viewerIsHost) return null;
+  if (!isLiveRound(view) || !view.viewerIsHost) return null;
   const seated = view.participants
     .filter(isSeat)
     .some((p) => p.actorId === actorId);
   return seated ? null : 'host';
 }
-
-/** Who holds the floor: an accepted interruption, else the segment's side. */
-const floorOf = (
-  view: RoundView,
-  open: NonNullable<RoundPosition['openSegment']>,
-): DebateSide =>
-  view.participants.filter(isSeat).find((p) => p.id === open.floorParticipantId)
-    ?.role ?? open.side;
 
 function stageOf(view: RoundView, position: RoundPosition): SpectatorStage {
   if (view.status === 'scheduled') return 'starting';
@@ -125,7 +111,7 @@ function activityOf(
   const open = position.openSegment;
   if (open?.type === 'cross_ex')
     return open.side === side ? 'asking' : 'answering';
-  if (open) return floorOf(view, open) === side ? 'speaking' : 'listening';
+  if (open) return floorSideOf(view, open) === side ? 'speaking' : 'listening';
   if (position.prep?.side === side) return 'preparing';
   return 'waiting';
 }
@@ -171,12 +157,6 @@ function speechesOf(
   }));
 }
 
-const judgeOf = (view: RoundView): SpectatorView['judge'] => {
-  const judge = view.participants.find((p) => p.role === 'judge');
-  if (!judge) return null;
-  return judge.kind === 'bot' ? 'ai' : 'human';
-};
-
 /**
  * The Round at one instant for a spectator, derived with the same position
  * reader the server and the debaters use. An active Round whose checkpoint
@@ -210,6 +190,30 @@ export function spectatorViewOf(view: RoundView, nowMs: number): SpectatorView {
     clock: position ? clockOf(position) : null,
     seats,
     speeches: speechesOf(view, position),
-    judge: judgeOf(view),
+    judge: judgeKindOf(view),
   };
+}
+
+/** Which live view a member without a debater's seat gets, with what it needs. */
+export type WatchingRoom<R> =
+  | { readonly kind: 'judge'; readonly round: R }
+  | { readonly kind: 'spectator'; readonly audience: SpectatorAudience }
+  | { readonly kind: 'receipt' };
+
+/**
+ * The room route's order for a member without a debater's seat (ISSUE-673):
+ * the assigned judge's live view first, so a host who also judges judges;
+ * then a spectator's view for an audience; else the Round's receipt.
+ */
+export function watchingRoomOf<R extends Pick<RoundView, 'status'>>(input: {
+  readonly judgeRound: R | null;
+  readonly audience: SpectatorAudience | null;
+}): WatchingRoom<R> {
+  if (input.judgeRound !== null)
+    return isLiveRound(input.judgeRound)
+      ? { kind: 'judge', round: input.judgeRound }
+      : { kind: 'receipt' };
+  return input.audience === null
+    ? { kind: 'receipt' }
+    : { kind: 'spectator', audience: input.audience };
 }

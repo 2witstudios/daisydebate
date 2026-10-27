@@ -2,7 +2,16 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
-import type { DebateSide, RoundSeat, RoundView } from '@daisy/protocol';
+import type { DebateSide, RoundView } from '@daisy/protocol';
+import {
+  floorSideOf,
+  initialsOf,
+  isLiveRound,
+  isSeat,
+  judgeKindOf,
+  sideName,
+  type Seat,
+} from '../../features/round-runtime/round-reading';
 import type {
   Side,
   SpeechSlot,
@@ -16,37 +25,18 @@ import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 
 type Participant = RoundView['participants'][number];
-type Seat = RoundSeat & { role: DebateSide };
 
 const sideOf: Readonly<Record<DebateSide, Side>> = {
   affirmative: 'aff',
   negative: 'neg',
 };
-const sideName: Readonly<Record<DebateSide, string>> = {
-  affirmative: 'Affirmative',
-  negative: 'Negative',
-};
-
-const live = (view: RoundView) =>
-  view.status === 'scheduled' || view.status === 'active';
-
-const isDebater = (p: Participant): p is Seat => p.role !== 'judge';
-
 const debaterSeat = (view: RoundView, actorId: string) =>
-  view.participants.filter(isDebater).find((p) => p.actorId === actorId);
+  view.participants.filter(isSeat).find((p) => p.actorId === actorId);
 
 /** The round room is for a debater of a round that has not ended. */
 export function isLiveDebater(view: RoundView, actorId: string): boolean {
-  return live(view) && debaterSeat(view, actorId) !== undefined;
+  return isLiveRound(view) && debaterSeat(view, actorId) !== undefined;
 }
-
-const initialsOf = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');
 
 const debater = (p: Seat): Debater => ({
   id: p.actorId,
@@ -58,7 +48,7 @@ const debater = (p: Seat): Debater => ({
 });
 
 const person = (p: Participant): RoundPerson =>
-  isDebater(p)
+  isSeat(p)
     ? {
         id: p.actorId,
         name: p.label,
@@ -82,12 +72,6 @@ const speechesOf = (view: RoundView): readonly SpeechSlot[] =>
     durationMs: segment.durationMs,
   }));
 
-const judgeOf = (view: RoundView): RoundSnapshot['judge'] => {
-  const judge = view.participants.find((p) => p.role === 'judge');
-  if (!judge) return null;
-  return judge.kind === 'bot' ? 'ai' : 'human';
-};
-
 const positionOf = (view: RoundView, nowMs: number): RoundPosition =>
   roundPositionAt({
     round: view,
@@ -96,15 +80,6 @@ const positionOf = (view: RoundView, nowMs: number): RoundPosition =>
     rules: view.rules,
     nowMs,
   });
-
-/** Who holds the floor: an accepted interruption, else the segment's side. */
-const floorSide = (
-  view: RoundView,
-  open: NonNullable<RoundPosition['openSegment']>,
-): DebateSide =>
-  view.participants
-    .filter(isDebater)
-    .find((p) => p.id === open.floorParticipantId)?.role ?? open.side;
 
 /** The phase this debater is in, from the derived position. */
 function phaseOf(
@@ -119,7 +94,7 @@ function phaseOf(
   const open = position.openSegment;
   if (position.stage !== 'live' || !open) return 'waiting';
   if (open.type === 'cross_ex') return 'cross-ex';
-  return floorSide(view, open) === side ? 'own-speech' : 'opponent-speaking';
+  return floorSideOf(view, open) === side ? 'own-speech' : 'opponent-speaking';
 }
 
 const segmentClock = (
@@ -207,7 +182,7 @@ function liveParts(
     clock:
       phase !== 'judging'
         ? clockOf(view, position, side)
-        : judgeOf(view)
+        : judgeKindOf(view)
           ? judgingClockOf(finalCloseMs(view), nowMs)
           : null,
     prepMs: prepOf(position),
@@ -226,9 +201,9 @@ export function liveRoundOf(
   nowMs: number,
 ): RoundSnapshot | null {
   const seat = debaterSeat(view, actorId);
-  if (!live(view) || !seat) return null;
+  if (!isLiveRound(view) || !seat) return null;
   const opponent = view.participants
-    .filter(isDebater)
+    .filter(isSeat)
     .find((p) => p.role !== seat.role);
   if (!opponent) return null;
   const { phase, ...clocks } = liveParts(view, seat.role, nowMs);
@@ -239,8 +214,8 @@ export function liveRoundOf(
     self: debater(seat),
     opponent: debater(opponent),
     people: view.participants.map(person),
-    judge: judgeOf(view),
-    ballots: judgingBallotsOf(judgeOf(view)),
+    judge: judgeKindOf(view),
+    ballots: judgingBallotsOf(judgeKindOf(view)),
     stakes: null,
     recording: false,
     transcribing: false,

@@ -11,7 +11,11 @@ import {
   startOf,
   view,
 } from '../../ui/debate-room/live-round.test-support';
-import { spectatorAudienceOf, spectatorViewOf } from './spectator-view';
+import {
+  spectatorAudienceOf,
+  spectatorViewOf,
+  watchingRoomOf,
+} from './spectator-view';
 
 setupRitewayBun();
 
@@ -25,16 +29,17 @@ describe('spectatorAudienceOf', () => {
   test('who watches as a spectator today', () => {
     assert({
       given:
-        'a seatless host of a live Round, the same host once it ended, a seated host, and a member who does not host',
+        'a seatless host of a live Round, the same host once it ended or was abandoned, a seated host, and a member who does not host (ISSUE-673)',
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
         spectatorAudienceOf(hosted(ran(1)), host),
         spectatorAudienceOf(hosted({ ...view, status: 'scheduled' }), host),
         spectatorAudienceOf(hosted({ ...view, status: 'completed' }), host),
+        spectatorAudienceOf(hosted({ ...view, status: 'abandoned' }), host),
         spectatorAudienceOf(hosted(ran(1)), aff.actorId),
         spectatorAudienceOf({ ...ran(1), viewerIsHost: false }, host),
       ],
-      expected: ['host', 'host', null, null, null],
+      expected: ['host', 'host', null, null, null, null],
     });
   });
 });
@@ -185,6 +190,34 @@ describe('spectatorViewOf', () => {
         watched.speeches.every((speech) => speech.state === 'done'),
       ],
       expected: ['judging', null, true],
+    });
+  });
+});
+
+describe('watchingRoomOf', () => {
+  test('the room route sends a host who also judges to the judge room (ISSUE-673)', () => {
+    const judging = ran(1);
+    assert({
+      given:
+        'a seatless host assigned as the live judge, the same once the Round ended, a seatless host who does not judge, and a member with neither',
+      should:
+        'judge first, then fall back to the receipt; watch as a spectator; and otherwise show the receipt',
+      actual: [
+        watchingRoomOf({
+          judgeRound: judging,
+          audience: spectatorAudienceOf(hosted(judging), host),
+        }).kind,
+        watchingRoomOf({
+          judgeRound: { ...judging, status: 'completed' },
+          audience: 'host',
+        }).kind,
+        watchingRoomOf({
+          judgeRound: null,
+          audience: spectatorAudienceOf(hosted(judging), host),
+        }).kind,
+        watchingRoomOf({ judgeRound: null, audience: null }).kind,
+      ],
+      expected: ['judge', 'receipt', 'spectator', 'receipt'],
     });
   });
 });

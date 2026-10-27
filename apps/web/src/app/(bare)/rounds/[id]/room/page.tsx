@@ -18,7 +18,10 @@ import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
-import { spectatorAudienceOf } from '../../../../../features/spectating/spectator-view';
+import {
+  spectatorAudienceOf,
+  watchingRoomOf,
+} from '../../../../../features/spectating/spectator-view';
 import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-room';
 
 export const metadata: Metadata = { title: 'Round' };
@@ -35,26 +38,26 @@ async function watchingRoom(
 ) {
   const assigned = await readPersistedJudgeRound(id);
   if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (assigned.kind !== 'found') {
-    const audience = spectatorAudienceOf(round, actorId);
-    if (audience === null) redirect(`/rounds/${id}`);
+  const room = watchingRoomOf({
+    judgeRound: assigned.kind === 'found' ? assigned.round : null,
+    audience: spectatorAudienceOf(round, actorId),
+  });
+  if (room.kind === 'receipt') redirect(`/rounds/${id}`);
+  if (room.kind === 'spectator')
     return (
       <LiveSpectatorRoom
         view={round}
-        audience={audience}
+        audience={room.audience}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}
         socketUrl={socketUrl}
       />
     );
-  }
-  if (!['active', 'scheduled'].includes(assigned.round.status))
-    redirect(`/rounds/${id}`);
   return (
     <>
       <MediaDocument />
       <LiveJudgeRoom
-        view={assigned.round}
+        view={room.round}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}
       />
