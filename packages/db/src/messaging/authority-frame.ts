@@ -35,7 +35,7 @@ const actorIdsOf = (
 
 const castChanges = new WeakSet<Error>();
 /** The channel's cast moved between discovery and the fences; a read restarts. */
-export const isCastChange = (error: unknown) =>
+const isCastChange = (error: unknown) =>
   error instanceof Error && castChanges.has(error);
 function castChanged() {
   const error = createAppError('CONFLICT');

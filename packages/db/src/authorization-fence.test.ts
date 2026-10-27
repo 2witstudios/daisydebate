@@ -9,17 +9,17 @@ import {
 } from './authorization';
 import { factOfRow } from './room-command-operations.test-support';
 setupRitewayBun();
+const account = {
+  userId: 'a'.repeat(24),
+  actorId: 'b'.repeat(24),
+  member: true,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
+  erased: false,
+  revision: 1,
+};
 test('both account loaders use the canonical minimal function with distinct selector modes', async () => {
-  const account = {
-    userId: 'a'.repeat(24),
-    actorId: 'b'.repeat(24),
-    member: true,
-    betaState: 'approved',
-    betaRevision: 1,
-    ageBand: 'adult',
-    erased: false,
-    revision: 1,
-  };
   const fact = factOfRow(account);
   const queries: { sql: string; params: unknown[] }[] = [];
   const dialect = new PgDialect();
@@ -59,16 +59,6 @@ test('both account loaders use the canonical minimal function with distinct sele
 });
 
 test('readers take the shared account fence; writers keep the exclusive one', async () => {
-  const account = {
-    userId: 'a'.repeat(24),
-    actorId: 'b'.repeat(24),
-    member: true,
-    betaState: 'approved',
-    betaRevision: 1,
-    ageBand: 'adult',
-    erased: false,
-    revision: 1,
-  };
   const queries: string[] = [];
   const dialect = new PgDialect();
   const tx = {

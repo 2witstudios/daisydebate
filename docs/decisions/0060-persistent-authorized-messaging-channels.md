@@ -105,3 +105,20 @@ The complete epic requires all slices, full repository/service/browser gates,
 independent exact-head published review and fixes for findings. Production
 provider/identity/deploy activation is human-only. This ADR changes no schema,
 route, evaluator, public contract export or runtime behavior on its own.
+
+## Amendment (2026-10-27): shared read fences
+
+MSG-2.1-arch1 (G4) splits the fence contract by intent. Writers keep the
+exclusive fences (`daisy_authorization_accounts_v2(…, true)`, then
+`daisy_messaging_channel_fence`). Readers (history, channel reads, typing,
+reaction summaries, invitation previews and the age reader) take the same
+rows in the same order `FOR SHARE`, through
+`daisy_authorization_read_accounts_v2` and
+`daisy_messaging_channel_read_fence`. Peer readers no longer serialize one
+another, and a reader still waits for a writer and a writer for its
+readers, so no reader sees a half-applied authority change. A reader that
+observes a cast change after its waits restarts once, bounded, rather than
+answering from the earlier cast. A transaction that already holds the
+exclusive fence and then reads takes a lock it already covers; locks are
+never upgraded. Order stays user rows, then the contact pair, then the
+channel row.
