@@ -248,9 +248,10 @@ complete (DEC-218).
 Each claim joins one native publication when its seat starts, ahead of
 generation and synthesis, and every attempt reuses it (DEC-225). The track is
 used only once capture reports hearing it: the capture worker reports each bot
-track it subscribes to through its signed ingress, admitted for a bound bot
-seat in the open segment under a current lease, into the expiring Redis key
-`botheard` (Round and track id, 30 s). The bot polls that key every 50 ms
+track it subscribes to through its signed ingress, admitted by media capture
+for a bound bot seat in the open segment under a current lease, into
+capture's expiring Redis key `captureheard` (Round and track id, 30 s), which
+the bot reads as a named input. The bot polls that key every 50 ms
 after joining, so no window is credited before capture can see the track
 (DEC-226, ISSUE-514-r2). A track not reported within 10 s is closed and the
 attempt fails as `unheard`. The key grants no authority.

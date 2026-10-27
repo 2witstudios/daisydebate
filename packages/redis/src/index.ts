@@ -1,5 +1,6 @@
 import { createMediaAdmissionHints } from './media-admission';
 import { createBotActivityOperations } from './bot-activity';
+import { createCaptureHeardOperations } from './capture-heard';
 import { createMessagingTypingOperations } from './messaging-typing';
 import { RedisClient } from 'bun';
 import { createRoomReadinessOperations } from './room-readiness';
@@ -207,6 +208,7 @@ export function createRedis({
       }
     },
     ...createBotActivityOperations({ client, namespace, reportFailure }),
+    ...createCaptureHeardOperations({ client, namespace, reportFailure }),
     ...createMediaAdmissionHints({ client, namespace, reportFailure }),
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),

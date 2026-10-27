@@ -7,10 +7,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
-import {
-  createBotActivityRelay,
-  createBotHeardRelay,
-} from '../src/features/round-bots/activity-relay';
+import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
+import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
@@ -209,7 +207,7 @@ export const captureHeardRelay = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
   capture: ReturnType<typeof captureOperations>,
 ) =>
-  createBotHeardRelay({
+  createCaptureHeardRelay({
     readCapture: (identity) => capture.readMediaCaptureState(identity),
     readLease: (identity) => capture.readCurrentCaptureLease(identity),
     write: fixture.redis.writeCaptureHeard,

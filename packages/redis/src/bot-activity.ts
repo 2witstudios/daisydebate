@@ -41,12 +41,6 @@ export function createBotActivityOperations(input: {
       throw new Error('Invalid bot activity scope');
     return redisKey(input.namespace, 'botactivity', roundId, participantId);
   };
-  const heardKey = (roundId: string, trackId: string) => {
-    if (!idSchema.safeParse(roundId).success)
-      throw new Error('Invalid heard track scope');
-    // The key segment pattern bounds the track id.
-    return redisKey(input.namespace, 'botheard', roundId, trackId);
-  };
   const reported = async <T>(
     operation: string,
     work: () => Promise<T>,
@@ -75,29 +69,6 @@ export function createBotActivityOperations(input: {
           'PX',
           '1000',
         ]);
-      });
-    },
-    /**
-     * Capture hears a bot seat's track (ISSUE-514-r2): identifiers only, no
-     * authority. The bot credits speech only once it reads its own seat here.
-     */
-    writeCaptureHeard: (heard: {
-      readonly roundId: string;
-      readonly trackId: string;
-      readonly seat: string;
-    }) => {
-      if (!idSchema.safeParse(heard.seat).success)
-        throw new Error('Invalid heard seat');
-      const scopedKey = heardKey(heard.roundId, heard.trackId);
-      return reported('writeCaptureHeard', async () => {
-        await input.client.send('SET', [scopedKey, heard.seat, 'PX', '30000']);
-      });
-    },
-    readCaptureHeard: (roundId: string, trackId: string) => {
-      const scopedKey = heardKey(roundId, trackId);
-      return reported('readCaptureHeard', async () => {
-        const seat = await input.client.get(scopedKey);
-        return seat !== null && idSchema.safeParse(seat).success ? seat : null;
       });
     },
     readBotActivity: (roundId: string, participantId: string) => {

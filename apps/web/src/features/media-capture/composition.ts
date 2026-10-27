@@ -2,12 +2,10 @@ import { createRoundRuntime } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { App } from '../../server/app';
-import {
-  createBotActivityRelay,
-  createBotHeardRelay,
-} from '../round-bots/activity-relay';
+import { createBotActivityRelay } from '../round-bots/activity-relay';
 import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
+import { createCaptureHeardRelay } from './heard-relay';
 import {
   CAPTURE_COVERAGE_TOLERANCE,
   CAPTURE_STT_LAG_MS,
@@ -55,7 +53,7 @@ export function composeMediaCaptureRoutes(app: App) {
       ...admission,
       write: app.redis.writeBotActivity,
     }),
-    heard: createBotHeardRelay({
+    heard: createCaptureHeardRelay({
       ...admission,
       write: app.redis.writeCaptureHeard,
     }),

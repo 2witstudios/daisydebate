@@ -64,7 +64,7 @@ test('a heard bot track crosses peer clients for its Round only, and expires', (
       seat = createId();
     try {
       await redis.writeCaptureHeard({ roundId, trackId: 'TR_heard1', seat });
-      const heardKey = key('botheard', roundId, 'TR_heard1');
+      const heardKey = key('captureheard', roundId, 'TR_heard1');
       const ttl = await raw.pttl(heardKey);
       assert({
         given: "capture's report that it hears a bot seat's track",

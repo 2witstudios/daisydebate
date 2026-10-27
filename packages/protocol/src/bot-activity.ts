@@ -41,14 +41,3 @@ export const botActivityRelaySchema = z.strictObject({
   segmentId: idSchema,
   frames: z.array(z.strictObject(original).refine(ordered)).min(1).max(20),
 });
-/**
- * Signed worker body: capture subscribed to a bot seat's track and reads it
- * (ISSUE-514-r2). Round comes from the signature; the segment is checked
- * against the current segment on admission, never trusted.
- */
-export const botHeardRelaySchema = z.strictObject({
-  version: z.literal(1),
-  roundParticipantId: idSchema,
-  segmentId: idSchema,
-  trackId: original.trackId,
-});
