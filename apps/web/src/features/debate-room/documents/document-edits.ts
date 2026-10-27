@@ -1,4 +1,4 @@
-import { escapeHtml } from './documents';
+import { escapeHtml } from '../../documents/html';
 
 /** An agent's proposed change: lines it takes out and lines it puts in. */
 export type Proposal = {

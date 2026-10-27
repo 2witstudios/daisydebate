@@ -60,7 +60,7 @@ document. Daisy builds this itself rather than embedding another product.
    scanned; a seeded differential test checks this against the real
    parser, and that switching off any one depth defence lets a document
    past the bound. It is then parsed through the one document schema
-   (`features/debate-room/documents/document-schema.ts`) on the server and
+   (`features/documents/document-schema.ts`, shared with prep briefs) on the server and
    serialized back (`normalize-html.ts`), so handlers, style attributes
    and unknown attributes never survive; then it is line-broken by
    only adding newlines (`document-lines.ts`, idempotent), so a line

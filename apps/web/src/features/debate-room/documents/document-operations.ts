@@ -9,7 +9,7 @@ import {
   type TemplateId,
   type WorkspaceDocument,
 } from './documents';
-import { normalizeDocumentHtml } from './normalize-html';
+import { normalizeDocumentHtml } from '../../documents/normalize-html';
 
 export type DebateDocumentStore = Pick<
   Database,

@@ -1,5 +1,5 @@
+import { escapeHtml } from '../../features/documents/html';
 import {
-  escapeHtml,
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,

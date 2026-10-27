@@ -1,4 +1,4 @@
-export { controlClass } from '../../components/filter-form/filter-form';
+export { controlClass } from '../filter-form/filter-form';
 
 export const filterBarClass = 'flex flex-wrap items-center gap-x-3 gap-y-4';
 

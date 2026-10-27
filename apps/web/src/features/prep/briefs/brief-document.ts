@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../debate-room/documents/documents';
+import { escapeHtml } from '../../documents/html';
 import { sideLabel } from '../library/library-item';
 import {
   budget,

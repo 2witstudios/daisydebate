@@ -18,7 +18,7 @@ import {
   type DocumentPrincipal,
 } from './document-operations';
 import { documentTemplates, type TemplateId } from './documents';
-import { DOCUMENT_MAX_BYTES } from './normalize-html';
+import { DOCUMENT_MAX_BYTES } from '../../documents/normalize-html';
 
 /** Document routes bind their authenticated principal at the HTTP boundary. */
 type Dependencies = {
