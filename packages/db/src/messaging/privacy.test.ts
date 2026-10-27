@@ -20,64 +20,10 @@ test('subject export removes other-direction private state and serializes dates/
     [],
     [],
     [
-      {
-        low_actor_id: actorId,
-        high_actor_id: peerId,
-        revision: 1,
-        low_blocks_high: true,
-        high_blocks_low: true,
-      },
-      {
-        low_actor_id: '0'.repeat(24),
-        high_actor_id: actorId,
-        revision: 2,
-        low_blocks_high: true,
-        high_blocks_low: false,
-      },
-    ],
-    [
       { request_sender_actor_id: actorId, introduction: 'Own intro' },
       { request_sender_actor_id: peerId, introduction: 'Other intro' },
     ],
-    [
-      {
-        low_actor_id: actorId,
-        high_actor_id: peerId,
-        requester_actor_id: peerId,
-        state: 'accepted',
-        requested_at: date,
-        accepted_at: date,
-      },
-    ],
-    [
-      {
-        room_id: 'r'.repeat(24),
-        challenger_actor_id: peerId,
-        challenged_actor_id: actorId,
-        created_at: date,
-      },
-    ],
-    [{ actor_id: actorId, hidden: true, updated_at: date }],
     [{ channel_id: channelId, actor_id: actorId, created_at: date }],
-    [
-      {
-        decliner_actor_id: actorId,
-        requester_actor_id: peerId,
-        declined_count: 1,
-        last_declined_at: date,
-        blocked_until: null,
-      },
-    ],
-    [
-      {
-        actor_id: actorId,
-        request_id: 'q'.repeat(24),
-        counterpart_actor_id: peerId,
-        kind: 'friend',
-        unrelated: true,
-        created_at: date,
-      },
-    ],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
     [
@@ -109,67 +55,26 @@ test('subject export removes other-direction private state and serializes dates/
     subject,
   );
   assert({
-    given: 'own and other-direction request/block/invitation facts',
+    given: 'own and other-direction request and invitation facts',
     should:
-      'export only own private decisions and explicit UTC JSON values with title attribution',
+      'export only own private decisions and explicit UTC JSON values with title attribution, and none of Contacts’, Friends’ or Presence’s tables',
     actual: [
       result.messaging_channels,
       result.messaging_messages,
-      result.contact_pairs,
       result.messaging_dm_pairs,
-      result.friendships,
-      result.presence_settings,
-      result.friend_challenges,
       result.messaging_group_invitations,
       result.messaging_files,
-      result.social_request_declines,
-      result.social_requests,
       result.messaging_retained_authors,
-      queries.some((entry) =>
-        entry.query.includes(
-          'from social_request_declines where decliner_actor_id=',
-        ),
+      Object.keys(result).filter((table) =>
+        /^(contact_|friend|presence_|social_request)/.test(table),
       ),
     ],
     expected: [
       [],
       [{ id: 'm'.repeat(24), author_actor_id: actorId, created_at: now }],
       [
-        {
-          low_actor_id: actorId,
-          high_actor_id: peerId,
-          revision: 1,
-          low_blocks_high: true,
-        },
-        {
-          low_actor_id: '0'.repeat(24),
-          high_actor_id: actorId,
-          revision: 2,
-          high_blocks_low: false,
-        },
-      ],
-      [
         { request_sender_actor_id: actorId, introduction: 'Own intro' },
         { request_sender_actor_id: peerId },
-      ],
-      [
-        {
-          low_actor_id: actorId,
-          high_actor_id: peerId,
-          requester_actor_id: peerId,
-          state: 'accepted',
-          requested_at: now,
-          accepted_at: now,
-        },
-      ],
-      [{ actor_id: actorId, hidden: true, updated_at: now }],
-      [
-        {
-          room_id: 'r'.repeat(24),
-          challenger_actor_id: peerId,
-          challenged_actor_id: actorId,
-          created_at: now,
-        },
       ],
       [
         {
@@ -188,27 +93,8 @@ test('subject export removes other-direction private state and serializes dates/
           created_at: now,
         },
       ],
-      [
-        {
-          decliner_actor_id: actorId,
-          requester_actor_id: peerId,
-          declined_count: 1,
-          last_declined_at: now,
-          blocked_until: null,
-        },
-      ],
-      [
-        {
-          actor_id: actorId,
-          request_id: 'q'.repeat(24),
-          counterpart_actor_id: peerId,
-          kind: 'friend',
-          unrelated: true,
-          created_at: now,
-        },
-      ],
       [{ channel_id: channelId, actor_id: actorId, created_at: now }],
-      true,
+      [],
     ],
   });
   const fileQuery = queries.at(-1);
@@ -250,13 +136,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [], // the subject's social requests are deleted
+    [], // the subject's DM pairs are deleted
     [{ changeVersion: 4 }],
     [[1, '9']],
     [],
@@ -303,23 +183,19 @@ test('erasure fences every subject channel before file cleanup and publishes fin
   assert({
     given: 'subject association cleanup',
     should:
-      'hold complete channel union first, transfer opaque charge before deleting files, and delete receipt identity and presence choice outright',
+      'hold complete channel union first, transfer opaque charge before deleting files, delete receipt identity outright, and leave Friends’, Presence’s and Contacts’ tables to their own adopters (B5)',
     actual: [
       fileIntent > 1,
       queries[1]?.query.includes('order by id for update'),
       queries[fileIntent + 1]?.query.includes('delete from messaging_files'),
       receiptDelete?.params,
-      queries.findIndex((query) =>
-        query.query.includes('delete from friendships'),
-      ) <
-        queries.findIndex((query) =>
-          query.query.includes('delete from contact_pairs'),
+      queries.some((query) =>
+        /delete from (friendships|friend_challenges|presence_settings|contact_pairs|social_request)/.test(
+          query.query,
         ),
-      queries.find((query) =>
-        query.query.includes('delete from presence_settings'),
-      )?.params,
+      ),
     ],
-    expected: [true, true, true, [actorId], true, [actorId]],
+    expected: [true, true, true, [actorId], false],
   });
 });
 test('exhausted erase version refuses before association or file deletion', async () => {

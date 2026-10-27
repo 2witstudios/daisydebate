@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { dmRequestFrame } from './social-request';
+import { contactReactions } from '../contact-composition';
 setupRitewayBun();
 import {
   peerId,
@@ -30,9 +31,15 @@ test('a new admitted DM persists pending authority once and emits only content-f
     [],
   ]);
   let admitted = 0;
-  const frame = dmRequestFrame(drizzle({ client }), input, [pair], async () => {
-    admitted += 1;
-  });
+  const frame = dmRequestFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {
+      admitted += 1;
+    },
+    contactReactions.relations,
+  );
   const result = await frame.commitDmRequest(command);
   const inserts = queries.filter((entry) =>
     entry.query.startsWith('insert into'),
@@ -87,9 +94,15 @@ test('a new admitted DM persists pending authority once and emits only content-f
 test('authority loss, pair ambiguity and policy drift refuse before request mutation', async () => {
   const { client, queries } = fakeSql([]),
     tx = drizzle({ client });
-  const denied = dmRequestFrame(tx, input, [pair], async () => {
-    throw createAppError('AUTHORIZATION');
-  });
+  const denied = dmRequestFrame(
+    tx,
+    input,
+    [pair],
+    async () => {
+      throw createAppError('AUTHORIZATION');
+    },
+    contactReactions.relations,
+  );
   for (const operation of [
     () => denied.readDmRequest(),
     () => denied.commitDmRequest(command),
@@ -104,7 +117,13 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     given: 'a stale policy revision',
     should: 'refuse before pair read',
     actual: () =>
-      dmRequestFrame(tx, input, [pair], async () => {}).commitDmRequest({
+      dmRequestFrame(
+        tx,
+        input,
+        [pair],
+        async () => {},
+        contactReactions.relations,
+      ).commitDmRequest({
         ...command,
         policyRevision: 2,
       }),
@@ -114,7 +133,13 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     given: 'more than one pair for a DM command',
     should: 'refuse ambiguous authority',
     actual: () =>
-      dmRequestFrame(tx, input, [pair, pair], async () => {}).readDmRequest(),
+      dmRequestFrame(
+        tx,
+        input,
+        [pair, pair],
+        async () => {},
+        contactReactions.relations,
+      ).readDmRequest(),
     code: 'VALIDATION',
   });
   assert({
@@ -137,6 +162,7 @@ for (const [facts, code] of [
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
       given:
@@ -164,6 +190,7 @@ test('committing an existing DM without the screen is refused (DEC-251)', async 
         input,
         [pair],
         async () => {},
+        contactReactions.relations,
       ).commitDmRequest(command),
     code: 'CONFLICT',
   });
@@ -188,6 +215,7 @@ test('a declined DM is no convergence: the commit spends the budget and refuses 
         input,
         [pair],
         async () => {},
+        contactReactions.relations,
       ).commitDmRequest(command),
     code: 'RATE_LIMIT',
   });
@@ -209,6 +237,7 @@ test('malformed time or limits never query the budget', async () => {
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
       given: 'an invalid time or a zero budget',

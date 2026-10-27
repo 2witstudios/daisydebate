@@ -1,20 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readServerConfig } from './index';
+import { env, policyRefusal } from './server-env.test-support';
 setupRitewayBun();
-const env = {
-  NODE_ENV: 'test',
-  DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
-  REDIS_URL: 'redis://localhost:6379',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-};
-const failure = (value: string) => {
-  try {
-    readServerConfig({ ...env, MESSAGING_POLICY: value });
-    return 'accepted';
-  } catch (error) {
-    return (error as Error).message.split(':').slice(0, 2).join(':').trim();
-  }
-};
+const failure = policyRefusal(env, 'MESSAGING_POLICY');
 
 test('MESSAGING_POLICY carries only explicit DEC-251 overrides', () => {
   const override = {

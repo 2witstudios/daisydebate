@@ -7,20 +7,22 @@ import {
   withContactPairs,
   type ContactAuthorizationFence,
 } from '../contacts/fence';
-import { contactBlockWriter } from './social-block';
 import { dmRequestFrame } from './social-request';
+import type { ContactReactions } from '../contacts/reactions';
 import type { MessagingSocialStore } from './social-contracts';
 
 /**
- * Messaging's contact commands (DM requests and blocks) over the shared
- * Contacts fence; friendships live in their own store (`../friends`).
+ * Messaging's DM requests over the shared Contacts fence; blocks are
+ * Contacts' own (`../contacts/store`) and friendships Friends'.
  */
 export function createMessagingSocialStore({
   database,
   authorize,
+  reactions,
 }: {
   readonly database: BunSQLDatabase;
   readonly authorize: ContactAuthorizationFence;
+  readonly reactions: ContactReactions;
 }): MessagingSocialStore {
   return {
     withContacts: (input, work) =>
@@ -31,13 +33,7 @@ export function createMessagingSocialStore({
         async (tx, { rows, contacts, refresh }) =>
           work({
             contacts,
-            ...dmRequestFrame(tx, input, rows, refresh),
-            blocking:
-              rows.length === 1
-                ? rows[0]!.lowActorId === input.actorId
-                  ? rows[0]!.lowBlocksHigh
-                  : rows[0]!.highBlocksLow
-                : null,
+            ...dmRequestFrame(tx, input, rows, refresh, reactions.relations),
             async readReceipt(requestId) {
               await refresh();
               if (!idSchema.safeParse(requestId).success)
@@ -57,7 +53,6 @@ export function createMessagingSocialStore({
                 );
               return receipt ?? null;
             },
-            commitBlock: contactBlockWriter(tx, input, rows, refresh),
           }),
       ),
   };

@@ -131,6 +131,8 @@ The rest of this record describes BETA-2.
     - own cleanup: `channel.reaction.remove`, `channel.file.cleanup`,
       `channel.message.remove` (own messages only),
       `channel.invitation.decline` and `channel.group.archive`;
+    - declining a friend challenge waiting for them (ADR 0072):
+      `social.challenge.decline`;
     - cancelling their own requests and invitations (ISSUE-692):
       `channel.request.cancel` and `channel.invitation.cancel`;
     - the replay reads of their own commands: `channel.group.result`,

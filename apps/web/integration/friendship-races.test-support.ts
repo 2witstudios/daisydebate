@@ -210,11 +210,12 @@ export async function removeMembers(client: SQL, members: readonly Member[]) {
     'delete from contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
     [textArray(actorIds)],
   );
-  // Friend requests leave DEC-251 budget rows naming both members.
-  await client.unsafe(
-    'delete from social_requests where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])',
-    [textArray(actorIds)],
-  );
+  // Friend requests leave DEC-251 budget rows, and blocks leave receipts, naming both members.
+  for (const table of ['social_requests', 'contact_commands'])
+    await client.unsafe(
+      `delete from ${table} where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])`,
+      [textArray(actorIds)],
+    );
   await client.unsafe('delete from actors where id = any($1::text[])', [
     textArray(actorIds),
   ]);

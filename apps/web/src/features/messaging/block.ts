@@ -1,5 +1,5 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { MessagingSocialStore } from '@daisy/db/messaging';
+import type { ContactStore } from '@daisy/db/contacts';
 import { createAppError } from '@daisy/errors';
 import {
   parseSocialCommand,
@@ -12,7 +12,7 @@ import { requireMemberActor } from '../access/actor';
 export async function blockMessagingContact(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: SocialOperationDependencies<MessagingSocialStore>,
+  dependencies: SocialOperationDependencies<ContactStore>,
 ) {
   const { actorId, userId } = requireMemberActor(principal);
   const command = parseSocialCommand(

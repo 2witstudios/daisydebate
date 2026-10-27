@@ -4,12 +4,11 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   erasePrivacySubject,
   exportPrivacySubject,
-  messagingPrivacyExpectedColumns,
   deliverPrivacyJob,
 } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
-import { createMessagingPrivacyAdopter } from './privacy';
 import { admitParticipants } from '../beta-access-testing';
+import { socialPrivacyAdoption } from '../social-privacy-composition';
 
 /** Isolated integration data only; never collection or production policy authority. */
 export async function createMessagingTestFixture(client: SQL) {
@@ -23,6 +22,10 @@ export async function createMessagingTestFixture(client: SQL) {
   const cleanup = async () => {
     await client.unsafe(
       'delete from social_requests where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
+    await client.unsafe(
+      'delete from contact_commands where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
       [actorId, otherActorId],
     );
     await client.unsafe(
@@ -101,16 +104,7 @@ export async function createMessagingTestFixture(client: SQL) {
             userId: subjectActorId === actorId ? userId : otherUserId,
             actorId: subjectActorId,
           },
-          {
-            requiredAdopters: [
-              {
-                id: 'messaging',
-                phase: 'before-auth',
-                expectedColumns: messagingPrivacyExpectedColumns,
-              },
-            ],
-            adopters: [createMessagingPrivacyAdopter()],
-          },
+          socialPrivacyAdoption(),
         );
       },
       eraseSubject: async (subjectActorId: string, typingJobId?: string) => {
@@ -127,11 +121,7 @@ export async function createMessagingTestFixture(client: SQL) {
           },
           {
             requiredAdopters: [
-              {
-                id: 'messaging',
-                phase: 'before-auth',
-                expectedColumns: messagingPrivacyExpectedColumns,
-              },
+              ...socialPrivacyAdoption().requiredAdopters,
               {
                 id: 'account-age',
                 phase: 'after-scrub',
@@ -146,7 +136,7 @@ export async function createMessagingTestFixture(client: SQL) {
               },
             ],
             adopters: [
-              createMessagingPrivacyAdopter(),
+              ...socialPrivacyAdoption().adopters,
               accountAgePrivacyAdopter,
             ],
           },

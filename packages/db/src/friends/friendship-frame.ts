@@ -11,6 +11,7 @@ import {
   recordSocialDecline,
   spendSocialRequest,
 } from '../contacts/request-budget';
+import type { ContactReactions } from '../contacts/reactions';
 
 type FriendshipTransaction = Pick<
   BunSQLDatabase,
@@ -47,6 +48,7 @@ export function friendshipFrame(
   input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
+  relations: ContactReactions['relations'],
 ): Pick<FriendFrame, 'readFriendship' | 'commitFriendship'> {
   const pairOf = () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
@@ -115,14 +117,18 @@ export function friendshipFrame(
       if (!previous) {
         if (next.state === 'pending')
           await (
-            await spendSocialRequest(tx, {
-              actorId: input.actorId,
-              counterpartActorId: otherActorId,
-              kind: 'friend',
-              requestId,
-              now,
-              limits,
-            })
+            await spendSocialRequest(
+              tx,
+              {
+                actorId: input.actorId,
+                counterpartActorId: otherActorId,
+                kind: 'friend',
+                requestId,
+                now,
+                limits,
+              },
+              relations,
+            )
           )();
         await tx.insert(friendships).values({
           lowActorId: pair.lowActorId,

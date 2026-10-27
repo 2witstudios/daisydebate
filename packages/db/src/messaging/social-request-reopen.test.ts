@@ -3,6 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { dmRequestFrame } from './social-request';
+import { contactReactions } from '../contact-composition';
 import {
   actorId,
   peerId,
@@ -36,6 +37,7 @@ test('a closed DM reopens the durable channel and invalidates current authority 
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   const result = await frame.commitDmRequest({
     ...command,
@@ -94,6 +96,7 @@ for (const channel of [
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
       given: 'absent/archived channel or exhausted authority counter',
@@ -116,6 +119,7 @@ test('admitted request discovery returns only current channel/state or absence',
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   assert({
     given: 'a pair with then without a durable request',

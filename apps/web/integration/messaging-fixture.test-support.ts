@@ -33,7 +33,7 @@ export const blockDependencies = (
     bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
     clock,
     limit: async () => {},
-    store: database.messagingSocialStore(
+    store: database.contactStore(
       contactPairFence({ principal, capability: 'social.block' }),
     ),
   };

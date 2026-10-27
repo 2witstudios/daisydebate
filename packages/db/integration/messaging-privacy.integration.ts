@@ -7,6 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
 import { readMessagingChannelFact } from '../src/messaging/social';
 
 setupRitewayBun();
@@ -24,6 +25,11 @@ test('messaging rights erase subject associations atomically and preserve other 
     requestId = createId();
   const subject = { userId: userId!, actorId: actorId! };
   const adopter = createMessagingPrivacyAdopter();
+  // Erasure composes every social adopter: Contacts, not Messaging, ends the pair (B5).
+  const eraseSocial = async (tx: Parameters<typeof adopter.erase>[0]) => {
+    for (const social of socialPrivacyAdoption().adopters)
+      await social.erase(tx, subject, { now });
+  };
   try {
     await client.unsafe(
       'update messaging_channels set message_sequence=2,change_version=2 where id=$1',
@@ -94,7 +100,7 @@ test('messaging rights erase subject associations atomically and preserve other 
     try {
       await database.transaction(async (tx) => {
         await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
-        await adopter.erase(tx, subject, { now });
+        await eraseSocial(tx);
         throw new Error('rollback privacy proof');
       });
     } catch (error) {
@@ -116,7 +122,7 @@ test('messaging rights erase subject associations atomically and preserve other 
     });
     await database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
-      await adopter.erase(tx, subject, { now });
+      await eraseSocial(tx);
     });
     const messages = await client.unsafe(
       'select author_actor_id,text,removed_at is not null as removed from messaging_messages where channel_id=$1 order by sequence',

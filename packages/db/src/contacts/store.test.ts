@@ -3,7 +3,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { createMessagingSocialStore } from './social-store';
+import { contactReactions } from '../contact-composition';
+import { createContactStore } from './store';
 setupRitewayBun();
 const low = 'a'.repeat(24),
   high = 'b'.repeat(24),
@@ -37,13 +38,16 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
     accounts,
     [],
     [[low, high, true, false, 7]],
-    [['contact.block', 'd'.repeat(64), null]],
+    [['contact.block', 'd'.repeat(64)]],
     [[low, high, true, true, 8]],
+    [],
+    [],
     [],
     [],
   ]);
   let fences = 0;
-  const store = createMessagingSocialStore({
+  const store = createContactStore({
+    reactions: contactReactions,
     database: drizzle({ client }),
     authorize: async (tx, scope, facts) => {
       fences += 1;
@@ -71,10 +75,7 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
       given: 'the high-side caller',
       should: 'read only its own direction and actor-scoped command receipt',
       actual: [frame.blocking, await frame.readReceipt(requestId)],
-      expected: [
-        false,
-        { kind: 'contact.block', digest: 'd'.repeat(64), channelId: null },
-      ],
+      expected: [false, { kind: 'contact.block', digest: 'd'.repeat(64) }],
     });
     assert({
       given: 'a fresh block with no DM channel',
@@ -88,21 +89,38 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
       expected: { blocked: true, revision: 8 },
     });
   });
-  const receipt = queries.at(-1);
+  const receipt = queries.find((query) =>
+    query.query.startsWith('insert into "contact_commands"'),
+  );
+  const afterReceipt = queries.slice(queries.indexOf(receipt!) + 1);
   assert({
-    given: 'the transaction and absent-DM receipt',
+    given:
+      'the transaction, the Contacts receipt, then the registered reactions',
     should:
-      'lock accounts before ordered pair and store explicit counterpart without fabricating channel/outbox',
+      'lock accounts before the ordered pair, store the explicit counterpart in Contacts’ own receipt, then let Friends end the friendship and Messaging look for a DM, with no outbox',
     actual: [
       fences,
       queries[0]?.query.includes('daisy_authorization_accounts'),
       queries[1]?.params,
       queries[2]?.query.includes('for update'),
       receipt?.params.includes(low),
-      receipt?.params.includes(null),
+      afterReceipt.map(
+        (query) =>
+          query.query.match(
+            /^(?:delete from|select .* from) "?([a-z_]+)"?/s,
+          )?.[1],
+      ),
       queries.some((query) => query.query.includes('"outbox"')),
     ],
-    expected: [3, true, [low, high], true, true, true, false],
+    expected: [
+      3,
+      true,
+      [low, high],
+      true,
+      true,
+      ['friendships', 'friend_challenges', 'messaging_dm_pairs'],
+      false,
+    ],
   });
 });
 test('invalid social cast refuses before transaction and absent account/pair refuses before consumer', async () => {
@@ -112,7 +130,8 @@ test('invalid social cast refuses before transaction and absent account/pair ref
     [[low], low],
   ] as const) {
     const { client, queries } = fakeSql([]);
-    const store = createMessagingSocialStore({
+    const store = createContactStore({
+      reactions: contactReactions,
       database: drizzle({ client }),
       authorize: async () => {},
     });
@@ -136,7 +155,8 @@ test('invalid social cast refuses before transaction and absent account/pair ref
   for (const script of [[[]], [accounts, [], []]]) {
     const { client } = fakeSql(script);
     let work = 0;
-    const store = createMessagingSocialStore({
+    const store = createContactStore({
+      reactions: contactReactions,
       database: drizzle({ client }),
       authorize: async () => {},
     });
@@ -164,7 +184,8 @@ test('fresh social denial prevents receipt/command access after pair fence', asy
     [[low, high, false, false, 1]],
   ]);
   let work = 0;
-  const store = createMessagingSocialStore({
+  const store = createContactStore({
+    reactions: contactReactions,
     database: drizzle({ client }),
     authorize: async () => {
       throw createAppError('AUTHORIZATION');
@@ -184,9 +205,7 @@ test('fresh social denial prevents receipt/command access after pair fence', asy
     should: 'expose no frame and create no social command',
     actual: [
       work,
-      queries.some((query) =>
-        query.query.includes('messaging_social_commands'),
-      ),
+      queries.some((query) => query.query.includes('contact_commands')),
     ],
     expected: [0, false],
   });

@@ -198,7 +198,6 @@ export const messagingSocialCommands = pgTable(
       oneOf(table.kind, [
         'dm.request',
         'dm.decide',
-        'contact.block',
         'group.create',
         'group.invite',
         'group.decide',

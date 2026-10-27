@@ -3,7 +3,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createMessagingTestFixture } from '../src/testing';
 import { createFriendStore, type FriendFrame } from '../src/friends';
-import { createMessagingSocialStore } from '../src/messaging';
+import { createContactStore } from '../src/contacts/store';
+import { contactReactions } from '../src/contact-composition';
 
 /** Two fixture members and the friend store, unfenced, over one client. */
 export const openPairStore = async (databaseUrl: string) => {
@@ -13,6 +14,7 @@ export const openPairStore = async (databaseUrl: string) => {
   const store = createFriendStore({
     database,
     authorize: async () => {},
+    reactions: contactReactions,
   });
   const frameFor = <T>(
     self: string,
@@ -28,16 +30,17 @@ export const openPairStore = async (databaseUrl: string) => {
       work,
     );
   const members = [fixture.actorId!, fixture.otherActorId!];
-  /** A block by `self` through messaging's contact store (ADR 0061). */
+  /** A block by `self` through Contacts' store and its registered reactions (ADR 0061). */
   const blockFor = (
     self: string,
     selfUser: string,
     command: { readonly blocked: boolean; readonly digest: string },
     now: string,
   ) =>
-    createMessagingSocialStore({
+    createContactStore({
       database,
       authorize: async () => {},
+      reactions: contactReactions,
     }).withContacts(
       { actorId: self, userId: selfUser, memberActorIds: members },
       (frame) => frame.commitBlock({ requestId: createId(), ...command, now }),

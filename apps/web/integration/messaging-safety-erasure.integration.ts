@@ -34,7 +34,7 @@ for (const [blockFirst, noDm] of [
       principal,
       capability: 'social.block',
     });
-    const store = database.messagingSocialStore(async (tx, input, facts) => {
+    const store = database.contactStore(async (tx, input, facts) => {
       await canonical(tx, input, facts);
       if (first) {
         first = false;

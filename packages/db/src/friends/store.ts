@@ -4,6 +4,7 @@ import {
   type ContactAuthorizationFence,
 } from '../contacts/fence';
 import { challengeFrame } from './challenge-frame';
+import type { ContactReactions } from '../contacts/reactions';
 import type { FriendStore } from './contracts';
 import { friendshipFrame } from './friendship-frame';
 
@@ -11,9 +12,11 @@ import { friendshipFrame } from './friendship-frame';
 export function createFriendStore({
   database,
   authorize,
+  reactions,
 }: {
   readonly database: BunSQLDatabase;
   readonly authorize: ContactAuthorizationFence;
+  readonly reactions: ContactReactions;
 }): FriendStore {
   return {
     withContacts: (input, work) =>
@@ -24,7 +27,7 @@ export function createFriendStore({
         async (tx, { rows, contacts, refresh }) =>
           work({
             contacts,
-            ...friendshipFrame(tx, input, rows, refresh),
+            ...friendshipFrame(tx, input, rows, refresh, reactions.relations),
             ...challengeFrame(tx, input, rows, refresh),
           }),
       ),

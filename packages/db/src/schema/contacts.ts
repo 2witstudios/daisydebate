@@ -122,3 +122,27 @@ export const socialRequestDeclines = pgTable(
     ),
   ],
 );
+
+/**
+ * Contacts' own command receipts (a block or an unblock): one row per
+ * request, so a retry replays its result instead of acting twice.
+ */
+export const contactCommands = pgTable(
+  'contact_commands',
+  {
+    actorId: contactActorColumn('actor_id'),
+    requestId: text('request_id').notNull(),
+    counterpartActorId: contactActorColumn('counterpart_actor_id'),
+    kind: text('kind').notNull(),
+    digest: text('digest').notNull(),
+    createdAt: timestampColumn('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.actorId, table.requestId] }),
+    index('contact_commands_counterpart_actor_idx').on(
+      table.counterpartActorId,
+    ),
+    check('contact_commands_kind', oneOf(table.kind, ['contact.block'])),
+    check('contact_commands_digest', sql`${table.digest} ~ '^[0-9a-f]{64}$'`),
+  ],
+);

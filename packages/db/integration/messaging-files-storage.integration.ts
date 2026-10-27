@@ -9,11 +9,8 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
-import { createMessagingPrivacyAdopter } from '../src/messaging';
-import {
-  exportPrivacySubject,
-  messagingPrivacyExpectedColumns,
-} from '../src/privacy';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { exportPrivacySubject } from '../src/privacy';
 import {
   acknowledgeFileDeletion,
   expireChannelFiles,
@@ -162,16 +159,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
       flag: 'wx',
     });
     const next = await reserve();
-    const adoption = {
-      requiredAdopters: [
-        {
-          id: 'messaging',
-          phase: 'before-auth' as const,
-          expectedColumns: messagingPrivacyExpectedColumns,
-        },
-      ],
-      adopters: [createMessagingPrivacyAdopter()],
-    };
+    const adoption = socialPrivacyAdoption();
     const exported = await exportPrivacySubject(
       database,
       { actorId: fixture.actorId, userId: fixture.userId },

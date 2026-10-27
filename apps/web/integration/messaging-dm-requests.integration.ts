@@ -110,7 +110,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
         bounds,
         clock,
         limit: async () => {},
-        store: database.messagingSocialStore(
+        store: database.contactStore(
           contactPairFence({ principal: sender, capability: 'social.block' }),
         ),
       },

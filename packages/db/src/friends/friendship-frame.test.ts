@@ -1,7 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { contactBlockWriter } from '../messaging/social-block';
+import { friendContactReactions } from './contact-reactions';
+import { contactReactions } from '../contact-composition';
 import { friendshipFrame } from './friendship-frame';
 setupRitewayBun();
 
@@ -31,6 +32,7 @@ test('readFriendship reads the locked pair and both members’ counts', async ()
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   assert({
     given: 'a pending request from the low member',
@@ -84,6 +86,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
     async () => {
       fences += 1;
     },
+    contactReactions.relations,
   );
   const change = (
     previous: Parameters<typeof frame.commitFriendship>[0]['previous'],
@@ -124,6 +127,7 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     ).commitFriendship({
       previous: { state: 'pending', requesterActorId },
       next: null,
@@ -145,30 +149,18 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
   });
 });
 
-test('a fresh block deletes the pair’s friendship; an unblock does not touch it', async () => {
+test('Friends’ block reaction deletes the pair’s friendship and challenges; an unblock touches neither', async () => {
   const run = async (blocked: boolean) => {
-    const { client, queries } = fakeSql([
-      [[low, high, false, blocked, 4]],
-      [],
-      [],
-      [],
-    ]);
-    await contactBlockWriter(
-      drizzle({ client }),
-      input,
-      [pair],
-      async () => {},
-    )({ requestId, blocked, digest: 'd'.repeat(64), now });
-    return queries.some(
-      (query) =>
-        query.query.startsWith('delete') &&
-        query.query.includes('"friendships"'),
+    const { client, queries } = fakeSql([[], []]);
+    await friendContactReactions.onBlock(drizzle({ client }), pair, blocked);
+    return queries.map(
+      (query) => query.query.match(/delete from "?([a-z_]+)/)?.[1],
     );
   };
   assert({
     given: 'a block and then an unblock',
-    should: 'delete the friendship only on the block',
+    should: 'delete the friendship and its challenges only on the block',
     actual: [await run(true), await run(false)],
-    expected: [true, false],
+    expected: [['friendships', 'friend_challenges'], []],
   });
 });

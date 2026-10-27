@@ -1,3 +1,15 @@
+CREATE TABLE "contact_commands" (
+	"actor_id" text,
+	"request_id" text,
+	"counterpart_actor_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"digest" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "contact_commands_pkey" PRIMARY KEY("actor_id","request_id"),
+	CONSTRAINT "contact_commands_kind" CHECK ("kind" in ('contact.block')),
+	CONSTRAINT "contact_commands_digest" CHECK ("digest" ~ '^[0-9a-f]{64}$')
+);
+--> statement-breakpoint
 CREATE TABLE "social_request_declines" (
 	"decliner_actor_id" text,
 	"requester_actor_id" text,
@@ -48,6 +60,7 @@ ALTER INDEX "messaging_friend_challenges_challenged_idx" RENAME TO "friend_chall
 ALTER INDEX "messaging_friend_challenges_challenger_idx" RENAME TO "friend_challenges_challenger_idx";--> statement-breakpoint
 ALTER INDEX "messaging_friendships_high_actor_idx" RENAME TO "friendships_high_actor_idx";--> statement-breakpoint
 ALTER TABLE "friendships" RENAME CONSTRAINT "messaging_friendships_contact_fk" TO "friendships_contact_fk";--> statement-breakpoint
+CREATE INDEX "contact_commands_counterpart_actor_idx" ON "contact_commands" ("counterpart_actor_id");--> statement-breakpoint
 CREATE INDEX "social_request_declines_pair_idx" ON "social_request_declines" ("low_actor_id","high_actor_id");--> statement-breakpoint
 CREATE INDEX "social_request_declines_requester_idx" ON "social_request_declines" ("requester_actor_id");--> statement-breakpoint
 CREATE INDEX "social_request_declines_high_actor_idx" ON "social_request_declines" ("high_actor_id");--> statement-breakpoint
@@ -55,7 +68,8 @@ CREATE INDEX "social_request_declines_expires_idx" ON "social_request_declines" 
 CREATE INDEX "social_requests_actor_created_idx" ON "social_requests" ("actor_id","created_at");--> statement-breakpoint
 CREATE INDEX "social_requests_counterpart_actor_idx" ON "social_requests" ("counterpart_actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_retained_authors_actor_idx" ON "messaging_retained_authors" ("actor_id");--> statement-breakpoint
-CREATE INDEX "messaging_social_commands_actor_created_idx" ON "messaging_social_commands" ("actor_id","created_at");--> statement-breakpoint
+ALTER TABLE "contact_commands" ADD CONSTRAINT "contact_commands_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "contact_commands" ADD CONSTRAINT "contact_commands_counterpart_actor_id_actors_id_fkey" FOREIGN KEY ("counterpart_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "social_request_declines" ADD CONSTRAINT "social_request_declines_decliner_actor_id_actors_id_fkey" FOREIGN KEY ("decliner_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "social_request_declines" ADD CONSTRAINT "social_request_declines_requester_actor_id_actors_id_fkey" FOREIGN KEY ("requester_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "social_request_declines" ADD CONSTRAINT "social_request_declines_low_actor_id_actors_id_fkey" FOREIGN KEY ("low_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -71,11 +85,14 @@ INSERT INTO "social_requests" ("actor_id","request_id","counterpart_actor_id","k
 SELECT "actor_id","request_id","counterpart_actor_id",CASE "kind" WHEN 'dm.request' THEN 'dm' ELSE 'friend' END,false,"created_at"
 FROM "messaging_social_commands"
 WHERE "kind" IN ('dm.request','friend.request') AND "counterpart_actor_id" IS NOT NULL AND "counterpart_actor_id" <> "actor_id";--> statement-breakpoint
--- A friend request is no messaging command, and a block is a contact command (S6).
-DELETE FROM "messaging_social_commands" WHERE "kind" = 'friend.request';--> statement-breakpoint
-ALTER TABLE "messaging_social_commands" DROP CONSTRAINT "messaging_social_commands_kind";--> statement-breakpoint
-UPDATE "messaging_social_commands" SET "kind" = 'contact.block' WHERE "kind" = 'dm.block';--> statement-breakpoint
-ALTER TABLE "messaging_social_commands" ADD CONSTRAINT "messaging_social_commands_kind" CHECK ("kind" in ('dm.request', 'dm.decide', 'contact.block', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive'));--> statement-breakpoint
+-- A block receipt is a Contacts command (S6), so a replayed block still finds its result.
+INSERT INTO "contact_commands" ("actor_id","request_id","counterpart_actor_id","kind","digest","created_at")
+SELECT "actor_id","request_id","counterpart_actor_id",'contact.block',"digest","created_at"
+FROM "messaging_social_commands"
+WHERE "kind" = 'dm.block' AND "counterpart_actor_id" IS NOT NULL AND "digest" IS NOT NULL;--> statement-breakpoint
+-- Neither a friend request nor a block is a messaging command.
+DELETE FROM "messaging_social_commands" WHERE "kind" IN ('friend.request','dm.block');--> statement-breakpoint
+ALTER TABLE "messaging_social_commands" DROP CONSTRAINT "messaging_social_commands_kind", ADD CONSTRAINT "messaging_social_commands_kind" CHECK ("kind" in ('dm.request', 'dm.decide', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive'));--> statement-breakpoint
 -- The channel fence names the renamed contact pair table (plpgsql resolves names when it runs).
 CREATE OR REPLACE FUNCTION public.daisy_messaging_channel_fence(
   requested_channel_id text, expected_low_actor_id text, expected_high_actor_id text

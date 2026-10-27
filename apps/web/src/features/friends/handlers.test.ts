@@ -1,19 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import { member, origin } from '../../server/member-handler.test-support';
 import { createFriendHandlers } from './handlers';
 
 setupRitewayBun();
-
-const origin = 'https://daisy.example';
-const member = {
-  state: 'member' as const,
-  username: 'me',
-  principal: {
-    kind: 'user' as const,
-    userId: 'u'.repeat(24),
-    actorId: 'a'.repeat(24),
-  },
-};
 
 const harness = (identity: unknown = member) => {
   const calls: unknown[][] = [];

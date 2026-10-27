@@ -17,6 +17,7 @@ import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
+import type { ContactReactions } from '../contacts/reactions';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
 type Pair = typeof contactPairs.$inferSelect;
 
@@ -26,6 +27,7 @@ export function dmRequestFrame(
   input: ContactInput,
   rows: readonly Pair[],
   authorize: () => Promise<void>,
+  relations: ContactReactions['relations'],
 ): Pick<
   MessagingSocialFrame,
   'readDmRequest' | 'commitDmRequest' | 'screenDmRequest'
@@ -84,14 +86,18 @@ export function dmRequestFrame(
       // screenDmRequest owns convergence: a pending or accepted DM is no new
       // request, so committing one is a caller that skipped the screen.
       if (current && converges(current)) throw createAppError('CONFLICT');
-      const record = await spendSocialRequest(tx, {
-        actorId: input.actorId,
-        counterpartActorId: counterpartOf(input),
-        kind: 'dm',
-        requestId: command.requestId,
-        now: command.now,
-        limits: command.limits,
-      });
+      const record = await spendSocialRequest(
+        tx,
+        {
+          actorId: input.actorId,
+          counterpartActorId: counterpartOf(input),
+          kind: 'dm',
+          requestId: command.requestId,
+          now: command.now,
+          limits: command.limits,
+        },
+        relations,
+      );
       const pair = rows[0]!;
       const channelId = current?.channelId ?? command.channelId;
       if (current) {

@@ -1,6 +1,8 @@
 import { messagingOperations } from './messaging/operations';
 import { friendshipReadOperations } from './friends/reads';
 import { createFriendStore } from './friends/store';
+import { createContactStore } from './contacts/store';
+import { contactReactions } from './contact-composition';
 import { presenceSettingOperations } from './presence/settings';
 import type { ContactAuthorizationFence } from './contacts/fence';
 import { retainedConversationOperations } from './messaging/retained-store';
@@ -174,11 +176,14 @@ export function createDatabase({
     ...betaAccessOperations({ database, eventSink }),
     ...operatorAccountOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    ...messagingOperations(database),
+    ...messagingOperations(database, contactReactions),
     ...friendshipReadOperations({ database, eventSink }),
     ...presenceSettingOperations({ database, eventSink }),
     friendStore: (authorize: ContactAuthorizationFence) =>
-      createFriendStore({ database, authorize }),
+      createFriendStore({ database, authorize, reactions: contactReactions }),
+    /** Contacts' own commands (blocks), with every registered reaction. */
+    contactStore: (authorize: ContactAuthorizationFence) =>
+      createContactStore({ database, authorize, reactions: contactReactions }),
     ...retainedConversationOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),

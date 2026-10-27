@@ -3,6 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { dmRequestFrame } from './social-request';
+import { contactReactions } from '../contact-composition';
 import {
   channelId,
   now,
@@ -26,6 +27,7 @@ const screenOver = (script: Parameters<typeof fakeSql>[0]) => {
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   const order = () =>
     queries.map((entry) =>

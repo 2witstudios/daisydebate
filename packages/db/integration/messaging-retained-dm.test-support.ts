@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
-import { createMessagingPrivacyAdopter } from '../src/messaging';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
 import { retainedConversationOperations } from '../src/messaging/retained-store';
 
 const now = '2026-10-27T12:00:00.000Z';
@@ -103,7 +103,8 @@ export const openDm = async (databaseUrl: string) => {
   const erase = (who: typeof subject) =>
     database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [who.actorId], { maxActors: 1 });
-      await createMessagingPrivacyAdopter().erase(tx, who, { now });
+      for (const adopter of socialPrivacyAdoption().adopters)
+        await adopter.erase(tx, who, { now });
     });
   const close = async () => {
     await client.unsafe(

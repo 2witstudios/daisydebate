@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
+import type { ContactPairKey, ContactReactions } from './reactions';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { socialRequestDeclines } from '../schema/contacts';
@@ -76,6 +77,21 @@ export async function refuseDeclineBlock(
 }
 
 /**
+ * Whether no registered relation (an accepted friendship, an accepted DM)
+ * holds for the pair: Contacts asks its consumers and names none of them.
+ */
+const related = (
+  relations: ContactReactions['relations'],
+  pair: ContactPairKey,
+) =>
+  relations.length === 0
+    ? sql`true`
+    : sql`not (${sql.join(
+        relations.map((relation) => relation(pair)),
+        sql` or `,
+      )})`;
+
+/**
  * Spends one DEC-251 social request from `actorId` to `counterpartActorId`,
  * under the requester's account lock and the pair lock the caller holds.
  * A request the recipient's declines block is refused exactly as a block
@@ -95,6 +111,7 @@ export async function spendSocialRequest(
     readonly now: string;
     readonly limits: SocialRequestLimits;
   },
+  relations: ContactReactions['relations'],
 ): Promise<() => Promise<void>> {
   const now = requireLimits(command.limits, command.now);
   const { actorId, counterpartActorId, limits } = command;
@@ -107,10 +124,7 @@ export async function spendSocialRequest(
   }>(
     await tx.execute(sql`select
       ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
-      not exists(select 1 from friendships
-          where low_actor_id=${low} and high_actor_id=${high} and state='accepted')
-        and not exists(select 1 from messaging_dm_pairs
-          where low_actor_id=${low} and high_actor_id=${high} and request_state='accepted') as "unrelated",
+      ${related(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
       (select count(*)::int from social_requests
         where actor_id=${actorId}
           and created_at > ${at(now - DAY_MS)}::timestamptz) as "daily",

@@ -28,38 +28,6 @@ const messagingColumns = {
     ],
     none: [],
   },
-  contact_pairs: {
-    identifier: [],
-    personal: [
-      'low_actor_id',
-      'high_actor_id',
-      'low_blocks_high',
-      'high_blocks_low',
-    ],
-    none: ['revision'],
-  },
-  friendships: {
-    identifier: [],
-    personal: [
-      'low_actor_id',
-      'high_actor_id',
-      'requester_actor_id',
-      'state',
-      'requested_at',
-      'accepted_at',
-    ],
-    none: [],
-  },
-  friend_challenges: {
-    identifier: ['room_id'],
-    personal: ['challenger_actor_id', 'challenged_actor_id', 'created_at'],
-    none: [],
-  },
-  presence_settings: {
-    identifier: [],
-    personal: ['actor_id', 'hidden', 'updated_at'],
-    none: [],
-  },
   messaging_dm_pairs: {
     identifier: ['channel_id'],
     personal: [
@@ -111,28 +79,9 @@ const messagingColumns = {
     ],
     none: ['kind', 'created_at'],
   },
-  social_requests: {
-    identifier: ['request_id'],
-    personal: ['actor_id', 'counterpart_actor_id', 'unrelated'],
-    none: ['kind', 'created_at'],
-  },
   messaging_retained_authors: {
     identifier: ['channel_id'],
     personal: ['actor_id', 'created_at'],
-    none: [],
-  },
-  social_request_declines: {
-    identifier: [],
-    personal: [
-      'decliner_actor_id',
-      'requester_actor_id',
-      'low_actor_id',
-      'high_actor_id',
-      'declined_count',
-      'last_declined_at',
-      'blocked_until',
-      'expires_at',
-    ],
     none: [],
   },
   messaging_group_invitations: {
@@ -216,33 +165,10 @@ function privacyPurpose(
     // the same retention and basis as those message bodies.
     return 'Survivor access to own retained messages';
   }
-  if (table === 'social_requests') {
-    // DEC-251: counts a day of requests; deleted with either member's erasure.
-    return 'Social request budget';
-  }
-  if (table === 'social_request_declines') {
-    // DEC-251: counts 30 days, blocks 30 days; deleted on acceptance, with
-    // the pair, on erasure, or by the retention sweep at its expires_at.
-    return 'Social request decline block';
-  }
   if (category === 'personal') {
     return 'Subject-directed private communication and social access';
   }
   return 'Messaging references and ordered durable state';
-}
-
-/** DEC-251 sets the decline window; every other table awaits its decision. */
-function privacyRetention(table: string) {
-  return table === 'social_request_declines'
-    ? {
-        status: 'approved' as const,
-        decision: 'dvkpb5wjay835m0xrgq1iz6v',
-        rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
-      }
-    : {
-        status: 'pending' as const,
-        decision: 'njiorsf64z4iqjm2dbfa3zuu',
-      };
 }
 
 function privacyErasure(
@@ -286,7 +212,10 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
           status: 'pending' as const,
           decision: 'jc0qcdvpkmqzrelpaesi3pah',
         },
-        retention: privacyRetention(table),
+        retention: {
+          status: 'pending' as const,
+          decision: 'njiorsf64z4iqjm2dbfa3zuu',
+        },
         erasure: privacyErasure(
           table,
           column,

@@ -17,7 +17,7 @@ export function composeMessagingBlockOperation(app: App) {
           `messaging:social:${actorId}`,
           social.abuse,
         ),
-      store: app.database.messagingSocialStore(
+      store: app.database.contactStore(
         contactPairFence({ principal, capability: 'social.block' }),
       ),
     });

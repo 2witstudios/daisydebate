@@ -22,10 +22,14 @@ import {
   createMessagingSocialStore,
 } from './index';
 import type { ContactAuthorizationFence } from '../contacts/fence';
+import type { ContactReactions } from '../contacts/reactions';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
 /** Composes messaging stores over the same pool, retaining each authorization fence. */
-export function messagingOperations(database: BunSQLDatabase) {
+export function messagingOperations(
+  database: BunSQLDatabase,
+  reactions: ContactReactions,
+) {
   return {
     messagingInboxStore: (
       authorize: Parameters<typeof createMessagingInboxStore>[1],
@@ -63,6 +67,6 @@ export function messagingOperations(database: BunSQLDatabase) {
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
       createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: ContactAuthorizationFence) =>
-      createMessagingSocialStore({ database, authorize }),
+      createMessagingSocialStore({ database, authorize, reactions }),
   };
 }

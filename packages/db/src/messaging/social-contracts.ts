@@ -30,19 +30,12 @@ export type MessagingSocialFrame = {
     readonly channelId: string;
     readonly state: string;
   } | null>;
-  readonly blocking: boolean | null;
   readonly contacts: readonly ContactFact[];
   readonly readReceipt: (requestId: string) => Promise<{
     readonly kind: string;
     readonly digest: string | null;
     readonly channelId: string | null;
   } | null>;
-  readonly commitBlock: (input: {
-    readonly requestId: string;
-    readonly blocked: boolean;
-    readonly digest: string;
-    readonly now: string;
-  }) => Promise<{ readonly blocked: boolean; readonly revision: number }>;
 };
 export type MessagingSocialStore = {
   readonly withContacts: <T>(

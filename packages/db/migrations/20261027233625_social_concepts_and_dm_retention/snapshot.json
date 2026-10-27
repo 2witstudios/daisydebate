@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5b741435-93a0-416f-8b8f-f359f56fbc6e",
+  "id": "871be723-d929-4b7d-9b30-7e2ad79a3880",
   "prevIds": [
     "bb7e0bb3-7d99-4533-a9d5-3bd60b2da396"
   ],
@@ -81,6 +81,12 @@
     {
       "isRlsEnabled": false,
       "name": "bot_profiles",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "contact_commands",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1936,6 +1942,84 @@
       "entityType": "columns",
       "schema": "public",
       "table": "bot_profiles"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "request_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "counterpart_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_commands"
     },
     {
       "type": "text",
@@ -9778,6 +9862,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "counterpart_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "contact_commands_counterpart_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "high_actor_id",
           "isExpression": false,
           "asc": true,
@@ -11110,34 +11215,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "messaging_group_invitations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_social_commands_actor_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_social_commands"
     },
     {
       "nameExplicit": true,
@@ -14323,6 +14400,40 @@
     {
       "nameExplicit": false,
       "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "contact_commands_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "counterpart_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "contact_commands_counterpart_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "low_actor_id"
       ],
       "schemaTo": "public",
@@ -16825,6 +16936,17 @@
     },
     {
       "columns": [
+        "actor_id",
+        "request_id"
+      ],
+      "nameExplicit": false,
+      "name": "contact_commands_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "columns": [
         "low_actor_id",
         "high_actor_id"
       ],
@@ -18107,6 +18229,20 @@
       "table": "bot_profiles"
     },
     {
+      "value": "\"kind\" in ('contact.block')",
+      "name": "contact_commands_kind",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
+      "value": "\"digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "contact_commands_digest",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "contact_commands"
+    },
+    {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
       "name": "contact_pairs_order",
       "entityType": "checks",
@@ -18688,7 +18824,7 @@
       "table": "messaging_social_commands"
     },
     {
-      "value": "\"kind\" in ('dm.request', 'dm.decide', 'contact.block', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive')",
+      "value": "\"kind\" in ('dm.request', 'dm.decide', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive')",
       "name": "messaging_social_commands_kind",
       "entityType": "checks",
       "schema": "public",
