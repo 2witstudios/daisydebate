@@ -9,10 +9,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
-import {
-  foundationConfig,
-  foundationDefinition,
-} from '@daisy/db/reference-formats';
+import { foundationSelection } from '../../integration/foundation-selection.test-support';
 export const reread = async (request: APIRequestContext, id: string) => {
   const response = await request.get(`/api/rooms/${id}`);
   expect(response.status()).toBe(200);
@@ -120,12 +117,7 @@ export async function createProofRoom(page: Page, title: string) {
       title,
       topic: 'Proof cities should fund transit',
       visibility: 'public',
-      selection: {
-        kind: 'custom',
-        definition: foundationDefinition,
-        config: foundationConfig,
-        competitionType: 'casual',
-      },
+      selection: foundationSelection,
     },
   });
   expect(response.status()).toBe(201);
