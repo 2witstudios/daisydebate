@@ -32,7 +32,7 @@ export function validResourceKind(
     return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))
     return resource.kind === 'foundation';
-  if (capability === 'round.read') return resource.kind === 'round';
+  if (capability.startsWith('round.')) return resource.kind === 'round';
   if (['room.create', 'room.list'].includes(capability))
     return resource.kind === 'room_collection';
   return (

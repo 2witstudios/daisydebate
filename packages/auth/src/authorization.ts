@@ -1,10 +1,11 @@
 import { admitsCapability } from './participant-access';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';
+export { accountEntitlements } from './account-entitlements';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
-import { roomAllowed, roundReadable } from './authorization-room';
+import { roomAllowed, roundAllowed } from './authorization-room';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
@@ -285,7 +286,7 @@ function memberDecision(
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
   if (resolved.kind === 'round')
-    return decision(roundReadable(actorId, resolved));
+    return decision(roundAllowed(actorId, capability, resolved, context));
   return resolved.kind === 'room'
     ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);

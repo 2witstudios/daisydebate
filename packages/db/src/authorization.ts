@@ -78,7 +78,7 @@ export function readOwnCollection<
 
 /** Read-only requests get fresh rows without keeping a cross-request cache. */
 export async function loadAuthorizationAccount(
-  tx: AuthorizationTransaction,
+  tx: Pick<AuthorizationTransaction, 'execute'>,
   userId: string,
 ) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');

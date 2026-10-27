@@ -1,3 +1,4 @@
+import { canCoach } from '../round-coaching/authorization';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
 import { canReadRound } from '../round-runtime/reads';
@@ -17,6 +18,21 @@ export function composeRoundBallotRoutes(app: App) {
         caller,
         roundId,
         authorize: (round, account) => canReadRound(caller, round, account),
+        authorizeCoaching: (round, account) =>
+          canCoach(
+            account,
+            {
+              kind: 'round',
+              roundId: round.id,
+              createdByActorId: round.hostActorId,
+              visibility: round.visibility,
+              status: round.status,
+              revision: round.version,
+              participants: round.participants,
+            },
+            app.config.PREMIUM_BETA_GRANT,
+            'round.coaching.read',
+          ),
       });
       return {
         ...read,
@@ -25,7 +41,9 @@ export function composeRoundBallotRoutes(app: App) {
               ...coaching,
               now: app.clock.now(),
               // Coaching runs with the round workers (ADR 0071).
-              enabled: app.config.ROUND_BOT_WORKER_POLICY !== undefined,
+              enabled:
+                (app.config.ROUND_BOT_WORKER_POLICY?.providerConcurrency ?? 0) >
+                1,
             })
           : null,
       };

@@ -19,7 +19,12 @@ export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
+    | 'client'
+    | 'maxConnections'
+    | 'botBusyCap'
+    | 'judging'
+    | 'botPublication'
+    | 'coaching'
   > = {},
 ) {
   const f = await fixture(options);
@@ -32,7 +37,12 @@ export async function withRoomRuntime(
 async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
+    | 'client'
+    | 'maxConnections'
+    | 'botBusyCap'
+    | 'judging'
+    | 'botPublication'
+    | 'coaching'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),

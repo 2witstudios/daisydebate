@@ -155,16 +155,23 @@ const declaredPairs: readonly Pair[] = [
   ).map((pair) => ({ ...pair, base: '--background' })),
   { fg: '--gold', bg: '--gold-soft', base: '--background', min: TEXT },
   { fg: '--accent', bg: '--hue-clay-soft', base: '--background', min: UI },
-  // The member's Room on the room hue: the shell's Return to room bar and
-  // the pinned Your room card, with page ink, the primary button and the
-  // phase dot.
+  // The member's Room on the rooms hue (teal, ADR 0051): the shell's Return
+  // to room bar and the pinned Your room card, with page ink, the primary
+  // button and the phase dot.
+  ...on(['--text', '--text-muted'], ['--hue-teal-soft'], TEXT).map((pair) => ({
+    ...pair,
+    base: '--background',
+  })),
+  ...on(['--accent', '--online', '--live'], ['--hue-teal-soft'], UI).map(
+    (pair) => ({ ...pair, base: '--background' }),
+  ),
+  // The ballot's "Submitting opens in…" notice on the page: page ink and
+  // the large sky countdown on the sky tint.
   ...on(['--text', '--text-muted'], ['--hue-sky-soft'], TEXT).map((pair) => ({
     ...pair,
     base: '--background',
   })),
-  ...on(['--accent', '--online', '--live'], ['--hue-sky-soft'], UI).map(
-    (pair) => ({ ...pair, base: '--background' }),
-  ),
+  { fg: '--hue-sky', bg: '--hue-sky-soft', base: '--background', min: UI },
   // The fill bar: the accent fill against its track.
   { fg: '--accent', bg: '--border-strong', min: UI },
   // The stage is forest in both schemes and carries its own ink.

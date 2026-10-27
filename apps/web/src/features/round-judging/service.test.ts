@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { createProviderCapacity } from '../round-bots/provider-capacity';
 import { startRoundJudgingService } from './service';
 import {
   failureLog,
@@ -14,6 +15,7 @@ test('judging renewal and discovery do not wait for a provider operation', async
   const entered = Promise.withResolvers<void>();
   const finished = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
     store: {
       scanRoundJudgingJobs: async () => {
         scans++;
@@ -81,6 +83,7 @@ test('a failed judging scan reports its stage', async () => {
   const { failures, failed } = failureLog();
   const outage = new Error('scan outage');
   const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
     store: {
       scanRoundJudgingJobs: async () => {
         throw outage;
@@ -111,6 +114,7 @@ test('a judging lease lost at completion releases without a failure', async () =
   const { tasks, timers } = manualTimers();
   const finished = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
     store: {
       scanRoundJudgingJobs: async () => [
         { roundId: 'round', judgeParticipantId: 'judge' },
@@ -144,5 +148,118 @@ test('a judging lease lost at completion releases without a failure', async () =
     should: 'abort the local work and report no worker failure',
     actual: failures,
     expected: [],
+  });
+});
+
+test('capacity refusal never consumes a judging lease and retry needs no lease expiry', async () => {
+  const capacity = createProviderCapacity(2);
+  const coachingDone = Promise.withResolvers<void>();
+  const coach = capacity(
+    new AbortController().signal,
+    () => coachingDone.promise,
+    'coaching',
+  );
+  const otherJudge = capacity.reserve('judging')!;
+  const { tasks, timers } = manualTimers();
+  let claims = 0;
+  const executed = Promise.withResolvers<void>();
+  const service = startRoundJudgingService({
+    reserveCapacity: () => capacity.reserve('judging'),
+    store: {
+      scanRoundJudgingJobs: async () => [
+        { roundId: 'waiting', judgeParticipantId: 'seat' },
+      ],
+      claimRoundJudgingJob: async (scope) => {
+        claims++;
+        return { scope, token: 'reserved' };
+      },
+      renewRoundJudgingJob: async () => {},
+      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+    },
+    execute: async () => {
+      executed.resolve();
+    },
+    limits: { parallel: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed: () => {
+      throw Error('unexpected capacity failure');
+    },
+  });
+  try {
+    await service.started;
+    assert({
+      given: 'coaching and another judge occupy the provider budget',
+      should: 'leave the waiting job unclaimed',
+      actual: claims,
+      expected: 0,
+    });
+    otherJudge();
+    await tasks.get(500)!();
+    await executed.promise;
+    assert({
+      given: 'one competitive slot freed while coaching remains held',
+      should: 'claim and execute on the next scan without a lease-expiry delay',
+      actual: claims,
+      expected: 1,
+    });
+  } finally {
+    otherJudge();
+    coachingDone.resolve();
+    await coach;
+    await service.stop();
+  }
+});
+
+test('claim failure and shutdown while claiming return the reserved provider slot', async () => {
+  const reclaimed: boolean[] = [];
+  for (const mode of ['failure', 'shutdown'] as const) {
+    const capacity = createProviderCapacity(1);
+    const claiming = Promise.withResolvers<void>();
+    const claimDone = Promise.withResolvers<{
+      scope: { roundId: string; judgeParticipantId: string };
+      token: string;
+    }>();
+    const service = startRoundJudgingService({
+      reserveCapacity: () => capacity.reserve('judging'),
+      store: {
+        scanRoundJudgingJobs: async () => [
+          { roundId: mode, judgeParticipantId: 'seat' },
+        ],
+        claimRoundJudgingJob: () => {
+          claiming.resolve();
+          return claimDone.promise;
+        },
+        renewRoundJudgingJob: async () => {},
+        verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      },
+      execute: async () => {
+        throw Error('claim must not execute');
+      },
+      limits: { parallel: 1, scanBatch: 1, scanMs: 500, renewMs: 3000 },
+      timers: { setInterval: () => 1, clearInterval: () => {} },
+      failed: () => {
+        throw Error('advisory claim failure should be ignored');
+      },
+    });
+    await claiming.promise;
+    const stopping = mode === 'shutdown' ? service.stop() : null;
+    if (mode === 'failure') claimDone.reject(createAppError('CONFLICT'));
+    else
+      claimDone.resolve({
+        scope: { roundId: mode, judgeParticipantId: 'seat' },
+        token: 'claim',
+      });
+    await service.started;
+    await stopping;
+    const release = capacity.reserve('judging');
+    reclaimed.push(release !== null);
+    release?.();
+    await service.stop();
+  }
+  assert({
+    given: 'a failed durable claim or shutdown before its reply',
+    should: 'return admission without leaving an occupied provider slot',
+    actual: reclaimed,
+    expected: [true, true],
   });
 });
