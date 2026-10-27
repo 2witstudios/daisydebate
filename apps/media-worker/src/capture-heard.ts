@@ -46,3 +46,19 @@ export function createHeardReporter(input: {
     },
   };
 }
+
+/** Single-flight I/O on its own cadence; the capture batch never waits for it. */
+export async function reportHeardTracks(input: {
+  readonly reporter: ReturnType<typeof createHeardReporter>;
+  readonly state: () => CaptureState;
+  readonly epoch: number;
+  readonly signal: AbortSignal;
+  readonly nowMs: () => number;
+  readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+}) {
+  while (!input.signal.aborted) {
+    const due = input.nowMs() + 250;
+    await input.reporter.report(input.state(), input.epoch, input.signal);
+    await input.waitUntilMs(due, input.signal).catch(() => undefined);
+  }
+}

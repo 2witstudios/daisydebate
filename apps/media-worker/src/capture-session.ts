@@ -19,7 +19,7 @@ import {
   relayActivity,
 } from './capture-activity';
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
-import { createHeardReporter } from './capture-heard';
+import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { createSessionOutcome } from './capture-outcome';
@@ -185,14 +185,13 @@ async function captureSession(
       await input.waitUntilMs(due, signal).catch(() => undefined);
     }
   })();
-  // One single-flight reporter: its retries cannot delay frame validation or seals.
-  const reporting = (async () => {
-    while (!signal.aborted) {
-      const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
-      await heard.report(current.state, epoch, signal);
-      await input.waitUntilMs(due, signal).catch(() => undefined);
-    }
-  })();
+  const reporting = reportHeardTracks({
+    ...input,
+    reporter: heard,
+    state: () => current.state,
+    epoch,
+    signal,
+  });
   try {
     while (!signal.aborted) {
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
