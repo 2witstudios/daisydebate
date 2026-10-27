@@ -207,7 +207,13 @@ proposal of 400 days is pending the owner's privacy decision.
 | 404    | `NOT_FOUND`         |
 | 409    | `CONFLICT`          |
 | 413    | `PAYLOAD_TOO_LARGE` |
+| 422    | `INVARIANT`         |
+| 500    | `INTERNAL`          |
 | 503    | `INFRASTRUCTURE`    |
+
+- **422 `INVARIANT`:** an approval of an account with no durable 16+ age record (ISSUE-664). It is definite, and nothing is written.
+- **500 `INTERNAL`:** an unexpected handler failure. The scrubbed ErrorReporter gets the raw error (ADR 0037, ISSUE-681); the caller gets only the code.
+- **Read-backs:** reading a command back (`GET /operator/v1/commands/{id}`) needs `account.collection.read`, decided by the shared evaluator. It reveals one account's access state, as a listing does, and the store scopes it to the issuing service.
 
 Nothing internal leaves, and there are no redirects.
 

@@ -12,6 +12,7 @@ import {
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
   betaAccessCommandSchema,
@@ -57,6 +58,8 @@ export type OperatorApiDependencies = {
   readonly store: Store;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
+  /** ADR 0037: only the scrubbed reporter sees an unexpected raw error. */
+  readonly reporter?: ErrorReporter;
 };
 
 const cursorOf = (value: string | undefined) => {
@@ -124,8 +127,14 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
     try {
       return json(200, await dispatch(deps, principal, route, url, body));
     } catch (error) {
-      const code = isAppError(error) ? error.code : 'INTERNAL';
-      return refuse('handler', code);
+      if (isAppError(error)) return refuse('handler', error.code);
+      // An unexpected failure is a defect, not a refusal (ISSUE-681).
+      (deps.reporter ?? noopErrorReporter).capture(error, {
+        requestId: deps.nextId(),
+        route: `operator.${route.route}`,
+        errorCode: 'INTERNAL',
+      });
+      return refuse('handler', 'INTERNAL');
     }
   };
 }
@@ -294,9 +303,11 @@ async function readCommand(
   principal: AuthorizationPrincipal,
   commandId: string,
 ): Promise<OperatorCommandState> {
+  // A read-back reveals one account's access state, as a listing does, so
+  // it needs the same capability, decided by the shared evaluator (ISSUE-683).
   if (
     principal.kind !== 'operator_service' ||
-    !principal.capabilities.includes('account.beta_access.update')
+    !requireCapability(principal, 'account.collection.read')
   )
     throw createAppError('AUTHORIZATION');
   const command = await deps.store.readOperatorCommand({

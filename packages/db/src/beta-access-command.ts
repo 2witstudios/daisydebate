@@ -170,6 +170,11 @@ export async function runBetaAccessCommand(
   input: BetaAccessCommandInput,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<BetaAccessCommandOutcome> {
+  // One command id is one command, whatever its target: a concurrent reuse
+  // waits here and then meets the receipt as a conflict, not a key error.
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId}, 59079))`,
+  );
   const fact = await lockTarget(tx, input.targetUserId);
   const replayed = await storedResult(tx, input);
   if (replayed) return { kind: 'replayed', result: replayed };
