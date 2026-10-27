@@ -3,7 +3,7 @@ name: review
 description: >
   Review a pull request for code quality, best practices, security, test coverage and adherence to
   the slice plan's acceptance criteria, then post the review as one PR comment ending in a verdict
-  line that the builder's Ralph loop consumes. Use when reviewing code, a pull request or a branch,
+  line that the builder's PR loop consumes. Use when reviewing code, a pull request or a branch,
   or when the user says "/review".
 compatibility: Requires git and the gh CLI; the pagespace CLI to read the plan.
 ---
@@ -13,7 +13,7 @@ compatibility: Requires git and the gh CLI; the pagespace CLI to read the plan.
 # 🔬 Code Review
 
 Act as a top-tier principal software engineer reviewing a slice PR asynchronously. Your review is a PR
-comment. The builder's Ralph loop reads it, fixes or answers each finding, and cannot emit PR_READY
+comment. The builder's PR loop reads it, fixes or answers each finding, and cannot emit PR_READY
 while a review thread is unresolved. You never block the builder, set a status or merge.
 
 Criteria {
@@ -26,6 +26,8 @@ For runtime changes, list each current OWASP Top 10 category and account for it 
 Read the slice plan the PR links. Extract every "Given X, should Y" criterion in its task list and mark each PASS / FAIL / PARTIAL with code and test path:line.
 Check privacy and telemetry: every new log field, column, payload kind, topic field and analytics event is classified; no personal, sensitive or secret value reaches a log, an error report or analytics.
 Look for redundancies, dead code, forgotten files and incomplete moves or deletions. Simplicity is removing the obvious and adding the meaningful.
+Judge against intent and the ideal design, not only the existing code: does the design serve the stated intent, and is it the best way or just consistent with what exists? Consistent-with-flawed-code is not a pass.
+Check concept boundaries (AGENTS.md "Design constraints"): do the names and the organization match the product's concepts, with no feature borrowing another's types, statuses, pools, modules or prompts? Concept coupling is a BLOCKER, never a minor: two concepts merged to save a call, a table or a pool; a feature built on a structure that does not match its concept instead of refactoring it first; or "coaching"/"coach" used for anything but human coaches (the AI post-round report is Round analysis).
 }
 
 Constraints {
@@ -51,7 +53,7 @@ ReviewProcess {
 4. Performance
 5. Security (deep scan, including visible keys)
 6. UI/UX and accessibility
-7. Architecture and design decisions
+7. Architecture and design decisions, including concept boundaries (coupling is a blocker) and whether the design serves the intent
 8. Documentation and commit messages
 9. Criteria table against the plan
 10. Post the comment per Post{} before finishing — a review that only exists in chat is not done.

@@ -22,7 +22,7 @@ and detailed procedures in the linked documents, not here.
 - UI rules, including mutating forms that work without JavaScript: [UI conventions](docs/development/ui-conventions.md).
 - Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md), and [greenfield baseline](docs/decisions/0023-greenfield-baseline.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
-- The delivery process (slice → discovery and plan → one confirmation → one PR → Ralph loop → async reviews): [the slice process](docs/development/agent-pipeline.md) and [ADR 0083](docs/decisions/0083-lean-gates-and-slice-process.md).
+- The delivery process (slice → discovery and plan → one confirmation → one PR → PR loop → async reviews): [the slice process](docs/development/agent-pipeline.md) and [ADR 0083](docs/decisions/0083-lean-gates-and-slice-process.md).
 - Parallel sessions, branches, and shared surfaces: [parallel work](docs/development/parallel-work.md).
 - Multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
 - Reviews as async PR comments: [reviews](docs/development/reviews.md).
@@ -41,12 +41,21 @@ approval. A planning-only request stays planning-only. The full process is
    enough that it never needs to know what other builders are doing. Its
    brief is a mission (outcome, owning intent pages and ADRs, inherited PRs
    and branches, autonomy rules), not research.
-2. **Discovery and plan.** The builder does its own discovery, then writes
-   one plan with a task list in `Plans/<slice>` and posts it on the pu
-   channel.
-3. **One confirmation.** The architecture reviewer and the point guard
-   confirm or redirect. Nothing else needs approval; later product,
-   architecture or scope questions go to the point guard on the channel.
+2. **Discovery and plan, intent first.** The builder does its own discovery,
+   then writes one plan with a task list in `Plans/<slice>` and posts it on
+   the PageSpace Delivery channel. The plan starts from intent, not from the
+   existing code, in this order: Intent; Concepts and names; Ideal design
+   (written before studying the current implementation); Current state and
+   divergence; Refactors first; Build. The template is in
+   [the task skill](.claude/skills/task/SKILL.md).
+3. **One confirmation, after a dialogue.** Planning is a dialogue: the builder
+   posts intent and design questions on Delivery as they arise ("is X the
+   same concept as Y?", "the code does Z, the ideal is W: refactor?"), and
+   the point guard answers and challenges ("is this the best way, or just the
+   existing way?"). The architecture reviewer and the point guard confirm or
+   redirect once the Ideal design and Divergence sections have been
+   discussed. Nothing else needs approval; later product,
+   architecture or scope questions go to the point guard on the Delivery channel.
 4. **One PR.** The builder builds the whole slice on one branch, as one PR
    naming every task code. It splits off an earlier PR only when a piece
    must ship first.
@@ -94,6 +103,23 @@ identity, secrets, deployment and data actions retain human sign-off.
   [ADR 0043](docs/decisions/0043-no-admin-surface-in-participant-app.md).
 
 ## Design constraints
+
+These four architecture rules are blockers in every plan and review (owner,
+2026-10-27):
+
+- **Never build on flawed architecture.** When a feature's structure (names,
+  modules, types, tables, pools) does not match the product's concepts,
+  refactor it first, in the same slice, before adding to it. Never work
+  around it. Refactoring is cheap for agents; spaghetti is not.
+- **One concept, one home.** Each product feature owns its names, types,
+  tables, routes, prompts and capacity. It may read another feature's
+  published output only as an explicit, read-only, named input; it never
+  borrows another feature's types, statuses, pools or modules.
+- **No coupling for efficiency.** Saving a call, a table or a pool is never a
+  reason to merge two concepts. The anti-example is ADR 0071, which made the
+  AI judge's ballot feedback double as the "coaching" report.
+- **Words matter.** "Coaching" and "coach" are reserved for future human
+  coaches. The AI post-round report is **Round analysis**.
 
 - Security practices follow Eric Elliott's guidance: zero trust at every
   boundary, pure functions everywhere, unguessable cuid2 identifiers
@@ -274,8 +300,11 @@ Builders never merge. The point guard's flow sweep merges a PR into main
 once its builder has emitted `PR_READY` and the required checks are green at
 the exact head, at most two merges per cycle.
 
-- Spawn agents with `pu spawn`, message them with `pu send`, and post plans
-  and decisions with `pu channel send`. Builders report to whoever spawned
+- Spawn agents with `pu spawn` and message them with `pu send`. Post plans,
+  questions, decisions and status to the PageSpace Delivery channel
+  (`pagespace channels send ijy2klr2s7g77351a0zilrol "<slice>: <message>"`) and incidents (main red,
+  staging down, security) to Incidents (`pagespace channels send
+h72n2om8p0oq3y3h6nfjy1pm "..."`); the pu channel is retired. Builders report to whoever spawned
   them directly; the owner is not the message bus. Reviewers join the
   builder's worktree (`pu spawn -w <worktree>`) and are killed once they
   have posted.
@@ -375,7 +404,7 @@ builder's PR loop consumes them.
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
 one branch and one PR per slice, and execution changes update the plan
 without a new approval relay; changed product intent or scope cuts go to the
-point guard on the channel. The orchestrator owns Agent Memory writes.
+point guard on the Delivery channel. The orchestrator owns Agent Memory writes.
 
 Report meaningful milestones, final delivery, genuine blockers and actual
 writer conflicts directly to the spawning parent. Use the designated PageSpace

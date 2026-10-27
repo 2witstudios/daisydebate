@@ -24,14 +24,14 @@ it. The delivery process itself is [the slice process](agent-pipeline.md).
 pu spawn --agent claude --name <slice> "<mission brief>"
 pu spawn --agent claude -w <worktreeId> "/review <PR url>"
 pu send <agent> "<text>"
-pu channel send "<text>" | pu channel read
+pagespace channels send ijy2klr2s7g77351a0zilrol "<slice>: <text>"
 pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
 
 - **One builder per slice.** The point guard spawns one Claude builder for
-  each semantic slice, in its own worktree. Claude is required because the
-  Ralph loop runs on Claude Code's Stop hook.
+  each semantic slice, in its own worktree. Claude is required because its
+  PR loop, PR Loop (Ralph Loop), runs on Claude Code's Stop hook.
 - **Mission-only briefs.** The brief states only:
   - the outcome;
   - the owning intent pages and ADRs;
@@ -46,7 +46,8 @@ pu kill --agent <agent> && pu clean
   worktree when the work needs dependencies or services
   ([ADR 0034](../decisions/0034-shared-stack-slots.md)).
 - **Channel traffic.** Plans, decisions, the architecture reviewer and the
-  point guard's confirmations go through `pu channel`. Agents report to
+  point guard's confirmations go through the PageSpace Delivery channel;
+  incidents go to Incidents. The pu channel is retired. Agents report to
   whoever spawned them, so the owner never relays status.
 
 ## Pull requests and merges

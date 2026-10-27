@@ -17,5 +17,5 @@ its open PR).
    concrete triggering scenario) or SUSPECTED (what would confirm it), with
    severity and file:line.
 5. Post one PR comment in the reviews format, ending with the exact verdict
-   line. The builder's Ralph loop consumes it; you never merge, approve a
+   line. The builder's PR loop consumes it; you never merge, approve a
    status or edit the branch.

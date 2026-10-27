@@ -1,6 +1,6 @@
 # Reviews
 
-Reviews are asynchronous PR comments. The PR's builder runs the Ralph loop,
+Reviews are asynchronous PR comments. The PR's builder runs the PR loop,
 which reads every comment, fixes or answers each one, and cannot emit
 `PR_READY` while any review thread is unresolved ([ADR 0083](../decisions/0083-lean-gates-and-slice-process.md)).
 No review is a required status check, and no review blocks the builder from
@@ -26,8 +26,16 @@ loop asks for one; no reviewer has to re-review every push.
   tests, privacy and telemetry, and it ends with a verdict line.
 - **`/code-review`** posts inline review comments on the lines it questions,
   so each finding is its own thread.
-- **astra** posts architecture comments on the PR, or on the channel when
+- **astra** posts architecture comments on the PR, or on the Delivery channel when
   the question is about the plan.
+
+Every review, of a plan or a PR, judges against the stated intent and the
+ideal design, not only against the existing code: consistent-with-flawed-code
+is not a pass. It also checks concept boundaries (AGENTS.md "Design
+constraints"). Concept coupling is a **blocker**, never a minor. That covers
+two concepts merged to save a call, a table or a pool; a feature built on a
+structure that does not match its concept instead of refactoring it first;
+and "coaching" or "coach" used for anything but human coaches.
 
 ## The `/review` comment
 

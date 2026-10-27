@@ -18,4 +18,4 @@ GitHub Actions are pinned to full commit SHAs with the version as a trailing com
 
 The repository is hosted on GitHub and changes land through pull requests against `main`. `.github/CODEOWNERS` names the repository's one real owner, `@2witstudios`, for every path; split it by path once a second reviewer owns a package. Branch protection and required owner review are configured in the repository settings, not by files alone.
 
-Agents deliver authorized outcomes through the slice process: their own discovery and plan, one confirmation, one PR per slice, the Ralph loop and async PR-comment reviews. See [the slice process](docs/development/agent-pipeline.md).
+Agents deliver authorized outcomes through the slice process: their own discovery and plan, one confirmation, one PR per slice, the PR loop and async PR-comment reviews. See [the slice process](docs/development/agent-pipeline.md).

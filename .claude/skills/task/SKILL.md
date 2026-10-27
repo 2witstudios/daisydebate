@@ -6,19 +6,19 @@ description: >
   Use when asked to plan a slice or epic, break work into board tasks, sync progress, replan, or
   check the board against the plan, or when the user says "/task", "/task sync", "/task replan",
   "/task validate".
-compatibility: Requires the pagespace CLI with an active key, gh, and pu for the channel. In a repository with bun board:*, bun decision:record or bun adr:next (Daisy) it uses them.
+compatibility: Requires the pagespace CLI with an active key (it also posts to the Delivery channel), gh, and pu. In a repository with bun board:*, bun decision:record or bun adr:next (Daisy) it uses them.
 ---
 
 # 🗺️ task
 
 Act as the builder who owns a semantic slice end to end. The process is:
-**semantic slice → your discovery and plan → one confirmation → one PR → Ralph loop → async reviews.**
+**semantic slice → your discovery and plan → one confirmation → one PR → PR loop → async reviews.**
 This skill covers the planning half; `/pr` and `/handoff` cover the rest.
 
 Constraints {
-AGENTS.md governs. Read it first for the drive id, the board, the channel and the task-code prefixes in use. No drive declared => keep the plan in the PR description and say so.
+AGENTS.md governs. Read it first for the drive id, the board, the Delivery channel and the task-code prefixes in use. No drive declared => keep the plan in the PR description and say so.
 Discovery is yours. A mission brief names the outcome, the owning intent pages and ADRs, and the PRs and branches you inherit; it never contains research, so do the research yourself.
-One plan, one confirmation. Post the plan link on the pu channel; the architecture reviewer and the point guard confirm or redirect. Never wait for another approval after that, and never wait on the owner: product, architecture or scope questions go to the point guard on the channel.
+One plan, one confirmation. Post the plan link on the PageSpace Delivery channel; the architecture reviewer and the point guard confirm or redirect. Never wait for another approval after that, and never wait on the owner: product, architecture or scope questions go to the point guard on the Delivery channel.
 One PR per slice. A task is a provable outcome, not a PR: there is no file-count, line-count or one-PR-per-task rule. Split off an earlier PR only when a piece must ship first.
 A decision you make on someone's behalf is recorded (`bun decision:record` when present, otherwise the plan's Decisions list). Never bury one as "please confirm".
 Never edit the criteria of a task someone else delegated to you; take a change to whoever owns it.
@@ -42,18 +42,19 @@ discover() {
 
 plan() {
 
-1. Create `Plans/<slice>` if missing, then one DOCUMENT `Plan — <slice>`. Sections, in order:
-   - Outcome: what is true when the slice merges.
-   - Sources: the intent pages, ADRs, mission prompt and inherited PRs (page mentions; GitHub URLs for PRs).
-   - Discovery findings: the facts that shape the design.
-   - Design: what changes, where, and why; migrations and ADRs (numbers from `bun adr:next`, announced on the channel when you claim one).
-   - Task list: one line per task, `<CODE> — Given X, should Y`. Reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix. Human-only tasks are marked `(human, <who>)`.
-   - Verification: local targeted checks, what CI proves, and any staging proof.
-   - Decisions and open questions.
+1. Create `Plans/<slice>` if missing, then one DOCUMENT `Plan — <slice>`. Plan from intent, not from the existing code. Sections, in this order:
+   1. Intent: what the owner and the user want, in product words, from the Product intent page, the DEC records and the owner's own words. Not code. Link the sources (page mentions; GitHub URLs for PRs), the mission prompt and inherited PRs.
+   2. Concepts and names: the domain vocabulary, what each word means, and which concepts must stay separate.
+   3. Ideal design: how you would build it from scratch to serve that intent (layers, ownership, names, data flow). Write this BEFORE studying the current implementation in depth.
+   4. Current state and divergence: where today's code differs from the ideal, and why.
+   5. Refactors first: each divergence that matters becomes a refactor at the start of the slice. Never build on a wrong shape.
+   6. Build: what changes, where, and why; migrations and ADRs (numbers from `bun adr:next`, announced on the Delivery channel when you claim one). Then the task list, one line per task, `<CODE> — Given X, should Y` (reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix; human-only tasks are marked `(human, <who>)`); the verification (local targeted checks, what CI proves, any staging proof); and the decisions and open questions.
+   - Planning is a dialogue: post intent and design questions on Delivery as they come up ("is X the same concept as Y?", "the code does Z, the ideal is W: refactor?"). The point guard answers and challenges ("is this the best way, or just the existing way?"). The plan is confirmed only after its Ideal design and Divergence have been discussed.
+   - The architecture rules in AGENTS.md "Design constraints" are blockers: never build on flawed architecture, one concept one home, no coupling for efficiency, and the reserved words.
 2. Board: one leaf per task code under the slice's epic in Roadmap (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code. A finding outside the slice is an issue, always in a bucket: `bun board:create --issue --bucket <name>`.
    - Name the areas the slice advances in the plan, and update their Score blocks on the area pages when the slice merges.
-3. Post one channel message: `pu channel send "<branch> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
-4. Start building at once on anything the open questions do not touch. The confirmation arrives on the channel; apply any redirect to the plan and keep going.
+3. Post one channel message: `pagespace channels send ijy2klr2s7g77351a0zilrol "<slice> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
+4. Start building at once on anything the open questions do not touch. The confirmation arrives on the Delivery channel; apply any redirect to the plan and keep going.
    }
 
 ### 3 — Build and deliver
@@ -75,7 +76,7 @@ Read the plan and the board. Set each task you are building to In Progress, and 
 ### replan — change without drift
 
 replan() {
-Edit the plan's Design and Task list first, then the board. New tasks take new codes or suffixes (`AUTH-7.5a`); never renumber. A changed product outcome or a scope cut goes to the point guard on the channel; execution changes need no approval.
+Edit the plan's Design and Task list first, then the board. New tasks take new codes or suffixes (`AUTH-7.5a`); never renumber. A changed product outcome or a scope cut goes to the point guard on the Delivery channel; execution changes need no approval.
 }
 
 ### validate — board versus plan

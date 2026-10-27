@@ -3,7 +3,7 @@ name: handoff
 description: >
   Hand a slice PR to async review in one step: push the branch, open or update the one PR through
   /pr, move the delivered tasks to In Review, spawn the /review and /code-review reviewers into
-  your own worktree, ask the architecture reviewer for a pass, and post on the channel. Use when a
+  your own worktree, ask the architecture reviewer for a pass, and post on the Delivery channel. Use when a
   slice PR opens, when the user says "/handoff", or at the end of a builder prompt.
 compatibility: Requires git, the gh CLI, pu, and the pagespace CLI with an active key. In a repository with bun board:* (Daisy) it uses them.
 ---
@@ -12,7 +12,7 @@ compatibility: Requires git, the gh CLI, pu, and the pagespace CLI with an activ
 
 Act as a slice builder opening its PR to review. A handoff is one step: every part below happens in
 the same run, in this order, and the run is not done until each part is verified. It starts the
-review, and the Ralph loop that follows converges it.
+review, and the PR loop that follows converges it.
 
 Constraints {
 Never merge and never mark Done. Only main receives merged PRs; the point guard's flow sweep merges after you emit PR_READY.
@@ -33,8 +33,8 @@ Process {
    `pu spawn --agent claude -w <your worktree id> "/code-review <PR url>"`
    They are read-only and post PR comments. Kill each one (`pu kill --agent <id>`) once it has posted.
 6. Channel: one message asking the architecture reviewer for a pass and telling the point guard the PR is open:
-   `pu channel send "<branch> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; Ralph loop starting."`
-7. Verify: `gh pr view <n> --json headRefOid` equals the SHA from step 1, the tasks read In Review, and both reviewers are running. Then start (or continue) the Ralph loop.
+   `pagespace channels send ijy2klr2s7g77351a0zilrol "<slice> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; PR loop starting."`
+7. Verify: `gh pr view <n> --json headRefOid` equals the SHA from step 1, the tasks read In Review, and both reviewers are running. Then start (or continue) the PR loop.
    }
 
 Commands {

@@ -23,12 +23,12 @@ product intent; agents own routine execution
    - the inherited PRs and branches.
 
    Every task is a `Given X, should Y` criterion with a code. The builder
-   posts the plan's link on the pu channel.
+   posts the plan's link on the PageSpace Delivery channel.
 
 3. **One confirmation.** The architecture reviewer and the point guard
    confirm or redirect within minutes. No other approval follows. Product,
    architecture or scope questions that come up later go to the point guard
-   on the channel and are answered there.
+   on the Delivery channel and are answered there.
 4. **One PR.** The builder builds the whole slice on one branch and opens
    one PR. The PR title is a conventional commit naming every task code, and
    the body lists the codes and links the plan. The builder commits and
@@ -53,7 +53,7 @@ product intent; agents own routine execution
 
 The point guard's flow sweep merges once `PR_READY` is out and the required
 checks are green at the exact head. The builder then posts `SLICE DONE`, or
-its next plan, on the channel.
+its next plan, on the Delivery channel.
 
 ## Branch development
 
@@ -108,7 +108,7 @@ an expensive command while its known blocking condition is unchanged.
   the same PR. A finding outside the slice is filed in `Issues` in the same
   session.
 - **Reporting.** Report meaningful milestones, final delivery and real
-  blockers on the channel or to the spawning parent. Never wait on the
+  blockers on the Delivery channel or to the spawning parent. Never wait on the
   owner: the point guard answers product, architecture and scope questions.
 
 ## Production and environment protection

@@ -8,6 +8,7 @@ import {
 import { CUID2, mergeEvent } from './docs-consult.test-support';
 import { DOCUMENTATION_PROMPT_VERSION, promptFor } from './docs-prompts';
 import { RUN_RECORD_COLUMNS } from './docs-runs-sheet';
+import { EVENT_MAX_CHARS } from './docs-event-bound';
 import { DOCUMENTATION_RUNS_SHEET_ID } from './pagespace-docs';
 
 setupRitewayBun();
@@ -87,6 +88,48 @@ describe('composeConsultQuestion', async () => {
     conversationId: 'dabc',
     runRow: 7,
     nonce: 'n0nce',
+  });
+
+  test('bounds a slice-sized event and names what it left out', async () => {
+    const big = {
+      ...event,
+      pullRequest: event.pullRequest && {
+        ...event.pullRequest,
+        body: 'z'.repeat(30_000),
+      },
+      changedFiles: Array.from({ length: 500 }, (_, i) => `scripts/f-${i}.ts`),
+    };
+    const bounded = composeConsultQuestion({
+      event: big,
+      pipeline: 'user-docs',
+      conversationId: 'dabc',
+      runRow: 7,
+      nonce: 'n0nce',
+    });
+    const fenced = bounded.split('<documentation-event-n0nce>\n')[1] ?? '';
+    assert({
+      given: 'a 30,000-character body and 500 changed files',
+      should:
+        'fence at most EVENT_MAX_CHARS of event and say, outside the fence, what was cut',
+      actual: {
+        fenced:
+          fenced.split('\n</documentation-event-n0nce>')[0].length <=
+          EVENT_MAX_CHARS,
+        said: /This event was shortened to fit the 6000-character consult budget; left out: the PR body \(\d+ of 30000 characters kept\), \d+ of 500 changed files\./.test(
+          bounded,
+        ),
+      },
+      expected: { fenced: true, said: true },
+    });
+  });
+
+  test('says nothing about cuts when the event fits', async () => {
+    assert({
+      given: 'a small merge event',
+      should: 'carry no shortening note',
+      actual: question.includes('This event was shortened'),
+      expected: false,
+    });
   });
 
   test('leads with the canonical versioned prompt for the pipeline', async () => {
