@@ -1,3 +1,4 @@
+import { consumeMessagingRead } from './handler-boundary';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
@@ -33,12 +34,7 @@ export function composeMessagingReactionRoute(app: App) {
           readMessagingReactions(value, principal, {
             policy: reactionPolicy,
             store: store(principal),
-            limit: (actorId) =>
-              consumeWindowsOrThrow(
-                app.auth().limiter,
-                `messaging:reaction-read:${actorId}`,
-                policy.limits.read,
-              ),
+            limit: (actorId) => consumeMessagingRead(app, actorId),
           }),
       })(request, channelId);
     return createMessagingReactionHandler({

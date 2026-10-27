@@ -24,7 +24,10 @@ export function parseMessagingFileLimits<
   policy: { readonly limits: { readonly fileBytes: number } },
 ) {
   if (runtime.policy.maxFileBytes > policy.limits.fileBytes)
-    throw createAppError('VALIDATION');
+    throw createAppError(
+      'VALIDATION',
+      'messagingFiles.maxFileBytes would loosen DEC-251',
+    );
   return runtime;
 }
 

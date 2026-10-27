@@ -52,6 +52,11 @@ export function dmRequestFrame(
       if (command.policyRevision !== input.policyRevision)
         throw createAppError('CONFLICT');
       const current = await read();
+      // An existing pending or accepted DM is no new request: asking again
+      // converges on it without spending DEC-251's budgets or writing a
+      // ledger row (the convergence is idempotent, so no receipt is needed).
+      if (current && ['pending', 'accepted'].includes(current.requestState))
+        return { channelId: current.channelId, state: current.requestState };
       const record = await spendSocialRequest(tx, {
         actorId: input.actorId,
         counterpartActorId: counterpartOf(input),
@@ -61,10 +66,6 @@ export function dmRequestFrame(
         now: command.now,
         limits: command.limits,
       });
-      if (current && ['pending', 'accepted'].includes(current.requestState)) {
-        await record(current.channelId);
-        return { channelId: current.channelId, state: current.requestState };
-      }
       const pair = rows[0]!;
       const channelId = current?.channelId ?? command.channelId;
       if (current) {

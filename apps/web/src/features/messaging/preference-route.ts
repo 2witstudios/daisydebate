@@ -17,7 +17,7 @@ export function composeMessagingPreferenceRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy;
     return createMessagingPreferenceHandler({
-      ...messagingActorHandlerPort(app, policy, 'preferences'),
+      ...messagingActorHandlerPort(app),
       store: (principal) =>
         composeMessagingPreferences({
           database: app.database,

@@ -69,13 +69,10 @@ async function isFriend(friends: FetchLike, username: string) {
 /**
  * Delivers the challenge to the friend (ADR 0072): their /friends page then
  * offers the room. Best effort: the room exists either way, and its invite
- * link still reaches them. A refused delivery is not silent to operators:
- * the challenges route logs its status like every route.
- */
-/**
- * Delivers the challenge, answering a notice when the held room already
- * challenges another friend (ISSUE-700): that friend was not invited, and
- * the challenger is told so before moving on.
+ * link still reaches them, and the challenges route logs a refusal like
+ * every route. When the held room already challenges another friend
+ * (ISSUE-700) it answers a notice: that friend was not invited, and the
+ * challenger is told so before moving on.
  */
 async function deliverChallenge(
   challenges: FetchLike,

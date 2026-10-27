@@ -16,7 +16,7 @@ export function composeMessagingTypingRoutes(app: App) {
     const policy = app.messagingPolicy;
     const bounds = parseValidated(messagingTypingSchemas.policy, policy.typing);
     return createMessagingTypingHandler({
-      ...messagingActorHandlerPort(app, policy, 'typing'),
+      ...messagingActorHandlerPort(app),
       signal: (actorId) =>
         consumeWindowsOrThrow(
           app.auth().limiter,

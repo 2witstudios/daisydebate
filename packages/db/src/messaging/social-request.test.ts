@@ -8,6 +8,7 @@ setupRitewayBun();
 import {
   peerId,
   channelId,
+  now,
   input,
   pair,
   command,
@@ -84,7 +85,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
 });
 for (const state of ['pending', 'accepted'])
   test(`existing ${state} pair converges without replacing authority`, async () => {
-    const { client, queries } = fakeSql([[request(state)], budget(), []]);
+    const { client, queries } = fakeSql([[request(state)]]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
@@ -94,13 +95,13 @@ for (const state of ['pending', 'accepted'])
     assert({
       given: `an existing ${state} DM`,
       should:
-        'return the durable channel and spend the new request receipt without creating channels or renewing pair state',
+        'return the durable channel without spending a social request, writing a ledger row, creating channels or renewing pair state',
       actual: [
         await frame.commitDmRequest(command),
         queries.map((entry) => entry.query.split(/\s/)[0]),
-        queries.at(-1)?.params.includes(channelId),
+        queries.some((entry) => entry.query.includes('insert')),
       ],
-      expected: [{ channelId, state }, ['select', 'select', 'insert'], true],
+      expected: [{ channelId, state }, ['select'], false],
     });
   });
 test('authority loss, pair ambiguity and policy drift refuse before request mutation', async () => {
@@ -172,11 +173,31 @@ for (const [facts, code] of [
       expected: true,
     });
   });
-test('a request to a related account is not held to the unrelated hour', async () => {
+test('asking again for an existing DM with the day spent still opens it (DEC-251)', async () => {
+  const { client, queries } = fakeSql([[request('accepted')]]);
+  const frame = dmRequestFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {},
+  );
+  assert({
+    given: 'an accepted DM and an actor who has spent the daily budget',
+    should:
+      'converge on the conversation without reading or spending the budget',
+    actual: [
+      await frame.commitDmRequest(command),
+      queries.some((entry) =>
+        entry.query.includes('messaging_social_commands'),
+      ),
+    ],
+    expected: [{ channelId, state: 'accepted' }, false],
+  });
+});
+test('a reopened request to a DM partner is spent as related', async () => {
   const { client, queries } = fakeSql([
-    [request('accepted')],
+    [request('declined', new Date(now))],
     budget({ unrelated: false, hourly: 5, daily: 19 }),
-    [],
   ]);
   const frame = dmRequestFrame(
     drizzle({ client }),
@@ -184,16 +205,15 @@ test('a request to a related account is not held to the unrelated hour', async (
     [pair],
     async () => {},
   );
-  await frame.commitDmRequest(command);
-  const ledger = queries.find((entry) =>
-    entry.query.startsWith('insert into messaging_social_commands'),
-  );
+  await frame.commitDmRequest(command).catch(() => undefined);
   assert({
     given:
-      'a request to a DM partner inside the day budget with the unrelated hour spent',
-    should: 'spend the request and record it as related',
-    actual: ledger?.params.at(-1),
-    expected: false,
+      'a declined DM asked again inside the day budget with the unrelated hour spent',
+    should: 'pass the budget check, the pair being related',
+    actual: queries.some((entry) =>
+      entry.query.includes('from messaging_social_declines'),
+    ),
+    expected: true,
   });
 });
 test('malformed time or limits never query the budget', async () => {

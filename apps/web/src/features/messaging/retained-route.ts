@@ -1,9 +1,9 @@
+import { consumeMessagingRead } from './handler-boundary';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import { messagingRetainedSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { requireMessagingAuthorization } from './authorization';
 import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
 import { requireMessagingActor } from './principal';
@@ -35,12 +35,7 @@ export function composeRetainedConversationRoutes(app: App) {
     const { actorId, userId } = requireMessagingActor(principal);
     return { actorId, userId };
   };
-  const limit = (actorId: string) =>
-    consumeWindowsOrThrow(
-      app.auth().limiter,
-      `messaging:read:${actorId}`,
-      policy.limits.read,
-    );
+  const limit = (actorId: string) => consumeMessagingRead(app, actorId);
   const boundary = messagingHttpBoundary(app);
   return {
     list: (request: Request) =>

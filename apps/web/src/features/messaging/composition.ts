@@ -1,3 +1,4 @@
+import { consumeMessagingRead } from './handler-boundary';
 import { composeMessagingReactionRoute } from './reaction-route';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
@@ -112,7 +113,7 @@ export function composeMessagingRoutes(app: App) {
             limit: async (actorId) =>
               consumeWindowsOrThrow(
                 app.auth().limiter,
-                `messaging:mutation:${actorId}`,
+                `messaging:send:${actorId}`,
                 policy.limits.actorSend,
               ),
           }),
@@ -154,11 +155,7 @@ export function composeMessagingRoutes(app: App) {
           ) => {
             if (principal.kind !== 'user' || principal.actorId === null)
               throw createAppError('AUTHORIZATION');
-            await consumeWindowsOrThrow(
-              app.auth().limiter,
-              `messaging:read:${principal.actorId}`,
-              policy.limits.read,
-            );
+            await consumeMessagingRead(app, principal.actorId);
             return createMessagingReadOperations({
               store: store(principal, 'channel.read'),
               bounds: policy.bounds,

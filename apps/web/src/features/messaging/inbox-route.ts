@@ -1,3 +1,5 @@
+import { requireMessagingActor } from './principal';
+import { consumeMessagingRead } from './handler-boundary';
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createMessagingInboxSchemas, idSchema } from '@daisy/protocol';
@@ -24,13 +26,18 @@ export function composeMessagingChannelEntryRoute(app: App) {
       name: 'messaging.channel.entry',
       readOnly: true,
       readInput: async () => parseValidated(idSchema, channelId),
-      operation: async (value, principal) =>
-        schemas.entry.parse({
+      operation: async (value, principal) => {
+        await consumeMessagingRead(
+          app,
+          requireMessagingActor(principal).actorId,
+        );
+        return schemas.entry.parse({
           version: 1,
           entry: await inboxOf(app, principal).entry(
             parseValidated(idSchema, value),
           ),
-        }),
+        });
+      },
     });
   };
 }
@@ -63,6 +70,10 @@ export function composeMessagingInboxRoute(app: App) {
       },
       operation: async (value, principal) => {
         const query = parseValidated(schemas.query, value);
+        await consumeMessagingRead(
+          app,
+          requireMessagingActor(principal).actorId,
+        );
         const result = await inboxOf(app, principal).read({
           limit: policy.bounds.pageItems,
           ...(query.after === undefined ? {} : { after: query.after }),

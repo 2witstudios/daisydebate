@@ -34,21 +34,23 @@ type Boundary = {
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
 };
-/** Two optional channel-metadata handlers share the same participant boundary and distinct explicit actor buckets. */
-export function messagingActorHandlerPort(
-  app: App,
-  policy: NonNullable<App['messagingPolicy']>,
-  bucket: 'typing' | 'preferences',
-) {
+/**
+ * DEC-251's one per-account read budget (120 per minute): every messaging
+ * read spends from the same bucket, so no surface multiplies it.
+ */
+export const consumeMessagingRead = (app: App, actorId: string) =>
+  consumeWindowsOrThrow(
+    app.auth().limiter,
+    `messaging:read:${actorId}`,
+    app.messagingPolicy.limits.read,
+  );
+
+/** Two channel-metadata handlers share the participant boundary and the read budget. */
+export function messagingActorHandlerPort(app: App) {
   return {
     boundary: messagingHttpBoundary(app),
-    maxBodyBytes: policy.maxBodyBytes,
-    consume: (actorId: string) =>
-      consumeWindowsOrThrow(
-        app.auth().limiter,
-        `messaging:${bucket}:${actorId}`,
-        policy.limits.read,
-      ),
+    maxBodyBytes: app.messagingPolicy.maxBodyBytes,
+    consume: (actorId: string) => consumeMessagingRead(app, actorId),
   };
 }
 /** Message and social handlers use the same injected participant boundary. */
