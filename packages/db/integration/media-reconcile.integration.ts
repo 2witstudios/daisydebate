@@ -12,33 +12,31 @@ const { databaseUrl } = requireTestServices(process.env);
 async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
   const { roundId, seat } = await mediaTestHuman(fixture);
   const store = mediaTestStore(fixture.sql);
+  const caller = { actorId: seat.actorId, admits: admitsPrincipalAccess };
   const binding = await store.ensureBinding({
     roundId,
-    caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
+    caller,
     buildProjection: mediaTestTick,
   });
-  return { roundId, seat, store, binding };
+  /** The seated human asks this store for a reconcile. */
+  const request = (by: typeof store = store) =>
+    by.requestMediaReconcile({ roundId, caller });
+  return { roundId, seat, store, binding, request };
 }
 
 test('durable reconcile claims serve only the request horizon they actually started with', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const { roundId, seat, store, binding } = await reconcileFixture(fixture);
+    const { store, binding, request } = await reconcileFixture(fixture);
     const otherProcess = mediaTestStore(fixture.sql);
     try {
-      const first = await store.requestMediaReconcile({
-        roundId,
-        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
-      });
+      const first = await request();
       const claim = await store.claimMediaReconcile({
         sessionId: binding.sessionId,
         owner: createId(),
       });
       if (claim.kind !== 'claimed')
         throw new Error('First reconcile was not claimed');
-      const second = await otherProcess.requestMediaReconcile({
-        roundId,
-        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
-      });
+      const second = await request(otherProcess);
       const competing = await otherProcess.claimMediaReconcile({
         sessionId: binding.sessionId,
         owner: createId(),
@@ -82,12 +80,10 @@ test('durable reconcile claims serve only the request horizon they actually star
 
 test('restart, verified absence and late acknowledgement never erase unknown vendor outcomes', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const { roundId, seat, store, binding } = await reconcileFixture(fixture);
+    const { roundId, seat, store, binding, request } =
+      await reconcileFixture(fixture);
     try {
-      await store.requestMediaReconcile({
-        roundId,
-        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
-      });
+      await request();
       const claim = await store.claimMediaReconcile({
         sessionId: binding.sessionId,
         owner: createId(),

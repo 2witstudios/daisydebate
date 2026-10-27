@@ -51,7 +51,6 @@ export function createMediaSessionStore({
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
       const roundId = parseId(input.roundId);
-      const actorId = parseId(input.caller.actorId);
       return run(async (tx) => {
         const authority = await lockMediaRound(tx, roundId, input.caller);
         const roundParticipantId = authority.caller!.id;

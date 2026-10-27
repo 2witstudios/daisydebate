@@ -241,13 +241,11 @@ export class Fixture {
     return (await this.seat(roundId, role, slot, actorId)).actorId;
   }
 
-  /** A seated fresh human is an admitted participant (ADR 0075). */
-  private async seatedHuman() {
-    const userId = await this.user();
-    await admitParticipants(this.sql, [userId]);
+  private async seatedHuman(userId?: string) {
+    // A seated fresh human is an admitted participant (ADR 0075).
+    await admitParticipants(this.sql, [(userId ??= await this.user())]);
     return this.actor(userId);
   }
-
   /** The authoritative participant row, with its surrogate seat id. */
   async seat(roundId: string, role: string, slot = 0, actorId?: string) {
     const seated = actorId ?? (await this.seatedHuman());
