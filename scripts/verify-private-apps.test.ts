@@ -48,7 +48,9 @@ describe('the private admin app (ADR 0077)', () => {
     const migrate =
       '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
     const others = SERVICE_APPS.filter(({ file }) => file !== 'fly.admin.toml')
-      .map((app) => step(app.file, app.token))
+      .map((app) =>
+        step(app.file, app.token, app.private ? ' --no-public-ips' : ''),
+      )
       .join('');
     const workflow = (flags: string) =>
       migrate + others + step('fly.admin.toml', 'FLY_ADMIN_API_TOKEN', flags);
