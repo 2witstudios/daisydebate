@@ -5,7 +5,7 @@ import { parseEnvelope } from './envelope';
 import { toEventRow, type EventRow } from './rows';
 
 /**
- * Why a stream record was not stored (ADR 0081): the logger's own reasons,
+ * Why a stream record was not stored (ADR 0084): the logger's own reasons,
  * plus an oversized record, a malformed envelope, one that disagrees with
  * its subject (`placement`), an app outside the configured list, a source
  * time too far from receipt, and a full buffer. A record is never kept in any raw form.
@@ -91,7 +91,7 @@ export function classify({
   return {
     kind: 'row',
     row: toEventRow(record, admitted.entry, receivedAt),
-    bytes: record.message.length,
+    bytes: Buffer.byteLength(record.message),
   };
 }
 
@@ -140,7 +140,9 @@ const minuteOf = (instant: string) =>
  * keeps at most (apps + 1) × reasons of them. A tally is stamped with the
  * minute it is taken. The batch in flight is kept whole until both its
  * inserts succeed, so a retry resends exactly the same rows under the same
- * token and ClickHouse stores them once.
+ * token and ClickHouse stores them once. Its rows and bytes count against
+ * the caps until they are stored, so buffered plus in flight never exceeds
+ * either cap.
  */
 export function createShipBuffer({
   apps,
@@ -156,12 +158,22 @@ export function createShipBuffer({
   readonly ids: IdGenerator;
 }) {
   let rows: { readonly row: EventRow; readonly bytes: number }[] = [];
+  // Line bytes held, buffered and in flight alike, until they are stored.
   let bytes = 0;
+  let inflightBytes = 0;
   let tallies = new Map<
     string,
     { app: string; reason: ShipDropReason; count: number }
   >();
   let inflight: (Batch & { rowsStored: boolean }) | null = null;
+  const held = () =>
+    rows.length + (inflight && !inflight.rowsStored ? inflight.rows.length : 0);
+  const markStored = () => {
+    if (!inflight || inflight.rowsStored) return;
+    inflight.rowsStored = true;
+    bytes -= inflightBytes;
+    inflightBytes = 0;
+  };
   const count = (app: string, reason: ShipDropReason) => {
     const key = `${app}|${reason}`;
     const tally = tallies.get(key) ?? { app, reason, count: 0 };
@@ -172,7 +184,7 @@ export function createShipBuffer({
     receive(subject: string, data: Uint8Array) {
       const result = classify({ subject, data, apps, receivedAt: clock.now() });
       if (result.kind === 'drop') count(result.app, result.reason);
-      else if (rows.length >= capacity || bytes + result.bytes > maxBytes)
+      else if (held() >= capacity || bytes + result.bytes > maxBytes)
         count(String(result.row.app), 'backpressure');
       else {
         rows.push(result);
@@ -186,7 +198,7 @@ export function createShipBuffer({
       const minute = minuteOf(clock.now());
       const taken = rows.slice(0, max);
       rows = rows.slice(max);
-      bytes -= taken.reduce((sum, entry) => sum + entry.bytes, 0);
+      inflightBytes = taken.reduce((sum, entry) => sum + entry.bytes, 0);
       inflight = {
         id: ids.next(),
         rows: taken.map((entry) => entry.row),
@@ -196,15 +208,13 @@ export function createShipBuffer({
       tallies = new Map();
       return inflight;
     },
-    rowsStored() {
-      if (inflight) inflight.rowsStored = true;
-    },
+    rowsStored: markStored,
     settle() {
+      markStored();
       inflight = null;
     },
-    /** Rows waiting, the batch in flight included. */
-    size: () =>
-      rows.length + (inflight?.rowsStored ? 0 : (inflight?.rows.length ?? 0)),
+    /** Rows waiting, the batch in flight included until it is stored. */
+    size: held,
     pendingTallies: () => tallies.size + (inflight?.drops.length ?? 0),
   };
 }

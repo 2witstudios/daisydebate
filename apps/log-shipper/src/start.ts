@@ -2,11 +2,11 @@ import { connect } from '@nats-io/transport-node';
 import { systemClock, systemId } from '@daisy/clock';
 import { createLogger } from '@daisy/logger';
 import { createClickHouseSink } from './clickhouse-sink';
-import { readShipperConfig, subjectsFor } from './config';
+import { readShipperConfig, subscriptionsFor } from './config';
 import { createNatsHealth } from './health';
 import { createShipBuffer, flush } from './ship';
 
-// The deployment edge (ADR 0081): Fly's org log stream in, ClickHouse out.
+// The deployment edge (ADR 0084): Fly's org log stream in, ClickHouse out.
 const FLUSH_INTERVAL_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -46,8 +46,9 @@ void (async () => {
 })();
 // Callback subscriptions: each record is classified as it arrives, so the
 // client holds no queue of unread messages.
-for (const subject of subjectsFor(config.SHIPPER_APPS))
+for (const { subject, queue } of subscriptionsFor(config.SHIPPER_APPS))
   nats.subscribe(subject, {
+    queue,
     callback: (error, message) => {
       if (!error) buffer.receive(message.subject, message.data);
     },

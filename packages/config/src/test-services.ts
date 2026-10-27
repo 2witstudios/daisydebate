@@ -119,7 +119,7 @@ export type TestClickHouse = {
   readonly readerPassword: string;
 };
 const testClickHouseSchema = z.object({
-  // The shared local or CI store on loopback only (ADR 0081): a suite can
+  // The shared local or CI store on loopback only (ADR 0084): a suite can
   // never write rows into a deployed log store.
   TEST_CLICKHOUSE_URL: z
     .string()

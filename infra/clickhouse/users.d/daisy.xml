@@ -1,5 +1,5 @@
 <!--
-  The two network roles of the operational log store (ADR 0081). Passwords
+  The two network roles of the operational log store (ADR 0084). Passwords
   come from the environment (Fly secrets on staging, dev-only values in
   infra/compose.yaml) and are never written here.
 -->
@@ -54,6 +54,7 @@
             <grants>
                 <query>GRANT SELECT ON daisy_logs.*</query>
                 <query>GRANT SELECT ON daisy_meta.schema_migrations</query>
+                <query>GRANT SELECT ON daisy_meta.sweeps</query>
             </grants>
         </daisy_admin_reader>
     </users>

@@ -222,7 +222,7 @@ inventory becomes the single index:
   - Fly.io's platform log search
     [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
   - On staging, the operational log store
-    ([ADR 0081](../decisions/0081-operational-log-pipeline.md)): a
+    ([ADR 0084](../decisions/0084-operational-log-pipeline.md)): a
     self-hosted ClickHouse on 6PN, fed by the log shipper. It keeps only
     lines the `@daisy/logger` vocabulary admits, with a **28-day TTL** on
     the shipper's receipt time. Daily partitions are dropped whole, and an

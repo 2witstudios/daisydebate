@@ -1,4 +1,4 @@
-# The operational log store (ADR 0081): self-hosted ClickHouse on the org's
+# The operational log store (ADR 0084): self-hosted ClickHouse on the org's
 # default 6PN with no public address (`fly deploy --no-public-ips`, checked
 # with `fly ips list`). No [http_service] or [[services]]: fly-proxy never
 # routes to it; the log shipper writes and the admin app reads over

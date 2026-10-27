@@ -60,7 +60,7 @@ services:
       timeout: 5s
       start_period: 3m
       retries: 20
-  # The operational log store (ADR 0081), built from the same Dockerfile
+  # The operational log store (ADR 0084), built from the same Dockerfile
   # Fly deploys, with dev-only role passwords (scripts/slot-model.ts names
   # them for the log-store suites). Shared by every slot; suites isolate by
   # their own CSPRNG instance ids. No volume: test data is disposable.

@@ -104,6 +104,26 @@ describe('ship buffer', () => {
     });
   });
 
+  test('counts the batch in flight against both caps until it is stored', () => {
+    const lineBytes = Buffer.byteLength(JSON.stringify(line));
+    const buffer = bufferOf(3, lineBytes * 3);
+    for (let index = 0; index < 3; index += 1) buffer.receive(subject, valid);
+    const inflight = buffer.next(2);
+    // The insert of the two in flight keeps failing while records arrive.
+    for (let index = 0; index < 5; index += 1) buffer.receive(subject, valid);
+    const held = buffer.size();
+    buffer.rowsStored();
+    buffer.settle();
+    buffer.receive(subject, valid);
+    buffer.receive(subject, valid);
+    assert({
+      given: 'a full buffer whose two-row batch is in flight, then stored',
+      should: 'refuse every arrival while in flight and admit two once stored',
+      actual: { inflight: inflight?.rows.length, held, after: buffer.size() },
+      expected: { inflight: 2, held: 3, after: 3 },
+    });
+  });
+
   test('stays bounded through a long outage', () => {
     const buffer = bufferOf(5, 1_000_000);
     for (let index = 0; index < 1_000; index += 1) {

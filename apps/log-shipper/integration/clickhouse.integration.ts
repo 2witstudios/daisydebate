@@ -118,6 +118,25 @@ describe('the log store', () => {
     });
   });
 
+  test('stores a delayed retry once, after other batches', async () => {
+    const instance = freshInstance();
+    const late = batchFor(instance, 2);
+    await sink.insertRows(late.rows, `${late.id}-rows`);
+    for (let index = 0; index < 3; index += 1) {
+      const other = batchFor(freshInstance(), 1);
+      await sink.insertRows(other.rows, `${other.id}-rows`);
+    }
+    // The first answer was lost; the shipper retries only after others
+    // were stored.
+    await sink.insertRows(late.rows, `${late.id}-rows`);
+    assert({
+      given: 'a batch retried under its token after three other inserts',
+      should: 'still store its rows once',
+      actual: await countFor(instance),
+      expected: 2,
+    });
+  });
+
   test('keeps identical events that arrive in different batches', async () => {
     const instance = freshInstance();
     const batch = batchFor(instance, 1);
@@ -155,6 +174,41 @@ describe('the log store', () => {
     await expect(shipperSelect).rejects.toThrow('Not enough privileges');
     await expect(readerSetting).rejects.toThrow('readonly');
     await shipperReader.close();
+  });
+
+  test('the hourly sweep drops a day partition from its 29th day on', async () => {
+    const instance = freshInstance();
+    const batch = batchFor(instance, 1);
+    await sink.insertRows(batch.rows, `${batch.id}-rows`);
+    const day = String(batch.rows[0]?.received_at).slice(0, 10);
+    const sweepSql = await Bun.file(
+      new URL('../../../infra/clickhouse/sweep.sql', import.meta.url),
+    ).text();
+    const plusDays = (days: number) =>
+      new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+    const swept = async (today: string) => {
+      const result = await reader.exec({
+        query: sweepSql,
+        query_params: { today },
+      });
+      const text = await new Response(result.stream).text();
+      return text
+        .trim()
+        .split('\n')
+        .some((line) => line === `events\t${day.replaceAll('-', '')}`);
+    };
+    assert({
+      given: "a partition for today's receipts and the sweep run on later days",
+      should: 'keep it through day + 28 and drop it from day + 29 on',
+      actual: [
+        await swept(plusDays(28)),
+        await swept(plusDays(29)),
+        await swept(plusDays(31)),
+      ],
+      expected: [false, true, true],
+    });
   });
 
   test('gives every table a TTL inside the 30-day ceiling', async () => {

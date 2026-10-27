@@ -1,4 +1,4 @@
-# The operational log store (ADR 0081): ClickHouse with Daisy's server
+# The operational log store (ADR 0084): ClickHouse with Daisy's server
 # config, users and versioned schema baked in. Fly builds it from
 # fly.clickhouse.toml; the local stack and CI build the same file from
 # infra/compose.yaml. LTS line 26.8, pinned by digest.
@@ -10,6 +10,7 @@ RUN rm -f /etc/clickhouse-server/config.d/docker_related_config.xml
 COPY infra/clickhouse/config.d/ /etc/clickhouse-server/config.d/
 COPY infra/clickhouse/users.d/ /etc/clickhouse-server/users.d/
 COPY infra/clickhouse/migrations/ /daisy/migrations/
+COPY infra/clickhouse/sweep.sql /daisy/sweep.sql
 COPY --chmod=0755 infra/clickhouse/entrypoint.sh /daisy/entrypoint.sh
 # 6PN on Fly; compose overrides it for the local and CI stack.
 ENV CLICKHOUSE_CLIENT_NETWORK=fdaa::/16

@@ -52,7 +52,7 @@ const mainPorts = { app: 3000, e2e: 3100, realtime: 3011 };
  */
 export const clamdTestPort = 3310;
 /**
- * The shared log store (ADR 0081): the loopback port and dev-only role
+ * The shared log store (ADR 0084): the loopback port and dev-only role
  * passwords of the clickhouse service in infra/compose.yaml.
  */
 export const clickHouseTest = {

@@ -35,6 +35,12 @@ export function readShipperConfig(
   return parsed.data;
 }
 
-/** One subject per configured app: `logs.<app>.<region>.<instance>`. */
-export const subjectsFor = (apps: readonly string[]) =>
-  apps.map((app) => `logs.${app}.>`);
+/**
+ * One subscription per configured app, all in one queue group: however many
+ * shipper machines overlap (a scale-up, a clone, a rolling deploy), each
+ * record reaches exactly one of them, so no record is inserted twice under
+ * two batch tokens.
+ */
+const SHIPPER_QUEUE = 'daisy-log-shipper';
+export const subscriptionsFor = (apps: readonly string[]) =>
+  apps.map((app) => ({ subject: `logs.${app}.>`, queue: SHIPPER_QUEUE }));

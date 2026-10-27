@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readShipperConfig, subjectsFor } from './config';
+import { readShipperConfig, subscriptionsFor } from './config';
 
 setupRitewayBun();
 
@@ -17,18 +17,25 @@ describe('shipper configuration', () => {
     const config = readShipperConfig(env);
     assert({
       given: 'a complete environment',
-      should: "list the apps and default to Fly's 6PN NATS endpoint",
+      should:
+        "list the apps, subscribe each in one queue group and default to Fly's 6PN NATS endpoint",
       actual: {
         apps: config.SHIPPER_APPS,
         nats: config.NATS_URL,
-        subjects: subjectsFor(config.SHIPPER_APPS),
+        subscriptions: subscriptionsFor(config.SHIPPER_APPS),
       },
       expected: {
         apps: ['daisy-debate-staging', 'daisy-debate-staging-realtime'],
         nats: 'nats://[fdaa::3]:4223',
-        subjects: [
-          'logs.daisy-debate-staging.>',
-          'logs.daisy-debate-staging-realtime.>',
+        subscriptions: [
+          {
+            subject: 'logs.daisy-debate-staging.>',
+            queue: 'daisy-log-shipper',
+          },
+          {
+            subject: 'logs.daisy-debate-staging-realtime.>',
+            queue: 'daisy-log-shipper',
+          },
         ],
       },
     });

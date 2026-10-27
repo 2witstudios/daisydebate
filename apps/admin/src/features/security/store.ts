@@ -1,7 +1,7 @@
 import { createClient } from '@clickhouse/client-web';
 import { coverageSql, sections, type SecurityView } from './sections';
 
-/** The read-only role ADR 0081 grants SELECT on `daisy_logs` and nothing else. */
+/** The read-only role ADR 0084 grants SELECT on `daisy_logs` and nothing else. */
 const READER_USER = 'daisy_admin_reader';
 /** The client gives up when the reader profile's own time limit does. */
 const READ_TIMEOUT_MS = 10_000;
@@ -55,14 +55,22 @@ export function createSecurityStore(config: LogStoreConfig) {
       read(() =>
         Promise.all(sections[view].map(({ sql }) => rows(sql, bounds))),
       ),
-    coverage: (floor: string) =>
+    coverage: (bounds: { readonly floor: string; readonly recent: string }) =>
       read(async () => {
-        const [heartbeat, apps, oldest] = await Promise.all([
-          rows(coverageSql.heartbeat, { floor }),
-          rows(coverageSql.apps, { floor }),
+        const [heartbeat, apps, flow, oldest, sweep] = await Promise.all([
+          rows(coverageSql.heartbeat, { floor: bounds.floor }),
+          rows(coverageSql.apps, { floor: bounds.floor }),
+          rows(coverageSql.flow, { recent: bounds.recent }),
           rows(coverageSql.oldest, {}),
+          rows(coverageSql.sweep, { floor: bounds.floor }),
         ]);
-        return { heartbeat: heartbeat[0] ?? null, apps, oldest };
+        return {
+          heartbeat: heartbeat[0] ?? null,
+          apps,
+          flow,
+          oldest,
+          lastSweep: (sweep[0]?.last_sweep as string | undefined) ?? null,
+        };
       }),
   };
 }

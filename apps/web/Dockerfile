@@ -138,7 +138,7 @@ WORKDIR /app/apps/media-worker
 CMD ["bun", "src/start.ts"]
 
 # ---- log-shipper: apps/log-shipper, the operational log shipper
-# (fly.log-shipper.toml, ADR 0081). No port: it only calls out.
+# (fly.log-shipper.toml, ADR 0084). No port: it only calls out.
 FROM server-source AS log-shipper
 COPY --chown=daisy:daisy apps/log-shipper/src apps/log-shipper/src
 WORKDIR /app/apps/log-shipper

@@ -50,7 +50,7 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 On staging, the log shipper (`apps/log-shipper`) streams every app's stdout
 from Fly's org log stream into a 6PN-only ClickHouse. The admin app's
 Security page reads it through a read-only role
-([ADR 0081](../decisions/0081-operational-log-pipeline.md),
+([ADR 0084](../decisions/0084-operational-log-pipeline.md),
 [runbook](log-pipeline.md)).
 
 - **Admission.** A line is stored only when `@daisy/logger/ingest`
@@ -129,8 +129,8 @@ diverge:
 | `redis.command.failed`                   | error    | A Redis command failed                                                                                                                                                                                                                                                                     |
 | `availability.sample_failed`             | error    | A web availability sample could not be recorded; that window has no availability evidence                                                                                                                                                                                                  |
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed; the interval retries on its next tick                                                                                                                                                                                                             |
-| `logship.started`                        | info     | The log shipper subscribed to the org log stream (ADR 0081)                                                                                                                                                                                                                                |
-| `logship.insert.failed`                  | error    | A log batch insert into ClickHouse failed; the batch stays in flight and is retried under the same token (`errorCode`, `pending` only, ADR 0081)                                                                                                                                           |
+| `logship.started`                        | info     | The log shipper subscribed to the org log stream (ADR 0084)                                                                                                                                                                                                                                |
+| `logship.insert.failed`                  | error    | A log batch insert into ClickHouse failed; the batch stays in flight and is retried under the same token (`errorCode`, `pending` only, ADR 0084)                                                                                                                                           |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
 The five round worker failure events (`round.maintenance.failed`,

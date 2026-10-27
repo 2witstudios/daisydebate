@@ -11,7 +11,7 @@ export type HeartbeatRow = {
 };
 
 /**
- * The shipper's coverage signal (ADR 0081): NATS core delivery is
+ * The shipper's coverage signal (ADR 0084): NATS core delivery is
  * at-most-once, so a disconnect is a gap in what the store saw. The state
  * follows the client's status events; each reconnect is counted.
  */

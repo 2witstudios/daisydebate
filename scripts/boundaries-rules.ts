@@ -42,7 +42,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'logger',
     'protocol',
   ],
-  // ADR 0081: the log shipper reads the logger's vocabulary to admit
+  // ADR 0084: the log shipper reads the logger's vocabulary to admit
   // shipped lines; it holds no participant database or Redis credential.
   'log-shipper': ['clock', 'config', 'logger'],
   protocol: [],

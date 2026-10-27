@@ -4,7 +4,7 @@ import { requireTestClickHouse, requireTestServices } from '@daisy/config';
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createSecurityStore } from '../src/features/security/store';
-import { windowBounds } from '../src/features/security/view';
+import { coverageBounds, windowBounds } from '../src/features/security/view';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -76,7 +76,7 @@ describe('the security store', () => {
         (view) => security.view(view, bounds),
       ),
     );
-    const coverage = await security.coverage(windowBounds(now, '24h').from);
+    const coverage = await security.coverage(coverageBounds(now));
     assert({
       given: 'each view over the longest window, and the coverage reads',
       should: 'answer every one',

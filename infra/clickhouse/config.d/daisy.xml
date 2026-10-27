@@ -1,4 +1,4 @@
-<!-- Server settings for the operational log store (ADR 0081). -->
+<!-- Server settings for the operational log store (ADR 0084). -->
 <clickhouse>
     <listen_host>::</listen_host>
     <http_port>8123</http_port>

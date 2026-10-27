@@ -49,56 +49,95 @@ export function windowBounds(
   return { from: chTime(to - windowMs[window]), to: chTime(to) };
 }
 
-/** The coverage reads look back one day. */
-export const coverageFloor = (now: string) =>
-  chTime(Date.parse(now) - windowMs['24h']);
+/** The coverage reads look back one day, and the flow check one hour. */
+export const coverageBounds = (now: string) => ({
+  floor: chTime(Date.parse(now) - windowMs['24h']),
+  recent: chTime(Date.parse(now) - windowMs['1h']),
+});
 
 /** A heartbeat older than this means the counts below may be incomplete. */
 const HEARTBEAT_STALE_MS = 3 * 60_000;
 /** Past this age a stored row breaks the retention lifecycle (DEC-42: 30). */
 const RETENTION_ALARM_MS = 29 * 86_400_000;
 
+/** The sweep runs hourly; two missed runs mean retention is not enforced. */
+const SWEEP_STALE_MS = 2 * 3_600_000;
+
 export type Coverage = {
-  readonly shipper: 'live' | 'stale' | 'missing';
+  readonly shipper: 'live' | 'degraded' | 'stale' | 'missing';
   readonly natsState: string | null;
   readonly reconnects: number | null;
-  readonly retention: 'ok' | 'overdue';
+  /** Apps whose refused lines in the last hour are at least their stored ones. */
+  readonly refusing: readonly string[];
+  readonly retention: 'ok' | 'overdue' | 'unswept';
 };
 
-/**
- * Whether the counts can be trusted as coverage: a recent heartbeat from a
- * connected shipper, and no stored row past the retention alarm. Zero
- * events never reads as healthy on its own.
- */
-export function coverageOf({
-  now,
-  heartbeat,
-  oldest,
-}: {
-  readonly now: string;
-  readonly heartbeat: {
-    readonly at: string;
-    readonly nats_state: string;
-    readonly reconnects: string | number;
-  } | null;
-  readonly oldest: readonly { readonly oldest: string }[];
-}): Coverage {
-  const nowMs = Date.parse(now);
-  const shipper = !heartbeat
+type Heartbeat = {
+  readonly at: string;
+  readonly nats_state: string;
+  readonly reconnects: string | number;
+};
+type Flow = {
+  readonly app: string;
+  readonly admitted: string | number;
+  readonly dropped: string | number;
+};
+
+const shipperState = (nowMs: number, heartbeat: Heartbeat | null) =>
+  !heartbeat
     ? 'missing'
     : nowMs - fromChTime(heartbeat.at) > HEARTBEAT_STALE_MS ||
         heartbeat.nats_state !== 'connected'
       ? 'stale'
       : 'live';
+
+const retentionState = (
+  nowMs: number,
+  oldest: readonly { readonly oldest: string }[],
+  lastSweep: string | null,
+) => {
   // An empty table reports the epoch as its minimum.
   const overdue = oldest.some(({ oldest: text }) => {
     const ms = fromChTime(text);
     return ms > 0 && nowMs - ms > RETENTION_ALARM_MS;
   });
+  if (overdue) return 'overdue';
+  const swept = lastSweep === null ? 0 : fromChTime(lastSweep);
+  return swept > 0 && nowMs - swept <= SWEEP_STALE_MS ? 'ok' : 'unswept';
+};
+
+/**
+ * Whether the counts can be trusted as coverage: a recent heartbeat from a
+ * connected shipper that is storing what it receives, no stored row past
+ * the retention alarm, and a recent partition sweep. Zero events never
+ * reads as healthy on its own: a shipper refusing everything is degraded.
+ */
+export function coverageOf({
+  now,
+  heartbeat,
+  flow,
+  oldest,
+  lastSweep,
+}: {
+  readonly now: string;
+  readonly heartbeat: Heartbeat | null;
+  readonly flow: readonly Flow[];
+  readonly oldest: readonly { readonly oldest: string }[];
+  readonly lastSweep: string | null;
+}): Coverage {
+  const nowMs = Date.parse(now);
+  const refusing = flow
+    .filter(
+      ({ admitted, dropped }) =>
+        Number(dropped) > 0 && Number(dropped) >= Number(admitted),
+    )
+    .map(({ app }) => app);
+  const state = shipperState(nowMs, heartbeat);
   return {
-    shipper,
+    shipper: state === 'live' && refusing.length > 0 ? 'degraded' : state,
     natsState: heartbeat?.nats_state ?? null,
     reconnects: heartbeat ? Number(heartbeat.reconnects) : null,
-    retention: overdue ? 'overdue' : 'ok',
+    refusing,
+    retention: retentionState(nowMs, oldest, lastSweep),
   };
 }

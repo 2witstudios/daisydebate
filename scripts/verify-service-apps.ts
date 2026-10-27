@@ -49,26 +49,8 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
     },
   },
-  // ADR 0077: the admin database's release-only migrator, then the admin app.
-  {
-    file: 'fly.admin-migrate.toml',
-    token: 'FLY_ADMIN_MIGRATE_API_TOKEN',
-    target: 'admin-migrate',
-    stop: null,
-    release: true,
-  },
-  {
-    file: 'fly.admin.toml',
-    token: 'FLY_ADMIN_API_TOKEN',
-    target: 'admin',
-    stop: {
-      source: 'apps/admin/src/server/start.ts',
-      pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
-    },
-    after: 'fly.admin-migrate.toml',
-    private: true,
-  },
-  // ADR 0081: the log store (its own pinned image), then the shipper.
+  // ADR 0084: the log store (its own pinned image), then the shipper, both
+  // before the admin app that reads the store's schema.
   {
     file: 'fly.clickhouse.toml',
     token: 'FLY_CLICKHOUSE_API_TOKEN',
@@ -85,6 +67,26 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
     },
     after: 'fly.clickhouse.toml',
+    private: true,
+  },
+  // ADR 0077: the admin database's release-only migrator, then the admin app.
+  {
+    file: 'fly.admin-migrate.toml',
+    token: 'FLY_ADMIN_MIGRATE_API_TOKEN',
+    target: 'admin-migrate',
+    stop: null,
+    release: true,
+    after: 'fly.log-shipper.toml',
+  },
+  {
+    file: 'fly.admin.toml',
+    token: 'FLY_ADMIN_API_TOKEN',
+    target: 'admin',
+    stop: {
+      source: 'apps/admin/src/server/start.ts',
+      pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
+    },
+    after: 'fly.admin-migrate.toml',
     private: true,
   },
 ];

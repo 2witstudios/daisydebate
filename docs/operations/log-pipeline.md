@@ -2,7 +2,7 @@
 
 The shipper reads the event stream from Fly's org log stream, the ClickHouse
 store keeps it for 28 days, and the admin Security page reads it
-([ADR 0081](../decisions/0081-operational-log-pipeline.md)). This runbook
+([ADR 0084](../decisions/0084-operational-log-pipeline.md)). This runbook
 covers staging, org `daisy-debate`. Production is a separate owner step
 (below).
 
@@ -72,6 +72,11 @@ Never print a secret. Each one below is generated and piped straight into
 
 ## Verify
 
+- Run `fly apps list -o daisy-debate`. It must list only `daisy-debate-staging*`
+  apps (DEC-253: the org boundary is what limits the read-only token). Repeat
+  this at each token rotation. Recorded 2026-10-27: daisy-debate-staging,
+  -admin, -admin-migrate, -clickhouse, -db, -livekit, -log-shipper,
+  -media-worker, -migrate, -realtime.
 - Run `fly ips list` for both apps. Each must print no address.
 - Run `fly logs -a daisy-debate-staging-log-shipper --no-tail`. It must show
   `logship.started`, and no repeating `logship.insert.failed`.
@@ -85,22 +90,26 @@ Never print a secret. Each one below is generated and piped straight into
 
 ## Operations
 
-- **Rotate the org token** before it expires (at most every 90 days): repeat
-  step 3 without `--stage`, then revoke the old token
+- **Rotate the org token** before it expires (at most every 90 days). First
+  confirm that `fly apps list -o daisy-debate` lists only staging apps, then
+  repeat step 3 without `--stage`, then revoke the old token
   (`fly tokens list` / `fly tokens revoke`). The shipper reconnects with the
   new one on restart.
 - **Rotate a role password**: repeat step 2 for that role, then restart the
   store, the shipper and the admin app.
-- **Retention.** The TTL drops each day's partition by day + 29, and the
-  entrypoint's hourly sweep drops anything older as a backstop. If the
-  Security page shows "Retention overdue", check the store's stdout for
-  `partition sweep failed`.
+- **Retention.** The entrypoint's hourly sweep (`infra/clickhouse/sweep.sql`)
+  drops every daily partition dated 29 or more days ago. The TTL usually
+  removes them earlier. If the Security page shows "Retention overdue" or
+  "unverified":
+  1. Check the store's stdout for `partition sweep failed`.
+  2. Check `daisy_meta.sweeps` for the last completed sweep.
+  3. Restart the store machine; the sweep runs on boot.
 - **Schema change.** Add `infra/clickhouse/migrations/NNNN_<name>.sql`
   (idempotent, nullable `ADD COLUMN IF NOT EXISTS` for a new loggable field).
   Deploy the store before the shipper and the admin app. Never edit an
   applied file.
 - **Restart loss.** Records published while the shipper is down are not
-  replayed (ADR 0081 §3). The heartbeat's reconnect count and the coverage
+  replayed (ADR 0084 §3). The heartbeat's reconnect count and the coverage
   line show the gap.
 
 ## Production (owner step)

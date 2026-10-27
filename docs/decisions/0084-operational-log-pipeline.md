@@ -1,4 +1,4 @@
-# 0081: Operational log pipeline and security views
+# 0084: Operational log pipeline and security views
 
 Status: accepted. DEC-252 made the decision on the owner's behalf, and DEC-253
 settled the org-token boundary. Astra reviewed the plan
@@ -50,8 +50,11 @@ public address.
 
 **Subscription.** It subscribes to Fly's org log stream (NATS at
 `[fdaa::3]:4223`, user = org slug) on one subject per configured app,
-`logs.<app>.>`. The subscription uses a callback, so the client never queues
-unread messages.
+`logs.<app>.>`. Every subscription joins the queue group
+`daisy-log-shipper`, so however many shipper machines overlap (a scale-up, a
+clone, a rolling deploy), each record reaches exactly one of them and is never
+inserted twice under two batch tokens. The subscription uses a callback, so
+the client never queues unread messages.
 
 **Checks on each record.** A record is refused, before or after it is
 decoded, when any of these holds:
@@ -68,8 +71,10 @@ decoded, when any of these holds:
 - Its source time is more than 5 minutes ahead of, or 1 hour behind, the
   shipper's receipt time (`time`).
 
-**Buffering.** The buffer is capped at 5 000 rows and 8 MiB of lines.
-Arrivals past either cap are counted as `backpressure`. Drop tallies are keyed
+**Buffering.** The buffer is capped at 5 000 rows and 8 MiB of line bytes
+(UTF-8). The batch in flight counts against both caps until its rows are
+stored, so buffered plus in flight never exceeds either. Arrivals past either
+cap are counted as `backpressure`. Drop tallies are keyed
 by (app, reason), which bounds their cardinality whatever the outage length.
 Each tally is stamped with the minute it is taken.
 
@@ -77,8 +82,11 @@ Each tally is stamped with the minute it is taken.
 insert backs off to 30 s and resends the same batch, rows first and then
 tallies, under the same `insert_deduplication_token`. The tables set
 `non_replicated_deduplication_window`, so a stored insert whose response was
-lost is stored once. Identical events in different batches are both kept;
-nothing is deduplicated by content.
+lost is stored once. With one insert in flight per shipper, the retry of a
+batch always precedes the next batch's insert, so the 1 000-insert
+deduplication window can never evict a token before its retry. Identical
+events in different batches are both kept; nothing is deduplicated by
+content.
 
 **Heartbeat.** Each minute the shipper writes a heartbeat row with its NATS
 state, reconnect count and backlog.
@@ -93,10 +101,13 @@ events reach the store once it recovers.
   published while the shipper is disconnected or restarting are lost.
 - **Retry-idempotent into ClickHouse.** A retried insert is stored once.
 - **Counts are lower bounds.** The Security page shows coverage
-  independently of counts. A heartbeat older than 3 minutes, or one that is
-  not connected, marks the page "coverage unknown". So does a missing
-  heartbeat. Zero events never reads as healthy. A failed store read renders
-  "could not be read", never an empty table.
+  independently of counts.
+  - A heartbeat older than 3 minutes, one that is not connected, or none at
+    all marks the page "coverage unknown".
+  - A live shipper that refused at least as many lines as it stored for an
+    app in the last hour marks it "coverage degraded" and names the app.
+  - Zero events never reads as healthy.
+  - A failed store read renders "could not be read", never an empty table.
 
 ### 4. Store
 
@@ -136,21 +147,33 @@ therefore rests on several mechanisms together:
   refused (section 2), so a forged future time cannot extend retention.
 - **TTL and partitions.** The TTL is `received_at + 28 days`. Partitions are
   daily, with `ttl_only_drop_parts = 1` and `merge_with_ttl_timeout = 3600`.
-  A whole day expires by day + 29 and is dropped within the hour.
-- **Hourly sweep.** Every hour the entrypoint drops any partition older than
-  29 days. This is the backstop if a TTL merge is late, including after a
-  restart.
+  A whole day expires by day + 29. `merge_with_ttl_timeout` is only the
+  minimum gap between TTL merges, not a deadline, so the TTL alone bounds
+  nothing.
+- **Hourly sweep: the bound.** Every hour the entrypoint runs
+  `infra/clickhouse/sweep.sql` with today's UTC date. It drops every
+  daily partition dated `<= today - 29`. Day D's partition is therefore
+  dropped by the first sweep of day D + 29. A row received at the very start
+  of D is then at most 29 days and 1 hour old, about 23 hours inside the
+  ceiling. Every client call has a 300 s timeout, so a hung call cannot
+  stall the loop. Each completed sweep is recorded in `daisy_meta.sweeps`
+  (28-day TTL). An integration test runs the same file with injected dates.
 - **Bounded reads.** No read goes past 28 days: the longest window on the
   Security page is 28 days.
-- **Monitoring.** The Security page shows whether any stored row is older
-  than 29 days, and marks it overdue if so.
+- **Monitoring.** The Security page marks retention "overdue" when any
+  stored row is older than 29 days. It marks it "unverified" when no sweep
+  has completed in the last two hours, and it shows the last sweep's time.
 - **No other copies.** The volume is created with scheduled snapshots off,
   and there are no backups. Every ClickHouse internal log table is disabled.
   The server log goes to stdout, which Fly's 7-day search keeps.
 
-The guarantee: no stored row outlives 30 days while the machine runs. A
-machine that is stopped deletes nothing until it restarts. The sweep runs on
-boot, before the next hour.
+The guarantee: no stored row outlives 30 days while the sweep runs. The
+remaining failure boundary is a sweep that keeps failing for about 23 hours
+(the store machine stopped, or its drops failing). A stopped machine deletes
+nothing until it restarts, and the sweep then runs on boot, before anything
+else is read. A failing sweep is visible within two hours as "unverified" on
+the Security page, and in the store's stdout as `partition sweep failed`.
+Restoring the sweep is a runbook step.
 
 ### 6. The org token (DEC-253)
 

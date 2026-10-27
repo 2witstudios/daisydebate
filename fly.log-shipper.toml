@@ -1,4 +1,4 @@
-# The operational log shipper (ADR 0081): apps/log-shipper, the
+# The operational log shipper (ADR 0084): apps/log-shipper, the
 # `log-shipper` target of apps/web/Dockerfile. It subscribes to Fly's org
 # log stream over 6PN for the apps below, admits each line against the
 # @daisy/logger vocabulary and inserts it into

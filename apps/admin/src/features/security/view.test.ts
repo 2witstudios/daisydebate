@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sections, securityViews } from './sections';
 import {
-  coverageFloor,
+  coverageBounds,
   coverageOf,
   securityHref,
   securityQuery,
@@ -48,12 +48,12 @@ describe('the security screen', () => {
       actual: [
         windowBounds(now, '1h'),
         windowBounds(now, '28d'),
-        coverageFloor(now),
+        coverageBounds(now),
       ],
       expected: [
         { from: '2026-10-27 12:00:00.000', to: '2026-10-27 13:00:00.000' },
         { from: '2026-09-29 13:00:00.000', to: '2026-10-27 13:00:00.000' },
-        '2026-10-26 13:00:00.000',
+        { floor: '2026-10-26 13:00:00.000', recent: '2026-10-27 12:00:00.000' },
       ],
     });
   });
@@ -82,17 +82,25 @@ describe('coverage', () => {
     nats_state: 'connected',
     reconnects: '2',
   };
-  const fresh = [{ oldest: '2026-10-20 00:00:00.000' }];
+  const healthy = {
+    now,
+    heartbeat,
+    flow: [{ app: 'daisy-debate-staging', admitted: '3600', dropped: '2' }],
+    oldest: [{ oldest: '2026-10-20 00:00:00.000' }],
+    lastSweep: '2026-10-27 12:30:00',
+  };
 
-  test('a recent heartbeat from a connected shipper', () => {
+  test('a recent heartbeat from a connected shipper that stores what it gets', () => {
     assert({
-      given: 'a heartbeat 30 s old, connected, and rows a week old',
+      given:
+        'a heartbeat 30 s old, few refusals, week-old rows and a recent sweep',
       should: 'read live with the reconnect count and retention ok',
-      actual: coverageOf({ now, heartbeat, oldest: fresh }),
+      actual: coverageOf(healthy),
       expected: {
         shipper: 'live',
         natsState: 'connected',
         reconnects: 2,
+        refusing: [],
         retention: 'ok',
       },
     });
@@ -104,38 +112,51 @@ describe('coverage', () => {
       should: 'read stale, stale and missing, never live',
       actual: [
         coverageOf({
-          now,
+          ...healthy,
           heartbeat: { ...heartbeat, at: '2026-10-27 12:50:00' },
-          oldest: fresh,
         }).shipper,
         coverageOf({
-          now,
+          ...healthy,
           heartbeat: { ...heartbeat, nats_state: 'disconnected' },
-          oldest: fresh,
         }).shipper,
-        coverageOf({ now, heartbeat: null, oldest: fresh }).shipper,
+        coverageOf({ ...healthy, heartbeat: null }).shipper,
       ],
       expected: ['stale', 'stale', 'missing'],
     });
   });
 
-  test('a row past the retention alarm', () => {
+  test('a live shipper refusing everything for an app', () => {
+    const refusing = coverageOf({
+      ...healthy,
+      flow: [
+        { app: 'daisy-debate-staging', admitted: '0', dropped: '595' },
+        { app: 'daisy-debate-staging-realtime', admitted: '40', dropped: '0' },
+      ],
+    });
     assert({
-      given: 'one table whose oldest row is 29.5 days old and an empty table',
-      should: 'flag retention overdue, ignoring the empty table',
+      given: 'an app whose every line in the last hour was refused',
+      should: 'read degraded and name that app, never live over zero counts',
+      actual: { shipper: refusing.shipper, refusing: refusing.refusing },
+      expected: { shipper: 'degraded', refusing: ['daisy-debate-staging'] },
+    });
+  });
+
+  test('retention past the alarm or without a recent sweep', () => {
+    assert({
+      given:
+        'a 29.5-day-old row, an empty table, a sweep three hours ago, and none',
+      should: 'read overdue, ok, unswept and unswept',
       actual: [
         coverageOf({
-          now,
-          heartbeat,
+          ...healthy,
           oldest: [{ oldest: '2026-09-27 01:00:00.000' }],
         }).retention,
-        coverageOf({
-          now,
-          heartbeat,
-          oldest: [{ oldest: '1970-01-01 00:00:00' }],
-        }).retention,
+        coverageOf({ ...healthy, oldest: [{ oldest: '1970-01-01 00:00:00' }] })
+          .retention,
+        coverageOf({ ...healthy, lastSweep: '2026-10-27 10:00:00' }).retention,
+        coverageOf({ ...healthy, lastSweep: '1970-01-01 00:00:00' }).retention,
       ],
-      expected: ['overdue', 'ok'],
+      expected: ['overdue', 'ok', 'unswept', 'unswept'],
     });
   });
 });

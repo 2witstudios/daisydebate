@@ -1,4 +1,4 @@
--- The operational log store's baseline (ADR 0081). entrypoint.sh applies
+-- The operational log store's baseline (ADR 0084). entrypoint.sh applies
 -- each file of this folder once, in order, as the localhost-only `default`
 -- user and records it in daisy_logs.schema_migrations; every statement is
 -- also idempotent. Retention runs on the shipper's receipt time: 28-day TTL,

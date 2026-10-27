@@ -8,12 +8,13 @@ import {
 } from '../../features/security/sections';
 import type { Row, SecurityStore } from '../../features/security/store';
 import {
-  coverageFloor,
+  coverageBounds,
   coverageOf,
   securityHref,
   securityQuery,
   securityWindows,
   windowBounds,
+  type Coverage,
   type SecurityWindow,
 } from '../../features/security/view';
 import { requireOperator } from '../../server/operator-gate';
@@ -78,6 +79,26 @@ function SectionTable({
   );
 }
 
+const shipperText = (coverage: Coverage) => {
+  switch (coverage.shipper) {
+    case 'live':
+      return `Shipper live (${coverage.reconnects ?? 0} reconnects since start). Counts are lower bounds: records published while it is disconnected are not seen.`;
+    case 'degraded':
+      return `Coverage degraded: in the last hour the shipper refused at least as many lines as it stored for ${coverage.refusing.join(', ')}. See "Lines the shipper refused" under Errors.`;
+    case 'stale':
+      return `Coverage unknown: the shipper's last heartbeat is stale or ${coverage.natsState ?? 'unknown'}. Counts below may be incomplete.`;
+    case 'missing':
+      return 'Coverage unknown: no shipper heartbeat in the last day. Counts below may be incomplete.';
+  }
+};
+const retentionText: Readonly<Record<Coverage['retention'], string>> = {
+  ok: 'Retention: every stored row is under 29 days old.',
+  overdue:
+    'Retention overdue: a stored row is older than 29 days. Check the partition sweep (docs/operations/log-pipeline.md).',
+  unswept:
+    'Retention unverified: no partition sweep in the last two hours. Check the log store (docs/operations/log-pipeline.md).',
+};
+
 /** Coverage first: zero events never reads as a healthy pipeline. */
 async function CoverageBanner({
   store,
@@ -86,27 +107,24 @@ async function CoverageBanner({
   readonly store: SecurityStore;
   readonly now: string;
 }) {
-  const read = await store.coverage(coverageFloor(now));
+  const read = await store.coverage(coverageBounds(now));
   if (read.kind === 'unreachable') return unreachable;
-  const { heartbeat, apps, oldest } = read.value;
+  const { heartbeat, apps, flow, oldest, lastSweep } = read.value;
   const coverage = coverageOf({
     now,
     heartbeat: heartbeat as Parameters<typeof coverageOf>[0]['heartbeat'],
+    flow: flow as Parameters<typeof coverageOf>[0]['flow'],
     oldest: oldest as readonly { readonly oldest: string }[],
+    lastSweep,
   });
   return (
     <section aria-label="Coverage" data-testid="coverage">
       <p className={coverage.shipper === 'live' ? 'badge-ok' : 'badge-bad'}>
-        {coverage.shipper === 'live'
-          ? `Shipper live (${coverage.reconnects ?? 0} reconnects since start). Counts are lower bounds: records published while it is disconnected are not seen.`
-          : coverage.shipper === 'stale'
-            ? `Coverage unknown: the shipper's last heartbeat is stale or ${coverage.natsState ?? 'unknown'}. Counts below may be incomplete.`
-            : 'Coverage unknown: no shipper heartbeat in the last day. Counts below may be incomplete.'}
+        {shipperText(coverage)}
       </p>
       <p className={coverage.retention === 'ok' ? 'muted' : 'badge-bad'}>
-        {coverage.retention === 'ok'
-          ? 'Retention: every stored row is under 29 days old.'
-          : 'Retention overdue: a stored row is older than 29 days. Check the partition sweep (docs/operations/log-pipeline.md).'}
+        {retentionText[coverage.retention]}
+        {lastSweep ? ` Last partition sweep: ${lastSweep} UTC.` : ''}
       </p>
       <p className="muted">
         Last line received:{' '}

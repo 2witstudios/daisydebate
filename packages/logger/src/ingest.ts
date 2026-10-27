@@ -6,7 +6,7 @@ import {
 } from './vocabulary';
 
 /**
- * Admission of one shipped log line (ADR 0081): the store keeps only what
+ * Admission of one shipped log line (ADR 0084): the store keeps only what
  * this logger could have written, judged by the same registry and field
  * kinds the logger writes with, so the two cannot drift.
  */

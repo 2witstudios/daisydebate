@@ -1,5 +1,5 @@
 /**
- * The Security page's views (ADR 0081): each one a fixed set of SQL
+ * The Security page's views (ADR 0084): each one a fixed set of SQL
  * statements over `daisy_logs`, bounded by the `{from}`/`{to}` bind
  * parameters of the chosen window and by a LIMIT. No request text ever
  * reaches the SQL; the reader role's profile bounds the work besides.
@@ -154,6 +154,17 @@ export const coverageSql = {
   apps: `SELECT app, max(received_at) AS last_received
     FROM daisy_logs.events WHERE received_at >= {floor:DateTime64(3)}
     GROUP BY app ORDER BY app LIMIT 50`,
+  /** Per app over the last hour: lines stored against lines refused. */
+  flow: `SELECT app, sum(admitted) AS admitted, sum(dropped) AS dropped FROM (
+      SELECT app, count() AS admitted, toUInt64(0) AS dropped
+      FROM daisy_logs.events WHERE received_at >= {recent:DateTime64(3)}
+      GROUP BY app
+      UNION ALL
+      SELECT app, toUInt64(0), sum(count) FROM daisy_logs.shipper_drops
+      WHERE minute >= {recent:DateTime64(3)} GROUP BY app
+    ) GROUP BY app ORDER BY app LIMIT 50`,
+  sweep: `SELECT max(at) AS last_sweep FROM daisy_meta.sweeps
+    WHERE at >= {floor:DateTime64(3)}`,
   oldest: `SELECT 'events' AS store, min(received_at) AS oldest FROM daisy_logs.events
     UNION ALL SELECT 'shipper_drops', min(minute) FROM daisy_logs.shipper_drops
     UNION ALL SELECT 'shipper_heartbeats', min(at) FROM daisy_logs.shipper_heartbeats`,

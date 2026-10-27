@@ -124,12 +124,12 @@ export function readOperatorClientConfig(
 const logStoreKeys = ['CLICKHOUSE_URL', 'CLICKHOUSE_READER_PASSWORD'] as const;
 const logStoreSchema = z.object({
   CLICKHOUSE_URL: z.url({ protocol: /^https?$/ }),
-  // A Fly secret, never in [env] (ADR 0081).
+  // A Fly secret, never in [env] (ADR 0084).
   CLICKHOUSE_READER_PASSWORD: z.string().min(32),
 });
 
 /**
- * The log store's read-only connection (ADR 0081), both or neither: neither
+ * The log store's read-only connection (ADR 0084), both or neither: neither
  * leaves the Security page unconfigured, and one alone refuses startup.
  */
 export function readLogStoreConfig(
