@@ -73,9 +73,7 @@ const touched = {
 };
 
 /** The canonical age fact, as the account-fenced reader projects it. */
-type OnboardingAgeFact = Awaited<
-  ReturnType<typeof loadAuthorizationAgeFact>
->;
+type OnboardingAgeFact = Awaited<ReturnType<typeof loadAuthorizationAgeFact>>;
 
 /** The policy that decides, from the canonical fact alone, whether optional answers may be stored. */
 type OptionalAnswerAgePolicy = (
