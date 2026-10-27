@@ -3,7 +3,7 @@ import {
   OUTBOX_ORIGIN,
   type OutboxPosition,
   type OutboxRow,
-} from '@daisy/db';
+} from '@daisy/db/outbox';
 import {
   ENVELOPE_VERSION,
   isPayloadDeliverableOnTopic,

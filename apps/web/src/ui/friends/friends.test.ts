@@ -1,68 +1,54 @@
-import { parseUsername } from '@daisy/auth';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { users } from '../mock/users';
-import { friendGroups, onlineNow } from './friends';
+import { friendsAround, friendsLede, relationTo } from './friends';
 
 setupRitewayBun();
 
-const sample = [
-  { name: 'Alex Chen', presence: 'online' as const },
-  { name: 'Sophia Lee', presence: 'in-debate' as const },
-  { name: 'Priya Shah', presence: 'away' as const },
-  { name: 'Gone Away', presence: 'offline' as const },
-  { name: 'Daniel Kim', presence: 'online' as const },
+const friends = [
+  { username: 'ada', presence: 'online' as const },
+  { username: 'bea', presence: 'away' as const },
+  { username: 'cat', presence: 'offline' as const },
 ];
 
-describe('friendGroups', () => {
-  test('grouped by what people are doing, debating first, offline left out', () => {
+describe('friendsAround', () => {
+  test('counts online and away friends', () => {
     assert({
-      given: 'online, in-debate, away and offline people',
-      should: 'list in a debate, then online, then away, and skip offline',
-      actual: friendGroups(sample).map((group) => [
-        group.label,
-        group.people.map((person) => person.name),
-      ]),
-      expected: [
-        ['In a debate', ['Sophia Lee']],
-        ['Online', ['Alex Chen', 'Daniel Kim']],
-        ['Away', ['Priya Shah']],
-      ],
-    });
-  });
-
-  test('what you can do with each', () => {
-    const people = friendGroups(sample).flatMap((group) => group.people);
-    assert({
-      given: 'the people',
-      should:
-        'offer Watch for a debate, Challenge when online, nothing when away',
-      actual: people.map((person) => person.action?.label ?? null),
-      expected: ['Watch', 'Challenge', 'Challenge', null],
-    });
-  });
-
-  test('profile links are valid usernames', () => {
-    const hrefs = friendGroups(users).flatMap((group) =>
-      group.people.map((person) => person.profileHref),
-    );
-    assert({
-      given: 'every sample user',
-      should: 'link to a profile whose handle is a valid username',
-      actual: hrefs.every(
-        (href) => parseUsername(href.replace('/profile/', '')).ok,
-      ),
-      expected: true,
+      given: 'an online, an away and an offline friend',
+      should: 'count two around',
+      actual: friendsAround(friends),
+      expected: 2,
     });
   });
 });
 
-describe('onlineNow', () => {
-  test('counts those around, not away or offline', () => {
+describe('friendsLede', () => {
+  test('says how many are online, or how to start', () => {
     assert({
-      given: 'the sample people',
-      should: 'count online and in-debate only',
-      actual: onlineNow(sample),
-      expected: 3,
+      given: 'three friends, and then none',
+      should: 'count those around, or invite adding one',
+      actual: [friendsLede({ friends }), friendsLede({ friends: [] })],
+      expected: [
+        '2 of 3 online',
+        'Add a friend by username to see when they are online.',
+      ],
+    });
+  });
+});
+
+describe('relationTo', () => {
+  test('reads the viewer’s relation from their own list', () => {
+    const list = {
+      version: 1 as const,
+      friends,
+      incoming: [{ username: 'dan', requestedAt: '2026-10-26T18:00:00.000Z' }],
+      outgoing: [{ username: 'eve', requestedAt: '2026-10-26T18:00:00.000Z' }],
+    };
+    assert({
+      given: 'a friend, an incoming, an outgoing and a stranger, in any case',
+      should: 'name each relation',
+      actual: ['ADA', 'dan', 'eve', 'zed'].map((name) =>
+        relationTo(list, name),
+      ),
+      expected: ['friends', 'incoming', 'outgoing', 'none'],
     });
   });
 });

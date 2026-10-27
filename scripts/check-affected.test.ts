@@ -92,6 +92,7 @@ describe('planGates', () => {
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
         { name: 'styling', args: ['bun', 'scripts/check-styling.ts'] },
+        { name: 'knip', args: ['bun', 'run', 'knip'] },
         { name: 'duplication', args: ['bun', 'run', 'duplication'] },
       ],
     });
@@ -126,6 +127,7 @@ describe('planGates', () => {
       expected: [
         'boundaries',
         'styling',
+        'knip',
         'duplication',
         'turbo affected (typecheck, test)',
       ],
@@ -154,6 +156,57 @@ describe('parseBaseRef', () => {
         'origin/develop',
       ]),
       expected: 'origin/develop',
+    });
+  });
+});
+
+describe('global affected fanout', () => {
+  test('root configuration and global dependencies select every workspace', () => {
+    for (const file of [
+      'bun.lock',
+      'package.json',
+      'turbo.json',
+      '.bun-version',
+      'eslint.config.mjs',
+      'packages/typescript-config/base.json',
+    ]) {
+      const gates = planGates(partitionAffected([file]), 'base');
+      assert({
+        given: file,
+        should: 'run unfiltered workspace typechecks and tests',
+        actual: gates
+          .find(({ name }) => name.startsWith('turbo'))
+          ?.args.includes('--filter'),
+        expected: false,
+      });
+    }
+  });
+  test('repository-wide dead-code detection runs for leaf changes', () => {
+    assert({
+      given: 'a leaf edit',
+      should: 'include Knip across package boundaries',
+      actual: planGates(partitionAffected(['apps/web/src/a.ts']), 'base').some(
+        ({ name }) => name === 'knip',
+      ),
+      expected: true,
+    });
+  });
+});
+
+describe('affectedLintDirectories', () => {
+  test('uses every dependent task directory and rejects invalid dry-run output', async () => {
+    const { affectedLintDirectories } = await import('./check-affected');
+    assert({
+      given: 'a producer and dependent selected by Turbo',
+      should: 'lint both workspaces once',
+      actual: affectedLintDirectories({
+        tasks: [
+          { directory: 'packages/protocol' },
+          { directory: 'apps/web' },
+          { directory: 'apps/web' },
+        ],
+      }),
+      expected: ['apps/web', 'packages/protocol'],
     });
   });
 });

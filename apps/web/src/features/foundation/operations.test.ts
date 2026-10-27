@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import type { AuthorizationCapability } from '@daisy/auth/authorization';
 import { fixedClock } from '@daisy/clock';
-import type { RoundHydration } from '@daisy/db';
+import type { RoundHydration } from '@daisy/db/rounds';
 import { foundationDefinition } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {

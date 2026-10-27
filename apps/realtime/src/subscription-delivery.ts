@@ -1,4 +1,4 @@
-import type { OutboxRow } from '@daisy/db';
+import type { OutboxRow } from '@daisy/db/outbox';
 import {
   isPayloadDeliverableOnTopic,
   isPayloadStorableOnTopic,

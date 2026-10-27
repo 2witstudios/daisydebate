@@ -4,7 +4,7 @@ import {
   oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { LockedAttendanceCheckIn } from '@daisy/db';
+import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { isAppError } from '@daisy/errors';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import { acceptAttendanceReceipt } from './receipt-window';

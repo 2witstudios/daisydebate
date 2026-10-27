@@ -113,7 +113,7 @@ describe('verifyReviewRecord with CI evidence', () => {
       ],
       expected: [
         `CI run 101 ran code from fork/daisydebate, not ${repository}`,
-        'CI run 101 was triggered by workflow_dispatch, not pull_request or push',
+        'CI run 101 was triggered by workflow_dispatch, not an admitted pull_request, push or merge_group',
         'CI run 101 ran .github/workflows/e2e.yml, not .github/workflows/ci.yml',
       ],
     });
