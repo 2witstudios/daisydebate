@@ -14,6 +14,9 @@ export async function proveClosedRoomNavigation(page: Page) {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame())
       documentRequests.push(request.url());
   });
+  const membership = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === '/api/rooms/active',
+  );
   await page
     .getByRole('navigation', { name: 'Primary', exact: true })
     .getByRole('link', { name: 'More', exact: true })
@@ -25,5 +28,8 @@ export async function proveClosedRoomNavigation(page: Page) {
   await expect(
     page.getByRole('link', { name: /^Return to room:/ }),
   ).toHaveCount(0);
+  const response = await membership;
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toEqual({ activeRoom: null });
   expect(documentRequests).toEqual([]);
 }
