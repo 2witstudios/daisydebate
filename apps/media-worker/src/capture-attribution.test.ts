@@ -77,14 +77,16 @@ function harness(
       segmentId?: string;
     }) => { state: typeof state; calibration: typeof calibration } | 'closed';
     /** Runs with the room's frame emitter once the subscription is set up. */
-    readonly onSubscribe?: (emit: (frame: {
-      identity: string;
-      trackId: string;
-      sequence: number;
-      beforeMs: number;
-      afterMs: number;
-      pcm: Int16Array;
-    }) => void) => void;
+    readonly onSubscribe?: (
+      emit: (frame: {
+        identity: string;
+        trackId: string;
+        sequence: number;
+        beforeMs: number;
+        afterMs: number;
+        pcm: Int16Array;
+      }) => void,
+    ) => void;
     /**
      * LiveKit's disconnect has closed the connection, so identity updates
      * refuse, before `closed` resolves (native cleanup still running).
@@ -104,7 +106,10 @@ function harness(
   const client = {
     lease: async () => ({ epoch: 1 }),
     token: async () => ({ url: 'wss://media.invalid', token: 'token' }),
-    read: (request: { epoch: number; segmentId?: string }, signal?: AbortSignal) =>
+    read: (
+      request: { epoch: number; segmentId?: string },
+      signal?: AbortSignal,
+    ) =>
       options.read === undefined && dropped && options.closedOnDrop
         ? closedForGood.read(request, signal)
         : (() => {
@@ -141,14 +146,13 @@ function harness(
             resolve();
           });
         }),
-      subscribe: (async (setup: {
-        onFrame: (frame: never) => void;
-      }) => {
+      subscribe: (async (setup: { onFrame: (frame: never) => void }) => {
         options.onSubscribe?.((frame) => setup.onFrame(frame as never));
         return {
           closed: closed.promise,
           setIdentities: async () => {
-            if (dropped && options.closingFirst) throw captureConnectionClosed();
+            if (dropped && options.closingFirst)
+              throw captureConnectionClosed();
           },
           close: async () => {
             closed.resolve('closed');
@@ -251,8 +255,7 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
         id: segmentId,
         sequence: segmentId === segment ? 0 : 1,
         type: 'speech',
-        startedAt: new Date(segmentId === segment ? 9000 : 10050)
-          .toISOString(),
+        startedAt: new Date(segmentId === segment ? 9000 : 10050).toISOString(),
         endedAt: null,
         durationMs: 60000,
       },
