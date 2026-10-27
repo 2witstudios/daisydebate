@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   startRuntimeRound,
@@ -7,6 +8,7 @@ import {
 } from './round-runtime.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('a revoked participant never blocks the opponent finishing the Round (ADR 0075)', async () => {
   await withRoomRuntime(async (f) => {
