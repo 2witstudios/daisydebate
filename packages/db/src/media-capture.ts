@@ -57,10 +57,12 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
       return row;
     });
   },
-  verifyMediaWorkerLease(raw: unknown) {
+  verifyMediaWorkerLease(raw: unknown, purpose: 'recover' | 'mint') {
+    if (!['recover', 'mint'].includes(purpose))
+      throw createAppError('VALIDATION');
     const input = parseCapture(captureWorkerIdentitySchema, raw);
     return dependencies.transaction((tx) =>
-      verifyMediaWorkerLease(tx, input, dependencies),
+      verifyMediaWorkerLease(tx, input, dependencies, purpose),
     );
   },
   async claimMediaWorkerLease(raw: unknown) {

@@ -18,6 +18,7 @@ export async function verifyMediaWorkerLease(
   tx: CaptureTx,
   input: CaptureIdentity,
   dependencies: CaptureDependencies,
+  purpose: 'recover' | 'mint',
 ) {
   const tick = await lockCaptureRound(tx, input, dependencies);
   const [session] = await tx
@@ -47,17 +48,26 @@ export async function verifyMediaWorkerLease(
   );
   if (
     !session ||
-    !captureSessionAdmits(session, {
+    !round ||
+    !['scheduled', 'active'].includes(round.status) ||
+    session.endedAt
+  )
+    throw createAppError('CONFLICT', 'Capture session has ended');
+  if (lease.expiresAt <= now)
+    throw createAppError('CONFLICT', 'Capture worker lease is stale');
+  // Recovery must authenticate the live worker without demanding the very
+  // safe vendor outcome its reconcile hold is meant to restore. Minting
+  // rechecks that outcome immediately before credential construction.
+  if (
+    purpose === 'mint' &&
+    (!captureSessionAdmits(session, {
       capturedUntil: now,
       receivedAt: now,
       sttLagMs: dependencies.sttLagMs,
     }) ||
-    pending ||
-    !round ||
-    !['scheduled', 'active'].includes(round.status) ||
-    lease.expiresAt <= now
+      pending)
   )
-    throw createAppError('CONFLICT', 'Capture token admission is closed');
+    throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
   return {
     ...input,
     expiresAt: lease.expiresAt.toISOString(),
