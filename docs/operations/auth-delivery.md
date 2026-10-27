@@ -7,16 +7,24 @@ deploy and to reason about failures.
 
 ## Required configuration (production refuses to start without it)
 
-| Variable                | Purpose                                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; signs the session cookie                                                                          |
-| `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141)                 |
-| `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
-| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                                        |
-| `EMAIL_FROM`            | Verified sender mailbox                                                                                                               |
-| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook                                                                                        |
-| `AUTH_TRUSTED_PROXIES`  | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
-| `OPS_PROBE_TOKEN`       | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
+Auth's own group (`readAuthConfig`):
+
+| Variable               | Purpose                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`   | 64 characters from 32 random bytes; signs the session cookie                                                                          |
+| `PUBLIC_APP_URL`       | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
+| `AUTH_TRUSTED_PROXIES` | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
+| `OPS_PROBE_TOKEN`      | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
+
+The mail transport's group (`readMailConfig`, ISSUE-780), which auth composes
+for its mail and recipient keys and beta access mail reads on its own:
+
+| Variable                | Purpose                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141) |
+| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                        |
+| `EMAIL_FROM`            | Verified sender mailbox                                                                                               |
+| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook; required in production                                                |
 
 `apps/web/src/server/start.ts` validates these at boot and reports field names
 only. Live delivery additionally needs the human prerequisite AUTH-1.3: a

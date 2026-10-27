@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
@@ -15,12 +16,6 @@ const videoGrant = (token: string) =>
     sub: string;
     video: Record<string, unknown>;
   };
-const refused = (work: () => Promise<unknown>) =>
-  work().then(
-    () => false,
-    () => true,
-  );
-
 test("the bot seat's listen grant subscribes, never publishes, is hidden and binds no seat (ISSUE-764)", async () => {
   await withRoomRuntime(async (f) => {
     const { roundId, claim } = await ownSpeech(f);
@@ -54,20 +49,18 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
         unbound: true,
       },
     });
-    const staleClaim = await refused(() =>
-      media.botListenToken(claim.scope, `${claim.token}x`),
-    );
+    await assertRejects({
+      given: 'a claim token that is not the live one',
+      should: 'refuse to sign: the hearing lives no longer than its claim',
+      code: 'AUTHORIZATION',
+      actual: () => media.botListenToken(claim.scope, `${claim.token}x`),
+    });
     await f.sql`update media_sessions set ended_at=clock_timestamp() where id=${session!.id}`;
-    const ended = await refused(() =>
-      media.botListenToken(claim.scope, claim.token),
-    );
-    assert({
-      given:
-        'a claim token that is not the live one, then an ended media session',
-      should:
-        'refuse to sign either: the hearing lives no longer than its claim and session',
-      actual: { staleClaim, ended },
-      expected: { staleClaim: true, ended: true },
+    await assertRejects({
+      given: 'an ended media session',
+      should: 'refuse to sign: Round media has ended',
+      code: 'CONFLICT',
+      actual: () => media.botListenToken(claim.scope, claim.token),
     });
   }, botControlOptions);
 });

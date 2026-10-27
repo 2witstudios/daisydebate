@@ -248,6 +248,19 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     /** The bot seat's own hearing in cross-examination (ISSUE-764). */
     botListenToken: (scope: Scope, token: string) =>
       admit(scope.roundId, { kind: 'bot', scope, token }, 'listen'),
+    /**
+     * The session's current seat bindings, for a listener whose peer bound
+     * after it joined: a read, never a signed grant. An ended session has none.
+     */
+    async botPeers(scope: Scope) {
+      const state = await snapshot(scope.roundId);
+      return state.session.endedAt
+        ? []
+        : state.bindings.map((binding) => ({
+            participantId: binding.roundParticipantId,
+            identity: binding.identity,
+          }));
+    },
     reconcile,
     async recoverActiveSessions() {
       for (const session of await input.store.activeMediaSessions()) {

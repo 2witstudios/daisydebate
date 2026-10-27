@@ -8,15 +8,28 @@ const scope = {
   roundId: id('r'),
   roundParticipantId: id('b'),
 } as never;
-const peer = id('p');
+const peer = id('p'),
+  latePeer = id('l');
 const T0 = Date.parse('2026-10-27T12:00:00.000Z');
 
 /** One fake media session: grants, subscriptions and the frames a test plays into them. */
-function session(options: { readonly refuse?: () => boolean } = {}) {
+function session(
+  options: {
+    readonly refuse?: () => boolean;
+    readonly peers?: readonly string[];
+    readonly grantPeers?: readonly {
+      readonly participantId: string;
+      readonly identity: string;
+    }[];
+    readonly readPeers?: () => Promise<
+      readonly { readonly participantId: string; readonly identity: string }[]
+    >;
+  } = {},
+) {
   let now = 1000;
   const grants: unknown[] = [];
   const subscriptions: {
-    identities: readonly string[];
+    identities: string[];
     url: string;
     token: string;
     frame: (identity: string, sequence: number, level: number) => void;
@@ -27,7 +40,12 @@ function session(options: { readonly refuse?: () => boolean } = {}) {
   let joined = Promise.withResolvers<void>();
   const events: string[] = [];
   const listening = createBotListening({
-    claim: { scope, token: 'claim-token', peerParticipantIds: [peer] },
+    claim: {
+      scope,
+      token: 'claim-token',
+      peerParticipantIds: options.peers ?? [peer],
+    },
+    readPeers: async () => (await options.readPeers?.()) ?? [],
     listenToken: async (grantScope, token) => {
       grants.push({ grantScope, token });
       if (options.refuse?.())
@@ -35,7 +53,7 @@ function session(options: { readonly refuse?: () => boolean } = {}) {
       return {
         url: 'ws://media.test',
         token: `listen-${grants.length}`,
-        peers: [
+        peers: options.grantPeers ?? [
           { participantId: peer, identity: 'peer-identity' },
           { participantId: id('j'), identity: 'other-identity' },
         ],
@@ -44,7 +62,7 @@ function session(options: { readonly refuse?: () => boolean } = {}) {
     subscribe: async (input) => {
       const ended = Promise.withResolvers<'disconnected' | 'closed'>();
       const entry = {
-        identities: input.identities,
+        identities: [...input.identities],
         url: input.url,
         token: input.token,
         closed: false,
@@ -69,7 +87,9 @@ function session(options: { readonly refuse?: () => boolean } = {}) {
       joined.resolve();
       return {
         closed: ended.promise,
-        setIdentities: async () => undefined,
+        setIdentities: async (identities: readonly string[]) => {
+          entry.identities = [...identities];
+        },
         close: async () => {
           entry.closed = true;
           ended.resolve('closed');
@@ -201,5 +221,43 @@ test('the hearing ends with the claim, even while a join is in flight', async ()
       late.subscriptions.map((sub) => sub.closed),
     ],
     expected: [[true], [true]],
+  });
+});
+
+test('a peer whose media binds after the bot joined is heard once it binds', async () => {
+  let latePeerBound = false;
+  const s = session({
+    readPeers: async () =>
+      latePeerBound
+        ? [
+            { participantId: peer, identity: 'peer-identity' },
+            { participantId: latePeer, identity: 'late-identity' },
+          ]
+        : [{ participantId: peer, identity: 'peer-identity' }],
+    peers: [peer, latePeer],
+    grantPeers: [{ participantId: peer, identity: 'peer-identity' }],
+  });
+  s.listening.start();
+  await s.joined();
+  await s.listening.poll();
+  latePeerBound = true;
+  s.advance(1000);
+  await s.listening.poll();
+  for (let sequence = 0; sequence < 20; sequence++) {
+    s.subscriptions[0]!.frame('late-identity', sequence, 8000);
+    s.advance(10);
+  }
+  assert({
+    given:
+      'a cross-ex peer with no media binding at join, who binds a second later and speaks',
+    should: 'subscribe them on the next refresh and hear their turn start',
+    actual: {
+      identities: s.subscriptions[0]!.identities,
+      events: s.events,
+    },
+    expected: {
+      identities: ['peer-identity', 'late-identity'],
+      events: [`speech-start:${latePeer}`],
+    },
   });
 });

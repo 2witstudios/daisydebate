@@ -78,6 +78,7 @@ for (const mode of ['valid', 'provider-error'] as const)
         withProvider: createProviderCapacity(1),
         botToken: media.botToken,
         listenToken: media.botListenToken,
+        readPeers: media.botPeers,
         readHeard: capture.heard,
         timers: {
           setInterval: (task, ms) => {

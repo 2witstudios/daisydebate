@@ -122,6 +122,7 @@ const roundWorkers = startRoundWorkers({
           mediaRuntime.operations().botToken(scope, token),
         listenToken: (scope, token) =>
           mediaRuntime.operations().botListenToken(scope, token),
+        readPeers: (scope) => mediaRuntime.operations().botPeers(scope),
       }
     : null,
   timers: workerTimers,

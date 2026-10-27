@@ -32,6 +32,7 @@ export function createSpeakingBotControl(input: {
   ) => Promise<{ readonly url: string; readonly token: string }>;
   /** The bot seat's own listen-only grant for cross-examination (ISSUE-764). */
   readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
+  readonly readPeers: Parameters<typeof createBotListening>[0]['readPeers'];
   /** The seat capture reports hearing a track for (ISSUE-514-r2). */
   readonly readHeard: Parameters<typeof createBotPublisher>[0]['heard'];
   readonly timers: WorkerTimers;
@@ -82,6 +83,7 @@ export function createSpeakingBotControl(input: {
         ? createBotListening({
             claim,
             listenToken: input.listenToken,
+            readPeers: input.readPeers,
             subscribe: createAudioSubscription,
             databaseNow: input.store.databaseNow,
             monotonicNowMs: () => performance.now(),

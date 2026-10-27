@@ -26,7 +26,7 @@ export function startRoundWorkers(input: {
    */
   readonly botMedia: Pick<
     Parameters<typeof createSpeakingBotControl>[0],
-    'botToken' | 'listenToken'
+    'botToken' | 'listenToken' | 'readPeers'
   > | null;
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;

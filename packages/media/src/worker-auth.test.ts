@@ -102,15 +102,15 @@ test('every capture operation the worker client calls is admitted, the heard rep
   });
 });
 
-test('capture owns only its own operations; the retired activity relay is refused (ISSUE-764)', async () => {
+test("a signed call outside capture's own operations is refused", async () => {
   const auth = createMediaWorkerAuthentication({ secret, now: () => instant });
   for (const signedPath of [
-    `/api/internal/media/${roundId}/capture/activity`,
-    `/api/internal/media/${roundId}/bot-listener/lease`,
+    `/api/internal/media/${roundId}/capture/delete`,
+    `/api/internal/media/${roundId}/transcripts/lease`,
   ])
     await assertRejects({
       given: `a call to ${signedPath}`,
-      should: 'refuse to sign or verify it: capture never relays bot audio',
+      should: 'refuse to sign or verify it',
       code: 'AUTHORIZATION',
       actual: async () => {
         const headers = auth.sign({ method: 'POST', path: signedPath, body });

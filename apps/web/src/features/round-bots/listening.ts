@@ -51,6 +51,13 @@ export function createBotListening(
       scope: BotPublicationScope,
       token: string,
     ) => Promise<ListenGrant>;
+    /**
+     * The session's current seat bindings: a read, never a signed grant, so
+     * a peer whose media binds after the join is heard (ISSUE-764).
+     */
+    readonly readPeers: (
+      scope: BotPublicationScope,
+    ) => Promise<ListenGrant['peers']>;
     readonly subscribe: typeof createAudioSubscription;
     readonly databaseNow: () => Promise<string>;
     readonly monotonicNowMs: () => number;
@@ -73,7 +80,26 @@ export function createBotListening(
   let subscription: Subscription | null = null;
   let joining: Promise<void> | null = null;
   let rejoinAt = -Infinity;
+  let peersReadAt = -Infinity;
   let closed = false;
+  /** Seats for the claim's peers in `bound`; true when the set changed. */
+  const bindPeers = (bound: ListenGrant['peers']) => {
+    const before = [...seats.keys()].join();
+    seats.clear();
+    for (const binding of bound)
+      if (peers.has(binding.participantId))
+        seats.set(binding.identity, binding.participantId);
+    return [...seats.keys()].join() !== before;
+  };
+  /** A peer still unbound is read again, at most once a calibration period. */
+  const refreshPeers = async (current: Subscription) => {
+    const now = input.monotonicNowMs();
+    if (seats.size >= peers.size || now - peersReadAt < CALIBRATE_EVERY_MS)
+      return;
+    peersReadAt = now;
+    if (bindPeers(await input.readPeers(scope)) && subscription === current)
+      await current.setIdentities([...seats.keys()]);
+  };
 
   /** The server instant now, mapped through the latest calibration. */
   const serverNowMs = (at: number, current: Calibration) =>
@@ -110,10 +136,8 @@ export function createBotListening(
 
   const join = async () => {
     const grant = await input.listenToken(scope, input.claim.token);
-    seats.clear();
-    for (const peer of grant.peers)
-      if (peers.has(peer.participantId))
-        seats.set(peer.identity, peer.participantId);
+    bindPeers(grant.peers);
+    peersReadAt = input.monotonicNowMs();
     const opened = await input.subscribe({
       url: grant.url,
       token: grant.token,
@@ -183,6 +207,7 @@ export function createBotListening(
       if (closed) return;
       ensureJoined();
       await calibrate();
+      if (subscription) await refreshPeers(subscription);
       if (calibration)
         observer.expire(
           new Date(
