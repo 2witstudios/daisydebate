@@ -84,7 +84,7 @@ test('canonical dedicated messaging inventory is exact and private fingerprints 
         (field) =>
           (field.table === 'messaging_receipts' &&
             field.column === 'payload_digest') ||
-          (field.table === 'messaging_contact_pairs' &&
+          (field.table === 'contact_pairs' &&
             field.column.endsWith('actor_id')),
       )
       .map((field) => [field.category, field.visibility, field.erasure]),

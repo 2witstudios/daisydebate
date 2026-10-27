@@ -203,7 +203,7 @@ test('real blocked archived invitation may be declined without age or manager ad
       [f.channelId, f.fixture.now],
     );
     await f.client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
+      'update contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
       [f.fixture.low, f.fixture.high],
     );
     await f.client.unsafe('delete from account_age where user_id in ($1,$2)', [

@@ -17,7 +17,7 @@ const { databaseUrl } = requireTestServices(process.env);
 
 const rowsOf = async (client: SQL, low: string, high: string) =>
   (await client.unsafe(
-    'select requester_actor_id as "requester", state, accepted_at is not null as "accepted" from messaging_friendships where low_actor_id=$1 and high_actor_id=$2',
+    'select requester_actor_id as "requester", state, accepted_at is not null as "accepted" from friendships where low_actor_id=$1 and high_actor_id=$2',
     [low, high],
   )) as { requester: string; state: string; accepted: boolean }[];
 
@@ -134,11 +134,11 @@ test('the friendship row refuses an inconsistent state', async () => {
   const refused = async (state: string, acceptedAt: string | null) => {
     try {
       await client.unsafe(
-        'insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values($1,$2,$3,$4,$5,$6)',
+        'insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values($1,$2,$3,$4,$5,$6)',
         [low, high, actorId, state, now, acceptedAt],
       );
       await client.unsafe(
-        'delete from messaging_friendships where low_actor_id=$1 and high_actor_id=$2',
+        'delete from friendships where low_actor_id=$1 and high_actor_id=$2',
         [low, high],
       );
       return false;
@@ -187,11 +187,11 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
     );
   try {
     await client.unsafe(
-      'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2) on conflict do nothing',
+      'insert into contact_pairs(low_actor_id,high_actor_id) values($1,$2) on conflict do nothing',
       [low, high],
     );
     await client.unsafe(
-      "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values($1,$2,$3,'accepted',$4,$4)",
+      "insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values($1,$2,$3,'accepted',$4,$4)",
       [low, high, actorId, now],
     );
     const beforeAnyChoice = await otherHidden();
@@ -200,7 +200,7 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
     const shown = await otherHidden();
     await hide(true);
     const [stored] = (await client.unsafe(
-      'select count(*)::int as count from messaging_presence_settings where actor_id=$1',
+      'select count(*)::int as count from presence_settings where actor_id=$1',
       [otherActorId],
     )) as { count: number }[];
     assert({
@@ -212,10 +212,9 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
       expected: [[false], [false], [true], 1],
     });
   } finally {
-    await client.unsafe(
-      'delete from messaging_presence_settings where actor_id=$1',
-      [otherActorId],
-    );
+    await client.unsafe('delete from presence_settings where actor_id=$1', [
+      otherActorId,
+    ]);
     await fixture.cleanup();
     await client.close();
   }

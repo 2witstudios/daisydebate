@@ -45,7 +45,7 @@ test('a closed DM reopens the durable channel and invalidates current authority 
     entry.query.startsWith('update "messaging_dm_pairs"'),
   );
   const ledger = queries.find((entry) =>
-    entry.query.startsWith('insert into messaging_social_commands'),
+    entry.query.startsWith('insert into social_requests'),
   );
   const channelLock = queries.find((entry) =>
     /"messaging_channels".*for update$/s.test(entry.query),
@@ -65,7 +65,7 @@ test('a closed DM reopens the durable channel and invalidates current authority 
           entry.query.startsWith('update "messaging_channels"'),
         )
         .map((entry) => entry.params.slice(0, 2)),
-      ledger?.params.at(-1),
+      ledger?.params.at(-2), // unrelated, before created_at
       channelLock?.params[0],
     ],
     expected: [

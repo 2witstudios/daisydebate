@@ -116,7 +116,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
         code: 'RATE_LIMIT',
       });
       const [count] = await client.unsafe(
-        'select count(*)::int as pairs from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+        'select count(*)::int as pairs from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
         [extraLow, extraHigh],
       );
       assert({
@@ -130,7 +130,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
         extraChannel,
       ]);
       await client.unsafe(
-        'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+        'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
         [extraLow, extraHigh],
       );
       await extra.fixture.cleanup();
@@ -151,7 +151,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
       expected: { channelId: fixture.channelId, state: 'pending' },
     });
     await client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
+      'update contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
       [fixture.low, fixture.high],
     );
     await assertRejects({
@@ -190,7 +190,7 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
   const [low, high] = [fixture.actorId, fixture.otherActorId].sort();
   try {
     await client.unsafe(
-      "insert into messaging_social_declines(decliner_actor_id,requester_actor_id,low_actor_id,high_actor_id,declined_count,last_declined_at,blocked_until,expires_at) values($1,$2,$3,$4,0,$5,$5::timestamptz + interval '30 days',$5::timestamptz + interval '30 days')",
+      "insert into social_request_declines(decliner_actor_id,requester_actor_id,low_actor_id,high_actor_id,declined_count,last_declined_at,blocked_until,expires_at) values($1,$2,$3,$4,0,$5,$5::timestamptz + interval '30 days',$5::timestamptz + interval '30 days')",
       [fixture.otherActorId, fixture.actorId, low, high, fixture.now],
     );
     const converged = await ask();

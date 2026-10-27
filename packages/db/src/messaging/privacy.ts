@@ -52,7 +52,7 @@ async function lockSubjectMessaging(
 ) {
   idSchema.parse(actorId);
   await tx.execute(
-    sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
+    sql`select low_actor_id from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
   );
   await tx.execute(sql`
     select id from messaging_channels where id in (
@@ -169,11 +169,12 @@ async function eraseAssociations(
   // In order: every social row goes before the contact pairs they hang from.
   for (const statement of [
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-    sql`delete from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
-    sql`delete from messaging_presence_settings where actor_id=${actorId}`,
-    sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-    sql`delete from messaging_social_declines where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-    sql`delete from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
+    sql`delete from friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
+    sql`delete from presence_settings where actor_id=${actorId}`,
+    sql`delete from friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
+    sql`delete from social_request_declines where low_actor_id=${actorId} or high_actor_id=${actorId}`,
+    sql`delete from social_requests where actor_id=${actorId} or counterpart_actor_id=${actorId}`,
+    sql`delete from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   ])
     await tx.execute(statement);
   for (const { channelId } of authorityChannels) {
@@ -252,7 +253,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       );
       const contacts = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
+          sql`select * from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
         ),
       ).map((row) => ({
         low_actor_id: row.low_actor_id,
@@ -273,17 +274,17 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       });
       const friendships = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
+          sql`select * from friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
         ),
       );
       const challenges = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId} order by created_at,room_id`,
+          sql`select * from friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId} order by created_at,room_id`,
         ),
       );
       const presenceSettings = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_presence_settings where actor_id=${actorId}`,
+          sql`select * from presence_settings where actor_id=${actorId}`,
         ),
       );
       const retained = rowsOf<Record<string, unknown>>(
@@ -294,7 +295,13 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       // Only the subject's own declines: the declines of others stay theirs.
       const declines = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_social_declines where decliner_actor_id=${actorId} order by requester_actor_id`,
+          sql`select * from social_request_declines where decliner_actor_id=${actorId} order by requester_actor_id`,
+        ),
+      );
+      // Only the subject's own requests, as asked: others' requests stay theirs.
+      const requests = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from social_requests where actor_id=${actorId} order by created_at,request_id`,
         ),
       );
       const commands = rowsOf<Record<string, unknown>>(
@@ -329,13 +336,14 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_group_grants: grants,
           messaging_receipts: receipts,
           messaging_reactions: reactions,
-          messaging_contact_pairs: contacts,
+          contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
-          messaging_friendships: friendships,
-          messaging_friend_challenges: challenges,
-          messaging_presence_settings: presenceSettings,
+          friendships: friendships,
+          friend_challenges: challenges,
+          presence_settings: presenceSettings,
           messaging_social_commands: commands,
-          messaging_social_declines: declines,
+          social_request_declines: declines,
+          social_requests: requests,
           messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,

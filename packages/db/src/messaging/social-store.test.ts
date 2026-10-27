@@ -37,7 +37,7 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
     accounts,
     [],
     [[low, high, true, false, 7]],
-    [['dm.block', 'd'.repeat(64), null]],
+    [['contact.block', 'd'.repeat(64), null]],
     [[low, high, true, true, 8]],
     [],
     [],
@@ -73,7 +73,7 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
       actual: [frame.blocking, await frame.readReceipt(requestId)],
       expected: [
         false,
-        { kind: 'dm.block', digest: 'd'.repeat(64), channelId: null },
+        { kind: 'contact.block', digest: 'd'.repeat(64), channelId: null },
       ],
     });
     assert({

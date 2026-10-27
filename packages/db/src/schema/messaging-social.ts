@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
-  boolean,
   check,
   index,
   foreignKey,
@@ -10,121 +9,11 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import { friendshipStates } from '@daisy/protocol';
 import { actors } from './actors';
-import { rooms } from './rooms';
 import { messagingActorColumn } from './messaging-columns';
 import { oneOf, timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
-
-/** One durable lock target even when a blocked pair has no DM channel. */
-export const messagingContactPairs = pgTable(
-  'messaging_contact_pairs',
-  {
-    lowActorId: messagingActorColumn('low_actor_id'),
-    highActorId: messagingActorColumn('high_actor_id'),
-    lowBlocksHigh: boolean('low_blocks_high').notNull().default(false),
-    highBlocksLow: boolean('high_blocks_low').notNull().default(false),
-    revision: bigint('revision', { mode: 'number' }).notNull().default(1),
-  },
-  (table) => [
-    index('messaging_contact_pairs_high_actor_idx').on(table.highActorId),
-    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
-    check(
-      'messaging_contact_pairs_order',
-      sql`${table.lowActorId} < ${table.highActorId}`,
-    ),
-    check(
-      'messaging_contact_pairs_revision',
-      sql`${table.revision} between 1 and 9007199254740991`,
-    ),
-  ],
-);
-
-/**
- * The friendship producer (ADR 0072): one row per asked or accepted pair,
- * fenced by the same contact pair row as blocks and DMs. Declining or
- * removing deletes the row, and a block deletes it too, so unblocking never
- * restores a friendship.
- */
-export const messagingFriendships = pgTable(
-  'messaging_friendships',
-  {
-    lowActorId: messagingActorColumn('low_actor_id'),
-    highActorId: messagingActorColumn('high_actor_id'),
-    requesterActorId: text('requester_actor_id').notNull(),
-    state: text('state').notNull(),
-    requestedAt: timestampColumn('requested_at').notNull(),
-    acceptedAt: timestampColumn('accepted_at'),
-  },
-  (table) => [
-    index('messaging_friendships_high_actor_idx').on(table.highActorId),
-    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
-    check(
-      'messaging_friendships_order',
-      sql`${table.lowActorId} < ${table.highActorId}`,
-    ),
-    check(
-      'messaging_friendships_requester',
-      sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
-    ),
-    check('messaging_friendships_state', oneOf(table.state, friendshipStates)),
-    check(
-      'messaging_friendships_time',
-      sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
-    ),
-    foreignKey({
-      name: 'messaging_friendships_contact_fk',
-      columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        messagingContactPairs.lowActorId,
-        messagingContactPairs.highActorId,
-      ],
-    }).onDelete('cascade'),
-  ],
-);
-
-/**
- * A challenge one friend sent another (ADR 0072): the room the challenger
- * opened for them, shown to the challenged friend while it assembles. It
- * goes with its room, and declining deletes it.
- */
-export const messagingFriendChallenges = pgTable(
-  'messaging_friend_challenges',
-  {
-    roomId: text('room_id')
-      .primaryKey()
-      .references(() => rooms.id, { onDelete: 'cascade' }),
-    challengerActorId: messagingActorColumn('challenger_actor_id'),
-    challengedActorId: messagingActorColumn('challenged_actor_id'),
-    createdAt: timestampColumn('created_at').notNull(),
-  },
-  (table) => [
-    index('messaging_friend_challenges_challenged_idx').on(
-      table.challengedActorId,
-    ),
-    index('messaging_friend_challenges_challenger_idx').on(
-      table.challengerActorId,
-    ),
-    check(
-      'messaging_friend_challenges_distinct',
-      sql`${table.challengerActorId} <> ${table.challengedActorId}`,
-    ),
-  ],
-);
-
-/**
- * A member's choice to hide their online status from friends (ADR 0072).
- * No row means visible; a hidden member shows offline to every friend.
- */
-export const messagingPresenceSettings = pgTable(
-  'messaging_presence_settings',
-  {
-    actorId: messagingActorColumn('actor_id').primaryKey(),
-    hidden: boolean('hidden').notNull(),
-    updatedAt: timestampColumn('updated_at').notNull(),
-  },
-);
+import { contactPairs } from './contacts';
 
 /** Messaging's accepted/requested DM pair is not a friendship producer. */
 export const messagingDmPairs = pgTable(
@@ -174,8 +63,8 @@ export const messagingDmPairs = pgTable(
       name: 'messaging_dm_pairs_contact_fk',
       columns: [table.lowActorId, table.highActorId],
       foreignColumns: [
-        messagingContactPairs.lowActorId,
-        messagingContactPairs.highActorId,
+        contactPairs.lowActorId,
+        contactPairs.highActorId,
       ],
     }),
     foreignKey({
@@ -294,14 +183,6 @@ export const messagingSocialCommands = pgTable(
       { onDelete: 'set null' },
     ),
     createdAt: timestampColumn('created_at').notNull(),
-    /**
-     * DEC-251: whether a request's recipient had no relation to the
-     * requester when it was asked (no friendship and no DM), snapshotted so
-     * a later pair row never refills the unrelated budget.
-     */
-    // Expand: old writers omit it during a rolling deploy. Every current
-    // writer states it; ISSUE-760 drops the default once they are gone.
-    unrelated: boolean('unrelated').notNull().default(false),
   },
   (table) => [
     index('messaging_social_commands_actor_created_idx').on(
@@ -323,9 +204,8 @@ export const messagingSocialCommands = pgTable(
       'messaging_social_commands_kind',
       oneOf(table.kind, [
         'dm.request',
-        'friend.request',
         'dm.decide',
-        'dm.block',
+        'contact.block',
         'group.create',
         'group.invite',
         'group.decide',
@@ -338,52 +218,3 @@ export const messagingSocialCommands = pgTable(
   ],
 );
 
-/**
- * DEC-251 decline blocks, one row per direction: how often `decliner` has
- * declined `requester` since the count last reset, and until when further
- * requests from `requester` are refused. Acceptance deletes both directions,
- * and the row goes with its contact pair.
- */
-export const messagingSocialDeclines = pgTable(
-  'messaging_social_declines',
-  {
-    declinerActorId: messagingActorColumn('decliner_actor_id'),
-    requesterActorId: messagingActorColumn('requester_actor_id'),
-    lowActorId: messagingActorColumn('low_actor_id'),
-    highActorId: messagingActorColumn('high_actor_id'),
-    declinedCount: bigint('declined_count', { mode: 'number' }).notNull(),
-    lastDeclinedAt: timestampColumn('last_declined_at').notNull(),
-    blockedUntil: timestampColumn('blocked_until'),
-    /** When the row stops counting or blocking; the retention sweep deletes it then. */
-    expiresAt: timestampColumn('expires_at').notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.declinerActorId, table.requesterActorId] }),
-    index('messaging_social_declines_pair_idx').on(
-      table.lowActorId,
-      table.highActorId,
-    ),
-    index('messaging_social_declines_requester_idx').on(table.requesterActorId),
-    index('messaging_social_declines_high_actor_idx').on(table.highActorId),
-    index('messaging_social_declines_expires_idx').on(table.expiresAt),
-    foreignKey({
-      columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        messagingContactPairs.lowActorId,
-        messagingContactPairs.highActorId,
-      ],
-    }).onDelete('cascade'),
-    check(
-      'messaging_social_declines_pair',
-      sql`(${table.lowActorId} = ${table.declinerActorId} and ${table.highActorId} = ${table.requesterActorId}) or (${table.lowActorId} = ${table.requesterActorId} and ${table.highActorId} = ${table.declinerActorId})`,
-    ),
-    check(
-      'messaging_social_declines_count',
-      sql`${table.declinedCount} between 0 and 3`,
-    ),
-    check(
-      'messaging_social_declines_expiry',
-      sql`${table.expiresAt} > ${table.lastDeclinedAt} and (${table.blockedUntil} is null or ${table.blockedUntil} <= ${table.expiresAt})`,
-    ),
-  ],
-);

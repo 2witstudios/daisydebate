@@ -18,7 +18,7 @@ fence (accounts, then the pair, then a channel).
 ## Decision
 
 1. **Friendship is a messaging-social producer, not a second relationship
-   store.** `messaging_friendships` holds one row per asked or accepted
+   store.** `friendships` holds one row per asked or accepted
    pair (`low_actor_id < high_actor_id`, `requester_actor_id`, `state`
    `pending | accepted`, `requested_at`, `accepted_at`). It references the
    contact pair row and cascades with it. Every change runs in the social
@@ -47,7 +47,7 @@ fence (accounts, then the pair, then a channel).
    per day, and 5 per hour to an account with no accepted friendship or
    accepted DM, judged when asked; a pending or declined request relates
    nobody. Three declines by one person, counted per direction in
-   `messaging_social_declines`, block further requests to them for 30 days.
+   `social_request_declines`, block further requests to them for 30 days.
    The block is refused exactly as a block is, and acceptance clears both
    directions. Each decline row expires 30 days after its last decline,
    and the retention sweep deletes it then.
@@ -85,7 +85,7 @@ fence (accounts, then the pair, then a channel).
 8. **Challenge** creates an unlisted casual room on the catalog's default
    template, named for the two members, delivers the challenge to the
    friend, and takes the challenger to the room. Delivery is a
-   `messaging_friend_challenges` row (room, challenger, challenged), written
+   `friend_challenges` row (room, challenger, challenged), written
    in the same contact-fenced transaction that confirms the pair is an
    accepted friendship and that the challenger hosts the room while it
    assembles. The friend's `/friends` lists it with Join (the room) and
@@ -98,15 +98,15 @@ fence (accounts, then the pair, then a channel).
 
 - The mock `onlineUsers`, `onlineCount` and the Friends page's Watch action
   are deleted; the rail and tab-bar badge read `GET /api/friends/online`.
-- A member may hide their online status (`messaging_presence_settings`,
+- A member may hide their online status (`presence_settings`,
   set from `/friends` through `social.presence.update` on their own
   collection). Hidden, every friend sees them offline and no friend's badge
   counts them; their leases are never read for a friend list, and nothing
   tells a friend they chose to hide. The members-online aggregate still
   counts them, since it names no one. The row is personal/private, deleted
   on subject erasure and exported to its member.
-- `messaging_friend_challenges` is personal/private like the friendship
+- `friend_challenges` is personal/private like the friendship
   row, deleted on subject erasure and exported to either member.
-- `messaging_friendships` is personal/private, deleted on subject erasure
+- `friendships` is personal/private, deleted on subject erasure
   and exported to either member, on the same pending lawful-basis and
-  retention decisions as `messaging_contact_pairs`.
+  retention decisions as `contact_pairs`.

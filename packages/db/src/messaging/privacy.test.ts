@@ -68,6 +68,16 @@ test('subject export removes other-direction private state and serializes dates/
         blocked_until: null,
       },
     ],
+    [
+      {
+        actor_id: actorId,
+        request_id: 'q'.repeat(24),
+        counterpart_actor_id: peerId,
+        kind: 'friend',
+        unrelated: true,
+        created_at: date,
+      },
+    ],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
     [
@@ -105,18 +115,19 @@ test('subject export removes other-direction private state and serializes dates/
     actual: [
       result.messaging_channels,
       result.messaging_messages,
-      result.messaging_contact_pairs,
+      result.contact_pairs,
       result.messaging_dm_pairs,
-      result.messaging_friendships,
-      result.messaging_presence_settings,
-      result.messaging_friend_challenges,
+      result.friendships,
+      result.presence_settings,
+      result.friend_challenges,
       result.messaging_group_invitations,
       result.messaging_files,
-      result.messaging_social_declines,
+      result.social_request_declines,
+      result.social_requests,
       result.messaging_retained_authors,
       queries.some((entry) =>
         entry.query.includes(
-          'from messaging_social_declines where decliner_actor_id=',
+          'from social_request_declines where decliner_actor_id=',
         ),
       ),
     ],
@@ -186,6 +197,16 @@ test('subject export removes other-direction private state and serializes dates/
           blocked_until: null,
         },
       ],
+      [
+        {
+          actor_id: actorId,
+          request_id: 'q'.repeat(24),
+          counterpart_actor_id: peerId,
+          kind: 'friend',
+          unrelated: true,
+          created_at: now,
+        },
+      ],
       [{ channel_id: channelId, actor_id: actorId, created_at: now }],
       true,
     ],
@@ -235,6 +256,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [],
+    [], // the subject's social requests are deleted
     [{ changeVersion: 4 }],
     [[1, '9']],
     [],
@@ -288,13 +310,13 @@ test('erasure fences every subject channel before file cleanup and publishes fin
       queries[fileIntent + 1]?.query.includes('delete from messaging_files'),
       receiptDelete?.params,
       queries.findIndex((query) =>
-        query.query.includes('delete from messaging_friendships'),
+        query.query.includes('delete from friendships'),
       ) <
         queries.findIndex((query) =>
-          query.query.includes('delete from messaging_contact_pairs'),
+          query.query.includes('delete from contact_pairs'),
         ),
       queries.find((query) =>
-        query.query.includes('delete from messaging_presence_settings'),
+        query.query.includes('delete from presence_settings'),
       )?.params,
     ],
     expected: [true, true, true, [actorId], true, [actorId]],

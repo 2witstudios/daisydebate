@@ -56,7 +56,7 @@ test('a challenge reaches only its friend while the room is open, and ends with 
   const stored = async () =>
     (
       (await client.unsafe(
-        'select room_id from messaging_friend_challenges where challenger_actor_id = any($1::text[])',
+        'select room_id from friend_challenges where challenger_actor_id = any($1::text[])',
         [`{${actorId},${otherActorId}}`],
       )) as { room_id: string }[]
     ).map((row) => row.room_id);

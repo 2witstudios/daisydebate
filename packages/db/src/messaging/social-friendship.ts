@@ -1,10 +1,8 @@
 import { and, count, eq, or } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import {
-  messagingContactPairs,
-  messagingFriendships,
-} from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
+import { friendships } from '../schema/friends';
 import type {
   MessagingSocialFrame,
   MessagingSocialInput,
@@ -23,10 +21,10 @@ type FriendshipTransaction = Pick<
 
 const accepted = (actorId: string) =>
   and(
-    eq(messagingFriendships.state, 'accepted'),
+    eq(friendships.state, 'accepted'),
     or(
-      eq(messagingFriendships.lowActorId, actorId),
-      eq(messagingFriendships.highActorId, actorId),
+      eq(friendships.lowActorId, actorId),
+      eq(friendships.highActorId, actorId),
     ),
   );
 
@@ -36,7 +34,7 @@ async function countWhere(
 ) {
   const [row] = await tx
     .select({ value: count() })
-    .from(messagingFriendships)
+    .from(friendships)
     .where(where);
   return row?.value ?? 0;
 }
@@ -49,17 +47,17 @@ async function countWhere(
 export function friendshipFrame(
   tx: FriendshipTransaction,
   input: MessagingSocialInput,
-  rows: readonly (typeof messagingContactPairs.$inferSelect)[],
+  rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
 ): Pick<MessagingSocialFrame, 'readFriendship' | 'commitFriendship'> {
   const pairOf = () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
     return rows[0]!;
   };
-  const where = (pair: typeof messagingContactPairs.$inferSelect) =>
+  const where = (pair: typeof contactPairs.$inferSelect) =>
     and(
-      eq(messagingFriendships.lowActorId, pair.lowActorId),
-      eq(messagingFriendships.highActorId, pair.highActorId),
+      eq(friendships.lowActorId, pair.lowActorId),
+      eq(friendships.highActorId, pair.highActorId),
     );
   return {
     async readFriendship() {
@@ -68,10 +66,10 @@ export function friendshipFrame(
         pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
       const [current] = await tx
         .select({
-          state: messagingFriendships.state,
-          requesterActorId: messagingFriendships.requesterActorId,
+          state: friendships.state,
+          requesterActorId: friendships.requesterActorId,
         })
-        .from(messagingFriendships)
+        .from(friendships)
         .where(where(pair))
         .for('update');
       return {
@@ -85,8 +83,8 @@ export function friendshipFrame(
         actorPendingOutgoing: await countWhere(
           tx,
           and(
-            eq(messagingFriendships.state, 'pending'),
-            eq(messagingFriendships.requesterActorId, input.actorId),
+            eq(friendships.state, 'pending'),
+            eq(friendships.requesterActorId, input.actorId),
           ),
         ),
         actorFriends: await countWhere(tx, accepted(input.actorId)),
@@ -99,7 +97,7 @@ export function friendshipFrame(
       const otherActorId =
         pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
       if (!next) {
-        await tx.delete(messagingFriendships).where(where(pair));
+        await tx.delete(friendships).where(where(pair));
         await endPairChallenges(tx, pair);
         // Ending someone else's pending request is a decline (DEC-251).
         if (
@@ -122,14 +120,13 @@ export function friendshipFrame(
             await spendSocialRequest(tx, {
               actorId: input.actorId,
               counterpartActorId: otherActorId,
-              kind: 'friend.request',
+              kind: 'friend',
               requestId,
-              digest: null,
               now,
               limits,
             })
-          )(null);
-        await tx.insert(messagingFriendships).values({
+          )();
+        await tx.insert(friendships).values({
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,
           requesterActorId: next.requesterActorId,
@@ -140,7 +137,7 @@ export function friendshipFrame(
         return;
       }
       await tx
-        .update(messagingFriendships)
+        .update(friendships)
         .set({
           state: next.state,
           requesterActorId: next.requesterActorId,

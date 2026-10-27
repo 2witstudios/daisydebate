@@ -99,17 +99,17 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
     given: 'a request, an acceptance and a removal',
     should:
       'fence each write, spend the request on the ledger, clear declines on acceptance, and end the pair’s challenges with the friendship',
-    actual: [fences, tables(queries), queries[1]?.params.at(-1)],
+    actual: [fences, tables(queries), queries[1]?.params.at(-2)],
     expected: [
       3,
       [
-        'select messaging_social_declines',
-        'insert messaging_social_commands',
-        'insert messaging_friendships',
-        'delete messaging_social_declines',
-        'update messaging_friendships',
-        'delete messaging_friendships',
-        'delete messaging_friend_challenges',
+        'select social_request_declines',
+        'insert social_requests',
+        'insert friendships',
+        'delete social_request_declines',
+        'update friendships',
+        'delete friendships',
+        'delete friend_challenges',
       ],
       true,
     ],
@@ -133,7 +133,7 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
     });
     return queries
       .find((entry) =>
-        entry.query.includes('insert into messaging_social_declines'),
+        entry.query.includes('insert into social_request_declines'),
       )
       ?.params.slice(1, 3);
   };
@@ -162,7 +162,7 @@ test('a fresh block deletes the pair’s friendship; an unblock does not touch i
     return queries.some(
       (query) =>
         query.query.startsWith('delete') &&
-        query.query.includes('"messaging_friendships"'),
+        query.query.includes('"friendships"'),
     );
   };
   assert({

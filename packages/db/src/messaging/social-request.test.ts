@@ -61,6 +61,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
         'outbox',
         'outbox',
         'outbox',
+        'social_requests',
         'messaging_social_commands',
       ],
       [

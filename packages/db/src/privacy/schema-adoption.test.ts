@@ -35,6 +35,9 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
   const subjects = await import('../schema/messaging-social-command-subjects');
   const messages = await import('../schema/messaging-messages');
   const retained = await import('../schema/messaging-retained');
+  const contacts = await import('../schema/contacts');
+  const friends = await import('../schema/friends');
+  const presence = await import('../schema/presence');
   const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
     await import('./messaging-declarations');
   const tables = [
@@ -44,6 +47,11 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(subjects),
     ...Object.values(messages),
     ...Object.values(retained),
+    contacts.contactPairs,
+    contacts.socialRequests,
+    contacts.socialRequestDeclines,
+    ...Object.values(friends),
+    ...Object.values(presence),
   ];
   const expected = currentColumns(tables);
   assert({
@@ -72,7 +80,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
       .filter(
         (field) =>
           field.column === 'text' ||
-          (field.table === 'messaging_contact_pairs' &&
+          (field.table === 'contact_pairs' &&
             field.column === 'low_actor_id'),
       )
       .map((field) => field.erasure),

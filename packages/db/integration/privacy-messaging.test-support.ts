@@ -8,12 +8,12 @@ import {
   messagingActorStates,
 } from '../src/schema/messaging-channels';
 import {
-  messagingContactPairs,
   messagingDmPairs,
   messagingGroupGrants,
   messagingGroupInvitations,
   messagingSocialCommands,
 } from '../src/schema/messaging-social';
+import { contactPairs } from '../src/schema/contacts';
 import {
   messagingMessages,
   messagingReceipts,
@@ -101,7 +101,7 @@ export async function withPrivacyMessaging(
           createdAt: timestamp,
         },
       ]);
-      await database.insert(messagingContactPairs).values({
+      await database.insert(contactPairs).values({
         lowActorId,
         highActorId,
         lowBlocksHigh: actorId !== lowActorId,
@@ -158,7 +158,6 @@ export async function withPrivacyMessaging(
           actorId,
           requestId: createId(),
           kind: 'dm.request',
-          unrelated: false,
           digest: 'a'.repeat(64),
           resultChannelId: dmId,
           createdAt: timestamp,
@@ -167,7 +166,6 @@ export async function withPrivacyMessaging(
           actorId,
           requestId: createId(),
           kind: 'group.invite',
-          unrelated: false,
           digest: null,
           resultChannelId: groupId,
           createdAt: timestamp,
@@ -176,7 +174,6 @@ export async function withPrivacyMessaging(
           actorId: otherActorId,
           requestId: createId(),
           kind: 'dm.decide',
-          unrelated: false,
           digest: 'b'.repeat(64),
           resultChannelId: dmId,
           createdAt: timestamp,
@@ -185,7 +182,6 @@ export async function withPrivacyMessaging(
           actorId: otherActorId,
           requestId: createId(),
           kind: 'group.create',
-          unrelated: false,
           digest: 'c'.repeat(64),
           resultChannelId: groupId,
           createdAt: timestamp,
@@ -277,11 +273,15 @@ export async function withPrivacyMessaging(
           [actorId, otherActorId],
         );
       await client.unsafe(
+        'delete from social_requests where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
+        [actorId, otherActorId],
+      );
+      await client.unsafe(
         'delete from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1',
         [actorId],
       );
       await client.unsafe(
-        'delete from messaging_contact_pairs where low_actor_id=$1 or high_actor_id=$1',
+        'delete from contact_pairs where low_actor_id=$1 or high_actor_id=$1',
         [actorId],
       );
       // Channel FK cascades delete only these fixtures' associations/content.

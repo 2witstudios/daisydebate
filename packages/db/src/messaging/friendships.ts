@@ -4,11 +4,9 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
-import {
-  messagingContactPairs,
-  messagingFriendships,
-  messagingPresenceSettings,
-} from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
+import { friendships } from '../schema/friends';
+import { presenceSettings } from '../schema/presence';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 
@@ -82,13 +80,13 @@ export async function listMessagingFriendChallenges(
     const rows = (await tx.execute(sql`
       select c.room_id as "roomId", u.username, r.title,
         c.created_at as "challengedAt"
-      from messaging_friend_challenges c
+      from friend_challenges c
       join rooms r on r.id = c.room_id and r.status in ('assembling', 'ready')
-      join messaging_friendships f
+      join friendships f
         on f.low_actor_id = least(c.challenger_actor_id, c.challenged_actor_id)
         and f.high_actor_id = greatest(c.challenger_actor_id, c.challenged_actor_id)
         and f.state = 'accepted'
-      join messaging_contact_pairs p
+      join contact_pairs p
         on p.low_actor_id = f.low_actor_id and p.high_actor_id = f.high_actor_id
         and not p.low_blocks_high and not p.high_blocks_low
       join actors a on a.id = c.challenger_actor_id
@@ -120,9 +118,9 @@ export function readPresenceHidden(
   requireScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const [row] = await tx
-      .select({ hidden: messagingPresenceSettings.hidden })
-      .from(messagingPresenceSettings)
-      .where(eq(messagingPresenceSettings.actorId, scope.actorId));
+      .select({ hidden: presenceSettings.hidden })
+      .from(presenceSettings)
+      .where(eq(presenceSettings.actorId, scope.actorId));
     return row?.hidden ?? false;
   });
 }
@@ -138,10 +136,10 @@ export function writePresenceHidden(
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
     await tx
-      .insert(messagingPresenceSettings)
+      .insert(presenceSettings)
       .values({ actorId: scope.actorId, ...values })
       .onConflictDoUpdate({
-        target: messagingPresenceSettings.actorId,
+        target: presenceSettings.actorId,
         set: values,
       });
     return input.hidden;
@@ -194,46 +192,40 @@ async function readRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   actorId: string,
 ): Promise<readonly MessagingFriendshipRow[]> {
-  const other = sql<string>`case when ${messagingFriendships.lowActorId} = ${actorId} then ${messagingFriendships.highActorId} else ${messagingFriendships.lowActorId} end`;
+  const other = sql<string>`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`;
   const rows = await tx
     .select({
       otherActorId: other,
       username: users.username,
-      otherHidden: sql<boolean>`coalesce(${messagingPresenceSettings.hidden}, false)`,
-      state: messagingFriendships.state,
-      requesterActorId: messagingFriendships.requesterActorId,
-      requestedAt: messagingFriendships.requestedAt,
+      otherHidden: sql<boolean>`coalesce(${presenceSettings.hidden}, false)`,
+      state: friendships.state,
+      requesterActorId: friendships.requesterActorId,
+      requestedAt: friendships.requestedAt,
     })
-    .from(messagingFriendships)
+    .from(friendships)
     .innerJoin(
-      messagingContactPairs,
+      contactPairs,
       and(
-        eq(messagingContactPairs.lowActorId, messagingFriendships.lowActorId),
-        eq(messagingContactPairs.highActorId, messagingFriendships.highActorId),
+        eq(contactPairs.lowActorId, friendships.lowActorId),
+        eq(contactPairs.highActorId, friendships.highActorId),
       ),
     )
     .innerJoin(actors, eq(actors.id, other))
-    .leftJoin(
-      messagingPresenceSettings,
-      eq(messagingPresenceSettings.actorId, other),
-    )
+    .leftJoin(presenceSettings, eq(presenceSettings.actorId, other))
     .innerJoin(users, eq(users.id, actors.userId))
     .where(
       and(
         or(
-          eq(messagingFriendships.lowActorId, actorId),
-          eq(messagingFriendships.highActorId, actorId),
+          eq(friendships.lowActorId, actorId),
+          eq(friendships.highActorId, actorId),
         ),
-        eq(messagingContactPairs.lowBlocksHigh, false),
-        eq(messagingContactPairs.highBlocksLow, false),
+        eq(contactPairs.lowBlocksHigh, false),
+        eq(contactPairs.highBlocksLow, false),
         isNull(users.deletedAt),
         isNotNull(users.username),
       ),
     )
-    .orderBy(
-      asc(messagingFriendships.state),
-      desc(messagingFriendships.requestedAt),
-    )
+    .orderBy(asc(friendships.state), desc(friendships.requestedAt))
     .limit(FRIENDSHIP_LIST_MAX);
   return rows.map((row) => ({
     otherActorId: row.otherActorId,

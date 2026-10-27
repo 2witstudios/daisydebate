@@ -72,7 +72,7 @@ test('canonical privacy export composes MSG and age while masking other private 
         },
       );
       assertSocialExport(result, peer, actorId);
-      const contact = result.messaging_contact_pairs?.[0] ?? {};
+      const contact = result.contact_pairs?.[0] ?? {};
       assert({
         given:
           'real shared channels, counterpart blocks, other messages and birthmonths',
@@ -216,7 +216,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         ),
       );
       const associations = await client.unsafe(
-        'select (select count(*) from messaging_contact_pairs where low_actor_id=$1 or high_actor_id=$1)::int as contacts,(select count(*) from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1)::int as pairs',
+        'select (select count(*) from contact_pairs where low_actor_id=$1 or high_actor_id=$1)::int as contacts,(select count(*) from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1)::int as pairs',
         [actorId],
       );
       const remainingAge = await client.unsafe(

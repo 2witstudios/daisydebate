@@ -53,9 +53,7 @@ test('listMessagingFriendships authorizes the locked reader first', async () => 
       },
     ],
   });
-  const read = queries.find((query) =>
-    query.query.includes('"messaging_friendships"'),
-  );
+  const read = queries.find((query) => query.query.includes('"friendships"'));
   assert({
     given: 'the read',
     should:
@@ -91,9 +89,7 @@ test('a refusing fence reads nothing', async () => {
   assert({
     given: 'the refused read',
     should: 'never query friendships',
-    actual: queries.some((query) =>
-      query.query.includes('"messaging_friendships"'),
-    ),
+    actual: queries.some((query) => query.query.includes('"friendships"')),
     expected: false,
   });
   await assertRejects({

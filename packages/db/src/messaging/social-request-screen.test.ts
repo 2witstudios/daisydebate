@@ -29,7 +29,7 @@ const screenOver = (script: Parameters<typeof fakeSql>[0]) => {
   );
   const order = () =>
     queries.map((entry) =>
-      entry.query.includes('messaging_social_declines')
+      entry.query.includes('social_request_declines')
         ? 'declines'
         : /"messaging_channels".*for update$/s.test(entry.query)
           ? `channel:${String(entry.params[0])}`

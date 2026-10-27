@@ -4,13 +4,8 @@ import {
   messagingChannels,
   messagingActorStates,
 } from './schema/messaging-channels';
-import {
-  messagingContactPairs,
-  messagingGroupInvitations,
-  messagingSocialCommands,
-  messagingDmPairs,
-  messagingGroupGrants,
-} from './schema/messaging-social';
+import { messagingGroupInvitations, messagingSocialCommands, messagingDmPairs, messagingGroupGrants } from './schema/messaging-social';
+import { contactPairs } from './schema/contacts';
 import {
   messagingMessages,
   messagingReceipts,
@@ -159,7 +154,7 @@ test('every dedicated messaging foreign key has a full leading-column index', ()
   const tables = [
     messagingChannels,
     messagingActorStates,
-    messagingContactPairs,
+    contactPairs,
     messagingDmPairs,
     messagingGroupGrants,
     messagingGroupInvitations,

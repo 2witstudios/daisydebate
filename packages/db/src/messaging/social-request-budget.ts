@@ -3,7 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
-import { messagingSocialDeclines } from '../schema/messaging-social';
+import { socialRequestDeclines } from '../schema/contacts';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
@@ -53,7 +53,7 @@ const declineBlocks = (
   counterpartActorId: string,
   now: string,
 ) =>
-  sql`exists(select 1 from messaging_social_declines
+  sql`exists(select 1 from social_request_declines
     where decliner_actor_id=${counterpartActorId} and requester_actor_id=${actorId}
       and blocked_until > ${now}::timestamptz)`;
 
@@ -82,7 +82,7 @@ export async function refuseDeclineBlock(
  * is (AUTHORIZATION), so neither is told apart from the other. Only an
  * accepted friendship or DM relates a pair: a pending or declined request
  * leaves it unrelated, so re-asking spends the unrelated budget. Otherwise
- * the request is appended to the ledger, which is the only thing the
+ * the request is appended to `social_requests`, which is the only thing the
  * budgets count: pair rows created or deleted later never refill them.
  */
 export async function spendSocialRequest(
@@ -90,13 +90,12 @@ export async function spendSocialRequest(
   command: {
     readonly actorId: string;
     readonly counterpartActorId: string;
-    readonly kind: 'dm.request' | 'friend.request';
+    readonly kind: 'dm' | 'friend';
     readonly requestId: string;
-    readonly digest: string | null;
     readonly now: string;
     readonly limits: SocialRequestLimits;
   },
-): Promise<(resultChannelId: string | null) => Promise<void>> {
+): Promise<() => Promise<void>> {
   const now = requireLimits(command.limits, command.now);
   const { actorId, counterpartActorId, limits } = command;
   const [low, high] = ordered(actorId, counterpartActorId);
@@ -108,15 +107,15 @@ export async function spendSocialRequest(
   }>(
     await tx.execute(sql`select
       ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
-      not exists(select 1 from messaging_friendships
+      not exists(select 1 from friendships
           where low_actor_id=${low} and high_actor_id=${high} and state='accepted')
         and not exists(select 1 from messaging_dm_pairs
           where low_actor_id=${low} and high_actor_id=${high} and request_state='accepted') as "unrelated",
-      (select count(*)::int from messaging_social_commands
-        where actor_id=${actorId} and kind in ('dm.request','friend.request')
+      (select count(*)::int from social_requests
+        where actor_id=${actorId}
           and created_at > ${at(now - DAY_MS)}::timestamptz) as "daily",
-      (select count(*)::int from messaging_social_commands
-        where actor_id=${actorId} and kind in ('dm.request','friend.request') and unrelated
+      (select count(*)::int from social_requests
+        where actor_id=${actorId} and unrelated
           and created_at > ${at(now - HOUR_MS)}::timestamptz) as "hourly"`),
   );
   if (!facts) throw createAppError('INFRASTRUCTURE');
@@ -126,11 +125,11 @@ export async function spendSocialRequest(
     (facts.unrelated && facts.hourly >= limits.unrelatedHourly)
   )
     throw createAppError('RATE_LIMIT');
-  return async (resultChannelId) => {
-    await tx.execute(sql`insert into messaging_social_commands
-      (actor_id, request_id, counterpart_actor_id, kind, digest, result_channel_id, created_at, unrelated)
+  return async () => {
+    await tx.execute(sql`insert into social_requests
+      (actor_id, request_id, counterpart_actor_id, kind, unrelated, created_at)
       values (${actorId}, ${command.requestId}, ${counterpartActorId}, ${command.kind},
-        ${command.digest}, ${resultChannelId}, ${at(now)}::timestamptz, ${facts.unrelated})`);
+        ${facts.unrelated}, ${at(now)}::timestamptz)`);
   };
 }
 
@@ -157,10 +156,10 @@ export async function recordSocialDecline(
   await tx.execute(sql`with counted as (
       select coalesce((select case when d.expires_at > ${at(now)}::timestamptz
         then d.declined_count else 0 end
-        from messaging_social_declines d
+        from social_request_declines d
         where d.decliner_actor_id=${declinerActorId} and d.requester_actor_id=${requesterActorId}), 0) + 1 as next
     )
-    insert into messaging_social_declines
+    insert into social_request_declines
       (decliner_actor_id, requester_actor_id, low_actor_id, high_actor_id, declined_count, last_declined_at, blocked_until, expires_at)
     select ${declinerActorId}, ${requesterActorId}, ${low}, ${high},
       case when next >= ${limits.declinesToBlock} then 0 else next end,
@@ -172,17 +171,17 @@ export async function recordSocialDecline(
       declined_count = excluded.declined_count,
       last_declined_at = excluded.last_declined_at,
       -- A block kept from a longer window still ends before the row does.
-      expires_at = greatest(excluded.expires_at, messaging_social_declines.blocked_until),
+      expires_at = greatest(excluded.expires_at, social_request_declines.blocked_until),
       blocked_until = coalesce(excluded.blocked_until,
-        case when messaging_social_declines.blocked_until > ${at(now)}::timestamptz
-          then messaging_social_declines.blocked_until end)`);
+        case when social_request_declines.blocked_until > ${at(now)}::timestamptz
+          then social_request_declines.blocked_until end)`);
 }
 
 /** An accepted request clears the pair's declines in both directions. */
 export async function clearSocialDeclines(tx: Tx, a: string, b: string) {
   const [low, high] = ordered(a, b);
   await tx.execute(
-    sql`delete from messaging_social_declines where low_actor_id=${low} and high_actor_id=${high}`,
+    sql`delete from social_request_declines where low_actor_id=${low} and high_actor_id=${high}`,
   );
 }
 
@@ -202,12 +201,12 @@ export const socialDeclineRetention = ({
       deleteExpiredBatch(
         database,
         {
-          table: messagingSocialDeclines,
+          table: socialRequestDeclines,
           key: [
-            messagingSocialDeclines.declinerActorId,
-            messagingSocialDeclines.requesterActorId,
+            socialRequestDeclines.declinerActorId,
+            socialRequestDeclines.requesterActorId,
           ],
-          at: messagingSocialDeclines.expiresAt,
+          at: socialRequestDeclines.expiresAt,
         },
         batch,
       ),

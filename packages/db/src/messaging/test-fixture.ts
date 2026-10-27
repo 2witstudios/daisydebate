@@ -22,6 +22,10 @@ export async function createMessagingTestFixture(client: SQL) {
   const now = '2026-10-09T18:00:00.000Z';
   const cleanup = async () => {
     await client.unsafe(
+      'delete from social_requests where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
+    await client.unsafe(
       'delete from messaging_social_commands where actor_id in ($1,$2)',
       [actorId, otherActorId],
     );
@@ -29,7 +33,7 @@ export async function createMessagingTestFixture(client: SQL) {
       channelId,
     ]);
     await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
     );
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
@@ -172,7 +176,7 @@ export async function seedMessagingTestDm(
 ) {
   const [low, high] = [actorId, otherActorId].sort();
   await client.unsafe(
-    'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
+    'insert into contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
     [low, high],
   );
   await client.unsafe(

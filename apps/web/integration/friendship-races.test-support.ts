@@ -193,11 +193,11 @@ export async function seedFriendships(
   const lows = pairs.map(([low]) => low!);
   const highs = pairs.map(([, high]) => high!);
   await client.unsafe(
-    'insert into messaging_contact_pairs(low_actor_id,high_actor_id) select * from unnest($1::text[],$2::text[])',
+    'insert into contact_pairs(low_actor_id,high_actor_id) select * from unnest($1::text[],$2::text[])',
     [textArray(lows), textArray(highs)],
   );
   await client.unsafe(
-    "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4::text,$5::timestamptz,case when $4::text = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
+    "insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4::text,$5::timestamptz,case when $4::text = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
     [
       textArray(lows),
       textArray(highs),
@@ -213,12 +213,12 @@ export async function removeMembers(client: SQL, members: readonly Member[]) {
   const actorIds = members.map((member) => member.actorId);
   const userIds = members.map((member) => member.userId);
   await client.unsafe(
-    'delete from messaging_contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
+    'delete from contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
     [textArray(actorIds)],
   );
-  // Friend requests leave DEC-251 ledger rows naming both members.
+  // Friend requests leave DEC-251 budget rows naming both members.
   await client.unsafe(
-    'delete from messaging_social_commands where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])',
+    'delete from social_requests where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])',
     [textArray(actorIds)],
   );
   await client.unsafe('delete from actors where id = any($1::text[])', [

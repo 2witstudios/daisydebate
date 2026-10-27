@@ -164,7 +164,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
         expected: 0,
       });
       await tx.execute(
-        sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`,
+        sql`select low_actor_id from contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`,
       );
       await tx.execute(
         sql`select id from messaging_channels where id=${channelId} for update`,

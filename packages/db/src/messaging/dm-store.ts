@@ -142,7 +142,6 @@ export function createMessagingDmStore({
                 counterpartActorId,
                 requestId: command.requestId,
                 kind: 'dm.decide',
-                unrelated: false,
                 digest: command.digest,
                 resultChannelId: scope.channelId,
                 createdAt: new Date(command.now),

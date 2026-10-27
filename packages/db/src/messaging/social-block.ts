@@ -2,11 +2,11 @@ import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
-  messagingContactPairs,
   messagingDmPairs,
-  messagingFriendships,
   messagingSocialCommands,
 } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
+import { friendships } from '../schema/friends';
 import { messagingChannels } from '../schema/messaging-channels';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import { endPairChallenges } from './social-challenge';
@@ -21,7 +21,7 @@ export function contactBlockWriter(
     'select' | 'update' | 'insert' | 'delete' | 'execute'
   >,
   input: MessagingSocialInput,
-  rows: readonly (typeof messagingContactPairs.$inferSelect)[],
+  rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
 ): MessagingSocialFrame['commitBlock'] {
   return async (command) => {
@@ -32,7 +32,7 @@ export function contactBlockWriter(
     if (!Number.isSafeInteger(revision)) throw createAppError('CONFLICT');
     const ownsLow = pair.lowActorId === input.actorId;
     const [updated] = await tx
-      .update(messagingContactPairs)
+      .update(contactPairs)
       .set({
         revision,
         ...(ownsLow
@@ -41,8 +41,8 @@ export function contactBlockWriter(
       })
       .where(
         and(
-          eq(messagingContactPairs.lowActorId, pair.lowActorId),
-          eq(messagingContactPairs.highActorId, pair.highActorId),
+          eq(contactPairs.lowActorId, pair.lowActorId),
+          eq(contactPairs.highActorId, pair.highActorId),
         ),
       )
       .returning();
@@ -70,8 +70,7 @@ export function contactBlockWriter(
       actorId: input.actorId,
       counterpartActorId: ownsLow ? pair.highActorId : pair.lowActorId,
       requestId: command.requestId,
-      kind: 'dm.block',
-      unrelated: false,
+      kind: 'contact.block',
       digest: command.digest,
       createdAt: new Date(command.now),
       resultChannelId: dm?.channelId ?? null,
@@ -86,16 +85,16 @@ export function contactBlockWriter(
 /** A block ends any friendship or request; unblocking never restores one. */
 async function endFriendshipOnBlock(
   tx: Pick<BunSQLDatabase, 'delete'>,
-  pair: typeof messagingContactPairs.$inferSelect,
+  pair: typeof contactPairs.$inferSelect,
   blocked: boolean,
 ) {
   if (!blocked) return;
   await tx
-    .delete(messagingFriendships)
+    .delete(friendships)
     .where(
       and(
-        eq(messagingFriendships.lowActorId, pair.lowActorId),
-        eq(messagingFriendships.highActorId, pair.highActorId),
+        eq(friendships.lowActorId, pair.lowActorId),
+        eq(friendships.highActorId, pair.highActorId),
       ),
     );
   await endPairChallenges(tx, pair);

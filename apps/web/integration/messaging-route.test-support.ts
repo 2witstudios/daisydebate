@@ -95,7 +95,7 @@ export async function closeMountedMessagingPair(
     channelId,
   ]);
   await client.unsafe(
-    'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+    'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
     [...[me.actorId, peer.actorId].sort()],
   );
   await client.unsafe("delete from outbox where payload->>'channelId'=$1", [

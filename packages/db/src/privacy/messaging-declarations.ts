@@ -28,7 +28,7 @@ const messagingColumns = {
     ],
     none: [],
   },
-  messaging_contact_pairs: {
+  contact_pairs: {
     identifier: [],
     personal: [
       'low_actor_id',
@@ -38,7 +38,7 @@ const messagingColumns = {
     ],
     none: ['revision'],
   },
-  messaging_friendships: {
+  friendships: {
     identifier: [],
     personal: [
       'low_actor_id',
@@ -50,12 +50,12 @@ const messagingColumns = {
     ],
     none: [],
   },
-  messaging_friend_challenges: {
+  friend_challenges: {
     identifier: ['room_id'],
     personal: ['challenger_actor_id', 'challenged_actor_id', 'created_at'],
     none: [],
   },
-  messaging_presence_settings: {
+  presence_settings: {
     identifier: [],
     personal: ['actor_id', 'hidden', 'updated_at'],
     none: [],
@@ -108,8 +108,12 @@ const messagingColumns = {
       'counterpart_actor_id',
       'digest',
       'result_channel_id',
-      'unrelated',
     ],
+    none: ['kind', 'created_at'],
+  },
+  social_requests: {
+    identifier: ['request_id'],
+    personal: ['actor_id', 'counterpart_actor_id', 'unrelated'],
     none: ['kind', 'created_at'],
   },
   messaging_retained_authors: {
@@ -117,7 +121,7 @@ const messagingColumns = {
     personal: ['actor_id', 'created_at'],
     none: [],
   },
-  messaging_social_declines: {
+  social_request_declines: {
     identifier: [],
     personal: [
       'decliner_actor_id',
@@ -212,7 +216,11 @@ function privacyPurpose(
     // the same retention and basis as those message bodies.
     return 'Survivor access to own retained messages';
   }
-  if (table === 'messaging_social_declines') {
+  if (table === 'social_requests') {
+    // DEC-251: counts a day of requests; deleted with either member's erasure.
+    return 'Social request budget';
+  }
+  if (table === 'social_request_declines') {
     // DEC-251: counts 30 days, blocks 30 days; deleted on acceptance, with
     // the pair, on erasure, or by the retention sweep at its expires_at.
     return 'Social request decline block';
@@ -225,7 +233,7 @@ function privacyPurpose(
 
 /** DEC-251 sets the decline window; every other table awaits its decision. */
 function privacyRetention(table: string) {
-  return table === 'messaging_social_declines'
+  return table === 'social_request_declines'
     ? {
         status: 'approved' as const,
         decision: 'dvkpb5wjay835m0xrgq1iz6v',

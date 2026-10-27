@@ -5,10 +5,10 @@ import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
-  messagingContactPairs,
   messagingDmPairs,
   messagingGroupGrants,
 } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
 
 const positiveRevision = z.number().int().positive().safe();
 
@@ -127,7 +127,7 @@ export async function readMessagingChannelFact(
     ) as fact
     from ${messagingChannels} c
     left join ${messagingDmPairs} d on d.channel_id = c.id
-    left join ${messagingContactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
+    left join ${contactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
     left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = ${actorId}
     where c.id = ${channelId} and (c.kind <> 'dm' or d.channel_id is not null)
   `)) as unknown as Array<{ fact: unknown }>;

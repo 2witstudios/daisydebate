@@ -3,10 +3,8 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { lockAuthorizationActors } from '../authorization';
-import {
-  messagingContactPairs,
-  messagingSocialCommands,
-} from '../schema/messaging-social';
+import { messagingSocialCommands } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
 import { contactBlockWriter } from './social-block';
 import { friendshipFrame } from './social-friendship';
 import { challengeFrame } from './social-challenge';
@@ -43,20 +41,20 @@ export function createMessagingSocialStore({
         });
         if (accounts.some((account) => account === null))
           throw createAppError('NOT_FOUND');
-        const rows: (typeof messagingContactPairs.$inferSelect)[] = [];
+        const rows: (typeof contactPairs.$inferSelect)[] = [];
         for (const [index, low] of members.entries())
           for (const high of members.slice(index + 1)) {
             await tx
-              .insert(messagingContactPairs)
+              .insert(contactPairs)
               .values({ lowActorId: low, highActorId: high })
               .onConflictDoNothing();
             const [pair] = await tx
               .select()
-              .from(messagingContactPairs)
+              .from(contactPairs)
               .where(
                 and(
-                  eq(messagingContactPairs.lowActorId, low),
-                  eq(messagingContactPairs.highActorId, high),
+                  eq(contactPairs.lowActorId, low),
+                  eq(contactPairs.highActorId, high),
                 ),
               )
               .for('update');

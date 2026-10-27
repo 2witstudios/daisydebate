@@ -20,7 +20,7 @@ export async function blockMessagingContact(
     (schemas) => schemas.block,
   );
   if (command.otherActorId === actorId) throw createAppError('VALIDATION');
-  const digest = messagingSocialDigest('dm.block', [
+  const digest = messagingSocialDigest('contact.block', [
     command.otherActorId,
     command.blocked,
   ]);
@@ -33,7 +33,7 @@ export async function blockMessagingContact(
     async (frame) => {
       const receipt = await frame.readReceipt(command.requestId);
       if (receipt) {
-        if (receipt.kind !== 'dm.block' || receipt.digest !== digest)
+        if (receipt.kind !== 'contact.block' || receipt.digest !== digest)
           throw createAppError('CONFLICT');
         return {
           blocked: frame.blocking!,

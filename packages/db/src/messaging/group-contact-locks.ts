@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from '../authorization';
-import { messagingContactPairs } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
 import type { MessagingGroupInvitationFact } from './group-invitation-contracts';
 /** Only requested admission may materialize a pair; all refusals roll the same tx back. */
 export async function lockGroupContacts(
@@ -19,11 +19,11 @@ export async function lockGroupContacts(
     for (const highActorId of members.slice(index + 1)) {
       if (materialize)
         await tx
-          .insert(messagingContactPairs)
+          .insert(contactPairs)
           .values({ lowActorId, highActorId })
           .onConflictDoNothing();
       const rows = await tx.execute(
-        sql`select low_blocks_high,high_blocks_low,revision from public.messaging_contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} for update`,
+        sql`select low_blocks_high,high_blocks_low,revision from public.contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} for update`,
       );
       const pair = rows[0];
       if (!pair) continue;

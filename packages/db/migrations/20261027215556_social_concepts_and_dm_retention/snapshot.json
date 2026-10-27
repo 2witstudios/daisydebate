@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1ff104e9-1c95-4b69-bcca-837df3e0b748",
+  "id": "a719d553-a5ed-4a47-8715-87fb46464b1d",
   "prevIds": [
     "1e35c580-3fc8-414c-b841-853ee68f8640"
   ],
@@ -86,6 +86,24 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "contact_pairs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "social_request_declines",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "social_requests",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "documents",
       "entityType": "tables",
       "schema": "public"
@@ -129,6 +147,18 @@
     {
       "isRlsEnabled": false,
       "name": "formats",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "friend_challenges",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "friendships",
       "entityType": "tables",
       "schema": "public"
     },
@@ -212,25 +242,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "messaging_contact_pairs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "messaging_dm_pairs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "messaging_friend_challenges",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "messaging_friendships",
       "entityType": "tables",
       "schema": "public"
     },
@@ -248,19 +260,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "messaging_presence_settings",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "messaging_social_commands",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "messaging_social_declines",
       "entityType": "tables",
       "schema": "public"
     },
@@ -291,6 +291,12 @@
     {
       "isRlsEnabled": false,
       "name": "outbox",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "presence_settings",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1939,6 +1945,253 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "low_blocks_high",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "high_blocks_low",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decliner_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requester_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "declined_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_declined_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "blocked_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "request_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "counterpart_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unrelated",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -2593,6 +2846,136 @@
       "entityType": "columns",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "challenger_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "challenged_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requester_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "accepted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friendships"
     },
     {
       "type": "text",
@@ -3944,71 +4327,6 @@
       "name": "low_actor_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "high_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "low_blocks_high",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "high_blocks_low",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "type": "bigint",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "1",
-      "generated": null,
-      "identity": null,
-      "name": "revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "low_actor_id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "messaging_dm_pairs"
     },
     {
@@ -4114,136 +4432,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_dm_pairs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "challenger_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "challenged_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "low_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "high_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requester_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "state",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requested_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "accepted_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_friendships"
     },
     {
       "type": "text",
@@ -4451,45 +4639,6 @@
       "name": "actor_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "messaging_presence_settings"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "hidden",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_presence_settings"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_presence_settings"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "messaging_social_commands"
     },
     {
@@ -4569,123 +4718,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_social_commands"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "unrelated",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_commands"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "decliner_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requester_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "low_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "high_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "bigint",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "declined_count",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_declined_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "blocked_until",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_social_declines"
     },
     {
       "type": "text",
@@ -4972,6 +5004,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "presence_settings"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hidden",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "presence_settings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "presence_settings"
     },
     {
       "type": "text",
@@ -9683,6 +9754,167 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "contact_pairs_high_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "low_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_request_declines_pair_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "requester_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_request_declines_requester_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_request_declines_high_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_request_declines_expires_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_requests_actor_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "counterpart_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_requests_counterpart_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "owner_actor_id",
           "isExpression": false,
           "asc": true,
@@ -9993,6 +10225,69 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "challenged_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friend_challenges_challenged_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "challenger_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friend_challenges_challenger_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friendships_high_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friendships"
     },
     {
       "nameExplicit": true,
@@ -10640,27 +10935,6 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "messaging_contact_pairs_high_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "high_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
       "name": "messaging_dm_pairs_high_actor_idx",
       "entityType": "indexes",
       "schema": "public",
@@ -10693,69 +10967,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "messaging_dm_pairs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "challenged_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_friend_challenges_challenged_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "challenger_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_friend_challenges_challenger_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "high_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_friendships_high_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_friendships"
     },
     {
       "nameExplicit": true,
@@ -10945,97 +11156,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "messaging_social_commands"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "low_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "high_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_social_declines_pair_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "requester_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_social_declines_requester_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "high_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_social_declines_high_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_social_declines_expires_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_social_declines"
     },
     {
       "nameExplicit": true,
@@ -14151,6 +14271,161 @@
     {
       "nameExplicit": false,
       "columns": [
+        "low_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_contact_pairs_low_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_contact_pairs_high_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "decliner_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_request_declines_decliner_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "requester_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_request_declines_requester_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "low_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_request_declines_low_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_request_declines_high_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contact_pairs",
+      "columnsTo": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "social_request_declines_XyTEC649xO1O_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_requests_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "counterpart_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "social_requests_counterpart_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "owner_actor_id"
       ],
       "schemaTo": "public",
@@ -14253,6 +14528,110 @@
       "entityType": "fks",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "room_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_friend_challenges_room_id_rooms_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "challenger_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friend_challenges_challenger_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "challenged_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friend_challenges_challenged_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "low_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friendships_low_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friendships_high_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contact_pairs",
+      "columnsTo": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "friendships_contact_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friendships"
     },
     {
       "nameExplicit": false,
@@ -14671,40 +15050,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_contact_pairs_low_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_contact_pairs_high_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "low_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "name": "messaging_dm_pairs_low_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -14734,7 +15079,7 @@
         "high_actor_id"
       ],
       "schemaTo": "public",
-      "tableTo": "messaging_contact_pairs",
+      "tableTo": "contact_pairs",
       "columnsTo": [
         "low_actor_id",
         "high_actor_id"
@@ -14764,110 +15109,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "messaging_dm_pairs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "room_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rooms",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "messaging_friend_challenges_room_id_rooms_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "challenger_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_friend_challenges_challenger_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "challenged_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_friend_challenges_challenged_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "low_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_friendships_low_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_friendships_high_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "messaging_contact_pairs",
-      "columnsTo": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "messaging_friendships_contact_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_friendships"
     },
     {
       "nameExplicit": false,
@@ -14970,23 +15211,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "messaging_presence_settings_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_presence_settings"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "name": "messaging_social_commands_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -15025,93 +15249,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "messaging_social_commands"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "decliner_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_social_declines_decliner_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "requester_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_social_declines_requester_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "low_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_social_declines_low_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "messaging_social_declines_high_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "messaging_contact_pairs",
-      "columnsTo": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "messaging_social_declines_448h6tSFZspo_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_social_declines"
     },
     {
       "nameExplicit": false,
@@ -15163,6 +15300,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "member_topics"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_presence_settings_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "presence_settings"
     },
     {
       "nameExplicit": false,
@@ -16619,6 +16773,39 @@
     },
     {
       "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_contact_pairs_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "columns": [
+        "decliner_actor_id",
+        "requester_actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "social_request_declines_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "columns": [
+        "actor_id",
+        "request_id"
+      ],
+      "nameExplicit": false,
+      "name": "social_requests_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "columns": [
         "round_id",
         "document_id"
       ],
@@ -16649,6 +16836,17 @@
       "entityType": "pks",
       "schema": "public",
       "table": "format_revisions"
+    },
+    {
+      "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_friendships_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "friendships"
     },
     {
       "columns": [
@@ -16714,32 +16912,10 @@
         "high_actor_id"
       ],
       "nameExplicit": false,
-      "name": "messaging_contact_pairs_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "columns": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "nameExplicit": false,
       "name": "messaging_dm_pairs_pkey",
       "entityType": "pks",
       "schema": "public",
       "table": "messaging_dm_pairs"
-    },
-    {
-      "columns": [
-        "low_actor_id",
-        "high_actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "messaging_friendships_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "messaging_friendships"
     },
     {
       "columns": [
@@ -16773,17 +16949,6 @@
       "entityType": "pks",
       "schema": "public",
       "table": "messaging_social_commands"
-    },
-    {
-      "columns": [
-        "decliner_actor_id",
-        "requester_actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "messaging_social_declines_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "messaging_social_declines"
     },
     {
       "columns": [
@@ -17068,6 +17233,16 @@
     },
     {
       "columns": [
+        "room_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_friend_challenges_pkey",
+      "schema": "public",
+      "table": "friend_challenges",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -17148,26 +17323,6 @@
     },
     {
       "columns": [
-        "room_id"
-      ],
-      "nameExplicit": false,
-      "name": "messaging_friend_challenges_pkey",
-      "schema": "public",
-      "table": "messaging_friend_challenges",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "messaging_presence_settings_pkey",
-      "schema": "public",
-      "table": "messaging_presence_settings",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -17194,6 +17349,16 @@
       "name": "outbox_pkey",
       "schema": "public",
       "table": "outbox",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_presence_settings_pkey",
+      "schema": "public",
+      "table": "presence_settings",
       "entityType": "pks"
     },
     {
@@ -17890,6 +18055,55 @@
       "table": "bot_profiles"
     },
     {
+      "value": "\"low_actor_id\" < \"high_actor_id\"",
+      "name": "contact_pairs_order",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "value": "\"revision\" between 1 and 9007199254740991",
+      "name": "contact_pairs_revision",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "contact_pairs"
+    },
+    {
+      "value": "(\"low_actor_id\" = \"decliner_actor_id\" and \"high_actor_id\" = \"requester_actor_id\") or (\"low_actor_id\" = \"requester_actor_id\" and \"high_actor_id\" = \"decliner_actor_id\")",
+      "name": "social_request_declines_pair",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "value": "\"declined_count\" between 0 and 3",
+      "name": "social_request_declines_count",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "value": "\"expires_at\" > \"last_declined_at\" and (\"blocked_until\" is null or \"blocked_until\" <= \"expires_at\")",
+      "name": "social_request_declines_expiry",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "social_request_declines"
+    },
+    {
+      "value": "\"kind\" in ('dm', 'friend')",
+      "name": "social_requests_kind",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "value": "\"actor_id\" <> \"counterpart_actor_id\"",
+      "name": "social_requests_distinct",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
       "value": "\"folder\" in ('library', 'scratch')",
       "name": "documents_folder_check",
       "entityType": "checks",
@@ -18014,6 +18228,41 @@
       "entityType": "checks",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
+      "name": "friend_challenges_distinct",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "value": "\"low_actor_id\" < \"high_actor_id\"",
+      "name": "friendships_order",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "value": "\"requester_actor_id\" in (\"low_actor_id\", \"high_actor_id\")",
+      "name": "friendships_requester",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "value": "\"state\" in ('pending', 'accepted')",
+      "name": "friendships_state",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friendships"
+    },
+    {
+      "value": "(\"state\" = 'pending' and \"accepted_at\" is null) or (\"state\" = 'accepted' and \"accepted_at\" is not null and \"accepted_at\" >= \"requested_at\")",
+      "name": "friendships_time",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friendships"
     },
     {
       "value": "\"purpose\" in ('beta-approved', 'beta-requests-digest')",
@@ -18283,20 +18532,6 @@
     },
     {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
-      "name": "messaging_contact_pairs_order",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "value": "\"revision\" between 1 and 9007199254740991",
-      "name": "messaging_contact_pairs_revision",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_contact_pairs"
-    },
-    {
-      "value": "\"low_actor_id\" < \"high_actor_id\"",
       "name": "messaging_dm_pairs_order",
       "entityType": "checks",
       "schema": "public",
@@ -18329,41 +18564,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_dm_pairs"
-    },
-    {
-      "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
-      "name": "messaging_friend_challenges_distinct",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_friend_challenges"
-    },
-    {
-      "value": "\"low_actor_id\" < \"high_actor_id\"",
-      "name": "messaging_friendships_order",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "value": "\"requester_actor_id\" in (\"low_actor_id\", \"high_actor_id\")",
-      "name": "messaging_friendships_requester",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "value": "\"state\" in ('pending', 'accepted')",
-      "name": "messaging_friendships_state",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_friendships"
-    },
-    {
-      "value": "(\"state\" = 'pending' and \"accepted_at\" is null) or (\"state\" = 'accepted' and \"accepted_at\" is not null and \"accepted_at\" >= \"requested_at\")",
-      "name": "messaging_friendships_time",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_friendships"
     },
     {
       "value": "\"channel_kind\" = 'private_group'",
@@ -18436,32 +18636,11 @@
       "table": "messaging_social_commands"
     },
     {
-      "value": "\"kind\" in ('dm.request', 'friend.request', 'dm.decide', 'dm.block', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive')",
+      "value": "\"kind\" in ('dm.request', 'dm.decide', 'contact.block', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive')",
       "name": "messaging_social_commands_kind",
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_social_commands"
-    },
-    {
-      "value": "(\"low_actor_id\" = \"decliner_actor_id\" and \"high_actor_id\" = \"requester_actor_id\") or (\"low_actor_id\" = \"requester_actor_id\" and \"high_actor_id\" = \"decliner_actor_id\")",
-      "name": "messaging_social_declines_pair",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "value": "\"declined_count\" between 0 and 3",
-      "name": "messaging_social_declines_count",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_social_declines"
-    },
-    {
-      "value": "\"expires_at\" > \"last_declined_at\" and (\"blocked_until\" is null or \"blocked_until\" <= \"expires_at\")",
-      "name": "messaging_social_declines_expiry",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_social_declines"
     },
     {
       "value": "\"interest\" in ('debate', 'coach', 'judge', 'watch')",
@@ -19486,5 +19665,22 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.messaging_contact_pairs->public.contact_pairs",
+    "public.messaging_friend_challenges->public.friend_challenges",
+    "public.messaging_friendships->public.friendships",
+    "public.messaging_presence_settings->public.presence_settings",
+    "public.contact_pairs.messaging_contact_pairs_order->public.contact_pairs.contact_pairs_order",
+    "public.contact_pairs.messaging_contact_pairs_revision->public.contact_pairs.contact_pairs_revision",
+    "public.friend_challenges.messaging_friend_challenges_distinct->public.friend_challenges.friend_challenges_distinct",
+    "public.friendships.messaging_friendships_order->public.friendships.friendships_order",
+    "public.friendships.messaging_friendships_requester->public.friendships.friendships_requester",
+    "public.friendships.messaging_friendships_state->public.friendships.friendships_state",
+    "public.friendships.messaging_friendships_time->public.friendships.friendships_time",
+    "public.contact_pairs.messaging_contact_pairs_high_actor_idx->public.contact_pairs.contact_pairs_high_actor_idx",
+    "public.friend_challenges.messaging_friend_challenges_challenged_idx->public.friend_challenges.friend_challenges_challenged_idx",
+    "public.friend_challenges.messaging_friend_challenges_challenger_idx->public.friend_challenges.friend_challenges_challenger_idx",
+    "public.friendships.messaging_friendships_high_actor_idx->public.friendships.friendships_high_actor_idx",
+    "public.friendships.messaging_friendships_contact_fk->public.friendships.friendships_contact_fk"
+  ]
 }

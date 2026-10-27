@@ -40,7 +40,7 @@ const change = (
 
 const declinesOf = async (client: SQL, decliner: string) =>
   (await client.unsafe(
-    'select declined_count::int as "count", blocked_until is not null as "blocked" from messaging_social_declines where decliner_actor_id=$1',
+    'select declined_count::int as "count", blocked_until is not null as "blocked" from social_request_declines where decliner_actor_id=$1',
     [decliner],
   )) as { count: number; blocked: boolean }[];
 
@@ -140,14 +140,12 @@ test('the request budgets count the ledger, never the current pair rows (DEC-251
   const spent = async (count: number, unrelated: boolean, at: string) => {
     for (let index = 0; index < count; index += 1)
       await client.unsafe(
-        "insert into messaging_social_commands(actor_id,request_id,counterpart_actor_id,kind,created_at,unrelated) values($1,$2,$3,'friend.request',$4::timestamptz,$5)",
+        "insert into social_requests(actor_id,request_id,counterpart_actor_id,kind,created_at,unrelated) values($1,$2,$3,'friend',$4::timestamptz,$5)",
         [asker[0], createId(), fixture.otherActorId, at, unrelated],
       );
   };
   const clear = () =>
-    client.unsafe('delete from messaging_social_commands where actor_id=$1', [
-      asker[0],
-    ]);
+    client.unsafe('delete from social_requests where actor_id=$1', [asker[0]]);
   try {
     // The fixture's DM would make the pair related: these two never met.
     await client.unsafe('delete from messaging_dm_pairs where channel_id=$1', [
@@ -172,7 +170,7 @@ test('the request budgets count the ledger, never the current pair rows (DEC-251
     await spent(socialLimits.daily, true, day(-1.1));
     await change(store, asker, 'request', now);
     const [ledger] = (await client.unsafe(
-      "select unrelated from messaging_social_commands where actor_id=$1 and created_at=$2::timestamptz and kind='friend.request'",
+      "select unrelated from social_requests where actor_id=$1 and created_at=$2::timestamptz and kind='friend'",
       [asker[0], now],
     )) as { unrelated: boolean }[];
     assert({
@@ -202,18 +200,17 @@ test('a pending or declined DM leaves the pair unrelated, so asking again spends
       );
       await change(store, asker, 'request', day(1));
       const [ledger] = (await client.unsafe(
-        "select unrelated from messaging_social_commands where actor_id=$1 and kind='friend.request'",
+        "select unrelated from social_requests where actor_id=$1 and kind='friend'",
         [asker[0]],
       )) as { unrelated: boolean }[];
       snapshots.push(ledger!.unrelated);
       await client.unsafe(
-        'delete from messaging_friendships where low_actor_id=$1 or high_actor_id=$1',
+        'delete from friendships where low_actor_id=$1 or high_actor_id=$1',
         [asker[0]],
       );
-      await client.unsafe(
-        'delete from messaging_social_commands where actor_id=$1',
-        [asker[0]],
-      );
+      await client.unsafe('delete from social_requests where actor_id=$1', [
+        asker[0],
+      ]);
     }
     assert({
       given: 'a friend request after a declined DM, then after a pending one',

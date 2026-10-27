@@ -5,9 +5,10 @@ import { createAppError } from '@daisy/errors';
 import { buildChannelTopic } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
-  messagingContactPairs,
   messagingDmPairs,
+  messagingSocialCommands,
 } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
 import {
   refuseDeclineBlock,
   spendSocialRequest,
@@ -19,7 +20,7 @@ import type {
   MessagingSocialInput,
 } from './social-contracts';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
-type Pair = typeof messagingContactPairs.$inferSelect;
+type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */
 export function dmRequestFrame(
@@ -88,9 +89,8 @@ export function dmRequestFrame(
       const record = await spendSocialRequest(tx, {
         actorId: input.actorId,
         counterpartActorId: counterpartOf(input),
-        kind: 'dm.request',
+        kind: 'dm',
         requestId: command.requestId,
-        digest: command.digest,
         now: command.now,
         limits: command.limits,
       });
@@ -138,7 +138,17 @@ export function dmRequestFrame(
           payload: { kind: 'channel.changed', channelId, changeVersion: 1 },
         });
       }
-      await record(channelId);
+      await record();
+      // Messaging's own receipt, which a retry of this request replays.
+      await tx.insert(messagingSocialCommands).values({
+        actorId: input.actorId,
+        requestId: command.requestId,
+        counterpartActorId: counterpartOf(input),
+        kind: 'dm.request',
+        digest: command.digest,
+        resultChannelId: channelId,
+        createdAt: new Date(command.now),
+      });
       return { channelId, state: 'pending' };
     },
   };

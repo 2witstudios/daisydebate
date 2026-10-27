@@ -66,7 +66,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       [groupId, otherActorId, actorId, now],
     );
     await client.unsafe(
-      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at,unrelated) values($1,$2,'dm.request',$3,$4,$6,false),($5,$2,'dm.decide',$3,$4,$6,false),($5,$7,'group.create',$3,$8,$6,false)",
+      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'dm.request',$3,$4,$6),($5,$2,'dm.decide',$3,$4,$6),($5,$7,'group.create',$3,$8,$6)",
       [
         actorId,
         requestId,
@@ -126,7 +126,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       `select
       (select count(*)::int from messaging_receipts where actor_id=$1) as receipts,
       (select count(*)::int from messaging_group_grants where actor_id=$1) as grants,
-      (select count(*)::int from messaging_contact_pairs where low_actor_id=$1 or high_actor_id=$1) as contacts,
+      (select count(*)::int from contact_pairs where low_actor_id=$1 or high_actor_id=$1) as contacts,
       (select count(*)::int from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1) as pairs,
       (select count(*)::int from messaging_reactions where actor_id=$1) as reactions,
       (select count(*)::int from messaging_actor_states where actor_id=$1) as preferences,
@@ -214,7 +214,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       groupId,
     ]);
     await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
     );
     await client.unsafe(

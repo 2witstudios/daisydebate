@@ -2,17 +2,15 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import {
-  messagingFriendChallenges,
-  type messagingContactPairs,
-} from '../schema/messaging-social';
+import { friendChallenges } from '../schema/friends';
+import { type contactPairs } from '../schema/contacts';
 import type {
   MessagingSocialFrame,
   MessagingSocialInput,
 } from './social-contracts';
 
 type ContactPair = Pick<
-  typeof messagingContactPairs.$inferSelect,
+  typeof contactPairs.$inferSelect,
   'lowActorId' | 'highActorId'
 >;
 
@@ -27,11 +25,11 @@ export async function endPairChallenges(
 ) {
   const between = (challenger: string, challenged: string) =>
     and(
-      eq(messagingFriendChallenges.challengerActorId, challenger),
-      eq(messagingFriendChallenges.challengedActorId, challenged),
+      eq(friendChallenges.challengerActorId, challenger),
+      eq(friendChallenges.challengedActorId, challenged),
     );
   await tx
-    .delete(messagingFriendChallenges)
+    .delete(friendChallenges)
     .where(
       or(
         between(pair.lowActorId, pair.highActorId),
@@ -49,7 +47,7 @@ export async function endPairChallenges(
 export function challengeFrame(
   tx: Pick<BunSQLDatabase, 'execute'>,
   input: MessagingSocialInput,
-  rows: readonly (typeof messagingContactPairs.$inferSelect)[],
+  rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
 ): Pick<MessagingSocialFrame, 'commitChallenge' | 'declineChallenge'> {
   const otherOf = () => {
@@ -68,12 +66,12 @@ export function challengeFrame(
       requireRoom(roomId);
       // The pair's challenges to rooms no longer open are spent; drop them.
       await tx.execute(sql`
-        delete from messaging_friend_challenges c using rooms r
+        delete from friend_challenges c using rooms r
         where r.id = c.room_id and r.status not in ('assembling', 'ready')
           and ((c.challenger_actor_id = ${input.actorId} and c.challenged_actor_id = ${otherOf()})
             or (c.challenger_actor_id = ${otherOf()} and c.challenged_actor_id = ${input.actorId}))`);
       const recorded = await tx.execute(sql`
-        insert into messaging_friend_challenges
+        insert into friend_challenges
           (room_id, challenger_actor_id, challenged_actor_id, created_at)
         select r.id, ${input.actorId}, ${otherOf()}, ${new Date(now)}
         from rooms r
@@ -85,7 +83,7 @@ export function challengeFrame(
       // A room already challenging this same friend is recorded (a repeat
       // Challenge); one challenging someone else is not (ISSUE-700).
       const same = await tx.execute(sql`
-        select 1 from messaging_friend_challenges c join rooms r on r.id = c.room_id
+        select 1 from friend_challenges c join rooms r on r.id = c.room_id
         where c.room_id = ${roomId} and c.challenger_actor_id = ${input.actorId}
           and c.challenged_actor_id = ${otherOf()}
           and r.host_actor_id = ${input.actorId} and r.status in ('assembling', 'ready')`);
@@ -95,7 +93,7 @@ export function challengeFrame(
       await authorize();
       requireRoom(roomId);
       await tx.execute(sql`
-        delete from messaging_friend_challenges
+        delete from friend_challenges
         where room_id = ${roomId} and challenged_actor_id = ${input.actorId}
           and challenger_actor_id = ${otherOf()}`);
     },

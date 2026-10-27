@@ -89,7 +89,6 @@ export async function writeGroupInvitationDecision(
     counterpartActorId,
     requestId: command.requestId,
     kind: 'group.decide',
-    unrelated: false,
     digest: command.digest,
     resultChannelId: scope.channelId,
     createdAt: now,

@@ -131,5 +131,5 @@ The beta's request bounds are DEC-251's, composed in
   after its last decline, and the retention sweep deletes it then.
 
 All of these are counted durably from the `messaging_social_commands`
-ledger and `messaging_social_declines`, never from Redis. Posting stays
+ledger and `social_request_declines`, never from Redis. Posting stays
 within one age band (16–17 or adult); no cross-band pair is composed.

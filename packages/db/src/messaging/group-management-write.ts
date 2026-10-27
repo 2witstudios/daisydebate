@@ -107,7 +107,6 @@ export async function writeGroupManagement(
     actorId: scope.actorId,
     requestId: scope.requestId,
     kind: `group.${scope.operation}`,
-    unrelated: false,
     digest: command.digest,
     resultChannelId: scope.channelId,
     counterpartActorId: scope.targetActorId ?? null,

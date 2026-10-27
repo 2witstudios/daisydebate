@@ -191,7 +191,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
         query.startsWith('delete from "room_active_memberships"'),
       ),
       queries.some(({ query }) =>
-        query.startsWith('delete from "messaging_friend_challenges"'),
+        query.startsWith('delete from "friend_challenges"'),
       ),
       queries.filter(({ query }) => query.includes('pg_notify')).length,
     ],
