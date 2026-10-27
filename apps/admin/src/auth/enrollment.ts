@@ -33,7 +33,7 @@ import {
 } from './webauthn';
 
 /**
- * Passkey enrollment from a one-time link (ADR 0076). GET /enroll consumes
+ * Passkey enrollment from a one-time link (ADR 0077). GET /enroll consumes
  * nothing; `beginEnrollment` issues a register challenge bound to the
  * enrollment; `finishEnrollment` verifies the attestation and, in one
  * transaction, consumes the challenge and the enrollment and stores the

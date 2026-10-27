@@ -135,7 +135,7 @@ COPY --chown=daisy:daisy apps/media-worker/src apps/media-worker/src
 WORKDIR /app/apps/media-worker
 CMD ["bun", "src/start.ts"]
 
-# ---- admin-build: the admin app's Next build (ADR 0076), selected only by
+# ---- admin-build: the admin app's Next build (ADR 0077), selected only by
 # the admin target below; it keeps its own TypeScript pass (a small app).
 FROM deps AS admin-build
 COPY . .

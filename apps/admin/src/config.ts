@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * The admin app's environment, validated once at the process edge. Errors
  * name fields, never values. It holds no participant credential: no
- * DATABASE_URL, REDIS_URL or Better Auth secret (ADR 0076).
+ * DATABASE_URL, REDIS_URL or Better Auth secret (ADR 0077).
  */
 const postgresUrl = z
   .string()

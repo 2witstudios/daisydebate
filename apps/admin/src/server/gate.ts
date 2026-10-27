@@ -2,7 +2,7 @@ import { hostAllowed, MISDIRECTED_STATUS, sameOrigin } from '../auth/origin';
 
 /**
  * The admin server's first check on every request, static files included
- * (ADR 0076): a Host other than the canonical `localhost:4800`, or a
+ * (ADR 0077): a Host other than the canonical `localhost:4800`, or a
  * state-changing request whose Origin is not the canonical origin, is
  * answered 421 before Next sees it. Server actions repeat the Origin check.
  * The peer address is the socket's, written into a header the server owns;

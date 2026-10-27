@@ -7,7 +7,7 @@ import { readAdminMigrationUrl } from '../config';
 /**
  * `fly.admin-migrate.toml`'s release command: migrates the admin database
  * as its owner, ADMIN_MIGRATION_DATABASE_URL, which only that release-only
- * app holds (ADR 0041, ADR 0076). Errors name fields, never values.
+ * app holds (ADR 0041, ADR 0077). Errors name fields, never values.
  */
 export async function migrateAdminDatabase(url: string): Promise<void> {
   const client = new SQL(url, {

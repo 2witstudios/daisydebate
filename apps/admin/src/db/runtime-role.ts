@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { AdminExecutor } from './client';
 
 /**
- * The admin app serves only as `daisy_admin_app` (ADR 0076): a role that
+ * The admin app serves only as `daisy_admin_app` (ADR 0077): a role that
  * could create or alter schema objects, or own the tables (and so rewrite
  * the audit chain), is refused at startup. The catalog is read for
  * `current_user`; membership counts as ownership.

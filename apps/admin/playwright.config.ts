@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * The admin journey (ADR 0076): one production server on the canonical
+ * The admin journey (ADR 0077): one production server on the canonical
  * origin, http://localhost:4800, which WebAuthn and the Host gate both
  * require, so a machine runs one admin browser suite at a time. The owner
  * URL of the e2e database comes only from E2E_ADMIN_DATABASE_URL (written by

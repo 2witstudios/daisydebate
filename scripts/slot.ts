@@ -264,7 +264,7 @@ const describeOrphans = (ids: readonly string[]) =>
 
 const slotDatabases = (slot: Slot) =>
   [slot.database, slot.testDatabase, slot.e2eDatabase] as const;
-/** The admin app's own databases, migrated by its own migrator (ADR 0076). */
+/** The admin app's own databases, migrated by its own migrator (ADR 0077). */
 const adminDatabases = (slot: Slot) =>
   [slot.adminDatabase, slot.adminTestDatabase, slot.adminE2eDatabase] as const;
 

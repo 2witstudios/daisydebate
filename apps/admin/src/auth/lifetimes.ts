@@ -1,6 +1,6 @@
 /**
  * Every admin credential's lifetime, as pure decisions over injected time
- * (ADR 0076). The database enforces single use; these rules decide expiry.
+ * (ADR 0077). The database enforces single use; these rules decide expiry.
  */
 const minute = 60_000;
 const ENROLLMENT_TTL_MS = 15 * minute;

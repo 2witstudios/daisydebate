@@ -10,7 +10,7 @@ import {
 } from '../db/schema';
 
 /**
- * The admin authentication rows (ADR 0076). Every single-use secret is
+ * The admin authentication rows (ADR 0077). Every single-use secret is
  * consumed by one conditional UPDATE … RETURNING, so of two racing callers
  * exactly one sees the row; times are injected, never `now()`.
  */

@@ -1,4 +1,4 @@
-# Release-only migrator for the admin database (ADR 0076, the ADR 0041
+# Release-only migrator for the admin database (ADR 0077, the ADR 0041
 # pattern). Its one secret is ADMIN_MIGRATION_DATABASE_URL, the
 # daisy_admin_owner credential; the admin app never holds it. Deployed by
 # .github/workflows/deploy-staging.yml with `--update-only`, so the release

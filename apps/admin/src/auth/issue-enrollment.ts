@@ -9,7 +9,7 @@ import { mintSecret, sha3, type RandomBytes } from './secrets';
 import { findActiveOperatorByName, revokeOpenEnrollments } from './store';
 
 /**
- * The bootstrap CLI's one operation (ADR 0076), run over `fly ssh console`:
+ * The bootstrap CLI's one operation (ADR 0077), run over `fly ssh console`:
  * mint a 15-minute enrollment link for an operator. A first enrollment
  * creates the owner and refuses a second one; `--additional` adds a
  * passkey and `--replace` (lost passkey) revokes the others when consumed.

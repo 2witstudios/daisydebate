@@ -141,7 +141,7 @@ describe('the slot database the runner may use (ISSUE-249)', () => {
   });
 });
 
-describe('the admin test database an admin suite may use (ADR 0076)', () => {
+describe('the admin test database an admin suite may use (ADR 0077)', () => {
   const admin = (url: string | undefined, databaseUrl = testEnv.DATABASE_URL) =>
     failureOf(requireAdminTestDatabase, {
       DATABASE_URL: databaseUrl,

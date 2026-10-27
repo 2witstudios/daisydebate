@@ -7,7 +7,7 @@ import { gateRequest, PEER_HEADER } from './gate';
 import { adminRuntime } from './runtime';
 
 /**
- * The admin process (ADR 0076). It refuses a schema-altering database role
+ * The admin process (ADR 0077). It refuses a schema-altering database role
  * before serving, then answers every request through the Host and Origin
  * gate; Next renders only what the gate admits. Production binds `[::]:8080`, which
  * `fly proxy 4800:8080` reaches over 6PN; there is no public service.

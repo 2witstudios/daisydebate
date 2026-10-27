@@ -1,7 +1,7 @@
 import type { EvidenceProblem } from './evidence';
 
 /**
- * ADR 0076: the admin journey runs from apps/admin's own Playwright config,
+ * ADR 0077: the admin journey runs from apps/admin's own Playwright config,
  * which e2e.yml must invoke, or the suite would silently stop running.
  */
 export const adminE2EClaimProblems = (

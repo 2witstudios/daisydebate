@@ -239,7 +239,7 @@ test('authorization consumes protocol while adapters stay outside its boundary',
   });
 });
 
-describe('admin workspace edges (ADR 0076)', () => {
+describe('admin workspace edges (ADR 0077)', () => {
   test('the admin app may never depend on the participant adapters', () => {
     assert({
       given: 'apps/admin declaring @daisy/db, @daisy/redis or @daisy/web',

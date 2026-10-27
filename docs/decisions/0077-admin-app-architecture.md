@@ -1,4 +1,4 @@
-# 0076: Admin app architecture
+# 0077: Admin app architecture
 
 Status: accepted (BETA plan revision 3.1, owner-approved 2026-10-26;
 BETA-4). Amends [ADR 0019](0019-token-secret-ownership.md) for the admin

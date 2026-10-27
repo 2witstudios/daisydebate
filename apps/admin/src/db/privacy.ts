@@ -1,7 +1,7 @@
 import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 /**
- * Every admin database column (ADR 0036, ADR 0076; BETA plan §8). The
+ * Every admin database column (ADR 0036, ADR 0077; BETA plan §8). The
  * owner-approved plan fixes the lawful basis (legitimate interest: operating
  * the service) and every retention but the audit log's two years, which
  * stays pending the owner's decision.

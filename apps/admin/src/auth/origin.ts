@@ -1,5 +1,5 @@
 /**
- * The canonical admin origin (ADR 0076). The owner reaches the app only as
+ * The canonical admin origin (ADR 0077). The owner reaches the app only as
  * `http://localhost:4800` through `fly proxy`; WebAuthn binds credentials to
  * RP ID `localhost`, and the port belongs to the origin alone. Any other
  * Host, `127.0.0.1` and `[::1]` included, is answered 421 before anything

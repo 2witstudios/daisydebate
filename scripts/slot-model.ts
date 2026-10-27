@@ -20,7 +20,7 @@ export type Slot = {
   readonly testDatabase: string;
   /** The browser suite's own database, so integration never sees its rows. */
   readonly e2eDatabase: string;
-  /** The admin app's own databases (ADR 0076): dev, integration, browser. */
+  /** The admin app's own databases (ADR 0077): dev, integration, browser. */
   readonly adminDatabase: string;
   readonly adminTestDatabase: string;
   readonly adminE2eDatabase: string;
@@ -363,7 +363,7 @@ export function slotEnvValues({
       mediaWorkerRole,
     ),
     // The admin app's owner URLs; its suites and browser server derive the
-    // DML-only logins themselves, and dev runs as the owner (ADR 0076).
+    // DML-only logins themselves, and dev runs as the owner (ADR 0077).
     TEST_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminTestDatabase),
     E2E_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminE2eDatabase),
     ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminDatabase),

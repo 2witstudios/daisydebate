@@ -390,7 +390,7 @@ describe('ciGateProblems', () => {
   });
 });
 
-describe('the admin browser journey claim (ADR 0076)', () => {
+describe('the admin browser journey claim (ADR 0077)', () => {
   const playwright = {
     'test:e2e':
       'bun ../../scripts/heavy.ts node node_modules/@playwright/test/cli.js test',

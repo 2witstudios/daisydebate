@@ -171,7 +171,7 @@ jobs:
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: admin-migrate
         name: Migrate the admin database
-        # ADR 0076: the release-only admin migrator, holding only the admin
+        # ADR 0077: the release-only admin migrator, holding only the admin
         # database owner credential. Until the owner creates the app and its
         # deploy token (BETA-H), the secret is empty and this step skips.
         env:

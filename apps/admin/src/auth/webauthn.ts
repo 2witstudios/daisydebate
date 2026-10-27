@@ -15,7 +15,7 @@ import { toBase64Url } from './secrets';
 
 /**
  * The two passkey ceremonies, fixed to the canonical origin and RP ID with
- * user verification required (ADR 0076). Verification failures of any kind
+ * user verification required (ADR 0077). Verification failures of any kind
  * collapse to null: callers record one failure, never the library's text.
  */
 export type CeremonyOrigin = { readonly origin: string; readonly rpId: string };

@@ -837,7 +837,7 @@ capture worker. Verify: `fly status` shows one passing machine per app,
 missing configuration or a broader database login). Destroy with `fly apps
 destroy` for each app, then `gh secret delete` for its token.
 
-## 12. Admin app (BETA-H, ADR 0076)
+## 12. Admin app (BETA-H, ADR 0077)
 
 The admin app (`apps/admin`) and its release-only migrator are two more Fly
 apps built from this image: the `admin` and `admin-migrate` stages of
@@ -846,7 +846,7 @@ apps built from this image: the `admin` and `admin-migrate` stages of
 `[http_service]` and no public address; the owner reaches it with `fly proxy`.
 Its database, `daisy_admin`, sits on the existing staging cluster with its
 own owner and runtime roles and no PUBLIC CONNECT (a separate production
-cluster is a production gate, ADR 0076).
+cluster is a production gate, ADR 0077).
 
 Until the owner creates the apps and their deploy tokens, `deploy-staging.yml`
 skips both admin steps: each runs only when its token

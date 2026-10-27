@@ -1,5 +1,5 @@
 /**
- * Admin bearer secrets (ADR 0076, the ADR 0019 amendment): enrollment and
+ * Admin bearer secrets (ADR 0077, the ADR 0019 amendment): enrollment and
  * session tokens and WebAuthn challenges are 32 OS CSPRNG bytes, base64url,
  * and only their SHA3-256 digest is ever stored or compared.
  */

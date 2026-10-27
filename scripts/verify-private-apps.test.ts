@@ -7,8 +7,8 @@ import {
 
 setupRitewayBun();
 
-/** ADR 0076: the admin app is 6PN-only, so nothing may give it a public face. */
-describe('the private admin app (ADR 0076)', () => {
+/** ADR 0077: the admin app is 6PN-only, so nothing may give it a public face. */
+describe('the private admin app (ADR 0077)', () => {
   test('its config never declares a public service', () => {
     const repo = (adminToml: string) => (path: string) =>
       path === 'fly.admin.toml'

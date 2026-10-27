@@ -1,5 +1,5 @@
 /**
- * The admin app's one decision function (ADR 0076): pure, over the current
+ * The admin app's one decision function (ADR 0077): pure, over the current
  * operator row, the action and the approval policy. The app authorizes here
  * before it signs anything; the participant app authorizes again on its own.
  */

@@ -100,7 +100,7 @@ ALTER TABLE "operator_challenges" ADD CONSTRAINT "operator_challenges_enrollment
 ALTER TABLE "operator_credentials" ADD CONSTRAINT "operator_credentials_operator_id_operators_id_fkey" FOREIGN KEY ("operator_id") REFERENCES "operators"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "operator_enrollments" ADD CONSTRAINT "operator_enrollments_operator_id_operators_id_fkey" FOREIGN KEY ("operator_id") REFERENCES "operators"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "operator_sessions" ADD CONSTRAINT "operator_sessions_operator_id_operators_id_fkey" FOREIGN KEY ("operator_id") REFERENCES "operators"("id") ON DELETE RESTRICT;--> statement-breakpoint
---> The runtime role and its grants (ADR 0076); drizzle-kit generates none of
+--> The runtime role and its grants (ADR 0077); drizzle-kit generates none of
 --> this. Roles are cluster-wide: staging creates daisy_admin_app with a
 --> password before the first migration, and a local or CI cluster gets a
 --> passwordless login here. The owner (the release-only migrate app's role)

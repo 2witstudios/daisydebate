@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next';
 
-// The admin app (ADR 0076): server components and server-action forms; the
+// The admin app (ADR 0077): server components and server-action forms; the
 // passkey ceremony is its only client script. Served only to
 // http://localhost:4800 through `fly proxy`, so no HSTS: the origin is http.
 const config: NextConfig = {

@@ -237,7 +237,7 @@ describe('findServiceDeployProblems job-level token (ISSUE-528)', () => {
   });
 });
 
-describe('the admin apps (ADR 0076)', () => {
+describe('the admin apps (ADR 0077)', () => {
   const migrator = (deploy: string) =>
     `app = "daisy-debate-staging-admin-migrate"\n\n[build]\n  dockerfile = "apps/web/Dockerfile"\n  build-target = "admin-migrate"\n${deploy}`;
 

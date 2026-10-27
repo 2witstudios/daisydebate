@@ -323,7 +323,7 @@ describe('migrationFolders', () => {
   test('covers the admin database', () => {
     assert({
       given: 'the guarded folders',
-      should: "include the admin app's own migrations (ADR 0076)",
+      should: "include the admin app's own migrations (ADR 0077)",
       actual: migrationFolders,
       expected: ['packages/db/migrations', 'apps/admin/src/db/migrations'],
     });

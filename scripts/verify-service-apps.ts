@@ -20,7 +20,7 @@ type ServiceApp = {
   readonly release?: true;
   /** The service app config whose deploy must come first. */
   readonly after?: string;
-  /** 6PN only (ADR 0076): no public service, no public address. */
+  /** 6PN only (ADR 0077): no public service, no public address. */
   readonly private?: true;
 };
 
@@ -49,7 +49,7 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
     },
   },
-  // ADR 0076: the admin database's release-only migrator, then the admin app.
+  // ADR 0077: the admin database's release-only migrator, then the admin app.
   {
     file: 'fly.admin-migrate.toml',
     token: 'FLY_ADMIN_MIGRATE_API_TOKEN',

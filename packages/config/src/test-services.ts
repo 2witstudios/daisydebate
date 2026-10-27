@@ -95,7 +95,7 @@ export function requireTestSlotServices(
   return readTestServices(slotDatabaseSchema, env);
 }
 /**
- * The admin app's suites call this beside `requireTestServices` (ADR 0076):
+ * The admin app's suites call this beside `requireTestServices` (ADR 0077):
  * its own database, this slot's `<slot>_admin_test` on the slot's server.
  * A missing or foreign database throws; a suite never skips.
  */

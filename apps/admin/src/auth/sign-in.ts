@@ -37,7 +37,7 @@ import {
 } from './webauthn';
 
 /**
- * Passkey sign-in (ADR 0076): a discoverable-credential assertion with user
+ * Passkey sign-in (ADR 0077): a discoverable-credential assertion with user
  * verification, a single-use challenge consumed before verification, the
  * sign counter rule, and a fresh session that replaces any presented one.
  */

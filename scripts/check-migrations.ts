@@ -14,7 +14,7 @@ import { isIsoDate, reviewDateStatus, utcToday } from './review-date';
 const migrationsDir = 'packages/db/migrations';
 /**
  * Every migration folder the guard covers: the participant database's and
- * the admin app's own (ADR 0076). Each is checked on its own, with the same
+ * the admin app's own (ADR 0077). Each is checked on its own, with the same
  * drizzle-kit 1.0 layout and history rules.
  */
 export const migrationFolders = [

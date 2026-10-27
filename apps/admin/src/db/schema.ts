@@ -1,5 +1,5 @@
 /**
- * The admin app's own database (ADR 0076): operators, their passkeys and
+ * The admin app's own database (ADR 0077): operators, their passkeys and
  * sessions, and the hash-chained audit log. Nothing here references the
  * participant database; `daisy_admin_app` may only INSERT and SELECT the
  * audit tables (granted in the baseline migration).

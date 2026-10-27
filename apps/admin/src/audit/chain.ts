@@ -2,7 +2,7 @@ import { sha3 } from '../auth/secrets';
 import type { auditDetails, auditKinds } from '../db/schema';
 
 /**
- * The admin audit chain (ADR 0076): each row's
+ * The admin audit chain (ADR 0077): each row's
  * `hash = SHA3-256(prev_hash ‖ canonical JSON of the row without hash)`,
  * from the genesis `SHA3-256("daisy-admin-audit-v1")`. It proves the rows
  * read back are the rows written, in order, from a known start; a rewrite of

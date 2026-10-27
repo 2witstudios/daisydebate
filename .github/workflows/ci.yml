@@ -96,7 +96,7 @@ jobs:
         run: >-
           docker run --rm --entrypoint bun daisy-web-ci --eval
           'await import("@daisy/ingress/client-ip"); await import("../../packages/media/src/index.ts");'
-      # ADR 0076: the admin stages deploy from this Dockerfile too, so they
+      # ADR 0077: the admin stages deploy from this Dockerfile too, so they
       # are built and booted here before any deploy does it first.
       - name: Build the admin and admin migrator stages
         run: |
@@ -152,7 +152,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
       DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
       TEST_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
-      # The admin app's own test database (ADR 0076), created and migrated below.
+      # The admin app's own test database (ADR 0077), created and migrated below.
       TEST_ADMIN_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_admin_test
       REDIS_URL: redis://127.0.0.1:6379/1
       TEST_REDIS_URL: redis://127.0.0.1:6379/1

@@ -207,7 +207,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # ADR 0076: the admin app's operator journey on its own canonical origin
+  # ADR 0077: the admin app's operator journey on its own canonical origin
   # (http://localhost:4800) and its own database; Chromium only, through
   # the CDP virtual authenticator.
   admin:

@@ -13,7 +13,7 @@ import {
 
 /**
  * Every request re-reads its session and the current `operators` row
- * (ADR 0076): expiry is enforced here, server-side, and a disabled
+ * (ADR 0077): expiry is enforced here, server-side, and a disabled
  * operator's session is revoked on the next request it makes.
  */
 export const SESSION_COOKIE = 'daisy_admin_session';

@@ -1,7 +1,7 @@
 import { sha3 } from './secrets';
 
 /**
- * Failed authentication is limited per purpose and client (ADR 0076): at
+ * Failed authentication is limited per purpose and client (ADR 0077): at
  * most 10 failures per fixed 10-minute window. The client is stored only as
  * SHA3-256 of its address under ADMIN_ATTEMPT_KEY, never raw.
  */
