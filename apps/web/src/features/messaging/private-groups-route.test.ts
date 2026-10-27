@@ -85,6 +85,18 @@ test('beta refuses every private-group creation, invitation and admission route,
       expected: [403, 403, 403, 403],
     });
     assert({
+      given: 'a decline of a group invitation while groups are off',
+      should:
+        'pass the gate (only acceptance admits) and reach the (unreachable) store',
+      actual:
+        (
+          await routes.decideGroupInvitation(
+            post({ ...scoped, expectedGeneration: 1, decision: 'decline' }),
+          )
+        ).status === 403,
+      expected: false,
+    });
+    assert({
       given: 'the same request under an isolated composition that opts in',
       should: 'pass the gate and reach the (unreachable) store instead',
       actual: (await optedIn.createGroup(post(creation))).status === 403,
