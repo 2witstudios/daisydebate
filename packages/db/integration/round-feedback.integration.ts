@@ -21,7 +21,11 @@ const coaching = {
 };
 
 /** A Round that completed a minute ago, its two debaters' lines frozen at revision 1. */
-async function completedRound(fixture: Fixture, roundId: string) {
+async function completedRound(
+  fixture: Fixture,
+  roundId: string,
+  frozen: boolean,
+) {
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
   const end = new Date(clock!.now.getTime() - 60_000);
   const start = new Date(end.getTime() - 1000);
@@ -47,7 +51,9 @@ async function completedRound(fixture: Fixture, roundId: string) {
     [1, neg.id],
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segmentId},${seat},${sequence},'a frozen line')`;
-  await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
+  await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},2)`;
+  if (frozen)
+    await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
   return { aff };
 }
 
@@ -61,9 +67,10 @@ const withCompletedRound = (
     jobs: ReturnType<typeof createRoundFeedbackJobs>;
     facts: () => ReturnType<typeof readRoundCoachingFacts>;
   }) => Promise<void>,
+  frozen = true,
 ) =>
   withBoundedRound(async (fixture, run, roundId, client) => {
-    const { aff } = await completedRound(fixture, roundId);
+    const { aff } = await completedRound(fixture, roundId, frozen);
     await work({
       fixture,
       roundId,
@@ -211,8 +218,7 @@ test('a lapsed lease is listed again and the decision retakes or ends it', async
   }));
 
 test('a Round without a frozen transcript is never a candidate', async () =>
-  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
-    await fixture.sql`delete from round_transcript_freezes where round_id=${roundId}`;
+  withCompletedRound(async ({ roundId, jobs, facts }) => {
     assert({
       given: 'a completed Round with lines but no freeze',
       should: 'not list it, and report it unfrozen',
@@ -222,7 +228,7 @@ test('a Round without a frozen transcript is never a candidate', async () =>
       },
       expected: { listed: false, frozen: false },
     });
-  }));
+  }, false));
 
 test('erasing a debater clears their Round’s coaching for good', async () =>
   withCompletedRound(async ({ roundId, client, aff, jobs, facts }) => {

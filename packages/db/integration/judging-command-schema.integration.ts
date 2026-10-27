@@ -73,14 +73,7 @@ test('a judging intent acquires one actual command identifier and preserves it a
         expected: 'round_judging_jobs_identity_immutable',
       });
     } finally {
-      await fixture.sql.unsafe(
-        'delete from round_judging_jobs where round_id=$1',
-        [roundId],
-      );
-      await fixture.sql.unsafe(
-        'delete from round_transcript_freezes where round_id=$1',
-        [roundId],
-      );
+      await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
 });
@@ -165,7 +158,7 @@ test('pending judging response survives takeover with immutable origin until ato
         ]),
         expected: [
           'round_judging_jobs_pending_delete',
-          'round_judging_jobs_pending_delete',
+          'round_transcript_freezes_immutable',
         ],
       });
       assert({
