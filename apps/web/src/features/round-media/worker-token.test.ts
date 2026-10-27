@@ -3,7 +3,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { createRoundMediaOperations } from './operations';
 import { createMediaWorkerTokenBroker } from './worker-token';
-import { createMediaWorld, fixedId } from './media-world.test-support';
+import { createMediaWorld } from './media-world.test-support';
+import { fixedId } from './media-world-seats.test-support';
 setupRitewayBun();
 
 type Broker = Parameters<typeof createMediaWorkerTokenBroker>[0];

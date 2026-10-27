@@ -1,10 +1,13 @@
 import { createAppError } from '@daisy/errors';
-import {
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-} from '@daisy/db/reference-formats';
-import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { MediaSnapshot } from './projection';
+import {
+  fixedId,
+  roomName,
+  roundId,
+  rules,
+  seats,
+  sessionId,
+} from './media-world-seats.test-support';
 import type { MediaOperationInput, Store } from './operation-context';
 import {
   createMediaVendor,
@@ -12,42 +15,9 @@ import {
   type Vendor,
 } from './media-vendor.test-support';
 
-/** Deterministic 24-character identifiers the real media adapter accepts. */
-export const fixedId = (label: string) =>
-  label
-    .replace(/[^a-z0-9]/g, '')
-    .padEnd(24, '0')
-    .slice(0, 24);
-
-const compiled = resolveRoomConfiguration(
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-);
-if (!compiled.ok) throw new Error('Canonical rules fixture refused');
-const rules = compiled.rules;
-const roomName = fixedId('room');
-const sessionId = fixedId('session');
-const roundId = fixedId('round');
-const seats = [
-  {
-    id: fixedId('seataff'),
-    actorId: fixedId('actoraff'),
-    role: 'affirmative',
-    slot: 0,
-  },
-  {
-    id: fixedId('seatneg'),
-    actorId: fixedId('actorneg'),
-    role: 'negative',
-    slot: 0,
-  },
-  {
-    id: fixedId('seatjudge'),
-    actorId: fixedId('actorjudge'),
-    role: 'judge',
-    slot: 0,
-  },
-] as const;
+type Access = { readonly beta: 'approved' | 'revoked'; ageBand: 'adult' };
+type Admits = (access: Access) => boolean;
+type Caller = { readonly actorId: string; readonly admits: Admits };
 
 /**
  * One Round's durable media facts and one self-hosted LiveKit room, held in
@@ -67,6 +37,11 @@ export function createMediaWorld(
   const rooms = new Set<string>();
   const connected = new Map<string, Grants>();
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
+  const access = new Map<
+    string,
+    Access
+  > // each seat's own fenced facts (ISSUE-714)
+  (seats.map((s) => [s.id, { beta: 'approved', ageBand: 'adult' }]));
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
   let status = options.status ?? 'scheduled';
@@ -89,6 +64,18 @@ export function createMediaWorld(
     failures.set(call, left - 1);
     throw new Error(`${call} unavailable`);
   };
+  /**
+   * As the store does: the caller's rule over its own fenced facts. An
+   * unseated caller is refused by its seat, which `snapshot` checks.
+   */
+  const admittedActor = (caller?: Caller) => {
+    const seat = seats.find((entry) => entry.actorId === caller?.actorId);
+    if (caller && seat && !caller.admits(access.get(seat.id)!))
+      throw createAppError('AUTHORIZATION');
+    return caller?.actorId;
+  };
+  /** The rule the operations inject, read for every human seat. */
+  let rule: Admits = () => true;
   const snapshot = (actorId?: string): MediaSnapshot => {
     const participants = seats.map((seat) => ({
       ...seat,
@@ -127,6 +114,9 @@ export function createMediaWorld(
         segments: [],
       },
       participants,
+      withdrawn: seats
+        .filter((seat) => !rule(access.get(seat.id)!))
+        .map((seat) => seat.id),
       caller,
       bindings: bindings.map((binding) => ({ ...binding, roomName })),
       now,
@@ -144,8 +134,16 @@ export function createMediaWorld(
     return { sessionId, roomName, identity: found.identity };
   };
   const store = {
-    readMediaSession: async (input: { actorId?: string }) =>
-      snapshot(input.actorId),
+    readMediaSession: async (input: { actorId?: string; admits: Admits }) => {
+      rule = input.admits;
+      return snapshot(
+        admittedActor(
+          input.actorId === undefined
+            ? undefined
+            : { actorId: input.actorId, admits: input.admits },
+        ),
+      );
+    },
     requestMediaReconcile: async () => ({
       sessionId,
       version: (requested += 1),
@@ -170,8 +168,10 @@ export function createMediaWorld(
     },
     beginMediaMutation: async (request: {
       intent: { kind: string; identity: string | null };
+      admits: Admits;
       authorize: (context: unknown) => void;
     }) => {
+      rule = request.admits;
       const participantId =
         bindings.find((b) => b.identity === request.intent.identity)
           ?.roundParticipantId ?? null;
@@ -203,18 +203,22 @@ export function createMediaWorld(
         if (terminal) endedAt ??= now;
       }
     },
-    ensureBinding: async (input: { actorId: string }) => {
+    ensureBinding: async (input: { caller: Caller }) => {
       if (['completed', 'abandoned'].includes(status))
         throw createAppError('CONFLICT', 'Round media has ended');
-      const seat = snapshot(input.actorId).caller!;
+      const seat = snapshot(admittedActor(input.caller)).caller!;
       return binding(seat.id);
     },
     issueMediaToken: async <T>(input: {
       principal: { kind: 'human'; actorId: string };
+      admits: Admits;
       reconcileOwner?: string;
       sign: (context: unknown) => Promise<T>;
     }) => {
-      const state = snapshot(input.principal.actorId);
+      rule = input.admits;
+      const state = snapshot(
+        admittedActor({ actorId: input.principal.actorId, admits: rule }),
+      );
       // As the store: a live lease refuses unless the caller holds it.
       const foreignLease =
         leaseOwner !== null && leaseOwner !== input.reconcileOwner;
@@ -268,6 +272,9 @@ export function createMediaWorld(
     identity: (participantId: string) => binding(participantId).identity,
     revoke: (participantId: string, value = false) =>
       void eligible.set(participantId, value),
+    /** An operator's beta revoke of the seat's account; membership stays (ISSUE-714). */
+    withdraw: (participantId: string) =>
+      void access.set(participantId, { beta: 'revoked', ageBand: 'adult' }),
     end: () => {
       status = 'completed';
     },

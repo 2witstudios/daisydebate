@@ -94,7 +94,13 @@ const tables: Readonly<Record<string, Table>> = {
     erasure: 'delete',
     columns: {
       identifier: ['command_id', 'operator_id', 'target_user_id'],
-      none: ['desired_state', 'expected_revision', 'created_at', 'resolved_at'],
+      none: [
+        'desired_state',
+        'expected_revision',
+        'created_at',
+        'last_signed_at',
+        'resolved_at',
+      ],
     },
   },
   chain_checkpoints: {
