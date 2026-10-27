@@ -30,7 +30,6 @@ export function startRoundCompetitiveMaintenance(input: {
       ids: app.ids,
       evaluate: attendance.evaluate,
       startHorizonMs: ROUND_START_HORIZON_MS,
-      idleTimeoutMs: app.roomPolicy?.idleTimeoutMs ?? null,
       probeRoundId:
         readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE)?.roundId ??
         null,

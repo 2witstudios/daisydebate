@@ -1,8 +1,8 @@
 import {
   clubChoices,
   experienceChoices,
-  formatChoices,
-  topicChoices,
+  formatPreferenceChoices,
+  interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -52,7 +52,10 @@ export const memberTopics = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.topic] }),
-    check('member_topics_topic_check', oneOf(table.topic, topicChoices)),
+    check(
+      'member_topics_topic_check',
+      oneOf(table.topic, interestCategoryChoices),
+    ),
   ],
 );
 
@@ -88,7 +91,7 @@ export const memberOnboarding = pgTable(
     ),
     check(
       'member_onboarding_formats_check',
-      sql`${table.formats} <@ ${literalArray(formatChoices)}`,
+      sql`${table.formats} <@ ${literalArray(formatPreferenceChoices)}`,
     ),
     versionPositive('member_onboarding', table.version),
   ],

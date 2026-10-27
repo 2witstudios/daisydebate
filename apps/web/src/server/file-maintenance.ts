@@ -3,7 +3,7 @@ import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { createRetentionSweep, startRetentionSweep } from './retention-sweep';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 /** Explicit reservation expiry/deletion cadence; no collection or retention approval is inferred. */
 export function startMessagingFileMaintenance(input: {

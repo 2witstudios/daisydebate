@@ -1,4 +1,4 @@
-import type { WorkerTimers } from '../../server/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
 
 type Sampler = {
   readonly elect: () => Promise<boolean>;

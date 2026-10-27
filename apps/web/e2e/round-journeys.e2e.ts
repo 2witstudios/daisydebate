@@ -3,6 +3,7 @@ import { proveHumanJudgedJourney } from './support/human-judged-journey';
 import { proveUnjudgedJourney } from './support/unjudged-journey';
 import { proveHumanBotJourney } from './support/bot-journey';
 import { proveThreeBrowserRound } from './support/three-browser-journey';
+import { proveMvpJourney } from './support/mvp-journey';
 
 /**
  * Whole Rounds through the production server's autonomous services: no
@@ -34,4 +35,11 @@ test('three browsers play one human Round to a ballot and start the next match i
 }) => {
   test.setTimeout(480_000);
   await proveThreeBrowserRound(browser);
+});
+
+test('the unranked beta MVP: a pending member is denied, two members meet in the Lobby, play, read the result and transcript, and find it in their history (ISSUE-639)', async ({
+  browser,
+}) => {
+  test.setTimeout(480_000);
+  await proveMvpJourney(browser);
 });

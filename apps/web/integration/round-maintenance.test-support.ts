@@ -57,7 +57,6 @@ export const ordinaryMaintenance = (
   createRoundMaintenanceOperations({
     startHorizonMs: ROUND_START_HORIZON_MS,
     probeRoundId: null,
-    idleTimeoutMs: null,
     store,
     instanceId,
     ids: { next: createId },

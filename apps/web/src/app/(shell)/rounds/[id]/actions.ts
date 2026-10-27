@@ -2,7 +2,7 @@
 
 import { headers } from 'next/headers';
 import { readTranscript } from '../../../../features/round-runtime/read-transcript';
-import { readRoundReceipt } from '../../../../features/rooms/read-round';
+import { readRoundReceipt } from '../../../../features/round-runtime/read-round';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
 

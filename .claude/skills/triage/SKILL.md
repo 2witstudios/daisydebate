@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Inspect a slice PR's review threads, verify addressed concerns, fix remaining findings and answer every comment; the Ralph loop's thread-handling step, usable on its own.
+description: Inspect a slice PR's review threads, verify addressed concerns, fix remaining findings and answer every comment; the PR loop's thread-handling step, usable on its own.
 ---
 
 # Review triage
@@ -22,5 +22,5 @@ clarified, or why no change is needed. File each out-of-scope finding as an
 `ISSUE-n` in one of the drive's Issues buckets and link it in the reply.
 
 Keep criteria intact. Escalate a product, architecture or scope question to the
-point guard on the channel and continue all other work. Never fabricate a PASS
+point guard on the Delivery channel and continue all other work. Never fabricate a PASS
 and never merge: the point guard's flow sweep merges after `PR_READY`.

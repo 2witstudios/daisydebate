@@ -1,5 +1,5 @@
 import { isAppError } from '@daisy/errors';
-import type { WorkerTimers } from '../../server/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Claim = { readonly scope: Target; readonly token: string };
 type Entry<C> = {

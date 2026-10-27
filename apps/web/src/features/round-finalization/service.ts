@@ -1,5 +1,5 @@
 import { isAppError } from '@daisy/errors';
-import type { WorkerTimers } from '../../server/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
 
 // The default shared pool has five writer/watchdog pairs; reserve headroom for discovery and public/control work.
 const MAX_ACTIVE_ROUNDS = 2;
@@ -14,9 +14,8 @@ type MaintenancePorts = {
   ) => Promise<{ readonly decision: string } | null>;
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
-  readonly maintainRooms: () => Promise<unknown>;
   readonly timers: WorkerTimers;
-  /** `stage` names the work that failed: discover, tick, evaluate, finalize, rate or expire. */
+  /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
   readonly failed: (error: unknown, stage: string) => void;
 };
 
@@ -48,11 +47,9 @@ async function maintainRound(input: MaintenancePorts, roundId: string) {
 export function startRoundMaintenance(input: MaintenancePorts) {
   let stopped = false,
     discovering = false,
-    rating = false,
-    expiring = false;
+    rating = false;
   let discoveryWork = Promise.resolve(),
-    ratingWork = Promise.resolve(),
-    expiryWork = Promise.resolve();
+    ratingWork = Promise.resolve();
   const active = new Map<string, Promise<void>>();
   const waiting = new Set<string>();
   const advance = () => {
@@ -98,24 +95,10 @@ export function startRoundMaintenance(input: MaintenancePorts) {
       rating = false;
     }
   };
-  const expireRooms = async () => {
-    if (stopped || expiring) return;
-    expiring = true;
-    try {
-      await input.maintainRooms();
-    } catch (error) {
-      input.failed(error, 'expire');
-    } finally {
-      expiring = false;
-    }
-  };
   const pulse = () => {
     if (!discovering) discoveryWork = discover();
     if (!rating) ratingWork = recoverRatings();
-    if (!expiring) expiryWork = expireRooms();
-    return Promise.all([discoveryWork, ratingWork, expiryWork]).then(
-      () => undefined,
-    );
+    return Promise.all([discoveryWork, ratingWork]).then(() => undefined);
   };
   const timer = input.timers.setInterval(pulse, MAINTENANCE_PULSE_MS);
   const ready = pulse();
@@ -126,11 +109,9 @@ export function startRoundMaintenance(input: MaintenancePorts) {
       stopped = true;
       waiting.clear();
       input.timers.clearInterval(timer);
-      closing ??= Promise.all([discoveryWork, ratingWork, expiryWork]).then(
-        async () => {
-          await Promise.all(active.values());
-        },
-      );
+      closing ??= Promise.all([discoveryWork, ratingWork]).then(async () => {
+        await Promise.all(active.values());
+      });
       return closing;
     },
   };

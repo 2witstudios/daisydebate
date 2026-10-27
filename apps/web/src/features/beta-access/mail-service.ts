@@ -1,4 +1,7 @@
-import type { WorkerTimers } from '../../server/worker-timers';
+import {
+  startSingleFlightWorker,
+  type WorkerTimers,
+} from '../../lib/worker-timers';
 
 /**
  * The mail intent worker's loop (ADR 0075): one batch per tick, never two at
@@ -12,29 +15,10 @@ export function startMailIntentService(input: {
   readonly timers: WorkerTimers;
   readonly failed: (error: unknown) => void;
 }) {
-  let running: Promise<void> | null = null;
-  let stopped = false;
-  const tick = (): Promise<void> => {
-    if (stopped || running) return running ?? Promise.resolve();
-    running = input
-      .run(input.batch)
-      .then(
-        () => undefined,
-        (error: unknown) => input.failed(error),
-      )
-      .finally(() => {
-        running = null;
-      });
-    return running;
-  };
-  const handle = input.timers.setInterval(tick, input.everyMs);
-  const started = tick();
-  return {
-    started,
-    async stop() {
-      stopped = true;
-      input.timers.clearInterval(handle);
-      await running;
-    },
-  };
+  return startSingleFlightWorker({
+    run: () => input.run(input.batch),
+    everyMs: input.everyMs,
+    timers: input.timers,
+    failed: input.failed,
+  });
 }
