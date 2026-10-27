@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "77d95fdf-60de-48bc-8305-71bb02f5fa80",
+  "id": "29ce8604-dfa0-461c-bd55-2911fad5160d",
   "prevIds": [
-    "b4be98c5-e1b3-4aad-8fdc-62e5c9c41c89"
+    "a7a2a6fa-a779-4aed-b944-3ed517d5b08a"
   ],
   "ddl": [
     {
@@ -213,6 +213,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_dm_pairs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_friendships",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3900,6 +3906,84 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_dm_pairs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requester_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "accepted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_friendships"
     },
     {
       "type": "text",
@@ -9541,6 +9625,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_friendships_high_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_id",
           "isExpression": false,
           "asc": true,
@@ -13199,6 +13304,59 @@
     {
       "nameExplicit": false,
       "columns": [
+        "low_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friendships_low_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_friendships_high_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "messaging_contact_pairs",
+      "columnsTo": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_friendships_contact_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "actor_id"
       ],
       "schemaTo": "public",
@@ -14696,6 +14854,17 @@
     },
     {
       "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_friendships_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "columns": [
         "channel_id",
         "actor_id"
       ],
@@ -16076,6 +16245,34 @@
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_dm_pairs"
+    },
+    {
+      "value": "\"low_actor_id\" < \"high_actor_id\"",
+      "name": "messaging_friendships_order",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "value": "\"requester_actor_id\" in (\"low_actor_id\", \"high_actor_id\")",
+      "name": "messaging_friendships_requester",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "value": "\"state\" in ('pending', 'accepted')",
+      "name": "messaging_friendships_state",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_friendships"
+    },
+    {
+      "value": "(\"state\" = 'pending' and \"accepted_at\" is null) or (\"state\" = 'accepted' and \"accepted_at\" is not null and \"accepted_at\" >= \"requested_at\")",
+      "name": "messaging_friendships_time",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_friendships"
     },
     {
       "value": "\"channel_kind\" = 'private_group'",

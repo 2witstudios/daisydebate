@@ -71,7 +71,7 @@ ALTER TABLE "account_access_events" ADD CONSTRAINT "account_access_events_user_i
 ALTER TABLE "account_beta_access" ADD CONSTRAINT "account_beta_access_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "operator_command_receipts" ADD CONSTRAINT "operator_command_receipts_target_user_id_users_id_fkey" FOREIGN KEY ("target_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "mail_intents" ADD CONSTRAINT "mail_intents_recipient_user_id_users_id_fkey" FOREIGN KEY ("recipient_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
---> --> ADR 0075: the participant audit and the operator command receipts are
+--> ADR 0075: the participant audit and the operator command receipts are
 --> append-only for the runtime role. Default privileges granted daisy_web
 --> UPDATE and DELETE on every new table; take them back here.
 REVOKE UPDATE, DELETE ON "account_access_events", "operator_command_receipts" FROM daisy_web;
