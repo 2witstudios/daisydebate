@@ -16,6 +16,7 @@ export function attachVersionDoorbell({
   id,
   connection,
   signal,
+  catchUpOnSubscribe,
 }: {
   readonly topic: string;
   readonly kind: Versioned;
@@ -26,6 +27,7 @@ export function attachVersionDoorbell({
     'subscribeTopic' | 'onMessage' | 'resubscribeTopic'
   >;
   readonly signal: (version: number | null) => void;
+  readonly catchUpOnSubscribe?: boolean;
 }) {
   const rings = (frame: ServerMessage | null) =>
     frame?.type === 'event' &&
@@ -40,6 +42,7 @@ export function attachVersionDoorbell({
     topic,
     connection,
     matches: (frame) => rings(frame) !== null,
+    ...(catchUpOnSubscribe ? { catchUpOnSubscribe } : {}),
     invalidate: () => {},
     refetch: (frame) => signal(rings(frame)),
   });

@@ -28,6 +28,7 @@ export function createTranscriptSync(
       attachVersionDoorbell({
         topic: buildDebateTopic(input.seed.value.round.id),
         kind: 'debate.transcript-changed',
+        catchUpOnSubscribe: true,
         id: input.seed.value.round.id,
         connection,
         signal,

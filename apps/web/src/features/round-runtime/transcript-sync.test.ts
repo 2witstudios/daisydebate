@@ -78,3 +78,32 @@ test('a no-socket client has a slow single-flight fallback and a refusal removes
   });
   driver.dispose();
 });
+
+test('the first subscription acknowledgment closes the server-seed gap', async () => {
+  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const driver = createTranscriptSync({
+    seed: seedTranscript(transcript(0)),
+    ...edges,
+  });
+  edges.connectionState({ status: 'open', generation: 1, terminal: null });
+  edges.emit({
+    v: ENVELOPE_VERSION,
+    type: 'subscribed',
+    topic: buildDebateTopic(round.id),
+    position: '1:99',
+  });
+  edges.answer({
+    kind: 'found',
+    value: { ...transcript(4), freeze: { completeness: 'complete' } },
+  });
+  await edges.flush();
+  assert({
+    given:
+      'final capture committed after the server read but before the first subscribed cursor',
+    should:
+      'catch up once after acknowledgment without needing another doorbell',
+    actual: [edges.reads(), driver.readSnapshot().value.revision],
+    expected: [1, 4],
+  });
+  driver.dispose();
+});
