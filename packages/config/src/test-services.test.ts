@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { requireTestServices, requireTestSlotServices } from './index';
+import {
+  requireTestClickHouse,
+  requireTestServices,
+  requireTestSlotServices,
+} from './index';
 
 setupRitewayBun();
 
@@ -237,6 +241,50 @@ describe('requireTestSlotServices', () => {
           "TEST_REDIS_URL names a different Redis server than REDIS_URL, expected this slot's shared Redis (run bun slot:up)",
         ),
       ],
+    });
+  });
+});
+
+describe('requireTestClickHouse', () => {
+  const env = {
+    TEST_CLICKHOUSE_URL: 'http://127.0.0.1:18123',
+    TEST_CLICKHOUSE_SHIPPER_PASSWORD: 'shipper-secret',
+    TEST_CLICKHOUSE_READER_PASSWORD: 'reader-secret',
+  };
+  const failureOf = (input: Record<string, string | undefined>) => {
+    try {
+      requireTestClickHouse(input);
+      return 'accepted';
+    } catch (error) {
+      return String(error);
+    }
+  };
+
+  test('returns the loopback store and its role passwords', () => {
+    assert({
+      given: 'the shared stack ClickHouse on loopback',
+      should: 'return its URL and both passwords',
+      actual: requireTestClickHouse(env),
+      expected: {
+        url: 'http://127.0.0.1:18123',
+        shipperPassword: 'shipper-secret',
+        readerPassword: 'reader-secret',
+      },
+    });
+  });
+
+  test('refuses a missing or deployed store, naming fields only', () => {
+    assert({
+      given: 'no password and a store off loopback',
+      should: 'throw naming the fields, never their values',
+      actual: failureOf({
+        ...env,
+        TEST_CLICKHOUSE_URL:
+          'http://daisy-debate-staging-clickhouse.internal:8123',
+        TEST_CLICKHOUSE_READER_PASSWORD: undefined,
+      }),
+      expected:
+        'Error: Log store suites require the test ClickHouse: TEST_CLICKHOUSE_URL, TEST_CLICKHOUSE_READER_PASSWORD',
     });
   });
 });

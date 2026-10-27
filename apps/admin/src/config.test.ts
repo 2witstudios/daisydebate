@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readAdminConfig,
   readAdminMigrationUrl,
+  readLogStoreConfig,
   readOperatorClientConfig,
 } from './config';
 
@@ -121,6 +122,37 @@ test('readOperatorClientConfig', () => {
       'Invalid admin configuration: OPERATOR_API_KEY',
       'Invalid admin configuration: OPERATOR_API_KEY',
       'Invalid admin configuration: OPERATOR_AUDIENCE',
+    ],
+  });
+});
+
+test('readLogStoreConfig', () => {
+  const store = {
+    CLICKHOUSE_URL: 'http://daisy-debate-staging-clickhouse.internal:8123',
+    CLICKHOUSE_READER_PASSWORD: 'r'.repeat(43),
+  };
+  const outcome = (env: Record<string, string>) => {
+    try {
+      return readLogStoreConfig(env);
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+  assert({
+    given: 'neither, both, the URL alone, and a short password',
+    should:
+      'stay unconfigured, return the connection, or refuse naming fields and never values',
+    actual: [
+      outcome({}),
+      outcome(store),
+      outcome({ CLICKHOUSE_URL: store.CLICKHOUSE_URL }),
+      outcome({ ...store, CLICKHOUSE_READER_PASSWORD: 'short' }),
+    ],
+    expected: [
+      null,
+      { url: store.CLICKHOUSE_URL, password: store.CLICKHOUSE_READER_PASSWORD },
+      'Invalid admin configuration: CLICKHOUSE_READER_PASSWORD',
+      'Invalid admin configuration: CLICKHOUSE_READER_PASSWORD',
     ],
   });
 });

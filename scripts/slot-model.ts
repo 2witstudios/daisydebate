@@ -51,6 +51,15 @@ const mainPorts = { app: 3000, e2e: 3100, realtime: 3011 };
  * clamd service publishes in infra/compose.yaml (services.clamd.ports).
  */
 export const clamdTestPort = 3310;
+/**
+ * The shared log store (ADR 0084): the loopback port and dev-only role
+ * passwords of the clickhouse service in infra/compose.yaml.
+ */
+export const clickHouseTest = {
+  url: 'http://127.0.0.1:18123',
+  shipperPassword: 'local-shipper-only',
+  readerPassword: 'local-reader-only',
+} as const;
 // Worktree block n owns app port 13000+10n, e2e ports 13001+10n..+3, and
 // realtime ports 13000+10n+4 (e2e) and 13000+10n+5 (dev).
 const portBlockBase = 13_000;
@@ -309,6 +318,9 @@ const slotEnvKeys = [
   'E2E_PORT',
   'REALTIME_PORT',
   'CLAMD_TEST_PORT',
+  'TEST_CLICKHOUSE_URL',
+  'TEST_CLICKHOUSE_SHIPPER_PASSWORD',
+  'TEST_CLICKHOUSE_READER_PASSWORD',
   'MEDIA_WORKER_DATABASE_URL',
   'TEST_ADMIN_DATABASE_URL',
   'E2E_ADMIN_DATABASE_URL',
@@ -357,6 +369,9 @@ export function slotEnvValues({
     E2E_PORT: String(ports.e2e),
     REALTIME_PORT: String(ports.realtime),
     CLAMD_TEST_PORT: String(clamdTestPort),
+    TEST_CLICKHOUSE_URL: clickHouseTest.url,
+    TEST_CLICKHOUSE_SHIPPER_PASSWORD: clickHouseTest.shipperPassword,
+    TEST_CLICKHOUSE_READER_PASSWORD: clickHouseTest.readerPassword,
     MEDIA_WORKER_DATABASE_URL: withPath(
       databaseUrl,
       slot.database,
