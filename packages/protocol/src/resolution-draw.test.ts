@@ -96,3 +96,43 @@ test('a draw-capable format holds 2 to 20 resolutions', () => {
     expected: [true, false, false],
   });
 });
+
+test('a strike window and the draw options stay small (PR #472 review)', () => {
+  const withDraw = (
+    resolutionDraw: NonNullable<
+      typeof oneOnOneFormatFixture.configurable.resolutionDraw
+    >,
+  ) => ({
+    ...oneOnOneFormatFixture,
+    configurable: { ...oneOnOneFormatFixture.configurable, resolutionDraw },
+  });
+  const defines = (draw: Parameters<typeof withDraw>[0]) =>
+    formatDefinitionSchema.safeParse(withDraw(draw)).success;
+  assert({
+    given:
+      'a ten-minute window, one past it, a definition allowing one past it, and repeated strikers or sources',
+    should:
+      'accept ten minutes and refuse anything that could overflow a due instant or bloat every view',
+    actual: [
+      roomResolutionDrawSchema.safeParse({
+        ...hostDraw(['One', 'Two', 'Three']),
+        strikeWindowMs: 600_000,
+      }).success,
+      roomResolutionDrawSchema.safeParse({
+        ...hostDraw(['One', 'Two', 'Three']),
+        strikeWindowMs: 600_001,
+      }).success,
+      defines({
+        ...drawCapableBounds,
+        strikeWindowMs: { min: 15_000, max: 600_001 },
+      }),
+      defines({
+        ...drawCapableBounds,
+        firstStrikers: ['negative', 'negative'],
+      }),
+      defines({ ...drawCapableBounds, sources: ['bank', 'bank'] }),
+      defines(drawCapableBounds),
+    ],
+    expected: [true, false, false, false, false, true],
+  });
+});

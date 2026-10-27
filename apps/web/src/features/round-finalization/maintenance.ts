@@ -170,7 +170,9 @@ export function createRoundMaintenanceOperations(input: {
     },
     /**
      * Settles due draw strikes and closes open Rooms idle past the policy
-     * timeout, a page per pulse. Settlement runs even with expiry unset.
+     * timeout, a page per pulse. Settlement runs even with expiry unset. A
+     * Room that fails is reported after the page, so it never holds back
+     * the Rooms after it.
      */
     async maintainRooms() {
       const idleTimeoutMs = input.idleTimeoutMs;
@@ -178,17 +180,22 @@ export function createRoundMaintenanceOperations(input: {
         idleTimeoutMs,
         limit: 64,
       });
+      const failures: unknown[] = [];
       for (const roomId of roomIds)
-        await input.store.maintainRoom({
-          roomId,
-          maintain: (state, facts) =>
-            maintainRoom(state, {
-              lastCommandAt: facts.lastCommandAt,
-              now: facts.now,
-              idleTimeoutMs,
-              drawSeed: facts.drawSeed,
-            }),
-        });
+        await input.store
+          .maintainRoom({
+            roomId,
+            maintain: (state, facts) =>
+              maintainRoom(state, {
+                lastCommandAt: facts.lastCommandAt,
+                now: facts.now,
+                idleTimeoutMs,
+                drawSeed: facts.drawSeed,
+              }),
+          })
+          .catch((error: unknown) => failures.push(error));
+      if (failures.length)
+        throw new AggregateError(failures, 'Room maintenance failed');
     },
     async rateUnrated() {
       const page = await ratings({

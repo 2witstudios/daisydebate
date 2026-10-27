@@ -164,7 +164,6 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
   return growSteps[Math.min(Math.max(minutes, 1), growSteps.length) - 1]!;
 }
 
-/** The saved configuration as label/value rows, in the room's vocabulary. */
 /** "Policy, Value and Fact": an English list of the drawn categories. */
 const listOf = (words: readonly string[]) =>
   words.length > 1
@@ -189,6 +188,7 @@ function strikeRows(
   ];
 }
 
+/** The saved configuration as label/value rows, in the room's vocabulary. */
 export function settingRows(
   view: Pick<RoomView, 'config'>,
 ): readonly (readonly [string, string])[] {

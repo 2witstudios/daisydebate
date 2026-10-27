@@ -123,3 +123,40 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
     ],
   });
 });
+
+test('one Room that cannot be maintained does not stop the rest of the sweep (PR #472 review)', async () => {
+  const maintained: string[] = [];
+  const failure = new Error('room read failed');
+  const outcome = await createRoundMaintenanceOperations({
+    store: {
+      readMaintenanceCandidates: async () => ['broken', 'next'],
+      maintainRoom: async (input: { roomId: string }) => {
+        if (input.roomId === 'broken') throw failure;
+        maintained.push(input.roomId);
+        return false;
+      },
+    } as never,
+    instanceId: 'webinstance0000000000001',
+    ids: { next: () => 'generatedid0000000000001' },
+    evaluate: async () => null,
+    startHorizonMs: 60_000,
+    probeRoundId: null,
+    idleTimeoutMs: null,
+  })
+    .maintainRooms()
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+  assert({
+    given: 'a page whose first Room throws',
+    should:
+      'still maintain the next Room, then report the failure once the page is done',
+    actual: {
+      maintained,
+      reported:
+        outcome instanceof AggregateError ? outcome.errors : 'not reported',
+    },
+    expected: { maintained: ['next'], reported: [failure] },
+  });
+});

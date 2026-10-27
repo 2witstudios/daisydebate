@@ -95,9 +95,11 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        const drawId = ids.next();
-        const seed = entropy();
-        const salt = entropy();
+        // Only a pre-round start draws, so only it mints a draw id and entropy.
+        const secrets =
+          command.type === 'start-pre-round'
+            ? { drawId: ids.next(), seed: entropy(), salt: entropy() }
+            : null;
         return (raw, now, target, account, draw, formatFacts) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
@@ -129,16 +131,13 @@ export function roomCommandOperation({
                   }
                 : null,
               drawSeed: draw.seed,
-              drawStart:
-                command.type === 'start-pre-round'
-                  ? {
-                      drawId,
-                      seed,
-                      salt,
-                      bank: draw.bank,
-                      exclusions: draw.exclusions,
-                    }
-                  : null,
+              drawStart: secrets
+                ? {
+                    ...secrets,
+                    bank: draw.bank,
+                    exclusions: draw.exclusions,
+                  }
+                : null,
             },
           );
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.

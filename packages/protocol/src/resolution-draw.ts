@@ -12,6 +12,12 @@ export type ResolutionCategory = (typeof resolutionCategories)[number];
 
 export const drawSources = ['bank', 'host'] as const;
 
+/**
+ * The longest strike window: ten minutes. Every due instant is the turn's
+ * start plus this window, so a bound keeps it a real date (PR #472 review).
+ */
+export const MAX_STRIKE_WINDOW_MS = 600_000;
+
 /** One host-written resolution: trimmed, 1–300 characters. */
 const hostResolutionSchema = z.string().trim().min(1).max(300);
 
@@ -56,7 +62,7 @@ const frozenDrawSourceSchema = z.discriminatedUnion('kind', [
 const drawChoice = {
   enabled: z.literal(true),
   drawSize: z.int().min(2).max(20),
-  strikeWindowMs: z.int().positive(),
+  strikeWindowMs: z.int().positive().max(MAX_STRIKE_WINDOW_MS),
   firstStriker: debateSideSchema,
 };
 const declined = z.strictObject({ enabled: z.literal(false) });

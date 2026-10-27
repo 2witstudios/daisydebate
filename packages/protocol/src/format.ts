@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { debateRoleSchema, debateSideSchema } from './primitives';
-import { drawSources } from './resolution-draw';
+import { drawSources, MAX_STRIKE_WINDOW_MS } from './resolution-draw';
 
 /** Provisional resource budget: bounds expanded seat records and per-seat command work,
  * independent of any league roster policy. Judges consume the same budget. */
@@ -149,8 +149,8 @@ const formatDefinitionShape = z.strictObject({
       .strictObject({
         drawSize: boundSchema,
         strikeWindowMs: boundSchema,
-        firstStrikers: z.array(debateSideSchema).min(1),
-        sources: z.array(z.enum(drawSources)).min(1),
+        firstStrikers: optionSet(debateSideSchema, 2),
+        sources: optionSet(z.enum(drawSources), drawSources.length),
       })
       .nullable(),
     interaction: z.strictObject({
@@ -217,6 +217,12 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
         code: 'custom',
         message: 'A draw holds 2 to 20 resolutions',
         path: ['configurable', 'resolutionDraw', 'drawSize'],
+      });
+    if (draw && draw.strikeWindowMs.max > MAX_STRIKE_WINDOW_MS)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'A strike window is at most ten minutes',
+        path: ['configurable', 'resolutionDraw', 'strikeWindowMs'],
       });
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,

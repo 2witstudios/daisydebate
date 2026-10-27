@@ -45,9 +45,12 @@ const refused = (
   kind: ResolveRefusalKind,
   message: string,
 ): ResolveOutcome => ({ ok: false, refusal: refusalOf(kind, message) });
-/** The rules' segment: the definition's identity verbatim, nothing else —
+/**
+ * The rules' segment: the definition's identity verbatim, nothing else —
  * in particular never the definition's own `defaultDurationMs`, which is
- * compiler input, not resolved rules. */ const resolvedSegment = (
+ * compiler input, not resolved rules.
+ */
+const resolvedSegment = (
   segment: FormatDefinition['segments'][number],
   durationMs: number,
 ): RoundRules['segments'][number] => ({
