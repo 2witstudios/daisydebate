@@ -39,12 +39,31 @@ const heldRefusal = (cookieHeader: string | null): AgeRefusal | null =>
     )?.[1],
   );
 
-/** How long a refusal holds its browser (WAIT-4.7). */
-export const AGE_HOLD_SECONDS = HOLD_SECONDS;
+/**
+ * The hold's one definition (WAIT-4.7): Secure, httpOnly, Lax, one day at
+ * the root. The route writes it as its Set-Cookie line and the form action
+ * passes it to cookies().set, so the two cannot drift.
+ */
+export const AGE_HOLD_COOKIE_OPTIONS = {
+  path: '/',
+  maxAge: HOLD_SECONDS,
+  secure: true,
+  httpOnly: true,
+  sameSite: 'lax',
+} as const;
 
-/** The Set-Cookie line for a refusal: Secure, httpOnly, Lax, one day. */
-const holdCookie = (refusal: AgeRefusal): string =>
-  `${AGE_HOLD_COOKIE}=${refusal}; Path=/; Max-Age=${HOLD_SECONDS}; Secure; HttpOnly; SameSite=Lax`;
+/** The Set-Cookie line for a refusal, from the hold's one definition. */
+const holdCookie = (refusal: AgeRefusal): string => {
+  const { path, maxAge, secure, httpOnly, sameSite } = AGE_HOLD_COOKIE_OPTIONS;
+  return [
+    `${AGE_HOLD_COOKIE}=${refusal}`,
+    `Path=${path}`,
+    `Max-Age=${maxAge}`,
+    ...(secure ? ['Secure'] : []),
+    ...(httpOnly ? ['HttpOnly'] : []),
+    `SameSite=${sameSite[0]!.toUpperCase()}${sameSite.slice(1)}`,
+  ].join('; ');
+};
 
 type AgeStepDependencies = {
   readonly logger: Logger;

@@ -1,7 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { AGE_HOLD_COOKIE, createAgeStepHandler } from './age-step';
+import {
+  AGE_HOLD_COOKIE,
+  AGE_HOLD_COOKIE_OPTIONS,
+  createAgeStepHandler,
+} from './age-step';
 import { allowEvery } from '../auth/abuse/limiter.test-support';
 
 setupRitewayBun();
@@ -178,6 +182,32 @@ describe('POST /api/account/age', () => {
       should: 'refuse each and store nothing',
       actual: [statuses, recorded.length + member.recorded.length],
       expected: [[400, 400, 400, 403], 0],
+    });
+  });
+});
+
+describe('the age hold cookie', () => {
+  test('one definition serves the route and the form action', async () => {
+    const { handler } = handlerWith();
+    const header = (await handler(post(answer(2018)))).headers.get(
+      'set-cookie',
+    );
+    assert({
+      given:
+        'the shared hold options (the form action passes them to cookies().set) and the route’s refusal',
+      should:
+        'be __Host-, Secure, httpOnly, Lax, one day at the root, and the route’s Set-Cookie should say exactly that',
+      actual: [AGE_HOLD_COOKIE_OPTIONS, header],
+      expected: [
+        {
+          path: '/',
+          maxAge: 86_400,
+          secure: true,
+          httpOnly: true,
+          sameSite: 'lax',
+        },
+        `${AGE_HOLD_COOKIE}=under-13; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax`,
+      ],
     });
   });
 });
