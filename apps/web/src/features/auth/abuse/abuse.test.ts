@@ -43,6 +43,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
           'daisy-revoke-others-on-email-change',
           'daisy-revoke-sessions',
           'daisy-sign-in-address-guard',
+          'daisy-sign-out-fails-closed',
           'magic-link',
           'passkey',
         ],

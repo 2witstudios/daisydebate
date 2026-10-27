@@ -53,43 +53,33 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
  * session. The `session.revoked` control is appended by the database's own
  * delete trigger in the deleting transaction, so a forced outbox failure
  * rolls the revocation back on every route, Better Auth's own sign-out and
- * `/revoke-session` included: the session survives with no control, and a
- * retry deletes it with exactly one. The revoke routes also surface the
- * outage; Better Auth 1.7.5's `/sign-out` instead logs the failed delete,
- * clears the cookie and answers 200 (ISSUE-719).
+ * `/revoke-session` included: the session survives with no control, the
+ * caller sees the outage rather than a success (sign-out through
+ * `signOutFailsClosedPlugin`, ISSUE-719), and a retry deletes it with
+ * exactly one.
  */
 const routes: readonly {
   readonly path: string;
   /** Which signed-in sessions the route deletes. */
   readonly deletes: readonly ('first' | 'second')[];
   readonly body: (secondToken: string) => string;
-  /** Whether the caller sees the outage rather than a success. */
-  readonly refusesOnFailure: boolean;
 }[] = [
   {
     path: '/revoke-other-sessions',
     deletes: ['second'],
     body: () => '{}',
-    refusesOnFailure: true,
   },
   {
     path: '/revoke-sessions',
     deletes: ['first', 'second'],
     body: () => '{}',
-    refusesOnFailure: true,
   },
   {
     path: '/revoke-session',
     deletes: ['second'],
     body: (secondToken) => JSON.stringify({ token: secondToken }),
-    refusesOnFailure: true,
   },
-  {
-    path: '/sign-out',
-    deletes: ['first'],
-    body: () => '{}',
-    refusesOnFailure: false,
-  },
+  { path: '/sign-out', deletes: ['first'], body: () => '{}' },
 ];
 
 const postRoute = (
@@ -193,7 +183,7 @@ for (const route of routes) {
             .sort((a: string[], b: string[]) => a[1]!.localeCompare(b[1]!)),
         },
         expected: {
-          refused: route.refusesOnFailure,
+          refused: true,
           keptWhileBlocked: targets.map(() => true),
           status: 200,
           remaining: 0,

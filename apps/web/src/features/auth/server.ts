@@ -30,6 +30,7 @@ import {
   revokeSessionsPlugin,
   type RevokeSessions,
 } from './sessions/revoke-sessions';
+import { signOutFailsClosedPlugin } from './sessions/sign-out-fails-closed';
 import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
@@ -231,6 +232,7 @@ const composeBetterAuth = (dependencies: {
         dependencies.logger,
       ),
       revokeSessionsPlugin(dependencies.revokeOtherSessions),
+      signOutFailsClosedPlugin,
       // Last: strips the session token and ipAddress from every HTTP
       // response after the plugins above have read the full result.
       browserSessionShapePlugin,
