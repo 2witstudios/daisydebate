@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { silentLogger } from '../../server/test-loggers.test-support';
+import { attendanceMemberGates } from './member-gates.test-support';
 import { createAttendanceHandler } from './handler';
 import { createAppError } from '@daisy/errors';
 setupRitewayBun();
@@ -12,15 +12,7 @@ test('attendance HTTP rejects body authority and foreign ingress before its dura
   let writes = 0;
   let unavailable = false;
   const handler = createAttendanceHandler({
-    logger: silentLogger,
-    origin: () => origin,
-    active: () => true,
-    identify: async () => ({
-      state: 'member',
-      username: 'Fixture',
-      principal: { kind: 'user', userId: actorId, actorId },
-    }),
-    getActorByUserId: async () => ({ id: actorId }),
+    ...attendanceMemberGates(origin, () => actorId),
     limiter: () => ({
       consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
     }),

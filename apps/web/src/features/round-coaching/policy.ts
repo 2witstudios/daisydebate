@@ -1,4 +1,7 @@
-import type { CoachingClaimDecision, RoundCoachingFacts } from '@daisy/db';
+import type {
+  CoachingClaimDecision,
+  RoundCoachingFacts,
+} from '@daisy/db/rounds';
 import {
   debateSides,
   type DebateSide,

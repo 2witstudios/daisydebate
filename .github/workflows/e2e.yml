@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
+    types: [checks_requested]
   # AUTH-6.2-AC7: the release-qualification gate (three consecutive full
   # suite runs, retries disabled) is not a per-PR check — it runs only on
   # manual dispatch, on this uncontended runner instead of a shared
@@ -20,8 +22,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quick-check:
+    permissions:
+      contents: read
+      checks: write
+    uses: ./.github/workflows/quick-check.yml
+
   e2e:
-    name: Playwright E2E
+    needs: quick-check
+    name: Playwright browser suite
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
     # qualification instead of the single-run PR gate; three full suites
@@ -66,6 +75,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -81,6 +91,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Select owned browser specs with full-suite fallback
+        run: bun scripts/select-e2e.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
         env:
@@ -91,6 +106,10 @@ jobs:
         run: bun db:roles
         env:
           DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
+
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: browser-build
 
       - name: Build production server
         run: bun run build
@@ -105,6 +124,11 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: browser-build
+          phase: save
 
       - name: Resolve the Playwright version and cache month
         id: playwright
@@ -167,6 +191,10 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
 
+      - name: Require every selected browser spec in the report
+        if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
+        run: bun scripts/e2e-selection-report.ts
+
       - name: Sanitize retained artifacts before upload
         id: sanitize
         if: ${{ !cancelled() }}
@@ -199,7 +227,8 @@ jobs:
           retention-days: 30
 
   room-launch:
-    name: Isolated Room Launch E2E
+    needs: quick-check
+    name: Isolated Room Launch browser suite
     runs-on: ubuntu-24.04
     # One shared slot keeps the suite on a single worker: about 3 min of
     # setup, about 30 min of Launch tests (multi-minute attendance outages and
@@ -219,6 +248,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set up Node 24
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -233,6 +263,10 @@ jobs:
         run: git worktree add --detach .pu/worktrees/wt-roomlaunchci "$GITHUB_SHA"
       - name: Install exact dependencies
         run: bun install --frozen-lockfile
+      - name: Select native specs with enforced queue fallback
+        run: bun scripts/select-e2e.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Initialize own environment
         run: cp .env.example .env
       - name: Create and migrate only the derived proof slot
@@ -254,6 +288,10 @@ jobs:
             exit 1
           fi
           echo 'Main checkout teardown refused before connection'
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: native-build
+          checkout: .pu/worktrees/wt-roomlaunchci
       - name: Build composed production server
         id: build
         run: bun run build
@@ -262,6 +300,11 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: native-build
+          checkout: .pu/worktrees/wt-roomlaunchci
+          phase: save
       - name: Resolve the Playwright version and cache month
         id: playwright
         run: |
@@ -322,6 +365,9 @@ jobs:
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
+      - name: Verify selected native specs produced outcomes
+        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        run: bun scripts/e2e-selection-report.ts room-launch
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
         if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
@@ -339,3 +385,29 @@ jobs:
       - name: Release only the completed suite-owned slot
         if: ${{ always() && steps.slot.outcome == 'success' }}
         run: bun --env-file=.env apps/web/e2e/support/room-launch-release.ts
+
+  playwright-gate:
+    name: Playwright E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [quick-check, e2e]
+    if: always()
+    steps:
+      - name: Require actual browser execution
+        env:
+          QUICK: ${{ needs.quick-check.result }}
+          SUITE: ${{ needs.e2e.result }}
+        run: test "$QUICK" = success && test "$SUITE" = success
+
+  native-gate:
+    name: Isolated Room Launch E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [quick-check, room-launch]
+    if: always()
+    steps:
+      - name: Require actual native execution
+        env:
+          QUICK: ${{ needs.quick-check.result }}
+          SUITE: ${{ needs.room-launch.result }}
+        run: test "$QUICK" = success && test "$SUITE" = success

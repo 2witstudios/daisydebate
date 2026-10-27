@@ -46,7 +46,7 @@ import {
   requireJudgingRun,
 } from './round-ballot-decisions';
 
-export type RoundBallotLeaseContext = {
+type RoundBallotLeaseContext = {
   readonly roundId: string;
   readonly judgeParticipantId: string;
   readonly freezeRevision: number;
