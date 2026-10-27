@@ -1,122 +1,28 @@
-import { SQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMessagingTestFixture } from '../src/testing';
-import { lockAuthorizationActors } from '../src/authorization';
-import { createMessagingPrivacyAdopter } from '../src/messaging';
 import { readMessagingChannelFact } from '../src/messaging/social';
-import { retainedConversationOperations } from '../src/messaging/retained-store';
+import { createMessagingStore } from '../src/messaging/store';
 import {
   acknowledgeErasedFileDeletion,
   pendingFileDeletions,
 } from '../src/messaging-files';
+import { openDm as openDmAt } from './messaging-retained-dm.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const now = '2026-10-27T12:00:00.000Z';
 const unfenced = async () => {};
-
-/**
- * A DM between `subject` and `survivor`: the subject's message, the
- * survivor's reply to it and a removed message of theirs, the survivor's
- * reaction on the subject's message with its receipt, and both read
- * cursors.
- */
-const openDm = async () => {
-  const client = new SQL(databaseUrl);
-  const database = drizzle({ client });
-  const fixture = await createMessagingTestFixture(client);
-  const { channelId } = fixture;
-  const subject = { userId: fixture.userId!, actorId: fixture.actorId! };
-  const survivor = {
-    userId: fixture.otherUserId!,
-    actorId: fixture.otherActorId!,
-  };
-  const ids = { theirs: createId(), reply: createId(), removed: createId() };
-  await client.unsafe(
-    'update messaging_channels set message_sequence=3,change_version=3 where id=$1',
-    [channelId],
-  );
-  await client.unsafe(
-    "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$3,$4,1,1,'Subject text',$6),($2,$3,$5,2,2,'Survivor reply',$6)",
-    [ids.theirs, ids.reply, channelId, subject.actorId, survivor.actorId, now],
-  );
-  await client.unsafe(
-    'insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at,removed_at) values($1,$2,$3,3,3,null,$4,$4)',
-    [ids.removed, channelId, survivor.actorId, now],
-  );
-  await client.unsafe(
-    'update messaging_messages set reply_to_message_id=$1 where id=$2',
-    [ids.theirs, ids.reply],
-  );
-  await client.unsafe(
-    "insert into messaging_reactions(channel_id,message_id,actor_id,reaction) values($1,$2,$3,'yes')",
-    [channelId, ids.theirs, survivor.actorId],
-  );
-  await client.unsafe(
-    'insert into messaging_receipts(channel_id,actor_id,request_id,payload_digest,message_id) values($1,$2,$3,$4,$5)',
-    [channelId, survivor.actorId, createId(), 'a'.repeat(64), ids.theirs],
-  );
-  // Each author's own send receipt names their own message (FK to it).
-  await client.unsafe(
-    'insert into messaging_receipts(channel_id,actor_id,request_id,payload_digest,message_id) values($1,$2,$3,$4,$5),($1,$6,$7,$4,$8)',
-    [
-      channelId,
-      subject.actorId,
-      createId(),
-      'b'.repeat(64),
-      ids.theirs,
-      survivor.actorId,
-      createId(),
-      ids.reply,
-    ],
-  );
-  await client.unsafe(
-    "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level,read_sequence) values($1,$2,true,false,'all',1),($1,$3,true,false,'all',2)",
-    [channelId, subject.actorId, survivor.actorId],
-  );
-  const erase = (who: typeof subject) =>
-    database.transaction(async (tx) => {
-      await lockAuthorizationActors(tx, [who.actorId], { maxActors: 1 });
-      await createMessagingPrivacyAdopter().erase(tx, who, { now });
-    });
-  const close = async () => {
-    await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
-      channelId,
-    ]);
-    await client.unsafe('delete from messaging_channels where id=$1', [
-      channelId,
-    ]);
-    await fixture.cleanup();
-    await client.close();
-  };
-  const residue = async () =>
-    (
-      (await client.unsafe(
-        `select
-        (select count(*)::int from messaging_channels where id=$1) as channels,
-        (select count(*)::int from messaging_messages where channel_id=$1) as messages,
-        (select count(*)::int from messaging_retained_authors where channel_id=$1) as grants,
-        (select count(*)::int from messaging_receipts where channel_id=$1) as receipts`,
-        [channelId],
-      )) as Record<string, number>[]
-    )[0];
-  return {
-    client,
-    database,
-    channelId: channelId!,
-    subject,
-    survivor,
-    ids,
-    erase,
-    close,
-    residue,
-    retained: retainedConversationOperations({ database }),
-  };
+/** No channel row left, and both members' uploads turned into erasure work. */
+const emptied = {
+  channels: 0,
+  messages: 0,
+  grants: 0,
+  receipts: 0,
+  files: 0,
+  intents: 2,
 };
+const openDm = () => openDmAt(databaseUrl);
 
 test('erasing one DM member keeps only the survivor’s own rows, with nothing pointing at the subject (DEC-126, ISSUE-644)', async () => {
   const dm = await openDm();
@@ -179,6 +85,49 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
       ],
       expected: [[[channelId, 1]], [[ids.reply, 'Survivor reply']], null],
     });
+    const residueBefore = await dm.residue();
+    await assertRejects({
+      given:
+        'the survivor retrying their pre-erasure send (same request ID) on the retained channel, under a permissive fence',
+      should: 'refuse it as an absent channel',
+      actual: () =>
+        createMessagingStore({
+          database: dm.database,
+          authorize: unfenced,
+        }).withChannel({ ...survivor, channelId }, (frame) =>
+          frame.readSendState({
+            version: 1,
+            channelId,
+            requestId: ids.replyRequest,
+            text: 'Survivor reply',
+          }),
+        ),
+      code: 'NOT_FOUND',
+    });
+    assert({
+      given: 'the subject erased, then the refused retry',
+      should:
+        'keep only the survivor’s upload, turn the subject’s into erasure work, and change nothing on the retry',
+      actual: [residueBefore, await dm.residue()],
+      expected: [
+        {
+          channels: 1,
+          messages: 2,
+          grants: 1,
+          receipts: 2,
+          files: 1,
+          intents: 1,
+        },
+        {
+          channels: 1,
+          messages: 2,
+          grants: 1,
+          receipts: 2,
+          files: 1,
+          intents: 1,
+        },
+      ],
+    });
     for (const caller of [
       dm.subject,
       { userId: createId(), actorId: createId() },
@@ -199,9 +148,10 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
     );
     assert({
       given: 'the survivor deleting the conversation',
-      should: 'leave no channel, message, grant or receipt behind',
+      should:
+        'leave no channel, message, grant, receipt or file behind, only erasure work for both uploads',
       actual: await dm.residue(),
-      expected: { channels: 0, messages: 0, grants: 0, receipts: 0 },
+      expected: emptied,
     });
   } finally {
     await dm.close();
@@ -210,7 +160,7 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
 
 test('a survivor with no message of their own keeps nothing, their files included (DEC-126)', async () => {
   const dm = await openDm();
-  const file = { id: createId(), objectKey: createId() };
+  const file = dm.files.survivor;
   try {
     await dm.client.unsafe(
       'update messaging_messages set reply_to_message_id=null where channel_id=$1',
@@ -220,17 +170,6 @@ test('a survivor with no message of their own keeps nothing, their files include
       'update messaging_messages set text=null, removed_at=created_at where id=$1',
       [dm.ids.reply],
     );
-    await dm.client.unsafe(
-      "insert into messaging_files(id,channel_id,owner_actor_id,request_id,object_key,filename,mime,reserved_bytes,generation,authority_revision,lifecycle,created_at,expires_at) values($1,$2,$3,$4,$5,'survivor.pdf','application/pdf',20,1,1,'reserved',$6,$6::timestamptz + interval '1 hour')",
-      [
-        file.id,
-        dm.channelId,
-        dm.survivor.actorId,
-        createId(),
-        file.objectKey,
-        now,
-      ],
-    );
     await dm.erase(dm.subject);
     const intent = async () =>
       dm.client.unsafe(
@@ -239,12 +178,6 @@ test('a survivor with no message of their own keeps nothing, their files include
       );
     const erased = {
       residue: await dm.residue(),
-      files: (
-        await dm.client.unsafe(
-          'select count(*)::int as n from messaging_files where id=$1',
-          [file.id],
-        )
-      )[0].n,
       intent: [...(await intent())],
       work: (await pendingFileDeletions(dm.database, 65535)).some(
         (work) => work.kind === 'erased' && work.objectKey === file.objectKey,
@@ -257,8 +190,7 @@ test('a survivor with no message of their own keeps nothing, their files include
         'delete the channel with everything in it and turn the upload into charged, opaque erasure work',
       actual: erased,
       expected: {
-        residue: { channels: 0, messages: 0, grants: 0, receipts: 0 },
-        files: 0,
+        residue: emptied,
         intent: [{ charged: 20 }],
         work: true,
       },
@@ -278,13 +210,6 @@ test('a survivor with no message of their own keeps nothing, their files include
       expected: { removed: [file.objectKey], intent: [] },
     });
   } finally {
-    await dm.client.unsafe(
-      'delete from messaging_file_deletion_intents where object_key=$1',
-      [file.objectKey],
-    );
-    await dm.client.unsafe('delete from messaging_files where id=$1', [
-      file.id,
-    ]);
     await dm.close();
   }
 });
@@ -296,9 +221,9 @@ test('erasing both DM members at once leaves zero rows (m6)', async () => {
     assert({
       given: 'both members of a DM erased concurrently',
       should:
-        'serialize on the pair and leave no channel, message, retained grant or receipt',
+        'serialize on the pair and leave no channel, message, retained grant, receipt or file, only erasure work for both uploads',
       actual: await dm.residue(),
-      expected: { channels: 0, messages: 0, grants: 0, receipts: 0 },
+      expected: emptied,
     });
   } finally {
     await dm.close();
