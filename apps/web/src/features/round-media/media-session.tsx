@@ -1,12 +1,14 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
+import { readCheckedDevices } from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
+  type Source,
 } from './browser-transport';
 import {
   createMediaController,
@@ -15,16 +17,8 @@ import {
   type MediaConnectionState,
 } from './media-controller';
 import { MediaStage } from './media-stage';
+import { mediaStatus, retryMissingDevices } from './media-status';
 
-const messages: Record<MediaConnectionState, string> = {
-  connecting: 'Connecting camera and sound…',
-  reconnecting: 'Reconnecting camera and sound…',
-  live: 'Connected',
-  'device-blocked':
-    'Camera or microphone access is blocked. Check your browser permissions, then retry.',
-  unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
-  ended: 'The call has ended.',
-};
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
 const ADMISSION_RETRY_MS = [500, 1000, 2000];
 const pause = (ms: number, signal: AbortSignal) =>
@@ -78,6 +72,8 @@ function RoundMediaSession({
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
+  /** Checked devices found gone; the transport keeps running (ISSUE-573). */
+  const [missing, setMissing] = useState<readonly Source[]>([]);
   const controller = useRef<ReturnType<typeof createMediaController> | null>(
     null,
   );
@@ -98,6 +94,11 @@ function RoundMediaSession({
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
+          devices: readCheckedDevices(view.roomId),
+          missing: (source) =>
+            setMissing((current) =>
+              current.includes(source) ? current : [...current, source],
+            ),
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -119,7 +120,7 @@ function RoundMediaSession({
       controller.current = null;
       sound.current = null;
     };
-  }, [view.id]);
+  }, [view.id, view.roomId]);
   useEffect(() => {
     if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
@@ -138,12 +139,13 @@ function RoundMediaSession({
     );
     return () => window.clearTimeout(timer);
   }, [view]);
+  const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
       <MediaStage view={view} media={media} tracks={tracks} />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
         <p role="status" className="m-0 text-sm text-ink-muted">
-          {messages[connection]}
+          {status.message}
         </p>
         {connection === 'live' ? (
           <button
@@ -158,11 +160,12 @@ function RoundMediaSession({
             Enable sound
           </button>
         ) : null}
-        {connection === 'unavailable' || connection === 'device-blocked' ? (
+        {status.retry ? (
           <button
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
+              setMissing(retryMissingDevices(view.roomId, missing));
               refresh.current();
               void controller.current?.reconnect();
             }}

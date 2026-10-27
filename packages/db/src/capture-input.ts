@@ -34,7 +34,11 @@ export const captureReadSchema = captureWorkerIdentitySchema
       (value.expectedVersion !== undefined && value.segmentId !== undefined),
   );
 export const captureLeaseSchema = z
-  .object({ ...leaseFields, leaseMs: z.number().int().min(1000).max(30000) })
+  .object({
+    ...leaseFields,
+    leaseMs: z.number().int().min(1000).max(30000),
+    expectedEpoch: z.number().int().positive().max(2147483647).optional(),
+  })
   .strict();
 const trackId = z.string().min(1).max(128);
 const iso = z.iso.datetime({ precision: 3 });

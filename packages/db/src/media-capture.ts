@@ -18,7 +18,10 @@ import {
 } from './media-capture-context';
 import { mediaWorkerLeases } from './schema/transcript-segments';
 import { readMediaCaptureState } from './media-capture-read';
-import { verifyMediaWorkerLease } from './media-worker-lease';
+import {
+  verifyMediaWorkerLease,
+  requireCaptureRenewal,
+} from './media-worker-lease';
 import { appendCapturedTranscript } from './captured-transcript';
 import { observeCapturedStream, sealCapturedStream } from './capture-stream';
 
@@ -86,6 +89,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
         current.expiresAt > now
       )
         throw createAppError('CONFLICT', 'Capture worker lease is held');
+      requireCaptureRenewal(current, input, now);
       const epoch = !current
         ? 1
         : current.expiresAt > now

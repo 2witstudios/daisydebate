@@ -29,6 +29,10 @@ export const lease = (
 /** Any past instant: PEXPIREAT to it makes Redis expire the key now. */
 const PAST_MS = '1';
 
+/** Independent transport over a fixture's namespace; the caller closes it. */
+export const createPeer = (url: GuardedTestRedisUrl, namespace: string) =>
+  createRedis({ url, namespace, client: createBoundedTestClient(url) });
+
 /**
  * One test's own Redis: a fresh namespace, the package client over it, a raw
  * client for direct assertions, and a key builder. Every key the namespace

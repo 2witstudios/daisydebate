@@ -1,5 +1,4 @@
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
-import { canReadRound } from '../src/features/round-runtime/reads';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Ballot } from '@daisy/protocol';
@@ -9,6 +8,7 @@ import { createRoundBallotOperations } from '../src/features/round-ballots/opera
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   fixtureBallot,
+  readBallotAs,
   readyTwoHumanJudgeRoom,
 } from './round-judging.test-support';
 import {
@@ -77,18 +77,8 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         }),
       code: 'CONFLICT',
     });
-    const ownRead = await f.store.readRoundBallot({
-      authorizeCoaching: () => true,
-      roundId,
-      caller: judges[0]!,
-      authorize: (round, account) => canReadRound(judges[0]!, round, account),
-    });
-    const opponentRead = await f.store.readRoundBallot({
-      authorizeCoaching: () => true,
-      roundId,
-      caller: f.guest,
-      authorize: (round, account) => canReadRound(f.guest, round, account),
-    });
+    const ownRead = await readBallotAs(f, judges[0]!, roundId);
+    const opponentRead = await readBallotAs(f, f.guest, roundId);
     assert({
       given: 'actual frozen input read by its assigned judge and a debater',
       should:
@@ -187,12 +177,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     // ISSUE-602: each released ballot names its kind of judge and carries
     // only the reader's own side's feedback; the transcript is for seats.
     const readAs = (caller: { userId: string; actorId: string }) =>
-      f.store.readRoundBallot({
-        authorizeCoaching: () => true,
-        roundId,
-        caller,
-        authorize: (round, account) => canReadRound(caller, round, account),
-      });
+      readBallotAs(f, caller, roundId);
     const sideOf = (actorId: string) =>
       done.participants.find((p) => p.actorId === actorId)!.role as
         'affirmative' | 'negative';

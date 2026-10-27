@@ -1,3 +1,4 @@
+import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -103,16 +104,18 @@ export async function finalizeLockedRoundTranscript(
     .select()
     .from(roundTranscripts)
     .where(eq(roundTranscripts.roundId, request.roundId));
+  const revision = frontier?.revision ?? 0;
   const [freeze] = await tx
     .insert(roundTranscriptFreezes)
     .values({
       roundId: request.roundId,
       revision: 1,
-      frontier: frontier?.revision ?? 0,
+      frontier: revision,
       completeness: state,
     })
     .returning();
   await planFrozenJudging(tx, request, state);
+  await appendTranscriptChanged(tx, request.roundId, revision + 1);
   return {
     status: 'frozen' as const,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },

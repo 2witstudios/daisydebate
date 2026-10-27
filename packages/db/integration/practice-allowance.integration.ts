@@ -29,10 +29,11 @@ test('a practice that never reached a model call stops spending the allowance wh
         should:
           'hold the slot while live, free it once ended uncounted, keep spending once counted, and record no refund',
         actual: { live, ended, counted, refunds: refunds!.n },
+        // At the beta cap of 20 (ISSUE-646): one held, given back, held again.
         expected: {
-          live: [0, 'allowance'],
-          ended: [1, null],
-          counted: [0, 'allowance'],
+          live: [19, null],
+          ended: [20, null],
+          counted: [19, null],
           refunds: 0,
         },
       });

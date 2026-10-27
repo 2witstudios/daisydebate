@@ -12,7 +12,7 @@ import {
 } from './round-coaching-access';
 import { createAppError } from '@daisy/errors';
 import { ballotFeedbackSchema, type DebateSide } from '@daisy/protocol';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
@@ -23,6 +23,13 @@ import { rounds } from './schema/rounds';
 
 /** What the coaching feature decided for one claim. */
 export type CoachingClaimDecision = 'claim' | 'skip' | 'fail';
+
+/** Erasure survives even when no freeze or coaching row existed at the time. */
+const erasedParticipant = (roundId: string | SQL) => sql`exists (
+  select 1 from round_participants p
+  join actors a on a.id = p.actor_id
+  join users u on u.id = a.user_id
+  where p.round_id = ${roundId} and u.deleted_at is not null)`;
 
 /** The Round's row while this token still holds its lease. */
 const heldBy = (roundId: string, token: string) =>
@@ -98,7 +105,7 @@ export function createRoundFeedbackJobs(input: {
         const rows =
           (await tx.execute(sql`select r.id as "roundId", r.completed_at as "completedAt" from rounds r
           left join round_feedback f on f.round_id = r.id
-          where r.status = 'completed'
+          where r.status = 'completed' and not ${erasedParticipant(sql`r.id`)}
           and (${cursor === null} or (r.completed_at, r.id) > (${cursor?.completedAt ?? from}, ${cursor?.roundId ?? ''})) and (
             (f.round_id is null and r.completed_at > ${from}
               and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
@@ -144,6 +151,11 @@ export function createRoundFeedbackJobs(input: {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${roundId},59004))`,
         );
+        const [privacy] = (await tx.execute(
+          sql`select ${erasedParticipant(roundId)} as erased`,
+        )) as unknown as { erased: boolean }[];
+        if (!privacy) throw createAppError('INVARIANT');
+        if (privacy.erased) return null;
         const access = await readRoundCoachingAccess(tx, roundId, 'claim');
         const decision = decide(
           await readRoundCoachingFacts(tx, roundId),

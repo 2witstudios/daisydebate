@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm';
 import { writeProjectionWithPhaseSignal } from '../src/round-projection-writer';
 import { rounds } from '../src/schema/rounds';
 import { refundUnservedPracticeLocked } from '../src/round-bot-admission';
+import { createId } from '@paralleldrive/cuid2';
+import { createBotSeat } from './bot-seat.test-support';
 import { withGeneration } from './bot-generation.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -125,5 +127,43 @@ test('concurrent refund attempts after a Round ended refund the practice exactly
       },
       expected: { refunded: true, same: true },
     });
+  });
+});
+
+test('the free AI judge never decides the bot-debater refund (DEC-186)', async () => {
+  const outcomes: Record<string, boolean> = {};
+  for (const bot of ['failed', 'unknown'] as const)
+    await withGeneration(async (generation) => {
+      const { fixture, target, operations } = generation;
+      const judge = await createBotSeat(fixture, target.roundId, 'judge');
+      await fixture.insert('agent_runs', {
+        id: createId(),
+        round_participant_id: judge.id,
+        kind: 'judging',
+        provider: 'openrouter',
+        configuration_snapshot: { providerOutcome: 'received' },
+        requests: 1,
+        started_at: new Date(),
+      });
+      const claim = await operations.claimWorker(target);
+      const begun = await operations.beginGeneration(claim.scope, claim.token, {
+        kind: 'language',
+      });
+      if (bot === 'failed')
+        await operations.finishGeneration(claim.scope, begun.execution, bot, {
+          inputTokens: 0,
+          outputTokens: 0,
+          characters: 0,
+        });
+      await abandon(generation);
+      outcomes[bot] = (await refunded(generation)) !== null;
+    });
+  assert({
+    given:
+      'a served AI judge call beside a bot debater whose call definitely failed, then one still unknown',
+    should:
+      'refund only the practice whose bot-debater calls all definitely failed',
+    actual: outcomes,
+    expected: { failed: true, unknown: false },
   });
 });
