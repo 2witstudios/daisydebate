@@ -35,7 +35,13 @@ const ownFence =
     requireAuthorization({
       principal,
       capability,
-      resource: { kind: 'messaging_collection', actorId: scope.actorId },
+      resource: {
+        kind:
+          capability === 'social.friend.list'
+            ? 'friend_collection'
+            : 'presence_setting',
+        actorId: scope.actorId,
+      },
       context: { account },
     });
 

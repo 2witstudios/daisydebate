@@ -257,6 +257,8 @@ function resolveMemberResource(
         socialCreationAllowed(actorId, capability, resource, context),
       );
     case 'messaging_collection':
+    case 'friend_collection':
+    case 'presence_setting':
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;

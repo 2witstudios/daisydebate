@@ -233,6 +233,16 @@ export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
   readonly actorId: string;
 };
+/** A member's own friend list and challenges (ADR 0072), never another's. */
+export type FriendCollectionAuthorizationFact = {
+  readonly kind: 'friend_collection';
+  readonly actorId: string;
+};
+/** A member's own presence visibility setting (ADR 0072). */
+export type PresenceSettingAuthorizationFact = {
+  readonly kind: 'presence_setting';
+  readonly actorId: string;
+};
 /**
  * A member's own profile history, private Rounds included (ISSUE-600):
  * the subject is the member whose profile is read.
@@ -251,6 +261,8 @@ export type AuthorizationInput = {
     | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
+    | FriendCollectionAuthorizationFact
+    | PresenceSettingAuthorizationFact
     | MemberHistoryAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
