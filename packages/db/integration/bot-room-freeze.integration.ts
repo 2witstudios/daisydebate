@@ -90,6 +90,7 @@ const withBotRoom = (
       payloadDigest: 'a'.repeat(64),
       type: 'start-round',
       targetActorId: null,
+      seatsBotDebater: () => botRole !== 'judge',
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
       // The DB adapter receives an accepted pure mutation; no vendor or database is mocked.
@@ -159,6 +160,33 @@ test('bot-debater Room freeze reserves once atomically and replay cannot charge 
       });
     },
   );
+});
+
+test('only a launch that seats a bot debater takes the bot-admission lock', async () => {
+  const locksTaken = async (botRole: 'negative' | 'judge') => {
+    let locks = 0;
+    await withBotRoom(botRole, async ({ run, common, input }) => {
+      const admission = testBotAdmission(run);
+      await roomCommandOperations({
+        ...common,
+        botAdmission: {
+          ...admission,
+          lock: (tx) => {
+            locks += 1;
+            return admission.lock(tx);
+          },
+        },
+      }).executeRoomCommand(input);
+    });
+    return locks;
+  };
+  assert({
+    given: 'a launch with a bot debater and one whose only bot judges',
+    should:
+      'serialize only the bot-debater launch on the fleet bot-admission lock',
+    actual: [await locksTaken('negative'), await locksTaken('judge')],
+    expected: [1, 0],
+  });
 });
 
 test('an AI judge alone is free: the freeze needs no bot admission and reserves nothing', async () => {

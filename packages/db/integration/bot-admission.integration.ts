@@ -211,3 +211,26 @@ test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', as
     });
   });
 });
+
+test('two bot-debater Rounds racing for the last capacity slot admit exactly one (ISSUE-773)', async () => {
+  await withBoundedRound(async (fixture, run, firstRound) => {
+    const [second, third] = [await fixture.round(), await fixture.round()];
+    const actorId = await admissionSponsor(fixture, [second, third]);
+    for (const roundId of [firstRound, second, third])
+      await createBotSeat(fixture, roundId, 'negative');
+    const admission = testBotAdmission(run, 2);
+    const attempts = await Promise.allSettled(
+      [second, third].map((roundId) => admission.reserve({ actorId, roundId })),
+    );
+    const [{ n }] =
+      await fixture.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId}`;
+    assert({
+      given:
+        'one live bot-debater Round at a cap of 2 and two more bot-debater Rounds reserving concurrently',
+      should:
+        'serialize on the bot-admission lock and admit exactly one, refusing the other for capacity',
+      actual: [attempts.map((a) => a.status).sort(), n],
+      expected: [['fulfilled', 'rejected'], 1],
+    });
+  });
+});

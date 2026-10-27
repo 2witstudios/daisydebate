@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { executeRoomCommand } from '@daisy/debate-engine';
+import { executeRoomCommand, castSeatsBotDebater } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   oneOnOneFormatFixture,
@@ -116,6 +116,7 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
             type: 'start-round',
             targetActorId: null,
             roundId: createId(),
+            seatsBotDebater: castSeatsBotDebater,
             authorizeRead: () => true,
             prepare: async () => (room, now) =>
               executeRoomCommand(

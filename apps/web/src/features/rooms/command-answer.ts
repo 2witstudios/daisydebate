@@ -15,9 +15,13 @@ export const commandUnavailable = (form: FormData): MockFormState =>
   );
 
 const refusalMessage = (result: Awaited<ReturnType<typeof submitAssembly>>) =>
-  result.kind === 'refused' && result.reason === 'version-conflict'
-    ? 'The room changed. Review the latest room and try again.'
-    : 'The command was not acknowledged. Review the current room and try again.';
+  result.kind !== 'refused'
+    ? 'The command was not acknowledged. Review the current room and try again.'
+    : result.reason === 'version-conflict'
+      ? 'The room changed. Review the latest room and try again.'
+      : result.reason === 'bots-busy'
+        ? 'Bots are busy right now. Try again shortly.'
+        : 'The command was not acknowledged. Review the current room and try again.';
 
 /**
  * Navigation is selected only from the canonical response, never submitted

@@ -137,3 +137,21 @@ test('native Room details and settings answers clear an inherited setup fragment
     ],
   });
 });
+
+test('a Launch refused for bot capacity says the bots are busy (ISSUE-773)', () => {
+  const form = new FormData();
+  form.set('type', 'start-round');
+  assert({
+    given:
+      'a hydrated Launch refused because live bot-debater capacity is full',
+    should:
+      'say the bots are busy and to try again shortly, not a generic error',
+    actual: commandAnswer(
+      { kind: 'refused', reason: 'bots-busy' },
+      assemblySnapshot.id,
+      form,
+      { hydrated: true, move: (next) => ({ next }) },
+    ).error,
+    expected: 'Bots are busy right now. Try again shortly.',
+  });
+});

@@ -3,7 +3,7 @@ import type { RoomView } from '@daisy/protocol';
 const refusals = {
   'not-eligible': 'yet: AI rounds are for approved beta testers.',
   allowance: 'until you have an AI round left this month.',
-  capacity: 'right now: bots are unavailable.',
+  capacity: 'right now: bots are busy, try again shortly.',
 } as const;
 
 export function BotAdmissionNotice({

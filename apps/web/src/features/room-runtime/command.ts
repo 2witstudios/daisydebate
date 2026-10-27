@@ -1,6 +1,6 @@
 import type { Store, Caller } from './operations';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
-import { executeRoomCommand } from '@daisy/debate-engine';
+import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
@@ -54,6 +54,7 @@ export function roomCommandOperation({
             ? command.actorId
             : null,
       roundId: ids.next(),
+      seatsBotDebater: castSeatsBotDebater,
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
       prepare: async (raw, preparedAt, account) => {

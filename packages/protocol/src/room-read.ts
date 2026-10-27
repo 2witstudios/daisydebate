@@ -49,6 +49,8 @@ export const roomRefusalSchema = z.enum([
   'consent-conflict',
   /** The caller already holds another active Room (ADR 0070). */
   'active-room',
+  /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
+  'bots-busy',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({

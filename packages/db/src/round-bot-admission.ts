@@ -201,7 +201,9 @@ export function createRoundBotAdmission(input: {
     if (status.refusal)
       throw createAppError(
         'CONFLICT',
-        `Bot admission refused: ${status.refusal}`,
+        status.refusal === 'capacity'
+          ? 'bots-busy'
+          : `Bot admission refused: ${status.refusal}`,
       );
     const id = input.nextId();
     await tx
@@ -221,8 +223,8 @@ export function createRoundBotAdmission(input: {
       await liveBotDebaterRounds(tx, roundId),
       input.busyCap,
     );
-    if (refusal)
-      throw createAppError('CONFLICT', `Bot admission refused: ${refusal}`);
+    // The room refusal the Launch answers with (roomRefusalSchema).
+    if (refusal) throw createAppError('CONFLICT', 'bots-busy');
   };
   return {
     lock: lockBotAdmission,

@@ -135,6 +135,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
 
   const receipt = await database.executeRoomCommand({
     caller,
+    seatsBotDebater: () => false,
     authorizeRead: (candidate, fact) =>
       fact?.member === true && candidate.hostActorId === caller.actorId,
     roomId: readyRoom.id,

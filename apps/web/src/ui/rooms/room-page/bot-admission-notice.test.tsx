@@ -66,15 +66,16 @@ test('each refusal says why a bot-debater round cannot start, never a wrong reas
         given,
         html.includes('approved beta testers'),
         html.includes('until you have an AI round left this month'),
+        html.includes('bots are busy, try again shortly'),
         html.includes('bots are unavailable'),
         html.includes('rounds left'),
       ];
     }),
     expected: [
-      ['an ineligible host', true, false, false, false],
-      ['a spent allowance', false, true, false, true],
-      ['busy bots', false, false, true, true],
-      ['unavailable admission', false, false, true, false],
+      ['an ineligible host', true, false, false, false, false],
+      ['a spent allowance', false, true, false, false, true],
+      ['busy bots', false, false, true, false, true],
+      ['unavailable admission', false, false, false, true, false],
     ],
   });
   assert({
