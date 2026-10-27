@@ -1,6 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingCoreSchemas } from '@daisy/protocol';
-import { formReadThrough, messagingMarkReadBody } from './mark-read';
+import {
+  formReadThrough,
+  markReadDestination,
+  markReadUnavailableNotice,
+  messagingMarkReadBody,
+} from './mark-read';
 setupRitewayBun();
 test('the browser read body is a valid mark-read command for its own channel', () => {
   const channelId = 'c'.repeat(24);
@@ -35,5 +40,22 @@ test('a native form carries its read position only as a valid sequence (ISSUE-60
       carried('99999999999999999'),
     ],
     expected: [42, null, null, null, null, null],
+  });
+});
+
+test('the native mark-read returns to its conversation, noting only a refusal (ISSUE-606)', () => {
+  const channelId = 'c'.repeat(24);
+  assert({
+    given: 'an accepted mark, then a refused one',
+    should:
+      'return to the conversation, the refusal with the fixed value-free notice',
+    actual: [
+      markReadDestination(channelId, true),
+      markReadDestination(channelId, false),
+    ],
+    expected: [
+      `/messages/${channelId}`,
+      `/messages/${channelId}?notice=${markReadUnavailableNotice}`,
+    ],
   });
 });

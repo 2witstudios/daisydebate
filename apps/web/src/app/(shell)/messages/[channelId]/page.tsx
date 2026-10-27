@@ -14,6 +14,7 @@ import {
   readThroughSequence,
   conversationNames,
 } from '../../../../features/messaging/conversation';
+import { markReadUnavailableNotice } from '../../../../features/messaging/mark-read';
 import { Button } from '../../../../ui/components/button/button';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
@@ -74,6 +75,11 @@ export default async function ConversationPage({
             maxUnits={conversation.bounds.messageUnits}
             searchQuery={searchQuery ?? null}
           />
+          {query.notice === markReadUnavailableNotice ? (
+            <p role="status" className="text-ink-muted">
+              This conversation could not be marked read. Try again.
+            </p>
+          ) : null}
           {readThrough === null ? null : (
             <>
               <MarkConversationRead

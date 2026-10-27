@@ -13,3 +13,12 @@ export const messagingMarkReadBody = (channelId: string, sequence: number) => ({
   channelId,
   cursor: { channelId, sequence },
 });
+
+/** The fixed, value-free notice a refused native "Mark as read" returns with. */
+export const markReadUnavailableNotice = 'read-unavailable';
+
+/** Where the native "Mark as read" post returns: the conversation, noting a refusal. */
+export const markReadDestination = (channelId: string, marked: boolean) =>
+  marked
+    ? `/messages/${channelId}`
+    : `/messages/${channelId}?notice=${markReadUnavailableNotice}`;

@@ -111,10 +111,16 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(
         sender.getByRole('heading', { name: `@${journey.recipientUsername}` }),
       ).toBeVisible();
-      if (!javaScriptEnabled)
+      if (!javaScriptEnabled) {
+        // ISSUE-606: viewing by GET leaves it unread; only the POST marks it.
+        const viewed = await sender.request.get(
+          `/api/messaging/channels/${journey.channelId}/preferences`,
+        );
+        expect((await viewed.json()).unread).toBeGreaterThanOrEqual(1);
         await sender
           .getByRole('button', { name: 'Mark as read', exact: true })
           .click();
+      }
       await expect(async () => {
         await sender.goto('/messages');
         await expect(

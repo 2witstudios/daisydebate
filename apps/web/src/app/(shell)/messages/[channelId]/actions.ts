@@ -15,6 +15,7 @@ import {
 import { moveOn } from '../../../../server/form-action';
 import {
   formReadThrough,
+  markReadDestination,
   messagingMarkReadBody,
 } from '../../../../features/messaging/mark-read';
 import {
@@ -28,35 +29,44 @@ const markRead = processRoute((routes) => routes.messaging.markRead);
 
 /**
  * ISSUE-606: marks a conversation read through `sequence` by native POST,
- * never on a GET. Best effort: a refusal leaves it unread.
+ * never on a GET, answering whether the route accepted it. A refusal
+ * leaves it unread.
  */
 async function markReadThrough(
   incoming: Headers,
   channelId: string,
   sequence: number | null,
-) {
-  if (sequence === null) return;
+): Promise<boolean> {
+  if (sequence === null) return false;
   try {
-    await inProcessFetch(markRead, incoming)('/api/messaging/read', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
-    });
+    const response = await inProcessFetch(markRead, incoming)(
+      '/api/messaging/read',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
+      },
+    );
+    return response.ok;
   } catch {
     // The next visit with JavaScript, or the next native post, marks it.
+    return false;
   }
 }
 
-/** The no-JS "Mark as read" button: marks it, then returns to the page. */
+/**
+ * The no-JS "Mark as read" button: marks it, then returns to the page, with
+ * a fixed notice when the route refused.
+ */
 export async function markReadAction(
   channelId: string,
   sequence: number,
 ): Promise<void> {
   const incoming = new Headers(await headers());
   const id = idSchema.parse(channelId);
-  await markReadThrough(incoming, id, sequence);
+  const marked = await markReadThrough(incoming, id, sequence);
   revalidatePath('/messages');
-  moveOn(incoming, `/messages/${id}`);
+  moveOn(incoming, markReadDestination(id, marked));
 }
 export async function sendMessageAction(
   channelId: unknown,
