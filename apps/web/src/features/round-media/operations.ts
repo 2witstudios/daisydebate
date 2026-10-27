@@ -98,7 +98,18 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
   };
-  const admit = async (roundId: string, principal: Principal) => {
+  /**
+   * `listen` (ISSUE-764) signs the bot seat's own listen-only identity: a
+   * fresh hidden identity that subscribes and cannot publish or send data,
+   * bound to no seat, so reconciliation never grants it a floor. It is
+   * admitted exactly as the bot's publication is: its live claim and
+   * speaking window, under this session's reconcile hold.
+   */
+  const admit = async (
+    roundId: string,
+    principal: Principal,
+    mode: 'speak' | 'listen' = 'speak',
+  ) => {
     const binding =
       principal.kind === 'human'
         ? await input.store.ensureBinding({
@@ -116,13 +127,26 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       if (admissionRevoked(context))
         throw createAppError('CONFLICT', 'Round media admission is closed');
       const grants = seatGrants(context, context.participantId, input.nextId);
-      const token = await input.media.joinToken({
-        room: context.binding.roomName,
-        identity: context.binding.identity,
-        ...grants,
-        publish: [...grants.publish],
-        ...(principal.kind === 'bot' ? { subscribe: false } : {}),
-      });
+      const identity =
+        mode === 'listen' ? input.nextId() : context.binding.identity;
+      const token = await input.media.joinToken(
+        mode === 'listen'
+          ? {
+              room: context.binding.roomName,
+              identity,
+              publish: [],
+              subscribe: true,
+              hidden: true,
+              capture: false,
+            }
+          : {
+              room: context.binding.roomName,
+              identity,
+              ...grants,
+              publish: [...grants.publish],
+              ...(principal.kind === 'bot' ? { subscribe: false } : {}),
+            },
+      );
       const own = {
         ...context,
         caller: context.participants.find(
@@ -132,7 +156,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       return {
         ...projectMedia(own, true, input.nextId),
         state: 'ready' as const,
-        identity: context.binding.identity,
+        identity,
         token,
         url: principal.kind === 'bot' ? input.workerUrl : input.publicUrl,
         expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
@@ -221,6 +245,9 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     },
     botToken: (scope: Scope, token: string) =>
       admit(scope.roundId, { kind: 'bot', scope, token }),
+    /** The bot seat's own hearing in cross-examination (ISSUE-764). */
+    botListenToken: (scope: Scope, token: string) =>
+      admit(scope.roundId, { kind: 'bot', scope, token }, 'listen'),
     reconcile,
     async recoverActiveSessions() {
       for (const session of await input.store.activeMediaSessions()) {

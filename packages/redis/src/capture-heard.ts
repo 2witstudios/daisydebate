@@ -1,7 +1,6 @@
 import { idSchema } from '@daisy/protocol';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
-import { reportedOperation } from './reported-operation';
 
 /**
  * Capture's report that it hears a seat's track (DEC-226, ISSUE-514-r2):
@@ -20,7 +19,18 @@ export function createCaptureHeardOperations(input: {
     // The key segment pattern bounds the track id.
     return redisKey(input.namespace, 'captureheard', roundId, trackId);
   };
-  const reported = reportedOperation(input);
+  const reported = async <T>(
+    operation: string,
+    work: () => Promise<T>,
+  ): Promise<T> => {
+    try {
+      await input.client.connect();
+      return await work();
+    } catch (error) {
+      input.reportFailure(operation);
+      throw error;
+    }
+  };
   return {
     writeCaptureHeard: (heard: {
       readonly roundId: string;

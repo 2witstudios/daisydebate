@@ -58,7 +58,7 @@ export function createMailSuite() {
   const testApp = createTestApp();
   const { app, routes, mailbox, jsonPost, formPost, freshEmail } = testApp;
   const recipientSubkey = deriveRecipientSubkey(
-    app.auth().config.RECIPIENT_HASH_SECRET,
+    app.mailConfig().RECIPIENT_HASH_SECRET,
   );
   // Ids of messages the suite makes up itself; the mailbox's own are
   // removed by createTestApp's teardown.

@@ -6,18 +6,12 @@ import { createMediaCaptureHandlers } from './handlers';
 setupRitewayBun();
 
 const id = (c: string) => c.repeat(24);
-const principal = {
-  roundId: id('r'),
-  sessionId: id('s'),
-  workerId: id('w'),
-  role: 'capture',
-};
+const principal = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
 const base = 'http://localhost/internal/media/capture';
 
 const fixture = (
   seal?: () => Promise<unknown>,
   token?: () => Promise<never>,
-  role = 'capture',
 ) => {
   const calls: [string, unknown][] = [];
   const record =
@@ -33,7 +27,7 @@ const fixture = (
         verify: (signed: { signature: string }) => {
           if (signed.signature !== 'valid')
             throw createAppError('AUTHORIZATION');
-          return { ...principal, role };
+          return principal;
         },
       }) as never,
     capture: () =>
@@ -111,19 +105,6 @@ test('a signed token request is validated against its strict scope', async () =>
       400,
       [['token', { ...scope, roundId: id('r') }]],
     ],
-  });
-});
-
-test('capture refuses a principal signed as another worker role (ISSUE-764)', async () => {
-  const f = fixture(undefined, undefined, 'bot-listener');
-  const response = await f.handlers.handle(
-    signed('lease', JSON.stringify({ sessionId: id('s'), workerId: id('w') })),
-  );
-  assert({
-    given: 'a valid signature whose principal is the bot-listener role',
-    should: 'refuse it before any capture operation runs',
-    actual: [response.status, f.calls],
-    expected: [403, []],
   });
 });
 

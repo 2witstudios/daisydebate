@@ -11,9 +11,9 @@ import {
   type RemoteParticipant,
 } from '@livekit/rtc-node';
 import {
-  CaptureFrameProcessor,
-  type RawCaptureFrame,
-} from './capture-frame-processor';
+  AudioFrameProcessor,
+  type RawAudioFrame,
+} from './audio-frame-processor';
 
 type ClosedTrack = {
   readonly identity: string;
@@ -21,12 +21,12 @@ type ClosedTrack = {
   readonly reason:
     'unpublished' | 'disconnected' | 'closed' | 'invalid-callback';
 };
-type CaptureInput = {
+type SubscriptionInput = {
   readonly url: string;
   readonly token: string;
   readonly identities: readonly string[];
   readonly nowMs: () => number;
-  readonly onFrame: (frame: RawCaptureFrame) => void;
+  readonly onFrame: (frame: RawAudioFrame) => void;
   /** A track of an admitted identity is subscribed and being read. */
   readonly onTrackStarted: (track: {
     readonly identity: string;
@@ -39,7 +39,10 @@ const identitiesOf = (values: readonly string[]) => {
     values.length > 508 ||
     values.some((value) => !idSchema.safeParse(value).success)
   )
-    throw createAppError('VALIDATION', 'Invalid capture participant scope');
+    throw createAppError(
+      'VALIDATION',
+      'Invalid subscription participant scope',
+    );
   return new Set(values);
 };
 
@@ -53,28 +56,28 @@ const validateConnection = (url: string, token: string) => {
     )
       throw new Error('Invalid endpoint');
   } catch {
-    throw createAppError('VALIDATION', 'Invalid capture endpoint');
+    throw createAppError('VALIDATION', 'Invalid subscription endpoint');
   }
   if (typeof token !== 'string' || token.length === 0 || token.length > 16384)
-    throw createAppError('VALIDATION', 'Invalid capture credential');
+    throw createAppError('VALIDATION', 'Invalid subscription credential');
 };
 
 const connectionClosed = new WeakSet<object>();
 /** The refusal of a connection LiveKit (or close) has already closed. */
-export function captureConnectionClosed() {
+export function subscriptionClosed() {
   const error = createAppError(
     'CONFLICT',
-    'Native capture connection is closed',
+    'Native audio subscription is closed',
   );
   connectionClosed.add(error);
   return error;
 }
 /** Whether a call was refused only because the connection had closed. */
-export const isCaptureConnectionClosed = (error: unknown) =>
+export const isSubscriptionClosed = (error: unknown) =>
   typeof error === 'object' && error !== null && connectionClosed.has(error);
 
-/** Raw callback capture only. Calibrated historical eligibility belongs to its worker consumer. */
-export async function createCaptureSubscription(input: CaptureInput) {
+/** Raw callback audio only, for any media worker role (capture, bot listening). Calibrated eligibility belongs to its consumer. */
+export async function createAudioSubscription(input: SubscriptionInput) {
   validateConnection(input.url, input.token);
   let allowed = identitiesOf(input.identities),
     closing = false;
@@ -101,7 +104,7 @@ export async function createCaptureSubscription(input: CaptureInput) {
     )
       return;
     let finished = false;
-    const processor = new CaptureFrameProcessor({
+    const processor = new AudioFrameProcessor({
       identity,
       trackId,
       nowMs: input.nowMs,
@@ -164,7 +167,10 @@ export async function createCaptureSubscription(input: CaptureInput) {
       () => ended.resolve('disconnected'),
       () =>
         ended.reject(
-          createAppError('INFRASTRUCTURE', 'Native capture cleanup failed'),
+          createAppError(
+            'INFRASTRUCTURE',
+            'Native audio subscription cleanup failed',
+          ),
         ),
     );
   };
@@ -186,13 +192,13 @@ export async function createCaptureSubscription(input: CaptureInput) {
   } catch {
     closing = true;
     await room.disconnect();
-    throw createAppError('INFRASTRUCTURE', 'Native capture connection failed');
+    throw createAppError('INFRASTRUCTURE', 'Native audio subscription failed');
   }
   let shutdown: Promise<void> | undefined;
   return {
     closed: ended.promise,
     async setIdentities(identities: readonly string[]) {
-      if (closing) throw captureConnectionClosed();
+      if (closing) throw subscriptionClosed();
       allowed = identitiesOf(identities);
       await Promise.all(
         [...streams.values()]
@@ -220,6 +226,6 @@ export async function createCaptureSubscription(input: CaptureInput) {
 }
 
 /** Process owner only: all native rooms must already be closed. */
-export async function disposeCaptureRuntime() {
+export async function disposeAudioRuntime() {
   await dispose();
 }

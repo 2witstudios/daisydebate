@@ -96,7 +96,7 @@ test('private staging never retains conversation or a closed-edge window for a f
     expected: { frames: 0, dropped: 4, retained: 0 },
   });
 });
-test('private staged PCM keeps original timing until a batch takes it', () => {
+test('private staged PCM is held until a batch takes it', () => {
   const f = fixture();
   f.observe(0, 10);
   f.observe(1, 20.2);
@@ -106,21 +106,19 @@ test('private staged PCM keeps original timing until a batch takes it', () => {
     given:
       'one genuine bounded bracket, then a frame whose batch comes later behind a slow history read',
     should:
-      'keep the original copied frame and still hand over the later one, so a slow batch leaves no gap in coverage (ISSUE-577)',
+      'keep the copied frame and still hand over the later one, so a slow batch leaves no gap in coverage (ISSUE-577)',
     actual: {
       seat: frame.seat,
       segment: frame.segmentId,
-      original: frame.original,
       pcm: frame.frame.pcm[0],
-      later: f.staging.take().map((f) => f.original.sequence),
+      later: f.staging.take().length,
       dropped: f.counts().dropped,
     },
     expected: {
       seat: 'p'.repeat(24),
       segment: 'g'.repeat(24),
-      original: { sequence: 1, beforeMs: 20.2, afterMs: 20.3 },
       pcm: 7,
-      later: [2],
+      later: 1,
       dropped: 1,
     },
   });

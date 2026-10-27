@@ -1,3 +1,4 @@
+import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
@@ -100,6 +101,7 @@ export const composeAuthServer = (
     getActorByUserId: async () => null,
     getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
     config: readAuthConfig(authTestEnv),
+    recipientSubkey: deriveRecipientSubkey(authTestEnv.RECIPIENT_HASH_SECRET),
     database: memoryAdapter(tables),
     completeEmailChange: memoryEmailChange(tables),
     revokeSessionUnlessAddressHeld: memorySessionGuard(tables),

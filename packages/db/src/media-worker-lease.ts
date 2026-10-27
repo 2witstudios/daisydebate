@@ -89,8 +89,8 @@ export const captureLeaseRefusals: LeaseRefusals = {
 };
 
 /**
- * The one claim rule for every media worker role's lease on a session
- * (capture, bot listener): another worker's live lease refuses as held; a
+ * Capture's lease claim rule on a session, as a pure decision: another
+ * worker's live lease refuses as held; a
  * renewal must match this worker's live epoch, so it cannot turn an expired
  * or rotated lease into a new initial claim; a first claim takes epoch 1, a
  * live lease keeps its epoch and an expired one moves it on.

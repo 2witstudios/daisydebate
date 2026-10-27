@@ -48,15 +48,16 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('mail.failed', { purpose: 'auth' });
     store.observe('mail.failed', { purpose: 'beta-access' });
     store.observe('mail.failed', { purpose: 'billing' });
-    store.observe('mail.shed', { pending: 68 });
-    store.observe('mail.shed', { pending: 68 });
+    store.observe('mail.shed', { purpose: 'auth', pending: 68 });
+    store.observe('mail.shed', { purpose: 'auth', pending: 68 });
+    store.observe('mail.shed', { purpose: 'beta-access', pending: 68 });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv4_24' });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_32' });
     assert({
       given:
-        '2 denials, 1 limiter outage, mail failures for auth, beta access and an unknown purpose, 2 shed pieces of work, and network denials for two known scopes and one unknown',
+        '2 denials, 1 limiter outage, mail failures for auth, beta access and an unknown purpose, 2 shed pieces of auth work and 1 of another purpose, and network denials for two known scopes and one unknown',
       should: 'count each independently',
       actual: {
         rateLimitDeniedTotal: store.snapshot().rateLimitDeniedTotal,

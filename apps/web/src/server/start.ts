@@ -116,8 +116,13 @@ const workerTimers: WorkerTimers = {
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
-  botToken: mediaRuntime
-    ? (scope, token) => mediaRuntime.operations().botToken(scope, token)
+  botMedia: mediaRuntime
+    ? {
+        botToken: (scope, token) =>
+          mediaRuntime.operations().botToken(scope, token),
+        listenToken: (scope, token) =>
+          mediaRuntime.operations().botListenToken(scope, token),
+      }
     : null,
   timers: workerTimers,
 });

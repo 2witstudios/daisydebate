@@ -169,8 +169,6 @@ acceptance. These schema tables alone do not prove a working capture producer.
 | round_bot_publication_windows | credited_from, credited_until                                      | none             | The time a bot stream must cover to seal complete        |
 | media_worker_leases           | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
 | media_worker_leases           | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
-| bot_listener_leases           | session_id, worker_id                                              | identifier       | Identify the active bot listener (ISSUE-764)             |
-| bot_listener_leases           | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
 | utterances                    | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
 | utterances                    | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
 | utterances                    | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |

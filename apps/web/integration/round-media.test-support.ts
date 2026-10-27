@@ -7,7 +7,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
-import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
 import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
@@ -177,32 +176,6 @@ export async function waitForMediaFact(fact: () => Promise<boolean>) {
   }
 }
 
-/** The production activity relay over the fixture's listener operations and Redis (ISSUE-764). */
-export const listenerActivityRelay = (
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-) =>
-  createBotActivityRelay({
-    readListener: (identity) => fixture.store.readBotListenerState(identity),
-    readLease: (identity) =>
-      fixture.store.readCurrentBotListenerLease(identity),
-    write: fixture.redis.writeBotActivity,
-  });
-
-/** A bot-listener lease claimed for the Round's media session, then its first speech opened. */
-export async function leasedListenerSpeech(
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-) {
-  const scope = await captureWorkerScope(fixture);
-  const lease = await fixture.store.claimBotListenerLease({
-    ...scope,
-    leaseMs: 15000,
-  });
-  const identity = { ...scope, epoch: lease.epoch };
-  await startCaptureSpeech(fixture);
-  const segmentId = (await fixture.store.readBotListenerState(identity))
-    .segment!.id;
-  return { scope, identity, segmentId };
-}
 export const captureHeardRelay = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
   capture: ReturnType<typeof captureOperations>,

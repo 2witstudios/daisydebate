@@ -1,6 +1,6 @@
 import { FrameProcessor, type AudioFrame } from '@livekit/rtc-node';
 
-export type RawCaptureFrame = {
+export type RawAudioFrame = {
   readonly identity: string;
   readonly trackId: string;
   readonly sequence: number;
@@ -9,7 +9,7 @@ export type RawCaptureFrame = {
   readonly afterMs: number;
 };
 /** Public SDK callback before its readable queue; never a reader-drain timestamp. */
-export class CaptureFrameProcessor extends FrameProcessor<AudioFrame> {
+export class AudioFrameProcessor extends FrameProcessor<AudioFrame> {
   private closed = false;
   private sequence = 0;
   constructor(
@@ -17,7 +17,7 @@ export class CaptureFrameProcessor extends FrameProcessor<AudioFrame> {
       readonly identity: string;
       readonly trackId: string;
       readonly nowMs: () => number;
-      readonly onFrame: (frame: RawCaptureFrame) => void;
+      readonly onFrame: (frame: RawAudioFrame) => void;
       readonly onFault: () => void;
     },
   ) {
@@ -41,7 +41,7 @@ export class CaptureFrameProcessor extends FrameProcessor<AudioFrame> {
         frame.channels !== 1 ||
         frame.samplesPerChannel !== 160
       )
-        throw new Error('Invalid native capture frame');
+        throw new Error('Invalid native audio frame');
       const pcm = new Int16Array(frame.data),
         afterMs = this.input.nowMs();
       if (
@@ -49,7 +49,7 @@ export class CaptureFrameProcessor extends FrameProcessor<AudioFrame> {
         !Number.isFinite(afterMs) ||
         afterMs < beforeMs
       )
-        throw new Error('Invalid native capture clock');
+        throw new Error('Invalid native audio clock');
       this.input.onFrame({
         identity: this.input.identity,
         trackId: this.input.trackId,

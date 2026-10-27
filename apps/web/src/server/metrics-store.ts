@@ -150,6 +150,10 @@ export function createMetricsStore() {
     });
   };
 
+  /** Auth's own after-response backlog; another purpose's shed is not counted. */
+  const recordAuthShed = (fields: Readonly<Record<string, unknown>>) => {
+    if (fields.purpose === 'auth') authMailShedTotal += 1;
+  };
   /** An unknown purpose is not a label, so cardinality stays bounded. */
   const recordMailFailure = (fields: Readonly<Record<string, unknown>>) => {
     if (isMailPurpose(fields.purpose))
@@ -189,7 +193,7 @@ export function createMetricsStore() {
           recordMailFailure(fields);
           return;
         case 'mail.shed':
-          authMailShedTotal += 1;
+          recordAuthShed(fields);
           return;
         case 'auth.rate_limit.network_denied':
           if (isNetworkScope(fields.scope))

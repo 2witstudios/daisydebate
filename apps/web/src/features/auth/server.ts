@@ -34,7 +34,6 @@ import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
 } from './abuse/sign-in-address-guard';
-import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { createSendMail } from '../mail/send-mail';
 import type { Deliver } from '../mail/types';
 import {
@@ -279,6 +278,12 @@ export function createAuthServer<
   readonly getParticipationByUserId: AuthServer['getParticipationByUserId'];
   /** Validated by the composition root (`readAuthConfig`). */
   readonly config: AuthConfig;
+  /**
+   * The recipient-key subkey, derived by composition from the mail
+   * configuration's RECIPIENT_HASH_SECRET (ISSUE-780): the suppression ledger
+   * and per-recipient rate-limit buckets key by it.
+   */
+  readonly recipientSubkey: string;
   readonly database: Database;
   readonly emailSender: EmailSender;
   readonly limiter: AuthRateLimiter;
@@ -303,8 +308,7 @@ export function createAuthServer<
    */
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
 }): AuthServer {
-  const { config } = dependencies;
-  const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
+  const { config, recipientSubkey } = dependencies;
   const afterResponse = createAfterResponse(
     dependencies.logger,
     dependencies.afterResponseLimits,

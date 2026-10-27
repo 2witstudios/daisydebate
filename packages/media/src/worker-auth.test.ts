@@ -19,12 +19,7 @@ test('signed worker principal binds the exact route method body and timestamp', 
     given: 'a valid server-signed worker request',
     should: 'derive only the exact authenticated worker and Round',
     actual: auth.verify({ method: 'POST', path, body, ...headers }),
-    expected: {
-      serviceId: `media-capture:${workerId}`,
-      role: 'capture',
-      workerId,
-      roundId,
-    },
+    expected: { serviceId: `media-capture:${workerId}`, workerId, roundId },
   });
   for (const change of [
     { method: 'GET' },
@@ -107,35 +102,24 @@ test('every capture operation the worker client calls is admitted, the heard rep
   });
 });
 
-test('the bot listener is its own role, with its own routes (ISSUE-764)', async () => {
+test('capture owns only its own operations; the retired activity relay is refused (ISSUE-764)', async () => {
   const auth = createMediaWorkerAuthentication({ secret, now: () => instant });
-  const verify = (role: string, operation: string) => {
-    const signedPath = `/api/internal/media/${roundId}/${role}/${operation}`;
-    const headers = auth.sign({ method: 'POST', path: signedPath, body });
-    return auth.verify({ method: 'POST', path: signedPath, body, ...headers });
-  };
-  assert({
-    given: 'a signed call to each bot-listener operation',
-    should: 'admit it as the bot-listener role, never as capture',
-    actual: ['lease', 'read', 'activity'].map((op) =>
-      verify('bot-listener', op),
-    ),
-    expected: ['lease', 'read', 'activity'].map(() => ({
-      serviceId: `bot-listener:${workerId}`,
-      role: 'bot-listener',
-      workerId,
-      roundId,
-    })),
-  });
-  for (const [role, operation] of [
-    ['capture', 'activity'],
-    ['bot-listener', 'append'],
-    ['bot-listener', 'token'],
+  for (const signedPath of [
+    `/api/internal/media/${roundId}/capture/activity`,
+    `/api/internal/media/${roundId}/bot-listener/lease`,
   ])
     await assertRejects({
-      given: `${role}/${operation}, an operation that role does not own`,
-      should: 'refuse authentication',
+      given: `a call to ${signedPath}`,
+      should: 'refuse to sign or verify it: capture never relays bot audio',
       code: 'AUTHORIZATION',
-      actual: async () => verify(role!, operation!),
+      actual: async () => {
+        const headers = auth.sign({ method: 'POST', path: signedPath, body });
+        return auth.verify({
+          method: 'POST',
+          path: signedPath,
+          body,
+          ...headers,
+        });
+      },
     });
 });

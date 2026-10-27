@@ -140,23 +140,19 @@ canonical authorization, privacy declaration, erasure and own-export rules.
 This declaration approves no processing activity, legal basis, numeric
 retention or retention exception; the original PRIV-3/PRIV-4 holds remain.
 
-### Bot activity relay declaration
+### Bot hearing declaration
 
-The bot listener, its own media worker role (ISSUE-764), relays live human
-microphone PCM to a cross-examination bot so it can hear barge-ins (`docs/architecture/round-bot-workers.md`,
-activity relay). It lives only in the Redis key
-`<namespace>:botactivity:<roundId>:<roundParticipantId>`
-(`packages/redis/src/bot-activity.ts`), and is never written to PostgreSQL.
+A cross-examination bot hears its peers through its own listen-only media
+identity (ISSUE-764; `docs/architecture/round-bot-workers.md`, "The bot's own
+hearing"): a hidden, subscribe-only LiveKit grant for its claim's media
+session, bound to no seat. Peer microphone PCM reaches only that bot seat's
+process memory, where its turn-taking reads each 10 ms frame and discards it.
+It is never written to Redis, PostgreSQL or disk, and no relay carries it.
 
-| Field                                                                              | Category         | Storage / owner | Purpose                                                      | Lawful basis                              | Retention                                                                                           | Erasure / export                                |
-| ---------------------------------------------------------------------------------- | ---------------- | --------------- | ------------------------------------------------------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| key and value `roundId`, `roundParticipantId`; frames' `trackId`                   | identifier       | redis / VIDEO   | Scope the window to one speaking seat and track of one Round | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | The key's own 1 s expiry (`SET … PX 1000`)                                                          | Expires within 1 s; nothing to export           |
-| frames' `pcm`                                                                      | personal/private | redis / VIDEO   | Let the bot detect a human barge-in in real time             | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | 1 s expiry; written only to a memory-only Redis (`appendonly no`, `save ""`, checked on every call) | Expires within 1 s; never persisted or exported |
-| `version`; frames' `sequence`, `beforeMs`, `afterMs`, `serverWindow`, `receivedAt` | none             | redis / VIDEO   | Order frames and refuse stale ones (older than 250 ms)       | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | 1 s expiry                                                                                          | Expires within 1 s                              |
-
-The payload is at most 64 KiB and twenty frames per seat, validated by
-`botActivityBatchSchema` on write and read. It carries no transcript, bearer
-or competitive authority (ISSUE-500).
+| Field                                                  | Category         | Storage / owner        | Purpose                                          | Lawful basis                              | Retention                                                               | Erasure / export                            |
+| ------------------------------------------------------ | ---------------- | ---------------------- | ------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------- |
+| peer frames' `pcm`                                     | personal/private | process memory / VIDEO | Let the bot detect a human barge-in in real time | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | One frame at a time; stale after 250 ms; gone when the bot's claim ends | Never persisted; nothing to erase or export |
+| frames' `trackId`, `sequence`, brackets, server window | none             | process memory / VIDEO | Order frames and refuse stale ones               | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | As above                                                                | Never persisted                             |
 
 ### Capture heard-track declaration
 

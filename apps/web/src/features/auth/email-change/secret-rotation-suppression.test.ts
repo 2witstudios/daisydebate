@@ -36,13 +36,17 @@ const PRE_ROTATION_SUPPRESSION_KEY = recipientKey(
  * under the pre-rotation secret; `config` varies to simulate what changes
  * (or doesn't) across a rotation.
  */
-const withSuppressedLedger = (config = readAuthConfig(authTestEnv)) => {
+const withSuppressedLedger = (
+  config = readAuthConfig(authTestEnv),
+  recipientHashSecret = authTestEnv.RECIPIENT_HASH_SECRET,
+) => {
   const db = memoryTables();
   const sent: EmailMessage[] = [];
   const key = PRE_ROTATION_SUPPRESSION_KEY;
   const server = composeAuthServer(
     {
       config,
+      recipientSubkey: deriveRecipientSubkey(recipientHashSecret),
       emailSender: { send: async (message) => void sent.push(message) },
       ledger: {
         isSuppressed: async (lookupKey) => lookupKey === key,
@@ -90,10 +94,8 @@ describe('ISSUE-141: BETTER_AUTH_SECRET rotation must not desynchronize the supp
 
   test('negative control: a different RECIPIENT_HASH_SECRET (not merely a different BETTER_AUTH_SECRET) desynchronizes the ledger', async () => {
     const harness = withSuppressedLedger(
-      readAuthConfig({
-        ...authTestEnv,
-        RECIPIENT_HASH_SECRET: 'c'.repeat(64),
-      }),
+      readAuthConfig(authTestEnv),
+      'c'.repeat(64),
     );
     const response = await harness.server.instance.handler(magicLinkRequest());
     assert({

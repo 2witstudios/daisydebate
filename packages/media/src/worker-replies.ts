@@ -66,29 +66,3 @@ export const sealReply = z.strictObject({
 });
 /** A relay the server only acknowledges. */
 export const acknowledgedReply = z.null();
-/** The bot listener's own read (ISSUE-764): only what peer activity needs. */
-export const botListenerStateReply = z.strictObject({
-  roundId: idSchema,
-  sessionId: idSchema,
-  serverNow: iso,
-  /** The open segment, never an ended one. */
-  segment: z
-    .strictObject({
-      id: idSchema,
-      type: z.enum(segmentTypes),
-      startedAt: iso,
-      durationMs: z.number().int().positive(),
-    })
-    .nullable(),
-  participants: seatsReply,
-  /** The open segment's speaking grants: only a seat holding the floor is relayed. */
-  intervals: z
-    .array(
-      z.strictObject({
-        roundParticipantId: idSchema,
-        startedAt: iso,
-        endedAt: iso.nullable(),
-      }),
-    )
-    .max(4096),
-});

@@ -11,25 +11,18 @@ type SignedRequest = {
 };
 const unauthorized = () =>
   createAppError('AUTHORIZATION', 'Worker authentication refused');
-/**
- * Each media worker role and the operations it alone owns: capture records
- * the transcript; the bot listener relays peer activity to a bot debater
- * (ISSUE-764). A role never reaches another role's routes.
- */
-const roleOperations = {
-  capture: ['token', 'lease', 'read', 'append', 'observe', 'seal', 'heard'],
-  'bot-listener': ['lease', 'read', 'activity'],
-} as const;
-export type MediaWorkerRole = keyof typeof roleOperations;
-const servicePrefix: Record<MediaWorkerRole, string> = {
-  capture: 'media-capture',
-  'bot-listener': 'bot-listener',
-};
-const isRole = (value: string | undefined): value is MediaWorkerRole =>
-  value !== undefined && Object.hasOwn(roleOperations, value);
+/** The operations the capture worker owns on its signed routes. */
+const captureOperations = [
+  'token',
+  'lease',
+  'read',
+  'append',
+  'observe',
+  'seal',
+  'heard',
+] as const;
 const route = (path: string) => {
   const parts = path.split('/');
-  const role = parts[5];
   if (
     parts.length !== 7 ||
     parts[0] !== '' ||
@@ -37,11 +30,11 @@ const route = (path: string) => {
     parts[2] !== 'internal' ||
     parts[3] !== 'media' ||
     !idSchema.safeParse(parts[4]).success ||
-    !isRole(role) ||
-    !(roleOperations[role] as readonly string[]).includes(parts[6]!)
+    parts[5] !== 'capture' ||
+    !(captureOperations as readonly string[]).includes(parts[6]!)
   )
     throw unauthorized();
-  return { roundId: parts[4]!, role };
+  return parts[4]!;
 };
 const message = (input: Omit<SignedRequest, 'signature'>) => {
   if (
@@ -54,10 +47,7 @@ const message = (input: Omit<SignedRequest, 'signature'>) => {
   return `${input.method}\n${input.path}\n${input.timestamp}\n${input.body}`;
 };
 
-function workerPrincipal(
-  body: string,
-  { roundId, role }: ReturnType<typeof route>,
-) {
+function workerPrincipal(body: string, roundId: string) {
   let payload: unknown;
   try {
     payload = JSON.parse(body);
@@ -76,8 +66,7 @@ function workerPrincipal(
   )
     throw unauthorized();
   return {
-    serviceId: `${servicePrefix[role]}:${worker.data}`,
-    role,
+    serviceId: `media-capture:${worker.data}`,
     workerId: worker.data,
     roundId,
   };

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createAudioPublication } from '@daisy/media/audio';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { disposeCaptureRuntime } from '@daisy/media/capture';
+import { disposeAudioRuntime } from '@daisy/media/subscription';
 import { systemId } from '@daisy/clock';
 import { createRoundRuntimeOperations } from '../apps/web/src/features/round-runtime/operations';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
@@ -14,8 +14,6 @@ import {
 } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
-import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
-import { createBotListenerHandlers } from '../apps/web/src/features/round-bots/listener-handlers';
 import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/heard-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
@@ -135,25 +133,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
       write: f.redis.writeCaptureHeard,
     }),
   });
-  // The bot listener is its own role on its own routes (ISSUE-764).
-  const listener = createBotListenerHandlers({
-    logger: deps.logger,
-    authentication: () => authentication,
-    listener: () => f.store,
-    activity: createBotActivityRelay({
-      readListener: (value) => f.store.readBotListenerState(value),
-      readLease: (value) => f.store.readCurrentBotListenerLease(value),
-      write: f.redis.writeBotActivity,
-    }),
-  });
-  return Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: (request) =>
-      new URL(request.url).pathname.split('/')[5] === 'bot-listener'
-        ? listener.handle(request)
-        : handlers.handle(request),
-  });
+  return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
 }
 /**
  * Publishes 10 ms frames without a gap until stopped: the PCM first, then
@@ -331,6 +311,6 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
     await server.stop(true);
     if (await deps.media.exists(binding.room_name))
       await deps.media.deleteRoom(binding.room_name);
-    await disposeCaptureRuntime();
+    await disposeAudioRuntime();
   }
 }

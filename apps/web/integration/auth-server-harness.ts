@@ -1,3 +1,4 @@
+import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { createId } from '@paralleldrive/cuid2';
 import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
@@ -53,6 +54,7 @@ export const createTestAuthServer = (
     getActorByUserId: async () => null,
     getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
     config: readAuthConfig(authTestEnv),
+    recipientSubkey: deriveRecipientSubkey(authTestEnv.RECIPIENT_HASH_SECRET),
     database,
     emailSender: {
       send: async (message) => {

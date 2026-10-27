@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  betaAccessCommandAction,
   betaAccessCommandResultSchema,
   betaAccessCommandStateSchema,
   betaAccessStates,
@@ -130,5 +131,16 @@ export const operatorCommandStateSchema = z.discriminatedUnion('action', [
 /** What a receipt stores: the result of whichever action it records. */
 export const operatorCommandResultSchema = z.union([
   betaAccessCommandResultSchema,
+]);
+
+/**
+ * A receipt's action and result, validated together before it is written,
+ * so no row can pair an action with another action's result.
+ */
+export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
+  z.strictObject({
+    action: z.literal(betaAccessCommandAction),
+    result: betaAccessCommandResultSchema,
+  }),
 ]);
 export type OperatorCommandState = z.infer<typeof operatorCommandStateSchema>;

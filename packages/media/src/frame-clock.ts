@@ -31,7 +31,7 @@ const usable = (calibration: ClockCalibration, atMs: number) =>
   atMs - calibration.receivedAtMs <= 30000;
 
 /**
- * One native track's capture timeline (DEC-215). Gaps are decided by frame
+ * One native track's server-time timeline (DEC-215), for every role that reads audio. Gaps are decided by frame
  * sequence, never by clock: contiguous sequence numbers advance exactly 10 ms
  * whatever their arrival timing, and each missing one is exactly a 10 ms gap.
  * The track's first run takes its nominal start from the calibration (its first
@@ -45,7 +45,7 @@ const usable = (calibration: ClockCalibration, atMs: number) =>
  * its sequence and widened by 100 ppm drift, joined with its nominal span, so
  * it always contains the span. A rejected callback is never replayed.
  */
-export function createCaptureClock(initial: ClockCalibration) {
+export function createFrameClock(initial: ClockCalibration) {
   let calibration = initial;
   let run: Run | null = null;
   let last: {

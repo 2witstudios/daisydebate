@@ -2,15 +2,15 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { AudioStream } from '@livekit/rtc-node';
-import { CaptureFrameProcessor } from '../src/capture-frame-processor';
-import { createCaptureSubscription } from '../src/native-capture';
+import { AudioFrameProcessor } from '../src/audio-frame-processor';
+import { createAudioSubscription } from '../src/audio-subscription';
 import { createMediaService } from '../src/service';
 import { config, withNativePublication } from './native-room.test-support';
-import { createCaptureClock } from '../src/capture-clock';
+import { createFrameClock } from '../src/frame-clock';
 import type { withHistoricalSeat } from './native-fixtures.test-support';
 import { waitForCadence, pcmJob } from './native-fixtures.test-support';
 
-type Probe = Parameters<typeof createCaptureSubscription>[0];
+type Probe = Parameters<typeof createAudioSubscription>[0];
 const openCaptureProbe = async (
   roomName: string,
   identity: string,
@@ -18,7 +18,7 @@ const openCaptureProbe = async (
     Partial<Pick<Probe, 'onTrackStarted'>>,
 ) => {
   const service = createMediaService({ config });
-  const capture = await createCaptureSubscription({
+  const capture = await createAudioSubscription({
     url: 'ws://127.0.0.1:7880',
     token: await service.joinToken({
       room: roomName,
@@ -62,7 +62,7 @@ export const proveNativeCapture: Parameters<
     sampleRate: 16000,
     numChannels: 1,
     frameSizeMs: 10,
-    noiseCancellation: new CaptureFrameProcessor({
+    noiseCancellation: new AudioFrameProcessor({
       identity,
       trackId: 'actual-sdk-probe',
       nowMs: () => performance.now(),
@@ -217,7 +217,7 @@ export const proveCaptureRoomDeletion: Parameters<
 export async function proveCalibratedCapture(
   history: Parameters<Parameters<typeof withHistoricalSeat>[1]>[0],
 ) {
-  const clock = createCaptureClock(await history.calibrate());
+  const clock = createFrameClock(await history.calibrate());
   const retained: {
     beforeMs: number;
     afterMs: number;

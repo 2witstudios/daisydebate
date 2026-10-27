@@ -6,7 +6,10 @@ import {
   type BetaAccessCommandState,
   type BetaAccessState,
 } from '@daisy/protocol';
-import { operatorLimits } from '@daisy/protocol/operator';
+import {
+  operatorCommandReceiptSchema,
+  operatorLimits,
+} from '@daisy/protocol/operator';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
@@ -214,12 +217,16 @@ export async function runBetaAccessCommand(
   const result = commandResult(input.commandId, decision);
   if (decision.kind === 'changed')
     await applyChange(tx, input, decision, eventSink);
+  const receipt = operatorCommandReceiptSchema.parse({
+    action: betaAccessCommandAction,
+    result,
+  });
   await tx.execute(sql`insert into operator_command_receipts
       (command_id, service_id, operator_ref, action, target_user_id,
        request_digest, result, admin_audit_head)
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
-      ${betaAccessCommandAction}, ${input.targetUserId},
-      ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${input.adminAuditHead})`);
+      ${receipt.action}, ${input.targetUserId},
+      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`);
   // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
   // writes nothing, so an admin that waited out the deadline may abandon it.
   if (!input.live()) throw createAppError('CONFLICT');

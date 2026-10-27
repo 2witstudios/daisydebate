@@ -19,9 +19,15 @@ export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: Parameters<typeof startRoundJudgingService>[0]['timers'];
-  /** Media broker grant; without configured media, seats keep receipts only. */
-  readonly botToken:
-    Parameters<typeof createSpeakingBotControl>[0]['botToken'] | null;
+  /**
+   * Media broker grants for a bot seat: its publication and its own
+   * listen-only hearing (ISSUE-764). Without configured media, seats keep
+   * receipts only.
+   */
+  readonly botMedia: Pick<
+    Parameters<typeof createSpeakingBotControl>[0],
+    'botToken' | 'listenToken'
+  > | null;
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {
@@ -98,13 +104,12 @@ export function startRoundWorkers(input: {
     nextId: () => app.ids.next(),
     instanceId: input.instanceId,
   });
-  const speaking = input.botToken
+  const speaking = input.botMedia
     ? createSpeakingBotControl({
         store: app.database,
         voice: app.aiVoice,
         withProvider,
-        botToken: input.botToken,
-        readActivity: app.redis.readBotActivity,
+        ...input.botMedia,
         readHeard: app.redis.readCaptureHeard,
         timers: input.timers,
         nextId: () => app.ids.next(),

@@ -24,10 +24,7 @@ type Stream = {
 
 /** Capture's signed client: only capture's own routes. */
 export function createMediaWorkerClient(input: WorkerTransportDependencies) {
-  const { scope, call, lease, calibratedRead } = createSignedWorkerCall(
-    'capture',
-    input,
-  );
+  const { scope, call, lease, calibratedRead } = createSignedWorkerCall(input);
   return {
     lease,
     read: (

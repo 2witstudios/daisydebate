@@ -6,7 +6,8 @@ setupRitewayBun();
 describe('secret configuration keys', () => {
   test('lists every schema field marked secret, across every schema', () => {
     assert({
-      given: 'the server, realtime, auth, media worker and migration schemas',
+      given:
+        'the server, realtime, auth, mail, media worker and migration schemas',
       should:
         'derive the secret-bearing keys from the fields themselves, each once',
       actual: [...secretConfigKeys].sort(),

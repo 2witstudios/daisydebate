@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { matchOperatorRoute, operatorCommandStateSchema } from './operator';
+import {
+  matchOperatorRoute,
+  operatorCommandReceiptSchema,
+  operatorCommandStateSchema,
+} from './operator';
 
 setupRitewayBun();
 
@@ -54,5 +58,21 @@ test('only the three operator routes match, each with its own method (ADR 0079)'
       null,
       null,
     ],
+  });
+});
+
+test("a receipt's action and result are validated together (ISSUE-781)", () => {
+  const parses = (value: unknown) =>
+    operatorCommandReceiptSchema.safeParse(value).success;
+  assert({
+    given:
+      "the beta access action with its result, with another action's name, and with a malformed result",
+    should: 'accept only the declared pair',
+    actual: [
+      parses({ action, result }),
+      parses({ action: 'account.erase', result }),
+      parses({ action, result: { ...result, mail: 'sent' } }),
+    ],
+    expected: [true, false, false],
   });
 });

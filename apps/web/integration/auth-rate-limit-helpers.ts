@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { systemClock, systemId } from '@daisy/clock';
-import { readAuthConfig } from '@daisy/config';
+import { readAuthConfig, readMailConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createRedis, redisKey } from '@daisy/redis';
 import { openTestRedis } from '@daisy/redis/testing';
@@ -112,6 +112,9 @@ export function createSecondInstances(testApp: TestApp) {
       getParticipationByUserId: (userId) =>
         database.getParticipationByUserId(userId),
       config: readAuthConfig(testApp.env),
+      recipientSubkey: deriveRecipientSubkey(
+        readMailConfig(testApp.env).RECIPIENT_HASH_SECRET,
+      ),
       database: database.authAdapter,
       emailSender: {
         send: async (message) => {

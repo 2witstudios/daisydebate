@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createCaptureClock } from './capture-clock';
+import { createFrameClock } from './frame-clock';
 setupRitewayBun();
 const calibration = {
   sentAtMs: 0,
@@ -13,7 +13,7 @@ const frame = (
   afterMs = beforeMs + 0.1,
 ) => ({ sequence, beforeMs, afterMs });
 const nominalOf = (
-  clock: ReturnType<typeof createCaptureClock>,
+  clock: ReturnType<typeof createFrameClock>,
   frames: readonly ReturnType<typeof frame>[],
 ) => frames.map((f) => clock.observe(f)?.nominalStartMs ?? null);
 /** The calibration a history read returns at local time `at`, its server sample `sample` ms into a `rttMs` round trip. */
@@ -25,7 +25,7 @@ const calibrated = (at: number, rttMs: number, sample = 0) => ({
 });
 
 test('a track timeline is its frame sequence, whatever the arrival timing (DEC-215)', () => {
-  const clock = createCaptureClock(calibration);
+  const clock = createFrameClock(calibration);
   assert({
     given:
       'a first frame, a burst handed over together, a 200 ms stall, then two and five missing sequence numbers',
@@ -46,7 +46,7 @@ test('a track timeline is its frame sequence, whatever the arrival timing (DEC-2
 
 test('every frame bracket contains its nominal frame at any round trip (ISSUE-466-r5)', () => {
   const violations = [10, 50, 100].map((rttMs) => {
-    const clock = createCaptureClock(calibrated(150, rttMs));
+    const clock = createFrameClock(calibrated(150, rttMs));
     let bad = 0;
     for (let sequence = 0; sequence < 300; sequence++) {
       const at = 200 + sequence * 10;
@@ -73,7 +73,7 @@ test('every frame bracket contains its nominal frame at any round trip (ISSUE-46
 
 test('no calibration shift at a re-anchor shrinks a sequence gap (ISSUE-466-r6)', () => {
   const gapAfterShift = (missing: number, rttMs: number) => {
-    const clock = createCaptureClock(calibrated(150, 2, 1));
+    const clock = createFrameClock(calibrated(150, 2, 1));
     const last = nominalOf(
       clock,
       Array.from({ length: 50 }, (_, i) => frame(i, 200 + i * 10)),
@@ -95,7 +95,7 @@ test('no calibration shift at a re-anchor shrinks a sequence gap (ISSUE-466-r6)'
 });
 
 test('an unusable calibration maps no run, and its frames stay sequence gaps', () => {
-  const clock = createCaptureClock(calibration);
+  const clock = createFrameClock(calibration);
   const first = clock.observe(frame(0, 10))!.nominalStartMs;
   clock.refresh({ ...calibration, receivedAtMs: 150 });
   const refused = clock.observe(frame(2, 30));
@@ -112,7 +112,7 @@ test('an unusable calibration maps no run, and its frames stay sequence gaps', (
 
 test('a sequence reset on the same track starts a new run (ISSUE-466-r7)', () => {
   const gapAfterReset = (silentMs: number) => {
-    const clock = createCaptureClock(calibration);
+    const clock = createFrameClock(calibration);
     const last = nominalOf(
       clock,
       Array.from({ length: 50 }, (_, i) => frame(i, 10 + i * 10)),

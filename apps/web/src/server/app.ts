@@ -9,8 +9,10 @@ import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
   readAuthConfig,
+  readMailConfig,
   readServerConfig,
   type AuthConfig,
+  type MailConfig,
 } from '@daisy/config';
 import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
 import { createDatabase } from '@daisy/db';
@@ -111,15 +113,21 @@ export function createApp({
     ...botAdmissionOptions(config),
   });
   let authConfig: AuthConfig | undefined;
+  let mailConfig: MailConfig | undefined;
   let auth: AuthServer | undefined;
   let mailWebhook: ReturnType<typeof createResendWebhook> | undefined;
   let mailTransport: ReturnType<typeof createSendMail> | undefined;
-  /** Parsed once, on first use, and shared by auth and the webhook. */
+  /** Parsed once, on first use, by auth alone. */
   const readAuth = (): AuthConfig => (authConfig ??= readAuthConfig(env));
-  const emailSender = (authConfig: AuthConfig) =>
+  /**
+   * Parsed once, on first use, by the mail transport, its webhook and auth's
+   * recipient keys; never through auth's configuration (ISSUE-780).
+   */
+  const readMail = (): MailConfig => (mailConfig ??= readMailConfig(env));
+  const emailSender = (mail: MailConfig) =>
     createResendSender({
-      apiKey: authConfig.RESEND_API_KEY,
-      from: authConfig.EMAIL_FROM,
+      apiKey: mail.RESEND_API_KEY,
+      from: mail.EMAIL_FROM,
       ids,
       fetch,
     });
@@ -135,8 +143,9 @@ export function createApp({
       getParticipationByUserId: (userId) =>
         database.getParticipationByUserId(userId),
       config: authConfig,
+      recipientSubkey: deriveRecipientSubkey(readMail().RECIPIENT_HASH_SECRET),
       database: database.authAdapter,
-      emailSender: emailSender(authConfig),
+      emailSender: emailSender(readMail()),
       limiter: createAuthRateLimiter(redis),
       ledger,
       revokeOtherSessions: (userId, keepToken) =>
@@ -151,13 +160,12 @@ export function createApp({
     });
   };
   const composeMailWebhook = () => {
-    const authConfig = readAuth();
+    const mail = readMail();
     // Refuses rather than accept unsigned deliveries.
-    if (!authConfig.RESEND_WEBHOOK_SECRET)
-      throw createAppError('INFRASTRUCTURE');
+    if (!mail.RESEND_WEBHOOK_SECRET) throw createAppError('INFRASTRUCTURE');
     return createResendWebhook({
-      secret: authConfig.RESEND_WEBHOOK_SECRET,
-      apiKey: authConfig.RESEND_API_KEY,
+      secret: mail.RESEND_WEBHOOK_SECRET,
+      apiKey: mail.RESEND_API_KEY,
       clock,
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
@@ -190,19 +198,19 @@ export function createApp({
      * its purpose. Built on first use.
      */
     deliverMail: (purpose: MailPurpose): Deliver => {
-      const authConfig = readAuth();
+      const mail = readMail();
       return (mailTransport ??= createSendMail({
-        recipientSubkey: deriveRecipientSubkey(
-          authConfig.RECIPIENT_HASH_SECRET,
-        ),
+        recipientSubkey: deriveRecipientSubkey(mail.RECIPIENT_HASH_SECRET),
         ledger,
-        emailSender: emailSender(authConfig),
+        emailSender: emailSender(mail),
         logger,
         clock,
       }))(purpose);
     },
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /** The mail transport's configuration (ISSUE-780), validated on first use. */
+    mailConfig: readMail,
     /**
      * `OPS_PROBE_TOKEN` (AUTH-7.7): refuses, like the webhook secret, rather
      * than serve `/api/ops/alerts`/`/api/ops/metrics` unauthenticated.

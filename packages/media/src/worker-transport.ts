@@ -1,10 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { z } from 'zod';
-import type {
-  createMediaWorkerAuthentication,
-  MediaWorkerRole,
-} from './worker-auth';
+import type { createMediaWorkerAuthentication } from './worker-auth';
 import { leaseReply } from './worker-replies';
 type WorkerScope = {
   readonly roundId: string;
@@ -79,14 +76,11 @@ function parsed<T>(schema: z.ZodType<T>, raw: unknown): T {
 }
 
 /**
- * The signed HTTP transport every media worker role calls its own routes
- * through (`/api/internal/media/<round>/<role>/<operation>`). Replies are
- * observations, never local clock or role authority.
+ * The capture worker's signed HTTP transport to its own routes
+ * (`/api/internal/media/<round>/capture/<operation>`). Replies are
+ * observations, never local clock or capture authority.
  */
-export function createSignedWorkerCall(
-  role: MediaWorkerRole,
-  input: WorkerTransportDependencies,
-) {
+export function createSignedWorkerCall(input: WorkerTransportDependencies) {
   const origin = controlOrigin(input.url);
   const scope = { ...input.scope };
   if (!Object.values(scope).every((id) => idSchema.safeParse(id).success))
@@ -120,7 +114,7 @@ export function createSignedWorkerCall(
     caller?: AbortSignal,
   ) => {
     aborted(signal, caller);
-    const path = `/api/internal/media/${scope.roundId}/${role}/${operation}`;
+    const path = `/api/internal/media/${scope.roundId}/capture/${operation}`;
     const body = JSON.stringify({ ...payload, ...scope });
     const signed = input.authentication.sign({ method: 'POST', path, body });
     const sentAtMs = input.nowMs();
@@ -155,7 +149,7 @@ export function createSignedWorkerCall(
       throw unavailable();
     return { value: parsed(schema, raw), sentAtMs, receivedAtMs };
   };
-  /** The role's lease claim or renewal; every worker role leases the same way. */
+  /** Capture's lease claim or renewal. */
   const lease = async (
     leaseMs: number,
     signal?: AbortSignal,

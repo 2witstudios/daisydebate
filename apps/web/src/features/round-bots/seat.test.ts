@@ -29,9 +29,13 @@ function harness(withFeed: boolean, speakerStop = async () => undefined) {
     },
     feed: withFeed
       ? {
+          start: () => log.push('listening-start'),
           poll: async () => {
             polls++;
             await blocked.promise;
+          },
+          close: async () => {
+            log.push('listening-close');
           },
         }
       : null,
@@ -58,13 +62,13 @@ test('control receipts never wait for speaking work', async () => {
     expected: ['speaker-stop', 'publication-close'],
   });
 });
-test('cross-examination polls activity single-flight and stops its timer', async () => {
+test("cross-examination's own hearing polls single-flight, joins with the seat and ends after its publication (ISSUE-764)", async () => {
   const { seat, log, timers, blocked, polls } = harness(true);
   const poll = timers.get(50)!;
   const first = poll();
   const overlapping = poll();
   assert({
-    given: 'a slow relay read and an overlapping 50ms tick',
+    given: 'a slow hearing poll and an overlapping 50ms tick',
     should: 'keep one poll in flight',
     actual: polls(),
     expected: 1,
@@ -74,10 +78,18 @@ test('cross-examination polls activity single-flight and stops its timer', async
   await seat.stop();
   assert({
     given: 'a completed poll and shutdown',
-    should: 'wake the speaker after the poll and clear the timer',
+    should:
+      'join the hearing with the publication, wake the speaker after the poll, clear the timer and end the hearing last',
     actual: [log, timers.size],
     expected: [
-      ['publication-start', 'wake', 'speaker-stop', 'publication-close'],
+      [
+        'publication-start',
+        'listening-start',
+        'wake',
+        'speaker-stop',
+        'publication-close',
+        'listening-close',
+      ],
       0,
     ],
   });

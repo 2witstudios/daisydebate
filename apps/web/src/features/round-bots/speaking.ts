@@ -1,10 +1,11 @@
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { Database } from '@daisy/db';
 import { createAudioPublication } from '@daisy/media/audio';
+import { createAudioSubscription } from '@daisy/media/subscription';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import type { ProviderCapacity } from '../round-judging/operations';
-import { createBotActivityFeed } from './activity-feed';
 import { createBotGeneration } from './generation';
+import { createBotListening } from './listening';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
@@ -29,7 +30,8 @@ export function createSpeakingBotControl(input: {
     scope: BotPublicationScope,
     token: string,
   ) => Promise<{ readonly url: string; readonly token: string }>;
-  readonly readActivity: Parameters<typeof createBotActivityFeed>[0]['read'];
+  /** The bot seat's own listen-only grant for cross-examination (ISSUE-764). */
+  readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
   /** The seat capture reports hearing a track for (ISSUE-514-r2). */
   readonly readHeard: Parameters<typeof createBotPublisher>[0]['heard'];
   readonly timers: WorkerTimers;
@@ -77,12 +79,12 @@ export function createSpeakingBotControl(input: {
     });
     const feed =
       claim.segmentType === 'cross_ex'
-        ? createBotActivityFeed({
-            roundId: claim.scope.roundId,
-            participantId: claim.scope.roundParticipantId,
-            peerParticipantIds: claim.peerParticipantIds,
-            read: input.readActivity,
+        ? createBotListening({
+            claim,
+            listenToken: input.listenToken,
+            subscribe: createAudioSubscription,
             databaseNow: input.store.databaseNow,
+            monotonicNowMs: () => performance.now(),
             playing: speaker.playing,
             onEvent: ({ kind }) => speaker.peer(kind),
           })

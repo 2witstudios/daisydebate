@@ -1,5 +1,5 @@
 import type { OpenRouter } from '@daisy/ai-voice';
-import type { createCaptureSubscription } from '@daisy/media/capture';
+import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -27,7 +27,7 @@ type Dependencies = {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
   /** The LiveKit subscription and the clip consumer (capture-run.ts). */
-  readonly subscribe: typeof createCaptureSubscription;
+  readonly subscribe: typeof createAudioSubscription;
   readonly consume: typeof consumeCaptureClips;
 };
 /** Assigned session only. Discovery and process isolation live at the deployment edge. */

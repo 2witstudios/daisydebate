@@ -20,7 +20,6 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import { botListenerOperations } from './bot-listener';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { SQL } from 'bun';
@@ -203,7 +202,6 @@ export function createDatabase({
       input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
     ) =>
       mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
-    ...botListenerOperations(transcriptTransaction),
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
