@@ -20,15 +20,46 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (form.getAll(key).length !== 1) return null;
     raw[key] = value;
   }
-  for (const key of ['expectedVersion', 'expectedConsentVersion', 'slot'])
+  for (const key of [
+    'expectedVersion',
+    'expectedConsentVersion',
+    'slot',
+    'ordinal',
+    'position',
+  ])
     if (key in raw) raw[key] = Number(raw[key]);
   for (const key of ['config', 'definition']) {
     if (!(key in raw)) continue;
     if (typeof raw[key] !== 'string') return null;
     raw[key] = JSON.parse(raw[key]);
   }
-  return raw;
+  return 'format' in raw ? withFormatTuple(raw) : raw;
 }
+
+/**
+ * One radio or select names a whole catalog tuple (FMT-3); spread it, refuse
+ * anything else. A draw room's optional resolution field sends no topic
+ * when left empty (FMT-2b).
+ */
+function withFormatTuple(
+  raw: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (typeof raw.format !== 'string') return null;
+  const tuple = formatTupleSchema.safeParse(JSON.parse(raw.format));
+  if (!tuple.success) return null;
+  const fields = Object.fromEntries(
+    Object.entries(raw).filter(
+      ([key, value]) => key !== 'format' && !(key === 'topic' && value === ''),
+    ),
+  );
+  return { ...fields, ...tuple.data };
+}
+
+const formatTupleSchema = z.strictObject({
+  formatId: z.string().min(1),
+  formatVersion: z.int().positive(),
+  presetVersion: z.int().positive(),
+});
 
 const responseSchema = z.object({ view: roomViewSchema });
 export async function submitAssembly(

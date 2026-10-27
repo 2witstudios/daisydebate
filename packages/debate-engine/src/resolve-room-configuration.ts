@@ -1,5 +1,17 @@
 import { formatDefinitionSchema } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
+import {
+  resolvePreRoundPrep,
+  resolveResolutionDraw,
+} from './resolve-room-plan';
+import {
+  refusalOf,
+  stepRefused,
+  within,
+  type ResolveRefusal,
+  type ResolveRefusalKind,
+  type Step,
+} from './resolve-steps';
 import type {
   FormatDefinition,
   RoomConfig,
@@ -18,20 +30,6 @@ import type {
  * is what keeps its refusal set closed and its totality provable.
  */
 
-type ResolveRefusalKind =
-  | 'invalid-definition'
-  | 'capability-forbidden'
-  | 'out-of-range'
-  | 'unknown-segment-key'
-  | 'invalid-choice'
-  | 'incomplete-timing';
-
-type ResolveRefusal = {
-  readonly kind: ResolveRefusalKind;
-  /** What was refused and why, for the operator and the logs. */
-  readonly message: string;
-};
-
 export type ResolveOutcome =
   | {
       readonly ok: true;
@@ -43,32 +41,15 @@ export type ResolveOutcome =
   | { readonly ok: false; readonly refusal: ResolveRefusal };
 
 /** One step's outcome: a resolved value or a refusal. */
-type Step<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly refusal: ResolveRefusal };
-
-const refusalOf = (
-  kind: ResolveRefusalKind,
-  message: string,
-): ResolveRefusal => ({ kind, message });
 const refused = (
   kind: ResolveRefusalKind,
   message: string,
 ): ResolveOutcome => ({ ok: false, refusal: refusalOf(kind, message) });
-const stepRefused = (
-  kind: ResolveRefusalKind,
-  message: string,
-): { readonly ok: false; readonly refusal: ResolveRefusal } => ({
-  ok: false,
-  refusal: refusalOf(kind, message),
-});
-
-const within = (value: number, range: { min: number; max: number }) =>
-  value >= range.min && value <= range.max;
-
-/** The rules' segment: the definition's identity verbatim, nothing else —
+/**
+ * The rules' segment: the definition's identity verbatim, nothing else —
  * in particular never the definition's own `defaultDurationMs`, which is
- * compiler input, not resolved rules. */
+ * compiler input, not resolved rules.
+ */
 const resolvedSegment = (
   segment: FormatDefinition['segments'][number],
   durationMs: number,
@@ -120,27 +101,6 @@ function resolveSegments(
     segments.push(resolvedSegment(segment, segment.defaultDurationMs));
   }
   return { ok: true, value: segments };
-}
-
-/** Resolves the Room-executed pre-round prep, or refuses. */
-function resolvePreRoundPrep(
-  definition: FormatDefinition,
-  config: RoomConfig,
-): Step<RoomExecutionPlan['preRoundPrep']> {
-  if (!config.preRoundPrep.enabled)
-    return { ok: true, value: config.preRoundPrep };
-  const bounds = definition.configurable.preRoundPrep;
-  if (bounds === null)
-    return stepRefused(
-      'capability-forbidden',
-      'The format forbids pre-round prep',
-    );
-  if (!within(config.preRoundPrep.durationMs, bounds.durationMs))
-    return stepRefused(
-      'out-of-range',
-      `Pre-round prep ${config.preRoundPrep.durationMs}ms is outside ${bounds.durationMs.min}-${bounds.durationMs.max}ms`,
-    );
-  return { ok: true, value: config.preRoundPrep };
 }
 
 /** Resolves the ECS-enforced in-round budget, or refuses. */
@@ -304,6 +264,8 @@ export function resolveRoomConfiguration(
     );
   const preRoundPrep = resolvePreRoundPrep(definition, config);
   if (!preRoundPrep.ok) return preRoundPrep;
+  const resolutionDraw = resolveResolutionDraw(definition, config);
+  if (!resolutionDraw.ok) return resolutionDraw;
   const inRoundPrep = resolveInRoundPrep(definition, config);
   if (!inRoundPrep.ok) return inRoundPrep;
   if (
@@ -320,7 +282,10 @@ export function resolveRoomConfiguration(
   if (!interaction.ok) return interaction;
   return {
     ok: true,
-    roomPlan: { preRoundPrep: preRoundPrep.value },
+    roomPlan: {
+      preRoundPrep: preRoundPrep.value,
+      resolutionDraw: resolutionDraw.value,
+    },
     rules: {
       version: 2,
       seats: definition.seats,

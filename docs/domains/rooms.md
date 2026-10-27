@@ -33,6 +33,21 @@ browsing surface of open Rooms. A LiveKit room is a media session
 
 No shared "Topic" entity spans them.
 
+## Formats
+
+A casual Room runs one of Daisy's standards (Policy, Value and Freestyle,
+which strikes its resolution) or Custom. Every edit to a standard's times or
+rules makes the Room Custom, "based on" the standard, with the changes listed
+and a Back to standard action that restores the exact preset it started from.
+Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
+policy, Public Forum and others) whose rules Daisy runs faithfully; a template
+always reads as Custom. IPDA and Team IPDA templates strike their
+resolution the way the IPDA bylaws do. Choosing a format that strikes its
+resolution clears the topic; leaving one asks for the resolution the new
+format debates. Standing is derived from the Room and its basis, never
+stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
+run their format unchanged. See ADR 0078.
+
 ## Assembly and Launch
 
 A host creates a Room from the catalog or a custom definition. Members take
@@ -63,6 +78,19 @@ membership. Every terminal state frees its members:
   Round forfeits it, which ends the Round.
 - **The debate ends**: the last speech ends, or the Round completes, is
   forfeited or is abandoned. Judges ballot from their Round seats.
+
+## Choosing the resolution
+
+A Room either names its resolution (its topic) or draws one before the
+round ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). In a draw
+Room the host's Start pre-round draws N resolutions from Daisy's curated
+bank, or from the host's own list in a casual Room. The debaters strike
+alternately, Negative first in Freestyle, each strike within its window; a
+missed turn strikes the first resolution still in the draw, and a side of
+only bots strikes on its own. The last one left is revealed as the topic,
+and any pre-round prep starts at that moment. Until then only the seated
+debaters see the drawn texts; judges, spectators and the Lobby see progress.
+Launch freezes the resolution and the draw's evidence onto the Round.
 
 ## Playing
 

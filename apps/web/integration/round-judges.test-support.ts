@@ -5,9 +5,7 @@ export async function assembleJudgedRoom(
   fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   judges: number,
 ) {
-  const choice = (await fixture.operations.catalog(fixture.host)).find(
-    (item) => item.formatId === 'foundation',
-  )!;
+  const choice = await fixture.foundation();
   return fixture.assemble({
     selection: {
       kind: 'custom',
@@ -15,7 +13,7 @@ export async function assembleJudgedRoom(
         ...choice.definition,
         seats: { ...choice.definition.seats, judge: judges },
       },
-      config: choice.defaultConfig,
+      config: choice.preset.config,
       competitionType: 'casual',
     },
   });

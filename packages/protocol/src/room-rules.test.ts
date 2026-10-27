@@ -16,6 +16,7 @@ const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 describe('room config', () => {
   const config = {
     preRoundPrep: { enabled: true, durationMs: 1_200_000 },
+    resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
     speechTiming: {
       countdownMs: 10_000,
@@ -39,6 +40,7 @@ describe('room config', () => {
     const declined = roomConfigSchema.safeParse({
       ...config,
       preRoundPrep: { enabled: false },
+      resolutionDraw: { enabled: false },
       inRoundPrep: { enabled: false },
     });
     assert({
@@ -119,6 +121,7 @@ describe('round rules', () => {
       actual: parseOutcome(roundRulesSchema, {
         ...rules,
         preRoundPrep: { enabled: true, durationMs: 60_000 },
+        resolutionDraw: { enabled: false },
       }),
       expected: { issues: ['(root)'] },
     });

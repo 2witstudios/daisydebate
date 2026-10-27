@@ -35,7 +35,8 @@ test('Room and Round inventory covers the exact producer schema', () => {
 
 test('authored room text has explicit subject-rights declarations', () => {
   assert({
-    given: 'host-authored titles, topics and frozen resolutions',
+    given:
+      'host-authored titles, topics, frozen resolutions and the config and plan that carry a host’s draw lines',
     should:
       'treat all free text as private, exportable and scrubbed on erasure',
     actual: roomPrivacyFields
@@ -50,6 +51,8 @@ test('authored room text has explicit subject-rights declarations', () => {
     expected: [
       ['rooms', 'title', 'private', 'scrub', true],
       ['rooms', 'topic', 'private', 'scrub', true],
+      ['rooms', 'config', 'private', 'scrub', true],
+      ['rooms', 'execution_plan', 'private', 'scrub', true],
       ['rounds', 'resolution', 'private', 'scrub', true],
     ],
   });
@@ -63,5 +66,24 @@ test('runtime checkpoint classifies its embedded participant reference', () => {
       (field) => field.table === 'rounds' && field.column === 'runtime_state',
     )?.category,
     expected: 'identifier',
+  });
+});
+
+test('the format catalog declares every column it stores (PR #472 review)', async () => {
+  const { formats } = await import('../schema/formats');
+  const { formatRevisions } = await import('../schema/format-revisions');
+  const { formatPresets } = await import('../schema/format-presets');
+  const { formatPrivacyFields } = await import('./format-declarations');
+  const expected = Object.fromEntries(
+    [formats, formatRevisions, formatPresets].map((table) => [
+      getTableName(table),
+      Object.values(getTableColumns(table)).map((column) => column.name),
+    ]),
+  );
+  assert({
+    given: 'the formats, format revisions and format presets schema',
+    should: 'declare each column exactly once',
+    actual: validatePrivacyAdoption(expected, formatPrivacyFields),
+    expected: { problems: [], activationHeld: true },
   });
 });

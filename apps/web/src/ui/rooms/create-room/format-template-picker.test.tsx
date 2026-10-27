@@ -26,10 +26,11 @@ test('format browsing preserves native authoritative selection and unequal order
     given:
       'a stored unequal template and server-rendered picker before hydration',
     should:
-      'retain native canonical defaults and show its real seat counts and speech duration override',
+      'name the canonical preset (never a client config) and show its real seat counts and speech duration override',
     actual: [
       parsed.success,
       selection.formatVersion,
+      selection.presetVersion,
       selection.config,
       html.includes('name="selection"'),
       html.includes('(2v3)'),
@@ -41,7 +42,8 @@ test('format browsing preserves native authoritative selection and unequal order
     expected: [
       true,
       7,
-      unequalTemplate.defaultConfig,
+      unequalTemplate.preset.version,
+      undefined,
       true,
       true,
       true,
@@ -76,8 +78,8 @@ test('a retained refused selection previews its own exact defaults rather than t
     kind: 'catalog',
     formatId: alternative.formatId,
     formatVersion: alternative.formatVersion,
+    presetVersion: alternative.preset.version,
     competitionType: 'casual',
-    config: alternative.defaultConfig,
   });
   const html = renderToStaticMarkup(
     <FormatTemplatePicker
@@ -130,5 +132,37 @@ test('the changing selected preview is hidden before hydration', () => {
       '<div hidden="" aria-label="Selected format preview">',
     ),
     expected: true,
+  });
+});
+
+test('a new room starts on Value, with standards before league rules (FMT-3)', () => {
+  const standard = (formatId: string, label: string, sortOrder: number) => ({
+    ...unequalTemplate,
+    formatId,
+    label,
+    role: 'standard' as const,
+    family: null,
+    sortOrder,
+  });
+  const html = renderToStaticMarkup(
+    <FormatTemplatePicker
+      choices={[
+        unequalTemplate,
+        standard('value', 'Value', 2),
+        standard('policy', 'Policy', 1),
+      ]}
+    />,
+  );
+  const selected = html.match(/<option[^>]*selected=""[^>]*>/)?.[0];
+  assert({
+    given: 'a catalog with Policy, Value and a league template',
+    should: 'select Value and group Daisy standards ahead of the league rules',
+    actual: [
+      selected?.includes('&quot;formatId&quot;:&quot;value&quot;'),
+      html.indexOf('label="Daisy standards"') <
+        html.indexOf('label="League rules · Other formats"'),
+      html.indexOf('Policy (') < html.indexOf('Value ('),
+    ],
+    expected: [true, true, true],
   });
 });

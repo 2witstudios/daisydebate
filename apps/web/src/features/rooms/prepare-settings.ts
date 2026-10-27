@@ -7,6 +7,7 @@ import {
 } from '@daisy/protocol';
 
 import { readDuration } from './duration-input';
+import { drawFieldNames, drawSettings } from './prepare-draw-settings';
 import { yieldChoices } from './yield-choice';
 
 type Prepared =
@@ -34,6 +35,7 @@ function allowedFields(view: RoomView) {
       ? ['interruptionsMode', ...durationFields('minRemaining')]
       : []),
     ...(capability.interaction.yield ? ['yield'] : []),
+    ...(capability.resolutionDraw ? drawFieldNames : []),
   ]);
 }
 function configFields(view: RoomView, form: FormData) {
@@ -43,6 +45,7 @@ function configFields(view: RoomView, form: FormData) {
       form.get('preRoundPrep') === 'on'
         ? { enabled: true, durationMs: readDuration(form, 'preRound') }
         : { enabled: false },
+    resolutionDraw: drawSettings(view, form).resolutionDraw,
     inRoundPrep:
       form.get('inRoundPrep') === 'on'
         ? { enabled: true, budgetMsPerSide: readDuration(form, 'budget') }
@@ -94,11 +97,13 @@ export function prepareSettings(view: RoomView, form: FormData): Prepared {
     !resolveRoomConfiguration(view.definition, config.data).ok
   )
     return { kind: 'invalid' };
+  const { topic } = drawSettings(view, form);
   const command = roomCommandSchema.safeParse({
     type: 'update-config',
     expectedVersion: Number(form.get('expectedVersion')),
     commandId: form.get('commandId'),
     config: config.data,
+    ...(topic === undefined ? {} : { topic }),
   });
   return command.success
     ? { kind: 'prepared', command: command.data }

@@ -13,7 +13,7 @@ type MaintenancePorts<Handle> = {
   ) => Promise<{ readonly decision: string } | null>;
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
-  readonly expireIdleRooms: () => Promise<unknown>;
+  readonly maintainRooms: () => Promise<unknown>;
   readonly timers: {
     readonly setInterval: (pulse: () => void, ms: number) => Handle;
     readonly clearInterval: (handle: Handle) => void;
@@ -107,7 +107,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
     if (stopped || expiring) return;
     expiring = true;
     try {
-      await input.expireIdleRooms();
+      await input.maintainRooms();
     } catch (error) {
       input.failed(error, 'expire');
     } finally {

@@ -9,12 +9,13 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  ISSUES_LIST_ID,
   appendRelated,
   bucketPageIds,
   checkReplace,
   contentHash,
+  findBucket,
   findTask,
-  ISSUES_LIST_ID,
   leafBody,
   nextCodeNumber,
   parseBoardArgs,
@@ -68,7 +69,7 @@ function assertUnchanged(deps: BoardDeps, pageId: string, read: string) {
 }
 
 /** Replaces the whole page, refusing if it changed since it was read. */
-function writePage(
+export function writePage(
   deps: BoardDeps,
   pageId: string,
   before: string,
@@ -137,12 +138,20 @@ function create(
       'list',
       listId,
     ]).tasks;
-  // Issue numbers are global across the Issues buckets, wherever this lands.
-  const numbered = (): { title: string }[] => {
-    if (command.prefix !== 'ISSUE') return listTitles(command.listId);
-    const root = listTitles(ISSUES_LIST_ID);
-    return [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)];
-  };
+  // One read of Issues serves both the bucket and the global issue numbers.
+  const root = command.prefix === 'ISSUE' ? listTitles(ISSUES_LIST_ID) : [];
+  const bucket =
+    'bucket' in command.into
+      ? findBucket(root, command.into.bucket)
+      : undefined;
+  if (bucket && 'error' in bucket) throw new BoardError(bucket.error);
+  const listId =
+    'listId' in command.into ? command.into.listId : bucket?.pageId;
+  if (!listId) throw new BoardError('create needs a task list');
+  const numbered = (): { title: string }[] =>
+    command.prefix === 'ISSUE'
+      ? [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)]
+      : listTitles(listId);
   const titles = command.prefix ? numbered().map((task) => task.title) : [];
   const title = command.prefix
     ? `${command.prefix}-${nextCodeNumber(titles, command.prefix)} — ${command.title}`
@@ -150,7 +159,7 @@ function create(
   const created = json<{ pageId?: string; page?: { id: string } }>(deps, [
     'tasks',
     'create',
-    command.listId,
+    listId,
     '--title',
     title,
   ]);
@@ -224,28 +233,28 @@ export function runBoard(deps: BoardDeps, argv: readonly string[]): number {
   }
 }
 
-if (import.meta.main) {
+/** The pagespace CLI, the filesystem and stdout, for the board commands and their callers. */
+export function liveBoardDeps(): BoardDeps {
   const branch =
     Bun.spawnSync(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
       .stdout.toString()
       .trim()
       .replaceAll('/', '-') || 'detached';
-  process.exitCode = runBoard(
-    {
-      pagespace: (args) => {
-        const result = Bun.spawnSync(['pagespace', ...args], {
-          stdout: 'pipe',
-          stderr: 'inherit',
-        });
-        return { code: result.exitCode, stdout: result.stdout.toString() };
-      },
-      readFile: (path) => readFileSync(path, 'utf8'),
-      // A registered agent is an agent, as in the guard.
-      autonomous: sessionIsAgent(process.env),
-      scratch: (name) =>
-        join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
-      out: (text) => process.stdout.write(text),
+  return {
+    pagespace: (args) => {
+      const result = Bun.spawnSync(['pagespace', ...args], {
+        stdout: 'pipe',
+        stderr: 'inherit',
+      });
+      return { code: result.exitCode, stdout: result.stdout.toString() };
     },
-    process.argv.slice(2),
-  );
+    readFile: (path) => readFileSync(path, 'utf8'),
+    // A registered agent is an agent, as in the guard.
+    autonomous: sessionIsAgent(process.env),
+    scratch: (name) => join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
+    out: (text) => process.stdout.write(text),
+  };
 }
+
+if (import.meta.main)
+  process.exitCode = runBoard(liveBoardDeps(), process.argv.slice(2));

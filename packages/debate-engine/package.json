@@ -14,7 +14,8 @@
   "dependencies": {
     "@adobe/data": "0.10.19",
     "@daisy/errors": "workspace:*",
-    "@daisy/protocol": "workspace:*"
+    "@daisy/protocol": "workspace:*",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "riteway": "9.3.0"

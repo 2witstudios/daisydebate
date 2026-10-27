@@ -5,8 +5,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { currentFormatRevisions } from './format-operations';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -30,6 +29,7 @@ import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
 import { formats } from './schema/formats';
+import { formatRevisions } from './schema/format-revisions';
 
 import { formatPresets } from './schema/format-presets';
 
@@ -42,10 +42,11 @@ import {
   sharedAccount,
   requireAccount,
   actorFact,
-  roomState,
+  roomFacts,
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
+import { roundResolutionAudit } from './room-draw-persistence';
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -101,6 +102,7 @@ export async function launchedRoundRows(
           ),
         ),
     ),
+    resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),
   };
@@ -129,6 +131,12 @@ export const roomReadOperations = ({
       }),
     );
   },
+  /**
+   * The picker's catalog (FMT-1): every format with a catalog role, at its
+   * current revision and canonical (current) preset. A listed format with
+   * no current preset is corruption the publication trigger forbids, so the
+   * read refuses rather than inventing a config.
+   */
   async listRoomCatalogSources(
     caller: Caller,
     authorize: (account: Account) => boolean,
@@ -136,19 +144,50 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'listRoomCatalogSources', () =>
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
-        const rows = await currentFormatRevisions(tx).where(
-          isNull(formats.createdByActorId),
-        );
+        const rows = await tx
+          .select({
+            id: formats.id,
+            name: formats.name,
+            version: formats.currentVersion,
+            role: formats.catalogRole,
+            family: formats.family,
+            leagues: formats.leagues,
+            searchTerms: formats.searchTerms,
+            sortOrder: formats.sortOrder,
+            definition: formatRevisions.definition,
+            rulesEdition: formatRevisions.rulesEdition,
+            sourceUrl: formatRevisions.sourceUrl,
+          })
+          .from(formats)
+          .innerJoin(
+            formatRevisions,
+            and(
+              eq(formatRevisions.formatId, formats.id),
+              eq(formatRevisions.version, formats.currentVersion),
+            ),
+          )
+          .where(isNotNull(formats.catalogRole))
+          .orderBy(asc(formats.sortOrder), asc(formats.id));
         const presets = await tx
-          .select()
+          .select({
+            formatId: formatPresets.formatId,
+            version: formatPresets.version,
+            formatVersion: formatPresets.formatVersion,
+            config: formatPresets.config,
+          })
           .from(formatPresets)
           .where(isNull(formatPresets.supersededAt));
-        return rows.map((row) => ({
-          ...row,
-          presets: presets.filter(
+        return rows.map(({ role, ...row }) => {
+          const preset = presets.find(
             (p) => p.formatId === row.id && p.formatVersion === row.version,
-          ),
-        }));
+          );
+          if (!role || !preset)
+            throw createAppError(
+              'INVARIANT',
+              `Catalog format ${row.id} has no current preset`,
+            );
+          return { ...row, role, preset };
+        });
       }),
     );
   },
@@ -157,6 +196,17 @@ export const roomReadOperations = ({
     caller: Caller,
     authorize: AuthorizeRoom,
   ): Promise<RoomAssemblyState> {
+    return (await this.readRoomAssemblyFacts(roomId, caller, authorize)).state;
+  },
+  /** The Room and its draw seed in one read; the seed settles projections and never leaves the server. */
+  async readRoomAssemblyFacts(
+    roomId: string,
+    caller: Caller,
+    authorize: AuthorizeRoom,
+  ): Promise<{
+    readonly state: RoomAssemblyState;
+    readonly drawSeed: string | null;
+  }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
@@ -166,9 +216,9 @@ export const roomReadOperations = ({
           .where(eq(rooms.id, roomId))
           .for('share');
         if (!row) throw createAppError('NOT_FOUND');
-        const state = await roomState(tx, row);
-        if (!authorize(state, account)) throw createAppError('NOT_FOUND');
-        return state;
+        const facts = await roomFacts(tx, row);
+        if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
+        return facts;
       }),
     );
   },

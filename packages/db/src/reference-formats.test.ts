@@ -13,24 +13,49 @@ import {
 
 setupRitewayBun();
 
+import {
+  canonicalPresets,
+  committedMigrationSql,
+  seededFormats,
+  seededPresets,
+} from './migrations.test-support';
+
+setupRitewayBun();
+
+/** Definitions as migrated, with whole-table JSON backfills applied in order. */
+const migratedDefinitions = (sql: string) => {
+  // Whole-table JSON backfills apply to every row written before them.
+  const definitionBackfill = sql.indexOf(
+    `UPDATE "format_revisions" SET "definition" = jsonb_set("definition", '{configurable,resolutionDraw}', 'null'::jsonb);`,
+  );
+  const presetBackfill = sql.indexOf(
+    `UPDATE "format_presets" SET "config" = "config" || '{"resolutionDraw":{"enabled":false}}'::jsonb;`,
+  );
+  const before = (backfill: number, at: number | undefined) =>
+    backfill >= 0 && (at ?? 0) < backfill;
+  const definitions = new Map<string, unknown>();
+  for (const match of sql.matchAll(
+    /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
+  )) {
+    const [, formatId, version, raw] = match;
+    const definition = JSON.parse(raw!) as FormatDefinition;
+    definitions.set(
+      `${formatId}@${version}`,
+      before(definitionBackfill, match.index)
+        ? {
+            ...definition,
+            configurable: { ...definition.configurable, resolutionDraw: null },
+          }
+        : definition,
+    );
+  }
+  return { definitions, presetBackfill, before };
+};
+
 /** Every reference row the committed migrations write, parsed in folder order. */
 const migrated = async () => {
-  const directory = new URL('../migrations/', import.meta.url).pathname;
-  const folders = [...new Bun.Glob('*/migration.sql').scanSync(directory)]
-    .map((path) => path.split('/')[0]!)
-    .sort();
-  const sql = (
-    await Promise.all(
-      folders.map((folder) =>
-        Bun.file(`${directory}${folder}/migration.sql`).text(),
-      ),
-    )
-  ).join('\n');
-  const definitions = new Map<string, unknown>();
-  for (const [, formatId, version, definition] of sql.matchAll(
-    /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
-  ))
-    definitions.set(`${formatId}@${version}`, JSON.parse(definition!));
+  const sql = await committedMigrationSql();
+  const { definitions, presetBackfill, before } = migratedDefinitions(sql);
   const formats = new Map<string, { name: string; currentVersion: number }>();
   for (const [, id, name, version] of sql.matchAll(
     /'([a-z0-9-]+)', '([^']+)', (\d+), statement_timestamp\(\)/g,
@@ -51,23 +76,21 @@ const migrated = async () => {
     formatVersion: number;
     config: unknown;
   }[] = [];
-  for (const [
-    ,
-    formatId,
-    length,
-    version,
-    formatVersion,
-    config,
-  ] of sql.matchAll(
+  for (const match of sql.matchAll(
     /'([a-z0-9-]+)', (?:'(full|quick)', )?(\d+), (\d+), '(\{.*?\})'::jsonb/g,
-  ))
+  )) {
+    const [, formatId, length, version, formatVersion, config] = match;
+    const parsed = JSON.parse(config ?? '') as Record<string, unknown>;
     approved.push({
       formatId: formatId!,
       length,
       version: Number(version),
       formatVersion: Number(formatVersion),
-      config: JSON.parse(config ?? ''),
+      config: before(presetBackfill, match.index)
+        ? { ...parsed, resolutionDraw: { enabled: false } }
+        : parsed,
     });
+  }
   const quickDeleted = sql.includes(
     `DELETE FROM "format_presets" WHERE "length" = 'quick';`,
   );
@@ -106,24 +129,25 @@ describe('reference data', () => {
   test('formats and every definition revision mirror exactly the rows the migrations write', async () => {
     const rows = await migrated();
     assert({
-      given: 'the TypeScript reference formats and the committed migrations',
+      given:
+        'the TypeScript reference and catalog formats and the committed migrations',
       should:
         'name the same formats, every immutable revision and the current pointer',
       actual: {
-        formats: referenceFormats.map(({ id }) => ({
+        formats: seededFormats.map(({ id }) => ({
           id,
           ...rows.formats.get(id),
         })),
         definitions: Object.fromEntries(rows.definitions),
       },
       expected: {
-        formats: referenceFormats.map(({ id, name, revisions }) => ({
+        formats: seededFormats.map(({ id, name, revisions }) => ({
           id,
           name,
           currentVersion: revisions.length,
         })),
         definitions: Object.fromEntries(
-          referenceFormats.flatMap(({ id, revisions }) =>
+          seededFormats.flatMap(({ id, revisions }) =>
             revisions.map((definition, index) => [
               `${id}@${index + 1}`,
               definition,
@@ -141,29 +165,20 @@ describe('reference data', () => {
       should:
         'approve the same full-length revisions, superseding all but the newest per format, and keep no quick preset (DEC-237)',
       actual: {
-        approved: rows.presets,
-        current: rows.presets.filter(
-          ({ formatId, version }) =>
-            !rows.superseded.has(`${formatId}@${version}`),
+        approved: canonicalPresets(rows.presets),
+        current: canonicalPresets(
+          rows.presets.filter(
+            ({ formatId, version }) =>
+              !rows.superseded.has(`${formatId}@${version}`),
+          ),
         ),
       },
       expected: {
-        approved: referencePresets.map(
-          ({ formatId, version, formatVersion, config }) => ({
-            formatId,
-            version,
-            formatVersion,
-            config,
-          }),
-        ),
-        current: currentReferencePresets().map(
-          ({ formatId, version, formatVersion, config }) => ({
-            formatId,
-            version,
-            formatVersion,
-            config,
-          }),
-        ),
+        approved: canonicalPresets(seededPresets),
+        current: canonicalPresets([
+          ...currentReferencePresets(),
+          ...seededPresets.slice(referencePresets.length),
+        ]),
       },
     });
   });

@@ -1,0 +1,198 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  drawCapableBounds,
+  oneOnOneFormatFixture,
+  plainRoomConfig,
+} from './format-fixtures.test-support';
+import { formatDefinitionSchema } from './format';
+import { roomResolutionDrawSchema } from './resolution-draw';
+import {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  roomConfigSchema,
+} from './room';
+
+setupRitewayBun();
+
+const hostDraw = (resolutions: string[]) => ({
+  enabled: true as const,
+  drawSize: 3,
+  strikeWindowMs: 60_000,
+  firstStriker: 'negative' as const,
+  source: { kind: 'host' as const, resolutions },
+});
+
+test('a host list must be unique ignoring case', () => {
+  assert({
+    given: 'three distinct lines, then two that differ only in case',
+    should: 'accept the first and refuse the second',
+    actual: [
+      roomResolutionDrawSchema.safeParse(hostDraw(['One', 'Two', 'Three']))
+        .success,
+      roomResolutionDrawSchema.safeParse(hostDraw(['One', 'ONE', 'Three']))
+        .success,
+    ],
+    expected: [true, false],
+  });
+});
+
+test('a bank names each category once and a host list covers the draw', () => {
+  const bank = (categories: ('policy' | 'value' | 'fact')[]) => ({
+    ...hostDraw([]),
+    source: { kind: 'bank' as const, categories },
+  });
+  assert({
+    given:
+      'distinct and repeated bank categories, then a two-line host list drawing three',
+    should: 'accept only the distinct categories',
+    actual: [
+      roomResolutionDrawSchema.safeParse(bank(['policy', 'value'])).success,
+      roomResolutionDrawSchema.safeParse(bank(['value', 'value'])).success,
+      roomResolutionDrawSchema.safeParse(hostDraw(['One', 'Two'])).success,
+    ],
+    expected: [true, false, false],
+  });
+});
+
+test('freezing keeps a host list private as its count', () => {
+  const draw = hostDraw(['One', 'Two', 'Three']);
+  const bank = {
+    ...draw,
+    source: { kind: 'bank' as const, categories: ['value' as const] },
+  };
+  assert({
+    given: 'a host-list config and plan, a bank config and a declined draw',
+    should:
+      'replace the host lines with their count and leave the others unchanged',
+    actual: [
+      freezeRoomConfig({ ...plainRoomConfig, resolutionDraw: draw })
+        .resolutionDraw,
+      freezeRoomExecutionPlan({
+        preRoundPrep: { enabled: false },
+        resolutionDraw: draw,
+      }).resolutionDraw,
+      freezeRoomConfig({ ...plainRoomConfig, resolutionDraw: bank })
+        .resolutionDraw,
+      freezeRoomConfig(plainRoomConfig).resolutionDraw,
+    ],
+    expected: [
+      { ...draw, source: { kind: 'host', count: 3 } },
+      { ...draw, source: { kind: 'host', count: 3 } },
+      bank,
+      { enabled: false },
+    ],
+  });
+});
+
+test('a draw-capable format holds 2 to 20 resolutions', () => {
+  const withSize = (min: number, max: number) =>
+    formatDefinitionSchema.safeParse({
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        resolutionDraw: { ...drawCapableBounds, drawSize: { min, max } },
+      },
+    }).success;
+  assert({
+    given: 'draw-size bounds of 3–7, 1–7 and 3–21',
+    should: 'accept only the bounds inside 2–20',
+    actual: [withSize(3, 7), withSize(1, 7), withSize(3, 21)],
+    expected: [true, false, false],
+  });
+});
+
+test('a strike window and the draw options stay small (PR #472 review)', () => {
+  const withDraw = (
+    resolutionDraw: NonNullable<
+      typeof oneOnOneFormatFixture.configurable.resolutionDraw
+    >,
+  ) => ({
+    ...oneOnOneFormatFixture,
+    configurable: { ...oneOnOneFormatFixture.configurable, resolutionDraw },
+  });
+  const defines = (draw: Parameters<typeof withDraw>[0]) =>
+    formatDefinitionSchema.safeParse(withDraw(draw)).success;
+  assert({
+    given:
+      'a ten-minute window, one past it, a definition allowing one past it, and repeated strikers or sources',
+    should:
+      'accept ten minutes and refuse anything that could overflow a due instant or bloat every view',
+    actual: [
+      roomResolutionDrawSchema.safeParse({
+        ...hostDraw(['One', 'Two', 'Three']),
+        strikeWindowMs: 600_000,
+      }).success,
+      roomResolutionDrawSchema.safeParse({
+        ...hostDraw(['One', 'Two', 'Three']),
+        strikeWindowMs: 600_001,
+      }).success,
+      defines({
+        ...drawCapableBounds,
+        strikeWindowMs: { min: 15_000, max: 600_001 },
+      }),
+      defines({
+        ...drawCapableBounds,
+        firstStrikers: ['negative', 'negative'],
+      }),
+      defines({ ...drawCapableBounds, sources: ['bank', 'bank'] }),
+      defines(drawCapableBounds),
+    ],
+    expected: [true, false, false, false, false, true],
+  });
+});
+
+test('a strike window has a floor and pre-round prep a ceiling (PR #472 review)', () => {
+  const draw = (strikeWindowMs: number) =>
+    roomResolutionDrawSchema.safeParse({
+      ...hostDraw(['One', 'Two', 'Three']),
+      strikeWindowMs,
+    }).success;
+  const withDraw = (strikeWindowMs: { min: number; max: number }) =>
+    formatDefinitionSchema.safeParse({
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        resolutionDraw: { ...drawCapableBounds, strikeWindowMs },
+      },
+    }).success;
+  const prep = (durationMs: number) =>
+    roomConfigSchema.safeParse({
+      ...plainRoomConfig,
+      preRoundPrep: { enabled: true, durationMs },
+    }).success;
+  assert({
+    given:
+      'windows of 10 s and 1 ms, a definition allowing 1 ms, and two and three hours of pre-round prep',
+    should:
+      'accept 10 s and two hours, and refuse a window no human could use and prep past the ceiling',
+    actual: [
+      draw(10_000),
+      draw(1),
+      withDraw({ min: 1, max: 60_000 }),
+      prep(7_200_000),
+      prep(10_800_000),
+    ],
+    expected: [true, false, false, true, false],
+  });
+});
+
+test('a format may allow at most two hours of prep before the round (PR #472 delta review)', () => {
+  const allows = (max: number) => {
+    const parsed = formatDefinitionSchema.safeParse({
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        preRoundPrep: { durationMs: { min: 0, max } },
+      },
+    });
+    return parsed.success
+      ? 'accepted'
+      : parsed.error.issues.map((issue) => issue.path.join('.'));
+  };
+  assert({
+    given: 'a definition allowing exactly two hours, and one ms more',
+    should: 'accept the ceiling and refuse past it at the prep bound',
+    actual: [allows(7_200_000), allows(7_200_001)],
+    expected: ['accepted', ['configurable.preRoundPrep.durationMs']],
+  });
+});

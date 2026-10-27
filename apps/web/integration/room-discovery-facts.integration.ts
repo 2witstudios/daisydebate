@@ -39,7 +39,7 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
       given:
         'an open casual Room and a launched one sharing a title, listed with and without filters',
       should:
-        'narrow by status and mode at the source and report seat counts, the format name, waiting and live facts',
+        'narrow by status and mode at the source and report seat counts, the format name (a proof room is a custom format), waiting and live facts',
       actual: {
         live: (await list({ status: 'live' })).rooms.map((room) => room.id),
         open: (await list({ status: 'open' })).rooms.map((room) => room.id),
@@ -54,7 +54,7 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
         starting: 0,
         ranked: 0,
         openFacts: {
-          formatLabel: 'Foundation (architectural proof)',
+          formatLabel: 'Custom format',
           seats: [0, seatCount],
           waiting: 'since',
           stage: 'not live',
@@ -62,7 +62,7 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
           hostRating: null,
         },
         launchedFacts: {
-          formatLabel: 'Foundation (architectural proof)',
+          formatLabel: 'Custom format',
           seats: [2, seatCount],
           waiting: null,
           stage: null,

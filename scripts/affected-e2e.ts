@@ -52,6 +52,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'round-clock-csp.e2e.ts': round,
   'stall-evidence.e2e.ts': round,
   'room-launch.e2e.ts': room,
+  'resolution-strike.e2e.ts': [...room, ...round],
   'ballot.e2e.ts': round,
   'round-journeys.e2e.ts': round,
   'attendance.e2e.ts': round,
@@ -67,6 +68,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
 const native = new Set(
   [
     'room-launch',
+    'resolution-strike',
     'ballot',
     'round-journeys',
     'attendance',
@@ -88,7 +90,6 @@ const nonNative = [
   'docs/',
   '.claude/',
   '.opencode/',
-  'policy/agent-pipeline/',
   'apps/admin/',
   ...theme,
   'apps/web/src/ui/dashboard/',

@@ -69,7 +69,7 @@ Post {
    ### Verdict — the next line, exactly: `<n> blocker / <n> major / <n> minor / <n> nit — <APPROVE | APPROVE WITH MINORS | CHANGES REQUESTED>`
    Approve only with zero blockers and zero majors. The merge automation reads this exact line (Daisy: a merge moves the PR's tasks to Done only when the latest verdict approves).
 2. Post it: `gh pr comment <n> --body-file <file>`. Put a finding tied to one line in an inline review comment as well, so it gets its own thread.
-3. Findings outside the slice: file each as an `ISSUE-n` in the drive's Issues list naming the PR as origin, and put the issue link in the finding.
+3. Findings outside the slice: file each as an `ISSUE-n` in one of the drive's Issues buckets (`bun board:create --issue --bucket <name>`) naming the PR as origin, and put the issue link in the finding.
 4. Reply in chat with a pointer, not the review: verdict, counts and the comment URL. If you were spawned as a reviewer, you are done; the builder kills you.
    }
 

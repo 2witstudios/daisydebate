@@ -252,7 +252,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     let room = await createFromPlay(
       aff!,
       `ROOM-6.2 ${createId().slice(0, 8)}`,
-      'one-on-one',
+      'value',
     );
     room = await skipPreRoundPrep(aff!, room);
     room = await assemble(players, room);
@@ -313,7 +313,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     let next = await submitCreateRoom(
       host,
       `ROOM-6.2 next ${createId().slice(0, 8)}`,
-      'one-on-one',
+      'value',
     );
     expect(next.id).not.toBe(room.id);
     expect([next.participants.length, next.readiness.readyActorIds]).toEqual([
