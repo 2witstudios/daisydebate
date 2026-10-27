@@ -9,6 +9,7 @@ import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 import { secret, secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
 import { operatorFields, refineOperatorConfig } from './operator-config';
+import { trustedProxyList } from './trusted-proxies';
 export {
   readMediaWorkerConfig,
   type MediaWorkerConfig,
@@ -30,8 +31,10 @@ export {
   testRedisRefusal,
 } from './test-redis';
 
-/** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
-export const TRUSTED_PROXY_GATEWAY = 'gateway';
+export {
+  readTrustedProxyConfig,
+  TRUSTED_PROXY_GATEWAY,
+} from './trusted-proxies';
 
 const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
   if (!url.startsWith('https:'))
@@ -184,44 +187,6 @@ export function readRealtimeConfig(
     );
   return result.data;
 }
-// IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
-// written in hex (only zero groups, then ffff, then exactly two groups).
-const embedsIpv4 = (value: string) =>
-  value.includes('.') ||
-  /^[0:]*:ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(value.split('/')[0] ?? '');
-// The accepted set must stay a subset of what Better Auth acts on: it drops
-// an entry it cannot parse with only a warning, quietly untrusting a real
-// proxy. It reduces IPv4-mapped IPv6 to four bytes and caps that prefix at
-// 32, so mapped ranges are refused outright; operators write the IPv4 form.
-// Stricter than Better Auth on purpose (no leading-zero prefixes either).
-// The literal keyword instead trusts this machine's single default gateway,
-// resolved once at the server edge through @daisy/ingress/trusted-proxies:
-// on Fly that is the one address fly-proxy connects from (ISSUE-162).
-const proxyAddress = z.union([
-  z.ipv4(),
-  z.cidrv4(),
-  z.union([z.ipv6(), z.cidrv6()]).refine((value) => !embedsIpv4(value)),
-  z.literal(TRUSTED_PROXY_GATEWAY),
-]);
-/** Optional comma-separated list: absent or blank means an empty list. */
-const commaList = (entry: z.ZodType<string, string>) =>
-  z
-    .string()
-    .default('')
-    .transform((value) =>
-      value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
-    )
-    .pipe(z.array(entry));
-
-/** Shared ingress configuration, independent of authentication activation. */
-export function readTrustedProxyConfig(
-  env: Readonly<Record<string, string | undefined>>,
-): readonly string[] {
-  const parsed = commaList(proxyAddress).safeParse(env.AUTH_TRUSTED_PROXIES);
-  if (!parsed.success)
-    throw new Error('Invalid ingress configuration: AUTH_TRUSTED_PROXIES');
-  return parsed.data;
-}
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
@@ -260,7 +225,7 @@ const authFields = {
     z.string().regex(/^whsec_[A-Za-z0-9+/=]{16,}$/),
   ).optional(),
   /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
-  AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
+  AUTH_TRUSTED_PROXIES: trustedProxyList,
   /**
    * Bearer credential for the read-only `/api/ops/alerts` and
    * `/api/ops/metrics` probes (AUTH-7.7); required in production so the
