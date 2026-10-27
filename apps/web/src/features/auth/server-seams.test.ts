@@ -9,7 +9,7 @@ import {
   memoryTables,
   requestLinkStatus,
 } from './auth-server.test-support';
-import type { AuthEmailMessage } from './server';
+import type { EmailMessage } from './server';
 
 setupRitewayBun();
 
@@ -27,7 +27,7 @@ const compose = (overrides: {
   limiter?: AuthRateLimiter;
   deliveryFailure?: Error;
 }) => {
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   const logged: Entry[] = [];
   const tables = memoryTables();
   const server = composeAuthServer({
@@ -208,7 +208,7 @@ describe('auth server injected seams', () => {
         events: logged.map(([event]) => event),
         leaks: logsLeakSecrets(logged, [email, token, 'AB12CD', 'resend']),
       },
-      expected: { events: ['auth.mail.failed'], leaks: false },
+      expected: { events: ['mail.failed'], leaks: false },
     });
   });
 
@@ -217,13 +217,14 @@ describe('auth server injected seams', () => {
     await requestLink();
     assert({
       given: 'a delivered magic-link email',
-      should: 'log one delivery event carrying only the operation name',
+      should:
+        'log one delivery event carrying only the operation name and its purpose',
       actual: {
         events: logged.map(([event, fields]) => [event, fields]),
         leaks: logsLeakSecrets(logged, [email]),
       },
       expected: {
-        events: [['auth.mail.sent', { operation: 'auth.mail.send' }]],
+        events: [['mail.sent', { operation: 'mail.send', purpose: 'auth' }]],
         leaks: false,
       },
     });

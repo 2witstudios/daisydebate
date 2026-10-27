@@ -25,7 +25,7 @@ export function startBetaMail(input: {
     run: (limit) =>
       createMailIntentDelivery({
         store: app.database,
-        deliver: (message) => app.deliverMail()(message),
+        deliver: (message) => app.deliverMail('beta-access')(message),
         ownerAddress: app.config.BETA_NOTIFY_EMAIL,
         appUrl: app.config.PUBLIC_APP_URL,
         nextToken: nextWorkerToken,

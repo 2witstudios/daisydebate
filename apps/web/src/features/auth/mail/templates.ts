@@ -1,4 +1,4 @@
-import { renderAuthEmailLayout } from './layout';
+import { renderEmailLayout } from '../../mail/layout';
 
 /**
  * Public template API (AUTH-3.9): stage 5 produces every authentication
@@ -30,7 +30,7 @@ const FOOTER_NOTE =
  * (rule: subject lines must not leak account state).
  */
 function signIn(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'Sign in to Daisy Debate',
     preheader: 'Open this link to sign in. It expires in 5 minutes.',
     eyebrow: 'Sign in',
@@ -46,7 +46,7 @@ function signIn(url: string): RenderedAuthEmail {
 }
 
 function passkeyAdded(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'A passkey was added to your Daisy Debate account',
     preheader: 'A new passkey can now sign in to your Daisy Debate account.',
     eyebrow: 'Security update',
@@ -62,7 +62,7 @@ function passkeyAdded(url: string): RenderedAuthEmail {
 }
 
 function passkeyRemoved(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'A passkey was removed from your Daisy Debate account',
     preheader: 'A passkey can no longer sign in to your Daisy Debate account.',
     eyebrow: 'Security update',
@@ -78,7 +78,7 @@ function passkeyRemoved(url: string): RenderedAuthEmail {
 }
 
 function emailChangeNotice(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'Approve email change on Daisy Debate',
     preheader:
       'Open this link only if you asked to change your Daisy Debate email.',
@@ -95,7 +95,7 @@ function emailChangeNotice(url: string): RenderedAuthEmail {
 }
 
 function emailChangeConfirm(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'Confirm your new Daisy Debate email',
     preheader:
       'Open this link to confirm your new email. It expires in 5 minutes.',
@@ -119,7 +119,7 @@ function emailChangeConfirm(url: string): RenderedAuthEmail {
  * security settings.
  */
 function emailChangeTaken(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
+  return renderEmailLayout({
     subject: 'Someone tried to use your email on Daisy Debate',
     preheader: 'Your address stays with your account. Nothing changed.',
     eyebrow: 'Security update',

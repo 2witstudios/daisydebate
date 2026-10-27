@@ -7,11 +7,11 @@ import {
   composeAuthServer,
   memoryTables,
 } from './auth-server.test-support';
-import type { AuthEmailMessage } from './server';
+import type { EmailMessage } from './server';
 
 setupRitewayBun();
 
-const message: AuthEmailMessage = {
+const message: EmailMessage = {
   to: 'player@daisy.example.com',
   subject: 'Sign in to Daisy Debate',
   text: 'Open the link to continue.',

@@ -1,5 +1,5 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { AuthEmailMessage, AuthEmailSender } from './mail-types';
+import type { EmailMessage, EmailSender } from './types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
 
@@ -58,9 +58,9 @@ export function createResendSender({
   readonly fetch?: Fetch;
   readonly timeoutMs?: number;
   readonly elapsed?: () => number;
-}): AuthEmailSender {
+}): EmailSender {
   const attempt = async (
-    message: AuthEmailMessage,
+    message: EmailMessage,
     idempotencyKey: string,
     budgetMs: number,
   ) => {

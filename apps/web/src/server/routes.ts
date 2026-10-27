@@ -186,7 +186,7 @@ export function createRoutes(app: App) {
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
     mailWebhook: {
       POST: (request: Request) =>
-        handleOperation(logger, request, 'auth.mail.webhook', () =>
+        handleOperation(logger, request, 'mail.webhook', () =>
           app.mailWebhook().handle(request),
         ),
     },

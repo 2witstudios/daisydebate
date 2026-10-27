@@ -1,4 +1,4 @@
-import { AUTH_BRAND_PALETTE } from './brand-palette';
+import { EMAIL_BRAND_PALETTE } from './brand-palette';
 import { escapeHtml } from './escape';
 
 /**
@@ -6,7 +6,7 @@ import { escapeHtml } from './escape';
  * authenticating or destination link (AUTH-3.9). No other recipient data
  * belongs here.
  */
-export type AuthEmailContent = {
+export type EmailContent = {
   readonly subject: string;
   /** Hidden preview text (inbox list preview only; never rendered visibly). */
   readonly preheader: string;
@@ -28,22 +28,22 @@ const FONT_BODY =
 // (brand-palette.ts): email clients cannot read CSS custom properties in
 // inline styles, so these stay plain values here too.
 const LIGHT = {
-  background: AUTH_BRAND_PALETTE.light.background,
-  surface: AUTH_BRAND_PALETTE.light.surfaceRaised,
-  ink: AUTH_BRAND_PALETTE.light.ink,
-  inkMuted: AUTH_BRAND_PALETTE.light.inkMuted,
-  border: AUTH_BRAND_PALETTE.light.border,
-  accent: AUTH_BRAND_PALETTE.light.accentStrong,
-  accentInk: AUTH_BRAND_PALETTE.light.accentInk,
+  background: EMAIL_BRAND_PALETTE.light.background,
+  surface: EMAIL_BRAND_PALETTE.light.surfaceRaised,
+  ink: EMAIL_BRAND_PALETTE.light.ink,
+  inkMuted: EMAIL_BRAND_PALETTE.light.inkMuted,
+  border: EMAIL_BRAND_PALETTE.light.border,
+  accent: EMAIL_BRAND_PALETTE.light.accentStrong,
+  accentInk: EMAIL_BRAND_PALETTE.light.accentInk,
 };
 const DARK = {
-  background: AUTH_BRAND_PALETTE.dark.background,
-  surface: AUTH_BRAND_PALETTE.dark.surfaceRaised,
-  ink: AUTH_BRAND_PALETTE.dark.ink,
-  inkMuted: AUTH_BRAND_PALETTE.dark.inkMuted,
-  border: AUTH_BRAND_PALETTE.dark.border,
-  accent: AUTH_BRAND_PALETTE.dark.accent,
-  accentInk: AUTH_BRAND_PALETTE.dark.accentInk,
+  background: EMAIL_BRAND_PALETTE.dark.background,
+  surface: EMAIL_BRAND_PALETTE.dark.surfaceRaised,
+  ink: EMAIL_BRAND_PALETTE.dark.ink,
+  inkMuted: EMAIL_BRAND_PALETTE.dark.inkMuted,
+  border: EMAIL_BRAND_PALETTE.dark.border,
+  accent: EMAIL_BRAND_PALETTE.dark.accent,
+  accentInk: EMAIL_BRAND_PALETTE.dark.accentInk,
 };
 
 /** Zero-width joiners pad the hidden preheader so clients don't fall back to visible body text. */
@@ -66,7 +66,7 @@ function htmlParagraphs(paragraphs: readonly string[]): string {
  * (default) styles, which are explicit on every surface so no client
  * auto-inverts them (AUTH-3.9 AC2).
  */
-export function renderAuthEmailLayout(content: AuthEmailContent): {
+export function renderEmailLayout(content: EmailContent): {
   readonly subject: string;
   readonly text: string;
   readonly html: string;

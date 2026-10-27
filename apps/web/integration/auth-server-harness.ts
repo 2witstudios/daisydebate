@@ -7,7 +7,7 @@ import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import {
   createAuthServer,
-  type AuthEmailMessage,
+  type EmailMessage,
 } from '../src/features/auth/server';
 import type { CompleteEmailChange } from '../src/features/auth/email-change/email-change';
 import type { RevokeSessions } from '../src/features/auth/sessions/revoke-sessions';
@@ -29,7 +29,7 @@ const recordingLogger = (recordedLogs: RecordedLogs | undefined): Logger => ({
   child: () => recordingLogger(recordedLogs),
 });
 
-export type SentMessages = AuthEmailMessage[];
+export type SentMessages = EmailMessage[];
 
 /**
  * A Better Auth server over a given database adapter, for the suites that

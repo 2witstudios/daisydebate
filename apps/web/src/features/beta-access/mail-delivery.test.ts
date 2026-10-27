@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { AuthEmailMessage } from '../auth/mail/mail-types';
+import type { EmailMessage } from '../mail/types';
 import { createMailIntentDelivery } from './mail-delivery';
 import { MAIL_INTENT_MAX_ATTEMPTS } from './retry-policy';
 
@@ -17,10 +17,10 @@ type Settled = { id: string; token: string; outcome: unknown };
 const scripted = (input: {
   delivery: Delivery;
   attempts?: number;
-  deliver?: (message: AuthEmailMessage) => Promise<'sent' | 'suppressed'>;
+  deliver?: (message: EmailMessage) => Promise<'sent' | 'suppressed'>;
   ownerAddress?: string;
 }) => {
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   const settled: Settled[] = [];
   const delivery = createMailIntentDelivery({
     store: {

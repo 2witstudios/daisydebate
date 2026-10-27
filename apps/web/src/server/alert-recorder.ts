@@ -131,7 +131,7 @@ export function createAlertRecorder({
             ),
           );
           return;
-        case 'auth.mail.failed':
+        case 'mail.failed':
           swallow(
             redis.incrementWithExpiry(
               'alert-mail-consecutive-failures',
@@ -157,7 +157,7 @@ export function createAlertRecorder({
             ),
           );
           return;
-        case 'auth.mail.sent':
+        case 'mail.sent':
           swallow(redis.delete('alert-mail-consecutive-failures'));
           return;
         case 'retention.sweep.completed':

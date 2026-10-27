@@ -26,7 +26,7 @@ export type BrandPalette = {
   readonly noticeInk: string;
 };
 
-export const AUTH_BRAND_PALETTE: {
+export const EMAIL_BRAND_PALETTE: {
   readonly light: BrandPalette;
   readonly dark: BrandPalette;
 } = {

@@ -4,7 +4,7 @@ import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import type { CompleteEmailChange } from './email-change/email-change';
 import type { RevokeSessionUnlessAddressHeld } from './abuse/sign-in-address-guard';
-import { createAuthServer, type AuthEmailMessage } from './server';
+import { createAuthServer, type EmailMessage } from './server';
 
 /**
  * Shared fixtures for the auth suites: one env (the integration apps are
@@ -78,10 +78,10 @@ const memorySessionGuard =
 
 /** A mail seam that keeps every message it was asked to send. */
 export function capturingSender() {
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   return {
     sent,
-    send: async (input: AuthEmailMessage) => {
+    send: async (input: EmailMessage) => {
       sent.push(input);
     },
   };

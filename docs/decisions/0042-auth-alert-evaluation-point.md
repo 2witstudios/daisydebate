@@ -8,7 +8,7 @@ Redis state be validated, namespaced keys with expiry. Applies
 classification to every new field. Builds on
 [docs/operations/observability.md](../operations/observability.md)'s
 existing "alert on `auth.rate_limit.unavailable`, `auth.session.unavailable`
-and `auth.mail.failed`" line by shipping the mechanism that line only
+and `mail.failed`" line by shipping the mechanism that line only
 described as intent.
 
 ## Context
@@ -122,10 +122,10 @@ exactly one place.
   one web machine needs a shared store for this marker, chosen under a new
   ADR, before `limiter_unavailable` can be exact.
 
-- **Consecutive delivery-provider failures.** `auth.mail.failed` increments
+- **Consecutive delivery-provider failures.** `mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
-  `auth.mail.sent` deletes it. Fires at 3.
+  `mail.sent` deletes it. Fires at 3.
 - **Auth 5xx rate.** `http.ts` now logs `status` on `http.request.failed`
   too (previously only `http.request.completed` did, which undercounted
   thrown-error responses — the majority of real 5xx). The tap increments a

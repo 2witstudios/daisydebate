@@ -1,5 +1,5 @@
 import type { Logger } from '@daisy/logger';
-import { readBoundedBody } from '../bounded-body';
+import { readBoundedBody } from '../../../server/bounded-body';
 import { returnableDestination } from '../redirect';
 
 /** A sign-out form carries only `next`; anything larger is not one. */

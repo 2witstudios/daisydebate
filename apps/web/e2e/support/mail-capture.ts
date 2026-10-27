@@ -1,6 +1,6 @@
 import { RedisClient } from 'bun';
 import { systemId, type IdGenerator } from '@daisy/clock';
-import { resendRequest } from '../../src/features/auth/mail/resend-capture.test-support';
+import { resendRequest } from '../../src/features/mail/resend-capture.test-support';
 
 /**
  * A private mail sink for a production-mode local server: the real Resend

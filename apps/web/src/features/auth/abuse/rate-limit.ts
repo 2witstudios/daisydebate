@@ -3,7 +3,7 @@ import type { AuthConfig } from '@daisy/config';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import { recipientKey } from '../mail/recipient-key';
+import { recipientKey } from '../../mail/recipient-key';
 import {
   clientNetworks,
   type NetworkScope,

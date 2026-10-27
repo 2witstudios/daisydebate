@@ -71,7 +71,7 @@ describe('ISSUE-54 notifications honour suppression', () => {
       actual: {
         enrolled: verifyResponse.status,
         sent: mailsTo(email, before),
-        suppressedLogged: events.includes('auth.mail.suppressed'),
+        suppressedLogged: events.includes('mail.suppressed'),
         failureLogged: events.includes('auth.passkey.notification_failed'),
       },
       expected: {

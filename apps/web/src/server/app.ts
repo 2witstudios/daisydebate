@@ -18,14 +18,14 @@ import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
-import { createResendSender, type Fetch } from '../features/auth/mail/mail';
+import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createAuthRateLimiter } from '../features/auth/abuse/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
-import { createResendWebhook } from '../features/auth/mail/webhook';
-import { createSendMail } from '../features/auth/mail/send-mail';
-import { deriveRecipientSubkey } from '../features/auth/mail/recipient-key';
-import type { Deliver } from '../features/auth/mail/deliver-or-unavailable';
+import { createResendWebhook } from '../features/mail/webhook';
+import { createSendMail } from '../features/mail/send-mail';
+import { deriveRecipientSubkey } from '../features/mail/recipient-key';
+import type { Deliver, MailPurpose } from '../features/mail/types';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
@@ -113,7 +113,7 @@ export function createApp({
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;
   let mailWebhook: ReturnType<typeof createResendWebhook> | undefined;
-  let deliverMail: Deliver | undefined;
+  let mailTransport: ReturnType<typeof createSendMail> | undefined;
   /** Parsed once, on first use, and shared by auth and the webhook. */
   const readAuth = (): AuthConfig => (authConfig ??= readAuthConfig(env));
   const emailSender = (authConfig: AuthConfig) =>
@@ -186,11 +186,12 @@ export function createApp({
     },
     /**
      * The one suppression-honouring mail path (ISSUE-54) for mail outside a
-     * request: the durable mail intent worker (ADR 0075). Built on first use.
+     * request, such as the durable mail intent worker (ADR 0075), bound to
+     * its purpose. Built on first use.
      */
-    deliverMail: (): Deliver => {
+    deliverMail: (purpose: MailPurpose): Deliver => {
       const authConfig = readAuth();
-      return (deliverMail ??= createSendMail({
+      return (mailTransport ??= createSendMail({
         recipientSubkey: deriveRecipientSubkey(
           authConfig.RECIPIENT_HASH_SECRET,
         ),
@@ -198,7 +199,7 @@ export function createApp({
         emailSender: emailSender(authConfig),
         logger,
         clock,
-      }));
+      }))(purpose);
     },
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),

@@ -4,7 +4,7 @@ import {
   SIGN_IN_STORED_PURPOSE,
 } from '../confirmation/emailed-link-token';
 import { provisionalMailCleanup } from './provisional-mail';
-import { deriveRecipientSubkey, recipientKey } from './recipient-key';
+import { deriveRecipientSubkey, recipientKey } from '../../mail/recipient-key';
 
 setupRitewayBun();
 

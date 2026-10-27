@@ -7,8 +7,8 @@ import {
 } from '../auth-server.test-support';
 import { magicLinkRequest } from '../abuse/abuse.test-support';
 import { signedIn, newEmail } from './email-change.test-support';
-import { deriveRecipientSubkey, recipientKey } from '../mail/recipient-key';
-import type { AuthEmailMessage } from '../server';
+import { deriveRecipientSubkey, recipientKey } from '../../mail/recipient-key';
+import type { EmailMessage } from '../server';
 
 setupRitewayBun();
 
@@ -38,7 +38,7 @@ const PRE_ROTATION_SUPPRESSION_KEY = recipientKey(
  */
 const withSuppressedLedger = (config = readAuthConfig(authTestEnv)) => {
   const db = memoryTables();
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   const key = PRE_ROTATION_SUPPRESSION_KEY;
   const server = composeAuthServer(
     {

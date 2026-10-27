@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { AUTH_BRAND_PALETTE } from './brand-palette';
+import { EMAIL_BRAND_PALETTE } from '../../mail/brand-palette';
 import {
   inlineColoursWithoutDarkOverride,
   parseDarkRules,
@@ -88,7 +88,7 @@ describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)'
       given: 'the brand dot, whose light accent is set inline',
       should: 'resolve to the dark accent under prefers-color-scheme: dark',
       actual: dot && resolved(dot, 'background', 'dark', darkRules),
-      expected: AUTH_BRAND_PALETTE.dark.accent,
+      expected: EMAIL_BRAND_PALETTE.dark.accent,
     });
   });
 

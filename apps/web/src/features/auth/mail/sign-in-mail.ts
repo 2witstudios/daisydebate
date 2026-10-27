@@ -3,7 +3,8 @@ import { createAppError } from '@daisy/errors';
 import { buildConfirmLink } from '../confirmation/confirm-link';
 import { storedSignInIdentifier } from '../confirmation/emailed-link-token';
 import { renderAuthEmail } from './templates';
-import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
+import type { Deliver } from '../../mail/types';
+import { sendOrUnavailable } from './deliver-or-unavailable';
 import type { AfterResponse } from '../after-response';
 
 /**

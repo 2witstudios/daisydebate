@@ -70,11 +70,11 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     });
   });
 
-  test('increments consecutive mail failures on auth.mail.failed, resets on auth.mail.sent', () => {
+  test('increments consecutive mail failures on mail.failed, resets on mail.sent', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    recorder.observe('auth.mail.failed', {});
-    recorder.observe('auth.mail.sent', {});
+    recorder.observe('mail.failed', {});
+    recorder.observe('mail.sent', {});
     assert({
       given: 'a delivery failure followed by a successful send',
       should: 'increment the bounded counter then delete it',
@@ -231,7 +231,7 @@ describe('withAlertRecording (AUTH-7.7)', () => {
     const wrapped = withAlertRecording(baseLogger, {
       observe: (event, fields) => observed.push({ event, fields }),
     });
-    wrapped.log('auth.mail.failed', {}, 'msg');
+    wrapped.log('mail.failed', {}, 'msg');
     const child = wrapped.child({ requestId: 'r1' });
     child.log(
       'retention.sweep.completed',
@@ -246,8 +246,8 @@ describe('withAlertRecording (AUTH-7.7)', () => {
         loggedEvents: logged.map((entry) => entry.event),
       },
       expected: {
-        observedEvents: ['auth.mail.failed', 'retention.sweep.completed'],
-        loggedEvents: ['auth.mail.failed', 'retention.sweep.completed'],
+        observedEvents: ['mail.failed', 'retention.sweep.completed'],
+        loggedEvents: ['mail.failed', 'retention.sweep.completed'],
       },
     });
   });

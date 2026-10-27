@@ -1,12 +1,12 @@
-import { AUTH_BRAND_PALETTE } from '../mail/brand-palette';
+import { EMAIL_BRAND_PALETTE } from '../../mail/brand-palette';
 import { confirmPanelStyles } from './confirm-panel-style';
 
 /** Same-origin, fixed paths (AUTH-4.7): this route cannot see build hashes. */
 const FRAUNCES_PATH = '/fonts/fraunces-latin.woff2';
 const INSTRUMENT_SANS_PATH = '/fonts/instrument-sans-latin.woff2';
 
-const lightDark = (key: keyof typeof AUTH_BRAND_PALETTE.light) =>
-  `light-dark(${AUTH_BRAND_PALETTE.light[key]}, ${AUTH_BRAND_PALETTE.dark[key]})`;
+const lightDark = (key: keyof typeof EMAIL_BRAND_PALETTE.light) =>
+  `light-dark(${EMAIL_BRAND_PALETTE.light[key]}, ${EMAIL_BRAND_PALETTE.dark[key]})`;
 
 /**
  * The confirm pages' entire visual layer: one class-based stylesheet, no

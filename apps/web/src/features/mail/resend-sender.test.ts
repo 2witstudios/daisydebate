@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
-import { createResendSender } from './mail';
+import { createResendSender } from './resend-sender';
 
 setupRitewayBun();
 

@@ -10,7 +10,7 @@ import { createAuthRateLimiter } from '../src/features/auth/abuse/redis-limiter'
 import {
   deriveRecipientSubkey,
   recipientKey,
-} from '../src/features/auth/mail/recipient-key';
+} from '../src/features/mail/recipient-key';
 import { createAuthServer } from '../src/features/auth/server';
 
 const silentLogger = { log: () => {}, child: () => silentLogger };

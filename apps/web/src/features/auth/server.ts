@@ -7,7 +7,7 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
-import type { AuthEmailSender, AuthDeliveryLedger } from './mail/mail-types';
+import type { EmailSender, DeliveryLedger } from '../mail/types';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
@@ -34,9 +34,9 @@ import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
 } from './abuse/sign-in-address-guard';
-import { deriveRecipientSubkey } from './mail/recipient-key';
-import { createSendMail } from './mail/send-mail';
-import type { Deliver } from './mail/deliver-or-unavailable';
+import { deriveRecipientSubkey } from '../mail/recipient-key';
+import { createSendMail } from '../mail/send-mail';
+import type { Deliver } from '../mail/types';
 import {
   createAfterResponse,
   type AfterResponseLimits,
@@ -58,13 +58,9 @@ import {
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 
 /** Application-level email contract; the Resend transport plugs in here. */
-export type {
-  AuthEmailMessage,
-  AuthEmailSender,
-  AuthDeliveryLedger,
-} from './mail/mail-types';
+export type { EmailMessage, EmailSender, DeliveryLedger } from '../mail/types';
 /** Composition without a ledger neither suppresses nor records receipts. */
-const noLedger: AuthDeliveryLedger = {
+const noLedger: DeliveryLedger = {
   isSuppressed: async () => false,
   record: async () => {},
 };
@@ -81,7 +77,7 @@ const composeBetterAuth = (dependencies: {
   readonly database: BetterAuthOptions['database'];
   readonly deliver: Deliver;
   readonly limiter: AuthRateLimiter;
-  readonly ledger: AuthDeliveryLedger;
+  readonly ledger: DeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clock: Clock;
@@ -284,13 +280,13 @@ export function createAuthServer<
   /** Validated by the composition root (`readAuthConfig`). */
   readonly config: AuthConfig;
   readonly database: Database;
-  readonly emailSender: AuthEmailSender;
+  readonly emailSender: EmailSender;
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
-  readonly ledger?: AuthDeliveryLedger | undefined;
+  readonly ledger?: DeliveryLedger | undefined;
   /** The handed-off work's bounds; the production sizes unless a test narrows them. */
   readonly afterResponseLimits?: AfterResponseLimits | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
@@ -316,7 +312,7 @@ export function createAuthServer<
   // Handed-off work's ledger steps go through its database gate; a request
   // being answered is not gated.
   const baseLedger = dependencies.ledger ?? noLedger;
-  const ledger: AuthDeliveryLedger = {
+  const ledger: DeliveryLedger = {
     isSuppressed: (hash) =>
       afterResponse.dbStep(() => baseLedger.isSuppressed(hash)),
     record: (input) => afterResponse.dbStep(() => baseLedger.record(input)),
@@ -327,7 +323,7 @@ export function createAuthServer<
     emailSender: dependencies.emailSender,
     logger: dependencies.logger,
     clock: dependencies.clock,
-  });
+  })('auth');
   return {
     getActorByUserId: dependencies.getActorByUserId,
     getParticipationByUserId: dependencies.getParticipationByUserId,

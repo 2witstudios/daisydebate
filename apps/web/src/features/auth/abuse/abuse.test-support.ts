@@ -2,7 +2,7 @@ import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { Logger } from '@daisy/logger';
 import { composeAuthServer, memoryTables } from '../auth-server.test-support';
 import type { AfterResponseLimits } from '../after-response';
-import type { AuthEmailMessage } from '../server';
+import type { EmailMessage } from '../server';
 
 /**
  * The four database steps a saturated request's handed-off work makes (the
@@ -121,7 +121,7 @@ export const create = (
     steps ? steps.track(name, run) : run();
   const consumed: Consumed[] = [];
   const lookups = { count: 0 };
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   const logs: unknown[][] = [];
   const logger: Logger = {
     log: (...entry) => void logs.push(entry),
@@ -206,7 +206,7 @@ export const observableAnswer = async (response: Response) => ({
   body: await response.text(),
   headers: [...response.headers.entries()],
 });
-export const tokenIn = (message: AuthEmailMessage | undefined) =>
+export const tokenIn = (message: EmailMessage | undefined) =>
   new URL(
     message?.text.match(/https?:\/\/\S+/)?.[0] ?? 'http://x.invalid',
   ).searchParams.get('token') ?? '';

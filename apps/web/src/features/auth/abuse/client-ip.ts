@@ -4,7 +4,7 @@ import {
   FLY_CLIENT_IP_HEADER,
   resolveClientIp,
 } from '@daisy/ingress/client-ip';
-import { deriveSubkey } from '../mail/recipient-key';
+import { deriveSubkey } from '../../mail/recipient-key';
 
 export const CLIENT_ID_HASH_HEADER = 'x-daisy-client-id-hash';
 

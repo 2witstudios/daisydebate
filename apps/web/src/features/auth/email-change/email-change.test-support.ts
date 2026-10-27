@@ -5,14 +5,14 @@ import {
   composeAuthServer,
   memoryTables,
 } from '../auth-server.test-support';
-import { deriveRecipientSubkey, recipientKey } from '../mail/recipient-key';
-import type { AuthEmailMessage } from '../server';
+import { deriveRecipientSubkey, recipientKey } from '../../mail/recipient-key';
+import type { EmailMessage } from '../server';
 
 const origin = authTestEnv.PUBLIC_APP_URL;
 export const oldEmail = 'player@daisy.example.com';
 export const newEmail = 'moved@daisy.example.com';
 
-export const linkIn = (message: AuthEmailMessage | undefined) =>
+export const linkIn = (message: EmailMessage | undefined) =>
   new URL(message?.text.match(/https?:\/\/\S+/)?.[0] ?? 'http://x.invalid');
 
 /**
@@ -23,7 +23,7 @@ export const linkIn = (message: AuthEmailMessage | undefined) =>
  */
 export async function signedIn(envOverrides: Partial<typeof authTestEnv> = {}) {
   const db = memoryTables();
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   // Every address deliverable until a test says otherwise.
   const ledger = {
     mode: 'deliverable' as 'deliverable' | 'suppressed' | 'down',

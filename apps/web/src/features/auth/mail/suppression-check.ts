@@ -1,10 +1,10 @@
-import { recipientKey } from './recipient-key';
+import { recipientKey } from '../../mail/recipient-key';
 import { unavailable } from '../public-errors';
 import {
   undeliverable,
   type UndeliverableRefusal,
 } from './deliver-or-unavailable';
-import type { AuthDeliveryLedger } from './mail-types';
+import type { DeliveryLedger } from '../../mail/types';
 
 /** The public answers a refusal carries, worded for the flow asking. */
 export type SuppressionRefusals = {
@@ -23,7 +23,7 @@ export type SuppressionRefusals = {
 export const createSuppressionCheck =
   (dependencies: {
     readonly recipientSubkey: string;
-    readonly ledger: AuthDeliveryLedger;
+    readonly ledger: DeliveryLedger;
   }) =>
   async (email: string, refusals: SuppressionRefusals): Promise<void> => {
     let suppressed: boolean;

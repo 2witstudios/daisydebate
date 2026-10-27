@@ -330,7 +330,7 @@ token>` as the `verification.identifier`. The subject (the email for
   added/removed notices) goes through the one delivery path
   (`send-mail.ts`), which checks the suppression ledger
   before anything reaches the transport. A suppressed recipient is logged
-  as `auth.mail.suppressed` and nothing is sent. A mail the flow cannot
+  as `mail.suppressed` and nothing is sent. A mail the flow cannot
   proceed without (the sign-in link, the email-change approval to the
   current address, the confirmation to the new one) answers the same `422
 EMAIL_UNDELIVERABLE` the sign-in gate does, except the email-change

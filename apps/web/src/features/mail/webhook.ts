@@ -5,7 +5,7 @@ import {
   type EmailDeliveryStatus,
   type EmailSuppressionReason,
 } from '@daisy/protocol';
-import { readBoundedBody } from '../bounded-body';
+import { readBoundedBody } from '../../server/bounded-body';
 
 const MAX_BODY_BYTES = 64 * 1024;
 /** A just-sent message can be reported before its send is recorded. */
