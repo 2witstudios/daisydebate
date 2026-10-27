@@ -156,23 +156,25 @@ describe('the log store', () => {
       username: 'daisy_shipper',
       password: store.shipperPassword,
     });
-    const readerInsert = reader.insert({
-      table: 'daisy_logs.shipper_drops',
-      values: [
-        { minute: '2026-10-27 13:01:00', app, reason: 'json', count: 1 },
-      ],
-      format: 'JSONEachRow',
-    });
-    const shipperSelect = shipperReader.query({
-      query: 'SELECT count() FROM daisy_logs.events',
-    });
-    const readerSetting = reader.query({
-      query: 'SELECT 1',
-      clickhouse_settings: { max_execution_time: 600 },
-    });
-    await expect(readerInsert).rejects.toThrow('Not enough privileges');
-    await expect(shipperSelect).rejects.toThrow('Not enough privileges');
-    await expect(readerSetting).rejects.toThrow('readonly');
+    // Each refusal is started only when awaited, so none rejects unobserved.
+    await expect(
+      reader.insert({
+        table: 'daisy_logs.shipper_drops',
+        values: [
+          { minute: '2026-10-27 13:01:00', app, reason: 'json', count: 1 },
+        ],
+        format: 'JSONEachRow',
+      }),
+    ).rejects.toThrow('Not enough privileges');
+    await expect(
+      shipperReader.query({ query: 'SELECT count() FROM daisy_logs.events' }),
+    ).rejects.toThrow('Not enough privileges');
+    await expect(
+      reader.query({
+        query: 'SELECT 1',
+        clickhouse_settings: { max_execution_time: 600 },
+      }),
+    ).rejects.toThrow('readonly');
     await shipperReader.close();
   });
 
