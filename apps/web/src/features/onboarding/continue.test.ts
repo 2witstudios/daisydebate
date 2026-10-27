@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { afterPasskeyHref } from './continue';
+import { afterPasskeyHref, afterStepHref, isEditing } from './continue';
 
 setupRitewayBun();
 
@@ -64,5 +64,34 @@ describe('afterPasskeyHref', () => {
       actual: afterPasskeyHref('/onboardingx', null),
       expected: '/onboarding/welcome?next=%2Fonboardingx',
     });
+  });
+});
+
+test('a saved question step goes on through the flow, or straight back when editing (ISSUE-324)', () => {
+  assert({
+    given:
+      'each question step saved during onboarding, and the same steps saved from Settings in edit mode',
+    should:
+      'walk about → experience → topics → ready during onboarding, and return straight to the destination when editing one answer',
+    actual: [
+      afterStepHref('about', '/lobby', false),
+      afterStepHref('experience', '/lobby', false),
+      afterStepHref('topics', '/lobby', false),
+      afterStepHref('about', '/settings', true),
+      afterStepHref('topics', '/settings', true),
+      isEditing({ edit: '1' }),
+      isEditing({ edit: 'yes' }),
+      isEditing({}),
+    ],
+    expected: [
+      '/onboarding/experience?next=%2Flobby',
+      '/onboarding/topics?next=%2Flobby',
+      '/onboarding/ready?next=%2Flobby',
+      '/settings',
+      '/settings',
+      true,
+      false,
+      false,
+    ],
   });
 });

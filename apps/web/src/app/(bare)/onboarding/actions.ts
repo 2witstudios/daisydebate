@@ -2,14 +2,9 @@
 
 import { headers } from 'next/headers';
 
-import {
-  onboardingStepHref,
-  type OnboardingStep,
-} from '../../../features/access/decision';
-import {
-  isQuestionStep,
-  type QuestionStep,
-} from '../../../features/onboarding/answers';
+import { onboardingStepHref } from '../../../features/access/decision';
+import { isQuestionStep } from '../../../features/onboarding/answers';
+import { afterStepHref } from '../../../features/onboarding/continue';
 import { returnableDestination } from '../../../features/auth/redirect';
 import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
@@ -23,12 +18,6 @@ import type { StepFormState } from '../../../ui/onboarding/questions/step-form-s
 
 const onboardingRoute = processRoute((routes) => routes.onboarding.POST);
 
-const following: Record<QuestionStep, OnboardingStep> = {
-  about: 'experience',
-  experience: 'topics',
-  topics: 'ready',
-};
-
 /**
  * A questionnaire step's POST, as a server action: it works before
  * hydration and without JavaScript. It runs POST /api/account/onboarding in
@@ -40,6 +29,7 @@ const following: Record<QuestionStep, OnboardingStep> = {
 export async function saveStepAction(
   step: unknown,
   next: unknown,
+  editing: unknown,
   _state: StepFormState,
   form: unknown,
 ): Promise<StepFormState> {
@@ -55,7 +45,7 @@ export async function saveStepAction(
     (step === 'topics' && (await submit({ step: 'finish' })) !== 'saved')
   )
     return refusedStep(step)(posted);
-  return moveOn(incoming, onboardingStepHref(following[step], destination));
+  return moveOn(incoming, afterStepHref(step, destination, editing === true));
 }
 
 /**

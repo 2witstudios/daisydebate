@@ -29,9 +29,11 @@ export default async function SettingsRoute({
   await requireAccess('/settings', searchParams);
   const identity = await requestIdentity();
   // ISSUE-324: optional answers only where they are asked (16+, ISSUE-645).
-  const answers = (await requestOptionalAnswersAdmitted())
-    ? await requestOnboardingAnswers()
-    : null;
+  const [admitted, ownAnswers] = await Promise.all([
+    requestOptionalAnswersAdmitted(),
+    requestOnboardingAnswers(),
+  ]);
+  const answers = admitted ? ownAnswers : null;
   return (
     <SettingsPage
       username={claimedUsername(identity)}
@@ -43,7 +45,7 @@ export default async function SettingsRoute({
       onboarding={
         answers === null
           ? null
-          : { answers, editHrefs: answerEditHrefs('/settings') }
+          : { answers, editHrefs: answerEditHrefs('/settings', true) }
       }
     />
   );

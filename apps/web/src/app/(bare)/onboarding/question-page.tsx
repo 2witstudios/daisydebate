@@ -11,6 +11,7 @@ import { stepSkip } from './skip';
 import { readStepEntry } from './step-entry';
 import { redirect } from 'next/navigation';
 import { requestOptionalAnswersAdmitted } from '../../../lib/request-session';
+import { isEditing } from '../../../features/onboarding/continue';
 
 const previous: Record<QuestionStep, OnboardingStep> = {
   about: 'debate',
@@ -31,14 +32,18 @@ export async function QuestionPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { destination } = await readStepEntry(searchParams, step);
+  // Opened from Settings to change one answer: save, then straight back.
+  const editing = isEditing(await searchParams);
   if (!(await requestOptionalAnswersAdmitted()))
     redirect(onboardingStepHref('ready', destination));
   return (
     <QuestionForm
       step={step}
-      action={saveStepAction.bind(null, step, destination)}
+      action={saveStepAction.bind(null, step, destination, editing)}
       answers={await readOnboardingAnswers()}
-      backHref={onboardingStepHref(previous[step], destination)}
+      backHref={
+        editing ? destination : onboardingStepHref(previous[step], destination)
+      }
       skip={stepSkip(destination)}
     />
   );

@@ -16,12 +16,23 @@ export type AnswerEditHrefs = {
   readonly topics: string;
 };
 
-/** Each answer's step, returning to `destination` once it is saved. */
-export const answerEditHrefs = (destination: string): AnswerEditHrefs => ({
-  about: onboardingStepHref('about', destination),
-  experience: onboardingStepHref('experience', destination),
-  topics: onboardingStepHref('topics', destination),
-});
+/**
+ * Each answer's step. During onboarding (the Ready step) a save goes on
+ * through the flow; `editing` (Settings) opens the step to change that one
+ * answer and returns straight to `destination` once it is saved.
+ */
+export const answerEditHrefs = (
+  destination: string,
+  editing = false,
+): AnswerEditHrefs => {
+  const href = (step: 'about' | 'experience' | 'topics') =>
+    `${onboardingStepHref(step, destination)}${editing ? '&edit=1' : ''}`;
+  return {
+    about: href('about'),
+    experience: href('experience'),
+    topics: href('topics'),
+  };
+};
 
 const none = '—';
 
