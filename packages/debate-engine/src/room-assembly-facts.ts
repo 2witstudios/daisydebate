@@ -21,8 +21,8 @@ export type Edges = {
   readonly participantId: string;
   readonly formatId: string;
   readonly target: Target | null;
-  /** The stored seed of the Room's draw, for settlement; null without one. */
-  readonly drawSeed: Uint8Array | null;
+  /** The stored seed (hex) of the Room's draw, for settlement; null without one. */
+  readonly drawSeed: string | null;
   /** Facts for a new draw, loaded only for `start-pre-round` on a draw Room. */
   readonly drawStart: DrawStartFacts | null;
 };

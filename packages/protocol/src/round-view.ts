@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
-import { roomConfigSchema } from './room';
+import { frozenRoomConfigSchema } from './room';
 import { roundRulesSchema, segmentTypes } from './format';
 import {
   competitionTypes,
@@ -47,7 +47,7 @@ export const roundViewSchema = z.strictObject({
   competitionType: z.enum(competitionTypes),
   topic: z.string().min(1),
   visibility: z.enum(['public', 'unlisted', 'private']),
-  config: roomConfigSchema,
+  config: frozenRoomConfigSchema,
   rules: roundRulesSchema,
   participants: z.array(z.union([seatSchema, anonymousJudgeSchema])).readonly(),
   startedAt: instant.nullable(),

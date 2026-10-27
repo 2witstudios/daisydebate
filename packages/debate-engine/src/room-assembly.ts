@@ -23,7 +23,7 @@ import {
 } from './room-consent-transitions';
 import { startPreRound, strikeResolution } from './room-pre-round';
 import { preRoundBegun } from './pre-round-phase';
-import { settleRoom } from './resolution-draw';
+import { settleRoom, topicInvariantHolds } from './resolution-draw';
 const roomTransitions = {
   'update-config': updateConfig,
   'update-format': updateConfig,
@@ -120,6 +120,8 @@ export function executeRoomCommand(
     };
   if (assemblyOpen(next)) next = { ...next, status: assembledStatus(next) };
   next = { ...next, changeVersion: room.changeVersion + 1 };
+  if (!topicInvariantHolds(next))
+    throw new Error('A Room mutation broke the topic invariant');
   return {
     ok: true,
     mutation: {

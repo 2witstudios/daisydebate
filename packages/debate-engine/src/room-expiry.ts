@@ -31,7 +31,7 @@ export function maintainRoom(
     readonly lastCommandAt: string;
     readonly now: string;
     readonly idleTimeoutMs: number | null;
-    readonly drawSeed: Uint8Array | null;
+    readonly drawSeed: string | null;
   },
 ) {
   if (!assemblyOpen(room)) return null;

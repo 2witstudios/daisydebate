@@ -52,7 +52,8 @@ export const rooms = pgTable(
       .notNull()
       .references(() => actors.id, { onDelete: 'restrict' }),
     title: text('title').notNull(),
-    topic: text('topic').notNull(),
+    /** Null exactly while a draw Room has not revealed its resolution. */
+    topic: text('topic'),
     visibility: text('visibility').$type<RoomView['visibility']>().notNull(),
     version: versionColumn(),
     changeVersion: integer('change_version').notNull().default(1),
@@ -79,6 +80,11 @@ export const rooms = pgTable(
     /** Survives a crash mid-prep. */
     prepRemainingMs: integer('prep_remaining_ms'),
     status: text('status').$type<(typeof roomStatuses)[number]>().notNull(),
+    /**
+     * The last accepted participant command: the durable idle anchor
+     * (ADR 0070), independent of receipt retention and processing time.
+     */
+    lastCommandAt: timestampColumn('last_command_at').notNull().defaultNow(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
   },
@@ -97,7 +103,16 @@ export const rooms = pgTable(
       oneOf(table.visibility, ['public', 'unlisted', 'private']),
     ),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
-    check('rooms_topic_nonempty', sql`length(trim(${table.topic})) > 0`),
+    check(
+      'rooms_topic_nonempty',
+      sql`${table.topic} is null or length(trim(${table.topic})) > 0`,
+    ),
+    // Proves only that a fixed-topic Room has text; the draw-phase topic
+    // rules are the Room writer's, rechecked by a deferred trigger.
+    check(
+      'rooms_fixed_topic_present',
+      sql`${table.topic} is not null or ${table.executionPlan}->'resolutionDraw'->>'enabled' = 'true'`,
+    ),
     versionPositive('rooms', table.version),
     versionPositive('rooms_change', table.changeVersion),
     unique('rooms_id_format_unique').on(table.id, table.formatId),

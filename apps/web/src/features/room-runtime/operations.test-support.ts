@@ -3,6 +3,7 @@ import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpoint,
+  freezeRoomConfig,
   type LaunchedRound,
   type RoomAssemblyState,
   type RoundView,
@@ -67,6 +68,7 @@ export const state: RoomAssemblyState = {
   ],
   prepStartedAt: null,
   prepRemainingMs: null,
+  resolutionDraw: null,
   roundRef: null,
 };
 
@@ -101,10 +103,10 @@ export const launched: LaunchedRound = {
   version: 1,
   status: 'scheduled',
   competitionType: 'casual',
-  topic: state.topic,
+  topic: state.topic ?? '',
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: oneOnOneRankedConfig,
+  config: freezeRoomConfig(oneOnOneRankedConfig),
   rules: resolved.rules,
   participants: [
     {
@@ -204,6 +206,17 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
       return state;
     },
+    readRoomAssemblyFacts: async (
+      _roomId: string,
+      _caller: typeof caller,
+      authorize: (
+        view: RoomAssemblyState,
+        fact: AccountAuthorizationFact,
+      ) => boolean,
+    ) => {
+      if (!authorize(state, account)) throw createAppError('NOT_FOUND');
+      return { state, drawSeed: null };
+    },
     listRoomPage: async (
       _caller: typeof caller,
       _query: unknown,
@@ -250,6 +263,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
     ]),
     consentTtlMs: () => 60_000,
     botsAvailable: () => false,
+    entropy: () => '01'.repeat(32),
   });
   return {
     operations,

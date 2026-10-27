@@ -126,10 +126,12 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     [],
     [accountFact()],
     ...statements.slice(4, 11),
+    [], // no draw
     [],
     statements[12]!,
     ...statements.slice(0, 3),
     ...statements.slice(4, 11),
+    [], // no draw
     ...statements.slice(12),
   ]);
 
@@ -156,6 +158,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         consent: null,
         freeze: true,
         publishDefinition: false,
+        drawSecrets: null,
         members: [state.hostActorId],
       },
     }),

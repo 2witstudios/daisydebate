@@ -61,6 +61,7 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
     ids: fixedIds(['c6n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
+    entropy: () => '01'.repeat(32),
   });
   const view = await withUnavailableRedis.view(caller, state.id);
   const permitted = await base.operations.roundView(caller, round.id);
@@ -135,6 +136,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
         return [];
       },
       readRoomAssembly: async () => state,
+      readRoomAssemblyFacts: async () => ({ state, drawSeed: null }),
       databaseNow: async () => now,
     } as unknown as Store,
     redis: {
@@ -144,6 +146,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
+    entropy: () => '01'.repeat(32),
   });
   const replayed = await replay.create(caller, body);
   assert({

@@ -35,12 +35,15 @@ export {
 } from './room';
 export type { FrozenRoomConfig } from './room';
 export {
+  drawPrivateInputsSchema,
   resolutionCategories,
+  resolutionDrawEvidenceSchema,
   resolutionDrawManifestSchema,
 } from './resolution-draw';
 export type {
   DrawPrivateInputs,
   ResolutionCategory,
+  ResolutionDrawEvidence,
   ResolutionDrawItem,
   ResolutionDrawManifest,
   ResolutionDrawState,

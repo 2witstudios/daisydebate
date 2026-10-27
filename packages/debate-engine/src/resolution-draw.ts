@@ -7,7 +7,12 @@ import type {
   RoomAssemblyState,
   SideControllers,
 } from '@daisy/protocol';
-import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
+import {
+  automaticChoice,
+  bytesOf,
+  canonicalOrder,
+  shuffle,
+} from './draw-random';
 
 /** An automatic side strikes this long after its turn opens. */
 export const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
@@ -174,9 +179,10 @@ export function handOffReveal(room: RoomAssemblyState): RoomAssemblyState {
 /** Settles the Room's draw at `now` and hands off any reveal. */
 export function settleRoom(
   room: RoomAssemblyState,
-  seed: Uint8Array | null,
+  seedHex: string | null,
   now: string,
 ): RoomAssemblyState {
+  const seed = seedHex === null ? null : bytesOf(seedHex);
   if (
     !room.resolutionDraw ||
     (room.status !== 'assembling' && room.status !== 'ready')

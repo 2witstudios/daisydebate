@@ -1,4 +1,4 @@
-import { seatSlotsComplete } from '@daisy/protocol';
+import { freezeRoomConfig, seatSlotsComplete } from '@daisy/protocol';
 import type {
   CompetitionType,
   RoomConfig,
@@ -19,7 +19,8 @@ export type NewRoom = {
   readonly id: string;
   readonly hostActorId: string;
   readonly title: string;
-  readonly topic: string;
+  /** Null exactly when the Room's plan has a draw (FMT-7). */
+  readonly topic: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly formatId: string;
   readonly formatVersion: number;
@@ -203,6 +204,11 @@ export const roomOperations = ({
         if (!room) throw createAppError('NOT_FOUND', 'No such room');
         if (room.status !== 'ready')
           throw createAppError('CONFLICT', 'Only a ready room starts a round');
+        if (room.executionPlan.resolutionDraw.enabled)
+          throw createAppError(
+            'CONFLICT',
+            'A draw Room launches only through its Room command',
+          );
         if (room.executionPlan.preRoundPrep.enabled) {
           const [progress] = await tx
             .select({
@@ -228,7 +234,7 @@ export const roomOperations = ({
           id: input.roundId,
           roomId: room.id,
           createdByActorId: room.hostActorId,
-          roomConfigSnapshot: room.config,
+          roomConfigSnapshot: freezeRoomConfig(room.config),
           visibility: room.visibility,
           resolution: input.resolution,
           competitionType: room.competitionType,

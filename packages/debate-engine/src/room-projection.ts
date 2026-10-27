@@ -68,7 +68,7 @@ export function projectRoom(
   actorId: string,
   consent: RoomConsent,
   now: string,
-  drawSeed: Uint8Array | null,
+  drawSeed: string | null,
 ): RoomView {
   const room = settleRoom(stored, drawSeed, now);
   const blocker = startBlocker(room, consent, now);

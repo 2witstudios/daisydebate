@@ -13,6 +13,7 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
+import { drawEntropy } from '../src/features/room-runtime/entropy';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
@@ -92,6 +93,7 @@ async function fixture(
     store,
     redis: controlled,
     ids: systemId,
+    entropy: drawEntropy,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });

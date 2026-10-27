@@ -1,5 +1,10 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { RoomListEntry, RoomView } from '@daisy/protocol';
+import {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  type RoomListEntry,
+  type RoomView,
+} from '@daisy/protocol';
 import type { RoomTemplate } from './read-catalog';
 
 /** Explicit legal-choice fixture, never a production template or default. */
@@ -86,8 +91,10 @@ export const assemblySnapshot = {
   presetVersion: null,
   competitionType: 'casual',
   definition: unequalTemplate.definition,
-  config: unequalTemplate.defaultConfig,
-  executionPlan: compiled.roomPlan,
+  config: freezeRoomConfig(unequalTemplate.defaultConfig),
+  executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
+  authoredDrawSource: null,
+  resolutionDraw: null,
   rules: compiled.rules,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },
@@ -97,7 +104,8 @@ export const assemblySnapshot = {
     canEdit: true,
     canClaimSeat: true,
     canReady: false,
-    canStartPrep: false,
+    canStartPreRound: false,
+    canStrike: false,
     canFinishPrep: false,
     canStart: false,
   },

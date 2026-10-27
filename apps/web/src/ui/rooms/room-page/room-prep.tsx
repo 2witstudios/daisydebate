@@ -29,7 +29,7 @@ export function RoomPrep({
   readonly commandIds: { readonly start: string; readonly finish: string };
 }) {
   const command = (
-    type: 'start-prep' | 'finish-prep',
+    type: 'start-pre-round' | 'finish-prep',
     label: string,
     commandId: string,
   ) =>
@@ -58,8 +58,8 @@ export function RoomPrep({
       <Link href={destinationHref('prep')} className={buttonClass('secondary')}>
         Prep library
       </Link>
-      {view.capabilities.canStartPrep
-        ? command('start-prep', 'Start prep', commandIds.start)
+      {view.capabilities.canStartPreRound
+        ? command('start-pre-round', 'Start prep', commandIds.start)
         : null}
       {view.capabilities.canFinishPrep
         ? command('finish-prep', 'End prep', commandIds.finish)

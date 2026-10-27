@@ -8,6 +8,10 @@ import type {
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { rooms } from './schema/rooms';
+import {
+  roomResolutionDraws,
+  roomResolutionStrikes,
+} from './schema/resolution-draws';
 import { activeRoomFacts } from './room-membership-persistence';
 import { persistRoomMutation } from './room-mutation-persistence';
 import type { roomCommandTransaction } from './room-command-transaction';
@@ -16,13 +20,17 @@ import {
   type Caller,
   appendRoomChanged,
   requireAccount,
-  roomState,
+  roomFacts,
   transactionNow,
 } from './room-command-facts';
 
-type Expire = (
+type Maintain = (
   state: RoomAssemblyState,
-  facts: { readonly lastCommandAt: string; readonly now: string },
+  facts: {
+    readonly lastCommandAt: string;
+    readonly now: string;
+    readonly drawSeed: string | null;
+  },
 ) => Extract<RoomMutationOutcome, { ok: true }> | null;
 
 /** Active-room reads and idle expiry (ADR 0070); the engine decides, this adapter persists. */
@@ -48,23 +56,30 @@ export const roomLifecycleOperations = ({
     );
   },
   /**
-   * Open Rooms whose last command, and any running prep, are at least
-   * `idleTimeoutMs` old by database time. A prefilter only: each expiry
-   * rechecks the engine rule under the Room lock.
+   * Open Rooms that may need maintenance by database time: an unrevealed
+   * draw (its next strike may be due), or, with an idle timeout, a last
+   * accepted command and any running prep at least that old. A
+   * conservative prefilter: the engine decides under the Room lock.
    */
-  readIdleRoomCandidates(input: {
-    readonly idleTimeoutMs: number;
+  readMaintenanceCandidates(input: {
+    readonly idleTimeoutMs: number | null;
     readonly limit: number;
   }): Promise<readonly string[]> {
     if (
-      !Number.isSafeInteger(input.idleTimeoutMs) ||
-      input.idleTimeoutMs < 1 ||
+      (input.idleTimeoutMs !== null &&
+        (!Number.isSafeInteger(input.idleTimeoutMs) ||
+          input.idleTimeoutMs < 1)) ||
       !Number.isSafeInteger(input.limit) ||
       input.limit < 1
     )
       throw createAppError('VALIDATION');
-    const lastActivity = sql`greatest(${rooms.updatedAt}, coalesce(${rooms.prepStartedAt} + ${rooms.prepRemainingMs} * interval '1 millisecond', ${rooms.updatedAt}))`;
-    return instrumented(eventSink, 'readIdleRoomCandidates', async () =>
+    const lastActivity = sql`greatest(${rooms.lastCommandAt}, coalesce(${rooms.prepStartedAt} + ${rooms.prepRemainingMs} * interval '1 millisecond', ${rooms.lastCommandAt}))`;
+    const openDraw = sql`exists (select 1 from ${roomResolutionDraws} d where d.room_id = ${rooms.id} and (select count(*) from ${roomResolutionStrikes} s where s.draw_id = d.id) < d.draw_size - 1)`;
+    const idle =
+      input.idleTimeoutMs === null
+        ? sql`false`
+        : sql`${lastActivity} <= statement_timestamp() - ${input.idleTimeoutMs} * interval '1 millisecond'`;
+    return instrumented(eventSink, 'readMaintenanceCandidates', async () =>
       (
         await database
           .select({ id: rooms.id })
@@ -72,20 +87,23 @@ export const roomLifecycleOperations = ({
           .where(
             and(
               inArray(rooms.status, ['assembling', 'ready']),
-              sql`${lastActivity} <= statement_timestamp() - ${input.idleTimeoutMs} * interval '1 millisecond'`,
+              sql`(${openDraw} or ${idle})`,
             ),
           )
-          .orderBy(asc(rooms.updatedAt))
+          .orderBy(asc(rooms.lastCommandAt))
           .limit(input.limit)
       ).map((row) => row.id),
     );
   },
-  /** Closes one idle Room if the engine still finds it idle; a busy Room is skipped. */
-  expireIdleRoom(input: {
+  /**
+   * One locked maintenance step: the engine settles due strikes, then
+   * decides expiry; a Room another writer holds is skipped.
+   */
+  maintainRoom(input: {
     readonly roomId: string;
-    readonly expire: Expire;
+    readonly maintain: Maintain;
   }): Promise<boolean> {
-    return instrumented(eventSink, 'expireIdleRoom', () =>
+    return instrumented(eventSink, 'maintainRoom', () =>
       commandTransaction(async (tx) => {
         const [row] = await tx
           .select()
@@ -94,12 +112,21 @@ export const roomLifecycleOperations = ({
           .for('update', { skipLocked: true });
         if (!row) return false;
         const now = await transactionNow(tx);
-        const outcome = input.expire(await roomState(tx, row), {
-          lastCommandAt: row.updatedAt.toISOString(),
+        const { state, drawSeed } = await roomFacts(tx, row);
+        const outcome = input.maintain(state, {
+          lastCommandAt: row.lastCommandAt.toISOString(),
           now,
+          drawSeed,
         });
         if (!outcome) return false;
-        await persistRoomMutation(tx, outcome.mutation, '', now);
+        await persistRoomMutation(
+          tx,
+          outcome.mutation,
+          '',
+          now,
+          false,
+          state.resolutionDraw?.strikes.length ?? 0,
+        );
         await appendRoomChanged(
           tx,
           input.roomId,

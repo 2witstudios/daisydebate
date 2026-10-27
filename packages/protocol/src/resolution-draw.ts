@@ -239,16 +239,69 @@ export type ResolutionCandidate = {
   readonly category: ResolutionCategory | null;
 };
 
+const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** The canonical source a draw read: the bank's filters, or the host's list. */
+const drawSourceInputSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('bank'),
+    revision: z.int().positive(),
+    categories: categoriesSchema,
+    locale: z.literal('en'),
+    difficulties: z.tuple([
+      z.literal('advanced'),
+      z.literal('intro'),
+      z.literal('standard'),
+    ]),
+  }),
+  z.strictObject({
+    kind: z.literal('host'),
+    resolutions: hostResolutionsSchema,
+  }),
+]);
+
 /**
  * Everything the draw's input commitment covers, kept private and erasable:
  * the candidate pool and exclusions reveal the players' recent history.
  */
-export type DrawPrivateInputs = {
-  readonly candidateIds: readonly string[];
-  readonly exclusions: readonly string[];
-  readonly exclusionsRelaxed: boolean;
-  readonly sourceInput: unknown;
-  readonly configInput: unknown;
+export const drawPrivateInputsSchema = z.strictObject({
+  candidateIds: z.array(z.string().min(1)).readonly(),
+  exclusions: z.array(z.string().min(1)).readonly(),
+  exclusionsRelaxed: z.boolean(),
+  sourceInput: drawSourceInputSchema,
+  configInput: z.strictObject({ ...drawChoice, source: drawSourceSchema }),
   /** 32 bytes, lowercase hex. */
-  readonly salt: string;
-};
+  salt: hexSchema,
+});
+export type DrawPrivateInputs = z.infer<typeof drawPrivateInputsSchema>;
+
+/**
+ * The proof metadata frozen onto a Round at Launch: no text, no seed and no
+ * private input, so it never needs rewriting when content is erased.
+ */
+export const resolutionDrawEvidenceSchema = z.strictObject({
+  version: z.literal(1),
+  manifest: resolutionDrawManifestSchema,
+  manifestDigest: digestSchema,
+  commitment: digestSchema,
+  startedAt: timestamp,
+  items: z
+    .array(
+      z.strictObject({
+        position: z.int().min(0),
+        category: resolutionCategorySchema.nullable(),
+        bankEntryId: z.string().min(1).nullable(),
+      }),
+    )
+    .readonly(),
+  strikes: z
+    .array(
+      publicStrikeSchema.extend({ position: z.int().min(0), at: timestamp }),
+    )
+    .readonly(),
+  survivorPosition: z.int().min(0),
+  revealedAt: timestamp,
+});
+export type ResolutionDrawEvidence = z.infer<
+  typeof resolutionDrawEvidenceSchema
+>;

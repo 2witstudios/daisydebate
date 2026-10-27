@@ -58,6 +58,9 @@ export function yieldLabel(
     : 'On — unused time is dropped';
 }
 
+/** A draw Room's resolution before its reveal, wherever a topic is shown. */
+export const drawnTopicLabel = 'Chosen by strike before the round';
+
 const FIVE_MINUTES = 300_000;
 
 /** "about 30 min": speeches, their countdowns and both sides' prep, to five minutes. */

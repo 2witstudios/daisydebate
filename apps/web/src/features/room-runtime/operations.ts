@@ -41,6 +41,7 @@ export type Store = Pick<
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
+  | 'readRoomAssemblyFacts'
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
@@ -83,12 +84,15 @@ export function createRoomRuntimeOperations({
   ids,
   consentTtlMs,
   botsAvailable,
+  entropy,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
+  /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
+  readonly entropy: () => string;
 }) {
   const eligible = (state: RoomAssemblyState): RoomAssemblyState => ({
     ...state,
@@ -127,11 +131,12 @@ export function createRoomRuntimeOperations({
     }
   };
   const view = async (caller: Caller, roomId: string) => {
-    const state = eligible(
-      await store.readRoomAssembly(roomId, caller, (state, account) =>
-        can(caller, 'room.read', account, state),
-      ),
+    const facts = await store.readRoomAssemblyFacts(
+      roomId,
+      caller,
+      (state, account) => can(caller, 'room.read', account, state),
     );
+    const state = eligible(facts.state);
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
@@ -140,6 +145,7 @@ export function createRoomRuntimeOperations({
         caller.actorId,
         currentRoomConsent(consent, now),
         now,
+        facts.drawSeed,
       ),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
@@ -192,6 +198,9 @@ export function createRoomRuntimeOperations({
       store,
       ids,
     );
+    // A draw Room's topic comes from its reveal; any other Room names one.
+    if ((body.topic === null) !== resolved.roomPlan.resolutionDraw.enabled)
+      throw createAppError('CONFLICT', 'illegal-config');
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
@@ -289,6 +298,7 @@ export function createRoomRuntimeOperations({
       eligible,
       consentOf,
       view,
+      entropy,
     }),
   };
 }

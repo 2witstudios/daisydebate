@@ -21,6 +21,9 @@ export const room = {
   presetVersion: null,
   competitionType: 'casual' as const,
   config: oneOnOneRoomConfig,
-  executionPlan: { preRoundPrep: { enabled: false as const }, resolutionDraw: { enabled: false } },
+  executionPlan: {
+    preRoundPrep: { enabled: false as const },
+    resolutionDraw: { enabled: false as const },
+  },
   rules: validRules,
 };

@@ -112,6 +112,10 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
+  'draw-unavailable': 'enough resolutions to draw from',
+  'strike-unavailable': 'a resolution still in the draw',
+  'strike-conflict': 'the latest strike',
+  'not-your-turn': 'the other side to strike',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

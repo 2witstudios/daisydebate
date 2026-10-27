@@ -62,7 +62,8 @@ const drawStart = {
   bank: null,
   exclusions: [],
 };
-const seed = bytesOf(SEED);
+const seed = SEED;
+const seedBytes = bytesOf(SEED);
 const at = (seconds: number) =>
   new Date(Date.parse(edges.now) + seconds * 1000).toISOString();
 const command = (
@@ -116,13 +117,13 @@ describe('drawResolutions', () => {
       candidates,
       exclusions: ['a'],
       size: 3,
-      seed,
+      seed: seedBytes,
     });
     const relaxed = drawResolutions({
       candidates,
       exclusions: ['a', 'b', 'c'],
       size: 3,
-      seed,
+      seed: seedBytes,
     });
     assert({
       given: 'one exclusion with enough candidates left',
@@ -150,12 +151,17 @@ describe('drawResolutions', () => {
       given: 'five candidates for a draw of six, then a duplicate id',
       should: 'refuse both',
       actual: [
-        drawResolutions({ candidates, exclusions: [], size: 6, seed }).ok,
+        drawResolutions({
+          candidates,
+          exclusions: [],
+          size: 6,
+          seed: seedBytes,
+        }).ok,
         drawResolutions({
           candidates: [...candidates, candidates[0]!],
           exclusions: [],
           size: 2,
-          seed,
+          seed: seedBytes,
         }).ok,
       ],
       expected: [false, false],

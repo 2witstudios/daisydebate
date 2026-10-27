@@ -1,6 +1,9 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomMutationOutcome } from '@daisy/protocol';
+import { freezeRoomConfig } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { freezeRoomDraw, persistRoomDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
 import { roundLadder, rounds } from './schema/rounds';
@@ -14,6 +17,9 @@ export const persistRoomMutation = async (
   mutation: Extract<RoomMutationOutcome, { ok: true }>['mutation'],
   roundId: string,
   now: string,
+  /** True for an accepted participant command: it moves the idle anchor. */
+  acceptedCommand: boolean,
+  storedStrikes: number,
 ) => {
   const next = mutation.state;
   if (mutation.publishDefinition)
@@ -40,6 +46,7 @@ export const persistRoomMutation = async (
       status: next.status,
       prepStartedAt: next.prepStartedAt ? new Date(next.prepStartedAt) : null,
       prepRemainingMs: next.prepRemainingMs,
+      ...(acceptedCommand ? { lastCommandAt: new Date(now) } : {}),
       updatedAt: new Date(now),
     })
     .where(eq(rooms.id, next.id));
@@ -57,8 +64,16 @@ export const persistRoomMutation = async (
       })),
     );
   await holdActiveRoomMembers(tx, next.id, mutation.members);
+  await persistRoomDraw(
+    tx,
+    next.id,
+    next.resolutionDraw,
+    storedStrikes,
+    mutation.drawSecrets,
+  );
   let roundRef = next.roundRef;
   if (mutation.freeze) {
+    if (next.topic === null) throw createAppError('INVARIANT');
     await tx.insert(rounds).values({
       id: roundId,
       roomId: next.id,
@@ -68,7 +83,7 @@ export const persistRoomMutation = async (
       formatId: next.formatId,
       formatVersion: next.formatVersion,
       presetVersion: next.presetVersion,
-      roomConfigSnapshot: next.config,
+      roomConfigSnapshot: freezeRoomConfig(next.config),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
       status: 'scheduled',
@@ -85,6 +100,17 @@ export const persistRoomMutation = async (
         slot: p.slot,
       })),
     );
+    if (next.resolutionDraw)
+      await tx
+        .update(rounds)
+        .set({
+          resolutionEvidence: await freezeRoomDraw(
+            tx,
+            roundId,
+            next.resolutionDraw,
+          ),
+        })
+        .where(eq(rounds.id, roundId));
     await appendRoundPhaseChanged(tx, roundId, 1);
     roundRef = { id: roundId, status: 'scheduled' };
   }
