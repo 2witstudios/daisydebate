@@ -12,9 +12,7 @@ import type {
   ResolutionStrike,
   SideControllers,
 } from '@daisy/protocol/resolution-draw';
-
-/** An automatic side strikes this long after its turn opens. */
-const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
+import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 
 type Candidate = {
   readonly id: string;

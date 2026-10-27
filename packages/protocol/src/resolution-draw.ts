@@ -18,6 +18,9 @@ export const drawSources = ['bank', 'host'] as const;
  */
 export const MAX_STRIKE_WINDOW_MS = 600_000;
 
+/** An all-bot side strikes this long after its turn opens. */
+export const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
+
 /** One host-written resolution: trimmed, 1–300 characters. */
 const hostResolutionSchema = z.string().trim().min(1).max(300);
 
@@ -210,7 +213,7 @@ export const resolutionDrawManifestSchema = z.strictObject({
   ]),
   drawSize: z.int().min(2).max(20),
   firstStriker: debateSideSchema,
-  strikeWindowMs: z.int().positive(),
+  strikeWindowMs: z.int().positive().max(MAX_STRIKE_WINDOW_MS),
   controllers: sideControllersSchema,
   inputCommitment: digestSchema,
 });

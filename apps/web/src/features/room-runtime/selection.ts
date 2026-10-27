@@ -1,4 +1,4 @@
-import type { RoomCreate } from '@daisy/protocol';
+import type { FormatSelectionFacts, RoomCreate } from '@daisy/protocol';
 import {
   decideFormatSelection,
   resolveRoomConfiguration,
@@ -35,6 +35,7 @@ export async function resolveRoomSelection(
       basis: null,
       competitionType: selection.competitionType,
       resolved,
+      recheck: null,
     };
   }
   const tuple = {
@@ -42,15 +43,25 @@ export async function resolveRoomSelection(
     formatVersion: selection.formatVersion,
     presetVersion: selection.presetVersion,
   };
+  const request = {
+    ...tuple,
+    intent:
+      selection.kind === 'ranked'
+        ? ('create-ranked' as const)
+        : ('create-casual' as const),
+    basis: null,
+  };
   const decision = decideFormatSelection(
-    {
-      ...tuple,
-      intent: selection.kind === 'ranked' ? 'create-ranked' : 'create-casual',
-      basis: null,
-    },
+    request,
     await store.getFormatSelectionFacts(tuple),
   );
   if (!decision.ok) throw createAppError('VALIDATION', decision.refusal);
+  const decided = JSON.stringify([
+    decision.definition,
+    decision.config,
+    decision.basis,
+    decision.rankedPresetVersion,
+  ]);
   return {
     selection,
     definition: decision.definition,
@@ -62,5 +73,24 @@ export async function resolveRoomSelection(
     competitionType:
       selection.kind === 'ranked' ? ('ranked' as const) : ('casual' as const),
     resolved: decision.resolved,
+    /**
+     * The create transaction rereads the facts FOR SHARE and admits only an
+     * identical decision, so a publication in between refuses the create.
+     */
+    recheck: {
+      tuple,
+      admits: (facts: FormatSelectionFacts | null) => {
+        const again = decideFormatSelection(request, facts);
+        return (
+          again.ok &&
+          JSON.stringify([
+            again.definition,
+            again.config,
+            again.basis,
+            again.rankedPresetVersion,
+          ]) === decided
+        );
+      },
+    },
   };
 }

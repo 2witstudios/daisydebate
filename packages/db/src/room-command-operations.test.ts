@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { foundationDefinition } from './reference-formats';
+import { assertRejects } from '@daisy/errors/testing';
+import type { FormatSelectionFacts } from '@daisy/protocol';
+import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
 import {
   accountRow,
   caller,
@@ -55,6 +57,69 @@ test('Room create command writes its receipt and exactly one change event', asyn
       },
       1,
     ],
+  });
+});
+
+test('Room create rechecks its catalog selection under the create transaction (PR #472 review)', async () => {
+  const account = accountRow();
+  // Positional columns, as readFormatSelectionFacts selects them.
+  const factsRow = [
+    'value',
+    'Value',
+    [],
+    null,
+    'standard',
+    2,
+    foundationDefinition,
+    3,
+    1,
+    oneOnOneRoomConfig,
+    false,
+    new Date(0),
+  ];
+  const { database, queries } = createTestDatabase([
+    [],
+    [account],
+    [account],
+    [],
+    [factsRow],
+  ]);
+  const judged: (FormatSelectionFacts | null)[] = [];
+  await assertRejects({
+    given:
+      'a publication that moved the format on between the decision and the write',
+    should: 'refuse the create as format-unavailable',
+    actual: () =>
+      database.createRoomCommand({
+        room,
+        members: [room.hostActorId],
+        commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
+        payloadDigest: 'a'.repeat(64),
+        definition: null,
+        selection: {
+          tuple: { formatId: 'value', formatVersion: 1, presetVersion: 3 },
+          admits: (facts) => {
+            judged.push(facts);
+            return false;
+          },
+        },
+        caller,
+        authorize: (fact) => fact?.member === true && fact.erased === false,
+      }),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the refused recheck',
+    should:
+      'judge the facts read for share inside the transaction and write no Room',
+    actual: {
+      judged: judged.map((facts) => facts?.format.currentVersion),
+      forShare: queries.some(({ query }) => /for share/i.test(query)),
+      roomWritten: queries.some(({ query }) =>
+        /insert into "rooms"/i.test(query),
+      ),
+    },
+    expected: { judged: [2], forShare: true, roomWritten: false },
   });
 });
 

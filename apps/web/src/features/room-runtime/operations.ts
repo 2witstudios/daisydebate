@@ -166,6 +166,7 @@ export function createRoomRuntimeOperations({
       basis,
       competitionType,
       resolved,
+      recheck,
     } = await resolveRoomSelection(body, store, ids);
     // A draw Room's topic comes from its reveal; any other Room names one.
     if ((body.topic === null) !== resolved.roomPlan.resolutionDraw.enabled)
@@ -183,6 +184,7 @@ export function createRoomRuntimeOperations({
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
+      selection: recheck,
       room: {
         id: ids.next(),
         hostActorId: caller.actorId,

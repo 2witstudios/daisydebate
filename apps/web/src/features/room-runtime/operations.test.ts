@@ -230,3 +230,41 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
     expected: ['VALIDATION', 'VALIDATION'],
   });
 });
+
+test('Room creation asks the create transaction to recheck its catalog selection (PR #472 review)', async () => {
+  const run = makeOperations();
+  await run.operations.create(caller, {
+    commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
+    title: 'Policy room',
+    topic: 'Motion',
+    visibility: 'public',
+    selection: {
+      kind: 'catalog',
+      formatId: 'value',
+      formatVersion: 1,
+      presetVersion: 1,
+      competitionType: 'casual',
+    },
+  });
+  const recheck = run.createInput()?.selection;
+  assert({
+    given: 'a catalog create, then the facts as the transaction reads them',
+    should:
+      'name the tuple and admit only facts the policy still accepts as decided',
+    actual: recheck && {
+      tuple: recheck.tuple,
+      unchanged: recheck.admits(valueFacts),
+      superseded: recheck.admits({
+        ...valueFacts,
+        preset: { ...valueFacts.preset, current: false },
+      }),
+      gone: recheck.admits(null),
+    },
+    expected: {
+      tuple: { formatId: 'value', formatVersion: 1, presetVersion: 1 },
+      unchanged: true,
+      superseded: false,
+      gone: false,
+    },
+  });
+});

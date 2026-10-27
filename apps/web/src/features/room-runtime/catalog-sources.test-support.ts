@@ -1,3 +1,4 @@
+import type { FormatSelectionFacts } from '@daisy/protocol';
 import {
   foundationConfig,
   foundationDefinition,
@@ -48,9 +49,11 @@ export const catalog = [
 ];
 
 /** The selection facts the store reports for the Value standard's current tuple. */
-export const valueFacts = {
+export const valueFacts: FormatSelectionFacts = {
   format: {
     id: 'value',
+    name: 'Value',
+    leagues: [],
     catalogOwned: true,
     role: 'standard' as const,
     currentVersion: 1,
