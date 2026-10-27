@@ -3,11 +3,11 @@ import {
   roomCommandSchema,
   roomConfigSchema,
   type RoomCommand,
-  type RoomConfig,
   type RoomView,
 } from '@daisy/protocol';
 
 import { readDuration } from './duration-input';
+import { drawFieldNames, drawSettings } from './prepare-draw-settings';
 import { yieldChoices } from './yield-choice';
 
 type Prepared =
@@ -35,21 +35,9 @@ function allowedFields(view: RoomView) {
       ? ['interruptionsMode', ...durationFields('minRemaining')]
       : []),
     ...(capability.interaction.yield ? ['yield'] : []),
+    ...(capability.resolutionDraw ? drawFieldNames : []),
   ]);
 }
-/** The Room's draw choice, rebuilt from the author's own list when it has one. */
-const currentDraw = (view: RoomView): RoomConfig['resolutionDraw'] => {
-  const draw = view.config.resolutionDraw;
-  if (!draw.enabled || draw.source.kind === 'bank')
-    return draw as RoomConfig['resolutionDraw'];
-  return {
-    ...draw,
-    source: {
-      kind: 'host',
-      resolutions: [...(view.authoredDrawSource?.resolutions ?? [])],
-    },
-  };
-};
 function configFields(view: RoomView, form: FormData) {
   const capability = view.definition.configurable;
   return {
@@ -57,9 +45,7 @@ function configFields(view: RoomView, form: FormData) {
       form.get('preRoundPrep') === 'on'
         ? { enabled: true, durationMs: readDuration(form, 'preRound') }
         : { enabled: false },
-    // The draw is configured by its own setup fieldset (FMT-7.2); until
-    // then saving settings keeps the Room's current choice.
-    resolutionDraw: currentDraw(view),
+    resolutionDraw: drawSettings(view, form).resolutionDraw,
     inRoundPrep:
       form.get('inRoundPrep') === 'on'
         ? { enabled: true, budgetMsPerSide: readDuration(form, 'budget') }
@@ -111,11 +97,13 @@ export function prepareSettings(view: RoomView, form: FormData): Prepared {
     !resolveRoomConfiguration(view.definition, config.data).ok
   )
     return { kind: 'invalid' };
+  const { topic } = drawSettings(view, form);
   const command = roomCommandSchema.safeParse({
     type: 'update-config',
     expectedVersion: Number(form.get('expectedVersion')),
     commandId: form.get('commandId'),
     config: config.data,
+    ...(topic === undefined ? {} : { topic }),
   });
   return command.success
     ? { kind: 'prepared', command: command.data }
