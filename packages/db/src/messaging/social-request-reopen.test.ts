@@ -7,7 +7,6 @@ import {
   actorId,
   peerId,
   channelId,
-  now,
   input,
   pair,
   command,
