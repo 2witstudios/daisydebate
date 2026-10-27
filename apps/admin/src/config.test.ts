@@ -36,6 +36,31 @@ test('readAdminConfig', () => {
   });
 });
 
+test('a non-loopback bind outside production', () => {
+  const refusal = (env: Record<string, string>) => {
+    try {
+      return readAdminConfig({ ...valid, ...env }).ADMIN_HOST;
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+  assert({
+    given: 'ADMIN_HOST "::" with NODE_ENV unset, development or production',
+    should:
+      'refuse unless production, so a deployed process never runs as development and skips the role refusal',
+    actual: [
+      refusal({ ADMIN_HOST: '::' }),
+      refusal({ ADMIN_HOST: '::', NODE_ENV: 'development' }),
+      refusal({ ADMIN_HOST: '::', NODE_ENV: 'production' }),
+    ],
+    expected: [
+      'Invalid admin configuration: NODE_ENV',
+      'Invalid admin configuration: NODE_ENV',
+      '::',
+    ],
+  });
+});
+
 test('readAdminMigrationUrl', () => {
   assert({
     given: 'a missing owner URL',

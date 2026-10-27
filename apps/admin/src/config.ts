@@ -20,7 +20,15 @@ const adminConfigSchema = z.object({
   ADMIN_HOST: z.string().min(1).default('localhost'),
   APP_VERSION: z.string().min(1).default('development'),
   GIT_COMMIT: z.string().min(1).default('unknown'),
-});
+})
+  // Fail closed: Bun defaults NODE_ENV to development, which would serve Next
+  // in dev mode and skip the role refusal, so only a loopback bind may run
+  // outside production.
+  .refine(
+    ({ NODE_ENV, ADMIN_HOST }) =>
+      NODE_ENV === 'production' || ADMIN_HOST === 'localhost',
+    { path: ['NODE_ENV'], message: 'must be production off loopback' },
+  );
 export type AdminConfig = z.infer<typeof adminConfigSchema>;
 
 export function readAdminConfig(
