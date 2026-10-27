@@ -1,5 +1,4 @@
 import {
-  ballotLimits,
   ballotCategories,
   ballotRubric,
   ballotRubricVersion,
@@ -27,17 +26,4 @@ export const ballotInstructions = [
   'Return only a JSON object of this shape:',
   `{"rubricVersion": "${ballotRubricVersion}", "winner": "affirmative" | "negative", "scores": {"affirmative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}, "negative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}}, "reason": "two or three sentences explaining the decision", "feedback": {"affirmative": "two sentences for the affirmative", "negative": "two sentences for the negative"}}`,
   'Every category score is 1 to 5 against the anchors. Both sides get feedback on what to do differently next time.',
-].join('\n\n');
-
-/** The coach reads the round like the judge but decides nothing (ADR 0071). */
-export const COACH_ROLE = [
-  'You are an experienced, encouraging debate coach reviewing a finished round.',
-  'You do not decide who won. You tell each side the one or two changes that would most improve their next round.',
-  'Ground every point in what that side actually said or failed to answer. Do not invent evidence or speeches.',
-].join('\n');
-
-export const coachingInstructions = [
-  'Return only a JSON object of this shape:',
-  '{"affirmative": "coaching for the affirmative", "negative": "coaching for the negative"}',
-  `Each value is at most ${ballotLimits.feedback} characters: two short, specific, actionable sentences, addressed to that debater as "you".`,
 ].join('\n\n');

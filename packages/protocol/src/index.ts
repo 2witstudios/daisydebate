@@ -284,9 +284,23 @@ export {
 } from './round-ballot-read';
 export type {
   RoundBallotRead,
-  RoundCoaching,
   RoundJudgeAssignment,
 } from './round-ballot-read';
+export {
+  roundAnalysisLimits,
+  roundAnalysisLineSchema,
+  roundAnalysisReportSchema,
+  roundAnalysisSkills,
+  roundAnalysisSkillsSchema,
+  roundAnalysisVersion,
+  roundAnalysisViewSchema,
+} from './round-analysis';
+export type {
+  RoundAnalysisLine,
+  RoundAnalysisReport,
+  RoundAnalysisSkill,
+  RoundAnalysisView,
+} from './round-analysis';
 export {
   roundUnjudgedReceiptSchema,
   type RoundUnjudgedReceipt,

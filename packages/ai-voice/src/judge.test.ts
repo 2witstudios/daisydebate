@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parseBallot, parseCoaching } from './judge';
+import { parseBallot } from './judge';
 import {
   ballotCategories,
   type Ballot,
@@ -71,45 +71,6 @@ describe('parseBallot', () => {
             },
           }),
         ),
-      code: 'INFRASTRUCTURE',
-    });
-  });
-});
-
-describe('parseCoaching', () => {
-  const coaching = {
-    affirmative: 'Weigh your access impact against their cost argument.',
-    negative: 'Answer the access turn before you extend.',
-  };
-  test('reads coaching for both sides, with or without a code fence', () => {
-    assert({
-      given: 'fenced JSON coaching for both sides',
-      should: 'return each side’s coaching',
-      actual: parseCoaching(`\`\`\`json\n${JSON.stringify(coaching)}\n\`\`\``),
-      expected: coaching,
-    });
-  });
-  test('refuses anything but coaching for both sides', async () => {
-    await assertRejects({
-      given: 'coaching for one side only',
-      should: 'refuse with INFRASTRUCTURE',
-      actual: async () =>
-        parseCoaching(JSON.stringify({ affirmative: coaching.affirmative })),
-      code: 'INFRASTRUCTURE',
-    });
-    await assertRejects({
-      given: 'coaching longer than a ballot’s feedback limit',
-      should: 'refuse with INFRASTRUCTURE',
-      actual: async () =>
-        parseCoaching(
-          JSON.stringify({ ...coaching, negative: 'x'.repeat(281) }),
-        ),
-      code: 'INFRASTRUCTURE',
-    });
-    await assertRejects({
-      given: 'text that is not JSON',
-      should: 'refuse with INFRASTRUCTURE',
-      actual: async () => parseCoaching('Great round!'),
       code: 'INFRASTRUCTURE',
     });
   });
