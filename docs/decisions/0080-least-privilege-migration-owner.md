@@ -35,7 +35,10 @@ security, changes an owner, or calls a superuser-only function.
 NOCREATEROLE NOREPLICATION NOBYPASSRLS`. It owns the participant
    database, and so schema `public`. It also owns schema `drizzle` and every
    object it migrates: tables, indexes, sequences, types, functions and
-   `btree_gist`. It holds `CONNECT` on no other database.
+   `btree_gist`. It has `CONNECT` on no other application database:
+   neither `daisy_admin` nor any other database that revokes `CONNECT` from
+   PUBLIC. PostgreSQL's default PUBLIC `CONNECT` on the `postgres`, `repmgr`
+   and template databases remains, and it owns nothing in them.
 2. **Roles are provisioned by the operator, never by a deployed migration.**
    Roles are cluster objects, so creating them needs a cluster privilege.
    The operator creates every runtime role, as superuser `postgres`, before
@@ -62,7 +65,8 @@ NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`. Proofs, all as the
     object owned by `daisy_migrator`, and `btree_gist` installed.
   - A no-op run against staging.
   - The authorization functions called as `daisy_web`.
-  - The next gated deploy applies the 38th migration.
+  - The gated release v100 (12:43:47Z, deploy-staging run 40505512868)
+    applied the 38th migration, raising the journal to 38.
 - Production must be provisioned the same way: create the owner with
   `CREATE ROLE ... LOGIN` and `CREATE DATABASE ... OWNER`, or reduce an
   attached superuser with the `ALTER ROLE` above. Production also needs the
