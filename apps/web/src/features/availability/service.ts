@@ -1,13 +1,11 @@
+import type { WorkerTimers } from '../../server/worker-timers';
+
 type Sampler = {
   readonly elect: () => Promise<boolean>;
   readonly sample: (evidence: {
     readonly publicProbeHealthy: boolean;
   }) => Promise<unknown>;
   readonly close: () => Promise<void>;
-};
-type Timers = {
-  readonly setInterval: (tick: () => void, ms: number) => unknown;
-  readonly clearInterval: (handle: unknown) => void;
 };
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
@@ -21,7 +19,7 @@ export function startAvailabilityService(deps: {
     readonly availabilitySampler: () => Sampler;
   };
   readonly probe: () => Promise<boolean>;
-  readonly timers: Timers;
+  readonly timers: WorkerTimers;
   readonly failed: () => void;
 }) {
   const sampler = deps.store.availabilitySampler();
@@ -69,7 +67,7 @@ export function startAvailabilityService(deps: {
         running = null;
       });
   };
-  const timer = deps.timers.setInterval(tick, 1000);
+  const timer = deps.timers.setInterval(async () => tick(), 1000);
   tick();
   return {
     async stop() {

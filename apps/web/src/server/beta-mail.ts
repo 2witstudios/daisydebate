@@ -1,7 +1,7 @@
 import type { ErrorReporter } from '@daisy/observability';
 import { createMailIntentDelivery } from '../features/beta-access/mail-delivery';
 import { startMailIntentService } from '../features/beta-access/mail-service';
-import type { WorkerTimers } from '../features/round-bots/worker-timers';
+import type { WorkerTimers } from './worker-timers';
 import type { App } from './app';
 import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';

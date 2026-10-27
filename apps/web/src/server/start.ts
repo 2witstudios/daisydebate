@@ -6,7 +6,7 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
-import type { WorkerTimers } from '../features/round-bots/worker-timers';
+import type { WorkerTimers } from './worker-timers';
 import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
@@ -86,14 +86,19 @@ const mediaRecovery = mediaRuntime
       },
     })
   : null;
+/** Process timers for the async worker loops; `unref` never holds the process open. */
+const workerTimers: WorkerTimers = {
+  setInterval: (tick, ms) =>
+    setInterval(() => {
+      void tick();
+    }, ms).unref(),
+  clearInterval: (handle) =>
+    clearInterval(handle as ReturnType<typeof setInterval>),
+};
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
+  timers: workerTimers,
 });
 const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
@@ -104,15 +109,6 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
       clearInterval(handle as ReturnType<typeof setInterval>),
   },
 });
-/** Process timers for the async worker loops; `unref` never holds the process open. */
-const workerTimers: WorkerTimers = {
-  setInterval: (tick, ms) =>
-    setInterval(() => {
-      void tick();
-    }, ms).unref(),
-  clearInterval: (handle) =>
-    clearInterval(handle as ReturnType<typeof setInterval>),
-};
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
@@ -146,10 +142,7 @@ const retention = startRetentionSweep({
       timeout: (ms) =>
         new Promise((resolve) => setTimeout(resolve, ms).unref()),
     }),
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-  },
+  timers: workerTimers,
 });
 const betaMail = startBetaMail({
   app,
@@ -163,10 +156,7 @@ const fileMaintenance = fileRuntime?.maintenance
       remove: (key) => fileRuntime.objects.remove(key),
       clock: app.clock,
       logger: app.logger,
-      timers: {
-        setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-        clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-      },
+      timers: workerTimers,
     })
   : null;
 async function shutdown() {

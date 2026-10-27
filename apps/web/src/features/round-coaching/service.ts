@@ -1,5 +1,5 @@
 import { isAppError } from '@daisy/errors';
-import type { WorkerTimers } from '../round-bots/worker-timers';
+import type { WorkerTimers } from '../../server/worker-timers';
 
 /**
  * The coaching worker (ADR 0071): each scan lists Rounds that need coaching

@@ -46,7 +46,8 @@ describe('retention sweep schedule', () => {
       timers,
       runOnStart: true,
     });
-    const overlapping = state.tick?.();
+    // A tick during the start-up run starts no second sweep.
+    void state.tick?.();
     const duringStartUp = gated.state.started;
     gated.state.release();
     await schedule.initial;
@@ -59,13 +60,11 @@ describe('retention sweep schedule', () => {
         'run once at start, skip the overlapping tick, run the later one, on an hourly interval',
       actual: {
         duringStartUp,
-        overlapping,
         started: gated.state.started,
         ms: state.ms,
       },
       expected: {
         duringStartUp: 1,
-        overlapping: undefined,
         started: 2,
         ms: 3_600_000,
       },
@@ -152,7 +151,8 @@ describe('retention sweep schedule', () => {
     // the run would already have resolved by now.
     for (let hop = 0; hop < 10; hop += 1) await Promise.resolve();
     const beforeRelease = { settled, stopped: gated.state.stopped };
-    const afterStopTick = state.tick?.();
+    // A tick after stop starts nothing: `started` stays 1.
+    void state.tick?.();
     gated.state.release();
     await stopping;
     assert({
@@ -164,14 +164,12 @@ describe('retention sweep schedule', () => {
         settled,
         cleared: state.cleared,
         started: gated.state.started,
-        afterStopTick,
       },
       expected: {
         beforeRelease: { settled: false, stopped: true },
         settled: true,
         cleared: ['retention-timer'],
         started: 1,
-        afterStopTick: undefined,
       },
     });
   });

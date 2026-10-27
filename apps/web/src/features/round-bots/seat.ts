@@ -1,4 +1,4 @@
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../../server/worker-timers';
 
 /** Joins one owned claim's receipts and speech; receipts never await model, media or relay work. */
 export function createBotSeat(input: {
