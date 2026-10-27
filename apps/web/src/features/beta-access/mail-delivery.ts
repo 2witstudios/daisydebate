@@ -69,17 +69,20 @@ export function createMailIntentDelivery(input: {
         ? { kind: 'sent' }
         : { kind: 'cancelled', errorCode: 'suppressed' };
     } catch {
-      if (claim.attempts >= MAIL_INTENT_MAX_ATTEMPTS)
-        return { kind: 'failed', errorCode: 'delivery' };
-      return {
-        kind: 'retry',
-        errorCode: 'delivery',
-        nextAttemptAt: new Date(
-          Date.parse(input.now()) + mailRetryDelayMs(claim.attempts),
-        ).toISOString(),
-      };
+      return retryOrFail(claim);
     }
   };
+  /** A failed attempt backs off, and fails for good at the attempt cap. */
+  const retryOrFail = (claim: Claim): Outcome =>
+    claim.attempts >= MAIL_INTENT_MAX_ATTEMPTS
+      ? { kind: 'failed', errorCode: 'delivery' }
+      : {
+          kind: 'retry',
+          errorCode: 'delivery',
+          nextAttemptAt: new Date(
+            Date.parse(input.now()) + mailRetryDelayMs(claim.attempts),
+          ).toISOString(),
+        };
   return {
     /** Sends up to `limit` due intents one after another; resolves to how many it settled. */
     async run(limit: number): Promise<number> {
@@ -90,7 +93,9 @@ export function createMailIntentDelivery(input: {
       });
       let settled = 0;
       for (const claim of claims) {
-        const outcome = await decide(claim);
+        // One intent whose read fails (erased mid-lease, say) counts as a
+        // failed attempt; it never aborts the rest of the batch (ISSUE-656).
+        const outcome = await decide(claim).catch(() => retryOrFail(claim));
         if (
           await input.store.settleMailIntent({
             id: claim.id,

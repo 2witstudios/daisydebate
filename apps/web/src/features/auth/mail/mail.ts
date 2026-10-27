@@ -20,6 +20,24 @@ class DeliveryError extends Error {
 }
 
 /**
+ * A 409 on an idempotency key, per Resend's documented behaviour (keys kept
+ * 24 hours). `invalid_idempotent_request`: the key already sent an email
+ * with a different payload, so this message was delivered before (a durable
+ * intent resent after a lapsed lease with fresh counts, ISSUE-655), and the
+ * send succeeded with no new receipt. `concurrent_idempotent_requests`: the
+ * first send is still in flight, which is transient. Anything else is a
+ * permanent rejection.
+ */
+async function idempotencyConflict(response: Response): Promise<void> {
+  const name = await response
+    .json()
+    .then((body: unknown) => (body as { name?: unknown } | null)?.name)
+    .catch(() => undefined);
+  if (name === 'invalid_idempotent_request') return;
+  throw new DeliveryError(name === 'concurrent_idempotent_requests', 409);
+}
+
+/**
  * Resend transport behind the injected `send` seam. One user-requested link
  * is one operation: a single idempotency key, a total delivery deadline, and
  * at most one retry of a transient failure under that same key. Open/click
@@ -67,6 +85,7 @@ export function createResendSender({
     } catch {
       throw new DeliveryError(true);
     }
+    if (response.status === 409) return idempotencyConflict(response);
     if (!response.ok)
       throw new DeliveryError(
         response.status === 429 || response.status >= 500,
