@@ -1,5 +1,5 @@
 import { fixedIds } from '@daisy/clock';
-import type { RateDebateInput } from '@daisy/db';
+import type { RateDebateInput } from '@daisy/db/ratings';
 import { planRating, ratingEligibility } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateCompletedRound } from './rate-debate';

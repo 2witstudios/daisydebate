@@ -22,7 +22,7 @@ import { roundLadder, rounds } from './schema/rounds';
 import { jsonObjectSchema } from './schema/columns';
 
 /** Server-owned pure projection builder, invoked with the post-lock PostgreSQL instant. */
-export type RoundExecutionWrite = {
+type RoundExecutionWrite = {
   readonly command: {
     readonly commandId: string;
     readonly actorId: string | null;
