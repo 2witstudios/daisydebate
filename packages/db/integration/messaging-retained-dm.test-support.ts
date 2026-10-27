@@ -30,10 +30,12 @@ export const openDm = async (databaseUrl: string) => {
     removed: createId(),
     replyRequest: createId(),
   };
-  // One reserved upload each, so erasure's file outcome is part of residue.
+  // A reserved upload each, and the survivor's file attached to their
+  // reply, so erasure's file outcome is part of residue.
   const files = {
     subject: { id: createId(), objectKey: createId() },
     survivor: { id: createId(), objectKey: createId() },
+    attached: { id: createId(), objectKey: createId() },
   };
   await client.unsafe(
     'update messaging_channels set message_sequence=3,change_version=3 where id=$1',
@@ -85,7 +87,19 @@ export const openDm = async (databaseUrl: string) => {
       "insert into messaging_files(id,channel_id,owner_actor_id,request_id,object_key,filename,mime,reserved_bytes,generation,authority_revision,lifecycle,created_at,expires_at) values($1,$2,$3,$4,$5,'notes.pdf','application/pdf',20,1,1,'reserved',$6,$6::timestamptz + interval '1 hour')",
       [file.id, channelId, owner, createId(), file.objectKey, now],
     );
-  const objectKeys = [files.subject.objectKey, files.survivor.objectKey];
+  await client.unsafe(
+    "insert into messaging_files(id,channel_id,owner_actor_id,request_id,message_id,object_key,filename,mime,reserved_bytes,stored_bytes,generation,authority_revision,lifecycle,created_at,expires_at) values($1,$2,$3,$4,$5,$6,'reply.pdf','application/pdf',20,20,1,1,'attached',$7,$7::timestamptz + interval '1 hour')",
+    [
+      files.attached.id,
+      channelId,
+      survivor.actorId,
+      createId(),
+      ids.reply,
+      files.attached.objectKey,
+      now,
+    ],
+  );
+  const objectKeys = Object.values(files).map((file) => file.objectKey);
   const erase = (who: typeof subject) =>
     database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [who.actorId], { maxActors: 1 });
@@ -93,7 +107,7 @@ export const openDm = async (databaseUrl: string) => {
     });
   const close = async () => {
     await client.unsafe(
-      'delete from messaging_file_deletion_intents where object_key in ($1,$2)',
+      'delete from messaging_file_deletion_intents where object_key in ($1,$2,$3)',
       objectKeys,
     );
     await client.unsafe('delete from messaging_files where channel_id=$1', [
@@ -117,7 +131,7 @@ export const openDm = async (databaseUrl: string) => {
         (select count(*)::int from messaging_retained_authors where channel_id=$1) as grants,
         (select count(*)::int from messaging_receipts where channel_id=$1) as receipts,
         (select count(*)::int from messaging_files where channel_id=$1) as files,
-        (select count(*)::int from messaging_file_deletion_intents where object_key in ($2,$3)) as intents`,
+        (select count(*)::int from messaging_file_deletion_intents where object_key in ($2,$3,$4)) as intents`,
         [channelId, ...objectKeys],
       )) as Record<string, number>[]
     )[0];

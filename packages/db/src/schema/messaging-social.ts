@@ -299,7 +299,9 @@ export const messagingSocialCommands = pgTable(
      * requester when it was asked (no friendship and no DM), snapshotted so
      * a later pair row never refills the unrelated budget.
      */
-    unrelated: boolean('unrelated').notNull(),
+    // Expand: old writers omit it during a rolling deploy. Every current
+    // writer states it; ISSUE-760 drops the default once they are gone.
+    unrelated: boolean('unrelated').notNull().default(false),
   },
   (table) => [
     index('messaging_social_commands_actor_created_idx').on(

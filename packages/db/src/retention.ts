@@ -45,16 +45,23 @@ export async function deleteExpiredBatch(
   db: Pick<BunSQLDatabase, 'execute'>,
   target: {
     readonly table: Table;
-    readonly key: Column;
+    /** The row's key: one column, or every column of a composite key. */
+    readonly key: Column | readonly Column[];
     readonly at: Column;
     readonly eligible?: SQL;
   },
   { before, limit }: RetentionBatch,
 ): Promise<number> {
   requireRetentionBounds({ before, limit });
-  const { table, key, at } = target;
+  const { table, at } = target;
+  const key = Array.isArray(target.key)
+    ? sql.join(
+        target.key.map((column) => sql`${column}`),
+        sql`, `,
+      )
+    : sql`${target.key}`;
   const deleted = await db.execute(sql`
-    delete from ${table} where ${key} in (
+    delete from ${table} where (${key}) in (
       select ${key} from ${table}
       where ${at} < ${before}::timestamptz and (${target.eligible ?? sql`true`})
       order by ${at}

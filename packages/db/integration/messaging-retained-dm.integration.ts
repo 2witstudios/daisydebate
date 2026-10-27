@@ -13,13 +13,25 @@ import { openDm as openDmAt } from './messaging-retained-dm.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const unfenced = async () => {};
-/** No channel row left, and both members' uploads turned into erasure work. */
+/** No channel row left, and all three uploads turned into erasure work. */
 const emptied = {
   channels: 0,
   messages: 0,
   grants: 0,
   receipts: 0,
   files: 0,
+  intents: 3,
+};
+/**
+ * The survivor's retained channel: their two messages, grant and receipts,
+ * with only their attached file kept; both reserved uploads are erasure work.
+ */
+const retained = {
+  channels: 1,
+  messages: 2,
+  grants: 1,
+  receipts: 2,
+  files: 1,
   intents: 2,
 };
 const openDm = () => openDmAt(databaseUrl);
@@ -85,48 +97,33 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
       ],
       expected: [[[channelId, 1]], [[ids.reply, 'Survivor reply']], null],
     });
-    const residueBefore = await dm.residue();
+    assert({
+      given: 'the subject erased',
+      should:
+        'keep the survivor’s attached file and turn both reserved uploads, theirs included, into erasure work',
+      actual: await dm.residue(),
+      expected: retained,
+    });
+    let reached = false;
     await assertRejects({
       given:
-        'the survivor retrying their pre-erasure send (same request ID) on the retained channel, under a permissive fence',
-      should: 'refuse it as an absent channel',
+        'the survivor sending again on the retained channel, under a permissive fence',
+      should:
+        'refuse it as an absent channel at the channel fence, before the frame reads any receipt or content',
       actual: () =>
         createMessagingStore({
           database: dm.database,
           authorize: unfenced,
-        }).withChannel({ ...survivor, channelId }, (frame) =>
-          frame.readSendState({
-            version: 1,
-            channelId,
-            requestId: ids.replyRequest,
-            text: 'Survivor reply',
-          }),
-        ),
+        }).withChannel({ ...survivor, channelId }, async () => {
+          reached = true;
+        }),
       code: 'NOT_FOUND',
     });
     assert({
-      given: 'the subject erased, then the refused retry',
-      should:
-        'keep only the survivor’s upload, turn the subject’s into erasure work, and change nothing on the retry',
-      actual: [residueBefore, await dm.residue()],
-      expected: [
-        {
-          channels: 1,
-          messages: 2,
-          grants: 1,
-          receipts: 2,
-          files: 1,
-          intents: 1,
-        },
-        {
-          channels: 1,
-          messages: 2,
-          grants: 1,
-          receipts: 2,
-          files: 1,
-          intents: 1,
-        },
-      ],
+      given: 'the refused send',
+      should: 'never have opened the channel frame',
+      actual: reached,
+      expected: false,
     });
     for (const caller of [
       dm.subject,

@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { requireRetentionBounds, type RetentionBatch } from '../retention';
+import { deleteExpiredBatch, type RetentionBatch } from '../retention';
+import { messagingSocialDeclines } from '../schema/messaging-social';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
@@ -28,13 +29,17 @@ const rowsOf = <Row>(result: unknown) =>
 
 const at = (now: number) => new Date(now).toISOString();
 
+/** DEC-251's ceiling; `declined_count` (at most one fewer) is checked 0..3. */
+const MAX_DECLINES_TO_BLOCK = 3;
+
 function requireLimits(limits: SocialRequestLimits, now: string) {
   const instant = Date.parse(now);
   if (
     !Number.isFinite(instant) ||
     !Object.values(limits).every(
       (value) => Number.isSafeInteger(value) && value > 0,
-    )
+    ) ||
+    limits.declinesToBlock > MAX_DECLINES_TO_BLOCK
   )
     throw createAppError('VALIDATION');
   return instant;
@@ -59,10 +64,11 @@ export async function refuseDeclineBlock(
   counterpartActorId: string,
   now: string,
 ) {
-  if (!Number.isFinite(Date.parse(now))) throw createAppError('VALIDATION');
+  const instant = Date.parse(now);
+  if (!Number.isFinite(instant)) throw createAppError('VALIDATION');
   const [row] = rowsOf<{ blocked: boolean }>(
     await tx.execute(
-      sql`select ${declineBlocks(actorId, counterpartActorId, now)} as "blocked"`,
+      sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
     ),
   );
   if (!row) throw createAppError('INFRASTRUCTURE');
@@ -101,7 +107,7 @@ export async function spendSocialRequest(
     hourly: number;
   }>(
     await tx.execute(sql`select
-      ${declineBlocks(actorId, counterpartActorId, command.now)} as "declined",
+      ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
       not exists(select 1 from messaging_friendships
           where low_actor_id=${low} and high_actor_id=${high} and state='accepted')
         and not exists(select 1 from messaging_dm_pairs
@@ -124,7 +130,7 @@ export async function spendSocialRequest(
     await tx.execute(sql`insert into messaging_social_commands
       (actor_id, request_id, counterpart_actor_id, kind, digest, result_channel_id, created_at, unrelated)
       values (${actorId}, ${command.requestId}, ${counterpartActorId}, ${command.kind},
-        ${command.digest}, ${resultChannelId}, ${command.now}::timestamptz, ${facts.unrelated})`);
+        ${command.digest}, ${resultChannelId}, ${at(now)}::timestamptz, ${facts.unrelated})`);
   };
 }
 
@@ -132,8 +138,8 @@ export async function spendSocialRequest(
  * Records that `declinerActorId` declined `requesterActorId`. A decline
  * counts for `declineBlockMs`; reaching `declinesToBlock` blocks further
  * requests in that direction for `declineBlockMs` and starts the count over.
- * The row expires `declineBlockMs` after its last decline, which also
- * outlasts any block it holds, so the sweep needs no policy of its own.
+ * The row expires `declineBlockMs` after its last decline, or when a block
+ * it keeps ends if that is later, so the sweep needs no policy of its own.
  */
 export async function recordSocialDecline(
   tx: Tx,
@@ -149,7 +155,7 @@ export async function recordSocialDecline(
   const [low, high] = ordered(declinerActorId, requesterActorId);
   const until = at(now + limits.declineBlockMs);
   await tx.execute(sql`with counted as (
-      select coalesce((select case when d.expires_at > ${command.now}::timestamptz
+      select coalesce((select case when d.expires_at > ${at(now)}::timestamptz
         then d.declined_count else 0 end
         from messaging_social_declines d
         where d.decliner_actor_id=${declinerActorId} and d.requester_actor_id=${requesterActorId}), 0) + 1 as next
@@ -158,16 +164,17 @@ export async function recordSocialDecline(
       (decliner_actor_id, requester_actor_id, low_actor_id, high_actor_id, declined_count, last_declined_at, blocked_until, expires_at)
     select ${declinerActorId}, ${requesterActorId}, ${low}, ${high},
       case when next >= ${limits.declinesToBlock} then 0 else next end,
-      ${command.now}::timestamptz,
+      ${at(now)}::timestamptz,
       case when next >= ${limits.declinesToBlock} then ${until}::timestamptz end,
       ${until}::timestamptz
     from counted
     on conflict (decliner_actor_id, requester_actor_id) do update set
       declined_count = excluded.declined_count,
       last_declined_at = excluded.last_declined_at,
-      expires_at = excluded.expires_at,
+      -- A block kept from a longer window still ends before the row does.
+      expires_at = greatest(excluded.expires_at, messaging_social_declines.blocked_until),
       blocked_until = coalesce(excluded.blocked_until,
-        case when messaging_social_declines.blocked_until > ${command.now}::timestamptz
+        case when messaging_social_declines.blocked_until > ${at(now)}::timestamptz
           then messaging_social_declines.blocked_until end)`);
 }
 
@@ -181,8 +188,7 @@ export async function clearSocialDeclines(tx: Tx, a: string, b: string) {
 
 /**
  * DEC-251 retention: a decline row past its `expires_at` neither counts nor
- * blocks, so the sweep deletes it. One bounded autocommitted statement per
- * call, as in `deleteExpiredBatch`, over the row's two-column key.
+ * blocks, so the sweep deletes it, in `deleteExpiredBatch`'s bounded batches.
  */
 export const socialDeclineRetention = ({
   database,
@@ -191,18 +197,19 @@ export const socialDeclineRetention = ({
   readonly database: Pick<BunSQLDatabase, 'execute'>;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  purgeExpiredSocialDeclines: ({ before, limit }: RetentionBatch) =>
-    instrumented(eventSink, 'purgeExpiredSocialDeclines', async () => {
-      requireRetentionBounds({ before, limit });
-      const deleted = await database.execute(sql`
-        delete from messaging_social_declines
-        where (decliner_actor_id, requester_actor_id) in (
-          select decliner_actor_id, requester_actor_id from messaging_social_declines
-          where expires_at < ${before}::timestamptz
-          order by expires_at
-          limit ${limit}
-          for update skip locked
-        ) returning decliner_actor_id`);
-      return rowsOf(deleted).length;
-    }),
+  purgeExpiredSocialDeclines: (batch: RetentionBatch) =>
+    instrumented(eventSink, 'purgeExpiredSocialDeclines', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: messagingSocialDeclines,
+          key: [
+            messagingSocialDeclines.declinerActorId,
+            messagingSocialDeclines.requesterActorId,
+          ],
+          at: messagingSocialDeclines.expiresAt,
+        },
+        batch,
+      ),
+    ),
 });

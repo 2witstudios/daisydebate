@@ -11,7 +11,6 @@ import { contactBlockWriter } from './social-block';
 import { friendshipFrame } from './social-friendship';
 import { challengeFrame } from './social-challenge';
 import { dmRequestFrame } from './social-request';
-import { refuseDeclineBlock } from './social-request-budget';
 import type {
   MessagingSocialAuthorizationFence,
   MessagingSocialStore,
@@ -101,13 +100,6 @@ export function createMessagingSocialStore({
                 ),
               );
             return receipt ?? null;
-          },
-          async refuseDeclineBlock(now) {
-            await refresh();
-            const other = members.find((member) => member !== input.actorId);
-            if (members.length !== 2 || !other)
-              throw createAppError('VALIDATION');
-            await refuseDeclineBlock(tx, input.actorId, other, now);
           },
           commitBlock: contactBlockWriter(tx, input, rows, refresh),
         });

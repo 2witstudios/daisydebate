@@ -28,20 +28,28 @@ export async function deleteMessageFiles(
 /**
  * Deletes only `actorId`'s own files (never another member's shared ones),
  * in `channelId` only when given, queuing each stored object's deletion
- * through a file intent.
+ * through a file intent. `pendingOnly` limits it to uploads not yet
+ * attached (reserved or quarantined), which nothing could finish once the
+ * channel loses its authority.
  */
 export async function eraseSubjectFiles(
   tx: AuthorizationTransaction,
   actorId: string,
   channelId?: string,
+  { pendingOnly = false }: { readonly pendingOnly?: boolean } = {},
 ) {
   if (
     !idSchema.safeParse(actorId).success ||
     (channelId !== undefined && !idSchema.safeParse(channelId).success)
   )
     throw createAppError('VALIDATION');
-  const scope =
-    channelId === undefined ? sql`true` : sql`channel_id = ${channelId}`;
+  const scope = sql.join(
+    [
+      channelId === undefined ? sql`true` : sql`channel_id = ${channelId}`,
+      pendingOnly ? sql`lifecycle in ('reserved', 'quarantined')` : sql`true`,
+    ],
+    sql` and `,
+  );
   // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
   await tx.execute(sql`
     insert into messaging_file_deletion_intents(object_key, charged_bytes)

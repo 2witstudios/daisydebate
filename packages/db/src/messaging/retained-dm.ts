@@ -56,8 +56,9 @@ export async function detachSurvivorsFromSubject(
  * DEC-126, once the subject's files are gone: their DM rows are deleted
  * outright (their reactions and the survivor's reactions on them go with
  * them). A survivor with messages of their own keeps the channel as
- * `retained`, with their explicit retained-author grant; a survivor with
- * none keeps nothing, and the channel is deleted.
+ * `retained`, with their explicit retained-author grant and their attached
+ * files, while their unfinished uploads become erasure work; a survivor
+ * with none keeps nothing, and the channel is deleted.
  */
 export async function retainSurvivorDms(
   tx: Tx,
@@ -77,6 +78,11 @@ export async function retainSurvivorDms(
       ),
     );
     if (own?.live) {
+      // Only attached files belong to the retained messages: an upload still
+      // in flight could never finish or expire without channel authority.
+      await eraseSubjectFiles(tx, survivorActorId, channelId, {
+        pendingOnly: true,
+      });
       await tx.execute(
         sql`update messaging_channels set lifecycle='retained', title=null, title_author_actor_id=null where id=${channelId}`,
       );

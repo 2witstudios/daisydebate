@@ -9,39 +9,43 @@ import { messagingSocialAuthorizationFence } from '../src/features/messaging/soc
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+type Opened = Awaited<ReturnType<typeof openMessagingFixture>>;
+/** DM request dependencies over the fixture's real store and canonical fence. */
+const requestDeps = (
+  { database: db, fixture, principal }: Opened,
+  clock: { readonly now: () => string },
+  limit: (actorId: string) => Promise<void> = async () => {},
+) => ({
+  policyRevision: 1,
+  clock,
+  ids: { next: () => fixture.channelId },
+  bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
+  limits: dec251MessagingValues.socialRequests,
+  limit,
+  store: db.messagingSocialStore(
+    messagingSocialAuthorizationFence({
+      principal,
+      clock,
+      operation: {
+        kind: 'dm',
+        policy: {
+          state: 'approved',
+          decision: 'Explicit fixture only',
+          key: 'social.dm',
+          revision: 1,
+          allowedBandPairs: [['adult', 'adult']],
+        },
+      },
+    }),
+  ),
+});
+
 test('canonical prospective authorization creates one pending DM and enforces durable actor request limits', async () => {
-  const {
-    client: client,
-    database: db,
-    fixture,
-    principal,
-  } = await openMessagingFixture(databaseUrl);
+  const opened = await openMessagingFixture(databaseUrl);
+  const { client: client, database: db, fixture, principal } = opened;
   let now = fixture.now;
   const clock = { now: () => now };
-  const deps = {
-    policyRevision: 1,
-    clock,
-    ids: { next: () => fixture.channelId },
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    limits: dec251MessagingValues.socialRequests,
-    limit: async () => {},
-    store: db.messagingSocialStore(
-      messagingSocialAuthorizationFence({
-        principal,
-        clock,
-        operation: {
-          kind: 'dm',
-          policy: {
-            state: 'approved',
-            decision: 'Explicit fixture only',
-            key: 'social.dm',
-            revision: 1,
-            allowedBandPairs: [['adult', 'adult']],
-          },
-        },
-      }),
-    ),
-  };
+  const deps = requestDeps(opened, clock);
   const command = {
     version: 1,
     requestId: createId(),
@@ -156,6 +160,71 @@ test('canonical prospective authorization creates one pending DM and enforces du
         'reauthorize before revealing the stored request channel, refusing as an unknown recipient is (DEC-251)',
       actual: () => requestMessagingDm(command, principal, deps),
       code: 'NOT_FOUND',
+    });
+  } finally {
+    await fixture.cleanup();
+    await db.close();
+    await client.close();
+  }
+});
+
+test('a decline block refuses a new DM request before the limiter, yet an existing DM still converges (DEC-251)', async () => {
+  const opened = await openMessagingFixture(databaseUrl);
+  const { client, database: db, fixture, principal } = opened;
+  const clock = { now: () => fixture.now };
+  const spends: string[] = [];
+  const deps = requestDeps(opened, clock, async (actorId) => {
+    spends.push(actorId);
+  });
+  const ask = () =>
+    requestMessagingDm(
+      {
+        version: 1,
+        requestId: createId(),
+        recipientActorId: fixture.otherActorId,
+        introduction: 'Hello again',
+      },
+      principal,
+      deps,
+    );
+  const [low, high] = [fixture.actorId, fixture.otherActorId].sort();
+  try {
+    await client.unsafe(
+      "insert into messaging_social_declines(decliner_actor_id,requester_actor_id,low_actor_id,high_actor_id,declined_count,last_declined_at,blocked_until,expires_at) values($1,$2,$3,$4,0,$5,$5::timestamptz + interval '30 days',$5::timestamptz + interval '30 days')",
+      [fixture.otherActorId, fixture.actorId, low, high, fixture.now],
+    );
+    const converged = await ask();
+    const spentOnConvergence = [...spends];
+    await client.unsafe('delete from messaging_channels where id=$1', [
+      fixture.channelId,
+    ]);
+    const refused = await ask().then(
+      () => 'accepted',
+      (error: { code?: string }) => error.code,
+    );
+    const [pairs] = await client.unsafe(
+      'select count(*)::int as n from messaging_dm_pairs where low_actor_id=$1 and high_actor_id=$2',
+      [low, high],
+    );
+    assert({
+      given:
+        'a requester decline-blocked by the recipient, asking first while their accepted DM exists, then after it is gone',
+      should:
+        'converge on the accepted DM, then refuse the new request as NOT_FOUND with no limiter spend and no pair written',
+      actual: {
+        converged,
+        spentOnConvergence,
+        refused,
+        spends,
+        pairs: pairs.n,
+      },
+      expected: {
+        converged: { channelId: fixture.channelId, state: 'accepted' },
+        spentOnConvergence: [fixture.actorId],
+        refused: 'NOT_FOUND',
+        spends: [fixture.actorId],
+        pairs: 0,
+      },
     });
   } finally {
     await fixture.cleanup();

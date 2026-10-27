@@ -24,7 +24,7 @@ const command = {
 
 /**
  * A contact store holding `receipt`, whose commit is recorded, never applied.
- * `refusal` is what opening the frame or its decline-block check refuses.
+ * `refusal` is what opening the frame or its pre-spend screen refuses.
  */
 const storeWith = (
   receipt: { kind: string; digest: string | null; channelId: string } | null,
@@ -42,7 +42,7 @@ const storeWith = (
       if (refusal?.at === 'open') throw createAppError(refusal.code);
       return work({
         readReceipt: async () => receipt,
-        refuseDeclineBlock: async () => {
+        screenDmRequest: async () => {
           if (refusal?.at === 'decline') throw createAppError(refusal.code);
         },
         readDmRequest: async () => ({ channelId, state: 'pending' }),

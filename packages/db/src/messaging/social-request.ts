@@ -8,7 +8,10 @@ import {
   messagingContactPairs,
   messagingDmPairs,
 } from '../schema/messaging-social';
-import { spendSocialRequest } from './social-request-budget';
+import {
+  refuseDeclineBlock,
+  spendSocialRequest,
+} from './social-request-budget';
 import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import type {
@@ -24,7 +27,10 @@ export function dmRequestFrame(
   input: MessagingSocialInput,
   rows: readonly Pair[],
   authorize: () => Promise<void>,
-): Pick<MessagingSocialFrame, 'readDmRequest' | 'commitDmRequest'> {
+): Pick<
+  MessagingSocialFrame,
+  'readDmRequest' | 'commitDmRequest' | 'screenDmRequest'
+> {
   const read = async () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
     const pair = rows[0]!;
@@ -39,7 +45,26 @@ export function dmRequestFrame(
       );
     return current ?? null;
   };
+  const converges = (current: Awaited<ReturnType<typeof read>>) =>
+    current !== null && ['pending', 'accepted'].includes(current.requestState);
+  const activeChannel = async (channelId: string) => {
+    const [channel] = await tx
+      .select()
+      .from(messagingChannels)
+      .where(eq(messagingChannels.id, channelId))
+      .for('update');
+    if (!channel || channel.lifecycle !== 'active')
+      throw createAppError('AUTHORIZATION');
+    return channel;
+  };
   return {
+    async screenDmRequest(now) {
+      await authorize();
+      const current = await read();
+      if (converges(current)) return;
+      if (current) await activeChannel(current.channelId);
+      await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
+    },
     async readDmRequest() {
       await authorize();
       const current = await read();
@@ -55,7 +80,7 @@ export function dmRequestFrame(
       // An existing pending or accepted DM is no new request: asking again
       // converges on it without spending DEC-251's budgets or writing a
       // ledger row (the convergence is idempotent, so no receipt is needed).
-      if (current && ['pending', 'accepted'].includes(current.requestState))
+      if (current && converges(current))
         return { channelId: current.channelId, state: current.requestState };
       const record = await spendSocialRequest(tx, {
         actorId: input.actorId,
@@ -69,14 +94,7 @@ export function dmRequestFrame(
       const pair = rows[0]!;
       const channelId = current?.channelId ?? command.channelId;
       if (current) {
-        const [channel] = await tx
-          .select()
-          .from(messagingChannels)
-          .where(eq(messagingChannels.id, channelId))
-          .for('update');
-        if (!channel || channel.lifecycle !== 'active')
-          throw createAppError('AUTHORIZATION');
-        await advanceSocialChannelAuthority(tx, channel);
+        await advanceSocialChannelAuthority(tx, await activeChannel(channelId));
         await tx
           .update(messagingDmPairs)
           .set({

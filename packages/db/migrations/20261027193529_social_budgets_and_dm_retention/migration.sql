@@ -21,7 +21,6 @@ CREATE TABLE "messaging_social_declines" (
 );
 --> statement-breakpoint
 ALTER TABLE "messaging_social_commands" ADD COLUMN "unrelated" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "messaging_social_commands" ALTER COLUMN "unrelated" DROP DEFAULT;--> statement-breakpoint
 CREATE INDEX "messaging_retained_authors_actor_idx" ON "messaging_retained_authors" ("actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_social_commands_actor_created_idx" ON "messaging_social_commands" ("actor_id","created_at");--> statement-breakpoint
 CREATE INDEX "messaging_social_declines_pair_idx" ON "messaging_social_declines" ("low_actor_id","high_actor_id");--> statement-breakpoint

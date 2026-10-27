@@ -206,8 +206,9 @@ test('real private storage deletion acknowledgement alone releases durable quota
         peerHasOwnFile: true,
       },
     });
-    // ADR 0085: the peer keeps the DM, and their files in it, only while a
-    // live message of theirs remains in it.
+    // ADR 0085: the peer keeps the DM only while a live message of theirs
+    // remains in it, and keeps only files attached to it there.
+    const peerMessageId = createId();
     const [counters] = await client.unsafe(
       'update messaging_channels set message_sequence=message_sequence+1, change_version=change_version+1 where id=$1 returning message_sequence as sequence, change_version as version',
       [fixture.channelId],
@@ -215,13 +216,17 @@ test('real private storage deletion acknowledgement alone releases durable quota
     await client.unsafe(
       "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,$4,$5,'Peer text',$6)",
       [
-        createId(),
+        peerMessageId,
         fixture.channelId,
         fixture.otherActorId,
         counters.sequence,
         counters.version,
         fixture.now,
       ],
+    );
+    await client.unsafe(
+      "update messaging_files set lifecycle='attached', message_id=$2, stored_bytes=reserved_bytes where id=$1",
+      [peerFile.id, peerMessageId],
     );
     await fixture.eraseSubject(fixture.actorId);
     const associations = await client.unsafe(
@@ -260,7 +265,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
         lifecycle: peerRows[0]!.lifecycle,
         exists: await Bun.file(join(directory, peerKey)).exists(),
       },
-      expected: { lifecycle: 'reserved', exists: true },
+      expected: { lifecycle: 'attached', exists: true },
     });
     assert({
       given:

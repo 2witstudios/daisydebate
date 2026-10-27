@@ -30,8 +30,11 @@ subject's data. Survivor replies kept pointers to them.
    a live message of their own, the channel becomes `lifecycle='retained'`
    and gets one `messaging_retained_authors(channel_id, actor_id)` row for
    them. That row is the only grant: it is written only by erasure and is
-   never derived from authorship. A survivor with no live message keeps
-   nothing, and the channel is deleted with its rows and files.
+   never derived from authorship. The survivor keeps their attached files;
+   an upload of theirs still reserved or quarantined goes through a file
+   deletion intent, since nothing could finish or expire it without channel
+   authority. A survivor with no live message keeps nothing, and the
+   channel is deleted with its rows and files.
 3. **Retained is refused everywhere else.** `MessagingChannelLifecycle` is
    an exhaustive union in `@daisy/protocol`. `authorize` refuses every
    channel capability on a retained channel. Its DM pair is gone, so no

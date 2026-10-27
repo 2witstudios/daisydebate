@@ -11,9 +11,12 @@ import { requireMessagingActor } from './principal';
 import { messagingSocialDigest } from './social-command-digest';
 
 /**
- * A DM request by actor ID. An unknown recipient, a block and a decline
- * block all answer the same NOT_FOUND before any budget is spent, so a
- * refusal never says which it was (DEC-251, as ADR 0072 does for friends).
+ * A DM request by actor ID. An unknown recipient, a block, a decline block
+ * and an inactive channel all answer the same NOT_FOUND before any budget is
+ * spent, so a refusal never says which it was (DEC-251, as ADR 0072 does for
+ * friends). The requester's own fence refusal (a waitlisted account) is
+ * deliberately folded in too: telling it apart would need the fence to say
+ * which side refused. An existing pending or accepted DM converges.
  */
 export async function requestMessagingDm(
   input: unknown,
@@ -56,7 +59,7 @@ export async function requestMessagingDm(
         // As send and block do: a replay never spends the limiter; a new
         // command spends it after the refusals that need no budget.
         const now = dependencies.clock.now();
-        await frame.refuseDeclineBlock(now);
+        await frame.screenDmRequest(now);
         await dependencies.limit(actorId);
         return frame.commitDmRequest({
           requestId: command.requestId,
