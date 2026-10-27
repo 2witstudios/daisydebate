@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { readConversationResponse } from './conversation';
+import { readConversationResponse, readThroughSequence } from './conversation';
 setupRitewayBun();
 test('conversation wire responses require authorized configured bounds and coherent portable history', async () => {
   assert({
@@ -68,4 +68,44 @@ test('authorized conversation carries only the explicitly supplied typing recove
       actual: () => readConversationResponse(response(invalid)),
       code: 'INFRASTRUCTURE',
     });
+});
+test('only the live first page marks a conversation read', () => {
+  const channelId = 'c'.repeat(24);
+  const history = {
+    version: 1 as const,
+    channelId,
+    changeVersion: 9,
+    nextBefore: null,
+    messages: [
+      {
+        id: 'b'.repeat(24),
+        channelId,
+        sequence: 7,
+        changeVersion: 9,
+        unavailable: true as const,
+      },
+      {
+        id: 'a'.repeat(24),
+        channelId,
+        authorActorId: 'x'.repeat(24),
+        sequence: 6,
+        changeVersion: 6,
+        text: 'Hello',
+        createdAt: '2026-10-26T18:00:00.000Z',
+        editedAt: null,
+      },
+    ],
+  };
+  const live = { searching: false, paging: false };
+  assert({
+    given: 'the newest page, a search, an older page and an empty conversation',
+    should: 'read through the newest sequence only on the newest page',
+    actual: [
+      readThroughSequence(history, live),
+      readThroughSequence(history, { ...live, searching: true }),
+      readThroughSequence(history, { ...live, paging: true }),
+      readThroughSequence({ ...history, messages: [] }, live),
+    ],
+    expected: [7, null, null, null],
+  });
 });

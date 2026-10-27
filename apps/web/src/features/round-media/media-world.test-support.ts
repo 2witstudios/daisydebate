@@ -277,6 +277,8 @@ export function createMediaWorld(
     },
     /** A vendor write left unsettled, as an in-flight or unknown outcome. */
     pend: () => void pending.add(nextId()),
+    /** The session marked unsafe with every vendor write settled. */
+    markUnsafe: () => void (unsafeAt ??= now),
     /** Reconcile leases claimed so far. */
     reconciles: () => reconciles,
     state: () => ({

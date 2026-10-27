@@ -11,14 +11,14 @@ describe('UI store state', () => {
     const state = createInitialState();
     assert({
       given: 'a freshly created UI state',
-      should: 'seed six users, two live debates, and the resources',
+      should:
+        'seed two live debates, the tournament and no friends count until read',
       actual: [
-        state.collections.onlineUsers.length,
         state.collections.liveDebates.length,
-        state.resources.onlineCount,
+        state.resources.friendsOnline,
         state.resources.tournament.name,
       ],
-      expected: [6, 2, 1248, 'Global Debate Championship'],
+      expected: [2, null, 'Global Debate Championship'],
     });
   });
 
@@ -38,9 +38,9 @@ describe('UI store state', () => {
 });
 
 /** The next snapshot, with a different online count. */
-const withOnline = (state: UiState, onlineCount: number): UiState => ({
+const withOnline = (state: UiState, friendsOnline: number): UiState => ({
   ...state,
-  resources: { ...state.resources, onlineCount },
+  resources: { ...state.resources, friendsOnline },
 });
 
 describe('UI store snapshot subscription', () => {
@@ -67,9 +67,9 @@ describe('UI store snapshot subscription', () => {
 });
 
 function Probe() {
-  const online = useUiState((state) => state.resources.onlineCount);
-  const user = useUiState((state) => state.collections.onlineUsers[0]);
-  return h('p', null, `${user?.name ?? 'none'}:${online}`);
+  const online = useUiState((state) => state.resources.friendsOnline);
+  const debate = useUiState((state) => state.collections.liveDebates[0]);
+  return h('p', null, `${debate?.challenger ?? 'none'}:${online ?? 'unread'}`);
 }
 
 describe('useUiState SSR snapshot', () => {
@@ -84,7 +84,7 @@ describe('useUiState SSR snapshot', () => {
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
       actual: html,
-      expected: '<p>Alex Chen:1248</p>',
+      expected: '<p>Maya Singh:unread</p>',
     });
   });
 });
@@ -103,7 +103,7 @@ async function simulateRequest(
   await Promise.resolve();
   store.setUiState(withOnline(store.getUiState(), online));
   await Promise.resolve();
-  return store.getUiState().resources.onlineCount;
+  return store.getUiState().resources.friendsOnline ?? -1;
 }
 
 describe('UI store request scoping (ADR 0024)', () => {
@@ -159,7 +159,7 @@ describe('UI store request scoping (ADR 0024)', () => {
       given: 'two provider trees rendered with different seeded state',
       should: 'render each tree from its own store, not a shared one',
       actual: [htmlA, htmlB],
-      expected: ['<p>Alex Chen:1248</p>', '<p>Alex Chen:7</p>'],
+      expected: ['<p>Maya Singh:unread</p>', '<p>Maya Singh:7</p>'],
     });
   });
 });

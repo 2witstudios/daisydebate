@@ -21,9 +21,6 @@ type PlayChoice = Omit<PlayOption, 'comingSoon'> & {
 /** The open-a-room form: the one place a Room is set up. */
 export const openRoomHref = '/play/room';
 
-/** Where every way to play funnels back to. */
-export const lobbyHref = '/lobby';
-
 const choices: readonly PlayChoice[] = [
   {
     id: 'ranked',

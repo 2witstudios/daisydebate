@@ -20,6 +20,9 @@ import { createAuthRateLimiter } from '../features/auth/abuse/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/auth/mail/webhook';
+import { createSendMail } from '../features/auth/mail/send-mail';
+import { deriveRecipientSubkey } from '../features/auth/mail/recipient-key';
+import type { Deliver } from '../features/auth/mail/deliver-or-unavailable';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
@@ -109,25 +112,30 @@ export function createApp({
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;
   let mailWebhook: ReturnType<typeof createResendWebhook> | undefined;
+  let deliverMail: Deliver | undefined;
   /** Parsed once, on first use, and shared by auth and the webhook. */
   const readAuth = (): AuthConfig => (authConfig ??= readAuthConfig(env));
+  const emailSender = (authConfig: AuthConfig) =>
+    createResendSender({
+      apiKey: authConfig.RESEND_API_KEY,
+      from: authConfig.AUTH_EMAIL_FROM,
+      ids,
+      fetch,
+    });
+  const ledger = {
+    isSuppressed: (hash: string) => database.isRecipientSuppressed(hash),
+    record: (input: Parameters<typeof database.recordEmailDelivery>[0]) =>
+      database.recordEmailDelivery(input),
+  };
   const composeAuth = (): AuthServer => {
     const authConfig = readAuth();
     return createAuthServer({
       getActorByUserId: (userId) => database.getActorByUserId(userId),
       config: authConfig,
       database: database.authAdapter,
-      emailSender: createResendSender({
-        apiKey: authConfig.RESEND_API_KEY,
-        from: authConfig.AUTH_EMAIL_FROM,
-        ids,
-        fetch,
-      }),
+      emailSender: emailSender(authConfig),
       limiter: createAuthRateLimiter(redis),
-      ledger: {
-        isSuppressed: (hash) => database.isRecipientSuppressed(hash),
-        record: (input) => database.recordEmailDelivery(input),
-      },
+      ledger,
       appendSessionRevoked: (userId) => database.appendSessionRevoked(userId),
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
@@ -173,6 +181,22 @@ export function createApp({
     /** The alert state this process keeps without Redis (ISSUE-191). */
     localAlertState: {
       limiterUnavailableSince: () => alertRecorder.limiterUnavailableSince(),
+    },
+    /**
+     * The one suppression-honouring mail path (ISSUE-54) for mail outside a
+     * request: the durable mail intent worker (ADR 0075). Built on first use.
+     */
+    deliverMail: (): Deliver => {
+      const authConfig = readAuth();
+      return (deliverMail ??= createSendMail({
+        recipientSubkey: deriveRecipientSubkey(
+          authConfig.RECIPIENT_HASH_SECRET,
+        ),
+        ledger,
+        emailSender: emailSender(authConfig),
+        logger,
+        clock,
+      }));
     },
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
