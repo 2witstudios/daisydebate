@@ -7,12 +7,16 @@ import { readRoundAnalysisFacts } from '../src/round-analysis-facts';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
 
-/** A Round that completed a minute ago, its two human debaters' lines frozen at revision 1. */
-async function completedRound(
+/**
+ * A Round that completed a minute ago, its two human debaters' lines frozen
+ * at revision 1; `affActorId` seats an existing debater as the affirmative.
+ */
+export async function completedRound(
   fixture: Fixture,
   roundId: string,
   frozen: boolean,
   beforeFreeze?: (aff: { id: string; actorId: string }) => Promise<void>,
+  affActorId?: string,
 ) {
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
   const end = new Date(clock!.now.getTime() - 60_000);
@@ -21,7 +25,7 @@ async function completedRound(
     "update rounds set visibility='public',status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4 where id=$1",
     [roundId, start, end, new Date(end.getTime() + 120000)],
   );
-  const aff = await fixture.seat(roundId, 'affirmative');
+  const aff = await fixture.seat(roundId, 'affirmative', 0, affActorId);
   const neg = await fixture.seat(roundId, 'negative');
   const segmentId = createId();
   await fixture.insert('round_segments', {

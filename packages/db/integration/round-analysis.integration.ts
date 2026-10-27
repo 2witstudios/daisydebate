@@ -7,7 +7,10 @@ import type { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { randomBytes } from 'node:crypto';
 import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
-import { withCompletedRound } from './round-analysis.test-support';
+import {
+  completedRound,
+  withCompletedRound,
+} from './round-analysis.test-support';
 import type { Fixture } from './constraint-helpers';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -169,6 +172,57 @@ test('an AI ballot with feedback for both sides never stops a round analysis', a
       },
       expected: { listed: true, status: 'succeeded' },
     });
+  }));
+
+test('a debater’s later analysis reads their own earlier skill scores, and only theirs (RA-2)', async () =>
+  withCompletedRound(async ({ fixture, aff, seats, jobs }) => {
+    // Both seats of the first Round are analysed; the opponent scores 1.
+    const theirs = {
+      ...report,
+      skills: Object.fromEntries(
+        Object.entries(report.skills).map(([skill, value]) => [
+          skill,
+          { ...value, score: 1 },
+        ]),
+      ) as typeof report.skills,
+    };
+    for (const [seat, result] of [
+      [seats.aff, report],
+      [seats.neg, theirs],
+    ] as const) {
+      const claimed = await jobs.claim(seat, claim);
+      if (!claimed) throw Error('Expected a claim');
+      await jobs.complete(seat, claimed.token, result);
+    }
+    // The same affirmative debater then sits a second completed Round.
+    const laterRound = await fixture.round();
+    const { aff: later } = await completedRound(
+      fixture,
+      laterRound,
+      true,
+      undefined,
+      aff.actorId,
+    );
+    const next = await jobs.claim(
+      { roundId: laterRound, roundParticipantId: later.id },
+      claim,
+    );
+    assert({
+      given:
+        'a debater with one earlier analysis whose opponent was also analysed',
+      should:
+        'give the later claim exactly that debater’s earlier skill scores, never the opponent’s',
+      actual: next?.history,
+      expected: [
+        Object.fromEntries(
+          Object.entries(report.skills).map(([skill, { score }]) => [
+            skill,
+            score,
+          ]),
+        ),
+      ],
+    });
+    await fixture.sql`delete from rounds where id=${laterRound}`;
   }));
 
 test('a lapsed lease is listed again and the decision retakes or ends it', async () =>

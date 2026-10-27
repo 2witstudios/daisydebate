@@ -9,11 +9,11 @@ import type { RoundAnalysisView } from '@daisy/protocol';
  * window after its Round completes, and buys at most `maxCalls` paid calls.
  * Nothing here reads a ballot.
  */
-export const roundAnalysisPolicy = {
+export const roundAnalysisBounds = {
   windowMs: 24 * 60 * 60 * 1000,
   maxCalls: 2,
 } as const;
-export type RoundAnalysisPolicy = typeof roundAnalysisPolicy;
+export type RoundAnalysisBounds = typeof roundAnalysisBounds;
 
 /**
  * Whether a seat needs its analysis at `now`: its Round completed within
@@ -22,11 +22,11 @@ export type RoundAnalysisPolicy = typeof roundAnalysisPolicy;
 export function roundAnalysisNeeded(
   facts: RoundAnalysisFacts,
   now: string,
-  policy: RoundAnalysisPolicy = roundAnalysisPolicy,
+  bounds: RoundAnalysisBounds = roundAnalysisBounds,
 ): boolean {
   if (facts.status !== 'completed' || facts.completedAt === null) return false;
   const age = Date.parse(now) - Date.parse(facts.completedAt);
-  return age < policy.windowMs && facts.frozen && facts.lines > 0;
+  return age < bounds.windowMs && facts.frozen && facts.lines > 0;
 }
 
 /** A held lease that has run out at `now`. */
@@ -42,12 +42,12 @@ const lapsed = (facts: RoundAnalysisFacts, now: string) =>
 export function roundAnalysisClaimDecision(
   facts: RoundAnalysisFacts,
   now: string,
-  policy: RoundAnalysisPolicy = roundAnalysisPolicy,
+  bounds: RoundAnalysisBounds = roundAnalysisBounds,
 ): RoundAnalysisClaimDecision {
   const { analysis } = facts;
   if (analysis && !lapsed(facts, now)) return 'skip';
-  const needed = roundAnalysisNeeded(facts, now, policy);
-  if (analysis && (analysis.attempts >= policy.maxCalls || !needed))
+  const needed = roundAnalysisNeeded(facts, now, bounds);
+  if (analysis && (analysis.attempts >= bounds.maxCalls || !needed))
     return 'fail';
   return needed ? 'claim' : 'skip';
 }
@@ -63,17 +63,17 @@ export function roundAnalysisView(input: {
   readonly now: string;
   /** Whether this deployment runs round analysis (ROUND_ANALYSIS_POLICY is set). */
   readonly enabled: boolean;
-  readonly policy?: RoundAnalysisPolicy;
+  readonly bounds?: RoundAnalysisBounds;
 }): RoundAnalysisView {
   const { facts, now } = input;
-  const policy = input.policy ?? roundAnalysisPolicy;
+  const bounds = input.bounds ?? roundAnalysisBounds;
   if (!input.entitled) return { status: 'locked' };
   const { analysis } = facts;
   if (analysis?.status === 'succeeded' && analysis.report)
     return { status: 'ready', report: analysis.report };
   const runs = analysis
     ? analysis.status === 'leased' &&
-      roundAnalysisClaimDecision(facts, now, policy) !== 'fail'
-    : input.enabled && roundAnalysisNeeded(facts, now, policy);
+      roundAnalysisClaimDecision(facts, now, bounds) !== 'fail'
+    : input.enabled && roundAnalysisNeeded(facts, now, bounds);
   return { status: runs ? 'pending' : 'unavailable' };
 }

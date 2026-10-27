@@ -4,7 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   roundAnalysisClaimDecision,
   roundAnalysisNeeded,
-  roundAnalysisPolicy,
+  roundAnalysisBounds,
   roundAnalysisView,
 } from './policy';
 
@@ -12,7 +12,7 @@ setupRitewayBun();
 
 const completedAt = '2026-10-26T12:00:00.000Z';
 const at = (ms: number) => new Date(Date.parse(completedAt) + ms).toISOString();
-const window = roundAnalysisPolicy.windowMs;
+const window = roundAnalysisBounds.windowMs;
 /** A seat of a Round that completed with frozen lines and no analysis yet. */
 const facts = (
   overrides: Partial<RoundAnalysisFacts> = {},
@@ -115,7 +115,7 @@ describe('roundAnalysisClaimDecision()', () => {
           at(2000),
         ),
         roundAnalysisClaimDecision(
-          facts({ analysis: leased(roundAnalysisPolicy.maxCalls, 1000) }),
+          facts({ analysis: leased(roundAnalysisBounds.maxCalls, 1000) }),
           at(2000),
         ),
         roundAnalysisClaimDecision(
@@ -166,7 +166,7 @@ describe('roundAnalysisView()', () => {
           }),
         ),
         view(facts({ analysis: leased(1, 60_000) })),
-        view(facts({ analysis: leased(roundAnalysisPolicy.maxCalls, 0) })),
+        view(facts({ analysis: leased(roundAnalysisBounds.maxCalls, 0) })),
         view(
           facts({
             analysis: {

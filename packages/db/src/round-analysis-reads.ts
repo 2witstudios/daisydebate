@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { sharedAccount, type Caller } from './room-command-facts';
+import type { Caller } from './room-command-facts';
 import {
   readRoundAnalysisAccess,
   type RoundAnalysisAccess,
@@ -34,7 +34,6 @@ export const roundAnalysisReads = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      await sharedAccount(tx, input.caller);
       const [seat] = await tx
         .select({ id: roundParticipants.id })
         .from(roundParticipants)
@@ -47,8 +46,12 @@ export const roundAnalysisReads = ({
         );
       if (!seat) throw createAppError('NOT_FOUND');
       const target = { roundId: input.roundId, roundParticipantId: seat.id };
+      // The seat's own account, read under its canonical fence.
       const access = await readRoundAnalysisAccess(tx, target, 'claim');
-      if (access.seat.actorId !== input.caller.actorId)
+      if (
+        access.seat.actorId !== input.caller.actorId ||
+        access.account?.userId !== input.caller.userId
+      )
         throw createAppError('NOT_FOUND');
       return { access, facts: await readRoundAnalysisFacts(tx, target) };
     });

@@ -2,7 +2,7 @@ import type { RoundAnalysisPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
 import { canGenerateRoundAnalysis } from '../features/round-analysis/authorization';
 import { createRoundAnalysisOperations } from '../features/round-analysis/operations';
-import { roundAnalysisPolicy } from '../features/round-analysis/policy';
+import { roundAnalysisBounds } from '../features/round-analysis/policy';
 import { startRoundAnalysisService } from '../features/round-analysis/service';
 import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
@@ -35,7 +35,7 @@ export function startRoundAnalysisWorkers(input: {
       app.database.scanRoundAnalysisJobs(
         limit,
         new Date(
-          Date.parse(app.clock.now()) - roundAnalysisPolicy.windowMs,
+          Date.parse(app.clock.now()) - roundAnalysisBounds.windowMs,
         ).toISOString(),
         (access) =>
           canGenerateRoundAnalysis(access, app.config.PREMIUM_BETA_GRANT),
