@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
-import type { OutboxRow } from '@daisy/db';
+import type { OutboxRow } from '@daisy/db/outbox';
 import { buildDebateTopic } from '@daisy/protocol';
 import {
   bootServer,

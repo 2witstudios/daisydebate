@@ -12,7 +12,7 @@ import type {
   AttendanceResolution,
   AttendancePrincipal,
   LockedAttendanceCheckIn,
-} from '@daisy/db';
+} from '@daisy/db/attendance';
 import {
   attendanceEnvelopeSchema,
   attendanceTimingPolicy,

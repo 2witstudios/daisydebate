@@ -1,5 +1,5 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { RateDebateInput, RateDebateResult } from '@daisy/db';
+import type { RateDebateInput, RateDebateResult } from '@daisy/db/ratings';
 import { rateCompletedRound } from '../ratings/rate-debate';
 
 /** D5 calls this after committed attendance evaluation, also on restart. */
