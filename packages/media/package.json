@@ -14,7 +14,7 @@
     "./observation": "./src/capture-clock.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test src",
     "test:integration": "bun ../../scripts/test-integration.ts"
   },

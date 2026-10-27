@@ -9,7 +9,7 @@
     "./trusted-proxies": "./src/trusted-proxies.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test src"
   },
   "devDependencies": {
