@@ -51,6 +51,19 @@ membership. Every terminal state frees its members:
 - **The debate ends**: the last speech ends, or the Round completes, is
   forfeited or is abandoned. Judges ballot from their Round seats.
 
+## Choosing the resolution
+
+A Room either names its resolution (its topic) or draws one before the
+round ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). In a draw
+Room the host's Start pre-round draws N resolutions from Daisy's curated
+bank, or from the host's own list in a casual Room. The debaters strike
+alternately, Negative first in Freestyle, each strike within its window; a
+missed turn strikes the first resolution still in the draw, and a side of
+only bots strikes on its own. The last one left is revealed as the topic,
+and any pre-round prep starts at that moment. Until then only the seated
+debaters see the drawn texts; judges, spectators and the Lobby see progress.
+Launch freezes the resolution and the draw's evidence onto the Round.
+
 ## Playing
 
 The host's `start` command activates the Round; only the host may start it.
