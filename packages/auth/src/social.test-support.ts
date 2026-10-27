@@ -6,7 +6,8 @@ export const adultAccount = (actorId: string, userId = actorId) => ({
     member: true,
     erased: false,
     revision: 1,
-    beta: { state: 'approved' as const, revision: 1 }, ageBand: 'adult' as const,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
   },
   age: {
     state: 'known' as const,

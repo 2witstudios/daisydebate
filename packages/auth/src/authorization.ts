@@ -1,5 +1,4 @@
-import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
-import type { AgeBand } from './age-band';
+import { participantAccess } from './participant-access';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
@@ -26,6 +25,7 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from './authorization-facts';
+export { ageAdmitted, participantAccess } from './participant-access';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,
@@ -92,30 +92,6 @@ function validResourceKind(
   );
 }
 type UserPrincipal = Extract<AuthorizationPrincipal, { kind: 'user' }>;
-type AccountBetaState = NonNullable<AccountAuthorizationFact['beta']>['state'];
-/** Age bands at or above each account floor (DEC-106: 16 in the beta, 13 after). */
-const bandsAtFloor: Record<AgeFloor, readonly AgeBand[]> = {
-  13: ['13-15', '16-17', 'adult'],
-  16: ['16-17', 'adult'],
-};
-/**
- * The one participant admission rule (ADR 0075): an approved beta account
- * whose durable age record meets the account floor. A missing age record
- * is no access. Identity, realtime and UI hints ask this, never the raw
- * facts.
- */
-export function participantAccess(
-  account: {
-    readonly beta: { readonly state: AccountBetaState } | null;
-    readonly ageBand: AgeBand | null;
-  } | null,
-): boolean {
-  return account?.beta?.state === 'approved' && ageAdmitted(account.ageBand);
-}
-/** Whether a durable age band meets the account floor; no record never does. */
-export function ageAdmitted(band: AgeBand | null): boolean {
-  return band !== null && bandsAtFloor[ACCOUNT_AGE_FLOOR].includes(band);
-}
 /** Safety exits a pending or revoked account keeps: leaving and blocking. */
 const safetyExits: readonly AuthorizationCapability[] = [
   'room.leave',
@@ -227,11 +203,23 @@ export function authorize({
     return serviceDecision(principal, capability, resource);
   if (resource.kind === 'foundation') return deny('missing-capability');
   if (principal.kind !== 'user') return deny('unauthenticated');
-  if (!boundMember(principal, context.account))
-    return deny('missing-capability');
-  if (!safetyExits.includes(capability) && !participantAccess(context.account))
+  if (!admittedMember(principal, capability, context.account))
     return deny('missing-capability');
   return memberDecision(principal.actorId, capability, resource, context);
+}
+/**
+ * A bound member holds a capability only with participant access (ADR
+ * 0075), except the safety exits every member keeps.
+ */
+function admittedMember(
+  principal: UserPrincipal,
+  capability: AuthorizationCapability,
+  account: AccountAuthorizationFact | null,
+): principal is UserPrincipal & { actorId: string } {
+  return (
+    boundMember(principal, account) &&
+    (safetyExits.includes(capability) || participantAccess(account))
+  );
 }
 const decision = (allowed: boolean): AuthorizationDecision =>
   allowed ? allow : deny('missing-capability');

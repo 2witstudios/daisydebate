@@ -48,7 +48,16 @@ for (const [changed, locked, extended] of [
         }
         if (text.includes('daisy_authorization_accounts'))
           return [
-            { actorId, userId, member: true, erased: false, revision: 9, betaState: 'approved', betaRevision: 1, ageBand: 'adult' },
+            {
+              actorId,
+              userId,
+              member: true,
+              erased: false,
+              revision: 9,
+              betaState: 'approved',
+              betaRevision: 1,
+              ageBand: 'adult',
+            },
           ];
         return [{ locked }];
       },

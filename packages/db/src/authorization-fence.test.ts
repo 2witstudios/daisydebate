@@ -6,6 +6,7 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from './authorization';
+import { factOfRow } from './room-command-operations.test-support';
 setupRitewayBun();
 test('both account loaders use the canonical minimal function with distinct selector modes', async () => {
   const account = {
@@ -18,12 +19,7 @@ test('both account loaders use the canonical minimal function with distinct sele
     erased: false,
     revision: 1,
   };
-  const { betaState: _state, betaRevision: _revision, ...base } = account;
-  const fact = {
-    ...base,
-    beta: { state: 'approved', revision: 1 },
-    ageBand: 'adult',
-  };
+  const fact = factOfRow(account);
   const queries: { sql: string; params: unknown[] }[] = [];
   const dialect = new PgDialect();
   const tx = {

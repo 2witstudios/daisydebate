@@ -19,6 +19,12 @@ export type VerifiedSession = {
  */
 export type SessionReader = (cookie: string) => Promise<VerifiedSession | null>;
 
+/** An account's participation facts (ADR 0075): its beta state and age band now. */
+export type Participation = {
+  readonly betaState: BetaAccessState | null;
+  readonly ageBand: AgeBand | null;
+};
+
 const anonymous = { kind: 'anonymous' } as const;
 
 /**
@@ -75,10 +81,7 @@ export async function resolveIdentity({
     userId: string,
   ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
   /** The account's beta access state and age band from the canonical account fact (ADR 0075). */
-  readonly readParticipation: (userId: string) => Promise<{
-    readonly betaState: BetaAccessState | null;
-    readonly ageBand: AgeBand | null;
-  }>;
+  readonly readParticipation: (userId: string) => Promise<Participation>;
   readonly now: () => string;
 }): Promise<Identity> {
   if (!cookie) return ANONYMOUS;
@@ -119,19 +122,37 @@ async function identityFromSession(
       !actor.id
     )
       return UNAVAILABLE;
-    const principal = { kind: 'user', userId, actorId: actor.id } as const;
-    const { betaState, ageBand } = await readParticipation(userId);
-    if (participantAccess({ beta: betaState && { state: betaState }, ageBand }))
-      return { state: 'member', username, principal };
-    // No beta row or no age record is never access: the account waits.
-    const reason =
-      betaState === 'revoked'
-        ? 'revoked'
-        : ageAdmitted(ageBand)
-          ? 'pending'
-          : 'age-required';
-    return { state: 'waitlisted', username, reason, principal };
+    return participation(
+      username,
+      { kind: 'user', userId, actorId: actor.id },
+      await readParticipation(userId),
+    );
   } catch {
     return UNAVAILABLE;
   }
+}
+
+/**
+ * A claimed account's identity from its participation facts (ADR 0075):
+ * a member with participant access, otherwise waitlisted with its reason.
+ * No beta row or no admitted age record is never access.
+ */
+function participation(
+  username: string,
+  principal: UserPrincipal,
+  facts: {
+    readonly betaState: BetaAccessState | null;
+    readonly ageBand: AgeBand | null;
+  },
+): Identity {
+  const { betaState, ageBand } = facts;
+  if (participantAccess({ beta: betaState && { state: betaState }, ageBand }))
+    return { state: 'member', username, principal };
+  const reason =
+    betaState === 'revoked'
+      ? 'revoked'
+      : ageAdmitted(ageBand)
+        ? 'pending'
+        : 'age-required';
+  return { state: 'waitlisted', username, reason, principal };
 }

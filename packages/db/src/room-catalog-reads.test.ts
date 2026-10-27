@@ -3,7 +3,6 @@ import { foundationDefinition } from './reference-formats';
 import {
   caller,
   room,
-  accountFact,
   accountRow,
 } from './room-command-operations.test-support';
 import { createTestDatabase } from './index.test-support';

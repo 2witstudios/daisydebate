@@ -2,7 +2,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { foundationDefinition } from './reference-formats';
 import {
-  accountFact,
   accountRow,
   caller,
   room,

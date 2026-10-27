@@ -1,5 +1,4 @@
-import type { BetaAccessState } from '@daisy/protocol';
-import type { AgeBand } from '@daisy/auth';
+import type { Participation } from '@daisy/auth';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
@@ -272,10 +271,7 @@ export type AuthServer = {
     userId: string,
   ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
   /** The account's beta state and age band (ADR 0075), from the canonical account fact. */
-  readonly getParticipationByUserId: (userId: string) => Promise<{
-    readonly betaState: BetaAccessState | null;
-    readonly ageBand: AgeBand | null;
-  }>;
+  readonly getParticipationByUserId: (userId: string) => Promise<Participation>;
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
   readonly limiter: AuthRateLimiter;

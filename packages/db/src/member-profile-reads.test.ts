@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
 import type { HistoryScope } from './member-profile-reads';
 
+import { factOfRow } from './room-command-operations.test-support';
 setupRitewayBun();
 
 const at = new Date('2026-10-05T12:00:00.000Z');
@@ -20,12 +21,7 @@ const account = {
   erased: false,
   revision: 3,
 };
-const { betaState: _state, betaRevision: _revision, ...base } = account;
-const accountFact = {
-  ...base,
-  beta: { state: 'approved', revision: 1 },
-  ageBand: 'adult',
-};
+const accountFact = factOfRow(account);
 const memberRow = [userId, actorId, 'debater-a', at];
 
 /** A decision that records what it was asked and answers `scope`. */

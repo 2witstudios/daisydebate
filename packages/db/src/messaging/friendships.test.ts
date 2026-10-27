@@ -14,7 +14,8 @@ const account = {
   userId,
   member: true,
   betaState: 'approved',
-  betaRevision: 1, ageBand: 'adult',
+  betaRevision: 1,
+  ageBand: 'adult',
   erased: false,
   revision: 2,
 };

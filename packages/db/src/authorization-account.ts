@@ -38,19 +38,23 @@ function validIdentity(row: AuthorizationAccountRow): boolean {
   );
 }
 /** Validate persistence output before it enters either HTTP or realtime authority. */
+function validMembership(row: AuthorizationAccountRow): boolean {
+  return (
+    typeof row.member === 'boolean' &&
+    typeof row.erased === 'boolean' &&
+    Number.isSafeInteger(row.revision) &&
+    row.revision >= 1 &&
+    !(row.member && (row.actorId === null || row.erased))
+  );
+}
+/** A known band, null for none, undefined for anything malformed. */
+const validAgeBand = (row: AuthorizationAccountRow) =>
+  row.ageBand === null ? null : ageBands.find((band) => band === row.ageBand);
 export function authorizationAccountFact(row: AuthorizationAccountRow | null) {
-  if (!row || !validIdentity(row)) return null;
-  if (typeof row.member !== 'boolean' || typeof row.erased !== 'boolean')
-    return null;
-  if (!Number.isSafeInteger(row.revision) || row.revision < 1) return null;
-  if (row.member && (row.actorId === null || row.erased)) return null;
+  if (!row || !validIdentity(row) || !validMembership(row)) return null;
   const beta = validBeta(row);
-  if (beta === undefined) return null;
-  const ageBand =
-    row.ageBand === null
-      ? null
-      : (ageBands.find((band) => band === row.ageBand) ?? undefined);
-  if (ageBand === undefined) return null;
+  const ageBand = validAgeBand(row);
+  if (beta === undefined || ageBand === undefined) return null;
   return {
     userId: row.userId,
     actorId: row.actorId,

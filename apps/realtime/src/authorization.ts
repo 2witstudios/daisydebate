@@ -135,10 +135,8 @@ export function createRealtimeAuthorization({
       now: resources.clock.now(),
     });
     if (
-      !current ||
-      !participantAccess(current.account) ||
-      current.account.revision !== accountRevision ||
-      Date.parse(current.expiresAt) <= Date.parse(resources.clock.now()) ||
+      !liveParticipantSession(current, resources.clock.now()) ||
+      current?.account.revision !== accountRevision ||
       now() >= bound
     )
       return null;

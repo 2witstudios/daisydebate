@@ -25,7 +25,8 @@ test('inbox collection refusal prevents candidate discovery and successful disco
             member: true,
             erased: false,
             betaState: 'approved',
-            betaRevision: 1, ageBand: 'adult',
+            betaRevision: 1,
+            ageBand: 'adult',
           },
         ];
       }

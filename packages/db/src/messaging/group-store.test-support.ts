@@ -9,7 +9,8 @@ export function groupStoreFacts() {
     userId: (i ? 'v' : 'u').repeat(24),
     member: true,
     betaState: 'approved',
-    betaRevision: 1, ageBand: 'adult',
+    betaRevision: 1,
+    ageBand: 'adult',
     erased: false,
     revision: 1,
   }));
