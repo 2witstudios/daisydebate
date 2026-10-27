@@ -513,8 +513,14 @@ executes no candidate code and alone has checks-write permission. Candidate
 execution keeps contents-read permission; dispatches never save task caches.
 Pushes to `pu/**` also publish `Quick check`. Browser E2E
 calls the same workflow in-process; both browser jobs require its success
-before allocating their runners. CI retains its full parallel matrix without
-a third quick-check invocation competing for runner capacity.
+before allocating their runners. CI also calls quick-check before its complete
+11-task matrix (including build), image and integration jobs. Audit and migration
+checks remain immediately runnable. Across CI and Browser E2E, this changes the
+original 17 initially runnable jobs to 4 (5 including the standalone branch-push
+quick check): two quick checks, audit and migrations. All 15 existing expensive
+jobs wait for quick success. Passing PRs still fan out; this reduces initial
+fanout, not peak concurrency across distinct passing PRs. Existing per-PR
+cancellation groups are unchanged. CI gate requires quick and every full job.
 Always-running terminal checks require both the quick prerequisite and actual
 suite success; skipped or cancelled browser jobs cannot pass a required check.
 The existing full CI matrix and aggregate gate remain required.

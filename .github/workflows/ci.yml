@@ -17,7 +17,14 @@ concurrency:
 # comment; Dependabot proposes the bumps (ADR 0040, `bun policy` enforces).
 # Turbo restores content-addressed task results; service tests remain uncached.
 jobs:
+  quick-check:
+    permissions:
+      contents: read
+      checks: write
+    uses: ./.github/workflows/quick-check.yml
+
   checks:
+    needs: quick-check
     name: ${{ matrix.task }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -85,6 +92,7 @@ jobs:
   # Exercise the pruned image inputs used by both web and migrator, not
   # only the full-checkout install in the checks matrix (ISSUE-405).
   image:
+    needs: quick-check
     name: Web and migrator image
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -130,6 +138,7 @@ jobs:
       - run: bun migrations:check
 
   integration:
+    needs: quick-check
     name: Infrastructure contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -188,7 +197,7 @@ jobs:
     name: CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, image, audit, migrations, integration]
+    needs: [quick-check, checks, image, audit, migrations, integration]
     if: always()
     steps:
       - name: Require every CI job to pass
@@ -206,7 +215,7 @@ jobs:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, image, audit, migrations, integration]
+    needs: [quick-check, checks, image, audit, migrations, integration]
     if: failure()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
