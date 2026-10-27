@@ -36,8 +36,14 @@ for (const mode of ['round', 'inbox'] as const)
       given:
         'a canonical content-free topic bell after its formerly allowed audience is revoked',
       should:
-        'refresh authority before native delivery and detach the denied recipient',
-      actual: [checks, f.sent.map((frame) => frame.type), f.attached.size],
-      expected: [2, ['subscribed'], 0],
+        'refresh authority before native delivery, detach the denied recipient and tell it the subscription ended',
+      actual: [
+        checks,
+        f.sent.map((frame) =>
+          frame.type === 'error' ? `${frame.id}:${frame.code}` : frame.type,
+        ),
+        f.attached.size,
+      ],
+      expected: [2, ['subscribed', 'round:AUTHORIZATION'], 0],
     });
   });

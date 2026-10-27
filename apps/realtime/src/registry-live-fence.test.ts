@@ -30,12 +30,12 @@ test('a newer authority bell fences a pending live allow on an attached subscrip
   assert({
     given: 'a newer Room authority bell during a pending live authorization',
     should:
-      'discard the old allow and freshly refuse without publishing either event',
+      'discard the old allow and freshly refuse, ending the subscription without publishing either event',
     actual: {
       checks,
       frames: sent.map((frame) => frame.type),
       attached: [...attached],
     },
-    expected: { checks: 3, frames: ['subscribed'], attached: [] },
+    expected: { checks: 3, frames: ['subscribed', 'error'], attached: [] },
   });
 });

@@ -16,6 +16,7 @@ import {
   type SocketPrincipal,
   type Subscription,
   type SubscriptionTransport,
+  subscriptionRefusal,
 } from './subscription-state';
 
 export function createSubscriptionDelivery({
@@ -37,6 +38,16 @@ export function createSubscriptionDelivery({
 }) {
   const hints = new Map<string, Promise<void>>();
   type TypingHint = Extract<ServerMessage, { type: 'typing_changed' }>;
+  /**
+   * A definitive denial ends the subscription and says so on its own
+   * request id, so the client clears that view instead of waiting for
+   * events that will never come (RT-2.5c-arch1).
+   */
+  function terminate(connection: Connection, topic: string, sub: Subscription) {
+    transport.detach(connection, topic, sub);
+    connection.topics.delete(topic);
+    connection.socket.send(subscriptionRefusal(sub.requestId, 'AUTHORIZATION'));
+  }
   function revoke(connection: Connection) {
     remove(connection);
     connection.socket.close(4002, 'revoked');
@@ -93,9 +104,15 @@ export function createSubscriptionDelivery({
       return 'superseded' as const;
     // Nothing is published without a fresh allow; the next revalidation retries.
     if (decision === AUTHORITY_UNAVAILABLE) return 'unavailable' as const;
-    if (!decision || !sub.lease.accept(attempt, decision.validUntil)) {
+    if (!decision) {
       transport.detach(connection, topic, sub);
       return 'denied' as const;
+    }
+    // An allow that expired before it arrived is not a denial: the stream
+    // stays detached (gapped) until a fresh allow resyncs it.
+    if (!sub.lease.accept(attempt, decision.validUntil)) {
+      transport.detach(connection, topic, sub);
+      return 'stale' as const;
     }
     sub.revision = decision.revision;
     return 'allowed' as const;
@@ -153,8 +170,7 @@ export function createSubscriptionDelivery({
     )
       return;
     if (!decision) {
-      transport.detach(connection, frame.topic, sub);
-      connection.topics.delete(frame.topic);
+      terminate(connection, frame.topic, sub);
       return;
     }
     if (
@@ -191,12 +207,13 @@ export function createSubscriptionDelivery({
     const outcome = await refresh(connection, row.topic, sub);
     // The event cannot be authorized now: the subscriber re-reads and asks
     // again rather than missing it silently (ISSUE-445-r2).
-    if (outcome === 'unavailable')
+    if (outcome === 'unavailable' || outcome === 'stale')
       transport.resync(
         connection,
         { id: sub.requestId, topic: row.topic },
         sub,
       );
+    if (outcome === 'denied') terminate(connection, row.topic, sub);
     if (outcome !== 'allowed') return;
     // The current lease is checked after the final await, immediately before publish.
     publishRow(connection, row, sub);
@@ -209,17 +226,18 @@ export function createSubscriptionDelivery({
     if (sub.initializing) return;
     if (!sub.lease.current()) transport.detach(connection, topic, sub);
     const outcome = await refresh(connection, topic, sub);
-    if (outcome === 'superseded' || outcome === 'unavailable') return;
     if (outcome === 'denied') {
       if (ownsSubscription(connection, topic, sub))
-        connection.topics.delete(topic);
+        terminate(connection, topic, sub);
       return;
     }
+    if (outcome !== 'allowed') return;
     if (!transport.current(connection, topic, sub)) return;
-    if (!sub.attached) {
-      connection.socket.subscribe(transport.nativeTopic(connection, topic));
-      sub.attached = true;
-    }
+    // A detached stream may have missed rows while it was suspended: it is
+    // never reattached in place. The subscriber rereads its snapshot and
+    // subscribes again, so recovery needs no later mutation (RT-2.5c-arch1).
+    if (!sub.attached)
+      transport.resync(connection, { id: sub.requestId, topic }, sub);
   }
   async function principalValid(
     connection: Connection,
