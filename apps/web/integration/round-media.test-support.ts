@@ -17,7 +17,7 @@ import {
   CAPTURE_STT_LAG_MS,
 } from '@daisy/protocol';
 
-const localMediaConfig = {
+export const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
   apiKey: 'daisy-local',
   apiSecret: 'local-development-only-livekit-secret',

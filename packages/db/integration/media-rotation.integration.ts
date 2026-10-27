@@ -17,8 +17,13 @@ for (const failure of [
   'epoch',
   'horizon',
   'none',
+  'erased',
+  'debater',
   'terminal',
 ] as const) {
+  const rotated = ['none', 'erased', 'debater'].includes(failure);
+  const role = failure === 'debater' ? 'negative' : 'judge';
+  const expectedEpoch = rotated ? 2 : 1;
   test(`rotation preserves session evidence and checks the absence fence: ${failure}`, async () => {
     await withFixture(databaseUrl, async (f) => {
       const { roundId, seat } = await mediaTestHuman(f);
@@ -28,7 +33,7 @@ for (const failure of [
         actorId: seat.actorId,
         buildProjection: mediaTestTick,
       });
-      const judge = await f.seat(roundId, 'judge');
+      const judge = await f.seat(roundId, role);
       await f.sql`update users set email_verified=true where id=(select user_id from actors where id=${judge.actorId})`;
       await store.ensureBinding({
         roundId,
@@ -51,6 +56,8 @@ for (const failure of [
         await f.sql`update users set email_verified=false where id=(select user_id from actors where id=${judge.actorId})`;
         if (failure !== 'pending')
           await store.settleMediaMutation(mutation, 'succeeded');
+        if (failure === 'erased')
+          await f.sql`update users set deleted_at=clock_timestamp(),email=null,username=null,image=null,name='' where id=(select user_id from actors where id=${judge.actorId})`;
         const proof = await store.prepareMediaAbsenceProof(claim.fence);
         if (failure === 'terminal')
           await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${roundId}`;
@@ -71,9 +78,8 @@ for (const failure of [
           await f.sql`select round_participant_id from media_participants where session_id=${binding.sessionId}`;
         const [journal] =
           await f.sql`select count(*)::int as count from media_vendor_mutations where session_id=${binding.sessionId}`;
-        const rotated = failure === 'none';
         assert({
-          given: `revoked bound judge and ${failure} proof condition`,
+          given: `revoked bound human and ${failure} proof condition`,
           should:
             'rotate only behind the exact settled nonterminal fence, retaining session and journal',
           actual: [
@@ -88,7 +94,7 @@ for (const failure of [
           expected: [
             binding.sessionId,
             rotated,
-            rotated ? 2 : 1,
+            expectedEpoch,
             rotated,
             !rotated,
             true,
@@ -96,7 +102,7 @@ for (const failure of [
           ],
         });
         await assertRejects({
-          given: 'the revoked judge after reconciliation',
+          given: 'the revoked human after reconciliation',
           should: 'refuse rebinding',
           code: 'AUTHORIZATION',
           actual: () =>

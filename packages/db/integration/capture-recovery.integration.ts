@@ -13,6 +13,10 @@ for (const mode of [
   'room-deletion',
   'current-silence',
 ]) {
+  const expectedState = mode === 'current-silence' ? 'complete' : 'partial';
+  const expectedChunkCount = ['old-chunk', 'room-deletion'].includes(mode)
+    ? 1
+    : 0;
   test(`capture recovery preserves uncertainty: ${mode}`, async () => {
     await withBoundedRound(async (fixture, transaction, roundId) => {
       const f = await historicalCapture(fixture, transaction, roundId);
@@ -72,9 +76,7 @@ for (const mode of [
         const seal = await f.store.sealCapturedStream({
           ...f.stream,
           epoch,
-          expectedChunkCount: ['old-chunk', 'room-deletion'].includes(mode)
-            ? 1
-            : 0,
+          expectedChunkCount,
         });
         assert({
           given:
@@ -84,7 +86,7 @@ for (const mode of [
           should:
             'preserve complete silence only with current-epoch provenance and classify recovery uncertainty partial',
           actual: seal.state,
-          expected: mode === 'current-silence' ? 'complete' : 'partial',
+          expected: expectedState,
         });
       } finally {
         await fixture.sql`delete from rounds where id=${roundId}`;

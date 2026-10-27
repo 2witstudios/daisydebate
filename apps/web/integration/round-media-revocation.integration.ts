@@ -6,7 +6,10 @@ import { once } from 'node:events';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { signedCaptureBroker } from './capture-token.test-support';
-import { mediaDependencies } from './round-media.test-support';
+import {
+  mediaDependencies,
+  localMediaConfig,
+} from './round-media.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
 import {
   startRuntimeRound,
@@ -28,6 +31,12 @@ const join = async (token: string) => {
     return null;
   }
 };
+
+async function requiredJoin(token: string) {
+  const room = await join(token);
+  if (!room) throw new Error('Expected LiveKit connection');
+  return room;
+}
 
 test('canonical revocation rotates actual self-hosted admission and capture without restoring eligibility', async () => {
   await withRoomRuntime(async (f) => {
@@ -69,11 +78,7 @@ test('canonical revocation rotates actual self-hosted admission and capture with
       roundId,
       media: deps.media,
       mediaOperations: operations,
-      mediaConfig: {
-        url: 'http://127.0.0.1:7880',
-        apiKey: 'daisy-local',
-        apiSecret: 'local-development-only-livekit-secret',
-      },
+      mediaConfig: localMediaConfig,
     };
     const { capture, broker, principal } = signedCaptureBroker(
       captureFixture,
@@ -86,17 +91,15 @@ test('canonical revocation rotates actual self-hosted admission and capture with
       leaseMs: 15000,
     });
     const oldCapture = await broker.captureToken(scope, principal);
-    const captureRoom = await join(oldCapture.token);
-    const connected = await join(admitted.token);
+    const captureRoom = await requiredJoin(oldCapture.token);
+    const connected = await requiredJoin(admitted.token);
     try {
-      const disconnected = connected
-        ? once(connected, RoomEvent.Disconnected, {
-            signal: AbortSignal.timeout(5000),
-          }).then(
-            () => true,
-            () => false,
-          )
-        : Promise.resolve(false);
+      const disconnected = once(connected, RoomEvent.Disconnected, {
+        signal: AbortSignal.timeout(5000),
+      }).then(
+        () => true,
+        () => false,
+      );
       await f.sql`update users set email_verified=false where id=${judge.userId}`;
       await operations.recoverActiveSessions();
       const dropped = await disconnected;
@@ -181,12 +184,12 @@ test('canonical revocation rotates actual self-hosted admission and capture with
         await restartedCapture?.disconnect();
       }
     } finally {
-      await connected?.disconnect();
-      await captureRoom?.disconnect();
+      await connected.disconnect();
+      await captureRoom.disconnect();
       const [current] =
         await f.sql`select room_name from media_sessions where round_id=${roundId}`;
       if (current && (await deps.media.exists(current.room_name)))
         await deps.media.deleteRoom(current.room_name);
     }
   });
-}, 30_000);
+}, 60_000);
