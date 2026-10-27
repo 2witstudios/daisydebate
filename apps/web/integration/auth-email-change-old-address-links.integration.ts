@@ -10,7 +10,7 @@ import {
   userIdOf,
   withSql,
 } from './fixtures';
-import { emailedLinkIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
+import { storedSignInIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -38,7 +38,7 @@ const { linkTokenFor, redeem, userRows } = flows.account.flows;
 const signInRow = (token: string) =>
   withSql(
     (sql) =>
-      sql`SELECT 1 FROM verification WHERE identifier = ${emailedLinkIdentifier('sign-in', token)}`,
+      sql`SELECT 1 FROM verification WHERE identifier = ${storedSignInIdentifier(token)}`,
   ).then((rows) => rows.length);
 
 describe('ISSUE-99 an email change revokes the old address sign-in links', () => {
@@ -98,7 +98,7 @@ describe('ISSUE-99 an email change revokes the old address sign-in links', () =>
     // the delete onto another connection turns this red.
     const markerTopic = `test:link-revoke-marker:${createId()}`;
     const fnName = `link_revoke_marker_${createId()}`;
-    const identifier = emailedLinkIdentifier('sign-in', oldAddressToken);
+    const identifier = storedSignInIdentifier(oldAddressToken);
     await withSql((sql) =>
       sql.unsafe(`
         create function "${fnName}"() returns trigger as $body$

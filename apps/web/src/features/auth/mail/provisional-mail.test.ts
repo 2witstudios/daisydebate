@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { EMAILED_LINK_PURPOSES } from '../confirmation/emailed-link-token';
+import {
+  EMAILED_LINK_PURPOSES,
+  SIGN_IN_STORED_PURPOSE,
+} from '../confirmation/emailed-link-token';
 import { provisionalMailCleanup } from './provisional-mail';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 
@@ -17,14 +20,17 @@ test('the provisional mail cleanup names every emailed-link purpose once (review
   assert({
     given: "the app's emailed-link purposes and two recipients",
     should:
-      'clean sign-in and every email-change purpose, so a renamed or added purpose cannot slip past, and hash with one derived subkey',
+      'clean sign-in links under the prefix Better Auth stores them with, and every email-change purpose, so a renamed or added purpose cannot slip past, and hash with one derived subkey',
     actual: [
       [cleanup.signInPurpose, ...cleanup.emailChangePurposes].sort(),
       hashes,
       reads,
     ],
     expected: [
-      [...EMAILED_LINK_PURPOSES].sort(),
+      [
+        SIGN_IN_STORED_PURPOSE,
+        ...EMAILED_LINK_PURPOSES.filter((purpose) => purpose !== 'sign-in'),
+      ].sort(),
       ['a@example.test', 'b@example.test'].map((email) =>
         recipientKey(
           deriveRecipientSubkey('proof-secret-of-sufficient-length-0123456789'),

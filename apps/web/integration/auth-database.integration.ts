@@ -90,7 +90,7 @@ test('magic-link request persists a token-bearing verification record', async ()
       assert({
         given: 'the durable verification record after requesting a link',
         should:
-          'carry the account in value, a token (not the email) in identifier, and a five-minute lifetime',
+          'carry the account in a typed magic-link value (better-auth 1.7.7), a token (not the email) in identifier, and a five-minute lifetime',
         actual: rows.map(
           (row: {
             identifier: string;
@@ -104,7 +104,7 @@ test('magic-link request persists a token-bearing verification record', async ()
         ),
         expected: [
           {
-            value: { email },
+            value: { type: 'magic-link', email },
             identifierIsNotTheEmail: true,
             lifetimeSeconds: 300,
           },

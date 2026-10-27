@@ -18,7 +18,7 @@
     "test:e2e:messaging-realtime": "bun --env-file=../../.env e2e/support/realtime-runner.ts messaging"
   },
   "dependencies": {
-    "@better-auth/passkey": "1.7.5",
+    "@better-auth/passkey": "1.7.7",
     "@daisy/ai-voice": "workspace:*",
     "@daisy/auth": "workspace:*",
     "@daisy/clock": "workspace:*",
@@ -39,7 +39,7 @@
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
-    "better-auth": "1.7.5",
+    "better-auth": "1.7.7",
     "happy-dom": "21.0.4",
     "livekit-client": "2.22.0",
     "next": "16.4.2",
@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@better-auth/memory-adapter": "1.7.5",
+    "@better-auth/memory-adapter": "1.7.7",
     "@livekit/rtc-node": "1.2.0",
     "@playwright/test": "1.63.0",
     "@simplewebauthn/server": "13.3.2",
