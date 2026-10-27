@@ -24,7 +24,7 @@ export const roomStatuses = [
   'assembling',
   'ready',
   'started',
-  'abandoned',
+  'closed',
 ] as const;
 /**
  * What a host may choose when creating or editing a Room. Private is refused

@@ -214,3 +214,50 @@ test.describe('the age step with JavaScript off', () => {
     await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   });
 });
+
+test.describe('onboarding answers in Settings without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  // ISSUE-324: a member sees what they answered and can change it.
+  test('Settings lists the answers, and each Edit changes one answer and returns straight to Settings', async ({
+    page,
+  }) => {
+    await signUpMember(page.request);
+    const saved = await page.request.post('/api/account/onboarding', {
+      headers: { origin },
+      data: { step: 'topics', topics: ['law'] },
+    });
+    expect(saved.status()).toBe(200);
+
+    await page.goto('/settings');
+    await expect(page.getByText('Your onboarding answers')).toBeVisible();
+    await expect(page.getByText('Law', { exact: true })).toBeVisible();
+
+    // Each Edit changes one answer and comes straight back: no walk on
+    // through the later steps or Ready.
+    await page.getByRole('link', { name: 'Edit topics' }).click();
+    await expect(page).toHaveURL(
+      /\/onboarding\/topics\?next=%2Fsettings&edit=1$/,
+    );
+    // Edit mode: Save goes back, and there is no Skip to detour through Ready.
+    await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(0);
+    await page.locator('label', { hasText: 'Economics' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    const row = (edit: string) =>
+      page
+        .getByRole('definition')
+        .filter({ has: page.getByRole('link', { name: edit }) });
+    await expect(row('Edit topics')).toContainText('Economics');
+    await expect(row('Edit topics')).toContainText('Law');
+
+    await page.getByRole('link', { name: 'Edit club' }).click();
+    await expect(page).toHaveURL(
+      /\/onboarding\/about\?next=%2Fsettings&edit=1$/,
+    );
+    await page.locator('label', { hasText: 'On my own' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(row('Edit club')).toContainText('On my own');
+  });
+});

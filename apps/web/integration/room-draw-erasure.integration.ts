@@ -58,7 +58,7 @@ test('erasing the host-list author scrubs every copy of their lines at every sta
       should:
         'close the open Rooms and leave no line of theirs in any Room or Round copy',
       actual: [r.status, s.status, l.status, [r, s, l].some(holds)],
-      expected: ['abandoned', 'abandoned', 'started', false],
+      expected: ['closed', 'closed', 'started', false],
     });
     assert({
       given: 'the mid-strike and launched Rooms',

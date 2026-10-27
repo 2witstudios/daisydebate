@@ -25,14 +25,14 @@ describe('idle expiry', () => {
     });
     assert({
       given: 'an open Room whose last command is exactly the timeout old',
-      should: 'abandon it as a new change, keeping its version',
+      should: 'close it as a new change, keeping its version',
       actual: expired && [
         expired.mutation.state.status,
         expired.mutation.state.changeVersion,
         expired.mutation.state.version,
         expired.mutation.members,
       ],
-      expected: ['abandoned', room.changeVersion + 1, room.version, []],
+      expected: ['closed', room.changeVersion + 1, room.version, []],
     });
   });
 
@@ -64,7 +64,7 @@ describe('idle expiry', () => {
           },
         ),
         maintainRoom(
-          { ...state(), status: 'abandoned' },
+          { ...state(), status: 'closed' },
           { lastCommandAt, now, idleTimeoutMs: 600_000, drawSeed: null },
         ),
         maintainRoom(withRound('active'), {
@@ -95,7 +95,7 @@ describe('idle expiry', () => {
       given: 'a Room whose prep ended a full timeout ago',
       should: 'expire it',
       actual: expired?.mutation.state.status,
-      expected: 'abandoned',
+      expected: 'closed',
     });
   });
 });
@@ -185,7 +185,7 @@ describe('maintenance with a draw', () => {
         later.mutation.state.status,
         later.mutation.state.topic,
       ],
-      expected: ['abandoned', 'C'],
+      expected: ['closed', 'C'],
     });
   });
 

@@ -34,12 +34,15 @@ export function QuestionForm({
   answers,
   backHref,
   skip,
+  editing = false,
 }: {
   readonly step: QuestionStep;
   readonly action: FormAction<StepFormState>;
   readonly answers: OnboardingAnswers;
   readonly backHref: string;
   readonly skip: ReactNode;
+  /** Opened from Settings to change one answer. */
+  readonly editing?: boolean;
 }) {
   const [answered, post, posting] = useFormAction(
     action,
@@ -58,6 +61,7 @@ export function QuestionForm({
       refused={answered.refused === true}
       backHref={backHref}
       skip={skip}
+      editing={editing}
     />
   );
 }

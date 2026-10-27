@@ -263,7 +263,7 @@ test('configuration changes are fenced while prep is active', () => {
   });
 });
 
-test('a host close abandons the room and prevents further commands', () => {
+test('a host close closes the room and prevents further commands', () => {
   const room = state();
   const closed = executeRoomCommand(
     room,
@@ -290,8 +290,8 @@ test('a host close abandons the room and prevents further commands', () => {
     : closed;
   assert({
     given: 'the host closing an open assembled Room',
-    should: 'abandon it and refuse every later command',
+    should: 'close it and refuse every later command',
     actual: [closed.ok && closed.mutation.state.status, afterClose],
-    expected: ['abandoned', { ok: false, refusal: 'room-closed' }],
+    expected: ['closed', { ok: false, refusal: 'room-closed' }],
   });
 });
