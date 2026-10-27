@@ -1,3 +1,5 @@
+import type { Clock } from '@daisy/clock';
+import type { AuthConfig } from '@daisy/config';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
@@ -40,10 +42,6 @@ const RECIPIENT_RULES: readonly RateRule[] = [
  * handed-off work's bound sheds sign-in mail too (DEC-73). Past it, a
  * sign-up's mail is dropped behind the ordinary success (ISSUE-182).
  */
-const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
-  { windowSeconds: 60, max: 120 },
-  { windowSeconds: 86_400, max: 3_000 },
-];
 
 /**
  * AUTH-3.10: magic-link requests per network, on top of the per-client
@@ -159,9 +157,20 @@ const recipientBuckets = (
 // One fixed key per window: shared by every recipient and client, so it caps
 // the whole application's sign-up volume independent of any single
 // recipient or client bucket.
-const globalBuckets: readonly Bucket[] = MAGIC_LINK_GLOBAL_RULES.map(
-  (rule) => ({ key: `auth:magic-link:global:${rule.windowSeconds}`, rule }),
-);
+const globalBuckets = (
+  ceilings: AuthConfig['AUTH_SIGN_UP_MAIL_CEILINGS'],
+  now: string,
+): readonly Bucket[] => [
+  {
+    key: 'auth:magic-link:global:60',
+    rule: { windowSeconds: 60, max: ceilings.perMinute },
+  },
+  // A new UTC date gets its own counter; yesterday's key expires within 24 h.
+  {
+    key: `auth:magic-link:global:day:${now.slice(0, 10)}`,
+    rule: { windowSeconds: 86_400, max: ceilings.perDay },
+  },
+];
 
 // A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
 // non-finite) omits the header rather than advertising a made-up wait.
@@ -339,9 +348,14 @@ export const createSignUpCeiling =
   (dependencies: {
     readonly limiter: AuthRateLimiter;
     readonly logger: Logger;
+    readonly clock: Clock;
+    readonly ceilings: AuthConfig['AUTH_SIGN_UP_MAIL_CEILINGS'];
   }) =>
   async (): Promise<boolean> => {
-    for (const bucket of globalBuckets) {
+    for (const bucket of globalBuckets(
+      dependencies.ceilings,
+      dependencies.clock.now(),
+    )) {
       let allowed: boolean;
       try {
         ({ allowed } = readDecision(

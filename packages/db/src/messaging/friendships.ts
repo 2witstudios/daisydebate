@@ -56,6 +56,61 @@ export async function listMessagingFriendships(
   );
 }
 
+export type MessagingFriendChallengeRow = {
+  readonly roomId: string;
+  readonly username: string;
+  readonly title: string;
+  readonly challengedAt: string;
+};
+
+/**
+ * The challenges waiting for one member (ADR 0072): from accepted, unblocked
+ * friends, for rooms that still assemble, after `authorize` passes on the
+ * reader's locked account. Newest first, bounded like the list.
+ */
+export async function listMessagingFriendChallenges(
+  database: BunSQLDatabase,
+  scope: FriendshipListScope,
+  authorize: OwnCollectionFence<FriendshipListScope>,
+): Promise<readonly MessagingFriendChallengeRow[]> {
+  if (
+    !idSchema.safeParse(scope.userId).success ||
+    !idSchema.safeParse(scope.actorId).success
+  )
+    throw createAppError('VALIDATION');
+  return readOwnCollection(database, scope, authorize, async (tx) => {
+    const rows = (await tx.execute(sql`
+      select c.room_id as "roomId", u.username, r.title,
+        c.created_at as "challengedAt"
+      from messaging_friend_challenges c
+      join rooms r on r.id = c.room_id and r.status in ('assembling', 'ready')
+      join messaging_friendships f
+        on f.low_actor_id = least(c.challenger_actor_id, c.challenged_actor_id)
+        and f.high_actor_id = greatest(c.challenger_actor_id, c.challenged_actor_id)
+        and f.state = 'accepted'
+      join messaging_contact_pairs p
+        on p.low_actor_id = f.low_actor_id and p.high_actor_id = f.high_actor_id
+        and not p.low_blocks_high and not p.high_blocks_low
+      join actors a on a.id = c.challenger_actor_id
+      join users u on u.id = a.user_id
+        and u.deleted_at is null and u.username is not null
+      where c.challenged_actor_id = ${scope.actorId}
+      order by c.created_at desc
+      limit ${FRIENDSHIP_LIST_MAX}`)) as unknown as {
+      roomId: string;
+      username: string;
+      title: string;
+      challengedAt: Date | string;
+    }[];
+    return rows.map((row) => ({
+      roomId: row.roomId,
+      username: row.username,
+      title: row.title,
+      challengedAt: new Date(row.challengedAt).toISOString(),
+    }));
+  });
+}
+
 /** Whether the member hides their online status; no row means visible. */
 export function readPresenceHidden(
   database: BunSQLDatabase,
@@ -108,6 +163,14 @@ export const friendshipReadOperations = ({
   ) =>
     instrumented(eventSink, 'listMessagingFriendships', () =>
       listMessagingFriendships(database, scope, authorize),
+    ),
+  /** The challenges waiting for one member (ADR 0072). */
+  listMessagingFriendChallenges: (
+    scope: FriendshipListScope,
+    authorize: OwnCollectionFence<FriendshipListScope>,
+  ) =>
+    instrumented(eventSink, 'listMessagingFriendChallenges', () =>
+      listMessagingFriendChallenges(database, scope, authorize),
     ),
   /** The member's own presence visibility (ADR 0072). */
   readPresenceHidden: (

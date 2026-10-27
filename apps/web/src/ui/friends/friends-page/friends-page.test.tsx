@@ -46,11 +46,19 @@ describe('FriendsPage', () => {
       ],
       incoming: [{ username: 'dan', requestedAt: at }],
       outgoing: [{ username: 'eve', requestedAt: at }],
+      challenges: [
+        {
+          username: 'ada',
+          roomId: 'r'.repeat(24),
+          title: '@ada vs @me',
+          challengedAt: at,
+        },
+      ],
     });
     assert({
       given: 'two friends, one incoming and one sent request',
       should:
-        'count who is online, show requests first, and offer each row its forms',
+        'count who is online, show challenges then requests first, and offer each row its forms',
       actual: [
         html.includes('>Friends</h1>'),
         html.includes('1 of 2 online'),
@@ -63,6 +71,9 @@ describe('FriendsPage', () => {
         html.includes('aria-label="Remove @cat"'),
         html.includes('aria-label="Cancel @eve"'),
         html.includes('href="/profile/ada"'),
+        html.includes('href="/rooms/rrrrrrrrrrrrrrrrrrrrrrrr"'),
+        html.includes('aria-label="Decline @ada&#x27;s challenge"'),
+        html.indexOf('>Challenges</h2>') < html.indexOf('>Requests</h2>'),
         html.includes('Watch'),
       ],
       expected: [
@@ -74,6 +85,9 @@ describe('FriendsPage', () => {
         true,
         true,
         false,
+        true,
+        true,
+        true,
         true,
         true,
         true,
@@ -89,6 +103,7 @@ describe('FriendsPage', () => {
       friends: [],
       incoming: [],
       outgoing: [],
+      challenges: [],
     });
     assert({
       given: 'an empty list',

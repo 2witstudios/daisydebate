@@ -1,3 +1,4 @@
+import { fixedClock } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, type TestApp } from './fixtures';
 import { elapse, recipientBucket, statuses } from './auth-rate-limit-helpers';
@@ -12,7 +13,12 @@ setupRitewayBun();
 // test would otherwise count against another in whichever order they run.
 const hourApp = createTestApp();
 const dayApp = createTestApp();
-const globalDayApp = createTestApp();
+// This long exact-day proof must not cross a real UTC midnight.
+const globalDayApp = createTestApp(
+  {},
+  undefined,
+  fixedClock('2026-10-26T12:00:00.000Z'),
+);
 const globalApp = createTestApp();
 
 /** A magic-link recipient bucket key, as `rate-limit.ts` builds it. */

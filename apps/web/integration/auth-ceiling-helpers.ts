@@ -6,7 +6,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 /** The global per-minute sign-up ceiling's bucket. */
 export const GLOBAL_MINUTE = 'auth:magic-link:global:60';
 
-/** The global per-minute sign-up ceiling (`MAGIC_LINK_GLOBAL_RULES`). */
+/** The global per-minute sign-up ceiling (the default deployment policy). */
 const GLOBAL_MINUTE_MAX = 120;
 
 /**

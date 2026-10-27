@@ -1,3 +1,4 @@
+import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
@@ -49,6 +50,7 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
     });
 };
 const serverFields = {
+  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
   /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
@@ -147,6 +149,7 @@ export function readRealtimeConfig(
  * composition is activated: baseline startup never requires auth variables.
  */
 const authFields = {
+  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
   BETTER_AUTH_SECRET: secret(z.string().regex(/^\S{64}$/)),
   /**
