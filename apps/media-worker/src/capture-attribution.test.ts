@@ -281,13 +281,14 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
   const stale = snapshot(segment, new Date(10000).toISOString());
   // The loop's own reads: the segment still live at setup, then superseded
   // with three settle windows passing, then the capture closed for good.
-  const loopAnswers: (Awaited<ReturnType<CaptureClient['read']>> | 'closed')[] = [
-    snapshot(segment, new Date(10001).toISOString()),
-    snapshot(next, new Date(10050).toISOString()),
-    snapshot(next, new Date(11500).toISOString()),
-    snapshot(next, new Date(12250).toISOString()),
-    'closed',
-  ];
+  const loopAnswers: (Awaited<ReturnType<CaptureClient['read']>> | 'closed')[] =
+    [
+      snapshot(segment, new Date(10001).toISOString()),
+      snapshot(next, new Date(10050).toISOString()),
+      snapshot(next, new Date(11500).toISOString()),
+      snapshot(next, new Date(12250).toISOString()),
+      'closed',
+    ];
   const session = harness({
     read: (request) =>
       request.segmentId === segment ? stale : loopAnswers.shift()!,
