@@ -15,6 +15,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { runMigrations } from '../src/migrator';
 import {
+  ageColumns,
+  legacyReadShapes,
+  v1AccountColumns,
+} from './account-fence.test-support';
+import {
   ddlTimeoutMs,
   scratchDatabase,
 } from './scratch-migrations.test-support';
@@ -71,29 +76,15 @@ test(
     const live = new SQL(upgraded.url, { max: 1 });
     try {
       await live.unsafe('set role daisy_web');
-      const read = async () => {
-        const [account] =
-          await live`select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)`;
-        const [room] =
-          await live`select * from public.daisy_room_read_account(${actorId}::text, ${userId}::text)`;
-        const [age] =
-          await live`select * from public.daisy_authorization_age(${userId}, ${actorId}, 1, clock_timestamp())`;
-        return [account, room, age].map((row) => Object.keys(row ?? {}));
-      };
+      const read = () => legacyReadShapes(live, { userId, actorId });
       await read();
       const before = await read();
       await upgraded.migrate((folder) => folder <= gate);
       const after = await read();
       const [expanded] =
         await live`select "betaState", "ageBand" from public.daisy_authorization_accounts_v2(null::text[], ${userId}::text, false)`;
-      const v1 = ['userId', 'actorId', 'member', 'erased', 'revision'];
-      const age = [
-        'actorId',
-        'band',
-        'revision',
-        'accountRevision',
-        'validUntil',
-      ];
+      const v1 = v1AccountColumns;
+      const age = ageColumns;
       assert({
         given:
           'the v1 account, v1 Room and age reads prepared on a daisy_web connection to a predecessor database, then the real gate folder applied through the migrator',
