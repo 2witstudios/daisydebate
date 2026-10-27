@@ -31,10 +31,10 @@ const subscribeNever = () => () => undefined;
 const selectionValue = (choice: RoomTemplate) =>
   JSON.stringify(casualSelection(choice));
 
-/** "One-on-one (1v1) · about 30 min", derived from the template's own config. */
+/** "Freestyle (1v1) · about 30 min · resolution by strike", from the template's own config. */
 function templateLine(choice: RoomTemplate) {
-  const [shape, length] = choiceSummary(choice).split(' · ');
-  return `${choice.label} (${shape}) · ${length}`;
+  const [shape, ...rest] = choiceSummary(choice).split(' · ');
+  return `${choice.label} (${shape}) · ${rest.join(' · ')}`;
 }
 
 function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {

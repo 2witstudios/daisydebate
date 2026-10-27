@@ -5,11 +5,12 @@ import { sequentialId } from '@daisy/clock';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { roomCommandIds } from '../../../features/rooms/room-command-ids';
 import { WithAppRouter } from '../../test-support/app-router';
+import type { RoomRefusal } from '@daisy/protocol';
 import { RoomLive } from './room-live';
 
 setupRitewayBun();
 
-const render = (refused: boolean) => {
+const render = (refusal: { readonly reason: RoomRefusal | null } | null) => {
   const ids = sequentialId('seed');
   return renderToStaticMarkup(
     h(
@@ -23,7 +24,7 @@ const render = (refused: boolean) => {
         bots: [],
         choices: [],
         socketUrl: null,
-        refused,
+        refusal,
         commandAction: async () => ({ values: {} }),
         detailsAction: async () => ({ values: {} }),
         settingsAction: async () => ({ values: {} }),
@@ -36,7 +37,7 @@ const render = (refused: boolean) => {
 
 describe('RoomLive', () => {
   test('the server render is the seeded room with the seeded identifiers', () => {
-    const html = render(false);
+    const html = render(null);
     assert({
       given: 'a room view and its command identifiers from the server',
       should: 'render the room from them, with no freshness notice or refusal',
@@ -51,12 +52,18 @@ describe('RoomLive', () => {
 
   test('a refused native post shows its notice', () => {
     assert({
-      given: 'a room page returned to with the command-refused notice',
-      should: 'say the command was not acknowledged',
-      actual: render(true).includes(
-        'The command was not acknowledged. Review the current room and try again.',
-      ),
-      expected: true,
+      given:
+        'a room page returned to with the command-refused notice, without and with a known reason',
+      should: 'say the command was not acknowledged, or why it was refused',
+      actual: [
+        render({ reason: null }).includes(
+          'The command was not acknowledged. Review the current room and try again.',
+        ),
+        render({ reason: 'not-your-turn' }).includes(
+          'It is the other side’s turn to strike.',
+        ),
+      ],
+      expected: [true, true],
     });
   });
 });

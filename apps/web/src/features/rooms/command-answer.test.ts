@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   commandAnswer,
+  commandRefusalText,
   commandUnavailable,
   roomFormAnswer,
 } from './command-answer';
@@ -135,5 +136,47 @@ test('native Room details and settings answers clear an inherited setup fragment
       { values: {}, next: `/rooms/${assemblySnapshot.id}#` },
       { values: {}, view: assemblySnapshot },
     ],
+  });
+});
+
+test('a refused strike or format choice says why, with and without JavaScript (PR #472 review)', () => {
+  const form = new FormData();
+  form.set('type', 'strike-resolution');
+  const answer = (hydrated: boolean) =>
+    commandAnswer(
+      { kind: 'refused', reason: 'strike-conflict' },
+      assemblySnapshot.id,
+      form,
+      { hydrated, move: (next) => ({ next }) },
+    );
+  assert({
+    given:
+      'a stale strike posted by a hydrated page and by a native form, and each strike and format refusal',
+    should:
+      'show its reason in place, carry it back to the page in the closed vocabulary, and word each in the room’s terms',
+    actual: {
+      hydrated: answer(true).error,
+      native: answer(false).next,
+      words: [
+        'strike-conflict',
+        'not-your-turn',
+        'strike-unavailable',
+        'format-unavailable',
+        'illegal-config',
+        null,
+      ].map((reason) => commandRefusalText(reason as never)),
+    },
+    expected: {
+      hydrated: 'Someone struck first, or time ran out. Here is the draw now.',
+      native: `/rooms/${assemblySnapshot.id}?notice=command-refused&reason=strike-conflict#`,
+      words: [
+        'Someone struck first, or time ran out. Here is the draw now.',
+        'It is the other side’s turn to strike.',
+        'That resolution is already struck.',
+        'That format is no longer offered. Choose from the list now.',
+        'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
+        'The command was not acknowledged. Review the current room and try again.',
+      ],
+    },
   });
 });

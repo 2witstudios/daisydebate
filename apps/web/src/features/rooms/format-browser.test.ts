@@ -5,6 +5,7 @@ import {
   browserTabs,
   casualSelection,
   catalogGroups,
+  choiceSummary,
   defaultChoice,
   standardOptions,
 } from './format-browser';
@@ -204,6 +205,36 @@ describe('the browse dialog', () => {
         valueTab: ['nsda-ld', 'ncfca-ld'],
         search: ['policy', 'nsda-policy'],
       },
+    });
+  });
+});
+
+describe('choiceSummary', () => {
+  test('a format that strikes its resolution says so (PR #472 review)', () => {
+    const strikes = {
+      ...unequalTemplate,
+      preset: {
+        ...unequalTemplate.preset,
+        config: {
+          ...unequalTemplate.preset.config,
+          resolutionDraw: {
+            enabled: true as const,
+            drawSize: 5,
+            strikeWindowMs: 60_000,
+            firstStriker: 'negative' as const,
+            source: { kind: 'bank' as const, categories: ['policy' as const] },
+          },
+        },
+      },
+    };
+    assert({
+      given: 'a set-resolution choice and the same choice with a strike',
+      should: 'add the strike to the summary only when the preset strikes',
+      actual: [
+        choiceSummary(unequalTemplate).includes('strike'),
+        choiceSummary(strikes).endsWith(' · resolution by strike'),
+      ],
+      expected: [false, true],
     });
   });
 });

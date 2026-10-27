@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomRefusal, RoomView } from '@daisy/protocol';
 import { refused, type MockFormState } from '../mock-form/form';
 import type { submitAssembly } from './submit-assembly';
 
@@ -14,10 +14,29 @@ export const commandUnavailable = (form: FormData): MockFormState =>
     'The command is not acknowledged. Review the room and try again.',
   );
 
-const refusalMessage = (result: Awaited<ReturnType<typeof submitAssembly>>) =>
-  result.kind === 'refused' && result.reason === 'version-conflict'
-    ? 'The room changed. Review the latest room and try again.'
-    : 'The command was not acknowledged. Review the current room and try again.';
+const refusalWords: Partial<Record<RoomRefusal, string>> = {
+  'version-conflict': 'The room changed. Review the latest room and try again.',
+  'strike-conflict':
+    'Someone struck first, or time ran out. Here is the draw now.',
+  'not-your-turn': 'It is the other side’s turn to strike.',
+  'strike-unavailable': 'That resolution is already struck.',
+  'format-unavailable':
+    'That format is no longer offered. Choose from the list now.',
+  'illegal-config':
+    'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
+};
+
+/** Why a room command was refused, in the room's words; generic when unknown. */
+export const commandRefusalText = (reason: RoomRefusal | null): string =>
+  (reason && refusalWords[reason]) ??
+  'The command was not acknowledged. Review the current room and try again.';
+
+const refusedReason = (result: Awaited<ReturnType<typeof submitAssembly>>) =>
+  result.kind === 'refused' ? result.reason : null;
+
+/** A native post returns to the room with its refusal, a closed vocabulary. */
+const refusedQuery = (reason: RoomRefusal | null) =>
+  `?notice=command-refused${reason ? `&reason=${reason}` : ''}`;
 
 /**
  * Navigation is selected only from the canonical response, never submitted
@@ -42,11 +61,11 @@ export function commandAnswer(
   if (edge.hydrated)
     return result.kind === 'accepted'
       ? { values: {}, view: result.view }
-      : refused(form, refusalMessage(result));
+      : refused(form, commandRefusalText(refusedReason(result)));
   return {
     values: {},
     ...edge.move(
-      `/rooms/${roomId}${result.kind === 'accepted' ? '' : '?notice=command-refused'}#`,
+      `/rooms/${roomId}${result.kind === 'accepted' ? '' : refusedQuery(refusedReason(result))}#`,
     ),
   };
 }

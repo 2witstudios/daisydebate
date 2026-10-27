@@ -9,9 +9,11 @@ import { expect, openPage, test } from './support/fixtures';
 import { origin } from './support/accounts';
 import { foundationSelection } from '../integration/foundation-selection.test-support';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import { readyUp, startRoundInBrowser } from './support/room-launch-flow';
 import {
   assignSeat,
   claimSeat,
+  readBallotRound,
   readyOwnSeat,
   startAdmittedRound,
 } from './support/human-ballot-round';
@@ -47,7 +49,8 @@ async function createDrawRoom(
           resolutionDraw: {
             enabled: true,
             drawSize: 3,
-            strikeWindowMs: 180_000,
+            // The floor of the draw-capable bounds: a time-out takes 15 s, not minutes.
+            strikeWindowMs: 15_000,
             firstStriker: 'negative',
             source: { kind: 'host', resolutions: lines },
           },
@@ -72,93 +75,127 @@ const command = async (
   return roomViewSchema.parse((await response.json()).view);
 };
 
+/** A no-JavaScript page on a member's own session; the caller closes the context. */
+const noScriptPage = async (
+  browser: import('@playwright/test').Browser,
+  member: { readonly context: import('@playwright/test').BrowserContext },
+  name: string,
+) => {
+  const context = await browser.newContext({
+    baseURL: origin,
+    javaScriptEnabled: false,
+    storageState: await member.context.storageState(),
+  });
+  return { context, page: await openPage(context, name) };
+};
+
+const yourTurn = 'Your turn: strike a resolution you don’t want to debate';
+
 test('debaters strike to one resolution without JavaScript while a spectator never receives a drawn line first', async ({
   browser,
 }) => {
+  test.setTimeout(240_000);
   const accounts = await createRoomLaunchAccounts(browser, 3);
-  const [host, guest, watcher] = accounts.members as [
-    (typeof accounts.members)[number],
-    (typeof accounts.members)[number],
-    (typeof accounts.members)[number],
-  ];
-  let view = await createDrawRoom(host.context.request);
-  view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
-  view = await claimSeat(guest, view, { role: 'negative', slot: 0 });
-  await readyOwnSeat(host, view, { role: 'affirmative', slot: 0 });
-  view = await readyOwnSeat(guest, view, { role: 'negative', slot: 0 });
-  view = await command(host.context.request, view, { type: 'start-pre-round' });
-
-  const spectator = await openPage(watcher.context, 'Strike spectator');
-  await spectator.goto(`/rooms/${view.id}`);
-  await expect(
-    spectator.getByText('Hidden until the debaters finish striking'),
-  ).toBeVisible();
-  expect(await spectator.content()).not.toContain(SENTINEL);
-
-  // The Negative strikes first with scripts off: a native POST and a fresh page.
-  const noScript = await browser.newContext({
-    baseURL: origin,
-    javaScriptEnabled: false,
-    storageState: await guest.context.storageState(),
-  });
+  const opened: import('@playwright/test').BrowserContext[] = [];
   try {
-    const negative = await openPage(noScript, 'Strike negative, no JavaScript');
-    await negative.goto(`/rooms/${view.id}`);
+    const [host, guest, watcher] = accounts.members as [
+      (typeof accounts.members)[number],
+      (typeof accounts.members)[number],
+      (typeof accounts.members)[number],
+    ];
+    let view = await createDrawRoom(host.context.request);
+    view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
+    view = await claimSeat(guest, view, { role: 'negative', slot: 0 });
+    // Ready needs the device check, which needs scripts: it goes through the API.
+    await readyOwnSeat(host, view, { role: 'affirmative', slot: 0 });
+    view = await readyOwnSeat(guest, view, { role: 'negative', slot: 0 });
+
+    // The host draws from a native form.
+    const hostNoScript = await noScriptPage(
+      browser,
+      host,
+      'Strike host, no JavaScript',
+    );
+    opened.push(hostNoScript.context);
+    await hostNoScript.page.goto(`/rooms/${view.id}`);
+    await hostNoScript.page
+      .getByRole('button', { name: 'Draw the resolutions', exact: true })
+      .click();
+
+    const spectator = await openPage(watcher.context, 'Strike spectator');
+    await spectator.goto(`/rooms/${view.id}`);
     await expect(
-      negative.getByRole('heading', {
-        name: 'Your turn: strike a resolution you don’t want to debate',
-      }),
+      spectator.getByText('Hidden until the debaters finish striking'),
     ).toBeVisible();
-    await negative.getByRole('radio').first().check();
-    await negative
+    expect(await spectator.content()).not.toContain(SENTINEL);
+
+    // The Negative strikes first; a second tab still holds the same turn's form.
+    const negative = await noScriptPage(
+      browser,
+      guest,
+      'Strike negative, no JavaScript',
+    );
+    opened.push(negative.context);
+    const stale = await openPage(negative.context, 'Stale strike form');
+    for (const page of [negative.page, stale]) {
+      await page.goto(`/rooms/${view.id}`);
+      await expect(page.getByRole('heading', { name: yourTurn })).toBeVisible();
+    }
+    await negative.page.getByRole('radio').first().check();
+    await negative.page
       .getByRole('button', { name: 'Strike this resolution' })
       .click();
-    await expect(negative.getByText('You struck this')).toBeVisible();
-  } finally {
-    await noScript.close();
-  }
+    await expect(negative.page.getByText('You struck this')).toBeVisible();
+    await stale.getByRole('radio', { disabled: false }).last().check();
+    await stale.getByRole('button', { name: 'Strike this resolution' }).click();
+    await expect(
+      stale.getByText(
+        'Someone struck first, or time ran out. Here is the draw now.',
+      ),
+    ).toBeVisible();
 
-  const affirmative = await openPage(host.context, 'Strike host');
-  await affirmative.goto(`/rooms/${view.id}`);
-  await expect(
-    affirmative.getByRole('heading', {
-      name: 'Your turn: strike a resolution you don’t want to debate',
-    }),
-  ).toBeVisible();
-  await affirmative.getByRole('radio', { disabled: false }).first().check();
-  await affirmative
-    .getByRole('button', { name: 'Strike this resolution' })
-    .click();
+    // The Affirmative lets its window run out; Refresh shows the reveal.
+    const revealed = async () =>
+      roomViewSchema.parse(
+        await (
+          await watcher.context.request.get(`/api/rooms/${view.id}`)
+        ).json(),
+      );
+    await expect(async () => {
+      expect((await revealed()).topic).not.toBeNull();
+    }).toPass({ timeout: 60_000 });
+    const survivor = (await revealed()).topic!;
+    expect(lines).toContain(survivor);
+    await negative.page.getByRole('link', { name: 'Refresh' }).click();
+    await expect(negative.page.getByText(survivor).first()).toBeVisible();
+    await expect(negative.page).not.toHaveURL(/notice=/);
 
-  const revealed = async () =>
-    roomViewSchema.parse(
-      await (await watcher.context.request.get(`/api/rooms/${view.id}`)).json(),
+    await spectator.reload();
+    await expect(spectator.getByText(survivor).first()).toBeVisible();
+    const html = await spectator.content();
+    for (const line of lines.filter((line) => line !== survivor))
+      expect(html).not.toContain(line);
+
+    // Launch needs the host's device check: it goes through the API.
+    const ready = roomViewSchema.parse(
+      await (await host.context.request.get(`/api/rooms/${view.id}`)).json(),
     );
-  await expect(async () => {
-    expect((await revealed()).topic).not.toBeNull();
-  }).toPass();
-  const survivor = (await revealed()).topic!;
-  expect(lines).toContain(survivor);
-  await spectator.reload();
-  await expect(spectator.getByText(survivor)).toBeVisible();
-  const html = await spectator.content();
-  for (const line of lines.filter((line) => line !== survivor))
-    expect(html).not.toContain(line);
-
-  const ready = roomViewSchema.parse(
-    await (await host.context.request.get(`/api/rooms/${view.id}`)).json(),
-  );
-  const round = await startAdmittedRound(host, ready);
-  expect(round.topic).toBe(survivor);
+    const round = await startAdmittedRound(host, ready);
+    expect(round.topic).toBe(survivor);
+  } finally {
+    for (const context of opened) await context.close();
+    await accounts.closeContexts();
+  }
 });
 
-test('a Freestyle bank strike against a bot: automatic strikes, a strike in the browser, a time-out, the reveal, prep and Launch', async ({
+test('a Freestyle bank strike against a bot: automatic strikes, a confirmed strike, a time-out, the reveal, prep and Launch in the browser', async ({
   browser,
 }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(240_000);
   const accounts = await createRoomLaunchAccounts(browser, 1);
   try {
     const host = accounts.members[0]!;
+    await host.context.grantPermissions(['camera', 'microphone'], { origin });
     const catalog = await (
       await host.context.request.get('/api/rooms/catalog')
     ).json();
@@ -188,6 +225,17 @@ test('a Freestyle bank strike against a bot: automatic strikes, a strike in the 
     });
     expect(created.status()).toBe(201);
     let view = roomViewSchema.parse((await created.json()).view);
+    // The shortest window Freestyle allows, so the time-out takes 15 s.
+    view = await command(host.context.request, view, {
+      type: 'update-config',
+      config: {
+        ...freestyle.preset.config,
+        resolutionDraw: {
+          ...freestyle.preset.config.resolutionDraw,
+          strikeWindowMs: 15_000,
+        },
+      },
+    });
     view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
     view = await assignSeat(host, view, {
       actorId: bots[0]!.actorId,
@@ -199,48 +247,48 @@ test('a Freestyle bank strike against a bot: automatic strikes, a strike in the 
       role: 'judge',
       slot: 0,
     });
-    view = await readyOwnSeat(host, view, { role: 'affirmative', slot: 0 });
-    view = await command(host.context.request, view, {
-      type: 'start-pre-round',
-    });
 
-    // The bot side strikes on its own; the page rereads at each due instant.
     const page = await openPage(host.context, 'Freestyle strike host');
     await page.goto(`/rooms/${view.id}`);
-    const myTurn = page.getByRole('heading', {
-      name: 'Your turn: strike a resolution you don’t want to debate',
-    });
+    await readyUp(page);
+
+    await page
+      .getByRole('button', { name: 'Draw the resolutions', exact: true })
+      .click();
+
+    // The bot side strikes on its own; the page rereads at each due instant.
+    const myTurn = page.getByRole('heading', { name: yourTurn });
     await expect(myTurn).toBeVisible({ timeout: 20_000 });
     await page.getByRole('radio', { disabled: false }).first().check();
     await page.getByRole('button', { name: 'Strike this resolution' }).click();
+    await expect(
+      page.getByText(/^Strike ‘.+’\? You can’t undo a strike\.$/),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Strike it' }).click();
     await expect(page.getByText('You struck this')).toBeVisible();
 
     // The second human turn runs out: Daisy strikes, and the last one left is revealed.
-    await expect(myTurn).toBeVisible({ timeout: 20_000 });
     const read = async () =>
       roomViewSchema.parse(
         await (await host.context.request.get(`/api/rooms/${view.id}`)).json(),
       );
     await expect(async () => {
       expect((await read()).topic).not.toBeNull();
-    }).toPass({ timeout: 120_000 });
-    const revealedView = await read();
-    const survivor = revealedView.topic!;
+    }).toPass({ timeout: 60_000 });
+    const survivor = (await read()).topic!;
     await expect(page.getByText(survivor).first()).toBeVisible({
       timeout: 20_000,
     });
-    await page.getByText('How it was chosen').click();
+    await page.getByText(/^How it was chosen/).click();
     await expect(
       page.getByText('Daisy struck this for you · time ran out'),
     ).toBeVisible();
-    expect(revealedView.prep.startedAt).toBe(
-      revealedView.resolutionDraw?.revealedAt,
-    );
+    // Prep started at the reveal and is already counting down.
+    await expect(page.getByText(/^\d+:\d{2} left$/)).toBeVisible();
 
-    const prepped = await command(host.context.request, revealedView, {
-      type: 'finish-prep',
-    });
-    const round = await startAdmittedRound(host, prepped);
+    await page.getByRole('button', { name: 'End prep', exact: true }).click();
+    const roundId = await startRoundInBrowser(page);
+    const round = await readBallotRound(host.context.request, roundId);
     expect(round.topic).toBe(survivor);
   } finally {
     await accounts.closeContexts();

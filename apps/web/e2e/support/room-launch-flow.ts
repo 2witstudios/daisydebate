@@ -10,6 +10,12 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
+/** The host's Start round, then the Round room it opens; returns the Round id. */
+export async function startRoundInBrowser(page: Page): Promise<string> {
+  await page.getByRole('button', { name: 'Start round', exact: true }).click();
+  await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
+  return new URL(page.url()).pathname.split('/').at(-2)!;
+}
 export const reread = async (request: APIRequestContext, id: string) => {
   const response = await request.get(`/api/rooms/${id}`);
   expect(response.status()).toBe(200);

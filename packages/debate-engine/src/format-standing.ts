@@ -48,12 +48,17 @@ const roles: readonly DebateRole[] = ['affirmative', 'negative', 'judge'];
 function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
   const fromKeys = from.segments.map((s) => s.key);
   const toKeys = to.segments.map((s) => s.key);
-  const identity = (rules: RoundRules, key: string) => {
-    const index = rules.segments.findIndex((s) => s.key === key);
-    const segment = rules.segments[index]!;
-    return [index, segment.label, segment.type, segment.side, segment.slot];
-  };
   const kept = toKeys.filter((key) => fromKeys.includes(key));
+  // Position counts among kept segments only, so removing or adding one
+  // never marks every later segment as changed.
+  const identity = (rules: RoundRules, key: string) => {
+    const segment = rules.segments.find((s) => s.key === key)!;
+    const order = rules.segments
+      .map((s) => s.key)
+      .filter((k) => kept.includes(k))
+      .indexOf(key);
+    return [order, segment.label, segment.type, segment.side, segment.slot];
+  };
   const structure = {
     kind: 'segments' as const,
     added: toKeys.filter((key) => !fromKeys.includes(key)),

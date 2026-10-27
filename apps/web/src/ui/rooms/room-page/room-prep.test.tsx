@@ -55,3 +55,47 @@ test('the host starts preparation through a native versioned command', () => {
     expected: [true, true, true, true],
   });
 });
+
+test('a strike with no prep reads its own stage, then hands off to the start (PR #472 review)', () => {
+  const strike = {
+    ...assemblySnapshot,
+    topic: null,
+    config: {
+      ...assemblySnapshot.config,
+      preRoundPrep: { enabled: false as const },
+      resolutionDraw: {
+        enabled: true as const,
+        drawSize: 3,
+        strikeWindowMs: 60_000,
+        firstStriker: 'negative' as const,
+        source: { kind: 'bank' as const, categories: ['policy' as const] },
+      },
+    },
+  };
+  const draw = (revealedAt: string | null) => ({
+    visibility: 'progress' as const,
+    drawSize: 3,
+    strikes: [],
+    turn: null,
+    revealedAt,
+  });
+  assert({
+    given: 'a no-prep strike before its start, while striking, and revealed',
+    should:
+      'say what comes next at each stage, ending with the start of the round',
+    actual: [
+      render(strike).includes(
+        'Strike from the drawn resolutions, then start the round',
+      ),
+      render({ ...strike, resolutionDraw: draw(null) }).includes(
+        'The debaters are striking',
+      ),
+      render({
+        ...strike,
+        topic: 'Chosen',
+        resolutionDraw: draw('2026-10-12T00:01:00.000Z'),
+      }).includes('Resolution chosen · start the round when the room is ready'),
+    ],
+    expected: [true, true, true],
+  });
+});

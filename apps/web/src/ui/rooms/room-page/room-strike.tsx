@@ -6,9 +6,9 @@ import {
   strikeLabel,
 } from '../../../features/debate-room/vocabulary';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { StrikeSubmit } from './room-strike-confirm';
 
 type Draw = NonNullable<RoomView['resolutionDraw']>;
 export type Side = 'affirmative' | 'negative';
@@ -169,7 +169,8 @@ export function RoomStrike({
           commandId={strikeIds[draw.turn?.ordinal ?? 0] ?? ''}
         />
       )}
-      <a href="" className="self-start text-sm font-strong">
+      {/* The room itself, never the refused post's notice, so a refresh reads fresh. */}
+      <a href={`/rooms/${view.id}`} className="self-start text-sm font-strong">
         Refresh
       </a>
     </section>
@@ -247,14 +248,11 @@ function StrikeForm({
         })}
       </fieldset>
       {canStrike ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" className={buttonClass('primary')}>
-            Strike this resolution
-          </button>
-          <span className="text-sm text-ink-muted">
-            A strike can’t be undone. If time runs out, Daisy strikes for you.
-          </span>
-        </div>
+        <StrikeSubmit
+          texts={Object.fromEntries(
+            draw.items.map((item) => [String(item.position), item.text]),
+          )}
+        />
       ) : null}
     </AssemblyCommandForm>
   );

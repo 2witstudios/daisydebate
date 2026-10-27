@@ -154,3 +154,12 @@ describe('lobbySections', () => {
     });
   });
 });
+
+test('a Room that strikes its resolution names how it is chosen (PR #472 review)', () => {
+  assert({
+    given: 'a listed Room whose resolution is drawn and struck',
+    should: 'say the resolution is chosen by strike before the round',
+    actual: lobbyRow(now, entry({ topic: null })).topic,
+    expected: 'Resolution: chosen by strike before the round',
+  });
+});

@@ -79,14 +79,15 @@ export const presetSpeechMs = (choice: RoomCatalogChoice) =>
       segment.defaultDurationMs,
   );
 
-/** "1v1 · about 34 min": a catalog choice at its canonical preset. */
+/** "1v1 · about 34 min", plus "resolution by strike" for a format that strikes. */
 export function choiceSummary(choice: RoomCatalogChoice): string {
-  const { inRoundPrep, speechTiming } = choice.preset.config;
-  return `${shapeLabel(choice.definition.seats)} · ${roundLength({
+  const { inRoundPrep, speechTiming, resolutionDraw } = choice.preset.config;
+  const length = `${shapeLabel(choice.definition.seats)} · ${roundLength({
     speechesMs: presetSpeechMs(choice),
     countdownMs: speechTiming.countdownMs,
     prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
   })}`;
+  return resolutionDraw.enabled ? `${length} · resolution by strike` : length;
 }
 
 const familyOrder: readonly Family[] = families;

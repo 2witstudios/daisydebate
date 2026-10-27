@@ -46,6 +46,30 @@ const withTiming = (
 
 const firstSegment = oneOnOneFormatFixture.segments[0]!;
 
+/** The fixture definition without one segment and its timing bound. */
+const withoutSegment = (key: string): FormatDefinition => ({
+  ...oneOnOneFormatFixture,
+  segments: oneOnOneFormatFixture.segments.filter((s) => s.key !== key),
+  configurable: {
+    ...oneOnOneFormatFixture.configurable,
+    timing: {
+      ...oneOnOneFormatFixture.configurable.timing,
+      segmentDurationMs: Object.fromEntries(
+        Object.entries(
+          oneOnOneFormatFixture.configurable.timing.segmentDurationMs,
+        ).filter(([bound]) => bound !== key),
+      ),
+    },
+  },
+});
+
+/** A private custom definition's standing against the Value basis. */
+const customStanding = (definition: FormatDefinition) =>
+  formatStanding({
+    active: active(oneOnOneConfig, { formatId: 'private-format', definition }),
+    basis: basis(),
+  });
+
 describe('formatStanding', () => {
   test('standard', () => {
     assert({
@@ -166,33 +190,14 @@ describe('formatStanding', () => {
 
   test('definition changes', () => {
     const removed = oneOnOneFormatFixture.segments.at(-1)!.key;
-    const bounds = Object.fromEntries(
-      Object.entries(
-        oneOnOneFormatFixture.configurable.timing.segmentDurationMs,
-      ).filter(([key]) => key !== removed),
-    );
     const definition: FormatDefinition = {
-      ...oneOnOneFormatFixture,
+      ...withoutSegment(removed),
       seats: { ...oneOnOneFormatFixture.seats, judge: 3 },
-      segments: oneOnOneFormatFixture.segments.slice(0, -1),
-      configurable: {
-        ...oneOnOneFormatFixture.configurable,
-        timing: {
-          ...oneOnOneFormatFixture.configurable.timing,
-          segmentDurationMs: bounds,
-        },
-      },
     };
     assert({
       given: 'a custom definition with a judge panel and one speech dropped',
       should: 'name the seat and speech changes',
-      actual: formatStanding({
-        active: active(oneOnOneConfig, {
-          formatId: 'private-format',
-          definition,
-        }),
-        basis: basis(),
-      }),
+      actual: customStanding(definition),
       expected: {
         kind: 'custom',
         basis: { formatId: 'value', role: 'standard' },
@@ -244,6 +249,22 @@ describe('formatStanding', () => {
         basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           { kind: 'resolution-draw', from: frozen, to: { enabled: false } },
+        ],
+      },
+    });
+  });
+
+  test('a removed middle speech changes only itself (PR #472 review)', () => {
+    const middle = oneOnOneFormatFixture.segments[1]!.key;
+    assert({
+      given: 'a custom definition without its second segment',
+      should: 'list it as removed and every kept segment as unchanged',
+      actual: customStanding(withoutSegment(middle)),
+      expected: {
+        kind: 'custom',
+        basis: { formatId: 'value', role: 'standard' },
+        changes: [
+          { kind: 'segments', added: [], removed: [middle], changed: [] },
         ],
       },
     });

@@ -107,7 +107,7 @@ export function lobbyRow(now: number, entry: RoomListEntry): LobbyRow {
   return {
     id: entry.id,
     title: entry.title,
-    topic: entry.topic ?? drawnTopicLabel,
+    topic: entry.topic ?? `Resolution: ${drawnTopicLabel.toLocaleLowerCase()}`,
     host: entry.hostLabel,
     mode: entry.competitionType === 'ranked' ? 'Ranked' : 'Casual',
     format: entry.formatLabel,
