@@ -77,7 +77,7 @@ test('every Playwright browser install is cached and bounded', async () => {
       jobs.map(([name, job]) => [name, installShape(job.steps)]),
     ),
     expected: Object.fromEntries(
-      ['e2e', 'room-launch'].map((name) => [
+      ['e2e', 'admin', 'room-launch'].map((name) => [
         name,
         {
           bounded: true,

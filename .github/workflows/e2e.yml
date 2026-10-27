@@ -254,7 +254,7 @@ jobs:
       - name: Resolve the Playwright version and cache month
         id: playwright
         run: |
-          echo "version=$(jq -r .version apps/admin/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
           echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
       - name: Restore Playwright Chromium and OS packages
