@@ -32,21 +32,38 @@ export type ProvisionalLinkPurposes = Pick<
 >;
 
 /**
- * Deletes the account's own emailed links: sign-in links to its email and
- * email-change links naming its id. Caller holds the user row lock and has
- * freshly established provisional authority.
+ * The statement that deletes an account's own emailed links: sign-in links
+ * to its email and email-change links naming its id (ISSUE-716). The purpose
+ * prefixes stand outside the CASE as a sargable conjunct, so the planner
+ * reads only those purposes' rows through the identifier pattern index; the
+ * CASE still guards the `::jsonb` cast, which a link of another purpose
+ * would fail. The sweep runs exactly this statement and its proof EXPLAINs it.
+ */
+export const ownLinksDelete = (
+  user: { readonly id: string; readonly email: string | null },
+  input: ProvisionalLinkPurposes,
+) => sql`delete from ${verifications}
+  where (${sql.join(
+    [input.signInPurpose, ...input.emailChangePurposes].map(startsWithPurpose),
+    sql` or `,
+  )})
+  and case
+    when ${startsWithPurpose(input.signInPurpose)}
+      then lower(${verifications.value}::jsonb ->> 'email') = lower(${user.email})
+    when ${input.emailChangePurposes.length === 0 ? sql`false` : sql.join(input.emailChangePurposes.map(startsWithPurpose), sql` or `)}
+      then ${verifications.value}::jsonb ->> 'userId' = ${user.id}
+    else false end`;
+
+/**
+ * Deletes the account's own emailed links. Caller holds the user row lock
+ * and has freshly established provisional authority.
  */
 export async function clearProvisionalLinks(
   tx: Transaction,
   user: { readonly id: string; readonly email: string | null },
   input: ProvisionalLinkPurposes,
 ): Promise<void> {
-  await tx.delete(verifications).where(sql`case
-    when ${startsWithPurpose(input.signInPurpose)}
-      then lower(${verifications.value}::jsonb ->> 'email') = lower(${user.email})
-    when ${input.emailChangePurposes.length === 0 ? sql`false` : sql.join(input.emailChangePurposes.map(startsWithPurpose), sql` or `)}
-      then ${verifications.value}::jsonb ->> 'userId' = ${user.id}
-    else false end`);
+  await tx.execute(ownLinksDelete(user, input));
 }
 
 /**

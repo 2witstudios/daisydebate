@@ -219,7 +219,7 @@ test.describe('onboarding answers in Settings without JavaScript', () => {
   test.use({ javaScriptEnabled: false });
 
   // ISSUE-324: a member sees what they answered and can change it.
-  test('Settings lists the answers and each Edit opens its step, returning to Settings', async ({
+  test('Settings lists the answers; Edit opens the step, and saving returns to Settings through the Ready step', async ({
     page,
   }) => {
     await signUpMember(page.request);
@@ -235,5 +235,16 @@ test.describe('onboarding answers in Settings without JavaScript', () => {
 
     await page.getByRole('link', { name: 'Edit topics' }).click();
     await expect(page).toHaveURL(/\/onboarding\/topics\?next=%2Fsettings$/);
+    // Saving the step goes on through the Ready step, which leads back to Settings.
+    await page.locator('label', { hasText: 'Economics' }).click();
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page).toHaveURL(/\/onboarding\/ready\?next=%2Fsettings$/);
+    await page.getByRole('link', { name: 'Go to home' }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    const topics = page
+      .getByRole('definition')
+      .filter({ has: page.getByRole('link', { name: 'Edit topics' }) });
+    await expect(topics).toContainText('Economics');
+    await expect(topics).toContainText('Law');
   });
 });

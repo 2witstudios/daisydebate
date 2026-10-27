@@ -24,8 +24,21 @@ const abandoned = (before: string, signInPurpose: string) => sql`
   and not exists (select 1 from session where user_id = users.id
     and (created_at >= ${before}::timestamptz or updated_at >= ${before}::timestamptz))
   and not exists (select 1 from verification where created_at >= ${before}::timestamptz
+    and identifier like ${purposePattern(signInPurpose)}
     and case when identifier like ${purposePattern(signInPurpose)}
       then lower(value::jsonb ->> 'email') = lower(users.email) else false end)`;
+
+/**
+ * The sweep's candidate read (ISSUE-716): live provisional accounts signed
+ * up before the cutoff, oldest first, through users_provisional_created_idx.
+ * The sweep runs exactly this statement and its proof EXPLAINs it.
+ */
+export const abandonedCandidatesRead = (
+  input: Pick<RetentionBatch, 'before' | 'limit'> &
+    Pick<ProvisionalLinkPurposes, 'signInPurpose'>,
+) => sql`select id from users where created_at < ${input.before}::timestamptz
+  and (${abandoned(input.before, input.signInPurpose)})
+  order by created_at, id limit ${input.limit}`;
 
 /**
  * ISSUE-660(b) and the #474 review: one unlocked, autocommitted read picks
@@ -51,10 +64,9 @@ export const provisionalRetentionOperations = ({
     requireRetentionBounds(input);
     const eligible = abandoned(input.before, input.signInPurpose);
     return instrumented(eventSink, 'purgeExpiredProvisionalUsers', async () => {
-      const candidates = (await database.execute(sql`
-        select id from users where created_at < ${input.before}::timestamptz
-          and (${eligible}) order by created_at, id limit ${input.limit}
-      `)) as unknown as { id: string }[];
+      const candidates = (await database.execute(
+        abandonedCandidatesRead(input),
+      )) as unknown as { id: string }[];
       let deleted = 0;
       for (const { id } of candidates)
         deleted += await database.transaction(async (tx) => {

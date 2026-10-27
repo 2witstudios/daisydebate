@@ -1,10 +1,10 @@
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import {
   AnswerSummary,
   type AnswerEditHrefs,
 } from '../../onboarding/answer-summary/answer-summary';
-import Link from 'next/link';
-import type { ReactNode } from 'react';
 import type {
   Preferences,
   Section,
@@ -70,7 +70,7 @@ export type SettingsPageProps = {
    * (ISSUE-324); null when they are not asked of this member (under 16, or
    * no age on record), so nothing optional is shown.
    */
-  readonly onboarding?: {
+  readonly onboarding: {
     readonly answers: OnboardingAnswers;
     readonly editHrefs: AnswerEditHrefs;
   } | null;
@@ -88,7 +88,7 @@ export function SettingsPage({
   profileAction,
   notificationsAction,
   privacyAction,
-  onboarding = null,
+  onboarding,
 }: SettingsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">

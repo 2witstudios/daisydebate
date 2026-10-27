@@ -77,8 +77,10 @@ export const verifications = pgTable(
     // ISSUE-716 expand step: text_pattern_ops serves a purpose prefix
     // (`identifier like 'sign-in:%'`) as well as equality, so the sweep's
     // link cleanup reads only that purpose's rows. Created beside the plain
-    // index so the release takes only a short SHARE lock (database.md,
-    // lock-bounded releases); a later release drops the plain one.
+    // index, so the release never takes ACCESS EXCLUSIVE: the build's SHARE
+    // lock is acquired within the migrator's 1 s lock_timeout and holds off
+    // writes for the build, acceptable pre-ship because the table is small
+    // (database.md, lock-bounded releases). ISSUE-727 drops the plain one.
     index('verification_identifier_pattern_idx').on(
       table.identifier.op('text_pattern_ops'),
     ),
