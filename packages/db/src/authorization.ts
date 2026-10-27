@@ -32,7 +32,7 @@ export async function lockAuthorizationActors(
   )
     throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
-    select * from public.daisy_authorization_accounts(
+    select * from public.daisy_authorization_accounts_v2(
       array[${sql.join(
         actorIds.map((id) => sql`${id}`),
         sql`, `,
@@ -83,7 +83,7 @@ export async function loadAuthorizationAccount(
 ) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
-    select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)
+    select * from public.daisy_authorization_accounts_v2(null::text[], ${userId}::text, false)
   `);
   const account = authorizationAccountFact(
     (rows as unknown as AuthorizationAccountRow[])[0] ?? null,

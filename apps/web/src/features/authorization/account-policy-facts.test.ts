@@ -7,6 +7,8 @@ test('web policy composition reads only canonical minimal age facts in its calle
     userId: 'a'.repeat(24),
     actorId: 'b'.repeat(24),
     member: true,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
     erased: false,
     revision: 1,
   };

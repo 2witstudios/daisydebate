@@ -24,7 +24,7 @@ test('realtime age producer exposes monthly bands under the canonical erasure fe
       for (const [birthMonth] of cases) {
         await fixture.sql`insert into account_age(user_id,birth_month,version,recorded_at)
           values(${userId},${birthMonth},1,'2026-09-01T00:00:00Z') on conflict(user_id)
-          do update set birth_month=excluded.birth_month`;
+          do update set birth_month=excluded.birth_month,recorded_at=excluded.recorded_at`;
         await fixture.sql.begin(async (client) => {
           await client`set local role daisy_realtime`;
           await client`create temporary table account_age(birth_month text) on commit drop`;

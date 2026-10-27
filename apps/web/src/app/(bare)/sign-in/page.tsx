@@ -24,7 +24,10 @@ export default async function SignInPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { destination, identity } = await readAuthEntry(searchParams);
-  if (identity.state === 'member') redirect(destination);
+  // A waitlisted account goes on too: the destination's guard sends it to
+  // the beta page when it needs approval (ADR 0075).
+  if (identity.state === 'member' || identity.state === 'waitlisted')
+    redirect(destination);
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return (
     <SignIn

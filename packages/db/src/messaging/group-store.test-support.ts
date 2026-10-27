@@ -8,6 +8,9 @@ export function groupStoreFacts() {
     actorId,
     userId: (i ? 'v' : 'u').repeat(24),
     member: true,
+    betaState: 'approved',
+    betaRevision: 1,
+    ageBand: 'adult',
     erased: false,
     revision: 1,
   }));

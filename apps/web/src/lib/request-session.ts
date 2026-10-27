@@ -37,14 +37,16 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
 };
 
 /**
- * The signed-in member's own onboarding answers, read once for this
- * server-component render; null for anyone who is not a member. The id is
- * the session's, never one the request names.
+ * The signed-in account's own onboarding answers, read once for this
+ * server-component render; null for anyone without a claimed username.
+ * Waitlisted accounts onboard too (ADR 0075). The id is the session's,
+ * never one the request names.
  */
 export const requestOnboardingAnswers = cache(
   async (): Promise<OnboardingAnswers | null> => {
     const identity = await requestIdentity();
-    if (identity.state !== 'member') return null;
+    if (identity.state !== 'member' && identity.state !== 'waitlisted')
+      return null;
     return processApp().database.readOnboarding(identity.principal.userId);
   },
 );
@@ -59,13 +61,17 @@ export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
 /**
  * Whether this render's member may be asked the optional onboarding
  * questions: their canonical age fact admits it (16 or over, ISSUE-645).
- * False for anyone else. A page only skips the questions on it; every
+ * False for anyone else; a waitlisted account onboards before approval. A page only skips the questions on it; every
  * answer's write decides again under the account fence.
  */
 export const requestOptionalAnswersAdmitted = cache(
   async (): Promise<boolean> => {
     const identity = await requestIdentity();
-    if (identity.state !== 'member' || identity.principal.actorId === null)
+    // A waitlisted account onboards before approval (ADR 0075).
+    if (
+      (identity.state !== 'member' && identity.state !== 'waitlisted') ||
+      identity.principal.actorId === null
+    )
       return false;
     const app = processApp();
     return app.database.optionalAnswersAdmitted({

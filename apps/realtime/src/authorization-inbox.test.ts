@@ -13,6 +13,8 @@ const account = {
   userId: principal.userId,
   actorId: principal.actorId,
   member: true,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
   erased: false,
   revision: 1,
 };
@@ -26,6 +28,9 @@ test('own inbox subscribes only through current canonical account authority', as
     { ...account, member: false },
     { ...account, revision: 0 },
     { ...account, userId: 'v'.repeat(24) },
+    // ADR 0075: a pending account, and an approved one with no age record.
+    { ...account, beta: { state: 'pending' as const, revision: 1 } },
+    { ...account, ageBand: null },
   ].map((account) => ({ account, actorId: principal.actorId, expiresAt }));
   cases.push(
     { account, actorId: 'b'.repeat(24), expiresAt },
@@ -58,10 +63,20 @@ test('own inbox subscribes only through current canonical account authority', as
   }
   assert({
     given:
-      'own inbox with bound member, erased, nonmember, invalid-revision, foreign account/topic or expired session facts',
+      'own inbox with bound member, erased, nonmember, invalid-revision, foreign account, pending beta, missing age record, foreign topic or expired session facts',
     should:
       'use the sole canonical inbox capability and preserve the real session deadline',
     actual,
-    expected: [Date.parse(expiresAt), null, null, null, null, null, null],
+    expected: [
+      Date.parse(expiresAt),
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
   });
 });

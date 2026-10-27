@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { approveBetaAccounts } from './beta-access';
 
 export type LaunchProbeMember = { readonly cookie: string };
 const successful = (response: Response, status: number) => {
@@ -67,6 +68,8 @@ export async function createLaunchProbeMember(
     }),
     201,
   );
+  // A claimed account waits on the beta list until approved (ADR 0075).
+  await approveBetaAccounts(email);
   const identified = await fetch(`${origin}/api/auth/get-session`, {
     headers: { cookie },
   });

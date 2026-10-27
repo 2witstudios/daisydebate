@@ -1,3 +1,4 @@
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, test } from './support/fixtures';
 import {
   confirmSignIn,
@@ -87,10 +88,12 @@ test('a new claim hides the last refusal while it is pending', async ({
 test('a new member walks onboarding with JavaScript and the answers stay saved', async ({
   page,
 }) => {
-  await signUpProvisional(page.request);
+  const { email } = await signUpProvisional(page.request);
   await page.goto('/onboarding/username?next=%2Flobby');
   await effectsRan(page);
   await claimUsername(page, uniqueName('walker'));
+  // Approved by an operator (ADR 0075), so the finished member reaches /lobby.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   await walkOnboarding(page);
 
@@ -154,6 +157,8 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   await confirmSignIn(page, await emailedLink(request, email));
   await answerAgeStep(page);
   await claimUsername(page, uniqueName('helper'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   // The destination is already the welcome step: no onboarding inside it.
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);

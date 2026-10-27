@@ -9,7 +9,7 @@ import type { ShellAccount } from '../ui/layout/app-shell/account';
 export const shellAccount = (identity: Identity): ShellAccount => {
   if (identity.state === 'member')
     return { state: 'member', username: identity.username };
-  return identity.state === 'provisional'
-    ? { state: 'provisional' }
-    : { state: 'anonymous' };
+  if (identity.state === 'provisional' || identity.state === 'waitlisted')
+    return { state: identity.state };
+  return { state: 'anonymous' };
 };

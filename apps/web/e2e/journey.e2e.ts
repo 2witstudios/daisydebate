@@ -1,4 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, openPage, test } from './support/fixtures';
 import {
   emailedLink,
@@ -9,6 +10,7 @@ import {
   signUpMember,
   uniqueName,
   reachOnboarding,
+  reachOnboardingFromRanked,
   sessionUsername,
   answerAgeStep,
 } from './support/accounts';
@@ -78,6 +80,9 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
 
   const mine = uniqueName('ada');
   await claimUsername(page, mine.toUpperCase());
+  // The account waits on the beta list until an operator approves it
+  // (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
 
   // Declining the passkey offer (real enrollment is covered separately in
   // passkey-lifecycle.e2e.ts, with a virtual authenticator configured).
@@ -151,14 +156,10 @@ test('declining the passkey offer after onboarding from a protected page other t
   page,
   request,
 }) => {
-  await page.goto('/ranked');
-  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
-  const email = freshEmail();
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await answerAgeStep(page);
-  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  const email = await reachOnboardingFromRanked(page, request);
   await claimUsername(page, uniqueName('ranked'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
@@ -180,6 +181,8 @@ test('return destinations are validated and spectator routes stay public', async
   await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   await skipOnboarding(page, /\/lobby$/);
 });
@@ -246,6 +249,8 @@ test('an emailed link opened in a different browser than the one that requested 
   await answerAgeStep(otherPage);
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(
     otherPage.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
@@ -262,7 +267,7 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   page,
   request,
 }) => {
-  await reachOnboarding(page, request);
+  const email = await reachOnboarding(page, request);
 
   // A reload mid-flow must not sign the person out or drop the destination.
   await page.reload();
@@ -271,6 +276,8 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   const name = uniqueName('resumed');
   const offer = page.getByRole('heading', { name: /next time, one tap/i });
   await claimUsername(page, name);
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(offer).toBeVisible();
 
   // The offer is its own page: a reload keeps it, and the session.

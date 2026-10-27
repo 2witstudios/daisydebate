@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  approveByEmail,
   createAccountFlows,
   uniqueName,
   usernameOf,
@@ -11,7 +12,13 @@ import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const { flows, identifyAs, sessionAs, signUp, claim } = createAccountFlows();
+const {
+  flows,
+  identifyAs,
+  sessionAs,
+  signUp,
+  claimWaitlisted: claim,
+} = createAccountFlows();
 const { requestLink, redeem, session, newClient } = flows;
 const { redisKeys } = flows.testApp;
 
@@ -27,12 +34,14 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     });
     const name = uniqueName();
     const claimed = await claim(cookie, { username: name.toUpperCase() });
+    const waitlisted = await identifyAs(cookie);
+    await approveByEmail(email);
     const member = await identifyAs(cookie);
     assert({
       given:
         'a new address that requests a link and redeems it at /auth/confirm',
       should:
-        'land on onboarding with a durable session, be provisional, claim a username, then be a member',
+        'land on onboarding with a durable session, be provisional, claim a username and wait on the beta list, then be a member once approved',
       actual: {
         redirect: [response.status, response.headers.get('location')],
         sessionRows,
@@ -43,6 +52,14 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
             : 'n/a',
         beforeAccess,
         claim: [claimed.status, await claimed.json()],
+        waitlisted: [
+          waitlisted.state,
+          decideAccess({
+            identity: waitlisted,
+            path: '/lobby',
+            requirement: 'participant',
+          }),
+        ],
         member: member.state === 'member' ? member.username : member.state,
         memberHasActor:
           member.principal.kind === 'user' && member.principal.actorId !== null,
@@ -63,6 +80,10 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
           to: '/onboarding/age?next=%2Flobby',
         },
         claim: [201, { username: name }],
+        waitlisted: [
+          'waitlisted',
+          { kind: 'redirect', to: '/beta?next=%2Flobby' },
+        ],
         member: name,
         memberHasActor: true,
         afterAccess: { kind: 'allow' },
@@ -115,6 +136,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   test('a revoked session is anonymous on the very next check', async () => {
     const { email, cookie } = await signUp();
     await claim(cookie, { username: uniqueName() });
+    await approveByEmail(email);
     const before = (await identifyAs(cookie)).state;
     await withSql(
       (sql) =>
@@ -172,8 +194,9 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   });
 
   test('server session reads spend no auth budget, even from one busy client', async () => {
-    const { cookie } = await signUp();
+    const { email, cookie } = await signUp();
     await claim(cookie, { username: uniqueName() });
+    await approveByEmail(email);
     const client = newClient();
     const before = (await redisKeys()).length;
     // 150 page renders from one address (a classroom behind one NAT): a

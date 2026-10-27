@@ -10,6 +10,9 @@ const row: AuthorizationAccountRow = {
   member: true,
   erased: false,
   revision: 1,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
 };
 describe('durable account authorization projection', () => {
   test('member projects validated minimal producer facts', () => {
@@ -21,6 +24,8 @@ describe('durable account authorization projection', () => {
         userId: row.userId,
         actorId: row.actorId,
         member: true,
+        beta: { state: 'approved' as const, revision: 1 },
+        ageBand: 'adult' as const,
         erased: false,
         revision: 1,
       },
@@ -41,6 +46,31 @@ describe('durable account authorization projection', () => {
         { ...row, revision: 0 },
       ].map((value) => authorizationAccountFact(value)?.member ?? false),
       expected: Array(7).fill(false),
+    });
+  });
+  test('beta access is validated, and absent beta access stays absent (ADR 0075)', () => {
+    assert({
+      given:
+        'a pending row, no beta row, an unknown state, a missing revision and a stray revision',
+      should: 'project the valid states and refuse the malformed ones',
+      actual: [
+        { ...row, betaState: 'pending' },
+        { ...row, betaState: null, betaRevision: null },
+        { ...row, betaState: 'invited' },
+        { ...row, betaRevision: null },
+        { ...row, betaState: null },
+      ].map((value) =>
+        authorizationAccountFact(value) === null
+          ? 'refused'
+          : authorizationAccountFact(value)!.beta,
+      ),
+      expected: [
+        { state: 'pending', revision: 1 },
+        null,
+        'refused',
+        'refused',
+        'refused',
+      ],
     });
   });
 });

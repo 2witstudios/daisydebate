@@ -122,6 +122,7 @@ export {
   betaAccessCommandResultSchema,
   betaAccessStates,
   operatorConsoleOrigin,
+  type BetaAccessState,
 } from './beta-access';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';

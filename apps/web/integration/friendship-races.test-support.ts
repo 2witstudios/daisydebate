@@ -1,4 +1,5 @@
 import type { SQL } from 'bun';
+import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { isAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
@@ -150,7 +151,7 @@ type Member = { readonly userId: string; readonly actorId: string };
 export async function seedMembers(
   client: SQL,
   count: number,
-  { adult = false, now }: { readonly adult?: boolean; readonly now: string },
+  { now }: { readonly now: string },
 ): Promise<Member[]> {
   const members = Array.from({ length: count }, () => ({
     userId: createId(),
@@ -165,11 +166,8 @@ export async function seedMembers(
     "insert into actors(id,kind,user_id) select a,'human',u from unnest($1::text[],$2::text[]) as t(a,u)",
     [textArray(members.map((member) => member.actorId)), textArray(userIds)],
   );
-  if (adult)
-    await client.unsafe(
-      "insert into account_age(user_id,birth_month,version,recorded_at) select id,'2000-01',1,$2::timestamptz from unnest($1::text[]) as id",
-      [textArray(userIds), now],
-    );
+  // Admitted participants (ADR 0075), their age recorded at the suite's clock.
+  await admitParticipants(client, userIds, now);
   return members;
 }
 

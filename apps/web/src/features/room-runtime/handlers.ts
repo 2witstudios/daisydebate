@@ -40,6 +40,12 @@ type Dependencies = {
   /** Named on room and round reads, where their doorbells ring. */
   readonly websocketEndpoint?: string | null;
 };
+const commandingIdentity = (
+  identity: Identity,
+  operation: 'create' | 'read' | 'command',
+): identity is Extract<Identity, { state: 'member' | 'waitlisted' }> =>
+  identity.state === 'member' ||
+  (identity.state === 'waitlisted' && operation === 'command');
 /** Canonical HTTP gates also execute for native form callers through inProcessFetch. */
 export function createRoomHandlers(dependencies: Dependencies) {
   const callerOf = async (
@@ -47,7 +53,10 @@ export function createRoomHandlers(dependencies: Dependencies) {
     operation: keyof Dependencies['limits'],
   ) => {
     const identity = requireSignedIn(await dependencies.identify(request));
-    if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
+    // A waitlisted account may command, where the evaluator keeps only its
+    // withdrawals (leaving, ADR 0075); reads and creation stay member-only.
+    if (!commandingIdentity(identity, operation))
+      throw createAppError('AUTHORIZATION');
     await consumeOrThrow(
       dependencies.limiter(),
       `room:${operation}:${identity.principal.userId}`,

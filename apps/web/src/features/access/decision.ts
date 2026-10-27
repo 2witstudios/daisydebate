@@ -2,8 +2,9 @@ import type { Identity } from '@daisy/auth';
 import { returnableDestination } from '../auth/redirect';
 
 /**
- * `participant`: an account with a public username. `account`: any verified
- * account, including one still choosing a username (security and recovery).
+ * `participant`: an approved account with a public username (ADR 0075).
+ * `account`: any verified account, including one still choosing a username
+ * or waiting for beta access (security, recovery and privacy rights).
  */
 export type Requirement = 'participant' | 'account';
 
@@ -91,6 +92,10 @@ export const onboardingHref = (destination: string): string =>
 export const usernameHref = (destination: string): string =>
   `/onboarding/username?next=${encodeURIComponent(destination)}`;
 
+/** The beta waiting page (ADR 0075), then the destination once approved. */
+export const betaHref = (destination: string): string =>
+  `/beta?next=${encodeURIComponent(destination)}`;
+
 /** The passkey offer after a claimed username, then the destination. */
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
@@ -138,7 +143,13 @@ export function decideAccess({
   if (identity.state === 'unavailable') return { kind: 'unavailable' };
   if (identity.state === 'anonymous')
     return redirectTo(signInHref(returnableDestination(path)));
-  if (identity.state === 'provisional' && requirement === 'participant')
-    return redirectTo(onboardingHref(returnableDestination(path)));
-  return { kind: 'allow' };
+  if (requirement === 'account') return { kind: 'allow' };
+  switch (identity.state) {
+    case 'provisional':
+      return redirectTo(onboardingHref(returnableDestination(path)));
+    case 'waitlisted':
+      return redirectTo(betaHref(returnableDestination(path)));
+    case 'member':
+      return { kind: 'allow' };
+  }
 }

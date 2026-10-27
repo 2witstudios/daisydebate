@@ -22,7 +22,10 @@ export async function readAuthEntry(
   };
 }
 
-type SignedIn = Extract<Identity, { state: 'provisional' | 'member' }>;
+type SignedIn = Extract<
+  Identity,
+  { state: 'provisional' | 'waitlisted' | 'member' }
+>;
 
 /**
  * An onboarding page's entry: the validated destination and a signed-in

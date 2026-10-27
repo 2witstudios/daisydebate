@@ -6,15 +6,20 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from './authorization';
+import { factOfRow } from './room-command-operations.test-support';
 setupRitewayBun();
 test('both account loaders use the canonical minimal function with distinct selector modes', async () => {
   const account = {
     userId: 'a'.repeat(24),
     actorId: 'b'.repeat(24),
     member: true,
+    betaState: 'approved',
+    betaRevision: 1,
+    ageBand: 'adult',
     erased: false,
     revision: 1,
   };
+  const fact = factOfRow(account);
   const queries: { sql: string; params: unknown[] }[] = [];
   const dialect = new PgDialect();
   const tx = {
@@ -47,7 +52,7 @@ test('both account loaders use the canonical minimal function with distinct sele
       fenced: true,
       read: true,
       params: [[account.actorId], [account.userId]],
-      facts: [account, account],
+      facts: [fact, fact],
     },
   });
 });

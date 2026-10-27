@@ -98,6 +98,7 @@ export const composeAuthServer = (
 ) =>
   createAuthServer({
     getActorByUserId: async () => null,
+    getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
     config: readAuthConfig(authTestEnv),
     database: memoryAdapter(tables),
     completeEmailChange: memoryEmailChange(tables),

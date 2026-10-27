@@ -32,7 +32,8 @@ export default async function OnboardingUsernamePage({
     searchParams,
     usernameHref,
   );
-  if (identity.state === 'member') redirect(destination);
+  if (identity.state === 'member' || identity.state === 'waitlisted')
+    redirect(destination);
   if (!(await requestHasRecordedAge())) redirect(onboardingHref(destination));
   return (
     <Onboarding

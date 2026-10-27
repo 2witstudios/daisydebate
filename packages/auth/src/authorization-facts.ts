@@ -2,6 +2,7 @@ import type {
   AuthorizationCapability,
   AuthorizationDenyReason,
 } from '@daisy/protocol/authorization';
+import type { BetaAccessState } from '@daisy/protocol';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -23,6 +24,20 @@ export type AccountAuthorizationFact = {
   readonly member: boolean;
   readonly erased: boolean;
   readonly revision: number;
+  /**
+   * The account's own beta access (ADR 0075), read under the same fence.
+   * Null when the account has no beta row: it never claimed a username, or
+   * it was erased. Only `approved` may use participant capabilities.
+   */
+  readonly beta: {
+    readonly state: BetaAccessState;
+    readonly revision: number;
+  } | null;
+  /**
+   * The account's age band now, from its durable age record (WAIT-4.6);
+   * null when it has none. Participant access needs a band at the floor.
+   */
+  readonly ageBand: import('./age-band').AgeBand | null;
 };
 export type RoomAuthorizationFact = {
   readonly kind: 'room';

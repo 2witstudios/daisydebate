@@ -9,7 +9,15 @@ import type { PrivacyExport } from './contracts';
 
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
-const account = { ...subject, member: true, erased: false, revision: 1 };
+const account = {
+  ...subject,
+  member: true,
+  erased: false,
+  revision: 1,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
+};
 const input = {
   jobId: 'j'.repeat(24),
   vendor: 'posthog' as const,

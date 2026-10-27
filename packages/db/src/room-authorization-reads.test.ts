@@ -3,6 +3,7 @@ import { foundationDefinition } from './reference-formats';
 import {
   caller,
   accountFact,
+  accountRow,
   room,
 } from './room-command-operations.test-support';
 import {
@@ -15,7 +16,7 @@ import {
 setupRitewayBun();
 
 test('Room assembly read hydrates its pinned definition and current host label', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database } = createTestDatabase([
     [account],
     [
@@ -53,7 +54,7 @@ test('Room assembly read hydrates its pinned definition and current host label',
 });
 test('Room authority projection keeps collection fields minimal and omits an empty join', async () => {
   const { database } = createTestDatabase([
-    [accountFact()],
+    [accountRow()],
     [
       [
         room.id,
@@ -94,7 +95,7 @@ test('Room authority projection keeps collection fields minimal and omits an emp
 test('Round authority projection returns only frozen audience and seat facts', async () => {
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const { database, queries } = createTestDatabase([
-    [accountFact()],
+    [accountRow()],
     [
       [
         roundId,
@@ -147,7 +148,7 @@ test('Round authority projection returns only frozen audience and seat facts', a
 test('Round authority projection fails closed when persisted visibility is absent', async () => {
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const { database } = createTestDatabase([
-    [accountFact()],
+    [accountRow()],
     [[roundId, caller.actorId, null, 'scheduled', 1, null, null, null]],
   ]);
 
@@ -161,7 +162,7 @@ test('Round authority projection fails closed when persisted visibility is absen
   });
 });
 test('Round read returns only the stored receipt and current participant identity', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database } = createTestDatabase([
     [account],
     [

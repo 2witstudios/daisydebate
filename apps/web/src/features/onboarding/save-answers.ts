@@ -36,13 +36,17 @@ type OnboardingDependencies = {
   readonly complete: (userId: string, at: Date) => Promise<void>;
 };
 
-/** The session's member ids, refusing anyone without a username. */
+/**
+ * The session's ids, refusing anyone without a username. A waitlisted
+ * account finishes onboarding before it is approved (ADR 0075).
+ */
 async function memberIds(
   identify: (request: Request) => Promise<Identity>,
   request: Request,
 ): Promise<{ readonly userId: string; readonly actorId: string | null }> {
   const identity = requireSignedIn(await identify(request));
-  if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
+  if (identity.state !== 'member' && identity.state !== 'waitlisted')
+    throw createAppError('AUTHORIZATION');
   return identity.principal;
 }
 

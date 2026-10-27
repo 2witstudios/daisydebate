@@ -17,7 +17,18 @@ test('inbox collection refusal prevents candidate discovery and successful disco
       const statement = new PgDialect().sqlToQuery(query).sql;
       if (statement.includes('daisy_authorization_accounts')) {
         phases.push('account');
-        return [{ actorId, userId, revision: 1, member: true, erased: false }];
+        return [
+          {
+            actorId,
+            userId,
+            revision: 1,
+            member: true,
+            erased: false,
+            betaState: 'approved',
+            betaRevision: 1,
+            ageBand: 'adult',
+          },
+        ];
       }
       phases.push('candidates');
       candidateSql = statement;
