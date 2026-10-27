@@ -18,8 +18,9 @@ const isOpen = (store: ConnectionStore) => {
  * out to many listeners. A holder that joins an open socket behaves as on a
  * fresh one: it is told the socket is open, and a topic another holder
  * already subscribed is subscribed again so this holder gets its own
- * `subscribed` acknowledgment and catch-up. Each holder's close releases its
- * share; the socket closes when the last holder does.
+ * `subscribed` acknowledgment and catch-up. Each holder's close or dispose
+ * releases only its share, never another holder's socket; the last holder's
+ * close closes it, and its dispose disposes it (the entry is never reused).
  */
 export function sharedConnections(create: (url: string) => ConnectionStore) {
   const open = new Map<string, Shared>();
@@ -55,14 +56,17 @@ export function sharedConnections(create: (url: string) => ConnectionStore) {
           stop();
         };
       },
-      close: () => {
-        if (released) return;
-        released = true;
-        held.holders -= 1;
-        if (held.holders > 0) return;
-        open.delete(url);
-        held.store.close();
-      },
+      close: () => release('close'),
+      dispose: () => release('dispose'),
     };
+    /** Releases this holder's share only; the last holder ends the socket. */
+    function release(end: 'close' | 'dispose') {
+      if (released) return;
+      released = true;
+      held.holders -= 1;
+      if (held.holders > 0) return;
+      open.delete(url);
+      held.store[end]();
+    }
   };
 }

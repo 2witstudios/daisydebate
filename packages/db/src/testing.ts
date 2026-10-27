@@ -122,3 +122,6 @@ export {
 } from './beta-access-testing';
 export { refuseCapacity } from './transaction-admission';
 export { refuseFinalSpeech } from './bot-generation-rules';
+
+/** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
+export { instrumented } from './instrumented';

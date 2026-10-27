@@ -125,6 +125,10 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       batches: 3,
       closeCode: 4001,
       deliverySeqLagEstimate: 42,
+      retained: 5,
+      running: 2,
+      topics: 3,
+      oldestAgeMs: 1500,
       pending: 68,
       scope: 'ipv6_48',
     };

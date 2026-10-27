@@ -128,7 +128,7 @@ export function createSubscriptionReceiver({
     if (!sub.lease.accept(attempt, decision.validUntil)) {
       if (fenced + 1 < FENCED_READS)
         return initialAuthority(connection, request, sub, fenced + 1);
-      transport.resync(connection, request, sub);
+      transport.resync(connection, request.topic, sub);
       return false;
     }
     sub.revision = decision.revision;
@@ -152,7 +152,7 @@ export function createSubscriptionReceiver({
     sub: Subscription,
     refused: boolean,
   ) {
-    if (refused) transport.resync(connection, request, sub);
+    if (refused) transport.resync(connection, request.topic, sub);
     return refused;
   }
   async function finalBoundary(since: string, through: OutboxPosition) {
@@ -271,7 +271,7 @@ export function createSubscriptionReceiver({
   ) {
     if (!transport.current(connection, request.topic, sub)) {
       if (ownsSubscription(connection, request.topic, sub))
-        transport.resync(connection, request, sub);
+        transport.resync(connection, request.topic, sub);
       return;
     }
     connection.socket.subscribe(

@@ -7,12 +7,12 @@ import type { DatabaseEventSink } from './instrumented';
 type Tx = Pick<BunSQLDatabase, 'select' | 'execute' | 'insert'>;
 
 /**
- * The one `session.revoked` outbox append (ISSUE-8 AC2), run inside the
- * caller's transaction. Plan revision 4.10: resolves the actor through
- * `actors.user_id`, never `userId` directly; a user with no actor row (never
- * claimed a username) appends nothing and reports
- * `realtime.outbox.actor_missing` instead of throwing. Was copied twice
- * (`appendSessionRevoked` and `revokeOtherSessions`); both now call this.
+ * The actor-wide `session.revoked` append for revocations that end access
+ * without deleting a session (beta access), run inside the caller's
+ * transaction. A deleted session is announced by the database's own delete
+ * trigger instead (ADR 0032 §5). Plan revision 4.10: resolves the actor
+ * through `actors.user_id`; a user with no actor row (never claimed a
+ * username) appends nothing and reports `realtime.outbox.actor_missing`.
  */
 export async function appendSessionRevokedFor(
   tx: Tx,

@@ -59,13 +59,20 @@ test('fresh typing denial detaches and retires the same subscription', async () 
   await f.registry.hint(hint);
   assert({
     given: 'revoked current channel authority after a successful subscribe',
-    should: 'send no transient frame and remove native membership',
+    should:
+      'send no transient frame, end the subscription on its request id and remove native membership',
     actual: {
-      frames: f.sent,
+      frames: f.sent.map((frame) =>
+        frame.type === 'error' ? `${frame.id}:${frame.code}` : frame.type,
+      ),
       attached: f.attached.size,
       retained: f.connection.topics.has(topic),
     },
-    expected: { frames: [], attached: 0, retained: false },
+    expected: {
+      frames: ['typing-reader:AUTHORIZATION'],
+      attached: 0,
+      retained: false,
+    },
   });
 });
 

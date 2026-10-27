@@ -1,5 +1,6 @@
 import type { OutboxPosition } from '@daisy/db/outbox';
 import { withTimeout } from '@daisy/observability';
+import type { DeliveryBacklog } from './delivery-scheduler';
 
 export type ReadinessResources = {
   readonly isDraining: () => boolean;
@@ -19,6 +20,8 @@ export type ReadinessResources = {
   readonly outbox?: {
     readonly cursor: () => OutboxPosition;
     readonly highWaterMark: () => Promise<OutboxPosition>;
+    /** Retained delivery work and its oldest publication age (RT-2.3c-arch1). */
+    readonly backlog?: () => DeliveryBacklog;
   };
 };
 export type ReadinessReport = {
@@ -38,6 +41,12 @@ export type ReadinessReport = {
    * wired.
    */
   readonly deliverySeqLagEstimate?: number;
+  /**
+   * Work the instance has ingested but not yet delivered. Its age, unlike
+   * the cursor lag above, keeps rising while delivery is stuck even though
+   * the drain cursor has already advanced past the rows.
+   */
+  readonly deliveryBacklog?: DeliveryBacklog;
 };
 const settledOk = (result: PromiseSettledResult<boolean>): boolean =>
   result.status === 'fulfilled' && result.value === true;
@@ -82,5 +91,8 @@ export async function checkReadiness(
     ready: !resources.isDraining() && Object.values(checks).every(Boolean),
     checks,
     ...(lag === undefined ? {} : { deliverySeqLagEstimate: lag }),
+    ...(resources.outbox?.backlog
+      ? { deliveryBacklog: resources.outbox.backlog() }
+      : {}),
   };
 }

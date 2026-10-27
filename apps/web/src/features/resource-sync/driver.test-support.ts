@@ -51,7 +51,7 @@ export function driverEdges<A>() {
       return () => {};
     },
     connect: () => log.push('connect'),
-    close: () => log.push('close'),
+    dispose: () => log.push('dispose'),
   };
   return {
     scheduler,

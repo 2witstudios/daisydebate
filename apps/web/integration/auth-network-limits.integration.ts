@@ -92,34 +92,58 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
         if (index % SINGLE_48_RATE === Math.floor(SINGLE_48_RATE / 2))
           signIns.push(magicLink(existing[signIns.length] as string));
       }
-      return Promise.all([...flood, ...signIns]);
+      await Promise.all([...flood, ...signIns]);
+      await settled();
     });
     const achievedRate = total / ((performance.now() - started) / 1000);
     sampling = false;
     await settled();
     mailbox.setLatency(0);
-    const mailed = mailbox.mails
-      .slice(before)
-      .filter(({ to }) => existing.includes(to)).length;
+    const mails = mailbox.mails.slice(before);
+    const mailCounts = existing.map(
+      (email) => mails.filter(({ to }) => to === email).length,
+    );
     const floodStatuses = statuses(await Promise.all(flood));
 
     assert({
       given: `${total} magic-link requests from every /64 of one /48 at ${SINGLE_48_RATE}/s (achieved ${achievedRate.toFixed(0)}/s), a ${PROVIDER_ROUND_TRIP_MS} ms provider, and 10 real sign-ins from outside it`,
       should: `admit at most ${MAGIC_LINK_NETWORK_RULES.ipv6_48.max} of the flood in its minute and refuse the rest at the gate, shed nothing, and mail all 10 sign-ins`,
       actual: {
+        floodResponseCount: Object.values(floodStatuses).reduce(
+          (sum, count) => sum + count,
+          0,
+        ),
+        unexpectedStatuses: Object.keys(floodStatuses).filter(
+          (status) => !['200', '429'].includes(status),
+        ),
+        signInStatuses: statuses(await Promise.all(signIns)),
+        unexpectedErrors: events.filter((event) =>
+          [
+            'request.unhandled',
+            'db.query.failed',
+            'db.capacity.refused',
+            'auth.mail.failed',
+            'auth.mail.receipt_failed',
+            'auth.rate_limit.unavailable',
+          ].includes(event),
+        ),
         floodAdmittedWithinLimit:
           (floodStatuses[200] ?? 0) <= MAGIC_LINK_NETWORK_RULES.ipv6_48.max,
         floodRefused: (floodStatuses[429] ?? 0) > 0,
         shed: events.filter((event) => event === 'auth.mail.shed').length,
         poolNeverNearFull: peak < 64,
-        signInsMailed: mailed,
+        mailCounts,
       },
       expected: {
+        floodResponseCount: total,
+        unexpectedStatuses: [],
+        signInStatuses: { 200: 10 },
+        unexpectedErrors: [],
         floodAdmittedWithinLimit: true,
         floodRefused: true,
         shed: 0,
         poolNeverNearFull: true,
-        signInsMailed: 10,
+        mailCounts: Array.from({ length: 10 }, () => 1),
       },
     });
   }, 600_000);
@@ -135,9 +159,11 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
     assert({
       given: 'all 256 /64s of one /56, 3 requests each, within a minute',
       should: `admit at most ${MAGIC_LINK_NETWORK_RULES.ipv6_56.max} and refuse the rest`,
-      actual:
-        (statuses(responses)[200] ?? 0) <= MAGIC_LINK_NETWORK_RULES.ipv6_56.max,
-      expected: true,
+      actual: statuses(responses),
+      expected: {
+        200: MAGIC_LINK_NETWORK_RULES.ipv6_56.max,
+        429: 256 * 3 - MAGIC_LINK_NETWORK_RULES.ipv6_56.max,
+      },
     });
   }, 300_000);
 
@@ -152,9 +178,11 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
     assert({
       given: 'all 254 hosts of one IPv4 /24, 3 requests each, within a minute',
       should: `admit at most ${MAGIC_LINK_NETWORK_RULES.ipv4_24.max} and refuse the rest`,
-      actual:
-        (statuses(responses)[200] ?? 0) <= MAGIC_LINK_NETWORK_RULES.ipv4_24.max,
-      expected: true,
+      actual: statuses(responses),
+      expected: {
+        200: MAGIC_LINK_NETWORK_RULES.ipv4_24.max,
+        429: 254 * 3 - MAGIC_LINK_NETWORK_RULES.ipv4_24.max,
+      },
     });
   }, 300_000);
 });

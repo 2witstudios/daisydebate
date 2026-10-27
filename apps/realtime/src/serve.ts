@@ -141,6 +141,8 @@ export async function serveRealtime({
       outbox: {
         cursor: drain.cursor,
         highWaterMark: resources.database.readOutboxHighWaterMark,
+        backlog: () =>
+          delivery.registry.backlog(Date.parse(resources.clock.now())),
       },
     },
     allowedOrigins: resources.transport?.allowedOrigins ?? [],
