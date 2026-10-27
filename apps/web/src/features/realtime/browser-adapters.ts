@@ -96,5 +96,9 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       detach();
       store.close();
     },
+    dispose: () => {
+      detach();
+      store.dispose();
+    },
   };
 }

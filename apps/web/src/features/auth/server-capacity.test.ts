@@ -68,7 +68,7 @@ for (const refused of [true, false]) {
         safe: !JSON.stringify(body).includes('driver wrapper'),
         failedStatus: recorded
           .filter(({ event }) => event === 'http.request.failed')
-          .map(({ fields }) => fields.status),
+          .map(({ fields }) => (fields as Record<string, unknown>).status),
         crashReported: recorded.some(
           ({ event }) => event === 'request.unhandled',
         ),

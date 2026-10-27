@@ -75,7 +75,8 @@ export function createConnectionStore(
     },
   });
 
-  deps.onVisibilityChange((visible) => {
+  let disposed = false;
+  const stopVisibility = deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
   });
 
@@ -270,7 +271,7 @@ export function createConnectionStore(
   }
 
   function connect() {
-    if (status === 'connecting' || status === 'open') return;
+    if (disposed || status === 'connecting' || status === 'open') return;
     generation += 1;
     const myGeneration = generation;
     status = 'connecting';
@@ -343,6 +344,23 @@ export function createConnectionStore(
     }
   }
 
+  /**
+   * Final and idempotent (RT-2.6a-arch1): closes like `close`, then releases
+   * everything the store registered outside itself, so a page that builds a
+   * store per mount returns the document to its baseline on unmount. Late
+   * ticket answers and old socket callbacks are fenced by the generation
+   * `close` advanced, and `connect` stays inert afterwards.
+   */
+  function dispose() {
+    if (disposed) return;
+    close();
+    disposed = true;
+    stopVisibility();
+    listeners.clear();
+    topics.release();
+    diagnostics.release();
+  }
+
   return {
     onDiagnostic: diagnostics.subscribe,
     subscribeTopic: topics.subscribe,
@@ -350,6 +368,7 @@ export function createConnectionStore(
     resubscribeTopic: topics.resubscribe,
     connect,
     close,
+    dispose,
     reportActivity: (next) => activity.report(next, status === 'open'),
     notifyTokenRefreshed: () => {
       // Intentionally a no-op: a token refresh never reconnects a healthy

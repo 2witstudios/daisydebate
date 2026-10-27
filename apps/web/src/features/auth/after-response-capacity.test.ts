@@ -36,7 +36,7 @@ for (const refused of [true, false]) {
         status: response.status,
         completed: recorded
           .filter(({ event }) => event === 'http.request.completed')
-          .map(({ fields }) => fields.status),
+          .map(({ fields }) => (fields as Record<string, unknown>).status),
         failures: recorded.filter(
           ({ event }) => event === 'http.request.failed',
         ).length,

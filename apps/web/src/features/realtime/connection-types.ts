@@ -72,6 +72,11 @@ export type ConnectionStore = {
   /** User-initiated close (logout): closes the socket, never reconnects. */
   readonly close: () => void;
   /**
+   * Final disposal: closes, then releases the document listeners and every
+   * state listener. Idempotent; the store cannot connect again.
+   */
+  readonly dispose: () => void;
+  /**
    * A token refresh never reconnects a healthy socket: this is a documented
    * no-op seam, kept so callers have somewhere to report the refresh without
    * reaching into the store's internals.

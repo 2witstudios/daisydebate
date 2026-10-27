@@ -33,7 +33,7 @@ export type SyncConnection = Pick<
   | 'resubscribeTopic'
   | 'subscribe'
   | 'connect'
-  | 'close'
+  | 'dispose'
 >;
 
 export type SyncVisibility = {
@@ -181,7 +181,7 @@ export function createResourceSyncDriver<T>({
       listeners.clear();
       bell?.close();
       stopConnection?.();
-      connection?.close();
+      connection?.dispose();
       stopVisibility();
       if (poll !== null) scheduler.clearTimeout(poll);
       if (timedOut) scheduler.clearTimeout(timedOut.timer);

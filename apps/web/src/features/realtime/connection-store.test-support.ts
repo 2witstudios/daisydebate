@@ -19,7 +19,7 @@ export const validTicket = 'a'.repeat(43);
  */
 export function createTimerQueue(
   computeAt: (clock: number, ms: number) => number,
-): Scheduler & { advance(ms: number): void } {
+): Scheduler & { advance(ms: number): void; pending(): number } {
   let clock = 0;
   let nextId = 1;
   const timers = new Map<number, { at: number; cb: () => void }>();
@@ -33,6 +33,7 @@ export function createTimerQueue(
     clearTimeout(id) {
       timers.delete(id as number);
     },
+    pending: () => timers.size,
     advance(ms: number) {
       const target = clock + ms;
       while (true) {
