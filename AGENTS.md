@@ -50,9 +50,10 @@ approval. A planning-only request stays planning-only. The full process is
 4. **One PR.** The builder builds the whole slice on one branch, as one PR
    naming every task code. It splits off an earlier PR only when a piece
    must ship first.
-5. **Ralph loop.** The builder converges the PR with the owner's Ralph loop
-   (PageSpace `p4xbp1iwavowuruqpi5fguf7`, run verbatim) until it emits
-   `PR_READY`.
+5. **PR loop.** The builder converges the PR with its harness's PR loop, run
+   verbatim until it emits `PR_READY`. Claude Code builders run PR Loop (Ralph Loop), PageSpace
+   `cvslieavdwwkbz8l551hhhsz`; Codex and opencode builders run PR Loop (Goal),
+   `asdc6hmpbeyu9ujlqrnes1oc`. Both live in Resources › Universal prompts.
 6. **Async reviews.** `/review`, `/code-review` and the architecture
    reviewer post PR comments that the loop consumes.
 
@@ -297,39 +298,55 @@ before diagnosing missing credentials or asking the owner to log in. Never
 print credentials or copy them into the worktree to bypass the sandbox.
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
-(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI). Open its `Start here`
-page, then the living integration order for current work and `Roadmap` for
-execution. Before planning or building, read `Product intent/Product map`, the
-applicable capability intents and their "Constraints other features must respect
-now" sections, following affected-capability cross-links. Include these source
-links in the slice plan. Design work extends the existing shipped UI and
-canvases in `Designs`. Record and claim work within the owner-authorized
-outcome; board administration never reauthorizes the same outcome. Advance
-In Progress to In Review when the slice PR opens. A merge moves the PR's tasks
-to Done when its latest review verdict approves, otherwise to Merged
-([reviews](docs/development/reviews.md)). Status belongs in the status field;
-task bodies are acceptance criteria (`Given X, should Y`).
+(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI). Its root is Table of
+Contents, General Discussion (the human channel), Product, Resources, Agents
+and Business:
 
-Codex must run the `pagespace` CLI outside its sandbox, requesting command
-escalation when required. The sandbox can block network access.
+- `Product` holds everything about building Daisy: Vision; Project Status
+  (`qndsohpp7nihje7a2dw3a2kl`, every area scored on Features, Stable,
+  Hardened, Scale and Spec, plus what is in flight now); `Product intent`, one
+  page per area with its purpose, Score block, "What 100% means", constraints,
+  tensions and future intent; `Roadmap` (epics, phases and leaves); `Issues`;
+  `Plans`, `Prompts` and `Reviews`; and `Documentation`.
+- `Resources` holds reusable material: `Designs` and `Universal prompts` (the
+  PR loops).
+- `Agents` holds the agent channels (Delivery, Standup, Epic Updates,
+  Incidents) and the Documentation Agent.
+- `Business` holds founder material.
 
-PageSpace is the workspace, not only the board. Plans, prompts and handoffs
-are task artifacts: they live in the drive's `Plans` and `Prompts` folders
-(one subfolder per slice or epic), reusable prompts and skills live in
-`Library`, and tasks link them with page mentions. Reviews live on the PR.
-`Library/Agents` holds the existing
-agent pages; `Library/Engineering Standards` holds the published conventions.
-`Archive/Work history` remains a TASK_LIST: moves preserve task/page identity,
-criteria and move-time status, and stale-status reconciliation still applies
-there. The rules are the drive's "Task artifacts and linking" page
-(`szsrb6lui57zjemvl25ywfox`); read it before producing any of these. Board
-and scratch-versus-durable-artifact rules are in [parallel
+Start at Product → Project Status, then the area's Product intent page.
+Before planning or building, read the applicable area pages and their
+"Constraints other features must respect now" sections, following
+affected-capability cross-links, and link them from the slice plan. Project
+Status is generated from the area pages' Score blocks by `bun progress:sync`;
+change a score on its area page, never on the canvas. Design work extends the
+existing shipped UI and canvases in `Resources/Designs`. Record and claim work
+within the owner-authorized outcome; board administration never reauthorizes
+the same outcome. Advance In Progress to In Review when the slice PR opens. A
+merge moves the PR's tasks to Done when its latest review verdict approves,
+otherwise to Merged ([reviews](docs/development/reviews.md)). Status belongs
+in the status field; task bodies are acceptance criteria (`Given X, should
+Y`).
+
+PageSpace is the workspace, not only the board. The slice plan and its task
+list live in `Plans/<slice>`, mission briefs and shared rules in `Prompts`,
+and reusable prompts in `Resources/Universal prompts`. Reviews live on the
+PR. Tasks mention the plan and the PR in their Related pages; documents use
+page mentions, and GitHub descriptions and comments use verified PageSpace
+URLs. Never upload credentials or environment secrets to PageSpace. Obsolete
+pages go to the PageSpace trash, which is restorable: there is no Archive
+folder and no pointer or index page that only repeats another page. Moves keep
+page ids, direct task-list membership, criteria and status. Board and
+scratch-versus-durable-artifact rules are in [parallel
 work](docs/development/parallel-work.md#branch-and-worktree-hygiene); they
 apply to every agent, worktree or not.
 
-Work that is not an epic leaf goes in the drive-root `Issues` task list,
-filed into one of its buckets (Bugs, Test coverage, Agent tooling, Doc and
-spec drift, User feedback), never in GitHub Issues: defects found after the owning leaf is Done, review
+Work that is not an epic leaf goes in the `Product/Issues` task list, always
+inside one of its buckets (Bugs, Test coverage, Agent tooling, Doc and spec
+drift, User feedback, Backlog, Pending decisions), never directly under
+Issues and never in GitHub Issues. `bun board:create --issue --bucket <name>`
+files it, and `bun board:stale` fails on an issue left directly under
+Issues. It holds defects found after the owning leaf is Done, review
 findings and minors with no open leaf to carry them, and small non-epic
 improvements. The test is whether an open leaf owns it: if one does, the
 finding is a follow-up leaf under that phase regardless of merge state. Title `ISSUE-n — Given X, should
@@ -353,7 +370,7 @@ pipeline classifies a merge from that prefix (`!` marks a breaking change)
 and reads task codes from the title, branch and body, so name every task
 code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`). Reviews are PR
 comments in the [reviews](docs/development/reviews.md) format, and the
-builder's Ralph loop consumes them.
+builder's PR loop consumes them.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
 one branch and one PR per slice, and execution changes update the plan

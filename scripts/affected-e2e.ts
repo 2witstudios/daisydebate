@@ -90,7 +90,6 @@ const nonNative = [
   'docs/',
   '.claude/',
   '.opencode/',
-  'policy/agent-pipeline/',
   'apps/admin/',
   ...theme,
   'apps/web/src/ui/dashboard/',

@@ -2,7 +2,8 @@
 /**
  * `bun board:stale [--apply]`: lists tasks whose status disagrees with
  * git — merged but not yet In Review — and with --apply moves each to
- * Merged. It never marks anything Done.
+ * Merged. It never marks anything Done. An ISSUE-n filed directly under
+ * Issues instead of in a bucket is an error.
  */
 import {
   deliveredCodes,
@@ -11,6 +12,7 @@ import {
   taskCode,
   type BoardTask,
 } from './board-state';
+import { ISSUES_LIST_ID, strayIssues } from './board-model';
 import { DAISY_DEBATE_DRIVE_ID } from './pagespace-docs';
 
 type Result = { readonly code: number; readonly stdout: string };
@@ -82,6 +84,19 @@ function readBoard(deps: StaleDeps) {
   return { lists, tasks };
 }
 
+/**
+ * Issue numbering and the board walk read one bucket level, so an issue
+ * filed directly under Issues is an error. Returns the exit code it implies.
+ */
+function reportStrays(deps: StaleDeps, lists: ReadonlyMap<string, TaskList>) {
+  const strays = strayIssues(lists.get(ISSUES_LIST_ID)?.tasks ?? []);
+  for (const issue of strays)
+    deps.out(
+      `ERROR ${issue.code} sits directly under Issues; file it into a bucket  (${issue.pageId})\n`,
+    );
+  return strays.length > 0 ? 1 : 0;
+}
+
 const MERGED_PRS = [
   'pr',
   'list',
@@ -109,7 +124,8 @@ export function runStaleCheck(deps: StaleDeps, apply: boolean): number {
   for (const { task, reason, to } of stale)
     deps.out(`${task.code} ${reason} → ${to}  (${task.pageId})\n`);
   deps.out(`${stale.length} stale of ${tasks.length} tasks\n`);
-  if (!apply) return 0;
+  const strays = reportStrays(deps, lists);
+  if (!apply) return strays;
   const withMerged = new Set(
     [...lists]
       .filter(([, list]) =>
@@ -135,7 +151,7 @@ export function runStaleCheck(deps: StaleDeps, apply: boolean): number {
     json(deps, ['tasks', 'update', task.listId, task.taskId, '--status', to]);
   }
   deps.out(`applied ${stale.length} status changes; nothing marked Done\n`);
-  return 0;
+  return strays;
 }
 
 if (import.meta.main) {

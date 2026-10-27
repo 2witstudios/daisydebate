@@ -33,7 +33,7 @@ Never put secrets, tokens or .env material in a page or message.
 discover() {
 
 1. Read AGENTS.md, the docs and ADRs your slice touches, and the code itself.
-2. Read the drive: `Start here`, `Product intent/Product map`, the capability intents for your slice and their "Constraints other features must respect now" sections, the affected-capability links, and every `Issues` bucket for items touching your slice.
+2. Read the drive: Product → `Project Status`, then the `Product intent` area pages for your slice (Score, What 100% means) and their "Constraints other features must respect now" sections, the affected-capability links, and every `Issues` bucket for items touching your slice.
 3. Read every PR and branch you inherit: what each one carries, its head SHA, its open review threads, and whether its CI is green.
 4. Resume rather than duplicate: search the drive for an existing plan or epic for this slice (`pagespace search text "<slice>" --drive <id>`).
    }
@@ -50,7 +50,8 @@ plan() {
    - Task list: one line per task, `<CODE> — Given X, should Y`. Reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix. Human-only tasks are marked `(human, <who>)`.
    - Verification: local targeted checks, what CI proves, and any staging proof.
    - Decisions and open questions.
-2. Board: one leaf per task code under the slice's epic (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code.
+2. Board: one leaf per task code under the slice's epic in Roadmap (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code. A finding outside the slice is an issue, always in a bucket: `bun board:create --issue --bucket <name>`.
+   - Name the areas the slice advances in the plan, and update their Score blocks on the area pages when the slice merges.
 3. Post one channel message: `pu channel send "<branch> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
 4. Start building at once on anything the open questions do not touch. The confirmation arrives on the channel; apply any redirect to the plan and keep going.
    }
@@ -61,7 +62,7 @@ deliver() {
 
 1. Build the whole slice on one branch; commit and push often. Carry inherited commits into your branch (merge or cherry-pick), and close each inherited PR in favour of yours once your branch carries its content.
 2. Open the one PR with `/pr` and hand it to review with `/handoff`.
-3. Run the owner's Ralph loop on the PR, verbatim from the page the repository names (Daisy: PageSpace `p4xbp1iwavowuruqpi5fguf7`), until it emits PR_READY.
+3. Run your harness's PR loop on the PR, verbatim from the page the repository names, until it emits PR_READY (Daisy, in Resources › Universal prompts: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude Code; PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode).
 4. Keep the plan current as the durable delivery record: remaining work, decisions, and anything a successor needs after a context handoff.
    }
 

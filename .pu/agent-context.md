@@ -27,7 +27,7 @@ Check `pu status --json` to see where you fit in the current workspace.
 Agents started by `pu` run autonomously (`DAISY_AUTONOMOUS=1`) under the
 agent machine identity, never the owner's GitHub token or SSH key. Builders
 own one semantic slice each and deliver it as one PR, converged with the
-owner's Ralph loop until it emits `PR_READY`. Builders never merge: only
+PR loop for their harness (Resources › Universal prompts) until it emits `PR_READY`. Builders never merge: only
 main receives merged PRs, and the point guard's flow sweep merges once
 `PR_READY` is out and the required checks are green at the exact head.
 Never mutate another agent's or the parent checkout, lose dirty work,
