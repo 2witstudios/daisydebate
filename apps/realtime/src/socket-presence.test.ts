@@ -15,7 +15,13 @@ const hello = JSON.stringify({
   ticket: 'a'.repeat(43),
 });
 
-const connect = async () => {
+const connect = async ({
+  valid = async () => true,
+  registry,
+}: {
+  readonly valid?: () => Promise<boolean>;
+  readonly registry?: Parameters<typeof createWebSocketHandlers>[0]['registry'];
+} = {}) => {
   const events: unknown[][] = [];
   const presence: PresenceTracker = {
     start: (actor, activity) => {
@@ -42,6 +48,8 @@ const connect = async () => {
       sessionId: 'c'.repeat(24),
     }),
     presence,
+    validatePrincipal: valid,
+    ...(registry ? { registry } : {}),
   });
   handlers.open(ws);
   await handlers.message(ws, hello);
@@ -80,5 +88,50 @@ test('a rejected socket stops its presence session', async () => {
     should: 'stop presence as it closes',
     actual: events,
     expected: [['start', actorId, 'idle'], ['stop']],
+  });
+});
+
+test('a socket revoked on revalidation stops its presence session', async () => {
+  let valid = true;
+  const { ws, handlers, events } = await connect({
+    valid: async () => valid,
+  });
+  await handlers.message(ws, activity('active'));
+  valid = false;
+  await handlers.message(ws, activity('idle'));
+  assert({
+    given: 'a reporting socket whose session is revoked before its next frame',
+    should: 'stop presence as it closes, and never apply the late frame',
+    actual: events,
+    expected: [['start', actorId, 'active'], ['stop']],
+  });
+});
+
+test('a socket the registry closes stops its presence session once', async () => {
+  let closeFromRegistry: (() => void) | null = null;
+  const registry = {
+    add: (socket: { close: (code: number, reason: string) => void }) => {
+      closeFromRegistry = () => socket.close(4005, 'revoked');
+      return {} as never;
+    },
+    remove: () => {},
+    subscribe: async () => {},
+    unsubscribe: () => {},
+  } as never;
+  const { ws, handlers, events } = await connect({ registry });
+  const closes: number[] = [];
+  // As Bun does, closing the socket delivers its close event to the handler.
+  ws.close = (code?: number) => {
+    closes.push(code ?? 0);
+    handlers.close(ws);
+  };
+  await handlers.message(ws, activity('active'));
+  closeFromRegistry!();
+  handlers.close(ws);
+  assert({
+    given: 'the registry closing a reporting socket, then a second close event',
+    should: 'close the socket and stop presence exactly once',
+    actual: [closes, events],
+    expected: [[4005], [['start', actorId, 'active'], ['stop']]],
   });
 });
