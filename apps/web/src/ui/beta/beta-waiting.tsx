@@ -10,17 +10,35 @@ export type BetaWaitingProps = {
   readonly reason: 'pending' | 'revoked' | 'age-required';
   /** The age step, which returns here once answered. */
   readonly ageHref: string;
+  /** Signs out with a plain form post, so it works without JavaScript. */
+  readonly signOutAction: () => Promise<void>;
 };
 
 const link =
   'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';
+
+/** A native form post: sign-out needs no JavaScript (ISSUE-691). */
+function SignOut({ action }: { readonly action: () => Promise<void> }) {
+  return (
+    <form action={action}>
+      <button type="submit" className={link}>
+        Sign out
+      </button>
+    </form>
+  );
+}
 
 /**
  * The beta waiting page (ADR 0075): an account that finished sign-up and
  * waits for an operator. Plain markup, so it works without JavaScript; the
  * account's own settings (sign-out, export, deletion) stay one link away.
  */
-export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
+export function BetaWaiting({
+  username,
+  reason,
+  ageHref,
+  signOutAction,
+}: BetaWaitingProps) {
   const paused = reason === 'revoked';
   if (reason === 'age-required')
     return (
@@ -44,6 +62,7 @@ export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
           <Link className={link} href="/settings">
             Account settings
           </Link>
+          <SignOut action={signOutAction} />
         </div>
       </OnboardingFrame>
     );
@@ -71,6 +90,7 @@ export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
         <Link className={link} href="/settings">
           Account settings
         </Link>
+        <SignOut action={signOutAction} />
       </div>
     </OnboardingFrame>
   );
