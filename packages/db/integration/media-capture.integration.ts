@@ -87,7 +87,7 @@ test('capture gaps and mismatching committed chunk counts cannot produce complet
         };
         await store.observeCapturedStream(observation);
         const duplicate = await store.observeCapturedStream(observation);
-        const signals =
+        const signals: readonly { readonly payload: unknown }[] =
           await fixture.sql`select payload from outbox where topic=${`debate:${roundId}`} and kind='debate.transcript-changed'`;
         assert({
           given:
