@@ -1,4 +1,4 @@
-import type { RoundCoachingFacts } from '@daisy/db';
+import type { RoundCoachingFacts } from '@daisy/db/rounds';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimDecision,

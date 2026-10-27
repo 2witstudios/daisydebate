@@ -5,11 +5,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic } from '@daisy/protocol';
-import {
-  createDatabase,
-  encodeOutboxCursor,
-  type OutboxPosition,
-} from '../src';
+import { createDatabase } from '../src';
+import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '../src/testing';
 import { sqlStateOf } from './constraint-helpers';
 

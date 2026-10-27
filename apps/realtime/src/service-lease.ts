@@ -1,4 +1,4 @@
-import type { OutboxPosition } from '@daisy/db';
+import type { OutboxPosition } from '@daisy/db/outbox';
 
 /** Cursor is sampled from the actual synchronous outbox-delivery boundary each renewal. */
 export function startRealtimeServiceLease(input: {

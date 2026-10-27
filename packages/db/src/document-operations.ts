@@ -15,7 +15,7 @@ export type DocumentRecord = {
   readonly updatedAt: Date;
 };
 
-export type DocumentSave =
+type DocumentSave =
   | { readonly status: 'saved'; readonly revision: number }
   | { readonly status: 'conflict'; readonly revision: number }
   | { readonly status: 'missing' };

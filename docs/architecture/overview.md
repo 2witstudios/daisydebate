@@ -103,6 +103,17 @@ package; this map lists only packages that exist today.
   from PostgreSQL, run a domain operation at database time, and persist its
   projection under the expected Round version.
 
+## Database public API
+
+`@daisy/db` owns the shared connection pool and `Database` composition.
+Import feature contracts through explicit subpaths: `rooms`, `rounds`,
+`profile`, `documents`, `ratings`, `attendance` and `outbox`.
+Ballot and frozen transcript contracts use `round-ballot` and
+`frozen-transcript`; messaging contracts use the existing messaging subpaths.
+Each entry names its exports explicitly; raw Drizzle handles and persistence
+operations remain internal. Messaging store composition lives with messaging
+and receives the same opaque database handle as the other areas.
+
 ## Layering rules
 
 1. Route handlers are transport: validate input, resolve the principal, call

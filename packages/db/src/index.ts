@@ -1,3 +1,5 @@
+import { messagingOperations } from './messaging/operations';
+import { friendshipReadOperations } from './messaging/friendships';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
@@ -38,7 +40,6 @@ import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
-import { messagingDatabaseOperations } from './messaging/database-operations';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -51,39 +52,7 @@ import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
-export type {
-  RateDebateInput,
-  RateDebateResult,
-  RatingDecision,
-} from './rating-facts';
-export type {
-  FormatRevisionRecord,
-  FormatPresetRecord,
-} from './format-operations';
-export type { NewRoom } from './room-operations';
-export type {
-  CoachingClaimDecision,
-  RoundCoachingFacts,
-} from './round-feedback';
-export type { RoundHydration } from './round-hydration';
-export type { RoundExecutionWrite } from './round-operations';
-export type { DocumentRecord, DocumentSave } from './document-operations';
-export type { ActorRecord } from './actor-operations';
-export type { UsernameClaim } from './username-claim';
-export type {
-  OnboardingRecord,
-  OnboardingStepWrite,
-} from './onboarding-operations';
-export type { StandingsRead } from './standings';
 export type { DatabaseEventSink } from './instrumented';
-export {
-  encodeOutboxCursor,
-  decodeOutboxCursor,
-  OUTBOX_ORIGIN,
-  type OutboxAppendInput,
-  type OutboxPosition,
-  type OutboxRow,
-} from './outbox';
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
@@ -185,7 +154,8 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    ...messagingDatabaseOperations({ database, eventSink }),
+    ...messagingOperations(database),
+    ...friendshipReadOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
@@ -239,35 +209,3 @@ export function createDatabase({
   };
 }
 export type Database = ReturnType<typeof createDatabase>;
-
-export type { LockedRoundCommandContext } from './round-command-operations';
-
-export type { FrozenRoundTranscript } from './frozen-transcript';
-
-export type {
-  LockedRoundBallotInput,
-  LockedRoundBallotContext,
-  RoundBallotLeaseContext,
-} from './round-ballot-operations';
-export type {
-  AttendanceTransactionContext,
-  AttendanceTransaction,
-  AttendancePrincipal,
-  AttendanceFacts,
-  LockedAttendanceCheckIn,
-} from './attendance-operations';
-export type { AttendanceEvaluationFacts } from './attendance-evaluator';
-export type { AttendanceResolution } from './attendance-adjudication';
-export type {
-  AvailabilityEvidence,
-  AvailabilityCause,
-} from './availability-operations';
-export type {
-  CheckInAttempt,
-  CheckInAttemptMetadata,
-} from './check-in-attempts';
-
-export type {
-  AttendanceStore,
-  AttendanceEvaluator,
-} from './attendance-entrypoints';
