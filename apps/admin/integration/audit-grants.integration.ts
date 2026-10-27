@@ -1,5 +1,4 @@
 import { requireTestServices } from '@daisy/config';
-import { afterAll, beforeEach } from 'bun:test';
 import { desc, eq, sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -9,16 +8,11 @@ import {
 } from '../src/audit/store';
 import { auditEvents } from '../src/db/schema';
 import { schemaPowers } from '../src/db/runtime-role';
-import { adminTestDatabase, testDeps } from './admin.test-support';
+import { suiteDatabase, testDeps } from './admin.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const database = adminTestDatabase();
-const { db } = database;
-beforeEach(async () => {
-  await database.reset();
-});
-afterAll(() => database.close());
+const { db } = suiteDatabase();
 
 const append = async (count: number) => {
   const deps = testDeps(db);

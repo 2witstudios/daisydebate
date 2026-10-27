@@ -1,5 +1,4 @@
 import { requireTestServices } from '@daisy/config';
-import { afterAll, beforeEach } from 'bun:test';
 import { asc } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SESSION_ABSOLUTE_MS, SESSION_IDLE_MS } from '../src/auth/lifetimes';
@@ -8,20 +7,15 @@ import { finishSignIn } from '../src/auth/sign-in';
 import { auditEvents, operators } from '../src/db/schema';
 import {
   address,
-  adminTestDatabase,
   assertion,
   enrolledOwner,
   testDeps,
+  suiteDatabase,
 } from './admin.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const database = adminTestDatabase();
-const { db } = database;
-beforeEach(async () => {
-  await database.reset();
-});
-afterAll(() => database.close());
+const { db } = suiteDatabase();
 
 const signedIn = async (deps: ReturnType<typeof testDeps>, seed: number) => {
   const device = await enrolledOwner(deps, seed);

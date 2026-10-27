@@ -1,5 +1,6 @@
 import { systemId } from '@daisy/clock';
 import { requireAdminTestDatabase } from '@daisy/config';
+import { afterAll, beforeEach } from 'bun:test';
 import { sql } from 'drizzle-orm';
 import type { AuthDeps } from '../src/auth/attempts';
 import { beginEnrollment, finishEnrollment } from '../src/auth/enrollment';
@@ -29,6 +30,16 @@ export function adminTestDatabase() {
     `);
   };
   return { ...handle, reset };
+}
+
+/** The suite's database, emptied before each test and closed after the file. */
+export function suiteDatabase() {
+  const database = adminTestDatabase();
+  beforeEach(async () => {
+    await database.reset();
+  });
+  afterAll(() => database.close());
+  return database;
 }
 
 /** A clock the test moves by hand; IDs are CSPRNG cuid2s (integration isolation). */
@@ -62,13 +73,13 @@ export async function enrollmentToken(
 
 export const address = '203.0.113.7';
 
-/** Enrolls a fresh owner passkey and returns the device that holds it. */
-export async function enrolledOwner(
+/** A register challenge for `token`, answered by a fresh software passkey. */
+export async function registration(
   deps: AuthDeps,
+  token: string,
   seed: number,
   flags: { readonly backedUp?: boolean } = {},
 ) {
-  const token = await enrollmentToken(deps);
   const begun = await beginEnrollment(deps, { token, address });
   if (!begun.ok) throw new Error('beginEnrollment refused');
   const device = await softAuthenticator(seed);
@@ -77,6 +88,17 @@ export async function enrolledOwner(
     deps.ceremony,
     flags,
   );
+  return { device, response };
+}
+
+/** Enrolls a fresh owner passkey and returns the device that holds it. */
+export async function enrolledOwner(
+  deps: AuthDeps,
+  seed: number,
+  flags: { readonly backedUp?: boolean } = {},
+) {
+  const token = await enrollmentToken(deps);
+  const { device, response } = await registration(deps, token, seed, flags);
   const finished = await finishEnrollment(deps, { token, address, response });
   if (!finished.ok) throw new Error('finishEnrollment refused');
   return device;

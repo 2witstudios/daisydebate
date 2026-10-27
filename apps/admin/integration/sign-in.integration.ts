@@ -1,5 +1,4 @@
 import { requireTestServices } from '@daisy/config';
-import { afterAll, beforeEach } from 'bun:test';
 import { asc } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ATTEMPT_LIMIT } from '../src/auth/rate-limit';
@@ -7,20 +6,15 @@ import { beginSignIn, finishSignIn } from '../src/auth/sign-in';
 import { auditEvents, operatorSessions } from '../src/db/schema';
 import {
   address,
-  adminTestDatabase,
   assertion,
   enrolledOwner,
   testDeps,
+  suiteDatabase,
 } from './admin.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const database = adminTestDatabase();
-const { db } = database;
-beforeEach(async () => {
-  await database.reset();
-});
-afterAll(() => database.close());
+const { db } = suiteDatabase();
 
 const lastKinds = async (count: number) =>
   (await db.select().from(auditEvents).orderBy(asc(auditEvents.seq)))

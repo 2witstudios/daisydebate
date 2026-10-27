@@ -1,6 +1,5 @@
 import { requireTestServices } from '@daisy/config';
 import { asc } from 'drizzle-orm';
-import { afterAll, beforeEach } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { beginEnrollment, finishEnrollment } from '../src/auth/enrollment';
 import { issueEnrollment } from '../src/auth/issue-enrollment';
@@ -17,32 +16,21 @@ import {
 } from '../src/db/schema';
 import {
   address,
-  adminTestDatabase,
   enrollmentToken,
+  registration,
   testDeps,
+  suiteDatabase,
 } from './admin.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const database = adminTestDatabase();
-const { db } = database;
-beforeEach(() => database.reset());
-afterAll(() => database.close());
+const { db } = suiteDatabase();
 
-const register = async (
+const register = (
   deps: ReturnType<typeof testDeps>,
   token: string,
   seed: number,
-) => {
-  const begun = await beginEnrollment(deps, { token, address });
-  if (!begun.ok) throw new Error('beginEnrollment refused');
-  const device = await softAuthenticator(seed);
-  const response = await device.register(
-    begun.options.challenge,
-    deps.ceremony,
-  );
-  return { device, response };
-};
+) => registration(deps, token, seed);
 
 const kinds = async () =>
   (await db.select().from(auditEvents).orderBy(asc(auditEvents.seq))).map(

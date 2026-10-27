@@ -47,6 +47,20 @@ const enrollAttempt = (address: string): Attempt => ({
 const openEnrollment = (deps: AuthDeps, token: unknown, now: string) =>
   isSecret(token) ? findOpenEnrollment(deps.db, sha3(token), now) : null;
 
+/** Both steps start alike: the rate limit, then a still-open enrollment. */
+async function openForAttempt(
+  deps: AuthDeps,
+  input: { readonly token: unknown; readonly address: string },
+) {
+  const attempt = enrollAttempt(input.address);
+  const limited = await rateLimited(deps, attempt);
+  if (limited) return limited;
+  const now = deps.clock.now();
+  const open = await openEnrollment(deps, input.token, now);
+  if (!open) return refuse(deps, attempt, 'enrollment_invalid');
+  return { attempt, open, now };
+}
+
 export async function beginEnrollment(
   deps: AuthDeps,
   input: { readonly token: unknown; readonly address: string },
@@ -57,12 +71,9 @@ export async function beginEnrollment(
       readonly options: PublicKeyCredentialCreationOptionsJSON;
     }
 > {
-  const attempt = enrollAttempt(input.address);
-  const limited = await rateLimited(deps, attempt);
-  if (limited) return limited;
-  const now = deps.clock.now();
-  const open = await openEnrollment(deps, input.token, now);
-  if (!open) return refuse(deps, attempt, 'enrollment_invalid');
+  const opened = await openForAttempt(deps, input);
+  if ('code' in opened) return opened;
+  const { attempt, open, now } = opened;
   const bytes = deps.random(SECRET_BYTES);
   await insertChallenge(deps.db, {
     id: deps.ids.next(),
@@ -175,12 +186,9 @@ export async function finishEnrollment(
     readonly response: RegistrationResponseJSON;
   },
 ): Promise<Refusal | { readonly ok: true }> {
-  const attempt = enrollAttempt(input.address);
-  const limited = await rateLimited(deps, attempt);
-  if (limited) return limited;
-  const now = deps.clock.now();
-  const open = await openEnrollment(deps, input.token, now);
-  if (!open) return refuse(deps, attempt, 'enrollment_invalid');
+  const opened = await openForAttempt(deps, input);
+  if ('code' in opened) return opened;
+  const { attempt, open, now } = opened;
   const operatorId = open.operator.id;
   const answered = await answeredChallenge(
     deps,

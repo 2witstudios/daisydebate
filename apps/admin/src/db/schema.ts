@@ -78,13 +78,16 @@ export const operators = pgTable(
   ],
 );
 
+const operatorRef = () =>
+  text('operator_id')
+    .notNull()
+    .references(() => operators.id, { onDelete: 'restrict' });
+
 export const operatorCredentials = pgTable(
   'operator_credentials',
   {
     id: text('id').primaryKey(),
-    operatorId: text('operator_id')
-      .notNull()
-      .references(() => operators.id, { onDelete: 'restrict' }),
+    operatorId: operatorRef(),
     credentialId: text('credential_id').notNull(),
     publicKey: text('public_key').notNull(),
     signCount: bigint('sign_count', { mode: 'number' }).notNull(),
@@ -105,9 +108,7 @@ export const operatorEnrollments = pgTable(
   'operator_enrollments',
   {
     id: text('id').primaryKey(),
-    operatorId: text('operator_id')
-      .notNull()
-      .references(() => operators.id, { onDelete: 'restrict' }),
+    operatorId: operatorRef(),
     tokenHash: text('token_hash').notNull(),
     mode: text('mode').notNull(),
     createdAt: at('created_at').notNull(),
@@ -157,9 +158,7 @@ export const operatorSessions = pgTable(
   'operator_sessions',
   {
     id: text('id').primaryKey(),
-    operatorId: text('operator_id')
-      .notNull()
-      .references(() => operators.id, { onDelete: 'restrict' }),
+    operatorId: operatorRef(),
     tokenHash: text('token_hash').notNull(),
     createdAt: at('created_at').notNull(),
     lastSeenAt: at('last_seen_at').notNull(),
