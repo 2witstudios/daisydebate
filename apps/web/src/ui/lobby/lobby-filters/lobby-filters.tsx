@@ -17,13 +17,13 @@ import {
   SearchField,
 } from '../../components/filter-form/filter-form';
 import { TabLinks } from '../../components/tab-links/tab-links';
-import { AutoSubmitForm } from '../filter-bar/auto-submit-form';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import {
   dividerClass,
   filterBarClass,
   panelClass,
   summaryClass,
-} from '../filter-bar/filter-bar-class';
+} from '../../components/filter-bar/filter-bar-class';
 
 const statusLabels: Readonly<Record<LobbyStatus, string>> = {
   all: 'All',

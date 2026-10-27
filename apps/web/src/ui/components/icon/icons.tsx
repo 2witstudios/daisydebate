@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { workIconPaths } from './work-icons';
 
 /** Hand-drawn 24×24 stroke icon set — no icon dependency. */
 export const iconPaths: Record<string, ReactNode> = {
+  ...workIconPaths,
   home: (
     <>
       <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />

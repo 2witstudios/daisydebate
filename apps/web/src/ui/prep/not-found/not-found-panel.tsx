@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 export type NotFoundPanelProps = {
   /** "card", "brief", "case" or "team". */
@@ -17,7 +17,7 @@ export function NotFoundPanel({
 }: NotFoundPanelProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col items-center gap-3 px-6 py-12 text-center">
-      <PrepIcon name="search" size={28} className="text-ink-faint" />
+      <Icon name="search" size={28} className="text-ink-faint" />
       <h1 className="font-display text-2xl leading-tight font-bold">{`We can’t find that ${what}`}</h1>
       <Link
         href={backHref}

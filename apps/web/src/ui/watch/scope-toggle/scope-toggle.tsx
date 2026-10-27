@@ -3,7 +3,7 @@ import { cn } from '../../cn';
 import {
   modeOptionClass,
   modeTrackClass,
-} from '../../lobby/mode-toggle/mode-toggle-class';
+} from '../../components/mode-toggle/mode-toggle-class';
 
 export type ScopeToggleProps = {
   readonly value: RecordingsQuery['scope'];

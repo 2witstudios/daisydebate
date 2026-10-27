@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import type { PageTone } from '../../debate-room/room-state';
@@ -13,9 +14,7 @@ import {
 } from '../../../features/prep/briefs/brief-document';
 import type { BriefEditorView } from '../../../features/prep/briefs/brief-editor';
 import { controlClass } from '../form-controls/form-class';
-import { PrepIcon } from '../prep-icon/prep-icon';
 import { TimeBar } from '../time-bar/time-bar';
-import { Icon } from '../../components/icon/icon';
 
 const heading =
   'px-3 text-xs font-strong tracking-widest text-ink-faint uppercase';
@@ -88,7 +87,7 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
             className={marginButton}
             onClick={() => setHtml((current) => withSection(current, outline))}
           >
-            <PrepIcon name="plus" size={16} />
+            <Icon name="plus" size={16} />
             Section
           </button>
         </nav>
@@ -198,7 +197,7 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
                   setHtml((current) => `${current}${evidenceHtml(card)}`)
                 }
               >
-                <PrepIcon name="plus" size={18} />
+                <Icon name="plus" size={18} />
               </button>
             </li>
           ))}
@@ -210,7 +209,7 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
           href={prepDestinations.addEvidence}
           className="flex min-h-prep-control items-center justify-center gap-2 rounded-sm border border-dashed border-border-strong text-sm text-ink-muted no-underline hover:text-ink hover:no-underline"
         >
-          <PrepIcon name="card" size={16} />
+          <Icon name="card" size={16} />
           Cut a new card from a source
         </Link>
       </aside>

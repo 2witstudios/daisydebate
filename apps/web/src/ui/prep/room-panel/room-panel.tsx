@@ -1,11 +1,10 @@
+import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import type { RoomPanelView } from '../../../features/prep/room-panel';
 import { roomPanelHref } from '../../../features/prep/room-panel-query';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
-import { Icon } from '../../components/icon/icon';
 import { controlClass } from '../form-controls/form-class';
-import { PrepIcon } from '../prep-icon/prep-icon';
 import { StateAlert } from '../state-alert/state-alert';
 import { PanelOffline } from './panel-offline';
 import { PinnedBody, SearchBox, SearchResults } from './panel-pinned';
@@ -43,7 +42,7 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
           aria-label="Hide panel"
           className="inline-flex size-12 items-center justify-center text-ink-muted"
         >
-          <PrepIcon name="x" size={18} />
+          <Icon name="x" size={18} />
         </Link>
       </header>
       <PanelOffline
@@ -53,7 +52,7 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
             href={roomPanelHref(query)}
             className={`${buttonClass('secondary')} ${link}`}
           >
-            <PrepIcon name="refresh" size={18} />
+            <Icon name="refresh" size={18} />
             Try again
           </Link>
         }
@@ -127,7 +126,7 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
           className="inline-flex items-center gap-1 text-sm font-strong"
         >
           Open Prep in a new tab
-          <PrepIcon name="external" size={14} />
+          <Icon name="external" size={14} />
         </Link>
       </footer>
     </aside>

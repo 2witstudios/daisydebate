@@ -1,13 +1,15 @@
-import type { LobbyMode } from '../../../features/lobby/discovery-query';
 import { cn } from '../../cn';
 import { modeOptionClass, modeTrackClass } from './mode-toggle-class';
 
+/** Which competitions a filter shows: any, ranked only or casual only. */
+type CompetitionMode = 'any' | 'ranked' | 'casual';
+
 export type ModeToggleProps = {
-  readonly value: LobbyMode;
+  readonly value: CompetitionMode;
   readonly className?: string;
 };
 
-const options: readonly { value: LobbyMode; label: string }[] = [
+const options: readonly { value: CompetitionMode; label: string }[] = [
   { value: 'any', label: 'Any' },
   { value: 'ranked', label: 'Ranked' },
   { value: 'casual', label: 'Casual' },

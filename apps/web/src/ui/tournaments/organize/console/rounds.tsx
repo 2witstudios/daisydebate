@@ -1,7 +1,7 @@
 import type { ConsoleView } from '../../../../features/tournaments/console-view';
 import { Icon } from '../../../components/icon/icon';
 import { buttonClass } from '../../../components/button/button-class';
-import { SampleButton } from '../../inert-action/inert-action';
+import { SampleButton } from '../../../components/sample-button/sample-button';
 import { LinkButton } from '../../link-button/link-button';
 import { Notice } from '../../notice/notice';
 import { Person } from '../../person/person';

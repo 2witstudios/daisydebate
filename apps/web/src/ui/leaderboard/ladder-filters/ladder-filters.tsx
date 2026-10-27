@@ -15,8 +15,8 @@ import {
 } from '../../../features/leaderboard/season';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
+import { controlClass } from '../../components/filter-bar/filter-bar-class';
 import { Segmented } from '../segmented/segmented';
 
 export type LadderFiltersProps = {
