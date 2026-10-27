@@ -154,18 +154,59 @@ describe('bun board:*', () => {
         : base(args);
     runBoard({ ...board.deps, pagespace }, [
       'create',
-      list,
       '--issue',
+      '--bucket',
+      'bugs',
+      '--title',
+      'Given X, should Y',
+    ]);
+    const created = board.calls.find(
+      (call) => call[0] === 'tasks' && call[1] === 'create',
+    );
+    assert({
+      given: 'ISSUE-9 in Bugs, ISSUE-3 at the root of Issues and --bucket bugs',
+      should: 'title the new issue ISSUE-10 and create it in the Bugs list',
+      actual: [created?.at(4), created?.at(2)],
+      expected: ['ISSUE-10 — Given X, should Y', 'bugs'],
+    });
+  });
+
+  test('refuses an issue bucket that Issues does not have', () => {
+    const board = fakeBoard();
+    const base = board.deps.pagespace;
+    const pagespace: BoardDeps['pagespace'] = (args) =>
+      args[0] === 'tasks' && args[1] === 'list'
+        ? {
+            code: 0,
+            stdout: JSON.stringify({
+              tasks: [
+                { title: 'Bugs', pageId: 'bugs' },
+                { title: 'Backlog', pageId: 'backlog' },
+              ],
+            }),
+          }
+        : base(args);
+    const code = runBoard({ ...board.deps, pagespace }, [
+      'create',
+      '--issue',
+      '--bucket',
+      'Ideas',
       '--title',
       'Given X, should Y',
     ]);
     assert({
-      given: 'ISSUE-9 in Bugs and ISSUE-3 at the root of Issues',
-      should: 'title the new issue ISSUE-10',
-      actual: board.calls
-        .find((call) => call[0] === 'tasks' && call[1] === 'create')
-        ?.at(4),
-      expected: 'ISSUE-10 — Given X, should Y',
+      given: 'a bucket name no Issues bucket carries',
+      should: 'exit 1 listing the buckets and create nothing',
+      actual: [
+        code,
+        board.output.join(''),
+        board.calls.some((call) => call[1] === 'create'),
+      ],
+      expected: [
+        1,
+        'No Issues bucket named "Ideas"; buckets: Bugs, Backlog\n',
+        false,
+      ],
     });
   });
 

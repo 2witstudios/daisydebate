@@ -139,10 +139,23 @@ function create(
     ]).tasks;
   // Issue numbers are global across the Issues buckets, wherever this lands.
   const numbered = (): { title: string }[] => {
-    if (command.prefix !== 'ISSUE') return listTitles(command.listId);
+    if (command.prefix !== 'ISSUE') return listTitles(listId);
     const root = listTitles(ISSUES_LIST_ID);
     return [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)];
   };
+  const listId = (() => {
+    if ('listId' in command.into) return command.into.listId;
+    const root = listTitles(ISSUES_LIST_ID);
+    const buckets = new Set(bucketPageIds(root, 'ISSUE'));
+    const named = root.filter((task) => buckets.has(task.pageId));
+    const wanted = command.into.bucket.toLowerCase();
+    const found = named.find((task) => task.title.toLowerCase() === wanted);
+    if (!found)
+      throw new BoardError(
+        `No Issues bucket named "${command.into.bucket}"; buckets: ${named.map((task) => task.title).join(', ')}`,
+      );
+    return found.pageId;
+  })();
   const titles = command.prefix ? numbered().map((task) => task.title) : [];
   const title = command.prefix
     ? `${command.prefix}-${nextCodeNumber(titles, command.prefix)} — ${command.title}`
@@ -150,7 +163,7 @@ function create(
   const created = json<{ pageId?: string; page?: { id: string } }>(deps, [
     'tasks',
     'create',
-    command.listId,
+    listId,
     '--title',
     title,
   ]);

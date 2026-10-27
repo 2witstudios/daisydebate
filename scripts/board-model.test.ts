@@ -24,8 +24,9 @@ describe('parseBoardArgs', () => {
         parseBoardArgs(['relate', id, 'Review', 'pm17nmf831vkr3o84wbo2ofh']),
         parseBoardArgs([
           'create',
-          'cy7vznqfbs8ikfwj1qu8xxnm',
           '--issue',
+          '--bucket',
+          'Bugs',
           '--title',
           'Given X, should Y',
           '--criterion',
@@ -59,7 +60,7 @@ describe('parseBoardArgs', () => {
         },
         {
           command: 'create',
-          listId: 'cy7vznqfbs8ikfwj1qu8xxnm',
+          into: { bucket: 'Bugs' },
           prefix: 'ISSUE',
           title: 'Given X, should Y',
           criteria: ['Given A, should B'],
@@ -147,7 +148,7 @@ describe('parseBoardArgs flag handling', () => {
       ]),
       expected: {
         command: 'create',
-        listId: list,
+        into: { listId: list },
         prefix: undefined,
         title: 'Given X, should Y',
         criteria: [],
