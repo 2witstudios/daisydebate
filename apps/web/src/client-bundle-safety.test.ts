@@ -93,9 +93,19 @@ const clientEntries = [...new Bun.Glob('src/**/*.{ts,tsx}').scanSync(web)]
   .map((file) => join(web, file))
   .filter((file) => /^\s*['"]use client['"]/.test(readFileSync(file, 'utf8')));
 
+test('the guard finds the client components it walks', () => {
+  assert({
+    given: "the src tree scanned for 'use client' modules",
+    should:
+      'find at least 100, so the graph check below cannot pass on an empty set',
+    actual: clientEntries.length >= 100,
+    expected: true,
+  });
+});
+
 test('no client component reaches the database driver', () => {
   assert({
-    given: `every 'use client' module (${clientEntries.length > 0 ? 'found' : 'none found'}) and its import graph, through workspace package exports`,
+    given: `every 'use client' module (${clientEntries.length}) and its import graph, through workspace package exports`,
     should:
       'never import the @daisy/db root or bun, which break the browser chunk (#473: preference-form.tsx -> server/http.ts)',
     actual: clientEntries.flatMap(serverOnlyReached),
