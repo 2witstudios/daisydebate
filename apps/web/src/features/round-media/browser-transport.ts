@@ -42,7 +42,7 @@ const livekit: MediaSdk = {
   capture: createLocalTracks,
 };
 
-type Source = 'camera' | 'microphone';
+export type Source = 'camera' | 'microphone';
 /**
  * The sources to hold published (ISSUE-572). LiveKit enforces the floor
  * (DEC-218/220) and the server sets its permission from the same seat grants
@@ -75,6 +75,8 @@ export function createBrowserMediaTransport(
       readonly camera?: string;
       readonly microphone?: string;
     };
+    /** A device the Room check passed is gone (ISSUE-573); the transport stays up. */
+    readonly missing?: (source: Source) => void;
   },
   sdk: MediaSdk = livekit,
 ) {
@@ -163,9 +165,9 @@ export function createBrowserMediaTransport(
   /** Only a device the Room check passed is reported missing (ISSUE-573). */
   const checked = <T>(source: Source, work: Promise<T>) =>
     work.catch((error: unknown) => {
-      throw events.devices?.[source] && deviceAbsent(error)
-        ? checkedDeviceMissing()
-        : error;
+      if (!events.devices?.[source] || !deviceAbsent(error)) throw error;
+      events.missing?.(source);
+      throw checkedDeviceMissing();
     });
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
@@ -191,10 +193,11 @@ export function createBrowserMediaTransport(
   };
   /**
    * A seat that publishes anything is a debater's: its microphone waits warm
-   * so its grant costs a publish, not a device open. Best effort for the
-   * default microphone: a refusal is reported by the capture its grant makes.
-   * A checked microphone that is gone is reported now, since its debater will
-   * need it (ISSUE-573). A seat that publishes nothing holds no microphone.
+   * so its grant costs a publish, not a device open. Best effort: a refusal
+   * fails only the capture its grant makes, so a camera-only turn keeps its
+   * camera and every remote track. A checked microphone that is gone is still
+   * reported now through `missing`, since its debater will need it
+   * (ISSUE-573). A seat that publishes nothing holds no microphone.
    */
   const holdsMicrophone = () =>
     stopped || warm !== null || tracks.has('microphone');
@@ -208,10 +211,7 @@ export function createBrowserMediaTransport(
     const [track] = await checked(
       'microphone',
       sdk.capture({ audio: audioCapture, video: false }),
-    ).catch((error: unknown) => {
-      if (events.devices?.microphone) throw error;
-      return [] as LocalTrack[];
-    });
+    ).catch(() => [] as LocalTrack[]);
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };

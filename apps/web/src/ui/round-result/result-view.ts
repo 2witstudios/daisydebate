@@ -145,7 +145,7 @@ export function liveTranscriptSections(
   return view.round.segments.map((segment) => {
     const existing = sections.find((s) => s.key === `${segment.sequence}`);
     const streams = view.streams.filter((s) => s.segmentId === segment.id);
-    const status = streamStatus(streams, view.freeze?.completeness ?? null);
+    const status = streamStatus(streams, view.freeze !== null);
     return {
       ...(existing ?? emptySection(view.round, segment.sequence)),
       status,
@@ -168,12 +168,14 @@ function emptySection(round: RoundView, sequence: number): TranscriptSection {
   };
 }
 /**
- * A frozen speech with no capture stream had no speaking interval to capture,
- * so it reads as its durable freeze does; before the freeze it is pending.
+ * Finalization closes a stream for every actual speaking interval, so a
+ * frozen speech with no stream owed no text: it is complete whatever the
+ * Round's completeness (another speech's partial stream says which one fell
+ * short). Before the freeze it is pending.
  */
 function streamStatus(
   streams: RoundTranscriptRead['streams'],
-  frozen: 'complete' | 'incomplete' | null,
+  frozen: boolean,
 ): NonNullable<TranscriptSection['status']> {
   const open = streams.some((s) => s.state === 'open');
   if (streams.some((s) => s.state === 'partial') || (frozen && open))
@@ -181,6 +183,5 @@ function streamStatus(
   if (open) return 'capturing';
   if (streams.length > 0 && streams.every((s) => s.state === 'complete'))
     return 'complete';
-  if (frozen === null) return 'pending';
-  return frozen === 'complete' ? 'complete' : 'partial';
+  return frozen ? 'complete' : 'pending';
 }

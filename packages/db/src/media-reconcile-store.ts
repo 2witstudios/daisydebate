@@ -122,11 +122,10 @@ export function createMediaReconcileStore(input: {
           (await pending(tx, session.id)).length,
           request.intent.kind,
         );
-        const authority = await lockMediaRound(tx, session.roundId);
         const botLeases = await readMediaBotLeases(
           tx,
           session.roundId,
-          authority.participants,
+          session.seats,
         );
         const tick = await executeLockedRoundTick(tx, {
           roundId: session.roundId,
@@ -160,7 +159,7 @@ export function createMediaReconcileStore(input: {
             .where(eq(mediaParticipants.sessionId, session.id)),
           round,
           participants: mediaPublicationParticipants(
-            authority.participants,
+            session.seats,
             botLeases,
             round,
             tick.now,

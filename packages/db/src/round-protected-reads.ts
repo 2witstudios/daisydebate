@@ -29,29 +29,37 @@ export const roundProtectedReads = ({
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
       const round = await readAuthorizedRound(tx, input);
-      // The counter first: under READ COMMITTED a later write can only make the
-      // rows below newer than this revision, so its doorbell still refetches.
-      const counter = await transcriptRevision(tx, input.roundId);
-      const freeze = await readTranscriptFreeze(tx, input.roundId);
-      const streams = await tx
-        .select({
-          segmentId: transcriptSegments.segmentId,
-          roundParticipantId: transcriptSegments.roundParticipantId,
-          state: transcriptSegments.state,
-        })
-        .from(transcriptSegments)
-        .where(eq(transcriptSegments.roundId, input.roundId));
       return roundTranscriptReadSchema.parse({
         round: roundViewFor(round, input.caller.actorId),
-        revision: counter + (freeze ? 1 : 0),
-        freeze: freeze ? { completeness: freeze.completeness } : null,
-        streams,
-        utterances: await readOrderedRoundUtterances(
-          tx,
-          input.roundId,
-          'frozen',
-        ),
+        ...(await readTranscriptSnapshot(tx, input.roundId)),
       });
     });
   },
 });
+
+/**
+ * The authorized transcript rows, counter first: under READ COMMITTED a write
+ * committed during these reads can only make the rows newer than the
+ * revision, so its doorbell still refetches (never a stale "Capturing").
+ */
+export async function readTranscriptSnapshot(
+  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  roundId: string,
+) {
+  const counter = await transcriptRevision(tx, roundId);
+  const freeze = await readTranscriptFreeze(tx, roundId);
+  const streams = await tx
+    .select({
+      segmentId: transcriptSegments.segmentId,
+      roundParticipantId: transcriptSegments.roundParticipantId,
+      state: transcriptSegments.state,
+    })
+    .from(transcriptSegments)
+    .where(eq(transcriptSegments.roundId, roundId));
+  return {
+    revision: counter + (freeze ? 1 : 0),
+    freeze: freeze ? { completeness: freeze.completeness } : null,
+    streams,
+    utterances: await readOrderedRoundUtterances(tx, roundId, 'frozen'),
+  };
+}

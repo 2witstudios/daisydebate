@@ -13,7 +13,6 @@ test('checked device identities cross document navigation only within the local 
   const storage = () => ({
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => void values.set(key, value),
-    removeItem: (key: string) => void values.delete(key),
   });
   const devices = createDeviceCheckController({
     open: async (kind, selected) => ({
@@ -43,12 +42,12 @@ test('checked device identities cross document navigation only within the local 
       {},
     ],
   });
-  forgetCheckedDevices('room-a', storage);
+  forgetCheckedDevices('room-a', ['camera'], storage);
   assert({
-    given: 'a retry after the checked device went missing',
-    should: 'forget the stale choice so capture uses the browser default',
+    given: 'a retry after only the checked camera went missing',
+    should: 'forget that choice alone, keeping the working checked microphone',
     actual: readCheckedDevices('room-a', storage),
-    expected: {},
+    expected: { microphone: 'microphone-actual' },
   });
 });
 
@@ -64,7 +63,6 @@ test('unavailable or invalid browser storage does not expose device data', () =>
       readCheckedDevices('room-a', () => ({
         getItem: () => '{"camera":123}',
         setItem: () => undefined,
-        removeItem: () => undefined,
       })),
     ],
     expected: [{}, {}],

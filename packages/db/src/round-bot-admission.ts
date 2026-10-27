@@ -100,7 +100,7 @@ export async function refundUnservedPracticeLocked(
       and not exists (
         select 1 from agent_runs a
         join round_participants p on p.id = a.round_participant_id
-        where p.round_id = ${roundId} and p.role <> 'judge'
+        where p.round_id = ${roundId} and p.role in ('affirmative', 'negative')
           and a.configuration_snapshot->>'providerOutcome' in ('received', 'unknown'))`);
 }
 /** Bot-debater calls only: the AI judge is free (DEC-186). Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */

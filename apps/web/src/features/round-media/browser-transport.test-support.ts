@@ -17,6 +17,8 @@ type Captured = ReturnType<typeof capturedTrack>;
 export function stubSdk(
   options: {
     readonly missingSource?: 'camera' | 'microphone';
+    /** The browser error a missing source throws; OverconstrainedError by default. */
+    readonly missingError?: string;
     /** Each capture waits for its gate here, in call order; undefined passes at once. */
     readonly captureGates?: readonly (Promise<void> | undefined)[];
     /** Publishes settle at once, recorded in `published`. */
@@ -78,7 +80,10 @@ export function stubSdk(
         if (
           options.missingSource === (options_.audio ? 'microphone' : 'camera')
         )
-          throw new DOMException('private', 'OverconstrainedError');
+          throw new DOMException(
+            'private',
+            options.missingError ?? 'OverconstrainedError',
+          );
         await gates.shift();
         const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
         captured.push(track);

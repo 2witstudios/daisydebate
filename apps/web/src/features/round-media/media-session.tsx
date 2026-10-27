@@ -11,6 +11,7 @@ import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
+  type Source,
 } from './browser-transport';
 import {
   createMediaController,
@@ -84,6 +85,8 @@ function RoundMediaSession({
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
+  /** Checked devices found gone; the transport keeps running (ISSUE-573). */
+  const [missing, setMissing] = useState<readonly Source[]>([]);
   const controller = useRef<ReturnType<typeof createMediaController> | null>(
     null,
   );
@@ -105,6 +108,10 @@ function RoundMediaSession({
       transport: () => {
         const browser = createBrowserMediaTransport({
           devices: readCheckedDevices(view.roomId),
+          missing: (source) =>
+            setMissing((current) =>
+              current.includes(source) ? current : [...current, source],
+            ),
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -150,7 +157,9 @@ function RoundMediaSession({
       <MediaStage view={view} media={media} tracks={tracks} />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
         <p role="status" className="m-0 text-sm text-ink-muted">
-          {messages[connection]}
+          {connection === 'live' && missing.length > 0
+            ? `Connected, but your checked ${missing.join(' and ')} is missing. Reconnect it, or retry to use your default.`
+            : messages[connection]}
         </p>
         {connection === 'live' ? (
           <button
@@ -167,14 +176,15 @@ function RoundMediaSession({
         ) : null}
         {connection === 'unavailable' ||
         connection === 'device-blocked' ||
-        connection === 'device-missing' ? (
+        connection === 'device-missing' ||
+        missing.length > 0 ? (
           <button
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
-              // An explicit retry after a missing checked device falls back.
-              if (connection === 'device-missing')
-                forgetCheckedDevices(view.roomId);
+              // An explicit retry uses the default only for the device found gone.
+              forgetCheckedDevices(view.roomId, missing);
+              setMissing([]);
               refresh.current();
               void controller.current?.reconnect();
             }}

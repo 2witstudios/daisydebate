@@ -60,7 +60,7 @@ test('an authorized transcript renders per speech with speakers and partial stat
     expected: [2, true, true, true, true],
   });
 });
-test('a speech with no capture stream reads as its durable freeze', () => {
+test('a frozen speech with no capture stream owed no text', () => {
   const silent = (completeness: 'complete' | 'incomplete' | null) =>
     liveTranscriptSections({
       ...read('complete'),
@@ -71,12 +71,12 @@ test('a speech with no capture stream reads as its durable freeze', () => {
     given:
       'speeches with no capture stream (no speaking interval) before a freeze, under a complete freeze and an incomplete one',
     should:
-      'stay pending until the freeze, then follow its completeness instead of claiming a partial',
+      'stay pending until the freeze, then read complete under either freeze, never claiming missing text',
     actual: [silent(null), silent('complete'), silent('incomplete')],
     expected: [
       ['pending', 'pending'],
       ['complete', 'complete'],
-      ['partial', 'partial'],
+      ['complete', 'complete'],
     ],
   });
 });
