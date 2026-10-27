@@ -16,12 +16,12 @@ confirmation and merging within it; planning-only requests stay planning-only.
    and the autonomy rules. Never research on a builder's behalf. Publish briefs
    in the drive's `Prompts` folder.
 3. **Spawn.** One Claude builder per slice: `pu spawn --agent claude --name
-<slice> "<brief>"` (Claude, because the Ralph loop runs on Claude Code's Stop
-   hook). Hand each builder its inherited PRs and branches; tell retiring sessions
+<slice> "<brief>"` (Claude, because its PR loop, PR Loop (Ralph Loop), runs on
+   Claude Code's Stop hook). Hand each builder its inherited PRs and branches; tell retiring sessions
    to finish or hand over, then `pu kill` and `pu clean` them in one pass.
-4. **Confirm once.** When a builder posts its plan on the channel, confirm or
+4. **Confirm once.** When a builder posts its plan on the Delivery channel, confirm or
    redirect within minutes, alongside the architecture reviewer. Answer product,
-   architecture and scope questions on the channel immediately and record each
+   architecture and scope questions on the Delivery channel immediately and record each
    with `bun decision:record`. There is no later approval relay.
 5. **Merge.** The flow sweep merges a PR when its builder has emitted `PR_READY`
    and the required checks are green at the exact head, at most two per cycle.

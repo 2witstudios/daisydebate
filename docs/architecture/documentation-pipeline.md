@@ -32,8 +32,15 @@ creation workflow.
    consult, dispatch reserves that run's row in the Documentation Runs sheet. The question
    leads with that pipeline's versioned prompt, pre-fills every run-record key
    from trusted CI context, and carries the event last in a nonce-fenced block
-   marked untrusted. A consult runs an agent, so it is never retried
-   in-process.
+   marked untrusted. The fenced event is bounded to 6,000 characters
+   (`scripts/docs-event-bound.ts`, ISSUE-786): a slice-sized PR made the agent
+   refuse the consult with "Prompt exceeds max length". Dispatch cuts the least
+   useful text first: the source refs when they only repeat the changed files,
+   then the PR body down to half the budget, then trailing changed files and
+   other source refs, then the rest of the body, the title and the task ids.
+   It names every cut in trusted text just above the fence, and an event that
+   still cannot fit fails the dispatch rather than overflow. A consult runs an agent, so
+   it is never retried in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
    and the answer can be lost on its way back. On a dropped connection or a
