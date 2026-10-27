@@ -148,6 +148,10 @@ test('the request budgets count the ledger, never the current pair rows (DEC-251
       asker[0],
     ]);
   try {
+    // The fixture's DM would make the pair related: these two never met.
+    await client.unsafe('delete from messaging_dm_pairs where channel_id=$1', [
+      fixture.channelId,
+    ]);
     await spent(socialLimits.unrelatedHourly, true, day(-0.01));
     await assertRejects({
       given: 'five unrelated requests in the last hour',

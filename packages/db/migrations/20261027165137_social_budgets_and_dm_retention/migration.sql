@@ -22,6 +22,8 @@ ALTER TABLE "messaging_social_commands" ADD COLUMN "unrelated" boolean DEFAULT f
 CREATE INDEX "messaging_retained_authors_actor_idx" ON "messaging_retained_authors" ("actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_social_commands_actor_created_idx" ON "messaging_social_commands" ("actor_id","created_at");--> statement-breakpoint
 CREATE INDEX "messaging_social_declines_pair_idx" ON "messaging_social_declines" ("low_actor_id","high_actor_id");--> statement-breakpoint
+CREATE INDEX "messaging_social_declines_requester_idx" ON "messaging_social_declines" ("requester_actor_id");--> statement-breakpoint
+CREATE INDEX "messaging_social_declines_high_actor_idx" ON "messaging_social_declines" ("high_actor_id");--> statement-breakpoint
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_XzNb7mYFXBhe_fkey" FOREIGN KEY ("channel_id") REFERENCES "messaging_channels"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "messaging_social_declines" ADD CONSTRAINT "messaging_social_declines_decliner_actor_id_actors_id_fkey" FOREIGN KEY ("decliner_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint

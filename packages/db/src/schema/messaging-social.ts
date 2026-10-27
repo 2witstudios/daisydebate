@@ -359,6 +359,8 @@ export const messagingSocialDeclines = pgTable(
       table.lowActorId,
       table.highActorId,
     ),
+    index('messaging_social_declines_requester_idx').on(table.requesterActorId),
+    index('messaging_social_declines_high_actor_idx').on(table.highActorId),
     foreignKey({
       columns: [table.lowActorId, table.highActorId],
       foreignColumns: [
