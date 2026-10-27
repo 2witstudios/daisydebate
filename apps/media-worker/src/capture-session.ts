@@ -49,7 +49,7 @@ export async function runCaptureSession(
   const renewing = maintainCaptureLease({
     epoch: lease.epoch,
     signal: renewalStop.signal,
-    lease: (ttl, heartbeat) => input.client.lease(ttl, heartbeat),
+    lease: (...args) => input.client.lease(...args),
     nowMs: input.nowMs,
     waitUntilMs: input.waitUntilMs,
   }).catch((error) => {

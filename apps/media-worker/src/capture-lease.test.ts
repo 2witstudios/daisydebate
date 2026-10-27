@@ -1,7 +1,30 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createAppError } from '@daisy/errors';
 import { maintainCaptureLease } from './capture-lease';
+import { createCaptureSessionFixture } from './capture-session.test-support';
 setupRitewayBun();
+
+test('the composed capture session forwards its heartbeat epoch through the client boundary', async () => {
+  const requested: (number | undefined)[] = [];
+  const fixture = createCaptureSessionFixture({
+    waitUntilMs: async () => {},
+    lease: async (_ttl, _signal, expectedEpoch) => {
+      requested.push(expectedEpoch);
+      if (requested.length > 1)
+        throw createAppError('CONFLICT', 'Capture epoch changed');
+      return { epoch: 7, expiresAt: new Date(15000).toISOString() };
+    },
+  });
+  await fixture.done;
+  assert({
+    given: 'an initial claim followed by renewal in runCaptureSession',
+    should:
+      'send no epoch on the initial claim and the original epoch on the production heartbeat',
+    actual: requested,
+    expected: [undefined, 7],
+  });
+});
 
 test('capture renewal is independent of blocked history or native work', async () => {
   const stop = new AbortController();
