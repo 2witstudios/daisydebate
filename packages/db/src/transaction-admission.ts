@@ -2,9 +2,27 @@ import { createAppError } from '@daisy/errors';
 
 const CAPACITY_UNAVAILABLE = 'Transcript transaction capacity unavailable';
 const capacityRefusals = new WeakSet<Error>();
-/** Admission backpressure only: the pool had no writer reservation free; nothing ran. */
-export const isTransactionCapacityRefusal = (error: unknown): boolean =>
-  error instanceof Error && capacityRefusals.has(error);
+/**
+ * Refused-unrun admission identity through at most 16 native Error wrappers.
+ * Only own data-property causes are supported; hostile links and execution
+ * recovery detail objects fail closed to ordinary failure reporting.
+ */
+export function isTransactionCapacityRefusal(error: unknown): boolean {
+  const seen = new WeakSet<Error>();
+  let current = error;
+  try {
+    for (let depth = 0; depth < 16 && current instanceof Error; depth += 1) {
+      if (capacityRefusals.has(current)) return true;
+      if (seen.has(current)) return false;
+      seen.add(current);
+      current = Object.getOwnPropertyDescriptor(current, 'cause')?.value;
+    }
+  } catch {
+    // A proxy may refuse descriptor/prototype inspection; never hide its failure.
+    return false;
+  }
+  return false;
+}
 /** The one admission refusal `isTransactionCapacityRefusal` recognises. */
 export function refuseCapacity() {
   const refusal = createAppError('INFRASTRUCTURE', CAPACITY_UNAVAILABLE);

@@ -1,4 +1,5 @@
 import type { Participation } from '@daisy/auth';
+import { isTransactionCapacityRefusal } from '@daisy/db';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
@@ -103,7 +104,8 @@ const composeBetterAuth = (dependencies: {
     // SQL text and bound parameters (magic-link tokens, emails). Report only
     // the severity through the application logger.
     logger: {
-      log: (level) => {
+      log: (level, _message, ...details) => {
+        if (details.some(isTransactionCapacityRefusal)) return;
         if (level === 'error' || level === 'warn')
           dependencies.logger.log(
             'request.unhandled',
@@ -245,11 +247,12 @@ const composeBetterAuth = (dependencies: {
           instance.handler(request),
         );
       } catch (error) {
-        dependencies.logger.log(
-          'request.unhandled',
-          { source: 'better-auth' },
-          'Authentication request failed',
-        );
+        if (!isTransactionCapacityRefusal(error))
+          dependencies.logger.log(
+            'request.unhandled',
+            { source: 'better-auth' },
+            'Authentication request failed',
+          );
         // A retryable outage, typed at the source, so callers (the mounted
         // route wrapper, the confirm-page internal forward) read the error
         // code rather than the response.

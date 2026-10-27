@@ -43,7 +43,13 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 - Database and Redis adapters accept provider-neutral injected event sinks and
   emit `db.query.failed` or `redis.command.failed` with the operation name when
   an external query or command fails. They rethrow the original failure and do
-  not depend on the logger package.
+  not depend on the logger package. Known transaction-admission refusals mean
+  work never ran: the DB boundary instead emits `db.capacity.refused` with
+  only the operation name. Identity survives bounded native error cause
+  wrappers; code/message lookalikes, unsupported cause links and execution
+  timeouts remain failures. Auth suppresses duplicate unhandled-crash logs
+  only for this identity. Failed HTTP requests still record their actual
+  retryable 503; a deferred refusal preserves the response already sent.
 
 ## Event registry
 
@@ -106,6 +112,7 @@ diverge:
 | `realtime.subscription.unavailable`      | error    | A subscription's authority read failed or outlasted its budget rather than deciding; the subscriber is refused with the transient `INFRASTRUCTURE` code (a real denial stays `AUTHORIZATION`), and delivery publishes nothing until a later revalidation allows (`operation`, `errorCode`) |
 | `request.unhandled`                      | error    | Next reported an unhandled request failure                                                                                                                                                                                                                                                 |
 | `db.query.failed`                        | error    | A database query or transaction failed                                                                                                                                                                                                                                                     |
+| `db.capacity.refused`                    | warn     | Database admission refused work before execution; operation name only                                                                                                                                                                                                                      |
 | `retention.sweep.completed`              | info     | One retention target (`operation`) swept its bounded batches                                                                                                                                                                                                                               |
 | `retention.sweep.failed`                 | error    | One retention target failed; the sweep moved on and retries next hour                                                                                                                                                                                                                      |
 | `redis.command.failed`                   | error    | A Redis command failed                                                                                                                                                                                                                                                                     |

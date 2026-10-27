@@ -1,4 +1,5 @@
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
+import { isTransactionCapacityRefusal } from '@daisy/db';
 import {
   currentTraceId,
   extractTraceContext,
@@ -93,7 +94,12 @@ export async function handleOperation(
             headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
           });
         }
-        const mapped = toPublicError(error, id);
+        const mapped = toPublicError(
+          isTransactionCapacityRefusal(error)
+            ? createAppError('INFRASTRUCTURE')
+            : error,
+          id,
+        );
         if (mapped.body.error.invariantId !== undefined)
           logger.log(
             'invariant.violated',

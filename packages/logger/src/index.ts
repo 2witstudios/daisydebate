@@ -48,6 +48,7 @@ export const eventRegistry = {
   'realtime.connection.rejected': 'info',
   'realtime.subscription.unavailable': 'error',
   'db.query.failed': 'error',
+  'db.capacity.refused': 'warn',
   'retention.sweep.completed': 'info',
   'retention.sweep.failed': 'error',
   'redis.command.failed': 'error',
