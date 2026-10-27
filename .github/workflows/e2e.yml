@@ -92,6 +92,10 @@ jobs:
         env:
           DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
 
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: browser-build
+
       - name: Build production server
         run: bun run build
         env:
@@ -105,6 +109,11 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: browser-build
+          phase: save
 
       - name: Resolve the Playwright version and cache month
         id: playwright
@@ -254,6 +263,10 @@ jobs:
             exit 1
           fi
           echo 'Main checkout teardown refused before connection'
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: native-build
+          checkout: .pu/worktrees/wt-roomlaunchci
       - name: Build composed production server
         id: build
         run: bun run build
@@ -262,6 +275,11 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: native-build
+          checkout: .pu/worktrees/wt-roomlaunchci
+          phase: save
       - name: Resolve the Playwright version and cache month
         id: playwright
         run: |
