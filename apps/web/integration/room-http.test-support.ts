@@ -91,6 +91,7 @@ export async function withHumanJudgeHttpRound(
     const config = {
       ...oneOnOneRankedConfig,
       preRoundPrep: { enabled: false },
+      resolutionDraw: { enabled: false },
       speechTiming: {
         ...oneOnOneRankedConfig.speechTiming,
         countdownMs: people.countdownMs ?? 0,

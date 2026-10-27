@@ -5,7 +5,7 @@ import {
   emptyRuntimeCheckpoint,
   ratingLadders,
   roundRulesSchema,
-  roomConfigSchema,
+  frozenRoomConfigSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -40,6 +40,7 @@ import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
+import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
 /** The ladder a Round rates on, as `rounds_rated_ladder_check` requires: Ranked, or none. */
 export const roundLadder = (
@@ -82,7 +83,16 @@ export const rounds = pgTable(
     formatVersion: integer('format_version').notNull(),
     /** Which approved preset resolved this; null for casual. */
     presetVersion: integer('preset_version'),
-    roomConfigSnapshot: jsonbColumn('room_config_snapshot', roomConfigSchema),
+    /** The viewer-independent config: a host list appears only as its length. */
+    roomConfigSnapshot: jsonbColumn(
+      'room_config_snapshot',
+      frozenRoomConfigSchema,
+    ),
+    /** Proof metadata of the Room's draw, frozen at Launch; null without one. */
+    resolutionEvidence: jsonbColumn(
+      'resolution_evidence',
+      resolutionDrawEvidenceSchema,
+    ),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
@@ -154,6 +164,7 @@ export const rounds = pgTable(
         sql`${table.roomId} is null or (${table.roomConfigSnapshot} is not null and ${table.visibility} is not null)`,
       ),
       jsonbIsObject('rounds', table.roomConfigSnapshot),
+      jsonbIsObject('rounds', table.resolutionEvidence),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       check(

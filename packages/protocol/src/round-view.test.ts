@@ -50,6 +50,7 @@ const view = {
   completedAt: null,
   outcome: null,
   unjudgedRuling: null,
+  resolutionAudit: null,
   viewerIsHost: false,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [segment(0), segment(1)],

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { debateRoleSchema, debateSideSchema } from './primitives';
+import { drawSources } from './resolution-draw';
 
 /** Provisional resource budget: bounds expanded seat records and per-seat command work,
  * independent of any league roster policy. Judges consume the same budget. */
@@ -143,6 +144,15 @@ const formatDefinitionShape = z.strictObject({
       .nullable(),
     /** Room-only: the pre-round product flow, executed before any Round. */
     preRoundPrep: z.strictObject({ durationMs: boundSchema }).nullable(),
+    /** Room-only: the pre-round resolution draw and strike (FMT-7). */
+    resolutionDraw: z
+      .strictObject({
+        drawSize: boundSchema,
+        strikeWindowMs: boundSchema,
+        firstStrikers: z.array(debateSideSchema).min(1),
+        sources: z.array(z.enum(drawSources)).min(1),
+      })
+      .nullable(),
     interaction: z.strictObject({
       crossExModes: optionSet(crossExModeSchema, crossExModes.length),
       interruptions: z
@@ -201,6 +211,13 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
       });
     validateSpeakingOpportunities(definition, ctx);
     validateSegmentReferences(definition, ctx);
+    const draw = definition.configurable.resolutionDraw;
+    if (draw && (draw.drawSize.min < 2 || draw.drawSize.max > 20))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'A draw holds 2 to 20 resolutions',
+        path: ['configurable', 'resolutionDraw', 'drawSize'],
+      });
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,
     );

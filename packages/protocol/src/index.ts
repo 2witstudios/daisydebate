@@ -31,7 +31,13 @@ export type {
   FormatSelectionFacts,
   FormatStanding,
 } from './format-standing';
-export { roomConfigSchema, roomExecutionPlanSchema } from './room';
+export {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  frozenRoomConfigSchema,
+  roomConfigSchema,
+  roomExecutionPlanSchema,
+} from './room';
 export {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_COVERAGE_TOLERANCE,

@@ -18,6 +18,7 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
     const view = (await f.create()).view;
     const config = {
       ...view.config,
+      resolutionDraw: { enabled: false as const },
       inRoundPrep: { enabled: false as const },
       speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
       interruptions: { mode: 'disabled' as const, minRemainingMs: 0 },
@@ -152,6 +153,8 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
                   participantId: createId(),
                   formatId: createId(),
                   target: null,
+                  drawSeed: null,
+                  drawStart: null,
                 },
               ),
           }),

@@ -88,7 +88,7 @@ export function AssemblyDetailsFields({
           required
           readOnly={!view.capabilities.canEdit}
           aria-describedby="room-topic-hint"
-          defaultValue={state.values.topic ?? view.topic}
+          defaultValue={state.values.topic ?? view.topic ?? ''}
           className={controlClass}
         />
       </FormField>

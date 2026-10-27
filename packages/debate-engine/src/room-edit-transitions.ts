@@ -31,6 +31,12 @@ export const updateConfig = (
   if (!resolved.ok) return refuse('illegal-config');
   if (room.participants.some((p) => p.slot >= resolved.rules.seats[p.role]))
     return refuse('seat-unavailable');
+  const topic = nextTopic(
+    room,
+    resolved.roomPlan.resolutionDraw.enabled,
+    command.topic,
+  );
+  if (topic === undefined) return refuse('illegal-config');
   publishDefinition = command.type === 'update-format';
   next = {
     ...room,
@@ -40,6 +46,7 @@ export const updateConfig = (
     executionPlan: resolved.roomPlan,
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
+    topic,
     prepStartedAt: null,
     prepRemainingMs: resolved.roomPlan.preRoundPrep.enabled
       ? resolved.roomPlan.preRoundPrep.durationMs
@@ -115,14 +122,31 @@ export const updateDetails = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-  next = {
+  const draw = room.executionPlan.resolutionDraw.enabled;
+  if (draw === (command.topic !== undefined)) return refuse('illegal-config');
+  return acceptedRoomMutation({
     ...room,
     title: command.title,
-    topic: command.topic,
+    topic: command.topic ?? null,
     visibility: command.visibility,
-  };
-  return acceptedRoomMutation(next);
+  });
+};
+
+/**
+ * The topic after a config change, or undefined when the command breaks the
+ * rule: turning a draw on carries `topic: null`, turning it off carries the
+ * replacement text, and keeping the draw state carries no topic.
+ */
+const nextTopic = (
+  room: RoomAssemblyState,
+  drawAfter: boolean,
+  topic: string | null | undefined,
+): string | null | undefined => {
+  const drawBefore = room.executionPlan.resolutionDraw.enabled;
+  if (drawBefore === drawAfter)
+    return topic === undefined ? room.topic : undefined;
+  if (drawAfter) return topic === null ? null : undefined;
+  return typeof topic === 'string' ? topic : undefined;
 };
 const seatAdmission = (
   room: RoomAssemblyState,
@@ -179,6 +203,14 @@ export const claimSeat = (
   };
   return acceptedRoomMutation(next);
 };
+/** Removes one seat: the pure core of leaving, removal and erasure. */
+const removeSeat = (
+  room: RoomAssemblyState,
+  participantId: string,
+): RoomAssemblyState => ({
+  ...room,
+  participants: room.participants.filter((p) => p.id !== participantId),
+});
 export const leaveSeat = (
   room: RoomAssemblyState,
   actorId: string,
@@ -186,19 +218,13 @@ export const leaveSeat = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-
   const held = room.participants.find((p) =>
     command.type === 'leave-seat'
       ? p.actorId === actorId
       : p.id === command.participantId,
   );
   if (!held) return refuse('not-seated');
-  next = {
-    ...room,
-    participants: room.participants.filter((p) => p.id !== held.id),
-  };
-  return acceptedRoomMutation(next);
+  return acceptedRoomMutation(removeSeat(room, held.id));
 };
 
 const unjoinedHuman = (

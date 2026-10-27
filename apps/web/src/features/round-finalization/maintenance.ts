@@ -4,7 +4,7 @@ import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
-  expireIdleRoom,
+  maintainRoom,
   freezeJudgingPlan,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -77,8 +77,8 @@ export function createRoundMaintenanceOperations(input: {
     | 'readUnratedAttendanceForfeits'
     | 'rateRound'
     | 'completeUnjudgedRound'
-    | 'readIdleRoomCandidates'
-    | 'expireIdleRoom'
+    | 'readMaintenanceCandidates'
+    | 'maintainRoom'
   >;
   readonly instanceId: string;
   readonly ids: IdGenerator;
@@ -168,19 +168,26 @@ export function createRoundMaintenanceOperations(input: {
       }
       return result;
     },
-    /** Closes open Rooms idle past the policy timeout, a page per pulse. */
-    async expireIdleRooms() {
+    /**
+     * Settles due draw strikes and closes open Rooms idle past the policy
+     * timeout, a page per pulse. Settlement runs even with expiry unset.
+     */
+    async maintainRooms() {
       const idleTimeoutMs = input.idleTimeoutMs;
-      if (idleTimeoutMs === null) return;
-      const roomIds = await input.store.readIdleRoomCandidates({
+      const roomIds = await input.store.readMaintenanceCandidates({
         idleTimeoutMs,
         limit: 64,
       });
       for (const roomId of roomIds)
-        await input.store.expireIdleRoom({
+        await input.store.maintainRoom({
           roomId,
-          expire: (state, facts) =>
-            expireIdleRoom(state, { ...facts, idleTimeoutMs }),
+          maintain: (state, facts) =>
+            maintainRoom(state, {
+              lastCommandAt: facts.lastCommandAt,
+              now: facts.now,
+              idleTimeoutMs,
+              drawSeed: facts.drawSeed,
+            }),
         });
     },
     async rateUnrated() {

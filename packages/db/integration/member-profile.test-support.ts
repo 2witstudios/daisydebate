@@ -23,7 +23,10 @@ export const roomRound = async (
     format_version: 1,
     competition_type: 'casual',
     config: validConfig,
-    execution_plan: { preRoundPrep: { enabled: false } },
+    execution_plan: {
+      preRoundPrep: { enabled: false },
+      resolutionDraw: { enabled: false },
+    },
     rules_snapshot: validRules,
     status: 'started',
   });

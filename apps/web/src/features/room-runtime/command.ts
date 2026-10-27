@@ -19,6 +19,7 @@ export function roomCommandOperation({
   eligible,
   consentOf,
   view,
+  entropy,
 }: {
   store: Store;
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
@@ -34,6 +35,7 @@ export function roomCommandOperation({
     caller: Caller,
     roomId: string,
   ) => Promise<RoomCommandResponse['view']>;
+  entropy: () => string;
 }) {
   return async function command(
     caller: Caller,
@@ -64,7 +66,7 @@ export function roomCommandOperation({
       roundId: ids.next(),
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
-      prepare: async (raw, preparedAt, account) => {
+      prepare: async (raw, preparedAt, account, preparedSeed) => {
         if (!can(caller, capabilityOf(command), account, raw))
           throw createAppError('AUTHORIZATION');
         const prepared = eligible(raw);
@@ -80,6 +82,8 @@ export function roomCommandOperation({
               participantId: ids.next(),
               formatId: ids.next(),
               target: null,
+              drawSeed: preparedSeed,
+              drawStart: null,
             },
           );
           if (outcome.ok && outcome.mutation.consent?.type === 'ready')
@@ -91,7 +95,10 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        return (raw, now, target, account, formatFacts) => {
+        const drawId = ids.next();
+        const seed = entropy();
+        const salt = entropy();
+        return (raw, now, target, account, draw, formatFacts) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
@@ -121,6 +128,17 @@ export function roomCommandOperation({
                       (target.kind === 'human' || botsAvailable()),
                   }
                 : null,
+              drawSeed: draw.seed,
+              drawStart:
+                command.type === 'start-pre-round'
+                  ? {
+                      drawId,
+                      seed,
+                      salt,
+                      bank: draw.bank,
+                      exclusions: draw.exclusions,
+                    }
+                  : null,
             },
           );
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.

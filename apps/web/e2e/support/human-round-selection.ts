@@ -41,6 +41,7 @@ export const humanRoundSelection = (
   config: {
     ...choice.preset.config,
     preRoundPrep: { enabled: false },
+    resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: false },
     speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
     yielding: { allowed: true, returnsTime: false },

@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
-import { roomConfigSchema, roomExecutionPlanSchema } from './room';
+import {
+  frozenRoomConfigSchema,
+  frozenRoomExecutionPlanSchema,
+  roomConfigSchema,
+} from './room';
+import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
 const version = z.int().positive();
@@ -44,6 +49,14 @@ export const roomRefusalSchema = z.enum([
   'active-room',
   /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
   'format-unavailable',
+  /** The draw's source cannot supply enough resolutions. */
+  'draw-unavailable',
+  /** No draw, or the position is not standing. */
+  'strike-unavailable',
+  /** The form's strike is not the next one: refresh and strike again. */
+  'strike-conflict',
+  /** The side holding this strike is not yours to strike for. */
+  'not-your-turn',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -51,7 +64,8 @@ export const roomViewSchema = z.strictObject({
   version,
   changeVersion: version,
   title: z.string().min(1),
-  topic: z.string().min(1),
+  /** Null while a draw Room has not revealed its resolution. */
+  topic: z.string().min(1).nullable(),
   visibility,
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
@@ -95,8 +109,13 @@ export const roomViewSchema = z.strictObject({
   }),
   competitionType: z.enum(competitionTypes),
   definition: formatDefinitionSchema,
-  config: roomConfigSchema,
-  executionPlan: roomExecutionPlanSchema,
+  config: frozenRoomConfigSchema,
+  executionPlan: frozenRoomExecutionPlanSchema,
+  /** The host's own resolution list, for its author while assembling only. */
+  authoredDrawSource: z
+    .strictObject({ resolutions: z.array(z.string().min(1)).readonly() })
+    .nullable(),
+  resolutionDraw: resolutionDrawViewSchema.nullable(),
   rules: roundRulesSchema,
   participants: z
     .array(
@@ -128,7 +147,8 @@ export const roomViewSchema = z.strictObject({
     canEdit: z.boolean(),
     canClaimSeat: z.boolean(),
     canReady: z.boolean(),
-    canStartPrep: z.boolean(),
+    canStartPreRound: z.boolean(),
+    canStrike: z.boolean(),
     canFinishPrep: z.boolean(),
     canStart: z.boolean(),
   }),

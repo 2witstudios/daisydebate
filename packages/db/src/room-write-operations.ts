@@ -22,6 +22,7 @@ import {
   type FormatSelectionFactsRecord,
   type SelectionTuple,
 } from './format-operations';
+import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -32,7 +33,7 @@ import {
   type AuthorizeRoom,
   type Actor,
   actorFact,
-  roomState,
+  roomFacts,
   lockCommand,
   replayReceipt,
   acceptCommand,
@@ -54,15 +55,22 @@ type CommandInput = {
     state: RoomAssemblyState,
     now: string,
     account: Account,
+    drawSeed: string | null,
   ) => Promise<
     (
       state: RoomAssemblyState,
       now: string,
       target: Actor | null,
       account: Account,
+      draw: RoomDrawFacts,
       formatFacts: FormatSelectionFactsRecord | null,
     ) => RoomMutationOutcome
   >;
+};
+
+/** The draw facts a command executes with: the seed, and new-draw facts. */
+export type RoomDrawFacts = Awaited<ReturnType<typeof drawStartFacts>> & {
+  readonly seed: string | null;
 };
 
 export const roomWriteOperations = ({
@@ -102,7 +110,7 @@ export const roomWriteOperations = ({
           .where(eq(rooms.id, input.roomId))
           .for('update');
         if (!row) throw createAppError('NOT_FOUND');
-        const state = await roomState(tx, row);
+        const { state, drawSeed } = await roomFacts(tx, row);
         if (!input.authorizeRead(state, account))
           throw createAppError('NOT_FOUND');
         if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
@@ -125,7 +133,14 @@ export const roomWriteOperations = ({
         const formatFacts = input.formatTuple
           ? await readFormatSelectionFacts(tx, input.formatTuple)
           : null;
-        const outcome = execute(state, now, target, account, formatFacts);
+        const outcome = execute(
+          state,
+          now,
+          target,
+          account,
+          await drawFacts(tx, input.type, state, drawSeed),
+          formatFacts,
+        );
         if (!outcome.ok)
           throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
         const next = outcome.mutation.state;
@@ -134,6 +149,8 @@ export const roomWriteOperations = ({
           outcome.mutation,
           input.roundId,
           now,
+          true,
+          storedStrikes(state),
         );
         await reserveBotFreeze(
           tx,
@@ -163,6 +180,21 @@ export const roomWriteOperations = ({
   },
 });
 
+/** The seed, plus new-draw facts only for `start-pre-round`. */
+const drawFacts = async (
+  tx: Tx,
+  type: string,
+  state: RoomAssemblyState,
+  seed: string | null,
+): Promise<RoomDrawFacts> => ({
+  seed,
+  ...(type === 'start-pre-round'
+    ? await drawStartFacts(tx, state)
+    : { bank: null, exclusions: [] }),
+});
+const storedStrikes = (state: RoomAssemblyState) =>
+  state.resolutionDraw?.strikes.length ?? 0;
+
 const refusalCode = (refusal: string) =>
   refusal === 'host-required'
     ? ('AUTHORIZATION' as const)
@@ -183,7 +215,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     .from(rooms)
     .where(eq(rooms.id, input.roomId));
   if (!preparationRow) throw createAppError('NOT_FOUND');
-  const prepared = await roomState(tx, preparationRow);
+  const { state: prepared, drawSeed } = await roomFacts(tx, preparationRow);
   if (!input.authorizeRead(prepared, preparationAccount))
     throw createAppError('NOT_FOUND');
   if (input.caller.actorId !== input.actorId)
@@ -200,6 +232,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     prepared,
     await transactionNow(tx),
     preparationAccount,
+    drawSeed,
   );
   return { prepared, execute } as const;
 }

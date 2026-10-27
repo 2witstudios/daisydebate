@@ -32,7 +32,7 @@ test('preparation shows its saved length, then its live state', () => {
       render(assemblySnapshot).includes('5:21 for both sides'),
       render(running).includes('1:01 left'),
       render(running).includes('value="finish-prep"'),
-      render(running).includes('value="start-prep"'),
+      render(running).includes('value="start-pre-round"'),
     ],
     expected: [true, true, true, false],
   });
@@ -41,13 +41,13 @@ test('preparation shows its saved length, then its live state', () => {
 test('the host starts preparation through a native versioned command', () => {
   const html = render({
     ...assemblySnapshot,
-    capabilities: { ...assemblySnapshot.capabilities, canStartPrep: true },
+    capabilities: { ...assemblySnapshot.capabilities, canStartPreRound: true },
   });
   assert({
     given: 'a host permitted to start preparation',
-    should: 'post start-prep with the room version and command identity',
+    should: 'post start-pre-round with the room version and command identity',
     actual: [
-      html.includes('value="start-prep"'),
+      html.includes('value="start-pre-round"'),
       html.includes('name="expectedVersion" value="3"'),
       html.includes('value="start-id"'),
       html.includes(`href="${destinationHref('prep')}"`),

@@ -3,6 +3,7 @@ import {
   roomConfigSchema,
   type RoomCreate,
 } from '@daisy/protocol';
+import { plainRoomConfig } from '@daisy/protocol/testing';
 /** Declared proof format, persisted through canonical custom-create, never a mock view. */
 export const launchCustomSelection = {
   kind: 'custom' as const,
@@ -48,6 +49,7 @@ export const launchCustomSelection = {
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: null,
+      resolutionDraw: null,
       inRoundPrep: null,
       interaction: {
         crossExModes: ['ordered'],
@@ -56,12 +58,5 @@ export const launchCustomSelection = {
       },
     },
   }),
-  config: roomConfigSchema.parse({
-    preRoundPrep: { enabled: false },
-    inRoundPrep: { enabled: false },
-    speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: null,
-    yielding: null,
-  }),
+  config: roomConfigSchema.parse(plainRoomConfig),
 } satisfies Extract<RoomCreate['selection'], { kind: 'custom' }>;

@@ -239,6 +239,7 @@ describe('room lobby labels', () => {
         config: {
           ...assemblySnapshot.config,
           preRoundPrep: { enabled: false },
+          resolutionDraw: { enabled: false },
           inRoundPrep: { enabled: false },
           crossExamination: { crossExMode: 'ordered' },
           interruptions: { mode: 'cross_ex_only', minRemainingMs: 30000 },

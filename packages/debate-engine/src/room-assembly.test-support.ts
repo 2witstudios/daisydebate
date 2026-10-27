@@ -54,6 +54,7 @@ export const state = (): RoomAssemblyState => ({
     })),
     configurable: {
       preRoundPrep: null,
+      resolutionDraw: null,
       inRoundPrep: null,
       timing: {
         countdownMs: { min: 0, max: 0 },
@@ -70,7 +71,10 @@ export const state = (): RoomAssemblyState => ({
     },
   },
   config: plainRoomConfig,
-  executionPlan: { preRoundPrep: { enabled: false } },
+  executionPlan: {
+    preRoundPrep: { enabled: false },
+    resolutionDraw: { enabled: false },
+  },
   rules,
   participants: [
     {
@@ -98,6 +102,7 @@ export const state = (): RoomAssemblyState => ({
   ],
   prepStartedAt: null,
   prepRemainingMs: null,
+  resolutionDraw: null,
   roundRef: null,
 });
 export const edges = {
@@ -105,5 +110,7 @@ export const edges = {
   participantId: 'new-seat',
   formatId: 'new-format',
   target: null,
+  drawSeed: null,
+  drawStart: null,
 };
 export const consent = { available: true, readyActorIds: ['host', 'other'] };

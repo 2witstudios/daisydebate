@@ -42,10 +42,11 @@ import {
   sharedAccount,
   requireAccount,
   actorFact,
-  roomState,
+  roomFacts,
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
+import { roundResolutionAudit } from './room-draw-persistence';
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -101,6 +102,7 @@ export async function launchedRoundRows(
           ),
         ),
     ),
+    resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),
   };
@@ -194,6 +196,17 @@ export const roomReadOperations = ({
     caller: Caller,
     authorize: AuthorizeRoom,
   ): Promise<RoomAssemblyState> {
+    return (await this.readRoomAssemblyFacts(roomId, caller, authorize)).state;
+  },
+  /** The Room and its draw seed in one read; the seed settles projections and never leaves the server. */
+  async readRoomAssemblyFacts(
+    roomId: string,
+    caller: Caller,
+    authorize: AuthorizeRoom,
+  ): Promise<{
+    readonly state: RoomAssemblyState;
+    readonly drawSeed: string | null;
+  }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
@@ -203,9 +216,9 @@ export const roomReadOperations = ({
           .where(eq(rooms.id, roomId))
           .for('share');
         if (!row) throw createAppError('NOT_FOUND');
-        const state = await roomState(tx, row);
-        if (!authorize(state, account)) throw createAppError('NOT_FOUND');
-        return state;
+        const facts = await roomFacts(tx, row);
+        if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
+        return facts;
       }),
     );
   },

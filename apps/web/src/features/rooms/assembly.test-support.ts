@@ -1,5 +1,10 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { RoomListEntry, RoomView } from '@daisy/protocol';
+import {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  type RoomListEntry,
+  type RoomView,
+} from '@daisy/protocol';
 import type { RoomTemplate } from './read-catalog';
 
 /** Explicit legal-choice fixture, never a production template or default. */
@@ -44,6 +49,7 @@ export const unequalTemplate = {
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: { durationMs: { min: 60000, max: 600000 } },
+      resolutionDraw: null,
       inRoundPrep: {
         budgetMsPerSide: { min: 0, max: 900000 },
         spendableBefore: ['speech'],
@@ -63,6 +69,7 @@ export const unequalTemplate = {
     version: 5,
     config: {
       preRoundPrep: { enabled: true, durationMs: 321000 },
+      resolutionDraw: { enabled: false },
       inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
       speechTiming: {
         countdownMs: 444,
@@ -112,8 +119,10 @@ export const assemblySnapshot = {
   },
   competitionType: 'casual',
   definition: unequalTemplate.definition,
-  config: unequalTemplate.preset.config,
-  executionPlan: compiled.roomPlan,
+  config: freezeRoomConfig(unequalTemplate.preset.config),
+  executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
+  authoredDrawSource: null,
+  resolutionDraw: null,
   rules: compiled.rules,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },
@@ -123,7 +132,8 @@ export const assemblySnapshot = {
     canEdit: true,
     canClaimSeat: true,
     canReady: false,
-    canStartPrep: false,
+    canStartPreRound: false,
+    canStrike: false,
     canFinishPrep: false,
     canStart: false,
   },

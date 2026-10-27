@@ -3,6 +3,7 @@ import {
   roomCommandSchema,
   roomConfigSchema,
   type RoomCommand,
+  type RoomConfig,
   type RoomView,
 } from '@daisy/protocol';
 
@@ -36,6 +37,19 @@ function allowedFields(view: RoomView) {
     ...(capability.interaction.yield ? ['yield'] : []),
   ]);
 }
+/** The Room's draw choice, rebuilt from the author's own list when it has one. */
+const currentDraw = (view: RoomView): RoomConfig['resolutionDraw'] => {
+  const draw = view.config.resolutionDraw;
+  if (!draw.enabled || draw.source.kind === 'bank')
+    return draw as RoomConfig['resolutionDraw'];
+  return {
+    ...draw,
+    source: {
+      kind: 'host',
+      resolutions: [...(view.authoredDrawSource?.resolutions ?? [])],
+    },
+  };
+};
 function configFields(view: RoomView, form: FormData) {
   const capability = view.definition.configurable;
   return {
@@ -43,6 +57,9 @@ function configFields(view: RoomView, form: FormData) {
       form.get('preRoundPrep') === 'on'
         ? { enabled: true, durationMs: readDuration(form, 'preRound') }
         : { enabled: false },
+    // The draw is configured by its own setup fieldset (FMT-7.2); until
+    // then saving settings keeps the Room's current choice.
+    resolutionDraw: currentDraw(view),
     inRoundPrep:
       form.get('inRoundPrep') === 'on'
         ? { enabled: true, budgetMsPerSide: readDuration(form, 'budget') }

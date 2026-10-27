@@ -1,4 +1,5 @@
 import type { RoomListEntry, RoundStage } from '@daisy/protocol';
+import { drawnTopicLabel } from '../debate-room/vocabulary';
 
 type RowState = 'open' | 'starting' | 'live';
 
@@ -106,7 +107,7 @@ export function lobbyRow(now: number, entry: RoomListEntry): LobbyRow {
   return {
     id: entry.id,
     title: entry.title,
-    topic: entry.topic,
+    topic: entry.topic ?? drawnTopicLabel,
     host: entry.hostLabel,
     mode: entry.competitionType === 'ranked' ? 'Ranked' : 'Casual',
     format: entry.formatLabel,

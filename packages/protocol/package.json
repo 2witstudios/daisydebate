@@ -10,6 +10,7 @@
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",
     "./bot-activity": "./src/bot-activity.ts",
     "./bot-activity-testing": "./src/bot-activity.test-support.ts",
+    "./resolution-draw": "./src/resolution-draw.ts",
     "./privacy": "./src/privacy.ts",
     "./operator": "./src/operator.ts"
   },

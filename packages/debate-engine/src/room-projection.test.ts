@@ -27,7 +27,8 @@ const consent = {
   available: true,
   readyActorIds: ['host', 'other', 'judge-actor'],
 };
-const view = (viewer: string) => projectRoom(room, viewer, consent, edges.now);
+const view = (viewer: string) =>
+  projectRoom(room, viewer, consent, edges.now, null);
 const leaks = (value: unknown) =>
   ['Riley', 'p3', 'judge-actor'].filter((secret) =>
     JSON.stringify(value).includes(secret),
@@ -79,7 +80,7 @@ describe('projectRoom judge anonymity when the host judges (DEC-174)', () => {
     ),
   };
   const hostView = (viewer: string) =>
-    projectRoom(hostJudges, viewer, consent, edges.now);
+    projectRoom(hostJudges, viewer, consent, edges.now, null);
 
   test('a debater', () => {
     const seen = hostView('other');
@@ -173,7 +174,7 @@ describe('projectRoom format (FMT-1)', () => {
     },
   };
   test('a room still on its standard', () => {
-    const seen = projectRoom(standard, 'other', consent, edges.now);
+    const seen = projectRoom(standard, 'other', consent, edges.now, null);
     assert({
       given: 'a room running its standard basis unchanged',
       should:
@@ -213,6 +214,7 @@ describe('projectRoom format (FMT-1)', () => {
       'other',
       consent,
       edges.now,
+      null,
     );
     assert({
       given: 'a standard room whose countdown changed',

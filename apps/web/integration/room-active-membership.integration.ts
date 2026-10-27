@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { expireIdleRoom } from '@daisy/debate-engine';
+import { maintainRoom } from '@daisy/debate-engine';
 import { isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -156,16 +156,19 @@ test('maintenance closes a Room idle past the timeout and frees its members', as
   await withRoomRuntime(async (f) => {
     const idle = (await f.create()).view;
     const busy = (await f.create({}, f.guest)).view;
-    await f.sql`update rooms set updated_at = statement_timestamp() - interval '11 minutes' where id=${idle.id}`;
-    const candidates = await f.store.readIdleRoomCandidates({
+    await f.sql`update rooms set last_command_at = statement_timestamp() - interval '11 minutes' where id=${idle.id}`;
+    const candidates = await f.store.readMaintenanceCandidates({
       idleTimeoutMs: 600_000,
       limit: 64,
     });
     const expire = (roomId: string) =>
-      f.store.expireIdleRoom({
+      f.store.maintainRoom({
         roomId,
-        expire: (state, facts) =>
-          expireIdleRoom(state, { ...facts, idleTimeoutMs: 600_000 }),
+        maintain: (state, facts) =>
+          maintainRoom(state, {
+            ...facts,
+            idleTimeoutMs: 600_000,
+          }),
       });
     const expired = [await expire(idle.id), await expire(busy.id)];
     const outbox = await f.sql`

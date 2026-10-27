@@ -9,7 +9,8 @@ export type NewRoom = {
   readonly id: string;
   readonly hostActorId: string;
   readonly title: string;
-  readonly topic: string;
+  /** Null exactly when the Room's plan has a draw (FMT-7). */
+  readonly topic: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly formatId: string;
   readonly formatVersion: number;

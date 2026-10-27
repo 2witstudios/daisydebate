@@ -89,7 +89,7 @@ describe('Room assembly authority', () => {
       consent,
       edges,
     );
-    const view = projectRoom(room, 'host', consent, edges.now);
+    const view = projectRoom(room, 'host', consent, edges.now, null);
     assert({
       given: 'complete cast and current consent',
       should:
@@ -165,13 +165,20 @@ describe('Room assembly authority', () => {
 test('prep keeps its original atomic anchor and derives time without restarting on finish', () => {
   const room: RoomAssemblyState = {
     ...state(),
-    executionPlan: { preRoundPrep: { enabled: true, durationMs: 60_000 } },
+    executionPlan: {
+      preRoundPrep: { enabled: true, durationMs: 60_000 },
+      resolutionDraw: { enabled: false },
+    },
     prepRemainingMs: 60_000,
   };
   const started = executeRoomCommand(
     room,
     'host',
-    { type: 'start-prep', commandId: 'prep', expectedVersion: room.version },
+    {
+      type: 'start-pre-round',
+      commandId: 'prep',
+      expectedVersion: room.version,
+    },
     consent,
     edges,
   );
@@ -207,10 +214,11 @@ test('prep keeps its original atomic anchor and derives time without restarting 
       'refuse early finish, project elapsed remaining, and keep the original anchor after acknowledgment',
     actual: [
       early,
-      projectRoom(running, 'host', consent, halfway.now).prep,
+      projectRoom(running, 'host', consent, halfway.now, null).prep,
       done.ok && done.mutation.state.prepStartedAt,
-      projectRoom(running, 'host', consent, elapsed.now).prep,
-      projectRoom(running, 'host', consent, halfway.now).capabilities.canEdit,
+      projectRoom(running, 'host', consent, elapsed.now, null).prep,
+      projectRoom(running, 'host', consent, halfway.now, null).capabilities
+        .canEdit,
     ],
     expected: [
       { ok: false, refusal: 'prep-running' },
@@ -225,7 +233,10 @@ test('prep keeps its original atomic anchor and derives time without restarting 
 test('configuration changes are fenced while prep is active', () => {
   const room: RoomAssemblyState = {
     ...state(),
-    executionPlan: { preRoundPrep: { enabled: true, durationMs: 60_000 } },
+    executionPlan: {
+      preRoundPrep: { enabled: true, durationMs: 60_000 },
+      resolutionDraw: { enabled: false },
+    },
     prepStartedAt: edges.now,
     prepRemainingMs: 60_000,
   };
@@ -268,7 +279,7 @@ test('a host close abandons the room and prevents further commands', () => {
           commandId: 'edit-after-close',
           expectedVersion: closed.mutation.state.version,
           title: 'Changed',
-          topic: room.topic,
+          topic: room.topic ?? undefined,
           visibility: 'public',
         },
         consent,

@@ -1,5 +1,13 @@
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
+import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
+import {
+  mayStrike,
+  preRoundBegun,
+  preRoundPhase,
+  type PreRoundPhase,
+} from './pre-round-phase';
+import { settleRoom, survivorOf } from './resolution-draw';
 
 import {
   assemblyOpen,
@@ -7,6 +15,7 @@ import {
   prepFinished,
   startBlocker,
 } from './room-assembly-facts';
+import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -45,64 +54,98 @@ export const hostIdentityHidden = (
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
-/** Server projection: consumers never infer startability or consent from local device state. */
+/**
+ * Server projection: consumers never infer startability or consent from
+ * local device state. Every field is built explicitly — nothing internal is
+ * spread — so a host list, draw texts or the seed cannot ride along. The
+ * Room is settled at `now` first, without writing.
+ */
 export function projectRoom(
-  room: RoomAssemblyState,
+  stored: RoomAssemblyState,
   actorId: string,
   consent: RoomConsent,
   now: string,
+  drawSeed: string | null,
 ): RoomView {
+  const room = settleRoom(stored, drawSeed, now);
   const blocker = startBlocker(room, consent, now);
   const hidden = hiddenJudges(room, actorId);
-  const {
-    prepStartedAt: _anchor,
-    prepRemainingMs: _remaining,
-    catalogFormat,
-    basis,
-    ...rest
-  } = room;
-  void _anchor;
-  void _remaining;
+  const hostHidden = hostIdentityHidden(
+    {
+      hostActorId: room.hostActorId,
+      hostIsHumanJudge: room.participants.some(
+        (p) =>
+          p.actorId === room.hostActorId &&
+          p.role === 'judge' &&
+          p.kind === 'human',
+      ),
+    },
+    actorId,
+  );
+  const phase = preRoundPhase(room, now);
+  const source = room.config.resolutionDraw.enabled
+    ? room.config.resolutionDraw.source
+    : null;
   return {
-    ...(hostIdentityHidden(
-      {
-        hostActorId: room.hostActorId,
-        hostIsHumanJudge: room.participants.some(
-          (p) =>
-            p.actorId === room.hostActorId &&
-            p.role === 'judge' &&
-            p.kind === 'human',
-        ),
-      },
-      actorId,
-    )
-      ? { ...rest, hostActorId: null, hostLabel: null }
-      : rest),
-    participants: room.participants.map(
-      ({ consentCommandId: _fence, ...p }) => {
-        const state = {
-          needsReady: p.kind === 'human',
-          ready: participantReady(p, consent),
-          eligible: p.eligible,
-        };
-        return hidden.has(p.actorId)
-          ? {
-              role: 'judge' as const,
-              kind: 'human' as const,
-              slot: p.slot,
-              anonymous: true as const,
-              ...state,
-            }
-          : { ...p, ...state };
-      },
-    ),
+    id: room.id,
+    version: room.version,
+    changeVersion: room.changeVersion,
+    title: room.title,
+    topic: room.topic,
+    visibility: room.visibility,
+    hostActorId: hostHidden ? null : room.hostActorId,
+    hostLabel: hostHidden ? null : room.hostLabel,
+    botAdmission: null,
+    status: room.status,
+    formatId: room.formatId,
+    formatVersion: room.formatVersion,
+    presetVersion: room.presetVersion,
+    competitionType: room.competitionType,
+    definition: room.definition,
+    config: freezeRoomConfig(room.config),
+    executionPlan: freezeRoomExecutionPlan(room.executionPlan),
+    authoredDrawSource:
+      source?.kind === 'host' &&
+      room.hostActorId === actorId &&
+      assemblyOpen(room)
+        ? { resolutions: source.resolutions }
+        : null,
+    resolutionDraw: room.resolutionDraw
+      ? projectDraw(room, actorId, phase)
+      : null,
+    rules: room.rules,
+    participants: room.participants.map((p) => {
+      const state = {
+        needsReady: p.kind === 'human',
+        ready: participantReady(p, consent),
+        eligible: p.eligible,
+      };
+      return hidden.has(p.actorId)
+        ? {
+            role: 'judge' as const,
+            kind: 'human' as const,
+            slot: p.slot,
+            anonymous: true as const,
+            ...state,
+          }
+        : {
+            id: p.id,
+            actorId: p.actorId,
+            kind: p.kind,
+            label: p.label,
+            consentVersion: p.consentVersion,
+            role: p.role,
+            slot: p.slot,
+            ...state,
+          };
+    }),
     format: {
-      ...catalogFormat,
-      basis: basis && {
-        formatId: basis.formatId,
-        name: basis.name,
-        formatVersion: basis.formatVersion,
-        presetVersion: basis.presetVersion,
+      ...room.catalogFormat,
+      basis: room.basis && {
+        formatId: room.basis.formatId,
+        name: room.basis.name,
+        formatVersion: room.basis.formatVersion,
+        presetVersion: room.basis.presetVersion,
       },
       standing: formatStanding({
         active: {
@@ -111,7 +154,7 @@ export function projectRoom(
           definition: room.definition,
           config: room.config,
         },
-        basis,
+        basis: room.basis,
       }),
     },
     readiness: {
@@ -120,11 +163,64 @@ export function projectRoom(
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
     prep: prepView(room, now),
-    capabilities: roomCapabilities(room, actorId, blocker, now),
+    capabilities: roomCapabilities(room, actorId, blocker, now, phase),
     startRefusal: blocker,
-    botAdmission: null,
+    roundRef: room.roundRef,
   };
 }
+
+/** Seated debaters see every drawn text; everyone else sees progress only. */
+const projectDraw = (
+  room: RoomAssemblyState,
+  actorId: string,
+  phase: PreRoundPhase,
+): ResolutionDrawView => {
+  const draw = room.resolutionDraw!;
+  const turn =
+    phase.phase === 'striking'
+      ? {
+          ordinal: phase.turn.ordinal,
+          side: phase.turn.side,
+          dueAt: phase.turn.dueAt,
+        }
+      : null;
+  const revealedAt = survivorOf(draw)?.at ?? null;
+  const debater = room.participants.some(
+    (p) =>
+      p.actorId === actorId &&
+      (p.role === 'affirmative' || p.role === 'negative'),
+  );
+  if (!debater)
+    return {
+      visibility: 'progress',
+      drawSize: draw.manifest.drawSize,
+      strikes: draw.strikes.map(({ ordinal, side, kind }) => ({
+        ordinal,
+        side,
+        kind,
+      })),
+      turn,
+      revealedAt,
+    };
+  return {
+    visibility: 'debater',
+    commitment: draw.commitment,
+    drawSize: draw.manifest.drawSize,
+    items: draw.items.map(({ position, text, category }) => ({
+      position,
+      text,
+      category,
+    })),
+    strikes: draw.strikes.map(({ ordinal, side, kind, position }) => ({
+      ordinal,
+      side,
+      kind,
+      position,
+    })),
+    turn,
+    revealedAt,
+  };
+};
 
 const prepView = (room: RoomAssemblyState, now: string): RoomView['prep'] => ({
   startedAt: room.prepStartedAt,
@@ -138,38 +234,33 @@ const prepView = (room: RoomAssemblyState, now: string): RoomView['prep'] => ({
       : room.prepRemainingMs,
   finished: prepFinished(room, now),
 });
-const prepCapabilities = (room: RoomAssemblyState, now: string) => ({
-  canStartPrep:
-    complete(room) &&
-    room.executionPlan.preRoundPrep.enabled &&
-    room.prepStartedAt === null,
-  canFinishPrep:
-    room.executionPlan.preRoundPrep.enabled &&
-    room.prepStartedAt !== null &&
-    prepFinished(room, now),
-});
 const roomCapabilities = (
   room: RoomAssemblyState,
   actorId: string,
   blocker: RoomView['startRefusal'],
   now: string,
+  phase: PreRoundPhase,
 ): RoomView['capabilities'] => {
   const host = room.hostActorId === actorId;
   const open = assemblyOpen(room);
   const manage = host && open;
-  const editable = open && room.prepStartedAt === null;
+  const editable = open && !preRoundBegun(room);
   const own = room.participants.find((p) => p.actorId === actorId);
-  const prep = prepCapabilities(room, now);
   return {
     host,
     canEdit: manage && editable && room.competitionType !== 'ranked',
     canClaimSeat: editable,
     canReady: canReady(open, own),
-    canStartPrep: manage && prep.canStartPrep,
-    canFinishPrep: manage && prep.canFinishPrep,
+    canStartPreRound: manage && phase.phase === 'not-begun' && complete(room),
+    canStrike: open && mayStrike(room, actorId, phase),
+    canFinishPrep: manage && prepCanFinish(room, now),
     canStart: host && blocker === null,
   };
 };
+const prepCanFinish = (room: RoomAssemblyState, now: string) =>
+  room.executionPlan.preRoundPrep.enabled &&
+  room.prepStartedAt !== null &&
+  prepFinished(room, now);
 const canReady = (
   open: boolean,
   own: RoomAssemblyState['participants'][number] | undefined,

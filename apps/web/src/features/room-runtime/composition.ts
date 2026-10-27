@@ -4,6 +4,7 @@ import { handleOperation } from '../../server/http';
 import { identify } from '../../lib/identity';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
+import { drawEntropy } from './entropy';
 /** Explicit policy injection; proof choices do not silently activate production. */
 export type RoomPolicy = {
   readonly consentTtlMs: number;
@@ -46,6 +47,7 @@ export function composeRoomRoutes(app: App) {
         ids: app.ids,
         consentTtlMs: () => policy.consentTtlMs,
         botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
+        entropy: drawEntropy,
       }),
     });
     return select(handlers);

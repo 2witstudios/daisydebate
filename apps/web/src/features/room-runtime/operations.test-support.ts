@@ -3,19 +3,18 @@ import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpoint,
+  freezeRoomConfig,
   type LaunchedRound,
   type RoomAssemblyState,
   type RoundView,
 } from '@daisy/protocol';
 import {
-  foundationConfig,
-  foundationDefinition,
   oneOnOneDefinition,
   oneOnOneRankedConfig,
-  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
+import { catalog, valueFacts } from './catalog-sources.test-support';
 import { seatedListingEntry } from '../rooms/assembly.test-support';
 
 export const caller = {
@@ -73,67 +72,8 @@ export const state: RoomAssemblyState = {
   ],
   prepStartedAt: null,
   prepRemainingMs: null,
+  resolutionDraw: null,
   roundRef: null,
-};
-
-/** Catalog sources as the store lists them: role-bearing formats at their canonical presets. */
-const catalog = [
-  {
-    id: 'value',
-    name: 'Value',
-    version: 1,
-    role: 'standard' as const,
-    family: null,
-    leagues: [],
-    searchTerms: 'value daisy',
-    sortOrder: 2,
-    rulesEdition: null,
-    sourceUrl: null,
-    definition: oneOnOneDefinition,
-    preset: {
-      formatId: 'value',
-      version: 1,
-      formatVersion: 1,
-      config: oneOnOneRoomConfig,
-    },
-  },
-  {
-    id: 'proof-template',
-    name: 'Proof template',
-    version: 1,
-    role: 'template' as const,
-    family: 'other' as const,
-    leagues: ['Proof League'],
-    searchTerms: 'proof',
-    sortOrder: 30,
-    rulesEdition: 'Proof rules',
-    sourceUrl: 'https://example.test/rules',
-    definition: foundationDefinition,
-    preset: {
-      formatId: 'proof-template',
-      version: 2,
-      formatVersion: 1,
-      config: foundationConfig,
-    },
-  },
-];
-
-/** The selection facts the store reports for the Value standard's current tuple. */
-export const valueFacts = {
-  format: {
-    id: 'value',
-    catalogOwned: true,
-    role: 'standard' as const,
-    currentVersion: 1,
-  },
-  definition: oneOnOneDefinition,
-  preset: {
-    version: 1,
-    formatVersion: 1,
-    config: oneOnOneRoomConfig,
-    rankedEligible: false,
-    current: true,
-  },
 };
 
 /** The stored Round its host reads; `round` is what a viewer receives. */
@@ -143,10 +83,10 @@ export const launched: LaunchedRound = {
   version: 1,
   status: 'scheduled',
   competitionType: 'casual',
-  topic: state.topic,
+  topic: state.topic ?? '',
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: oneOnOneRankedConfig,
+  config: freezeRoomConfig(oneOnOneRankedConfig),
   rules: resolved.rules,
   participants: [
     {
@@ -162,6 +102,7 @@ export const launched: LaunchedRound = {
   completedAt: null,
   outcome: null,
   unjudgedRuling: null,
+  resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };
@@ -255,6 +196,17 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
       return state;
     },
+    readRoomAssemblyFacts: async (
+      _roomId: string,
+      _caller: typeof caller,
+      authorize: (
+        view: RoomAssemblyState,
+        fact: AccountAuthorizationFact,
+      ) => boolean,
+    ) => {
+      if (!authorize(state, account)) throw createAppError('NOT_FOUND');
+      return { state, drawSeed: null };
+    },
     listRoomPage: async (
       _caller: typeof caller,
       _query: unknown,
@@ -301,6 +253,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
     ]),
     consentTtlMs: () => 60_000,
     botsAvailable: () => false,
+    entropy: () => '01'.repeat(32),
   });
   return {
     operations,

@@ -61,6 +61,7 @@ function templateDefinition({
         expiresAtSegment: null,
       },
       preRoundPrep: { durationMs: { min: 0, max: 60 * minute } },
+      resolutionDraw: null,
       interaction: {
         crossExModes: ['ordered', 'free'],
         interruptions: {
