@@ -39,16 +39,29 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
   const acquire = async (sessionId: string) => {
     const owner = input.nextId();
-    for (;;) {
-      const claim = await input.store.claimMediaReconcile({ sessionId, owner });
-      if (claim.kind === 'claimed') return claim;
-      await input.wait();
+    await input.priority(sessionId, 'enter', owner);
+    try {
+      for (;;) {
+        const claim = await input.store.claimMediaReconcile({
+          sessionId,
+          owner,
+        });
+        if (claim.kind === 'claimed') return claim;
+        await input.wait();
+        await input.priority(sessionId, 'enter', owner);
+      }
+    } finally {
+      await input.priority(sessionId, 'leave', owner);
     }
   };
   const serve = async (sessionId: string, version: number) => {
     for (;;) {
       const progress = await input.store.mediaReconcileProgress(sessionId);
       if (progress.servedVersion >= version) return;
+      if (await input.priority(sessionId, 'waiting')) {
+        await input.wait();
+        continue;
+      }
       const claim = await input.store.claimMediaReconcile({
         sessionId,
         owner: input.nextId(),

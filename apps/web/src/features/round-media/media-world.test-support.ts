@@ -61,6 +61,16 @@ export function createMediaWorld(
     readonly reclaimedAfterFinish?: boolean;
   } = {},
 ) {
+  const waiting = new Set<string>();
+  const priority = async (
+    _sessionId: string,
+    operation: string,
+    owner?: string,
+  ) => {
+    if (operation === 'enter') waiting.add(owner!);
+    if (operation === 'leave') waiting.delete(owner!);
+    return waiting.size > 0;
+  };
   const journal: string[] = [];
   const reported: unknown[] = [];
   const failures = new Map<Vendor, number>();
@@ -239,6 +249,7 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    priority,
     store,
     media,
     publicUrl: 'wss://media.daisy.invalid',

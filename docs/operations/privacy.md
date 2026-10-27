@@ -316,3 +316,15 @@ retained for 24 hours; delivery is transient authenticated Round-topic fan-out.
 Existing Round identifier lifecycle and outbox deletion apply. This necessary
 transport adds no analytics event or new personal-data storage. Transcript text
 remains personal/private under DEC-101 and its 180-day retention/subject erasure.
+
+### Media admission hints
+
+`<namespace>:v1:media-admission:<sessionId>` stores a bounded sorted set of waiter
+identifiers and their expiry times. Session and waiter ids are category
+`identifier`; expiry scores are `none`. Purpose: expendable scheduling fairness
+between admissions and recovery, with PostgreSQL retaining authority. Storage:
+existing Redis, at most 256 entries and 15 seconds (one reconcile lease). No
+personal content, account identity or credential is stored; expiry and explicit
+waiter release erase it. `round.media.fairness_degraded` is registered in the
+logger with `operation` (`enter`, `leave`, `waiting`, category `none`) to report
+loss of the hint. No analytics event or new consent category is introduced.

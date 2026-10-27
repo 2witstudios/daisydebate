@@ -53,3 +53,18 @@ tracks on exit or terminal state, and obtains new admission for reconnects.
 Browser deadlines request fresh server views and reconciliation; they never
 open microphones. Local device checks, live tracks and speaking indicators do
 not establish capture completeness, transcript credit or peer audibility.
+
+### Admission fairness
+
+Media admissions announce an expendable waiter hint through the existing Redis
+adapter before competing for the PostgreSQL reconcile lease. Other web instances'
+recovery claims yield while a waiter exists; the admitted caller runs the same
+full reconcile, including unsafe cleanup, before any mint. PostgreSQL retains
+all lease, account, absence and token authority. Hints do not authorize media.
+Each waiter and the namespaced set expire within one 15-second lease, with at
+most 256 waiters per session. A waiting caller refreshes its own hint; release
+removes only its own token. A dead waiter cannot suppress recovery indefinitely.
+If Redis is unavailable or its hint capacity is exhausted, admission falls back
+to ordinary canonical lease competition and records the classified
+`round.media.fairness_degraded` event once per degraded episode. It never blocks
+capture merely because the fairness hint is unavailable.

@@ -1,3 +1,4 @@
+import { createAdmissionPriority } from '../src/features/round-media/admission-priority';
 import { Room, RoomEvent } from '@livekit/rtc-node';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
@@ -25,6 +26,10 @@ export const mediaDependencies = (
   fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   media = createMediaService({ config: localMediaConfig }),
 ) => ({
+  priority: createAdmissionPriority({
+    hint: fixture.redis.mediaAdmissionHint,
+    logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
+  }),
   store: fixture.store.mediaSessions,
   media,
   publicUrl: 'wss://localhost.invalid',
