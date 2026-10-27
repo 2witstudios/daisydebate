@@ -49,7 +49,7 @@ export function createRoundMediaRuntime(
     const resources: MediaOperationInput = {
       priority: createAdmissionPriority({
         deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
-        hint: (...args) => app.redis().mediaAdmissionHint(...args),
+        hint: (...args) => app.redis.mediaAdmissionHint(...args),
         logger: app.logger,
       }),
       store: app.database.mediaSessions,
