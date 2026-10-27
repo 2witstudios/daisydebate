@@ -40,7 +40,7 @@ export function heldRefusal(cookieHeader: string | null): AgeRefusal | null {
 export const AGE_HOLD_SECONDS = HOLD_SECONDS;
 
 /** The Set-Cookie line for a refusal: Secure, httpOnly, Lax, one day. */
-export const holdCookie = (refusal: AgeRefusal): string =>
+const holdCookie = (refusal: AgeRefusal): string =>
   `${AGE_HOLD_COOKIE}=${refusal}; Path=/; Max-Age=${HOLD_SECONDS}; Secure; HttpOnly; SameSite=Lax`;
 
 type AgeStepDependencies = {
