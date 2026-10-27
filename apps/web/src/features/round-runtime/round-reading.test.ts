@@ -1,7 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   floorSideOf,
-  initialsOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
@@ -23,7 +22,7 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
   assert({
     given: 'the shared round reading',
     should:
-      'name the sides, tell seats from the judge, treat scheduled and active as live, read the judge kind and initial a name',
+      'name the sides, tell seats from the judge, treat scheduled and active as live and read the judge kind',
     actual: [
       sideName,
       view.participants.map(isSeat),
@@ -35,7 +34,6 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
         ...view,
         participants: view.participants.filter((p) => p.role !== 'judge'),
       }),
-      [initialsOf('Ada  Lovelace Byron'), initialsOf('ada'), initialsOf('')],
     ],
     expected: [
       { affirmative: 'Affirmative', negative: 'Negative' },
@@ -43,7 +41,6 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
       [true, true, false, false],
       'human',
       null,
-      ['AL', 'A', ''],
     ],
   });
 });

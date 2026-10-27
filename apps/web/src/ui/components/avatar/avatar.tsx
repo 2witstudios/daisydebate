@@ -1,6 +1,7 @@
 import { PresenceDot } from '../presence-dot/presence-dot';
 import type { PresenceStatus as Presence } from '@daisy/protocol';
 import { avatarClass, type AvatarSize } from './avatar-class';
+import { initialsOf } from './initials';
 
 export type AvatarProps = {
   readonly name: string;
@@ -20,14 +21,6 @@ const pixelsBySize: Readonly<Record<AvatarSize, number>> = {
   md: 36,
   lg: 44,
 };
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 export function Avatar({
   name,
@@ -49,7 +42,7 @@ export function Avatar({
         />
       ) : (
         <span className="tracking-wide" aria-hidden="true">
-          {initials(name)}
+          {initialsOf(name)}
         </span>
       )}
       {presence ? (

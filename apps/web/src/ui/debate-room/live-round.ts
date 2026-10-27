@@ -5,13 +5,13 @@ import {
 import type { DebateSide, RoundView } from '@daisy/protocol';
 import {
   floorSideOf,
-  initialsOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
   sideName,
   type Seat,
 } from '../../features/round-runtime/round-reading';
+import { initialsOf } from '../components/avatar/initials';
 import type {
   Side,
   SpeechSlot,

@@ -43,12 +43,3 @@ export const judgeKindOf = (
   if (!judge) return null;
   return judge.kind === 'bot' ? 'ai' : 'human';
 };
-
-/** Up to two initials from a display name. */
-export const initialsOf = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');

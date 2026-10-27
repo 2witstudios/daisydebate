@@ -6,7 +6,7 @@ import type { DeviceKind } from '../../../features/video/device-check-controller
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { MicLevel } from './mic-level';
-import { initials } from './room-labels';
+import { initialsOf } from '../../components/avatar/initials';
 
 type Devices = ReturnType<typeof createBrowserDeviceChecks>;
 type Snapshot = ReturnType<Devices['readSnapshot']>;
@@ -101,7 +101,7 @@ export function CameraPreview({
           aria-hidden="true"
           className="flex size-room-avatar items-center justify-center rounded-full bg-butter font-display text-2xl text-forest"
         >
-          {initials(label)}
+          {initialsOf(label)}
         </span>
       )}
       <span className="absolute right-4 bottom-4">

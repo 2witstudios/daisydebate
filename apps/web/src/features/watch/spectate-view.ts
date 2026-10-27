@@ -12,6 +12,7 @@ import {
   sideLabel,
   visibilityLabel,
 } from './labels';
+import { initialsOf } from '../../ui/components/avatar/initials';
 import { replayHref } from './routes';
 import { spokenTurns, totalSeconds, type Turn } from './schedule';
 import type { SpectatorSocial } from './social';
@@ -124,14 +125,6 @@ const STANDINGS = {
   established: 'Established',
   provisional: 'Provisional',
 } as const;
-
-/** "debater-a" reads as DA; a one-word handle gives its first two letters. */
-const initialsOf = (handle: string): string => {
-  const words = handle.split(/[^a-z0-9]+/i).filter(Boolean);
-  const letters =
-    words.length > 1 ? words.map((word) => word[0]).join('') : handle;
-  return letters.slice(0, 2).toUpperCase();
-};
 
 /** A speech still being spoken reads as its first words and an ellipsis. */
 const partial = (text: string): string =>

@@ -65,14 +65,15 @@ describe('buildSpectateView: a live debate', () => {
   test('stage tiles and delay', () => {
     assert({
       given: 'debaters with hyphenated and single-word handles',
-      should: 'give each tile its initials and carry the spectator delay',
+      should:
+        'give each tile its initials (one letter for a one-word handle, as an avatar does) and carry the spectator delay',
       actual: [
         view.seats.aff.initials,
         view.seats.neg.initials,
         viewOf('your-own-debate').seats.aff.initials,
         view.delaySeconds,
       ],
-      expected: ['DA', 'DB', 'YO', 30],
+      expected: ['DA', 'DB', 'Y', 30],
     });
   });
 

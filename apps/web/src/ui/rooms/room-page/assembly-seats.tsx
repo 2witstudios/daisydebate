@@ -4,7 +4,8 @@ import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { declaredSeats, seatLabel } from './assembly-controls';
-import { initials, seatStatus } from './room-labels';
+import { initialsOf } from '../../components/avatar/initials';
+import { seatStatus } from './room-labels';
 import { RoomInvite } from './room-invite';
 
 type Seat = ReturnType<typeof declaredSeats>[number];
@@ -145,7 +146,7 @@ function SeatRow({
           aria-hidden="true"
           className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone[seat.role]}`}
         >
-          {initials(named?.label ?? 'Judge')}
+          {initialsOf(named?.label ?? 'Judge')}
         </span>
       ) : (
         <span
