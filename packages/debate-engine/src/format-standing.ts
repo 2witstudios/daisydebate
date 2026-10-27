@@ -144,23 +144,31 @@ function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
   return [...seats, ...segmentChanges(from.rules, to.rules), ...scalar];
 }
 
-/**
- * Whether a room still runs its standard format, derived and never stored.
- * Standard needs a standard basis, the same format identity and revision,
- * and the same compiled rules and room plan, so an override equal to the
- * default stays Standard. A template basis is always Custom, and a room
- * with no basis is plain Custom.
- */
+/** Custom, based on the basis, with these changes. */
+const custom = (
+  basis: StandingBasis,
+  changes: readonly FormatChange[],
+): FormatStanding => ({
+  kind: 'custom',
+  basis: { formatId: basis.formatId, role: basis.role },
+  changes: [...changes],
+});
+
 /** The standing of a room whose rules equal its basis's: Standard for a standard. */
 const unchangedStanding = (basis: StandingBasis): FormatStanding =>
   basis.role === 'standard'
     ? { kind: 'standard', formatId: basis.formatId }
-    : {
-        kind: 'custom',
-        basis: { formatId: basis.formatId, role: basis.role },
-        changes: [],
-      };
+    : custom(basis, []);
 
+/**
+ * Whether a room still runs its standard format, derived and never stored.
+ * Standard needs a standard basis, the same format identity and revision,
+ * and the same compiled rules and room plan, so an override equal to the
+ * default stays Standard. A room whose definition and config are the
+ * basis's own is answered without compiling: the basis compiled when the
+ * selection policy chose it. A template basis is always Custom, and a room
+ * with no basis is plain Custom.
+ */
 export function formatStanding({
   active,
   basis,
@@ -172,8 +180,7 @@ export function formatStanding({
   const sameIdentity =
     active.formatId === basis.formatId &&
     active.formatVersion === basis.formatVersion;
-  // A room untouched since its basis needs no compile: every read of an
-  // unchanged room (each countdown reread included) answers from the inputs.
+  // Every read of an untouched room (each countdown reread included).
   if (
     sameIdentity &&
     same(active.definition, basis.definition) &&
@@ -182,17 +189,8 @@ export function formatStanding({
     return unchangedStanding(basis);
   const from = compile(basis.definition, basis.config);
   const to = compile(active.definition, active.config);
-  if (!from || !to)
-    return {
-      kind: 'custom',
-      basis: { formatId: basis.formatId, role: basis.role },
-      changes: [],
-    };
+  if (!from || !to) return custom(basis, []);
   return sameIdentity && same(from, to)
     ? unchangedStanding(basis)
-    : {
-        kind: 'custom',
-        basis: { formatId: basis.formatId, role: basis.role },
-        changes: changesBetween(from, to),
-      };
+    : custom(basis, changesBetween(from, to));
 }

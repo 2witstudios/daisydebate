@@ -1,9 +1,21 @@
-import { and, eq, gt, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lte,
+  max,
+  or,
+  sql,
+} from 'drizzle-orm';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import {
   resolutionBankEntries,
   resolutionBankRevisions,
 } from './schema/resolution-draws';
+import { actors } from './schema/actors';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import type { Tx } from './room-command-facts';
@@ -60,29 +72,28 @@ const bankSnapshot = async (tx: Tx): Promise<DrawBankSnapshot | null> => {
 };
 
 /**
- * Bank entries chosen in each seated human's recent Rounds, in one query:
- * it runs under the Room's lock, so one round-trip, not one per human.
+ * Bank entries chosen in each seated human's recent Rounds, in one query
+ * bounded per actor: it runs under the Room's lock, so one round-trip.
  */
 const recentChoices = async (tx: Tx, state: RoomAssemblyState) => {
   const humans = state.participants
     .filter((p) => p.kind === 'human')
     .map((p) => p.actorId);
   if (!humans.length) return [];
-  const ranked = tx
-    .select({
-      evidence: rounds.resolutionEvidence,
-      rank: sql<number>`row_number() over (partition by ${roundParticipants.actorId} order by ${rounds.createdAt} desc)`.as(
-        'rank',
-      ),
-    })
+  // Per actor, newest first and capped: the lock never waits on full histories.
+  const recentOf = tx
+    .select({ evidence: rounds.resolutionEvidence })
     .from(roundParticipants)
     .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-    .where(inArray(roundParticipants.actorId, humans))
-    .as('ranked');
+    .where(eq(roundParticipants.actorId, actors.id))
+    .orderBy(desc(rounds.createdAt))
+    .limit(RECENT_ROUNDS)
+    .as('recent');
   const recent = await tx
-    .select({ evidence: ranked.evidence })
-    .from(ranked)
-    .where(lte(ranked.rank, RECENT_ROUNDS));
+    .select({ evidence: recentOf.evidence })
+    .from(actors)
+    .innerJoinLateral(recentOf, sql`true`)
+    .where(inArray(actors.id, humans));
   const exclusions = new Set<string>();
   for (const { evidence } of recent) {
     const chosen = evidence?.items.find(

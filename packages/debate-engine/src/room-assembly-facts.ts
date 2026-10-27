@@ -40,6 +40,22 @@ export const complete = (room: RoomAssemblyState) =>
         .sort((a, b) => a - b),
     ),
   );
+/**
+ * Why the seated cast can't go on yet, or null: every seat eligible, Ready
+ * readable and every human Ready. The draw and Launch both wait on it.
+ */
+export const castGate = (
+  room: RoomAssemblyState,
+  consent: RoomConsent,
+): RoomRefusal | null => {
+  if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
+  if (!consent.available) return 'readiness-unavailable';
+  return room.participants.some(
+    (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
+  )
+    ? 'not-ready'
+    : null;
+};
 export const startBlocker = (
   room: RoomAssemblyState,
   consent: RoomConsent,
@@ -52,14 +68,8 @@ export const startBlocker = (
   )
     return 'illegal-config';
   if (!complete(room)) return 'incomplete-cast';
-  if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
-  if (!consent.available) return 'readiness-unavailable';
-  if (
-    room.participants.some(
-      (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
-    )
-  )
-    return 'not-ready';
+  const cast = castGate(room, consent);
+  if (cast) return cast;
   if (preRoundPhase(room, now).phase !== 'satisfied') return 'prep-running';
   if (room.topic === null) return 'illegal-config';
   return null;

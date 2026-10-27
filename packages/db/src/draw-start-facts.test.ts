@@ -41,14 +41,20 @@ test('a new draw reads every seated human’s recent choices in one query (PR #4
   assert({
     given: 'four seated humans and their recent Rounds',
     should:
-      'exclude each debated bank entry once, read under the lock in a single ranked query',
+      'exclude each debated bank entry once, read under the lock in a single query capped per actor',
     actual: {
       exclusions: [...facts.exclusions].sort(),
       recentQueries: queries.filter(({ query }) =>
         query.includes('round_participants'),
       ).length,
-      ranked: queries.some(({ query }) => /row_number\(\) over/i.test(query)),
+      boundedPerActor: queries.some(({ query }) =>
+        /join lateral[\s\S]*limit/i.test(query),
+      ),
     },
-    expected: { exclusions: ['x', 'y'], recentQueries: 1, ranked: true },
+    expected: {
+      exclusions: ['x', 'y'],
+      recentQueries: 1,
+      boundedPerActor: true,
+    },
   });
 });

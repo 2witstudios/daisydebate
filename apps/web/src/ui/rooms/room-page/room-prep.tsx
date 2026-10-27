@@ -10,7 +10,7 @@ import { CommandForm } from './assembly-readiness';
 /** A strike with no prep after it: before the draw, while striking, then revealed. */
 function strikeState(view: RoomView): string {
   if (!view.resolutionDraw)
-    return 'Strike from the drawn resolutions, then start the round';
+    return 'Once everyone is Ready, draw the resolutions and strike to one';
   return view.resolutionDraw.revealedAt
     ? 'Resolution chosen · start the round when the room is ready'
     : 'The debaters are striking';

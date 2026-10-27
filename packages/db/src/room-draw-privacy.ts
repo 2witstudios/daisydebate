@@ -146,29 +146,30 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
           );
   };
 
-  /** The Rounds launched from a host-list draw keep only placeholders. */
+  /**
+   * The Rounds launched from a host-list draw keep only placeholders: three
+   * set-based statements, however many Rounds the Room launched.
+   */
   const scrubRoundCopies = async (
     tx: Tx,
     roomId: string,
     topic: string | null,
   ) => {
-    const launched = await tx
+    const launched = tx
       .select({ id: rounds.id })
       .from(rounds)
       .where(eq(rounds.roomId, roomId));
-    for (const round of launched) {
+    await tx
+      .delete(roundResolutionDrawTexts)
+      .where(inArray(roundResolutionDrawTexts.roundId, launched));
+    await tx
+      .delete(roundDrawPrivateInputs)
+      .where(inArray(roundDrawPrivateInputs.roundId, launched));
+    if (topic !== null)
       await tx
-        .delete(roundResolutionDrawTexts)
-        .where(eq(roundResolutionDrawTexts.roundId, round.id));
-      await tx
-        .delete(roundDrawPrivateInputs)
-        .where(eq(roundDrawPrivateInputs.roundId, round.id));
-      if (topic !== null)
-        await tx
-          .update(rounds)
-          .set({ resolution: topic })
-          .where(eq(rounds.id, round.id));
-    }
+        .update(rounds)
+        .set({ resolution: topic })
+        .where(eq(rounds.roomId, roomId));
   };
 
   /**

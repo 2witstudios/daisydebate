@@ -9,9 +9,13 @@ import {
 } from './pre-round-phase';
 import { settleRoom, survivorOf } from './resolution-draw';
 
-import { assemblyOpen, complete, startBlocker } from './room-assembly-facts';
+import {
+  assemblyOpen,
+  castGate,
+  complete,
+  startBlocker,
+} from './room-assembly-facts';
 import { prepFinished } from './pre-round-phase';
-import { drawGate } from './room-pre-round';
 import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
 const participantReady = (
   p: Pick<
@@ -250,7 +254,7 @@ const preRoundStartable = (
   phase.phase === 'not-begun' &&
   complete(room) &&
   (!room.executionPlan.resolutionDraw.enabled ||
-    drawGate(room, consent) === null);
+    castGate(room, consent) === null);
 const roomCapabilities = (
   room: RoomAssemblyState,
   actorId: string,

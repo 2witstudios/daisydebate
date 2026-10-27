@@ -8,6 +8,7 @@ import type {
 } from '@daisy/protocol';
 import {
   acceptedRoomMutation,
+  castGate,
   complete,
   type Edges,
 } from './room-assembly-facts';
@@ -49,21 +50,6 @@ const DIFFICULTIES: ['advanced', 'intro', 'standard'] = [
   'intro',
   'standard',
 ];
-
-/** A draw starts only with every seat eligible and every human Ready. */
-/** Why a draw may not start yet, or null: the cast, eligibility and Ready. */
-export const drawGate = (
-  room: RoomAssemblyState,
-  consent: RoomConsent,
-): RoomRefusal | null => {
-  if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
-  if (!consent.available) return 'readiness-unavailable';
-  return room.participants.some(
-    (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
-  )
-    ? 'not-ready'
-    : null;
-};
 
 /** The candidates, exclusions and canonical source a draw reads, or null. */
 const drawSource = (draw: EnabledDraw, facts: DrawStartFacts | null) => {
@@ -107,7 +93,7 @@ function beginDraw(
   const draw = room.executionPlan.resolutionDraw;
   if (!draw.enabled)
     throw createAppError('INVARIANT', 'beginDraw requires an enabled draw');
-  const gate = drawGate(room, consent);
+  const gate = castGate(room, consent);
   if (gate) return refuse(gate);
   const facts = edges.drawStart;
   const source = drawSource(draw, facts);

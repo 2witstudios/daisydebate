@@ -26,7 +26,7 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
     'That format is no longer offered. Choose from the list now.',
   'illegal-config':
     'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
-  'not-ready': 'Everyone seated must be Ready before the draw.',
+  'not-ready': 'Everyone seated must be Ready first.',
   'readiness-unavailable':
     'Ready can’t be read right now. Try again in a moment.',
   'actor-ineligible': 'Someone in a seat can’t take part right now.',

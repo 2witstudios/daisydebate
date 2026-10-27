@@ -85,7 +85,7 @@ test('a strike with no prep reads its own stage, then hands off to the start (PR
       'say what comes next at each stage, ending with the start of the round',
     actual: [
       render(strike).includes(
-        'Strike from the drawn resolutions, then start the round',
+        'Once everyone is Ready, draw the resolutions and strike to one',
       ),
       render({ ...strike, resolutionDraw: draw(null) }).includes(
         'The debaters are striking',

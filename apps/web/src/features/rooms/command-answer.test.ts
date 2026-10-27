@@ -179,7 +179,7 @@ test('a refused strike or format choice says why, with and without JavaScript (P
         'That resolution can’t be struck now.',
         'That format is no longer offered. Choose from the list now.',
         'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
-        'Everyone seated must be Ready before the draw.',
+        'Everyone seated must be Ready first.',
         'Ready can’t be read right now. Try again in a moment.',
         'Someone in a seat can’t take part right now.',
         'There aren’t enough resolutions to draw from. Choose another source or add lines.',
