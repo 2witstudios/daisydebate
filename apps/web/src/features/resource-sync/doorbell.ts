@@ -2,7 +2,8 @@ import type { ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 
-type Versioned = 'room.changed' | 'debate.phase-changed';
+type Versioned =
+  'room.changed' | 'debate.phase-changed' | 'debate.transcript-changed';
 
 /**
  * A resource's content-free doorbell as sync signals: the announced version,

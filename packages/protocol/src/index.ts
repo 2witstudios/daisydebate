@@ -304,3 +304,8 @@ export type {
   FriendshipState,
   OnlineCounts,
 } from './friends';
+
+export {
+  roundTranscriptReadSchema,
+  type RoundTranscriptRead,
+} from './round-transcript';

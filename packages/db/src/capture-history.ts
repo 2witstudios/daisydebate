@@ -95,7 +95,10 @@ export async function coverageAuthority(
     tolerance: { openMs: tolerance.relayMs, closeMs: tolerance.relayMs },
   };
 }
-export const transcriptRevision = async (tx: CaptureTx, roundId: string) => {
+export const transcriptRevision = async (
+  tx: Pick<CaptureTx, 'select'>,
+  roundId: string,
+) => {
   const [row] = await tx
     .select({ revision: roundTranscripts.revision })
     .from(roundTranscripts)

@@ -28,7 +28,11 @@ const messagingInboxChangedPayloadSchema = z.strictObject({
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
  * server message instead, which carries no outbox position or kind.
  */
-const doorbellKinds = ['debate.phase-changed', 'standings.updated'] as const;
+const doorbellKinds = [
+  'debate.phase-changed',
+  'debate.transcript-changed',
+  'standings.updated',
+] as const;
 const roomChangedPayloadSchema = z.strictObject({
   entityVersion: entityVersionSchema,
   kind: z.literal('room.changed'),
@@ -120,7 +124,7 @@ const storageFamilyPayloadKinds: Readonly<
 > = {
   channel: ['channel.changed'],
   room: ['room.changed'],
-  debate: ['debate.phase-changed'],
+  debate: ['debate.phase-changed', 'debate.transcript-changed'],
   'debate:presence': [],
   'debate:chat': [],
   'user:inbox': [

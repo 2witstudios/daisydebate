@@ -1,3 +1,4 @@
+import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -80,8 +81,7 @@ export async function appendCapturedTranscript(
         eq(transcriptSegments.roundParticipantId, input.roundParticipantId),
       ),
     );
-  return {
-    duplicate: false,
-    revision: await advanceTranscriptRevision(tx, input.roundId),
-  };
+  const revision = await advanceTranscriptRevision(tx, input.roundId);
+  await appendTranscriptChanged(tx, input.roundId, revision);
+  return { duplicate: false, revision };
 }

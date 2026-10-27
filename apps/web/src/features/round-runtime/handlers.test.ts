@@ -32,11 +32,7 @@ const fixture = () => {
         participants: [{ id: 'seat' }],
         segments: [{ id: 'segment' }],
       }) as never,
-    utterances: async (
-      _caller: unknown,
-      roundId: string,
-      segmentId: string,
-    ) => [{ roundId, segmentId }],
+    transcript: async (_caller: unknown, roundId: string) => ({ roundId }),
   });
   return { handlers, calls: () => calls };
 };
@@ -99,16 +95,8 @@ test('Round reads return only their slice of the viewer projection', async () =>
   const [participants, segments, utterances, malformed] = await Promise.all([
     f.handlers.participants(get(`/api/rounds/${id}/participants`), id),
     f.handlers.segments(get(`/api/rounds/${id}/segments`), id),
-    f.handlers.utterances(
-      get(`/api/rounds/${id}/segments/${id}/utterances`),
-      id,
-      id,
-    ),
-    f.handlers.utterances(
-      get(`/api/rounds/${id}/segments/x/utterances`),
-      id,
-      'x',
-    ),
+    f.handlers.transcript(get(`/api/rounds/${id}/transcript`), id),
+    f.handlers.transcript(get('/api/rounds/x/transcript'), 'x'),
   ]);
   assert({
     given:
@@ -125,7 +113,7 @@ test('Round reads return only their slice of the viewer projection', async () =>
     expected: [
       { roundId: id, version: 2, participants: [{ id: 'seat' }] },
       { roundId: id, version: 2, segments: [{ id: 'segment' }] },
-      [{ roundId: id, segmentId: id }],
+      { roundId: id },
       400,
       0,
     ],

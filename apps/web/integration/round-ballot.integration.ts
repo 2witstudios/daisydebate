@@ -1,5 +1,8 @@
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
-import { canReadRound } from '../src/features/round-runtime/reads';
+import {
+  canReadRound,
+  canReadTranscript,
+} from '../src/features/round-runtime/reads';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Ballot } from '@daisy/protocol';
@@ -78,12 +81,16 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       code: 'CONFLICT',
     });
     const ownRead = await f.store.readRoundBallot({
+      authorizeTranscript: (r, a) =>
+        canReadTranscript({ userId: a!.userId, actorId: a!.actorId! }, r, a),
       authorizeCoaching: () => true,
       roundId,
       caller: judges[0]!,
       authorize: (round, account) => canReadRound(judges[0]!, round, account),
     });
     const opponentRead = await f.store.readRoundBallot({
+      authorizeTranscript: (r, a) =>
+        canReadTranscript({ userId: a!.userId, actorId: a!.actorId! }, r, a),
       authorizeCoaching: () => true,
       roundId,
       caller: f.guest,
@@ -188,6 +195,8 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     // only the reader's own side's feedback; the transcript is for seats.
     const readAs = (caller: { userId: string; actorId: string }) =>
       f.store.readRoundBallot({
+        authorizeTranscript: (r, a) =>
+          canReadTranscript({ userId: a!.userId, actorId: a!.actorId! }, r, a),
         authorizeCoaching: () => true,
         roundId,
         caller,

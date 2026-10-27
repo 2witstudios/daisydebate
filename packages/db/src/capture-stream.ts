@@ -1,3 +1,4 @@
+import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -159,8 +160,7 @@ export async function sealCapturedStream(
         eq(transcriptSegments.roundParticipantId, input.roundParticipantId),
       ),
     );
-  return {
-    state,
-    revision: await advanceTranscriptRevision(tx, input.roundId),
-  };
+  const revision = await advanceTranscriptRevision(tx, input.roundId);
+  await appendTranscriptChanged(tx, input.roundId, revision);
+  return { state, revision };
 }

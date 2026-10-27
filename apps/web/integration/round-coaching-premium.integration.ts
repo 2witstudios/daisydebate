@@ -19,7 +19,10 @@ import {
   canCoach,
 } from '../src/features/round-coaching/authorization';
 import { createRoundCoachingOperations } from '../src/features/round-coaching/operations';
-import { canReadRound } from '../src/features/round-runtime/reads';
+import {
+  canReadRound,
+  canReadTranscript,
+} from '../src/features/round-runtime/reads';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -128,6 +131,12 @@ test('premium coaching discovery, claims and reads use current beta entitlement'
           roundId,
           caller: f.host,
           authorize: (r, a) => canReadRound(f.host, r, a),
+          authorizeTranscript: (r, a) =>
+            canReadTranscript(
+              { userId: a!.userId, actorId: a!.actorId! },
+              r,
+              a,
+            ),
           authorizeCoaching: (r, a) =>
             canCoach(
               a,

@@ -41,9 +41,9 @@ export type RoundBallotRecord = {
 async function seatTranscript(
   tx: Parameters<typeof readLockedFrozenRoundTranscript>[0],
   roundId: string,
-  seated: boolean | undefined,
+  allowed: boolean,
 ) {
-  if (!seated) return null;
+  if (!allowed) return null;
   const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
   return frozen
     ? { completeness: frozen.completeness, utterances: frozen.utterances }
@@ -90,6 +90,10 @@ export const roundBallotReads = ({
     readonly roundId: string;
     readonly caller: Caller;
     readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorizeTranscript: (
+      round: LaunchedRound,
+      account: Account,
+    ) => boolean;
     readonly authorizeCoaching: (
       round: LaunchedRound,
       account: Account,
@@ -140,7 +144,7 @@ export const roundBallotReads = ({
           transcript: await seatTranscript(
             tx,
             input.roundId,
-            seat && completed,
+            completed && input.authorizeTranscript(round, currentAccount),
           ),
         }),
         // The coaching feature decides the debater's coaching from these facts.
