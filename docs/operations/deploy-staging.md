@@ -244,7 +244,8 @@ section. Recorded sign-offs: DEC-229 (2026-10-24, ISSUE-528) admits
 `daisy-debate-staging-realtime` and `daisy-debate-staging-media-worker` to
 this 6PN; DEC-230 revises it to admit `daisy-debate-staging-livekit` too,
 because native clients inside Fly reach its media only over 6PN; DEC-250
-(2026-10-27, BETA-H) admits `daisy-debate-staging-admin` and
+(2026-10-27, BETA-H; recorded on the owner's behalf under the orchestrator's
+autonomy rule and pending the owner's confirmation) admits `daisy-debate-staging-admin` and
 `daisy-debate-staging-admin-migrate` and the web app's operator listener on
 its 6PN address `:8081` (section 12). This is a security-behavior change, so it is the owner's call, not
 a Builder's or an operator's. The sign-off must say whether the new app's
@@ -875,18 +876,24 @@ deploy also waits for the migrator's. Once both exist, every merge deploys the
 migrator (`--update-only`) and then the admin app (`--no-public-ips`).
 
 Provisioned on staging 2026-10-27 (BETA-H) under DEC-250, the 6PN sign-off
-of step 0. To recreate them, the operator runs the steps below; role
+of step 0, which the orchestrator recorded on the owner's behalf; it stays
+open until the owner confirms or overrules it, and an overrule removes both
+admin apps. To recreate them, the operator runs the steps below in one shell
+session, because steps 1 and 2 share the generated passwords (in a new shell
+they are empty, and the resulting URLs would still look valid). Role
 passwords and keys are generated in the shell and piped straight into psql
 and `fly secrets import`, never printed or pasted into chat, PageSpace or
 commits.
 
 ```sh
-# 0. Sign-off (bun decision:record; DEC-250 on staging):
+# 0. Owner sign-off (bun decision:record, confirmed by the owner; on staging
+#    DEC-250, recorded on the owner's behalf and pending confirmation):
 #    - admit daisy-debate-staging-admin and daisy-debate-staging-admin-migrate to the default 6PN;
 #    - allow web to listen on its resolved 6PN address :8081, for the signed operator API only.
 
 # 1. Admin database and roles on the existing cluster, over SSH to the
-#    Postgres machine as above (`psql -U postgres` has no password there).
+#    Postgres machine as superuser `postgres` with the machine's own
+#    $OPERATOR_PASSWORD, as in the provisioning block above.
 #    Passwords are generated in the shell and piped, never printed; psql's
 #    output is discarded because an error line would echo the statement.
 gen() { bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))'; }
@@ -895,9 +902,10 @@ printf "CREATE ROLE daisy_admin_owner LOGIN PASSWORD '%s';\nCREATE ROLE daisy_ad
   | fly ssh console -a daisy-debate-staging-db \
       -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"' >/dev/null 2>&1 \
   && echo created
-#    Verify from the catalog: has_database_privilege('daisy_admin_app',
-#    'daisy_debate_staging', 'CONNECT') is false, and so for daisy_web,
-#    daisy_realtime and daisy_media_worker on daisy_admin.
+#    Verify from the catalog: every row must be false.
+echo "SELECT r, d, has_database_privilege(r, d, 'CONNECT') FROM (VALUES ('daisy_admin_app','daisy_debate_staging'), ('daisy_admin_owner','daisy_debate_staging'), ('daisy_web','daisy_admin'), ('daisy_realtime','daisy_admin'), ('daisy_media_worker','daisy_admin')) v(r, d);" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"'
 #    The admin baseline migration grants daisy_admin_app its table privileges (audit: INSERT/SELECT only).
 
 # 2. Admin apps and their database secrets (staged; applied by the first deploy)
@@ -911,7 +919,8 @@ printf 'ADMIN_DATABASE_URL=postgres://daisy_admin_app:%s@%s\nADMIN_ATTEMPT_KEY=%
   | fly secrets import --stage -a daisy-debate-staging-admin
 unset OWN_PW APP_PW ATT
 
-# 3. One operator key into both apps, in one pipeline, never printed. Web
+# 3. One operator key into both apps, one shell variable piped to each app,
+#    never printed. Web
 #    reads OPERATOR_API_KEYS (kid:key); the admin app needs OPERATOR_API_KEY_ID
 #    and OPERATOR_API_KEY together, because it refuses a partial set of its
 #    four operator settings. OPERATOR_AUDIENCE and OPERATOR_LISTEN_HOST are
@@ -921,6 +930,9 @@ KEY="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32)
 printf 'OPERATOR_API_KEYS=%s:%s\n' "$KID" "$KEY" | fly secrets import --stage -a daisy-debate-staging
 printf 'OPERATOR_API_KEY_ID=%s\nOPERATOR_API_KEY=%s\n' "$KID" "$KEY" | fly secrets import --stage -a daisy-debate-staging-admin
 unset KEY
+#    Each app applies its staged key on its next deploy: the admin app's
+#    first deploy below, and web's next deploy-staging run, which starts the
+#    operator listener. Until web deploys, the accounts screen cannot reach it.
 #    BETA_NOTIFY_EMAIL (the owner digest address) is optional and set the same way.
 
 # 4. Deploy tokens, then the first deploys (CI deploys both on every merge after this)
