@@ -74,7 +74,7 @@ const countFor = async (instance: string) => {
     query_params: { instance },
     format: 'JSONEachRow',
   });
-  const [row] = await result.json<{ n: string }>();
+  const [row] = await result.json<{ n: string | number }>();
   return Number(row?.n);
 };
 
@@ -97,7 +97,7 @@ describe('the log store', () => {
         event: 'invariant.violated',
         severity: 'error',
         invariant_id: 'round.single-active',
-        status: String(status),
+        status,
         user_id: null,
       })),
     });
@@ -170,7 +170,7 @@ describe('the log store', () => {
       query: 'SELECT 1',
       clickhouse_settings: { max_execution_time: 600 },
     });
-    await expect(readerInsert).rejects.toThrow('readonly');
+    await expect(readerInsert).rejects.toThrow('Not enough privileges');
     await expect(shipperSelect).rejects.toThrow('Not enough privileges');
     await expect(readerSetting).rejects.toThrow('readonly');
     await shipperReader.close();

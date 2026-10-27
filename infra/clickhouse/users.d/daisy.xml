@@ -55,6 +55,10 @@
                 <query>GRANT SELECT ON daisy_logs.*</query>
                 <query>GRANT SELECT ON daisy_meta.schema_migrations</query>
                 <query>GRANT SELECT ON daisy_meta.sweeps</query>
+                <!-- Part metadata only (no row data): lets the reader run
+                     sweep.sql's partition listing, which its integration
+                     test does with injected dates. -->
+                <query>GRANT SELECT(database, table, partition, partition_id, active) ON system.parts</query>
             </grants>
         </daisy_admin_reader>
     </users>

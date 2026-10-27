@@ -63,9 +63,7 @@ describe('the security store', () => {
           operation,
           n,
         })),
-      expected: [
-        { invariant_id: invariantId, operation: 'round.start', n: '2' },
-      ],
+      expected: [{ invariant_id: invariantId, operation: 'round.start', n: 2 }],
     });
   });
 
