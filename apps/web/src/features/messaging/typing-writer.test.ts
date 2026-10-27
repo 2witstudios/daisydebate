@@ -48,9 +48,12 @@ test('renewal follows server timing, backs off only when refused as too soon, an
     ],
   });
   timers.advance(TYPING_RETRY_MS * 3);
+  await writer.activity(true);
+  await writer.activity(true);
   assert({
-    given: 'the retry refused as unavailable (503), not as too soon',
-    should: 'stop renewing rather than retry forever',
+    given:
+      'the retry refused as unavailable (503), not as too soon, then more keystrokes',
+    should: 'stop renewing and post nothing per keystroke',
     actual: sent,
     expected: [true, true, true],
   });

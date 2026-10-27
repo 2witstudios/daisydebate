@@ -22,7 +22,10 @@ export function createTypingWriter({
   let desired = false,
     busy = false,
     closed = false,
-    queued = false;
+    queued = false,
+    // A refusal other than 429 (offline, 401, 403, 503): no renewal, and
+    // no post per keystroke, until the member stops and starts again.
+    stalled = false;
   let timer: unknown = null;
   let completion = Promise.resolve();
   const cancel = () => {
@@ -42,6 +45,7 @@ export function createTypingWriter({
             ? null
             : ((await readTypingResponse(channelId, Promise.resolve(response)))
                 ?.refreshAfterMs ?? null);
+      stalled = sent && interval === null;
       if (!queued && !closed && desired && interval !== null)
         timer = timers.setTimeout(() => {
           timer = null;
@@ -63,8 +67,12 @@ export function createTypingWriter({
       if (closed) return completion;
       const changed = desired !== typing;
       desired = typing;
-      if (changed) cancel();
-      if (changed || (!busy && timer === null && typing)) return trigger();
+      if (changed) {
+        cancel();
+        stalled = false;
+      }
+      if (changed || (!busy && !stalled && timer === null && typing))
+        return trigger();
       return completion;
     },
     close() {

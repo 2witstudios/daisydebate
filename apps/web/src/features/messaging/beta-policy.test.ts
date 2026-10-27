@@ -148,6 +148,45 @@ test('a deployment override may only tighten DEC-251', async () => {
       [5, 30, 100],
     ],
   });
+  const ownSocial = {
+    ...betaMessagingPolicy,
+    social: {
+      ...betaMessagingPolicy.social,
+      abuse: [{ max: 3, windowSeconds: 60 }],
+    },
+  };
+  assert({
+    given:
+      'a copied beta policy, then one whose social commands have their own windows, both tightened on send',
+    should:
+      'tighten social commands with send where they share its windows, and keep their own otherwise',
+    actual: [
+      tightenMessagingPolicy(
+        {
+          ...betaMessagingPolicy,
+          social: {
+            ...betaMessagingPolicy.social,
+            abuse: [...betaMessagingPolicy.limits.actorSend],
+          },
+        },
+        {
+          send: [
+            { max: 5, windowSeconds: 10 },
+            { max: 30, windowSeconds: 60 },
+            { max: 100, windowSeconds: 3_600 },
+          ],
+        },
+      ).social.abuse.map((rule) => rule.max),
+      tightenMessagingPolicy(ownSocial, {
+        send: [
+          { max: 5, windowSeconds: 10 },
+          { max: 30, windowSeconds: 60 },
+          { max: 100, windowSeconds: 3_600 },
+        ],
+      }).social.abuse,
+    ],
+    expected: [[5, 30, 100], [{ max: 3, windowSeconds: 60 }]],
+  });
   for (const [given, override] of [
     ['a longer edit window', { editWindowMs: 900_001 }],
     ['a higher hourly send', { send: [{ max: 601, windowSeconds: 3_600 }] }],

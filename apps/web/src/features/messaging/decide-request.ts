@@ -39,7 +39,8 @@ export async function decideMessagingDm(
       const replay = replayDecision(command, state, digest);
       if (replay) return replay;
       if (state.state !== 'pending') throw createAppError('AUTHORIZATION');
-      // As send and block do: replays never spend the limiter.
+      // As send and block do: replays never spend the limiter; a new
+      // decision spends it before the commit's own checks.
       await dependencies.limit(actorId);
       const now = dependencies.clock.now();
       if (

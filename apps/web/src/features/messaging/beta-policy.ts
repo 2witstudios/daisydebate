@@ -225,6 +225,16 @@ function composeBetaMessagingPolicy(
   };
 }
 
+/** Whether two rules allow the same counts over the same windows. */
+const sameWindows = (a: Windows, b: Windows) =>
+  a.length === b.length &&
+  a.every((rule) =>
+    b.some(
+      (other) =>
+        other.windowSeconds === rule.windowSeconds && other.max === rule.max,
+    ),
+  );
+
 /** The tightenable numbers a composed policy carries. */
 const valuesOf = (policy: MessagingRuntimePolicy): MessagingBetaValues => ({
   editWindowMs: policy.editWindowMs,
@@ -272,10 +282,9 @@ export function tightenMessagingPolicy(
       // Where social commands share the send ceiling (the beta policy),
       // a tighter send tightens them too; a policy with its own social
       // windows keeps them.
-      abuse:
-        policy.social.abuse === policy.limits.actorSend
-          ? values.send
-          : policy.social.abuse,
+      abuse: sameWindows(policy.social.abuse, policy.limits.actorSend)
+        ? values.send
+        : policy.social.abuse,
     },
   };
 }

@@ -47,8 +47,8 @@ export async function requestMessagingDm(
           throw createAppError('CONFLICT');
         return current;
       }
-      // As send and block do: a replay never spends the limiter; only a
-      // command that will commit does.
+      // As send and block do: a replay never spends the limiter; a new
+      // command spends it before the commit's own policy checks.
       await dependencies.limit(actorId);
       return frame.commitDmRequest({
         requestId: command.requestId,
