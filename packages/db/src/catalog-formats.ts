@@ -57,14 +57,15 @@ export type CatalogFormat = {
 
 /**
  * Daisy's standards share the one-on-one schedule. Policy and Value differ
- * only in the resolution; Freestyle strikes it (FMT-2b).
+ * only in the resolution, set in advance though a host may turn on a
+ * strike; Freestyle always strikes it (FMT-2b).
  */
 const standard = (
   id: (typeof standardFormatIds)[number],
   name: string,
   sortOrder: number,
   { definition, preset }: Pick<CatalogFormat, 'definition' | 'preset'> = {
-    definition: oneOnOneDefinition,
+    definition: withDraw(oneOnOneDefinition),
     preset: oneOnOneRoomConfig,
   },
 ): CatalogFormat => ({
