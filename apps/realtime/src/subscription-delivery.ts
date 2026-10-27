@@ -19,6 +19,9 @@ import {
   subscriptionRefusal,
 } from './subscription-state';
 
+/** Recipients of one row authorized concurrently (RT-2.3c-arch1). */
+const RECIPIENTS_IN_FLIGHT = 32;
+
 export function createSubscriptionDelivery({
   connections,
   authorize,
@@ -55,8 +58,7 @@ export function createSubscriptionDelivery({
   function revokeAccess(connection: Connection, id: string | undefined) {
     for (const [topic, sub] of connection.topics) {
       if (topic.split(':')[1] !== id) continue;
-      transport.detach(connection, topic, sub);
-      connection.topics.delete(topic);
+      terminate(connection, topic, sub);
     }
   }
   function applyControl(
@@ -284,10 +286,34 @@ export function createSubscriptionDelivery({
     invalidate: (rows: readonly OutboxRow[]) => {
       for (const row of rows) invalidateRow(row);
     },
+    /**
+     * One row to its local recipients, at most `RECIPIENTS_IN_FLIGHT`
+     * authorizations at a time, so a topic with many viewers drains at
+     * roughly that multiple of one authorization's latency. The scheduler
+     * keeps one row per topic in flight, so each subscription still sees
+     * its rows in order.
+     */
     async deliver(row: OutboxRow) {
       if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) return;
-      for (const connection of connections) await deliverTo(connection, row);
+      const recipients = [...connections].filter(
+        (connection) => connection.topics.get(row.topic)?.attached,
+      );
+      let next = 0;
+      const lane = async () => {
+        // One recipient's failure never stops the others or frees the slot early.
+        while (next < recipients.length)
+          await deliverTo(recipients[next++]!, row).catch(() => {});
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(RECIPIENTS_IN_FLIGHT, recipients.length) },
+          lane,
+        ),
+      );
     },
+    /** Whether any local subscription is owed rows of `topic`. */
+    observed: (topic: string) =>
+      [...connections].some((connection) => connection.topics.has(topic)),
     async revalidate(
       validate: (principal: SocketPrincipal) => Promise<boolean>,
     ) {

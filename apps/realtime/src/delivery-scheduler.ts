@@ -52,14 +52,16 @@ export function createDeliveryScheduler({
     const position = ready.indexOf(topic);
     if (position >= 0) ready.splice(position, 1);
     if (!queue.running) queues.delete(topic);
-    overflow(topic);
   }
-  function admit(row: OutboxRow) {
+  function admit(row: OutboxRow, overflowed: Set<string>) {
+    // A topic overflowed in this batch stays resynced: its later rows are moot.
+    if (overflowed.has(row.topic)) return;
     const queue = queues.get(row.topic) ?? { rows: [], running: undefined };
     const topicRetained = queue.rows.length + (queue.running ? 1 : 0);
     if (topicRetained >= maxPerTopic || retained >= maxRetained) {
       if (queues.has(row.topic)) drop(row.topic, queue);
-      else overflow(row.topic);
+      overflowed.add(row.topic);
+      overflow(row.topic);
       return;
     }
     queues.set(row.topic, queue);
@@ -97,7 +99,8 @@ export function createDeliveryScheduler({
   }
   return {
     enqueue(rows: readonly OutboxRow[]) {
-      for (const row of rows) admit(row);
+      const overflowed = new Set<string>();
+      for (const row of rows) admit(row, overflowed);
       pump();
     },
     backlog(wallNowMs: number): DeliveryBacklog {

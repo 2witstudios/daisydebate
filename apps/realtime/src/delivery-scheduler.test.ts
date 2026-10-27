@@ -186,3 +186,19 @@ test('a failed delivery still releases its slot', async () => {
     expected: { delivered: ['t:a', 't:b'], backlog: 0 },
   });
 });
+
+test('a batch that overflows a topic resyncs it once', () => {
+  const overflowed: string[] = [];
+  const scheduler = createDeliveryScheduler({
+    ...limits,
+    deliver: () => new Promise<void>(() => {}),
+    overflow: (topic) => overflowed.push(topic),
+  });
+  scheduler.enqueue(Array.from({ length: 20 }, () => row('t:a')));
+  assert({
+    given: 'one batch of 20 rows for a topic bounded at 3',
+    should: 'report the overflow once, not per rejected row',
+    actual: overflowed,
+    expected: ['t:a'],
+  });
+});

@@ -71,3 +71,53 @@ test('a late allow after the topic overflowed cannot publish', async () => {
     },
   });
 });
+
+test('one row reaches many recipients concurrently, never more than 32 at once', async () => {
+  let held = false;
+  let inFlight = 0;
+  let peak = 0;
+  const gate = deferred<void>();
+  const f = fixture({
+    authorize: async () => {
+      if (held) {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await gate.promise;
+        inFlight -= 1;
+      }
+      return { revision: '1', validUntil: 60_000 };
+    },
+  });
+  await f.registry.subscribe(f.connection, { id: 'r0', topic });
+  for (let index = 1; index < 100; index += 1)
+    await f.registry.subscribe(
+      f.registry.add(f.socket, f.connection.principal),
+      { id: `r${index}`, topic },
+    );
+  held = true;
+  f.registry.sink([row(1)]);
+  await flush();
+  const concurrent = peak;
+  gate.resolve();
+  await f.registry.settled();
+  assert({
+    given: '100 subscribers of one topic whose event authorizations all wait',
+    should: 'run 32 at once rather than one at a time, then deliver to all',
+    actual: {
+      concurrent,
+      delivered: f.sent.filter((frame) => frame.type === 'event').length,
+    },
+    expected: { concurrent: 32, delivered: 100 },
+  });
+});
+
+test('rows nobody here is owed take no delivery capacity', () => {
+  const { registry } = fixture();
+  registry.sink(Array.from({ length: 2000 }, (_, index) => row(index + 1)));
+  assert({
+    given: '2,000 rows on a topic with no local subscriber',
+    should: 'retain none of them',
+    actual: registry.backlog(0).retained,
+    expected: 0,
+  });
+});

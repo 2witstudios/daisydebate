@@ -116,3 +116,49 @@ test('a denial on one topic leaves another topic attached', async () => {
     expected: [other],
   });
 });
+
+test('access.revoked ends exactly the named subscription on its request', async () => {
+  const { buildDebateTopic, buildUserInboxTopic } =
+    await import('@daisy/protocol');
+  const revoked = 'f'.repeat(24);
+  const kept = 'g'.repeat(24);
+  const f = fixture();
+  await f.registry.subscribe(f.connection, {
+    id: 'revoked',
+    topic: buildDebateTopic(revoked),
+  });
+  await f.registry.subscribe(f.connection, {
+    id: 'kept',
+    topic: buildDebateTopic(kept),
+  });
+  const actorId = f.connection.principal.actorId;
+  f.registry.sink([
+    {
+      ...row(1),
+      topic: buildUserInboxTopic(actorId),
+      kind: 'access.revoked',
+      payload: {
+        kind: 'access.revoked',
+        entityVersion: 1,
+        ids: [actorId, revoked],
+      },
+    },
+  ]);
+  await f.registry.revalidate(async () => true);
+  await f.registry.settled();
+  assert({
+    given: 'an access.revoked control for one of two debate subscriptions',
+    should:
+      'answer AUTHORIZATION on that request only, and not revive it on a later allow',
+    actual: {
+      errors: f.sent
+        .filter((frame) => frame.type === 'error')
+        .map((frame) => frame.type === 'error' && `${frame.code}:${frame.id}`),
+      topics: [...f.connection.topics.keys()],
+    },
+    expected: {
+      errors: ['AUTHORIZATION:revoked'],
+      topics: [buildDebateTopic(kept)],
+    },
+  });
+});

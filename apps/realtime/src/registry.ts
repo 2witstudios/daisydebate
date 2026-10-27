@@ -207,7 +207,15 @@ export function createSubscriptionRegistry({
       ring = all.slice(-ringLimit);
       const last = rows.at(-1);
       if (last) cursor = { txid: last.txid, seq: last.seq };
-      scheduler.enqueue(rows);
+      // Only rows someone here is owed take delivery capacity: a late
+      // subscriber replays from the ring, and control rows were applied above.
+      scheduler.enqueue(
+        rows.filter(
+          (row) =>
+            isPayloadDeliverableOnTopic(row.topic, row.payload) &&
+            delivery.observed(row.topic),
+        ),
+      );
     },
     backlog: scheduler.backlog,
     seed(position: OutboxPosition) {
