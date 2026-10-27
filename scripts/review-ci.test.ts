@@ -2,7 +2,6 @@
 // instead of a local run, and the check verifies it against the runs the
 // edge read from GitHub, failing closed on anything it cannot verify.
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { CiEvidence } from './review-ci';
 import { verifyReviewRecord } from './review-record';
 import { record, sha } from './review-record.test-support';
 import {
@@ -11,15 +10,13 @@ import {
   clean,
   evidence,
   integration,
+  judge,
   repository,
   runUrl,
   runtimePr,
 } from './review-ci.test-support';
 
 setupRitewayBun();
-
-const judge = (line: string, ci: CiEvidence = evidence(), target = runtimePr) =>
-  verifyReviewRecord(target, [citing(line)], [], ci).description;
 
 describe('verifyReviewRecord with CI evidence', () => {
   test('accepts a verified CI integration citation in place of a local run', () => {
