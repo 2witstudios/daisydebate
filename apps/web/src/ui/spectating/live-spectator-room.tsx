@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { formatCountdown } from '../../lib/clock-display';
-import type { RoundRead } from '../../features/rooms/read-round';
+import type { RoundRead } from '../../features/round-runtime/read-round';
 import {
   spectatorViewOf,
   type SpectatorActivity,
@@ -16,6 +16,7 @@ import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
 import { useSecond } from '../debate-room/use-second';
+import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
 const audienceLabel: Readonly<Record<SpectatorAudience, string>> = {
@@ -50,14 +51,6 @@ const stateLabel = {
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';
 const cardClass = 'rounded-xl border border-border bg-surface-raised';
-
-const initialsOf = (label: string) =>
-  label
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? '')
-    .join('');
 
 const onFloor = (activity: SpectatorActivity) =>
   activity === 'speaking' || activity === 'asking';

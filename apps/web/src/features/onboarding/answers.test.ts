@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { topicChoices } from '@daisy/protocol';
+import { interestCategoryChoices } from '@daisy/protocol';
 import { emptyAnswers, parseStepAnswers } from './answers';
 
 setupRitewayBun();
@@ -108,8 +108,10 @@ describe('parseStepAnswers', () => {
     assert({
       given: 'every listed topic',
       should: 'accept all twelve',
-      actual: parseStepAnswers({ step: 'topics', topics: [...topicChoices] })
-        .ok,
+      actual: parseStepAnswers({
+        step: 'topics',
+        topics: [...interestCategoryChoices],
+      }).ok,
       expected: true,
     });
     assert({

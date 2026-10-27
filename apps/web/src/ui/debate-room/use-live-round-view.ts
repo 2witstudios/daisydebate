@@ -1,12 +1,12 @@
 'use client';
 import { useCallback } from 'react';
 import type { RoundView } from '@daisy/protocol';
-import type { RoundRead } from '../../features/rooms/read-round';
+import type { RoundRead } from '../../features/round-runtime/read-round';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import {
   createRoundSyncDriver,
   seedRoundSync,
-} from '../../features/rooms/round-sync-driver';
+} from '../../features/round-runtime/round-sync-driver';
 import { useResourceSync } from '../resource-sync/use-resource-sync';
 
 /** Both assigned judges and debaters follow the same canonical Round revision stream. */

@@ -9,6 +9,7 @@ import {
 import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
+import { roomStatuses } from './room-contract';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
@@ -99,7 +100,7 @@ export const roomViewSchema = z.strictObject({
         .refine((allowance) => allowance.remaining <= allowance.limit),
     ])
     .nullable(),
-  status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
+  status: z.enum(roomStatuses),
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),

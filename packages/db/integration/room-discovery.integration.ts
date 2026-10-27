@@ -40,7 +40,7 @@ test('discovery work is independent of historical Room and Round volume', async 
         id,
         title: token,
         topic: token,
-        status: i < 2 ? 'assembling' : i === 5 ? 'abandoned' : 'started',
+        status: i < 2 ? 'assembling' : i === 5 ? 'closed' : 'started',
         created_at: new Date('2026-01-01'),
       });
       if (i >= 2 && i < 5)

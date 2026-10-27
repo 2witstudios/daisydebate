@@ -3,7 +3,7 @@ import './zod-jitless';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
-import type { RoundRead } from '../../features/rooms/read-round';
+import type { RoundRead } from '../../features/round-runtime/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';

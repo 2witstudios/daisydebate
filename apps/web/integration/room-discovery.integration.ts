@@ -131,7 +131,7 @@ test('selected Room locks recheck visibility, participant and status races with 
         if (change === 'seat')
           await holder`delete from room_participants where room_id=${view.id} and actor_id=${f.guest.actorId}`;
         if (change === 'status')
-          await holder`update rooms set status='abandoned' where id=${view.id}`;
+          await holder`update rooms set status='closed' where id=${view.id}`;
         await holder.unsafe('COMMIT');
         const page = await reading;
         assert({

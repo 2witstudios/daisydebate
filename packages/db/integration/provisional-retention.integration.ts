@@ -5,6 +5,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { withFixture } from './constraint-helpers';
 import { createDatabase } from '../src';
+import { ownLinksDelete } from '../src/provisional-cleanup';
+import { abandonedCandidatesRead } from '../src/provisional-retention';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { sql, type SQL } from 'drizzle-orm';
 
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
@@ -134,12 +138,11 @@ test('busy provisional rows skip the batch and a cleanup failure inside an accou
         database.purgeExpiredProvisionalUsers({
           ...options,
           // Fails inside the account's own transaction, after the lock.
-          emailChangePurposes: {
-            length: 1,
+          emailChangePurposes: Object.assign(['email-change-approve'], {
             map: () => {
               throw new Error('proof cleanup failure');
             },
-          } as unknown as string[],
+          }),
         }),
       ).rejects.toThrow('proof cleanup failure');
       const kept = [
@@ -269,5 +272,47 @@ test('a sign-up active since the cutoff is not abandoned (review on #474)', asyn
       await database.close();
       await f.sql`delete from verification where identifier=${`sign-in:${tag}`}`;
     }
+  });
+});
+
+test('the sweep finds candidates and their links through indexes (ISSUE-716)', async () => {
+  await withFixture(url, async (f) => {
+    // The statements the sweep itself runs, built by the same builders.
+    const purposes = {
+      signInPurpose: options.signInPurpose,
+      emailChangePurposes: options.emailChangePurposes,
+    };
+    const statements = [
+      abandonedCandidatesRead({ before, limit: 50, ...purposes }),
+      ownLinksDelete({ id: createId(), email: 'a@example.test' }, purposes),
+    ];
+    const db = drizzle({ client: f.sql });
+    // With sequential scans disabled, a usable index is the only plan left;
+    // the delete is EXPLAINed, never run.
+    const plans = await db.transaction(async (tx) => {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      const plan = async (statement: SQL) =>
+        (
+          (await tx.execute(sql`explain ${statement}`)) as unknown as {
+            'QUERY PLAN': string;
+          }[]
+        )
+          .map((row) => row['QUERY PLAN'])
+          .join('\n');
+      return Promise.all(statements.map(plan));
+    });
+    assert({
+      given:
+        "the sweep's own candidate read and its own per-account link delete",
+      should:
+        'read live provisional accounts through the partial users index, and every verification row (the anti-join and the delete) through the identifier pattern index',
+      actual: [
+        plans[0]!.includes('users_provisional_created_idx'),
+        plans[0]!.includes('verification_identifier_pattern_idx'),
+        plans[1]!.includes('verification_identifier_pattern_idx'),
+        plans.some((plan) => plan.includes('Seq Scan on verification')),
+      ],
+      expected: [true, true, true, false],
+    });
   });
 });
