@@ -1,0 +1,29 @@
+# The operational log shipper (ADR 0081): apps/log-shipper, the
+# `log-shipper` target of apps/web/Dockerfile. It subscribes to Fly's org
+# log stream over 6PN for the apps below, admits each line against the
+# @daisy/logger vocabulary and inserts it into
+# daisy-debate-staging-clickhouse. 6PN only, no public address. NATS_TOKEN
+# (a read-only org token, at most 90 days) and CLICKHOUSE_SHIPPER_PASSWORD
+# are Fly secrets, never written here (docs/operations/log-pipeline.md).
+app = "daisy-debate-staging-log-shipper"
+primary_region = "ord"
+# The shipper stops within SHUTDOWN_DEADLINE_MS (src/start.ts).
+kill_timeout = 20
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  build-target = "log-shipper"
+
+[env]
+  FLY_ORG = "daisy-debate"
+  CLICKHOUSE_URL = "http://daisy-debate-staging-clickhouse.internal:8123"
+  # Every staging app that writes the logger stream, the shipper itself
+  # included; LiveKit and ClickHouse write their own formats and are not
+  # subscribed.
+  SHIPPER_APPS = "daisy-debate-staging,daisy-debate-staging-realtime,daisy-debate-staging-media-worker,daisy-debate-staging-admin,daisy-debate-staging-migrate,daisy-debate-staging-admin-migrate,daisy-debate-staging-log-shipper"
+
+# No [http_service] or [[services]]: it only calls out.
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

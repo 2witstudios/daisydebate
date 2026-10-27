@@ -60,5 +60,29 @@ services:
       timeout: 5s
       start_period: 3m
       retries: 20
+  # The operational log store (ADR 0081), built from the same Dockerfile
+  # Fly deploys, with dev-only role passwords (scripts/slot-model.ts names
+  # them for the log-store suites). Shared by every slot; suites isolate by
+  # their own CSPRNG instance ids. No volume: test data is disposable.
+  clickhouse:
+    build:
+      context: ..
+      dockerfile: infra/clickhouse/Dockerfile
+    environment:
+      CLICKHOUSE_CLIENT_NETWORK: '::/0'
+      CLICKHOUSE_SHIPPER_PASSWORD: local-shipper-only
+      CLICKHOUSE_READER_PASSWORD: local-reader-only
+    ports: ['127.0.0.1:18123:8123']
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'clickhouse-client -q "SELECT count() FROM daisy_meta.schema_migrations" | grep -qv ''^0$''',
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 40
 volumes:
   postgres-data:

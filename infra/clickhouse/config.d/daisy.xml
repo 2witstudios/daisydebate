@@ -1,0 +1,38 @@
+<!-- Server settings for the operational log store (ADR 0081). -->
+<clickhouse>
+    <listen_host>::</listen_host>
+    <http_port>8123</http_port>
+    <!-- Native protocol, for entrypoint.sh's clickhouse-client only: the
+         default user it runs as is restricted to loopback (users.d). -->
+    <tcp_port>9000</tcp_port>
+    <timezone>UTC</timezone>
+    <!-- Server diagnostics go to stdout (Fly's 7-day log search), never to
+         files on the volume. -->
+    <logger replace="replace">
+        <level>warning</level>
+        <console>1</console>
+    </logger>
+    <!-- No internal log tables: they would keep query text and server
+         activity on the volume outside the 28-day retention rule. -->
+    <query_log remove="1" />
+    <query_thread_log remove="1" />
+    <query_views_log remove="1" />
+    <query_metric_log remove="1" />
+    <part_log remove="1" />
+    <trace_log remove="1" />
+    <text_log remove="1" />
+    <metric_log remove="1" />
+    <asynchronous_metric_log remove="1" />
+    <asynchronous_insert_log remove="1" />
+    <session_log remove="1" />
+    <opentelemetry_span_log remove="1" />
+    <processors_profile_log remove="1" />
+    <crash_log remove="1" />
+    <backup_log remove="1" />
+    <blob_storage_log remove="1" />
+    <error_log remove="1" />
+    <latency_log remove="1" />
+    <!-- A small machine: keep caches and the server's memory bounded. -->
+    <mark_cache_size>268435456</mark_cache_size>
+    <max_server_memory_usage_to_ram_ratio>0.75</max_server_memory_usage_to_ram_ratio>
+</clickhouse>

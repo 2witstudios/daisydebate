@@ -193,6 +193,10 @@ jobs:
       NODE_ENV: development
       FOUNDATION_PROOF_ENABLED: 'true'
       CLAMD_TEST_PORT: '3310'
+      # The compose log store (ADR 0081) and its dev-only role passwords.
+      TEST_CLICKHOUSE_URL: http://127.0.0.1:18123
+      TEST_CLICKHOUSE_SHIPPER_PASSWORD: local-shipper-only
+      TEST_CLICKHOUSE_READER_PASSWORD: local-reader-only
       APP_VERSION: ci
       GIT_COMMIT: ${{ github.sha }}
     services:
@@ -218,7 +222,7 @@ jobs:
       # infra/livekit.yaml) and the pinned clamd come from the local compose
       # stack itself, so CI and every slot run one shape; service containers
       # cannot pass flags.
-      - run: docker compose -f infra/compose.yaml up -d --wait redis livekit clamd
+      - run: docker compose -f infra/compose.yaml up -d --wait redis livekit clamd clickhouse
       - run: bun db:migrate
       - name: Verify migration reruns are idempotent
         run: bun db:migrate

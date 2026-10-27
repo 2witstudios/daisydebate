@@ -68,6 +68,25 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
     after: 'fly.admin-migrate.toml',
     private: true,
   },
+  // ADR 0081: the log store (its own pinned image), then the shipper.
+  {
+    file: 'fly.clickhouse.toml',
+    token: 'FLY_CLICKHOUSE_API_TOKEN',
+    target: null,
+    stop: null,
+    private: true,
+  },
+  {
+    file: 'fly.log-shipper.toml',
+    token: 'FLY_LOG_SHIPPER_API_TOKEN',
+    target: 'log-shipper',
+    stop: {
+      source: 'apps/log-shipper/src/start.ts',
+      pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
+    },
+    after: 'fly.clickhouse.toml',
+    private: true,
+  },
 ];
 
 /** A private app's config declares nothing fly-proxy could route to. */
@@ -202,7 +221,7 @@ export function findServiceAppConfigProblems(
   ];
 }
 
-/** A built app's stage and stop budget; LiveKit's pinned image has neither. */
+/** A built app's stage and stop budget; LiveKit's and ClickHouse's own images have neither. */
 function builtServiceProblems(
   app: ServiceApp,
   toml: string,

@@ -63,8 +63,8 @@ jobs:
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
-    # Seven deploys (migrator, LiveKit, realtime, web, capture worker, admin
-    # migrator, admin) run
+    # Nine deploys (migrator, LiveKit, realtime, web, capture worker, admin
+    # migrator, admin, log store, log shipper) run
     # back to back, each building on this runner and pushing its image.
     timeout-minutes: 60
     needs: ready
@@ -89,6 +89,8 @@ jobs:
         deploy.media-worker=${{ steps.media-worker.outcome }}
         deploy.admin-migrate=${{ steps.admin-migrate.outcome }}
         deploy.admin=${{ steps.admin.outcome }}
+        deploy.clickhouse=${{ steps.clickhouse.outcome }}
+        deploy.log-shipper=${{ steps.log-shipper.outcome }}
         deploy.readiness=${{ steps.readiness.outcome }}
     steps:
       - id: checkout
@@ -197,6 +199,45 @@ jobs:
             exit 0
           fi
           flyctl deploy -c fly.admin.toml --local-only --ha=false --no-public-ips \
+            --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
+            --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: clickhouse
+        name: Deploy the log store
+        # ADR 0081: 6PN-only ClickHouse. A restart drops the stream records
+        # published meanwhile (the shipper keeps what it already holds), so
+        # like LiveKit it redeploys only when its image or config changed
+        # since the commit it last deployed from. Skips, reported as
+        # unconfigured, until its deploy token exists.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_CLICKHOUSE_API_TOKEN }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "FLY_CLICKHOUSE_API_TOKEN is not set; the log store is unconfigured and was not deployed"
+            exit 0
+          fi
+          deployed="$(flyctl machines list -a daisy-debate-staging-clickhouse --json | jq -r '.[0].config.env.CLICKHOUSE_SOURCE_COMMIT // empty')"
+          if [ "$MANUAL" != true ] && [ -n "$deployed" ] \
+            && git cat-file -e "$deployed^{commit}" 2>/dev/null \
+            && git diff --quiet "$deployed" HEAD -- infra/clickhouse fly.clickhouse.toml; then
+            echo "The log store is unchanged since $deployed; not redeployed"
+            exit 0
+          fi
+          flyctl deploy -c fly.clickhouse.toml --local-only --ha=false --no-public-ips \
+            --env CLICKHOUSE_SOURCE_COMMIT="$DEPLOY_SHA"
+      - id: log-shipper
+        name: Deploy the log shipper
+        # ADR 0081: after the store it writes to. Skips, reported as
+        # unconfigured, while either log pipeline token is missing.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LOG_SHIPPER_API_TOKEN }}
+          STORE_READY: ${{ secrets.FLY_CLICKHOUSE_API_TOKEN != '' }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ] || [ "$STORE_READY" != true ]; then
+            echo "Log pipeline deploy tokens are not set; the log shipper is unconfigured and was not deployed"
+            exit 0
+          fi
+          flyctl deploy -c fly.log-shipper.toml --local-only --ha=false --no-public-ips \
             --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
             --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: readiness

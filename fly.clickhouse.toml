@@ -1,0 +1,28 @@
+# The operational log store (ADR 0081): self-hosted ClickHouse on the org's
+# default 6PN with no public address (`fly deploy --no-public-ips`, checked
+# with `fly ips list`). No [http_service] or [[services]]: fly-proxy never
+# routes to it; the log shipper writes and the admin app reads over
+# daisy-debate-staging-clickhouse.internal:8123. CLICKHOUSE_SHIPPER_PASSWORD
+# and CLICKHOUSE_READER_PASSWORD are Fly secrets, never written here
+# (docs/operations/log-pipeline.md).
+app = "daisy-debate-staging-clickhouse"
+primary_region = "ord"
+# ClickHouse flushes and stops within seconds; 30 s leaves room for merges.
+kill_timeout = 30
+
+[build]
+  dockerfile = "infra/clickhouse/Dockerfile"
+
+[env]
+  # Only 6PN peers may sign in as either role.
+  CLICKHOUSE_CLIENT_NETWORK = "fdaa::/16"
+
+# The volume is created with scheduled snapshots off
+# (docs/operations/log-pipeline.md): no copy outlives the 28-day TTL.
+[mounts]
+  source = "clickhouse_data"
+  destination = "/var/lib/clickhouse"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"

@@ -1,0 +1,60 @@
+<!--
+  The two network roles of the operational log store (ADR 0081). Passwords
+  come from the environment (Fly secrets on staging, dev-only values in
+  infra/compose.yaml) and are never written here.
+-->
+<clickhouse>
+    <profiles>
+        <daisy_shipper>
+            <max_execution_time>30</max_execution_time>
+            <max_memory_usage>268435456</max_memory_usage>
+            <max_concurrent_queries_for_user>2</max_concurrent_queries_for_user>
+        </daisy_shipper>
+        <!-- Read-only, and bounded in time, memory, rows read and result
+             size, so no query from the admin app can exhaust the server. -->
+        <daisy_admin_reader>
+            <readonly>1</readonly>
+            <max_execution_time>10</max_execution_time>
+            <timeout_overflow_mode>throw</timeout_overflow_mode>
+            <max_memory_usage>268435456</max_memory_usage>
+            <max_rows_to_read>50000000</max_rows_to_read>
+            <read_overflow_mode>throw</read_overflow_mode>
+            <max_result_rows>10000</max_result_rows>
+            <result_overflow_mode>throw</result_overflow_mode>
+            <max_concurrent_queries_for_user>4</max_concurrent_queries_for_user>
+        </daisy_admin_reader>
+    </profiles>
+    <users>
+        <!-- Applies the schema and sweeps partitions from inside the
+             machine only. -->
+        <default>
+            <networks replace="replace">
+                <ip>::1</ip>
+                <ip>127.0.0.1</ip>
+            </networks>
+        </default>
+        <daisy_shipper>
+            <password from_env="CLICKHOUSE_SHIPPER_PASSWORD" />
+            <networks>
+                <ip from_env="CLICKHOUSE_CLIENT_NETWORK" />
+            </networks>
+            <profile>daisy_shipper</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT INSERT ON daisy_logs.*</query>
+            </grants>
+        </daisy_shipper>
+        <daisy_admin_reader>
+            <password from_env="CLICKHOUSE_READER_PASSWORD" />
+            <networks>
+                <ip from_env="CLICKHOUSE_CLIENT_NETWORK" />
+            </networks>
+            <profile>daisy_admin_reader</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT ON daisy_logs.*</query>
+                <query>GRANT SELECT ON daisy_meta.schema_migrations</query>
+            </grants>
+        </daisy_admin_reader>
+    </users>
+</clickhouse>

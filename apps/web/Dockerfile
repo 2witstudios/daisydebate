@@ -34,6 +34,7 @@ COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
 RUN bun install --frozen-lockfile
@@ -73,6 +74,7 @@ COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
 RUN bun install --frozen-lockfile --production
@@ -133,6 +135,13 @@ CMD ["bun", "src/start.ts"]
 FROM server-source AS media-worker
 COPY --chown=daisy:daisy apps/media-worker/src apps/media-worker/src
 WORKDIR /app/apps/media-worker
+CMD ["bun", "src/start.ts"]
+
+# ---- log-shipper: apps/log-shipper, the operational log shipper
+# (fly.log-shipper.toml, ADR 0081). No port: it only calls out.
+FROM server-source AS log-shipper
+COPY --chown=daisy:daisy apps/log-shipper/src apps/log-shipper/src
+WORKDIR /app/apps/log-shipper
 CMD ["bun", "src/start.ts"]
 
 # ---- admin-build: the admin app's Next build (ADR 0077), selected only by
