@@ -7,6 +7,13 @@ import {
   memberTopics,
 } from './schema/onboarding';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { createAppError } from '@daisy/errors';
+import {
+  loadAuthorizationAccount,
+  lockAuthorizationActors,
+  type AuthorizationTransaction,
+} from './authorization';
+import { loadAuthorizationAgeFact } from './authorization-age';
 
 /** One questionnaire step as stored: the step's whole answer, replaced. */
 export type OnboardingStepWrite =
@@ -65,6 +72,54 @@ const touched = {
   version: sql`${memberOnboarding.version} + 1`,
 };
 
+/** The canonical age fact, as the account-fenced reader projects it. */
+type OnboardingAgeFact = Awaited<
+  ReturnType<typeof loadAuthorizationAgeFact>
+>;
+
+/** The policy that decides, from the canonical fact alone, whether optional answers may be stored. */
+type OptionalAnswerAgePolicy = (
+  fact: OnboardingAgeFact,
+  actorId: string,
+  now: string,
+) => boolean;
+
+/** One step's write: the session's own account, trusted time and the age policy. */
+type OnboardingSaveInput = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly answers: OnboardingStepWrite;
+  /** Trusted UTC ISO time from the injected clock. */
+  readonly now: string;
+  readonly admits: OptionalAnswerAgePolicy;
+};
+
+/**
+ * Takes the account fence, then reads the canonical age fact in the same
+ * transaction, so a correction or erasure cannot slip between the check and
+ * the write. Refuses (AUTHORIZATION) unless the policy admits the fact; the
+ * caller's transaction then stores nothing.
+ */
+async function requireOptionalAnswerAge(
+  tx: AuthorizationTransaction,
+  input: Omit<OnboardingSaveInput, 'answers'>,
+): Promise<void> {
+  const [account] = await lockAuthorizationActors(tx, [input.actorId], {
+    maxActors: 1,
+  });
+  const fact =
+    account?.userId === input.userId && account.member && !account.erased
+      ? await loadAuthorizationAgeFact(tx, {
+          userId: input.userId,
+          actorId: input.actorId,
+          accountRevision: account.revision,
+          now: input.now,
+        })
+      : ({ state: 'unknown' } as const);
+  if (!input.admits(fact, input.actorId, input.now))
+    throw createAppError('AUTHORIZATION');
+}
+
 /**
  * Onboarding answers (ONB): each step replaces its own answers in one
  * transaction, so a member never holds half of a step. The CHECKs pin every
@@ -77,12 +132,16 @@ export const onboardingOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
-  async saveOnboardingStep(
-    userId: string,
-    answers: OnboardingStepWrite,
-  ): Promise<void> {
+  async saveOnboardingStep({
+    userId,
+    actorId,
+    answers,
+    now,
+    admits,
+  }: OnboardingSaveInput): Promise<void> {
     return instrumented(eventSink, 'saveOnboardingStep', () =>
       database.transaction(async (tx) => {
+        await requireOptionalAnswerAge(tx, { userId, actorId, now, admits });
         const columns =
           answers.step === 'about'
             ? { club: answers.club }
@@ -140,6 +199,26 @@ export const onboardingOperations = ({
    * COMMITTED sees its own snapshot, so a step saved between them could
    * pair old and new answers that never existed together.
    */
+  /** Whether optional answers may be asked for now; the write still decides under the fence. */
+  async optionalAnswersAdmitted(
+    input: Omit<OnboardingSaveInput, 'answers'>,
+  ): Promise<boolean> {
+    return instrumented(eventSink, 'optionalAnswersAdmitted', () =>
+      database.transaction(async (tx) => {
+        const account = await loadAuthorizationAccount(tx, input.userId);
+        const fact =
+          account?.actorId === input.actorId && account.member
+            ? await loadAuthorizationAgeFact(tx, {
+                userId: input.userId,
+                actorId: input.actorId,
+                accountRevision: account.revision,
+                now: input.now,
+              })
+            : ({ state: 'unknown' } as const);
+        return input.admits(fact, input.actorId, input.now);
+      }),
+    );
+  },
   async readOnboarding(userId: string): Promise<OnboardingRecord> {
     return instrumented(eventSink, 'readOnboarding', () =>
       database.transaction(

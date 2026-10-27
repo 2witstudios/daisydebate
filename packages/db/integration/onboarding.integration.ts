@@ -1,16 +1,8 @@
-import { createId } from '@paralleldrive/cuid2';
-import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { withFixture, withDatabase } from './constraint-helpers';
-
-const { databaseUrl: url } = requireTestServices(process.env);
+import { withFixture } from './constraint-helpers';
+import { member, save, url, withDatabase } from './onboarding-support';
 
 setupRitewayBun();
-
-/** This suite's database, over its own pool for each test. */
-const db: <T>(run: Parameters<typeof withDatabase<T>>[1]) => Promise<T> = (
-  run,
-) => withDatabase(url, run);
 
 describe('onboarding answers (ONB-1.4)', () => {
   test('a member with nothing stored', async () => {
@@ -19,7 +11,9 @@ describe('onboarding answers (ONB-1.4)', () => {
       assert({
         given: 'a member who has answered nothing',
         should: 'read back empty answers',
-        actual: await db((database) => database.readOnboarding(userId)),
+        actual: await withDatabase((database) =>
+          database.readOnboarding(userId),
+        ),
         expected: {
           wants: [],
           club: null,
@@ -34,31 +28,32 @@ describe('onboarding answers (ONB-1.4)', () => {
 
   test('each step replaces only its own answers', async () => {
     await withFixture(url, async (fixture) => {
-      const userId = await fixture.user();
-      const answers = await db(async (database) => {
-        await database.saveOnboardingStep(userId, {
-          step: 'about',
-          wants: ['debate', 'watch'],
-          club: 'own',
-        });
-        await database.saveOnboardingStep(userId, {
-          step: 'experience',
-          experience: 'class',
-          formats: ['one-on-one'],
-        });
-        await database.saveOnboardingStep(userId, {
-          step: 'topics',
-          topics: ['law', 'ethics'],
-        });
-        await database.saveOnboardingStep(userId, {
-          step: 'about',
-          wants: ['judge'],
-          club: 'starting',
-        });
-        return database.readOnboarding(userId);
-      });
+      const answers = await member(fixture, '2000-01', (ids) =>
+        withDatabase(async (database) => {
+          await save(database, ids, {
+            step: 'about',
+            wants: ['debate', 'watch'],
+            club: 'own',
+          });
+          await save(database, ids, {
+            step: 'experience',
+            experience: 'class',
+            formats: ['one-on-one'],
+          });
+          await save(database, ids, {
+            step: 'topics',
+            topics: ['law', 'ethics'],
+          });
+          await save(database, ids, {
+            step: 'about',
+            wants: ['judge'],
+            club: 'starting',
+          });
+          return database.readOnboarding(ids.userId);
+        }),
+      );
       assert({
-        given: 'all three steps and then the about step again',
+        given: 'an adult member: all three steps and then the about step again',
         should: 'keep the later about answers and the other steps untouched',
         actual: answers,
         expected: {
@@ -78,7 +73,7 @@ describe('onboarding answers (ONB-1.4)', () => {
       const userId = await fixture.user();
       const first = new Date('2026-10-05T12:00:00.000Z');
       const later = new Date('2026-10-06T12:00:00.000Z');
-      const completedAt = await db(async (database) => {
+      const completedAt = await withDatabase(async (database) => {
         await database.completeOnboarding(userId, first);
         await database.completeOnboarding(userId, later);
         return (await database.readOnboarding(userId)).completedAt;
@@ -94,20 +89,16 @@ describe('onboarding answers (ONB-1.4)', () => {
 
   test('a value off the vocabulary leaves the step unchanged', async () => {
     await withFixture(url, async (fixture) => {
-      const userId = await fixture.user();
-      const answers = await db(async (database) => {
-        await database.saveOnboardingStep(userId, {
-          step: 'topics',
-          topics: ['law'],
-        });
-        await database
-          .saveOnboardingStep(userId, {
+      const answers = await member(fixture, '2000-01', (ids) =>
+        withDatabase(async (database) => {
+          await save(database, ids, { step: 'topics', topics: ['law'] });
+          await save(database, ids, {
             step: 'topics',
             topics: ['health', 'astrology' as never],
-          })
-          .catch(() => undefined);
-        return database.readOnboarding(userId);
-      });
+          }).catch(() => undefined);
+          return database.readOnboarding(ids.userId);
+        }),
+      );
       assert({
         given: 'a topics write whose second value the CHECK refuses',
         should: 'roll the whole step back',
@@ -119,30 +110,26 @@ describe('onboarding answers (ONB-1.4)', () => {
 
   test('deleting the user deletes the answers', async () => {
     await withFixture(url, async (fixture) => {
-      const userId = createId();
-      await fixture.sql.unsafe(
-        'insert into users (id, username) values ($1, $2)',
-        [userId, `u-${userId}`],
-      );
-      await db(async (database) => {
-        await database.saveOnboardingStep(userId, {
-          step: 'about',
-          wants: ['coach'],
-          club: 'joining',
+      const userId = await member(fixture, '2000-01', async (ids) => {
+        await withDatabase(async (database) => {
+          await save(database, ids, {
+            step: 'about',
+            wants: ['coach'],
+            club: 'joining',
+          });
+          await save(database, ids, { step: 'topics', topics: ['sports'] });
         });
-        await database.saveOnboardingStep(userId, {
-          step: 'topics',
-          topics: ['sports'],
-        });
+        return ids;
       });
-      await fixture.sql.unsafe('delete from users where id = $1', [userId]);
+      await fixture.sql`delete from actors where id=${userId.actorId}`;
+      await fixture.sql`delete from users where id=${userId.userId}`;
       assert({
         given: 'a member with answers in all three tables, then deleted',
         should: 'leave no onboarding rows behind',
         actual: [
-          await fixture.count('member_interests', 'user_id', userId),
-          await fixture.count('member_topics', 'user_id', userId),
-          await fixture.count('member_onboarding', 'user_id', userId),
+          await fixture.count('member_interests', 'user_id', userId.userId),
+          await fixture.count('member_topics', 'user_id', userId.userId),
+          await fixture.count('member_onboarding', 'user_id', userId.userId),
         ],
         expected: [0, 0, 0],
       });

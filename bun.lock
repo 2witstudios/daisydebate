@@ -177,6 +177,7 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
+        "@daisy/auth": "workspace:*",
         "drizzle-kit": "1.0.0-rc.4",
         "riteway": "9.3.0",
       },

@@ -22,21 +22,28 @@ type OnboardingDependencies = {
   readonly identify: (request: Request) => Promise<Identity>;
   readonly limiter: () => AuthRateLimiter;
   readonly clock: Clock;
-  readonly save: (
-    userId: string,
-    answers: OnboardingStepWrite,
-  ) => Promise<void>;
+  /**
+   * Stores one step for the session's own account, refusing (AUTHORIZATION,
+   * nothing stored) unless its canonical age fact admits optional answers,
+   * read under the account fence in the write's own transaction (ISSUE-645).
+   */
+  readonly save: (input: {
+    readonly userId: string;
+    readonly actorId: string;
+    readonly answers: OnboardingStepWrite;
+    readonly now: string;
+  }) => Promise<void>;
   readonly complete: (userId: string, at: Date) => Promise<void>;
 };
 
-/** The session's member id, refusing anyone without a username. */
-async function memberId(
+/** The session's member ids, refusing anyone without a username. */
+async function memberIds(
   identify: (request: Request) => Promise<Identity>,
   request: Request,
-): Promise<string> {
+): Promise<{ readonly userId: string; readonly actorId: string | null }> {
   const identity = requireSignedIn(await identify(request));
   if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-  return identity.principal.userId;
+  return identity.principal;
 }
 
 const isFinish = (body: unknown) =>
@@ -50,7 +57,9 @@ const isFinish = (body: unknown) =>
  * that the member finished (Finish or Skip). Gate order is ADR 0020: same
  * origin, the session Principal, a member with a username (never a
  * body-supplied id), an atomic rate limit, a strict body, and only then
- * durable work. A refused answer stores nothing.
+ * durable work. Optional answers also need the member's canonical age
+ * fact to admit them (16 or over, DEC-106); the body never carries an age.
+ * A refused answer stores nothing; Finish needs no age.
  */
 export function createOnboardingHandler(dependencies: OnboardingDependencies) {
   return (request: Request) =>
@@ -60,7 +69,10 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
       'account.onboarding.save',
       async () => {
         requireSameOrigin(request, dependencies.origin());
-        const userId = await memberId(dependencies.identify, request);
+        const { userId, actorId } = await memberIds(
+          dependencies.identify,
+          request,
+        );
         await consumeOrThrow(
           dependencies.limiter(),
           `account:onboarding:${userId}`,
@@ -78,7 +90,13 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
         }
         const parsed = parseStepAnswers(body);
         if (!parsed.ok) throw createAppError('VALIDATION');
-        await dependencies.save(userId, parsed.value);
+        if (actorId === null) throw createAppError('AUTHORIZATION');
+        await dependencies.save({
+          userId,
+          actorId,
+          answers: parsed.value,
+          now: dependencies.clock.now(),
+        });
         return Response.json({ saved: parsed.value.step });
       },
     );

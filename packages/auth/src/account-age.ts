@@ -73,3 +73,27 @@ function validSource(source: AccountAgeSource, instant: Date) {
     recorded <= instant.getTime()
   );
 }
+
+/** The ages that may give optional onboarding answers in the beta (DEC-106). */
+const optionalAnswerBands: ReadonlySet<AgeBand> = new Set(['16-17', 'adult']);
+
+/**
+ * Whether a canonical age fact lets this actor give optional onboarding
+ * answers now: known, bound to the same actor, 16 or over, and still
+ * current (it expires at the next UTC month). Anything else refuses; no
+ * client-supplied age is ever an input.
+ */
+export function admitsOptionalAnswers(
+  fact: AccountAgeFact,
+  actorId: string,
+  now: string,
+): boolean {
+  const instant = Date.parse(now);
+  return (
+    fact.state === 'known' &&
+    fact.actorId === actorId &&
+    optionalAnswerBands.has(fact.band) &&
+    Number.isFinite(instant) &&
+    instant < Date.parse(fact.validUntil)
+  );
+}
