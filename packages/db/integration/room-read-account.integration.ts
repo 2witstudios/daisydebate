@@ -19,7 +19,7 @@ for (const role of ['daisy_web', 'daisy_realtime'])
         const account = await sharedAccount(db, caller);
         const peer = await fixture.sql.begin(
           (other) =>
-            other`select * from public.daisy_room_read_account(${caller.actorId},${caller.userId})`,
+            other`select * from public.daisy_room_read_account_v2(${caller.actorId},${caller.userId})`,
         );
         const writers = await Promise.all(
           ['update', 'no key update'].map((mode) =>
@@ -48,8 +48,16 @@ for (const role of ['daisy_web', 'daisy_realtime'])
               beta: { state: 'approved', revision: 1 },
               ageBand: 'adult',
             },
-            // The v1 reader keeps its exact five-column contract (ADR 0075).
-            peer: { ...caller, member: true, erased: false, revision: 1 },
+            // The shared reader's raw v2 row (ADR 0075).
+            peer: {
+              ...caller,
+              member: true,
+              erased: false,
+              revision: 1,
+              betaState: 'approved',
+              betaRevision: 1,
+              ageBand: 'adult',
+            },
             writers: ['55P03', '55P03'],
           },
         });
@@ -57,17 +65,17 @@ for (const role of ['daisy_web', 'daisy_realtime'])
       const invalid = await Promise.all(
         [
           () =>
-            fixture.sql`select * from public.daisy_room_read_account(null,${caller.userId})`,
+            fixture.sql`select * from public.daisy_room_read_account_v2(null,${caller.userId})`,
           () =>
-            fixture.sql`select * from public.daisy_room_read_account('invalid',${caller.userId})`,
+            fixture.sql`select * from public.daisy_room_read_account_v2('invalid',${caller.userId})`,
           () =>
-            fixture.sql`select * from public.daisy_room_read_account(${caller.actorId},null)`,
+            fixture.sql`select * from public.daisy_room_read_account_v2(${caller.actorId},null)`,
         ].map(sqlStateOf),
       );
       const mismatch =
-        await fixture.sql`select * from public.daisy_room_read_account(${caller.actorId},${createId()})`;
+        await fixture.sql`select * from public.daisy_room_read_account_v2(${caller.actorId},${createId()})`;
       const [security] =
-        await fixture.sql`select prosecdef,proconfig,not exists(select 1 from aclexplode(proacl) acl where acl.grantee=0 and acl.privilege_type='EXECUTE') public_refused from pg_proc where oid='public.daisy_room_read_account(text,text)'::regprocedure`;
+        await fixture.sql`select prosecdef,proconfig,not exists(select 1 from aclexplode(proacl) acl where acl.grantee=0 and acl.privilege_type='EXECUTE') public_refused from pg_proc where oid='public.daisy_room_read_account_v2(text,text)'::regprocedure`;
       assert({
         given:
           'malformed/mismatched selectors and the deployed SQL security contract',
@@ -176,7 +184,7 @@ test('mixed shared readers and reversed multi-account writers retain canonical l
         );
       const peer = await fixture.sql.begin(async (client) => {
         await client`set local lock_timeout=2000`;
-        return client`select * from public.daisy_room_read_account(${high!.actorId},${high!.userId})`;
+        return client`select * from public.daisy_room_read_account_v2(${high!.actorId},${high!.userId})`;
       });
       assert({
         given:

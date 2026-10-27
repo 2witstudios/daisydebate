@@ -55,17 +55,17 @@ test('realtime uses minimal account facts and the erasure fence without raw prof
         () =>
           fixture.sql.begin(async (client) => {
             await client`set local role daisy_realtime`;
-            await client`select * from public.daisy_authorization_accounts(array['invalid']::text[],null,true)`;
+            await client`select * from public.daisy_authorization_accounts_v2(array['invalid']::text[],null,true)`;
           }),
         () =>
           fixture.sql.begin(async (client) => {
             await client`set local role daisy_realtime`;
-            await client`select * from public.daisy_authorization_accounts(array[${actorId},${actorId}]::text[],null,true)`;
+            await client`select * from public.daisy_authorization_accounts_v2(array[${actorId},${actorId}]::text[],null,true)`;
           }),
         () =>
           fixture.sql.begin(async (client) => {
             await client`set local role daisy_realtime`;
-            await client`select * from public.daisy_authorization_accounts(null,null,false)`;
+            await client`select * from public.daisy_authorization_accounts_v2(null,null,false)`;
           }),
       ].map(sqlStateOf),
     );

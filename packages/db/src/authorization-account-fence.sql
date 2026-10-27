@@ -57,18 +57,3 @@ END;
 $authorization_accounts$;
 REVOKE ALL ON FUNCTION public.daisy_authorization_accounts_v2(text[], text, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.daisy_authorization_accounts_v2(text[], text, boolean) TO daisy_web, daisy_realtime;
-
--- Expand step (ADR 0075): the five-column contract live v1 callers prepared
--- against keeps its exact result type, computed from the one v2 producer.
--- The contract step drops it once no instance calls it.
-CREATE OR REPLACE FUNCTION public.daisy_authorization_accounts(
-  actor_ids text[], account_user_id text, take_fence boolean
-) RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer)
-LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
-SET search_path = pg_catalog, pg_temp
-AS $authorization_accounts$
-BEGIN
-  RETURN QUERY SELECT v2."userId", v2."actorId", v2."member", v2."erased", v2."revision"
-    FROM public.daisy_authorization_accounts_v2(actor_ids, account_user_id, take_fence) AS v2;
-END;
-$authorization_accounts$;
