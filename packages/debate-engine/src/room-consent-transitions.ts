@@ -8,12 +8,8 @@ import type {
   RoomRefusal,
 } from '@daisy/protocol';
 
-import {
-  complete,
-  prepFinished,
-  startBlocker,
-  type Edges,
-} from './room-assembly-facts';
+import { startBlocker, type Edges } from './room-assembly-facts';
+import { prepFinished } from './pre-round-phase';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -57,20 +53,6 @@ export const ready = (
   };
   return acceptedRoomMutation(next, { consent: consentEffect });
 };
-export const startPrep = (
-  room: RoomAssemblyState,
-  _actorId: string,
-  _command: Extract<RoomCommand, { type: 'start-prep' }>,
-  _consent: RoomConsent,
-  edges: Edges,
-): RoomMutationOutcome => {
-  let next = room;
-  if (!complete(room)) return refuse('incomplete-cast');
-  if (!room.executionPlan.preRoundPrep.enabled || room.prepStartedAt !== null)
-    return refuse('prep-unavailable');
-  next = { ...room, prepStartedAt: edges.now };
-  return acceptedRoomMutation(next);
-};
 export const finishPrep = (
   room: RoomAssemblyState,
   _actorId: string,
@@ -109,7 +91,11 @@ export const close = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-  next = { ...room, status: 'abandoned' };
-  return acceptedRoomMutation(next);
+  return acceptedRoomMutation(closeRoom(room));
 };
+
+/** The pure core of closing a Room: the host's command and erasure share it. */
+export const closeRoom = (room: RoomAssemblyState): RoomAssemblyState => ({
+  ...room,
+  status: 'abandoned',
+});

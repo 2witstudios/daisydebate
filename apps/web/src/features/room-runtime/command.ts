@@ -19,6 +19,7 @@ export function roomCommandOperation({
   eligible,
   consentOf,
   view,
+  entropy,
 }: {
   store: Store;
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
@@ -34,6 +35,7 @@ export function roomCommandOperation({
     caller: Caller,
     roomId: string,
   ) => Promise<RoomCommandResponse['view']>;
+  entropy: () => string;
 }) {
   return async function command(
     caller: Caller,
@@ -53,10 +55,18 @@ export function roomCommandOperation({
           : command.type === 'assign-seat'
             ? command.actorId
             : null,
+      formatTuple:
+        command.type === 'select-format'
+          ? {
+              formatId: command.formatId,
+              formatVersion: command.formatVersion,
+              presetVersion: command.presetVersion,
+            }
+          : null,
       roundId: ids.next(),
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
-      prepare: async (raw, preparedAt, account) => {
+      prepare: async (raw, preparedAt, account, preparedSeed) => {
         if (!can(caller, capabilityOf(command), account, raw))
           throw createAppError('AUTHORIZATION');
         const prepared = eligible(raw);
@@ -72,6 +82,8 @@ export function roomCommandOperation({
               participantId: ids.next(),
               formatId: ids.next(),
               target: null,
+              drawSeed: preparedSeed,
+              drawStart: null,
             },
           );
           if (outcome.ok && outcome.mutation.consent?.type === 'ready')
@@ -83,7 +95,12 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        return (raw, now, target, account) => {
+        // Only a pre-round start draws, so only it mints a draw id and entropy.
+        const secrets =
+          command.type === 'start-pre-round'
+            ? { drawId: ids.next(), seed: entropy(), salt: entropy() }
+            : null;
+        return (raw, now, target, account, draw, formatFacts) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
@@ -96,6 +113,7 @@ export function roomCommandOperation({
               now,
               participantId: ids.next(),
               formatId: ids.next(),
+              formatFacts,
               target: target
                 ? {
                     ...target,
@@ -110,6 +128,14 @@ export function roomCommandOperation({
                     eligible:
                       target.eligible &&
                       (target.kind === 'human' || botsAvailable()),
+                  }
+                : null,
+              drawSeed: draw.seed,
+              drawStart: secrets
+                ? {
+                    ...secrets,
+                    bank: draw.bank,
+                    exclusions: draw.exclusions,
                   }
                 : null,
             },

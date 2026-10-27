@@ -1,8 +1,14 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
-import { roomConfigSchema, roomExecutionPlanSchema } from './room';
+import {
+  frozenRoomConfigSchema,
+  frozenRoomExecutionPlanSchema,
+  roomConfigSchema,
+} from './room';
+import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
+import { formatStandingSchema } from './format-standing';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
@@ -49,6 +55,16 @@ export const roomRefusalSchema = z.enum([
   'consent-conflict',
   /** The caller already holds another active Room (ADR 0070). */
   'active-room',
+  /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
+  'format-unavailable',
+  /** The draw's source cannot supply enough resolutions. */
+  'draw-unavailable',
+  /** No draw, or the position is not standing. */
+  'strike-unavailable',
+  /** The form's strike is not the next one: refresh and strike again. */
+  'strike-conflict',
+  /** The side holding this strike is not yours to strike for. */
+  'not-your-turn',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -56,7 +72,8 @@ export const roomViewSchema = z.strictObject({
   version,
   changeVersion: version,
   title: z.string().min(1),
-  topic: z.string().min(1),
+  /** Null while a draw Room has not revealed its resolution. */
+  topic: z.string().min(1).nullable(),
   visibility,
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
@@ -84,10 +101,36 @@ export const roomViewSchema = z.strictObject({
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),
+  /**
+   * What the room runs and whether it is still its standard (FMT-1).
+   * Viewer-safe for every reader: names, roles and a typed change list,
+   * never a host-authored list or config object.
+   */
+  format: z.strictObject({
+    name: z.string().min(1),
+    role: z.enum(['standard', 'template']).nullable(),
+    leagues: z.array(z.string()).readonly(),
+    basis: z
+      .strictObject({
+        formatId: z.string().min(1),
+        name: z.string().min(1),
+        formatVersion: version,
+        presetVersion: version,
+        /** Whether the pinned basis preset strikes its resolution: Back must know. */
+        strikes: z.boolean(),
+      })
+      .nullable(),
+    standing: formatStandingSchema,
+  }),
   competitionType: z.enum(competitionTypes),
   definition: formatDefinitionSchema,
-  config: roomConfigSchema,
-  executionPlan: roomExecutionPlanSchema,
+  config: frozenRoomConfigSchema,
+  executionPlan: frozenRoomExecutionPlanSchema,
+  /** The host's own resolution list, for its author while assembling only. */
+  authoredDrawSource: z
+    .strictObject({ resolutions: z.array(z.string().min(1)).readonly() })
+    .nullable(),
+  resolutionDraw: resolutionDrawViewSchema.nullable(),
   rules: roundRulesSchema,
   participants: z
     .array(
@@ -119,27 +162,32 @@ export const roomViewSchema = z.strictObject({
     canEdit: z.boolean(),
     canClaimSeat: z.boolean(),
     canReady: z.boolean(),
-    canStartPrep: z.boolean(),
+    canStartPreRound: z.boolean(),
+    canStrike: z.boolean(),
     canFinishPrep: z.boolean(),
     canStart: z.boolean(),
   }),
   startRefusal: roomRefusalSchema.nullable(),
   roundRef,
 });
+/**
+ * One format the picker offers (FMT-1): a Daisy standard or a league
+ * template at its current revision and canonical preset. Structure only
+ * (DEC-243): nothing here configures judging.
+ */
 export const roomCatalogChoiceSchema = z.strictObject({
   formatId: z.string().min(1),
   formatVersion: version,
   label: z.string(),
+  role: z.enum(['standard', 'template']),
+  family: z.enum(['policy', 'value', 'parli', 'other']).nullable(),
+  leagues: z.array(z.string()).readonly(),
+  searchTerms: z.string(),
+  sortOrder: z.int(),
+  rulesEdition: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
   definition: formatDefinitionSchema,
-  defaultConfig: roomConfigSchema,
-  presets: z
-    .array(
-      z.strictObject({
-        version,
-        config: roomConfigSchema,
-      }),
-    )
-    .readonly(),
+  preset: z.strictObject({ version, config: roomConfigSchema }),
 });
 export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,

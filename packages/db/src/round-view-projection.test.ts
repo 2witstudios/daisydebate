@@ -110,3 +110,75 @@ describe('readableCheckpoint', () => {
     });
   });
 });
+
+describe('ended draw envelope (PR #472 review, orchestrator B)', () => {
+  const audit = (kind: 'host' | 'bank') => ({
+    manifest: {
+      version: 1,
+      algorithm: 'daisy-draw-v1',
+      roomId: id('m'),
+      drawId: id('w'),
+      source:
+        kind === 'host'
+          ? { kind, count: 3 }
+          : {
+              kind,
+              revision: 1,
+              categories: ['policy'],
+              locale: 'en',
+              difficulties: ['advanced', 'intro', 'standard'],
+            },
+      drawSize: 3,
+      firstStriker: 'negative',
+      strikeWindowMs: 60_000,
+      controllers: { affirmative: 'human', negative: 'human' },
+      inputCommitment: 'b'.repeat(64),
+    },
+    manifestDigest: 'c'.repeat(64),
+    commitment: 'e'.repeat(64),
+    items: [0, 1, 2].map((position) => ({
+      position,
+      text: `Line ${position}`,
+      category: null,
+    })),
+    strikes: [],
+    survivorPosition: 2,
+    revealedAt: '2026-10-12T00:01:30.000Z',
+    inputsErased: false,
+    textsWithheld: false,
+  });
+  const ended = (kind: 'host' | 'bank') =>
+    ({
+      ...round,
+      status: 'completed',
+      resolutionAudit: audit(kind),
+    }) as unknown as LaunchedRound;
+  const seen = (kind: 'host' | 'bank', viewer: string | null) => {
+    const view = roundViewFor(ended(kind), viewer).resolutionAudit;
+    return [view?.items.map((item) => item.text), view?.textsWithheld];
+  };
+  test('host-written lines reach the Round’s own people only', () => {
+    assert({
+      given:
+        'a host-list draw read by a debater, a judge, the host and a spectator, and a bank draw read by a spectator',
+      should:
+        'show every line to the Round’s people, only the debated line to a spectator of a host list, and every bank line to anyone',
+      actual: [
+        seen('host', aff.actorId),
+        seen('host', judge.actorId),
+        seen('host', host),
+        seen('host', id('z')),
+        seen('host', null),
+        seen('bank', id('z')),
+      ],
+      expected: [
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [[null, null, 'Line 2'], true],
+        [[null, null, 'Line 2'], true],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+      ],
+    });
+  });
+});

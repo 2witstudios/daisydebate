@@ -1,6 +1,7 @@
 import { roomConfigSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -30,6 +31,11 @@ export const formatPresets = pgTable(
     version: integer('version').notNull(),
     formatVersion: integer('format_version').notNull(),
     config: jsonbColumn('config', roomConfigSchema).notNull(),
+    /**
+     * Ranked play may use this preset (FMT-1). Casual selection ignores it;
+     * a change is a new preset version, never an update in place.
+     */
+    rankedEligible: boolean('ranked_eligible').notNull().default(false),
     approvedAt: timestampColumn('approved_at').notNull(),
     supersededAt: timestampColumn('superseded_at'),
   },

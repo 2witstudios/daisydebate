@@ -1,5 +1,6 @@
 import { isNamedSeat, type RoomRefusal, type RoomView } from '@daisy/protocol';
 import {
+  strikeSummary,
   roundLength,
   ruleRows,
   shapeLabel,
@@ -96,6 +97,14 @@ export function formatLine(
   })}`;
 }
 
+/** "Value", "Custom, based on NSDA Policy (CX)" or "Custom": what the room runs (FMT-4). */
+export function formatTitle(format: RoomView['format']): string {
+  if (format.standing.kind === 'standard') return format.name;
+  return format.standing.basis
+    ? `Custom, based on ${format.basis?.name ?? format.name}`
+    : 'Custom';
+}
+
 const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'version-conflict': 'the latest room changes',
   'host-required': 'the host',
@@ -112,6 +121,11 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
+  'format-unavailable': 'a format that is currently offered',
+  'draw-unavailable': 'enough resolutions to draw from',
+  'strike-unavailable': 'a resolution still in the draw',
+  'strike-conflict': 'the latest strike',
+  'not-your-turn': 'the other side to strike',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */
@@ -149,23 +163,33 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
   return growSteps[Math.min(Math.max(minutes, 1), growSteps.length) - 1]!;
 }
 
+/** How a draw Room chooses its resolution, in one line; none without a draw. */
+function strikeRows(
+  draw: RoomView['config']['resolutionDraw'],
+): readonly (readonly [string, string])[] {
+  return draw.enabled ? [['Resolution strike', strikeSummary(draw)]] : [];
+}
+
 /** The saved configuration as label/value rows, in the room's vocabulary. */
 export function settingRows(
   view: Pick<RoomView, 'config'>,
 ): readonly (readonly [string, string])[] {
   const { config } = view;
-  return ruleRows({
-    preRoundPrepMs: config.preRoundPrep.enabled
-      ? config.preRoundPrep.durationMs
-      : null,
-    prepPerSideMs: config.inRoundPrep.enabled
-      ? config.inRoundPrep.budgetMsPerSide
-      : null,
-    countdownMs: config.speechTiming.countdownMs,
-    crossExMode: config.crossExamination.crossExMode,
-    interruptions: config.interruptions,
-    yielding: config.yielding,
-  });
+  return [
+    ...strikeRows(config.resolutionDraw),
+    ...ruleRows({
+      preRoundPrepMs: config.preRoundPrep.enabled
+        ? config.preRoundPrep.durationMs
+        : null,
+      prepPerSideMs: config.inRoundPrep.enabled
+        ? config.inRoundPrep.budgetMsPerSide
+        : null,
+      countdownMs: config.speechTiming.countdownMs,
+      crossExMode: config.crossExamination.crossExMode,
+      interruptions: config.interruptions,
+      yielding: config.yielding,
+    }),
+  ];
 }
 
 /** "Maya Okafor" → "MO": an avatar's two initials. */

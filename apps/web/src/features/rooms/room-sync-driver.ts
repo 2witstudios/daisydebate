@@ -8,11 +8,11 @@ import {
 import type { RoomRead } from './read-assembly';
 import { roomCommandIds } from './room-command-ids';
 import { attachVersionDoorbell } from '../resource-sync/doorbell';
-import { prepDeadline, roomIdentity, type RoomSync } from './room-sync';
+import { roomDeadline, roomIdentity, type RoomSync } from './room-sync';
 
 /**
  * Resource sync for an assembling room (ADR 0066): its `room:<id>`
- * doorbell, the room read, a read at the prep deadline, and fresh command
+ * doorbell, the room read, a read at the next strike or prep deadline, and fresh command
  * identifiers for every view it adopts.
  */
 export function createRoomSyncDriver({
@@ -54,7 +54,7 @@ export function createRoomSyncDriver({
         connection: subscribed,
         signal,
       }),
-    deadline: prepDeadline,
+    deadline: roomDeadline,
   });
   return {
     ...driver,

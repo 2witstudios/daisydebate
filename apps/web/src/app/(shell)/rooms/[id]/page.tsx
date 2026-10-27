@@ -1,6 +1,6 @@
 import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, roomRefusalSchema, type RoomRefusal } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
@@ -53,8 +53,9 @@ export default async function RoomRoute({
         actorId={identity.principal.actorId}
         viewerLabel={identity.username}
         bots={catalog.bots}
+        choices={catalog.choices}
         socketUrl={result.socketUrl}
-        refused={(await searchParams).notice === 'command-refused'}
+        refusal={refusalOf(await searchParams)}
         commandAction={roomCommandAction.bind(null, id)}
         detailsAction={submitRoomFormAction.bind(null, id)}
         settingsAction={saveRoomSettingsAction.bind(null, id)}
@@ -63,4 +64,13 @@ export default async function RoomRoute({
       />
     </div>
   );
+}
+
+/** The refusal a native post returned with: a closed vocabulary, never echoed text. */
+function refusalOf(
+  params: SearchParams,
+): { readonly reason: RoomRefusal | null } | null {
+  if (params.notice !== 'command-refused') return null;
+  const reason = roomRefusalSchema.safeParse(params.reason);
+  return { reason: reason.success ? reason.data : null };
 }

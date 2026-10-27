@@ -46,7 +46,7 @@ describe('native path filter', () => {
         ['docs/development/testing.md', 'README.md'],
         ['apps/web/src/features/theme/theme.ts'],
         ['apps/admin/src/page.tsx'],
-        ['.claude/skills/task/SKILL.md', 'policy/agent-pipeline/builder.html'],
+        ['.claude/skills/task/SKILL.md', '.opencode/commands/review.md'],
         ['docs/a.md', 'apps/web/src/ui/dashboard/x.tsx'],
         ['docs/a.md', 'apps/web/src/features/rooms/action.ts'],
         [],

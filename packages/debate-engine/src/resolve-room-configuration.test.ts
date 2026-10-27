@@ -36,7 +36,10 @@ describe('resolveRoomConfiguration', () => {
           expiresAtSegment: null,
         },
         countdownMs: 10_000,
-        roomPlan: { preRoundPrep: { enabled: false } },
+        roomPlan: {
+          preRoundPrep: { enabled: false },
+          resolutionDraw: { enabled: false },
+        },
       },
     });
   });

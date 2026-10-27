@@ -54,7 +54,10 @@ const withBotRoom = (
       format_version: 1,
       competition_type: 'casual',
       config: validConfig,
-      execution_plan: { preRoundPrep: { enabled: false } },
+      execution_plan: {
+        preRoundPrep: { enabled: false },
+        resolutionDraw: { enabled: false },
+      },
       rules_snapshot: validRules,
       status: 'ready',
     });
@@ -84,6 +87,7 @@ const withBotRoom = (
       payloadDigest: 'a'.repeat(64),
       type: 'start-round',
       targetActorId: null,
+      formatTuple: null,
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
       // The DB adapter receives an accepted pure mutation; no vendor or database is mocked.
@@ -100,6 +104,7 @@ const withBotRoom = (
           spendsAiRound: botRole !== 'judge',
           consent: null,
           publishDefinition: false,
+          drawSecrets: null,
           members: [state.hostActorId],
         },
       }),

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./dev-seed": "./src/dev-seed.ts",
+    "./catalog-formats": "./src/catalog-formats.ts",
     "./reference-formats": "./src/reference-formats.ts",
     "./seasons": "./src/seasons.ts",
     "./slots": "./src/slots.ts",
@@ -27,7 +28,6 @@
     "./frozen-transcript": "./src/frozen-transcript.ts",
     "./media-worker": "./src/media-worker-database.ts",
     "./ratings": "./src/ratings.ts",
-    "./rooms": "./src/rooms.ts",
     "./rounds": "./src/rounds.ts",
     "./documents": "./src/documents.ts",
     "./profile": "./src/profile.ts",

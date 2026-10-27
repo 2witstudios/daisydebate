@@ -62,7 +62,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
       },
     };
     const config = {
-      ...choice.defaultConfig,
+      ...choice.preset.config,
       speechTiming: {
         countdownMs: 0,
         segmentDurationOverrides: { A2: 123_000 },
@@ -210,7 +210,7 @@ test('null interaction refusals preserve durable create and edit state', async (
       },
     };
     const config = {
-      ...choice.defaultConfig,
+      ...choice.preset.config,
       interruptions: { mode: 'enabled' as const, minRemainingMs: 0 },
       yielding: { allowed: true, returnsTime: true },
     };

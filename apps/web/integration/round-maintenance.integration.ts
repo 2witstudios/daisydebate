@@ -22,9 +22,7 @@ test(
   'actual maintenance opens a silent human-only Round at its real countdown without read side effects',
   async () =>
     withRoomRuntime(async (f) => {
-      const choice = (await f.operations.catalog(f.host)).find(
-        (item) => item.formatId === 'foundation',
-      )!;
+      const choice = await f.foundation();
       const { roundId } = await startRuntimeRound(
         f,
         await f.assemble({
@@ -41,9 +39,9 @@ test(
               },
             },
             config: {
-              ...choice.defaultConfig,
+              ...choice.preset.config,
               speechTiming: {
-                ...choice.defaultConfig.speechTiming,
+                ...choice.preset.config.speechTiming,
                 countdownMs: 10_000,
               },
             },

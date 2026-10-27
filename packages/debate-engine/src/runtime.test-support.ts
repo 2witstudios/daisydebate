@@ -12,6 +12,7 @@ export const oneOnOneDefinition = oneOnOneFormatFixture;
 
 export const oneOnOneConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: {
     countdownMs: 10_000,

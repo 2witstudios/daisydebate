@@ -3,7 +3,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { AssemblySettingsFields } from './assembly-settings-form';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { formatDefinitionSchema } from '@daisy/protocol';
+import {
+  formatDefinitionSchema,
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  type RoomConfig,
+} from '@daisy/protocol';
 import { prepareSettings } from '../../../features/rooms/prepare-settings';
 
 setupRitewayBun();
@@ -37,8 +42,9 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
       },
     },
   };
-  const config = {
+  const config: RoomConfig = {
     ...assemblySnapshot.config,
+    resolutionDraw: { enabled: false },
     speechTiming: {
       ...assemblySnapshot.config.speechTiming,
       segmentDurationOverrides: { budget: 98765, preRound: 60000 },
@@ -50,9 +56,9 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
   const view = {
     ...assemblySnapshot,
     definition,
-    config,
+    config: freezeRoomConfig(config),
     rules: resolved.rules,
-    executionPlan: resolved.roomPlan,
+    executionPlan: freezeRoomExecutionPlan(resolved.roomPlan),
   };
   const html = renderToStaticMarkup(
     <AssemblySettingsFields

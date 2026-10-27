@@ -107,5 +107,7 @@ automatically.
 
 The loop's own discipline (three clean scans, a reply on every thread, and
 resolving only threads that were already addressed before the loop began)
-lives in the owner's Ralph page in PageSpace (`p4xbp1iwavowuruqpi5fguf7`);
-run it verbatim.
+lives in the PR loop pages in PageSpace Resources › Universal prompts
+(PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude Code, PR Loop
+(Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode); run yours
+verbatim.

@@ -237,10 +237,10 @@ describe('native affected selection', () => {
     for (const [file, count] of [
       ['apps/web/src/features/theme/theme.ts', 1],
       ['packages/media/src/index.ts', 2],
-      ['apps/web/src/features/round-commands/action.ts', 8],
-      ['packages/auth/src/index.ts', 8],
-      ['apps/web/src/features/rooms/action.ts', 8],
-      ['apps/web/e2e/support/fixture.ts', 8],
+      ['apps/web/src/features/round-commands/action.ts', 9],
+      ['packages/auth/src/index.ts', 9],
+      ['apps/web/src/features/rooms/action.ts', 9],
+      ['apps/web/e2e/support/fixture.ts', 9],
     ] as const) {
       const selected = selectBrowserSpecs(
         [file],
@@ -267,13 +267,13 @@ describe('native affected selection', () => {
     ] as const)
       assert({
         given: `${event}, queue ${enforced}`,
-        should: 'retain eight native specs',
+        should: 'retain nine native specs',
         actual: selectBrowserSpecs(
           ['apps/web/src/features/theme/theme.ts'],
           event,
           enforced,
         ).nativeSpecs?.length,
-        expected: 8,
+        expected: 9,
       });
   });
 });

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { clockDuration, readDuration } from './duration-input';
+import { clockDuration, countdownClock, readDuration } from './duration-input';
 
 setupRitewayBun();
 
@@ -63,5 +63,14 @@ test('clock durations read as a round clock without losing precision', () => {
     should: 'render minutes and padded seconds, keeping the exact remainder',
     actual: [300000, 120000, 5000, 98765, 0].map(clockDuration),
     expected: ['5:00', '2:00', '0:05', '1:38.765', '0:00'],
+  });
+});
+
+test('a countdown reads whole seconds, rounded up', () => {
+  assert({
+    given: 'time left measured against a fractional client clock',
+    should: 'show whole seconds, never a fraction, and 0:00 only at zero',
+    actual: [1_195_408.299_999_999_8, 59_000.4, 999, 0].map(countdownClock),
+    expected: ['19:56', '1:00', '0:01', '0:00'],
   });
 });

@@ -52,7 +52,7 @@ export function CommandForm({
   expectedConsentVersion = null,
   className,
 }: {
-  readonly type: Control | 'start-prep' | 'finish-prep';
+  readonly type: Control | 'start-pre-round' | 'finish-prep';
   readonly version: number;
   readonly commandId: string;
   readonly action: FormAction<RoomFormState>;

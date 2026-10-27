@@ -53,8 +53,10 @@ pu kill --agent <agent> && pu clean
 
 - **Opening.** Builders open one PR per slice with `/pr` and hand off with
   `/handoff`.
-- **Converging.** The builder runs the owner's Ralph loop (PageSpace
-  `p4xbp1iwavowuruqpi5fguf7`, verbatim) until it emits `PR_READY`.
+- **Converging.** The builder runs its harness's PR loop verbatim until it
+  emits `PR_READY`: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for
+  Claude Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and
+  opencode, both in Resources › Universal prompts.
 - **Merging.** Builders never merge. Only main receives merged PRs, and no
   PR is ever merged into another branch.
   - The point guard's flow sweep merges a PR when its builder has emitted

@@ -10,7 +10,7 @@ const ports = (): Ports => ({
   evaluate: async () => null,
   finalize: async () => {},
   rateUnrated: async () => {},
-  expireIdleRooms: async () => {},
+  maintainRooms: async () => {},
   timers: { setInterval: () => 1, clearInterval: () => {} },
   failed: (error) => {
     throw error;
@@ -42,7 +42,7 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     rateUnrated: async () => {
       calls.push('rating-recovery');
     },
-    expireIdleRooms: async () => {
+    maintainRooms: async () => {
       calls.push('room-expiry');
     },
     timers: {

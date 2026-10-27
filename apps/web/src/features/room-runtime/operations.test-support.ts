@@ -3,17 +3,18 @@ import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpoint,
+  freezeRoomConfig,
   type LaunchedRound,
   type RoomAssemblyState,
   type RoundView,
 } from '@daisy/protocol';
 import {
-  foundationDefinition,
   oneOnOneDefinition,
   oneOnOneRankedConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
+import { catalog, valueFacts } from './catalog-sources.test-support';
 import { seatedListingEntry } from '../rooms/assembly.test-support';
 
 export const caller = {
@@ -49,6 +50,8 @@ export const state: RoomAssemblyState = {
   formatId: 'one-on-one',
   formatVersion: 1,
   presetVersion: null,
+  catalogFormat: { name: 'Custom format', role: null, leagues: [] },
+  basis: null,
   competitionType: 'casual',
   definition: oneOnOneDefinition,
   config: oneOnOneRankedConfig,
@@ -69,32 +72,9 @@ export const state: RoomAssemblyState = {
   ],
   prepStartedAt: null,
   prepRemainingMs: null,
+  resolutionDraw: null,
   roundRef: null,
 };
-
-const catalog = [
-  {
-    id: 'one-on-one',
-    name: 'One-on-one',
-    version: 1,
-    definition: oneOnOneDefinition,
-    presets: [
-      {
-        version: 1,
-        formatId: 'one-on-one',
-        formatVersion: 1,
-        config: oneOnOneRankedConfig,
-      },
-    ],
-  },
-  {
-    id: 'foundation',
-    name: 'Foundation',
-    version: 1,
-    definition: foundationDefinition,
-    presets: [],
-  },
-];
 
 /** The stored Round its host reads; `round` is what a viewer receives. */
 export const launched: LaunchedRound = {
@@ -103,10 +83,10 @@ export const launched: LaunchedRound = {
   version: 1,
   status: 'scheduled',
   competitionType: 'casual',
-  topic: state.topic,
+  topic: state.topic ?? '',
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: oneOnOneRankedConfig,
+  config: freezeRoomConfig(oneOnOneRankedConfig),
   rules: resolved.rules,
   participants: [
     {
@@ -122,6 +102,7 @@ export const launched: LaunchedRound = {
   completedAt: null,
   outcome: null,
   unjudgedRuling: null,
+  resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };
@@ -172,7 +153,16 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       ];
     },
     getFormatRevision: async () => null,
-    getCurrentPreset: async () => null,
+    getFormatSelectionFacts: async (tuple: {
+      readonly formatId: string;
+      readonly formatVersion: number;
+      readonly presetVersion: number;
+    }) =>
+      tuple.formatId === 'value' &&
+      tuple.formatVersion === 1 &&
+      tuple.presetVersion === 1
+        ? valueFacts
+        : null,
     readRoomCreateReceipt: async (input: {
       readonly caller: typeof caller;
       readonly commandId: string;
@@ -205,6 +195,17 @@ export function makeOperations(overrides: Partial<Store> = {}) {
     ) => {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
       return state;
+    },
+    readRoomAssemblyFacts: async (
+      _roomId: string,
+      _caller: typeof caller,
+      authorize: (
+        view: RoomAssemblyState,
+        fact: AccountAuthorizationFact,
+      ) => boolean,
+    ) => {
+      if (!authorize(state, account)) throw createAppError('NOT_FOUND');
+      return { state, drawSeed: null };
     },
     listRoomPage: async (
       _caller: typeof caller,
@@ -252,6 +253,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
     ]),
     consentTtlMs: () => 60_000,
     botsAvailable: () => false,
+    entropy: () => '01'.repeat(32),
   });
   return {
     operations,

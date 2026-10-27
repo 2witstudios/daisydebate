@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import {
-  createFromPlay,
+  createProofRoom,
   claim,
   reread,
   assertFrozenLaunch,
@@ -28,7 +28,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       accounts.members[1]!.context,
       'human Ready guest',
     );
-    let view = await createFromPlay(
+    let view = await createProofRoom(
       host,
       `Human proof ${createId().slice(0, 8)}`,
     );

@@ -100,7 +100,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       (value: unknown) => roomCatalogChoiceSchema.parse(value),
     );
     const choice = choices.find(
-      (value: { formatId: string }) => value.formatId === 'foundation',
+      (value: { formatId: string }) => value.formatId === 'value',
     );
     if (!choice) throw new Error('Canonical Room format producer unavailable');
     const created = await host.request.post('/api/rooms', {
@@ -114,8 +114,8 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
           kind: 'catalog',
           formatId: choice.formatId,
           formatVersion: choice.formatVersion,
+          presetVersion: choice.preset.version,
           competitionType: 'casual',
-          config: choice.defaultConfig,
         },
       }),
     });

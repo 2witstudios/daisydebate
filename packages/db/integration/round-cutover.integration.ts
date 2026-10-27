@@ -34,7 +34,10 @@ test('two ranked rooms may pin the same approved preset', async () => {
       preset_version: 1,
       competition_type: 'ranked',
       config: validConfig,
-      execution_plan: { preRoundPrep: { enabled: false } },
+      execution_plan: {
+        preRoundPrep: { enabled: false },
+        resolutionDraw: { enabled: false },
+      },
       rules_snapshot: validRules,
       status: 'assembling',
     });

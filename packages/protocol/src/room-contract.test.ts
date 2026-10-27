@@ -45,10 +45,10 @@ describe('Room command boundary', () => {
       }).success;
     const catalog = (competitionType: string) => ({
       kind: 'catalog',
-      formatId: 'one-on-one',
+      formatId: 'value',
       formatVersion: 1,
+      presetVersion: 1,
       competitionType,
-      config: plainRoomConfig,
     });
     const custom = (competitionType: string) => ({
       kind: 'custom',
@@ -70,6 +70,34 @@ describe('Room command boundary', () => {
       ],
     });
   });
+  test('a catalog selection names its preset and carries no config (FMT-1)', () => {
+    const create = (selection: Record<string, unknown>) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        topic: 'Topic',
+        visibility: 'public',
+        selection,
+      }).success;
+    const base = {
+      kind: 'catalog',
+      formatId: 'value',
+      formatVersion: 1,
+      competitionType: 'casual',
+    };
+    assert({
+      given:
+        'a catalog selection with its preset, without one, and with a client-supplied config',
+      should:
+        'accept only the preset tuple: the config always comes from the canonical preset',
+      actual: [
+        create({ ...base, presetVersion: 1 }),
+        create(base),
+        create({ ...base, presetVersion: 1, config: plainRoomConfig }),
+      ],
+      expected: [true, false, false],
+    });
+  });
   test('refuses a length on every selection: Rounds are full length only (DEC-237)', () => {
     const create = (selection: Record<string, unknown>) =>
       roomCreateSchema.safeParse({
@@ -82,10 +110,10 @@ describe('Room command boundary', () => {
     const selections = [
       {
         kind: 'catalog',
-        formatId: 'one-on-one',
-        formatVersion: 2,
+        formatId: 'value',
+        formatVersion: 1,
+        presetVersion: 1,
         competitionType: 'casual',
-        config: plainRoomConfig,
       },
       {
         kind: 'ranked',

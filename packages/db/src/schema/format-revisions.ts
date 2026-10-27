@@ -15,6 +15,9 @@ export const formatRevisions = pgTable(
     formatId: text('format_id').notNull(),
     version: integer('version').notNull(),
     definition: jsonbColumn('definition', formatDefinitionSchema).notNull(),
+    /** The league rules this revision follows ("NSDA … 2026–27"): provenance, not proof. */
+    rulesEdition: text('rules_edition'),
+    sourceUrl: text('source_url'),
     createdAt: createdAtColumn(),
   },
   (table) => [
