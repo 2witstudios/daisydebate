@@ -28,6 +28,8 @@ export const friendCommandSchemas = {
     decision: z.enum(['accept', 'decline']),
   }),
   remove: z.strictObject(command),
+  /** The caller's own choice to hide their online status from friends. */
+  presence: z.strictObject({ version: z.literal(1), hidden: z.boolean() }),
 } as const;
 
 export const friendCommandResultSchema = z.strictObject({
@@ -37,10 +39,17 @@ export const friendCommandResultSchema = z.strictObject({
 });
 export type FriendCommandResult = z.infer<typeof friendCommandResultSchema>;
 
+export const presenceSettingResultSchema = z.strictObject({
+  version: z.literal(1),
+  hidden: z.boolean(),
+});
+
 const count = z.number().int().nonnegative().safe();
 
 export const friendListSchema = z.strictObject({
   version: z.literal(1),
+  /** Whether the reader hides their own online status from friends. */
+  hidden: z.boolean(),
   friends: z.array(
     z.strictObject({
       username: z.string(),

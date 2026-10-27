@@ -83,6 +83,19 @@ export const messagingFriendships = pgTable(
   ],
 );
 
+/**
+ * A member's choice to hide their online status from friends (ADR 0072).
+ * No row means visible; a hidden member shows offline to every friend.
+ */
+export const messagingPresenceSettings = pgTable(
+  'messaging_presence_settings',
+  {
+    actorId: messagingActorColumn('actor_id').primaryKey(),
+    hidden: boolean('hidden').notNull(),
+    updatedAt: timestampColumn('updated_at').notNull(),
+  },
+);
+
 /** Messaging's accepted/requested DM pair is not a friendship producer. */
 export const messagingDmPairs = pgTable(
   'messaging_dm_pairs',

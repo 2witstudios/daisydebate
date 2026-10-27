@@ -5,7 +5,11 @@ import {
   type Page,
 } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
-import { resetRateLimits, signUpMember } from './support/accounts';
+import {
+  resetRateLimits,
+  signUpBeforeAge,
+  signUpMember,
+} from './support/accounts';
 import {
   reachExpiredLink,
   reachSentState,
@@ -134,6 +138,33 @@ for (const screen of shellScreens) {
       }
     });
   }
+}
+
+/**
+ * The age step (WAIT-4.6), the first onboarding screen every new account
+ * meets: a new account signed in through the real handlers, before its
+ * answer. Nothing on it is random, so nothing is pinned or masked.
+ */
+for (const { theme, viewport } of shellFrames) {
+  test(`onboarding-age in ${theme} at ${viewport.name} width matches its baseline`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const page = await themedPage(browser, baseURL, viewport, theme);
+    try {
+      await signUpBeforeAge(page.context().request);
+      await page.goto('/onboarding/age?next=%2Flobby');
+      await expect(
+        page.getByRole('heading', { name: 'When were you born?' }),
+      ).toBeVisible();
+      await matchesBaseline(
+        page,
+        `onboarding-age-${theme}-${viewport.name}.png`,
+      );
+    } finally {
+      await page.context().close();
+    }
+  });
 }
 
 /**

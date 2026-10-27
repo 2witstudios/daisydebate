@@ -27,7 +27,16 @@ const harness = (identity: unknown = member) => {
       calls.push([command, username]);
       return { username, relation: 'outgoing' };
     },
-    list: async () => ({ friends: [], incoming: [], outgoing: [] }),
+    presence: async (_principal, hidden) => {
+      calls.push(['presence', hidden]);
+      return { hidden };
+    },
+    list: async () => ({
+      hidden: false,
+      friends: [],
+      incoming: [],
+      outgoing: [],
+    }),
     counts: async () => ({ friendsOnline: 2, membersOnline: 9 }),
     websocketEndpoint: 'wss://realtime.daisy.example/ws',
   });
@@ -130,6 +139,29 @@ test('the list read answers the member’s own list', async () => {
     given: 'a member reading their list',
     should: 'answer the versioned list',
     actual: [response.status, await response.json()],
-    expected: [200, { version: 1, friends: [], incoming: [], outgoing: [] }],
+    expected: [
+      200,
+      { version: 1, hidden: false, friends: [], incoming: [], outgoing: [] },
+    ],
+  });
+});
+
+test('the presence route sets only the caller’s own choice', async () => {
+  const { handlers, calls } = harness();
+  const set = await handlers.presence(
+    post('/api/friends/presence', { version: 1, hidden: true }),
+  );
+  const named = await handlers.presence(
+    post('/api/friends/presence', {
+      version: 1,
+      hidden: true,
+      username: 'ada',
+    }),
+  );
+  assert({
+    given: 'a valid choice, then one that names another member',
+    should: 'set the first and refuse the second before any change',
+    actual: [set.status, await set.json(), named.status, calls],
+    expected: [200, { version: 1, hidden: true }, 400, [['presence', true]]],
   });
 });
