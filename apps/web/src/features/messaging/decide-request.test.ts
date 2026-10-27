@@ -62,12 +62,12 @@ test('DM decisions bind retries to the original own receipt without replaying wr
   assert({
     given: 'a successful decision and identical closed retry',
     should:
-      'return the original minimal result, spending the limiter before each transaction and writing once',
+      'return the original minimal result with one limiter spend and one write: a replay spends nothing',
     actual: [first, retry, calls],
     expected: [
       { channelId: command.channelId, state: 'accepted' },
       { channelId: command.channelId, state: 'accepted' },
-      ['limit', 'commit', 'limit'],
+      ['limit', 'commit'],
     ],
   });
   assert({

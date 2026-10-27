@@ -269,9 +269,13 @@ export function tightenMessagingPolicy(
     social: {
       ...policy.social,
       requests: values.socialRequests,
-      // Social commands share the per-account send ceiling, so a tighter
-      // send tightens them too.
-      abuse: tighterWindows('send', policy.social.abuse, override.send),
+      // Where social commands share the send ceiling (the beta policy),
+      // a tighter send tightens them too; a policy with its own social
+      // windows keeps them.
+      abuse:
+        policy.social.abuse === policy.limits.actorSend
+          ? values.send
+          : policy.social.abuse,
     },
   };
 }

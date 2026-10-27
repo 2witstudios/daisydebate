@@ -7,7 +7,7 @@ const timers = {
   clearTimeout: (id: unknown) =>
     clearTimeout(id as ReturnType<typeof setTimeout>),
 };
-/** Native browser I/O edges; neither adapter receives message content or invents a timing default. */
+/** Native browser I/O edges; neither adapter receives message content. Renewal follows the server's timing; only a too-soon refusal waits TYPING_RETRY_MS. */
 export const createBrowserTypingReader = (
   channelId: string,
   connection: ConnectionStore,

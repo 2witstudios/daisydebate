@@ -4,7 +4,6 @@ import type { SocialRequestLimits } from '@daisy/db';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
-  limitBeforeReplay,
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
@@ -31,7 +30,6 @@ export async function requestMessagingDm(
     command.recipientActorId,
     command.introduction ?? null,
   ]);
-  const limited = await limitBeforeReplay(dependencies.limit, actorId);
   return dependencies.store.withContacts(
     {
       actorId,
@@ -49,7 +47,9 @@ export async function requestMessagingDm(
           throw createAppError('CONFLICT');
         return current;
       }
-      limited.unlessReplayed();
+      // As send and block do: a replay never spends the limiter; only a
+      // command that will commit does.
+      await dependencies.limit(actorId);
       return frame.commitDmRequest({
         requestId: command.requestId,
         channelId: dependencies.ids.next(),

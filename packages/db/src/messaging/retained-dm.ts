@@ -67,7 +67,10 @@ export async function retainSurvivorDms(
 ) {
   const deleted: string[] = [];
   for (const { channelId, survivorActorId } of dms) {
-    await deleteAuthoredRows(tx, channelId, actorId);
+    // detachSurvivorsFromSubject already cleared every receipt's pointer.
+    await tx.execute(
+      sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
+    );
     const [own] = rowsOf<{ live: boolean }>(
       await tx.execute(
         sql`select exists(select 1 from messaging_messages where channel_id=${channelId} and author_actor_id=${survivorActorId} and removed_at is null) as "live"`,
@@ -111,10 +114,9 @@ export async function eraseRetainedAuthorship(
 }
 
 /**
- * Deletes `actorId`'s messages in one channel. Every receipt still naming
- * one of them goes first (the author's own send and edit receipts, and the
- * survivor's own when they delete a conversation), since receipts hold a
- * foreign key to their message.
+ * Deletes a retained author's messages in one channel. Every receipt still
+ * naming one of them (their own send and edit receipts) goes first, since
+ * receipts hold a foreign key to their message.
  */
 async function deleteAuthoredRows(tx: Tx, channelId: string, actorId: string) {
   const authored = sql`select id from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`;

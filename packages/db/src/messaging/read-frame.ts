@@ -112,16 +112,9 @@ export function channelReadFrame(
       requireOrder(sequence);
       if (sequence > counters.messageSequence)
         throw createAppError('VALIDATION');
-      const [before] = await tx
-        .select({ readSequence: messagingActorStates.readSequence })
-        .from(messagingActorStates)
-        .where(
-          and(
-            eq(messagingActorStates.channelId, input.channelId),
-            eq(messagingActorStates.actorId, input.actorId),
-          ),
-        );
-      const [row] = await tx
+      // The upsert answers a row only when it inserted or advanced the
+      // position; otherwise the current one is read back.
+      const [advanced] = await tx
         .insert(messagingActorStates)
         .values({
           channelId: input.channelId,
@@ -136,17 +129,26 @@ export function channelReadFrame(
             messagingActorStates.channelId,
             messagingActorStates.actorId,
           ],
-          set: {
-            readSequence: sql`greatest(${messagingActorStates.readSequence},${sequence})`,
-          },
+          set: { readSequence: sequence },
+          setWhere: lt(messagingActorStates.readSequence, sequence),
         })
         .returning({ readSequence: messagingActorStates.readSequence });
-      if (!row) throw createAppError('INFRASTRUCTURE');
-      // ISSUE-603: the reader's other open inboxes refresh their unread
-      // state, only when this read moved it.
-      if (row.readSequence !== (before?.readSequence ?? 0))
+      if (advanced) {
+        // ISSUE-603: the reader's other open inboxes refresh their unread state.
         await invalidateMessagingInboxes(tx, [input.actorId]);
-      return row.readSequence;
+        return advanced.readSequence;
+      }
+      const [current] = await tx
+        .select({ readSequence: messagingActorStates.readSequence })
+        .from(messagingActorStates)
+        .where(
+          and(
+            eq(messagingActorStates.channelId, input.channelId),
+            eq(messagingActorStates.actorId, input.actorId),
+          ),
+        );
+      if (!current) throw createAppError('INFRASTRUCTURE');
+      return current.readSequence;
     },
   };
 }

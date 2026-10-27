@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTypingWriter, TYPING_RETRY_MS } from './typing-writer';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 setupRitewayBun();
-test('renewal follows only current server timing and stops on unavailable acknowledgement or disposal', async () => {
+test('renewal follows server timing, backs off only when refused as too soon, and stops on any other refusal or disposal', async () => {
   const channelId = 'c'.repeat(24),
     sent: boolean[] = [];
   const timers = createTimerQueue((clock, delay) => clock + delay);
@@ -18,7 +18,7 @@ test('renewal follows only current server timing and stops on unavailable acknow
             typing: false,
             refreshAfterMs: 450,
           })
-        : new Response(null, { status: 503 });
+        : new Response(null, { status: sent.length === 2 ? 429 : 503 });
     },
   });
   await writer.activity(true);
@@ -38,7 +38,7 @@ test('renewal follows only current server timing and stops on unavailable acknow
   await writer.activity(true);
   assert({
     given:
-      'the bounded renewal refused (a 429 or an outage), then keystrokes while it is refused',
+      'the bounded renewal refused as too soon (429), then keystrokes while it waits',
     should:
       'perform the due renewal once, post nothing per keystroke, and retry once after the back-off',
     actual: [beforeRetry, sent],
@@ -46,6 +46,13 @@ test('renewal follows only current server timing and stops on unavailable acknow
       [true, true],
       [true, true, true],
     ],
+  });
+  timers.advance(TYPING_RETRY_MS * 3);
+  assert({
+    given: 'the retry refused as unavailable (503), not as too soon',
+    should: 'stop renewing rather than retry forever',
+    actual: sent,
+    expected: [true, true, true],
   });
   await writer.close();
   await writer.close();
