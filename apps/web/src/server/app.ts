@@ -24,6 +24,7 @@ import { createSendMail } from '../features/auth/mail/send-mail';
 import { deriveRecipientSubkey } from '../features/auth/mail/recipient-key';
 import type { Deliver } from '../features/auth/mail/deliver-or-unavailable';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
+import { parseMessagingPolicyLimits } from '../features/messaging/beta-limits';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
@@ -171,7 +172,9 @@ export function createApp({
       NODE_ENV: config.NODE_ENV,
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
-    messagingPolicy: messagingPolicy ?? null,
+    messagingPolicy: messagingPolicy
+      ? parseMessagingPolicyLimits(messagingPolicy)
+      : null,
     messagingFiles: messagingFiles ?? null,
     clock,
     ids,

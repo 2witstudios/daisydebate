@@ -1,7 +1,26 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 
-/** Transport bounds are injected by the owning policy; no product defaults. */
+/**
+ * DEC-124 (confirmed 2026-10-26): the beta size policy. Text counts UTF-16
+ * code units, so a supplementary character takes two; oversized input is
+ * refused, never truncated. Injected bounds may be tighter, never looser.
+ */
+export const messagingBetaLimits = {
+  messageUnits: 4000,
+  introductionUnits: 500,
+  titleUnits: 80,
+  queryUnits: 200,
+  pageItems: 100,
+  batchActors: 50,
+  bodyBytes: 65536,
+} as const;
+
+/** Refuses an injected bound that is not a positive integer within its beta limit. */
+export const parseMessagingBound = (value: number, limit: number) =>
+  z.number().int().positive().max(limit).parse(value);
+
+/** Transport bounds are injected by the owning policy within the beta limits. */
 export type MessagingCoreBounds = Readonly<{
   messageUnits: number;
   pageItems: number;
@@ -32,8 +51,13 @@ const mutation = {
 
 /** Validation proves shape only. Operations recheck current authorization. */
 export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
-  z.number().int().positive().safe().parse(bounds.pageItems);
-  const text = messagingTextSchema(bounds.messageUnits);
+  parseMessagingBound(bounds.pageItems, messagingBetaLimits.pageItems);
+  const text = messagingTextSchema(
+    parseMessagingBound(bounds.messageUnits, messagingBetaLimits.messageUnits),
+  );
+  const query = messagingTextSchema(
+    Math.min(bounds.messageUnits, messagingBetaLimits.queryUnits),
+  );
   const positiveOrder = orderingNumber.refine((value) => value > 0);
   const message = z.strictObject({
     id: idSchema,
@@ -144,7 +168,7 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
           input.before.channelId === input.channelId,
       ),
     search: z
-      .strictObject({ ...page, query: text, before: sequenceCursor.optional() })
+      .strictObject({ ...page, query, before: sequenceCursor.optional() })
       .refine(
         (input) =>
           input.before === undefined ||

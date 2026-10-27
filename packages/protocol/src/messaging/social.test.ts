@@ -212,3 +212,35 @@ test('post-creation invitation intent is bounded and never carries manager or me
     expected: [['member_1'], false, false, false],
   });
 });
+
+test('social bounds stay within the DEC-124 beta limits', () => {
+  for (const over of [
+    { ...bounds, introductionUnits: 501 },
+    { ...bounds, titleUnits: 81 },
+    { ...bounds, batchActors: 51 },
+  ])
+    assert({
+      given: `a bound above the beta limit: ${JSON.stringify(over)}`,
+      should: 'refuse to compose the schemas',
+      actual: (() => {
+        try {
+          createMessagingSocialSchemas(over);
+          return 'composed';
+        } catch {
+          return 'refused';
+        }
+      })(),
+      expected: 'refused',
+    });
+  const request = { version: 1, requestId, recipientActorId: actorId };
+  for (const [introduction, expected] of [
+    ['😀'.repeat(250), true],
+    ['😀'.repeat(250) + 'a', false],
+  ] as const)
+    assert({
+      given: `a ${introduction.length}-unit introduction`,
+      should: expected ? 'accept it at the limit' : 'refuse it one over',
+      actual: schemas.requestDm.safeParse({ ...request, introduction }).success,
+      expected,
+    });
+});

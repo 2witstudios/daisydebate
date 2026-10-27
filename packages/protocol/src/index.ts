@@ -169,7 +169,10 @@ export type {
 } from './room-contract';
 
 // Persistent messaging contracts; bounds come from the owning policy.
-export { createMessagingCoreSchemas } from './messaging/core';
+export {
+  createMessagingCoreSchemas,
+  messagingBetaLimits,
+} from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
 export {
   createMessagingSocialSchemas,

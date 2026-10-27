@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
-import { messagingTextSchema } from './core';
+import {
+  messagingBetaLimits,
+  messagingTextSchema,
+  parseMessagingBound,
+} from './core';
 import { usernameSchema as recipientUsername } from '../username';
 
 export type MessagingSocialBounds = Readonly<{
@@ -38,7 +42,12 @@ export const messagingGroupCreationResultSchema = z.strictObject({
 
 /** Actor comes from the principal; contact facts never come from a command. */
 export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
-  z.number().int().positive().safe().parse(bounds.batchActors);
+  parseMessagingBound(bounds.batchActors, messagingBetaLimits.batchActors);
+  parseMessagingBound(
+    bounds.introductionUnits,
+    messagingBetaLimits.introductionUnits,
+  );
+  parseMessagingBound(bounds.titleUnits, messagingBetaLimits.titleUnits);
   const command = { version: z.literal(1), requestId: idSchema };
   const scoped = { ...command, channelId: idSchema };
   const generation = z.number().int().positive().safe();
