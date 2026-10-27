@@ -1,5 +1,5 @@
 import type { Budget } from '../../../features/prep/reading-time';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { timeBarClass } from './time-bar-class';
 
 export type TimeBarProps = {
@@ -39,7 +39,7 @@ export function TimeBar({
       />
       {budget.over && overText !== undefined ? (
         <p className="flex items-start gap-1 text-sm font-strong text-live">
-          <PrepIcon name="warning" size={16} className="mt-1" />
+          <Icon name="warning" size={16} className="mt-1" />
           {overText}
         </p>
       ) : null}

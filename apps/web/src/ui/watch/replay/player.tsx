@@ -6,7 +6,7 @@ import {
 import type { ReplayView } from '../../../features/watch/replay-build';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
+import { controlClass } from '../../components/filter-bar/filter-bar-class';
 import { PlayToggle } from './play-toggle';
 
 export type PlayerProps = {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
 import { readAuthEntry } from '../../../lib/auth-entry';
 import {
@@ -26,8 +27,7 @@ export default async function SignInPage({
   const { destination, identity } = await readAuthEntry(searchParams);
   // A waitlisted account goes on too: the destination's guard sends it to
   // the beta page when it needs approval (ADR 0075).
-  if (identity.state === 'member' || identity.state === 'waitlisted')
-    redirect(destination);
+  if (claimedUsername(identity) !== null) redirect(destination);
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return (
     <SignIn

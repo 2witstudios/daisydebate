@@ -214,3 +214,36 @@ test('a waitlisted account reaches the evaluator only through Room commands (ADR
     expected: [200, 1, 403],
   });
 });
+
+test('a member over the create limit gets 429 and no Room (ISSUE-205)', async () => {
+  const keys: string[] = [];
+  const created: unknown[] = [];
+  const handlers = createRoomHandlers({
+    ...dependencies(member, {
+      create: async (input: unknown) => {
+        created.push(input);
+        return { id };
+      },
+    }),
+    limiter: () => ({
+      consume: async (key: string) => {
+        keys.push(key);
+        return { allowed: false, retryAfterSeconds: 30 };
+      },
+    }),
+  });
+  const response = await handlers.create(
+    new Request(`${origin}/api/rooms`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({ commandId: id, title: 'Room' }),
+    }),
+  );
+  assert({
+    given: 'an unranked create from a member whose create budget is spent',
+    should:
+      'answer 429 from the per-member create key, before any validation, and create nothing',
+    actual: [response.status, keys, created.length],
+    expected: [429, [`room:create:${id}`], 0],
+  });
+});

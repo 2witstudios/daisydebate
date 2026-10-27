@@ -5,13 +5,13 @@ import type {
 } from '../../../features/prep/cases/case-view';
 import { cardDeletedInCase } from '../../../features/prep/notices';
 import { IconButtonInert } from '../inert-action/icon-button-inert';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import { Icon, type IconName } from '../../components/icon/icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { StateAlert } from '../state-alert/state-alert';
 import { TimeBar } from '../time-bar/time-bar';
 
 const tile: Readonly<
-  Record<BlockRow['kind'], { symbol: PrepIconName; cls: string }>
+  Record<BlockRow['kind'], { symbol: IconName; cls: string }>
 > = {
   brief: { symbol: 'doc', cls: 'bg-accent-soft text-accent' },
   card: { symbol: 'card', cls: 'bg-gold-soft text-gold' },
@@ -23,7 +23,7 @@ function Row({ row }: { readonly row: BlockRow }) {
   const title = <span className="text-base font-strong">{row.title}</span>;
   return (
     <li className="flex min-h-16 items-center gap-3 border-t border-border bg-surface-raised px-3 py-2 first:border-t-0">
-      <PrepIcon
+      <Icon
         name="grip"
         size={16}
         className="text-ink-faint max-compact:hidden"
@@ -34,7 +34,7 @@ function Row({ row }: { readonly row: BlockRow }) {
       <span
         className={`inline-flex size-avatar-md shrink-0 items-center justify-center rounded-md ${t.cls}`}
       >
-        <PrepIcon name={t.symbol} size={18} />
+        <Icon name={t.symbol} size={18} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         {row.href === null ? (
@@ -49,8 +49,8 @@ function Row({ row }: { readonly row: BlockRow }) {
         </span>
       </span>
       <span className="text-sm text-ink-muted tabular-nums">{row.clock}</span>
-      <IconButtonInert label="Move up" symbol="arrowUp" />
-      <IconButtonInert label="Move down" symbol="arrowDown" />
+      <IconButtonInert label="Move up" symbol="arrow-up" />
+      <IconButtonInert label="Move down" symbol="arrow-down" />
       <IconButtonInert label="Remove from speech" symbol="x" />
     </li>
   );
