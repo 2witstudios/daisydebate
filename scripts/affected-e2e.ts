@@ -54,6 +54,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'round-command-recovery.e2e.ts': round,
   'realtime-room-delivery.e2e.ts': [...room, ...realtime],
   'messaging-realtime.e2e.ts': [...messaging, ...realtime],
+  'friends.e2e.ts': [...messaging, ...realtime, 'apps/web/src/ui/friends/'],
 };
 // Realtime profiles remain complete one-file proofs.
 const native = new Set(
