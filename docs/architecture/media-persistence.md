@@ -62,8 +62,14 @@ coverage, freeze and judging integration require their own real-service proof.
 `round_transcript_freezes` has one immutable row per Round. Its positive
 `revision` identifies the frozen input; `frontier` is the nonnegative committed
 transcript revision, never a timestamp. `completeness` is `complete` or
-`incomplete`. A database trigger rejects updates; subject erasure may delete the
-row. The finalizer must lock the owning Round, close admission, establish terminal
+`incomplete`. Database triggers reject updates and direct deletion while the
+owning Round exists; owning-Round erasure may cascade the row. Raw freeze
+insertion and utterance INSERT/UPDATE serialize through the parent Round's
+`FOR NO KEY UPDATE` lock. The utterance guard reads freeze facts after that lock
+and refuses writes to either the old or new Round when frozen; moves lock both
+parents in stable order. Lawful utterance DELETE remains available. The frozen
+reader compares `frontier` with `round_transcripts.revision` (absent means zero),
+never with the remaining line count. The finalizer must lock the owning Round, close admission, establish terminal
 speaking history and classify every required stream before inserting the freeze.
 `frozen_at` uses the database clock at insertion. Storage alone does not prove
 coverage or authorize freezing on silence.
@@ -190,9 +196,10 @@ The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
 freeze alone cannot erase submitted ballots. Judge-seat references use deferred
 NO ACTION rather than immediate RESTRICT semantics so the owning Round's
 `ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
-or freeze deletion is refused at commit and rolls back. This changes technical
-constraint timing, not ballot voiding or replacement policy. Real PostgreSQL
-proof checks both commit refusals and zero remaining ballots, jobs, freezes,
+deletion is refused at commit and rolls back. Direct freeze deletion is refused
+immediately, including when no ballot references it. These constraints preserve
+ballot voiding and replacement policy. Real PostgreSQL proof checks both refusals
+and zero remaining ballots, jobs, freezes,
 participants and utterances after owning Round erasure.
 
 `round_judging_jobs` is keyed by `(round_id, judge_participant_id)`, preserving
