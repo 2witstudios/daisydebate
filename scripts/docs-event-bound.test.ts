@@ -105,6 +105,23 @@ describe('boundEvent', () => {
     });
   });
 
+  test('measures the body share on its serialized size', () => {
+    const { event: bounded } = boundEvent(
+      event({ body: '"\n'.repeat(5_000), files: 50 }),
+    );
+    assert({
+      given:
+        'a 10,000-character body of quotes and newlines and 50 changed files',
+      should:
+        'keep some of the file list instead of letting escapes crowd it out',
+      actual: {
+        fits: fits(bounded),
+        someFiles: bounded.changedFiles.length > 0,
+      },
+      expected: { fits: true, someFiles: true },
+    });
+  });
+
   test('caps the whole event, title included, and names only real cuts', () => {
     const { event: bounded, omitted } = boundEvent(
       event({ title: 't'.repeat(7_000), files: 0 }),

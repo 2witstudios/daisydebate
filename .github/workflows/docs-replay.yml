@@ -58,6 +58,8 @@ jobs:
           [[ "$DOC_PIPELINES" =~ ^[a-z,-]*$ ]] || { echo "pipelines must be names like user-docs,blog"; exit 1; }
           pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$REPLAY_PR")"
           [[ "$(jq -r .merged <<<"$pr")" == true ]] || { echo "PR $REPLAY_PR is not merged"; exit 1; }
+          # notify-merge sends no event for a fork merge; neither does a replay.
+          [[ "$(jq -r .head.repo.fork <<<"$pr")" == false ]] || { echo "PR $REPLAY_PR is from a fork"; exit 1; }
           export DOC_EVENT_ID="$(jq -r '"\(.id)-\(.merge_commit_sha)"' <<<"$pr")"
           export DOC_OCCURRED_AT="$(jq -r .merged_at <<<"$pr")"
           export DOC_REPOSITORY="$GITHUB_REPOSITORY"

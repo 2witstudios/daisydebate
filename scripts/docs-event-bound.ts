@@ -86,15 +86,20 @@ export function boundEvent(
   };
   // The body is the most useful text: cap it at half the budget first, so the
   // file list keeps some room, and cut it further only when nothing else can go.
-  if (size(current) > limit && body.length > limit / 2)
-    current = withBody(body)(current, limit / 2);
+  // Measured serialized: quotes and newlines escape to twice their length.
+  const bodyShare = longest(
+    body.length,
+    (n) => JSON.stringify(clip(body, n)).length <= limit / 2,
+  );
+  if (size(current) > limit && bodyShare < body.length)
+    current = withBody(body)(current, bodyShare);
   shrink(
     withList('changedFiles', event.changedFiles),
     event.changedFiles.length,
   );
   if (!duplicateRefs)
     shrink(withList('sourceRefs', event.sourceRefs), event.sourceRefs.length);
-  if (body) shrink(withBody(body), Math.min(body.length, limit / 2));
+  if (body) shrink(withBody(body), bodyShare);
   shrink(withTitle(title), title.length);
   shrink(withList('taskIds', event.taskIds), event.taskIds.length);
   if (size(current) > limit)
