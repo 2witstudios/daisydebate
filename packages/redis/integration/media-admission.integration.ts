@@ -1,18 +1,12 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
-import { createRedis } from '../src';
-import { createBoundedTestClient } from '../src/testing';
-import { redisSuite, withRedis } from './test-support';
+import { createPeer, redisSuite, withRedis } from './test-support';
 requireTestServices(process.env);
 const { redisUrl: url } = redisSuite();
 test('admission hints cross web clients, release independently and expire within one lease', () =>
   withRedis(url, async ({ redis, namespace, raw, key, expireNow }) => {
-    const peer = createRedis({
-      url,
-      namespace,
-      client: createBoundedTestClient(url),
-    });
+    const peer = createPeer(url, namespace);
     const session = createId(),
       first = createId(),
       second = createId();
