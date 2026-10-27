@@ -23,31 +23,26 @@ const tree = [
 const pr: MergedPr = {
   number: 61,
   title: 'feat(guard): autonomy guardrails (GRD-6.1)',
-  url: 'https://github.com/o/r/pull/61',
   body: 'Tasks: GRD-6.1',
   branch: 'pu/grd-6-autonomy',
-  headSha: 'd'.repeat(40),
-  mergedAt: '2026-09-25T10:00:00Z',
 };
 
+const approve = '0 blocker / 0 major / 1 minor / 0 nit — APPROVE WITH MINORS';
+
 function fakes(
-  options: {
-    statuses?: string[];
-    reviewState?: string;
-    cutoff?: string | null;
-    issues?: string[];
-    issuePage?: string;
-  } = {},
+  options: { statuses?: string[]; comments?: string[]; leaf1?: string } = {},
 ) {
   const log: string[] = [];
   const tasks: Record<string, { id: string; pageId: string; status: string }> =
     {
-      leaf1: { id: 't1', pageId: 'leaf1', status: 'in_review' },
+      leaf1: {
+        id: 't1',
+        pageId: 'leaf1',
+        status: options.leaf1 ?? 'in_review',
+      },
       leaf2: { id: 't2', pageId: 'leaf2', status: 'pending' },
     };
   const deps: FollowupDeps = {
-    cutoff:
-      options.cutoff === undefined ? '2026-09-24T00:00:00Z' : options.cutoff,
     drivePages: async () => tree,
     listTasks: async () => ({
       tasks: Object.values(tasks),
@@ -58,128 +53,77 @@ function fakes(
     createStatus: async (listId) => void log.push(`create-status ${listId}`),
     updateStatus: async (listId, taskId, status) =>
       void log.push(`status ${listId} ${taskId} ${status}`),
-    issueTitles: async () => options.issues ?? ['ISSUE-14 — x'],
-    createIssue: async (title, _criteria, related) => {
-      log.push(`issue ${title}`);
-      log.push(
-        `related ${related.map((ref) => `${ref.label}=${ref.id}`).join(' ')}`,
-      );
-      return options.issuePage ?? 'issuepage';
-    },
-    reviewState: async () => options.reviewState,
-    notify: async (message) => void log.push(`sprint-room ${message}`),
+    comments: async () => options.comments ?? [],
   };
   return { deps, log };
 }
 
 describe('merge follow-up', () => {
-  test('moves every task the PR names to Merged, creating the status once', async () => {
-    const { deps, log } = fakes({ reviewState: 'success' });
-    await followUpMerge(deps, pr);
-    assert({
-      given:
-        'a reviewed merge naming GRD-6.1 on a list without a Merged status',
-      should: 'create the status and move only GRD-6.1',
-      actual: log,
-      expected: ['create-status phase', 'status phase t1 merged'],
+  test('moves a merge without an approving review to Merged, creating the status once', async () => {
+    const { deps, log } = fakes();
+    const result = await followUpMerge(deps, {
+      ...pr,
+      body: 'Tasks: GRD-6.1 · GRD-6.2',
     });
-  });
-
-  test('records review debt for an unreviewed merge after the cutoff', async () => {
-    const { deps, log } = fakes({ statuses: ['merged'] });
-    const result = await followUpMerge(deps, pr);
-    assert({
-      given: 'a merge after the cutoff with no review-record status',
-      should: 'file ISSUE-15 and post the Sprint Room notice',
-      actual: [
-        log.filter((line) => line.startsWith('issue')),
-        log.some(
-          (line) => line.startsWith('sprint-room') && line.includes('ISSUE-15'),
-        ),
-        result.debt,
-      ],
-      expected: [
-        [
-          'issue ISSUE-15 — Given PR #61 merged without a review record, should get a post-merge independent review of dddddddddddd',
-        ],
-        true,
-        'ISSUE-15',
-      ],
-    });
-  });
-
-  test('files nothing before the cutoff or when the debt already exists', async () => {
-    const early = fakes({
-      statuses: ['merged'],
-      cutoff: '2026-09-26T00:00:00Z',
-    });
-    const unset = fakes({ statuses: ['merged'], cutoff: null });
-    const again = fakes({
-      statuses: ['merged'],
-      issues: [
-        'ISSUE-15 — Given PR #61 merged without a review record, should get a post-merge independent review of dddddddddddd',
-      ],
-    });
-    await followUpMerge(early.deps, pr);
-    await followUpMerge(unset.deps, pr);
-    await followUpMerge(again.deps, pr);
-    assert({
-      given: 'a pre-cutoff merge, no cutoff yet, and a re-run after filing',
-      should: 'file no issue in any case',
-      actual: [early.log, unset.log, again.log].map((log) =>
-        log.some((line) => line.startsWith('issue')),
-      ),
-      expected: [false, false, false],
-    });
-  });
-
-  test('creates the Merged status once for several tasks in one list', async () => {
-    const { deps, log } = fakes({ reviewState: 'success' });
-    await followUpMerge(deps, { ...pr, body: 'Tasks: GRD-6.1 · GRD-6.2' });
     assert({
       given: 'a merge naming two tasks of a list without a Merged status',
-      should: 'create the status once and move both tasks',
-      actual: log,
+      should: 'create the status once and move both tasks to Merged',
+      actual: [log, result],
       expected: [
-        'create-status phase',
-        'status phase t1 merged',
-        'status phase t2 merged',
+        [
+          'create-status phase',
+          'status phase t1 merged',
+          'status phase t2 merged',
+        ],
+        { moved: ['GRD-6.1', 'GRD-6.2'], status: 'merged' },
       ],
     });
   });
 
-  test('links the debt issue to the tasks the PR delivered', async () => {
-    const { deps, log } = fakes({ statuses: ['merged'] });
+  test('moves a merge whose latest review verdict approves straight to Done', async () => {
+    const { deps, log } = fakes({
+      comments: [
+        '## Review\n\n1 blocker / 0 major / 0 minor / 0 nit — CHANGES REQUESTED',
+        'Fixed in abc123.',
+        `## Verdict\n\n${approve}\n\nRecord: https://pagespace.ai/x`,
+      ],
+    });
+    const result = await followUpMerge(deps, pr);
+    assert({
+      given: 'changes requested, then a later approving verdict',
+      should: 'move GRD-6.1 to Done without creating a Merged status',
+      actual: [log, result.status],
+      expected: [['status phase t1 completed'], 'completed'],
+    });
+  });
+
+  test('a later CHANGES REQUESTED overrides an earlier approval', async () => {
+    const { deps, log } = fakes({
+      statuses: ['merged'],
+      comments: [
+        `${approve}`,
+        '0 blocker / 1 major / 0 minor / 0 nit — CHANGES REQUESTED',
+      ],
+    });
     await followUpMerge(deps, pr);
     assert({
-      given: 'review debt for a merge delivering GRD-6.1',
-      should: 'relate the new issue to the GRD-6.1 task page',
-      actual: log.find((line) => line.startsWith('related')),
-      expected: 'related Task=leaf1',
+      given: 'an approval superseded by a later CHANGES REQUESTED',
+      should: 'leave the task in Merged for the board keeper',
+      actual: log,
+      expected: ['status phase t1 merged'],
     });
   });
 
-  test('fails loudly on an issue without a page or a merge without a time', async () => {
-    const noPage = fakes({ statuses: ['merged'], issuePage: '' });
-    const noTime = fakes({ statuses: ['merged'] });
+  test('never moves a Done task or repeats its current status', async () => {
+    const done = fakes({ leaf1: 'completed', comments: [approve] });
+    const merged = fakes({ leaf1: 'merged', statuses: ['merged'] });
+    await followUpMerge(done.deps, pr);
+    await followUpMerge(merged.deps, pr);
     assert({
-      given:
-        'PageSpace returning no page for the issue, and an empty merged-at',
-      should: 'reject each instead of carrying on without debt',
-      actual: [
-        await followUpMerge(noPage.deps, pr).then(
-          () => 'resolved',
-          (error: Error) => error.message,
-        ),
-        await followUpMerge(noTime.deps, { ...pr, mergedAt: '' }).then(
-          () => 'resolved',
-          (error: Error) => error.message,
-        ),
-      ],
-      expected: [
-        'PageSpace created ISSUE-15 without returning its page',
-        'PR #61 has no valid merged-at time: ""',
-      ],
+      given: 'a task already Done, and one already Merged with no approval',
+      should: 'write nothing',
+      actual: [done.log, merged.log],
+      expected: [[], []],
     });
   });
 });

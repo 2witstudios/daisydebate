@@ -1,39 +1,24 @@
 #!/usr/bin/env bun
 /**
  * Runs after every merge to main (.github/workflows/notify-merge.yml). It
- * moves each task the PR names to Merged, where the task waits
- * for an independent review to grant Done. After the enforcement cutoff
- * (policy/github/repository.json), a merge whose head SHA has no successful
- * review-record status also leaves post-merge review debt: an ISSUE-n in the
- * drive's Issues list and a Sprint Room notice. Merges before the cutoff
- * file nothing.
+ * moves each task the PR names to Done when the PR's latest review verdict
+ * approves (reviews are PR comments, ADR 0083), and otherwise to Merged,
+ * where the board keeper reconciles it.
  */
 import {
-  bucketPageIds,
-  ISSUES_LIST_ID,
-  leafBody,
-  nextCodeNumber,
-  type RelatedEntry,
-} from './board-model';
-import {
-  debtIssue,
+  approvedByReview,
   deliveredCodes,
   findTaskPages,
   MERGED_STATUS,
   mergedTarget,
-  needsDebt,
 } from './board-state';
-import { postToDrive } from './notify-drive';
 import { DAISY_DEBATE_DRIVE_ID, pagespaceApi } from './pagespace-docs';
 
 export type MergedPr = {
   readonly number: number;
   readonly title: string;
-  readonly url: string;
   readonly body: string;
   readonly branch: string;
-  readonly headSha: string;
-  readonly mergedAt: string;
 };
 
 type PageNode = Parameters<typeof findTaskPages>[0][number];
@@ -93,7 +78,6 @@ const tasksOf = (listId: string) =>
   );
 
 export type FollowupDeps = {
-  readonly cutoff: string | null;
   readonly drivePages: () => Promise<readonly PageNode[]>;
   readonly listTasks: (listId: string) => Promise<TaskList>;
   readonly createStatus: (listId: string) => Promise<void>;
@@ -102,19 +86,14 @@ export type FollowupDeps = {
     taskId: string,
     status: string,
   ) => Promise<void>;
-  readonly issueTitles: () => Promise<readonly string[]>;
-  readonly createIssue: (
-    title: string,
-    criteria: readonly string[],
-    related: readonly RelatedEntry[],
-  ) => Promise<string>;
-  readonly reviewState: (sha: string) => Promise<string | undefined>;
-  readonly notify: (message: string) => Promise<void>;
+  /** The PR's comment bodies, oldest first. */
+  readonly comments: () => Promise<readonly string[]>;
 };
 
 async function moveTasks(
   deps: FollowupDeps,
   pages: ReturnType<typeof findTaskPages>,
+  approved: boolean,
 ) {
   const moved: string[] = [];
   for (const listId of new Set(pages.map((page) => page.listId))) {
@@ -124,9 +103,10 @@ async function moveTasks(
     );
     for (const page of pages.filter((p) => p.listId === listId)) {
       const task = list.tasks.find((t) => t.pageId === page.pageId);
-      const target = task && mergedTarget(task.status);
+      const target = task && mergedTarget(task.status, approved);
       if (!task || !target) continue;
-      if (!hasStatus) await deps.createStatus(listId);
+      if (target === MERGED_STATUS.slug && !hasStatus)
+        await deps.createStatus(listId);
       hasStatus = true;
       await deps.updateStatus(listId, task.id, target);
       moved.push(page.code);
@@ -135,43 +115,10 @@ async function moveTasks(
   return moved;
 }
 
-async function recordDebt(
-  deps: FollowupDeps,
-  pr: MergedPr,
-  codes: readonly string[],
-  tasks: readonly RelatedEntry[],
-): Promise<string | undefined> {
-  const reviewState = await deps.reviewState(pr.headSha);
-  if (!needsDebt({ mergedAt: pr.mergedAt, cutoff: deps.cutoff, reviewState }))
-    return undefined;
-  const issue = debtIssue({ ...pr, pr: pr.number, codes });
-  const titles = await deps.issueTitles();
-  const existing = titles.find((title) => title.endsWith(issue.title));
-  const code =
-    existing?.split(' ')[0] ?? `ISSUE-${nextCodeNumber(titles, 'ISSUE')}`;
-  if (existing) return code;
-  const pageId = await deps.createIssue(
-    `${code} — ${issue.title}`,
-    issue.criteria,
-    tasks,
-  );
-  if (!pageId)
-    throw new Error(`PageSpace created ${code} without returning its page`);
-  await deps.notify(
-    `⚠️ Post-merge review debt: #${pr.number} merged without a review-record status for ${pr.headSha.slice(0, 12)} → ${code}\n${pr.url}`,
-  );
-  return code;
-}
-
 export async function followUpMerge(
   deps: FollowupDeps,
   pr: MergedPr,
-): Promise<{ readonly moved: readonly string[]; readonly debt?: string }> {
-  // An unparseable time would compare as NaN and silently file no debt.
-  if (Number.isNaN(Date.parse(pr.mergedAt)))
-    throw new Error(
-      `PR #${pr.number} has no valid merged-at time: ${JSON.stringify(pr.mergedAt)}`,
-    );
+): Promise<{ readonly moved: readonly string[]; readonly status: string }> {
   const codes = deliveredCodes({
     title: pr.title,
     headRefName: pr.branch,
@@ -180,14 +127,11 @@ export async function followUpMerge(
   const pages = findTaskPages(await deps.drivePages()).filter((page) =>
     codes.includes(page.code),
   );
-  const moved = await moveTasks(deps, pages);
-  // The issue's Related pages link the tasks the unreviewed merge delivered.
-  const tasks = pages.map((page) => ({
-    label: 'Task',
-    id: page.pageId,
-    title: page.code,
-  }));
-  return { moved, debt: await recordDebt(deps, pr, codes, tasks) };
+  const approved = approvedByReview(await deps.comments());
+  return {
+    moved: await moveTasks(deps, pages, approved),
+    status: approved ? 'completed' : MERGED_STATUS.slug,
+  };
 }
 
 // ------------------------------------------------------------------- edges
@@ -211,9 +155,8 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
+function liveDeps(repository: string, pr: number): FollowupDeps {
   return {
-    cutoff,
     drivePages: () =>
       pagespace<readonly PageNode[]>(
         `/api/drives/${DAISY_DEBATE_DRIVE_ID}/pages`,
@@ -235,76 +178,46 @@ function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
         json('PATCH', { status }),
       );
     },
-    issueTitles: async () => {
-      const root = await tasksOf(ISSUES_LIST_ID);
-      const nested = await Promise.all(
-        bucketPageIds(root.tasks, 'ISSUE').map(tasksOf),
-      );
-      return [...root.titles, ...nested.flatMap((list) => list.titles)];
-    },
-    createIssue: async (title, criteria, related) => {
-      const task = await pagespace<{ pageId?: string; page?: { id: string } }>(
-        `/api/pages/${ISSUES_LIST_ID}/tasks`,
-        json('POST', { title }),
-      );
-      const pageId = task.pageId ?? task.page?.id ?? '';
-      if (!pageId) return '';
-      await pagespace(
-        '/api/mcp/documents',
-        json('POST', {
-          operation: 'replace',
-          pageId,
-          startLine: 1,
-          content: leafBody({ criteria, related }),
-        }),
-      );
-      return pageId;
-    },
-    reviewState: async (sha) => {
+    comments: async () => {
       const result = Bun.spawnSync(
         [
           'gh',
           'api',
-          `repos/${repository}/commits/${sha}/statuses`,
+          '--paginate',
+          `repos/${repository}/issues/${pr}/comments`,
           '--jq',
-          '[.[] | select(.context == "review-record")][0].state',
+          '.[].body | @json',
         ],
         { stdout: 'pipe', stderr: 'inherit' },
       );
-      const state = result.stdout.toString().trim();
-      return result.exitCode === 0 && state !== '' && state !== 'null'
-        ? state
-        : undefined;
+      if (result.exitCode !== 0)
+        throw new Error(`gh could not read the comments of PR #${pr}`);
+      return result.stdout
+        .toString()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as string);
     },
-    notify: (message) => postToDrive('sprint-room', message),
   };
 }
 
 if (import.meta.main) {
   const env = process.env;
-  const config = (await Bun.file(
-    new URL('../policy/github/repository.json', import.meta.url),
-  ).json()) as { reviewEnforcementCutoff: string | null };
   const pr: MergedPr = {
     number: Number(env.MERGE_PR),
     title: env.MERGE_TITLE ?? '',
-    url: env.MERGE_URL ?? '',
     body: env.MERGE_BODY ?? '',
     branch: env.MERGE_BRANCH ?? '',
-    headSha: env.MERGE_HEAD_SHA ?? '',
-    mergedAt: env.MERGE_MERGED_AT ?? '',
   };
-  if (!Number.isInteger(pr.number) || !/^[0-9a-f]{40}$/.test(pr.headSha)) {
-    process.stderr.write(
-      'merge-followup: MERGE_PR and MERGE_HEAD_SHA are required\n',
-    );
+  if (!Number.isInteger(pr.number) || pr.number <= 0) {
+    process.stderr.write('merge-followup: MERGE_PR is required\n');
     process.exit(2);
   }
   const result = await followUpMerge(
-    liveDeps(env.GITHUB_REPOSITORY ?? '', config.reviewEnforcementCutoff),
+    liveDeps(env.GITHUB_REPOSITORY ?? '', pr.number),
     pr,
   );
   process.stdout.write(
-    `merge follow-up #${pr.number}: moved ${result.moved.join(', ') || 'no task'}; debt ${result.debt ?? 'none'}\n`,
+    `merge follow-up #${pr.number}: moved ${result.moved.join(', ') || 'no task'} to ${result.status}\n`,
   );
 }

@@ -1,12 +1,12 @@
 /**
- * Pure rules that keep the board following git: which task pages
- * a PR names, the status a merge moves them to, when a merge after the
- * enforcement cutoff leaves review debt, and which tasks drifted from git.
- * The merge workflow (merge-followup.ts) and `bun board:stale` share them.
+ * Pure rules that keep the board following git: which task pages a PR
+ * names, the status a merge moves them to (Done when the PR's latest review
+ * verdict approves, ADR 0083), and which tasks drifted from git. The merge
+ * workflow (merge-followup.ts) and `bun board:stale` share them.
  */
 import { extractTaskIds, TASK_CODE } from './notify-drive';
 
-/** The status a merged task waits in until an independent review grants Done. */
+/** The status a merged task waits in when no review verdict approved it. */
 export const MERGED_STATUS = {
   slug: 'merged',
   name: 'Merged',
@@ -76,116 +76,58 @@ export function deliveredCodes(
 }
 
 /** Where a merge moves a task; undefined when it stays. */
-export function mergedTarget(status: string): string | undefined {
-  return status === MERGED_STATUS.slug || status === 'completed'
-    ? undefined
-    : MERGED_STATUS.slug;
+export function mergedTarget(
+  status: string,
+  approved: boolean,
+): string | undefined {
+  const target = approved ? 'completed' : MERGED_STATUS.slug;
+  return status === 'completed' || status === target ? undefined : target;
 }
 
-export function needsDebt(input: {
-  readonly mergedAt: string;
-  readonly cutoff: string | null;
-  readonly reviewState: string | undefined;
-}): boolean {
-  return (
-    input.cutoff !== null &&
-    Date.parse(input.mergedAt) >= Date.parse(input.cutoff) &&
-    input.reviewState !== 'success'
-  );
-}
-
-export function debtIssue(input: {
-  readonly pr: number;
-  readonly title: string;
-  readonly url: string;
-  readonly headSha: string;
-  readonly codes: readonly string[];
-}): { readonly title: string; readonly criteria: readonly string[] } {
-  const sha = input.headSha.slice(0, 12);
-  const tasks = input.codes.length > 0 ? input.codes.join(', ') : 'no task';
-  return {
-    title: `Given PR #${input.pr} merged without a review record, should get a post-merge independent review of ${sha}`,
-    criteria: [
-      `Given PR #${input.pr} (${input.title}, ${input.url}) merged at head ${input.headSha} with no review-record status, should get an independent review record for ${sha} under Reviews/<Epic>, linked from ${tasks}.`,
-      `Given that record's findings, should fix or file each one; the tasks stay Merged until the record grants Done.`,
-    ],
-  };
-}
-
-const REVIEW_TITLE = /^Review(?: record)? —/;
-
-export const isReviewPage = (title: string): boolean =>
-  REVIEW_TITLE.test(title);
+// The verdict line a /review comment carries (docs/development/review-record.md).
+const VERDICT =
+  /(\d+) blockers? \/ (\d+) majors? \/ \d+ minors? \/ \d+ nits? — (APPROVE WITH MINORS|APPROVE|CHANGES REQUESTED)/g;
 
 /**
- * Task codes an existing review covers: named in a review page's title or
- * body (stage reviews list several), or linked from the task page itself.
+ * Whether a PR's latest review verdict, across its comments in order,
+ * approves with no open blocker or major.
  */
-export function reviewedCodes(
-  reviews: readonly {
-    readonly id: string;
-    readonly title: string;
-    readonly content: string;
-  }[],
-  extractCodes: (text: string) => readonly string[],
-): ReadonlySet<string> {
-  return new Set(
-    reviews.flatMap((review) =>
-      extractCodes(`${review.title}\n${review.content}`),
-    ),
+export function approvedByReview(comments: readonly string[]): boolean {
+  const last = comments.flatMap((body) => [...body.matchAll(VERDICT)]).at(-1);
+  return (
+    last !== undefined &&
+    last[3] !== 'CHANGES REQUESTED' &&
+    last[1] === '0' &&
+    last[2] === '0'
   );
 }
 
 export type BoardTask = TaskPage & {
   readonly taskId: string;
   readonly status: string;
-  readonly hasReviewRecord: boolean;
-  /** When the task was marked Done, if the board recorded it. */
-  readonly completedAt?: string;
 };
 
 // Statuses before In Review: a merged task in one of them has drifted.
 const BEFORE_REVIEW = new Set(['pending', 'ready', 'in_progress', 'blocked']);
 
-/**
- * Done without a review record is drift only after the enforcement cutoff:
- * reviews before it often happened without being stored (owner decision,
- * 2026-09-22). With no cutoff set, everything so far is before it.
- */
-function afterCutoff(at: string | undefined, cutoff: string | null) {
-  return (
-    cutoff !== null && at !== undefined && Date.parse(at) >= Date.parse(cutoff)
-  );
-}
-
-/** Tasks whose status disagrees with git, with the pre-Done status to fix to. */
+/** Merged tasks still before In Review, with Merged as the status to fix to. */
 export function staleLeaves(
   tasks: readonly BoardTask[],
   mergedAt: ReadonlyMap<string, string>,
-  cutoff: string | null,
 ): readonly {
   readonly task: BoardTask;
   readonly reason: string;
   readonly to: string;
 }[] {
-  return tasks.flatMap((task) => {
-    const merged = mergedAt.get(task.code);
-    if (merged !== undefined && BEFORE_REVIEW.has(task.status))
-      return [
-        { task, reason: `merged but ${task.status}`, to: MERGED_STATUS.slug },
-      ];
-    const unreviewedDone =
-      task.status === 'completed' &&
-      !task.hasReviewRecord &&
-      afterCutoff(task.completedAt ?? merged, cutoff);
-    return unreviewedDone
+  return tasks.flatMap((task) =>
+    mergedAt.has(task.code) && BEFORE_REVIEW.has(task.status)
       ? [
           {
             task,
-            reason: 'Done without a review record',
-            to: merged !== undefined ? MERGED_STATUS.slug : 'in_review',
+            reason: `merged but ${task.status}`,
+            to: MERGED_STATUS.slug,
           },
         ]
-      : [];
-  });
+      : [],
+  );
 }

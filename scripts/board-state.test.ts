@@ -1,11 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  debtIssue,
+  approvedByReview,
   deliveredCodes,
   findTaskPages,
   mergedTarget,
-  needsDebt,
-  reviewedCodes,
   staleLeaves,
   type BoardTask,
 } from './board-state';
@@ -61,19 +59,20 @@ describe('findTaskPages', () => {
 });
 
 describe('mergedTarget', () => {
-  test('moves open tasks to merged and never regresses Done', () => {
+  const statuses = [
+    'pending',
+    'ready',
+    'in_progress',
+    'blocked',
+    'in_review',
+    'merged',
+    'completed',
+  ];
+  test('moves open tasks to Merged and never regresses Done', () => {
     assert({
-      given: 'each status a merged task can be in',
+      given: 'each status a merged task can be in, without an approving review',
       should: 'target merged unless already merged or Done',
-      actual: [
-        'pending',
-        'ready',
-        'in_progress',
-        'blocked',
-        'in_review',
-        'merged',
-        'completed',
-      ].map(mergedTarget),
+      actual: statuses.map((status) => mergedTarget(status, false)),
       expected: [
         'merged',
         'merged',
@@ -85,195 +84,81 @@ describe('mergedTarget', () => {
       ],
     });
   });
-});
-
-describe('needsDebt', () => {
-  const cutoff = '2026-09-23T00:00:00Z';
-
-  test('records debt only after the cutoff and without a review-record status', () => {
+  test('moves every unfinished task to Done after an approving review', () => {
     assert({
-      given: 'merges before and after the cutoff, with and without the status',
-      should: 'need debt only for an unreviewed merge after the cutoff',
-      actual: [
-        needsDebt({
-          mergedAt: '2026-09-24T00:00:00Z',
-          cutoff,
-          reviewState: undefined,
-        }),
-        needsDebt({
-          mergedAt: '2026-09-24T00:00:00Z',
-          cutoff,
-          reviewState: 'failure',
-        }),
-        needsDebt({
-          mergedAt: '2026-09-24T00:00:00Z',
-          cutoff,
-          reviewState: 'success',
-        }),
-        needsDebt({
-          mergedAt: '2026-09-22T00:00:00Z',
-          cutoff,
-          reviewState: undefined,
-        }),
-        needsDebt({
-          mergedAt: '2026-09-24T00:00:00Z',
-          cutoff: null,
-          reviewState: undefined,
-        }),
-      ],
-      expected: [true, true, false, false, false],
+      given: 'each status a merged task can be in, with an approving review',
+      should: 'target completed unless already Done',
+      actual: statuses.map((status) => mergedTarget(status, true)),
+      expected: [...Array(6).fill('completed'), undefined],
     });
   });
 });
 
-describe('debtIssue', () => {
-  test('writes an ISSUE-n body with origin, why and criteria', () => {
-    const issue = debtIssue({
-      pr: 61,
-      title: 'feat(x): y (RT-4.1)',
-      url: 'https://github.com/o/r/pull/61',
-      headSha: 'c'.repeat(40),
-      codes: ['RT-4.1'],
-    });
+describe('approvedByReview', () => {
+  test('the latest verdict line decides', () => {
+    const changes = '0 blocker / 1 major / 2 minor / 0 nit — CHANGES REQUESTED';
+    const approve = '0 blocker / 0 major / 0 minor / 3 nit — APPROVE';
+    const minors =
+      '0 blocker / 0 major / 2 minor / 0 nit — APPROVE WITH MINORS';
     assert({
-      given: 'a merged PR with no review-record status',
-      should: 'name the PR, SHA and tasks and ask for a post-merge review',
+      given: 'no verdict, approvals, and approvals before or after changes',
+      should: 'approve only when the last verdict approves',
       actual: [
-        issue.title,
-        issue.criteria.length,
-        issue.criteria[0]?.includes('cccccccccccc'),
-      ],
-      expected: [
-        'Given PR #61 merged without a review record, should get a post-merge independent review of cccccccccccc',
-        2,
-        true,
-      ],
+        [],
+        ['LGTM', 'Fixed in abc.'],
+        [`## Verdict\n\n${approve}\n`],
+        [`**${minors}**`],
+        [changes, 'fixed', minors],
+        [minors, changes],
+      ].map(approvedByReview),
+      expected: [false, false, true, true, true, false],
+    });
+  });
+  test('an approval that still counts a blocker or major never approves', () => {
+    assert({
+      given: 'an APPROVE verdict counting an open blocker, then a major',
+      should: 'not approve',
+      actual: [
+        ['1 blocker / 0 major / 0 minor / 0 nit — APPROVE'],
+        ['0 blocker / 2 major / 0 minor / 0 nit — APPROVE WITH MINORS'],
+      ].map(approvedByReview),
+      expected: [false, false],
     });
   });
 });
 
 describe('staleLeaves', () => {
-  const cutoff = '2026-09-24T00:00:00Z';
-  const before = '2026-09-20T00:00:00Z';
-  const after = '2026-09-25T00:00:00Z';
   const task = (overrides: Partial<BoardTask>): BoardTask => ({
     code: 'RT-1.1',
     pageId: 'p',
     listId: 'l',
     taskId: 't',
     status: 'in_progress',
-    hasReviewRecord: false,
-    completedAt: undefined,
     ...overrides,
   });
-  const summary = (list: ReturnType<typeof staleLeaves>) =>
-    list.map(({ task: { code }, reason, to }) => ({ code, reason, to }));
 
   test('moves merged tasks that never reached In Review to Merged', () => {
     const merged = new Map([
-      ['RT-1.1', before],
-      ['RT-1.2', before],
+      ['RT-1.1', '2026-09-20T00:00:00Z'],
+      ['RT-1.2', '2026-09-20T00:00:00Z'],
+      ['RT-1.3', '2026-09-20T00:00:00Z'],
     ]);
     assert({
-      given: 'a merged task still in progress, and one already in review',
-      should: 'flag only the one before In Review',
-      actual: summary(
-        staleLeaves(
-          [
-            task({ code: 'RT-1.1', status: 'in_progress' }),
-            task({ code: 'RT-1.2', status: 'in_review' }),
-            task({ code: 'RT-1.7', status: 'ready' }),
-          ],
-          merged,
-          cutoff,
-        ),
-      ),
+      given:
+        'merged tasks in progress, in review and Done, and an unmerged ready task',
+      should: 'flag only the merged one before In Review',
+      actual: staleLeaves(
+        [
+          task({ code: 'RT-1.1', status: 'in_progress' }),
+          task({ code: 'RT-1.2', status: 'in_review' }),
+          task({ code: 'RT-1.3', status: 'completed' }),
+          task({ code: 'RT-1.7', status: 'ready' }),
+        ],
+        merged,
+      ).map(({ task: { code }, reason, to }) => ({ code, reason, to })),
       expected: [
         { code: 'RT-1.1', reason: 'merged but in_progress', to: 'merged' },
       ],
-    });
-  });
-
-  test('accepts Done without a record before the enforcement cutoff', () => {
-    assert({
-      given:
-        'Done tasks without records completed or merged before the cutoff, and no cutoff set yet',
-      should: 'flag none of them',
-      actual: [
-        staleLeaves(
-          [
-            task({ code: 'RT-1.4', status: 'completed', completedAt: before }),
-            task({ code: 'RT-1.5', status: 'completed' }),
-          ],
-          new Map([['RT-1.5', before]]),
-          cutoff,
-        ).length,
-        staleLeaves(
-          [task({ code: 'RT-1.4', status: 'completed', completedAt: after })],
-          new Map(),
-          null,
-        ).length,
-      ],
-      expected: [0, 0],
-    });
-  });
-
-  test('flags Done without a record after the enforcement cutoff', () => {
-    assert({
-      given:
-        'Done tasks without records after the cutoff, merged and unmerged, and one with a record',
-      should: 'flag the two without records with their pre-Done status',
-      actual: summary(
-        staleLeaves(
-          [
-            task({ code: 'RT-1.4', status: 'completed', completedAt: after }),
-            task({ code: 'RT-1.5', status: 'completed', completedAt: after }),
-            task({
-              code: 'RT-1.6',
-              status: 'completed',
-              completedAt: after,
-              hasReviewRecord: true,
-            }),
-          ],
-          new Map([['RT-1.4', after]]),
-          cutoff,
-        ),
-      ),
-      expected: [
-        {
-          code: 'RT-1.4',
-          reason: 'Done without a review record',
-          to: 'merged',
-        },
-        {
-          code: 'RT-1.5',
-          reason: 'Done without a review record',
-          to: 'in_review',
-        },
-      ],
-    });
-  });
-});
-
-describe('reviewedCodes', () => {
-  test('counts every code a review page names in its title or body', () => {
-    assert({
-      given: 'a stage review naming three codes and a single-leaf review',
-      should: 'cover all four codes',
-      actual: [
-        ...reviewedCodes(
-          [
-            {
-              id: 'r1',
-              title: 'Review record — stage 1 (AUTH-1.1, AUTH-1.2)',
-              content: '<p>Also covers AUTH-1.4.</p>',
-            },
-            { id: 'r2', title: 'Review — DOCS-4 cleanup', content: '' },
-          ],
-          (text) => text.match(/\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g) ?? [],
-        ),
-      ],
-      expected: ['AUTH-1.1', 'AUTH-1.2', 'AUTH-1.4', 'DOCS-4'],
     });
   });
 });
