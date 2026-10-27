@@ -3,7 +3,11 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { listMessagingFriendships } from './friendships';
+import {
+  listMessagingFriendships,
+  readPresenceHidden,
+  writePresenceHidden,
+} from './friendships';
 setupRitewayBun();
 
 const me = 'a'.repeat(24),
@@ -23,12 +27,13 @@ const account = {
 test('listMessagingFriendships authorizes the locked reader first', async () => {
   const { client, queries } = fakeSql([
     [account],
-    [[them, 'ada', 'accepted', me, new Date('2026-10-26T18:00:00.000Z')]],
+    [[them, 'ada', true, 'accepted', me, new Date('2026-10-26T18:00:00.000Z')]],
   ]);
   const fenced: unknown[] = [];
   assert({
     given: 'one accepted friendship and an allowing fence',
-    should: 'name the counterpart with an ISO request time',
+    should:
+      'name the counterpart with an ISO request time and whether they hide their status',
     actual: await listMessagingFriendships(
       drizzle({ client }),
       { userId, actorId: me },
@@ -43,6 +48,7 @@ test('listMessagingFriendships authorizes the locked reader first', async () => 
         state: 'accepted',
         requesterActorId: me,
         requestedAt: '2026-10-26T18:00:00.000Z',
+        otherHidden: true,
       },
     ],
   });
@@ -99,5 +105,35 @@ test('a refusing fence reads nothing', async () => {
         async () => {},
       ),
     code: 'VALIDATION',
+  });
+});
+
+test('presence visibility reads and writes only behind the reader’s fence', async () => {
+  const { client, queries } = fakeSql([[account], [[true]], [account], []]);
+  const fenced: string[] = [];
+  const fence = async () => {
+    fenced.push('fenced');
+  };
+  const hidden = await readPresenceHidden(
+    drizzle({ client }),
+    { userId, actorId: me },
+    fence,
+  );
+  const written = await writePresenceHidden(
+    drizzle({ client }),
+    { userId, actorId: me },
+    { hidden: false, now: '2026-10-26T18:00:00.000Z' },
+    fence,
+  );
+  assert({
+    given: 'a stored hidden choice, then a choice to show',
+    should: 'read it and upsert the new one, each after the fence',
+    actual: [
+      hidden,
+      written,
+      fenced,
+      queries.at(-1)?.query.includes('on conflict'),
+    ],
+    expected: [true, false, ['fenced', 'fenced'], true],
   });
 });

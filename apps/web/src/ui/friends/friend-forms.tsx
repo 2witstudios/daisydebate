@@ -5,8 +5,10 @@ import '../debate-room/zod-jitless';
 import { useId } from 'react';
 import {
   friendFormUnavailable,
+  presenceFormUnavailable,
   type FriendFormState,
   type FriendIntent,
+  type PresenceFormState,
 } from '../../features/messaging/friends/forms';
 import { Button } from '../components/button/button';
 import { controlClass } from '../components/form-field/form-field-class';
@@ -95,6 +97,41 @@ export function FriendButtonForm({
         {label}
       </Button>
       <DraftNotice id={noticeId} notice={answer.notice} />
+    </form>
+  );
+}
+
+/** Hide or show your online status to friends: one native button. */
+export function PresenceForm({
+  action,
+  hidden,
+}: {
+  readonly action: FormAction<PresenceFormState>;
+  readonly hidden: boolean;
+}) {
+  const [answer, post, pending] = useFormAction(
+    action,
+    {},
+    presenceFormUnavailable,
+  );
+  useFocusAfterAnswer(answer, 'presence-notice', !pending);
+  return (
+    <form action={post} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="hidden" value={hidden ? 'false' : 'true'} />
+      <p className="text-base text-ink-muted">
+        {hidden
+          ? 'Friends see you as offline.'
+          : 'Friends can see when you are online.'}
+      </p>
+      <Button
+        type="submit"
+        variant="secondary"
+        disabled={pending}
+        className="px-3 py-2 text-sm"
+      >
+        {hidden ? 'Show my online status' : 'Hide my online status'}
+      </Button>
+      <DraftNotice id="presence-notice" notice={answer.notice} />
     </form>
   );
 }

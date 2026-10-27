@@ -3,14 +3,20 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
-import { friendCommandResultSchema } from '@daisy/protocol';
+import {
+  friendCommandResultSchema,
+  presenceSettingResultSchema,
+} from '@daisy/protocol';
 import {
   friendDoneNotice,
   friendFormUnavailable,
   friendRefusalNotice,
   friendRouteFor,
   parseFriendForm,
+  presenceFormUnavailable,
+  presenceNotice,
   type FriendFormState,
+  type PresenceFormState,
 } from '../../../features/messaging/friends/forms';
 import { challengeFriend } from '../../../features/messaging/friends/challenge';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
@@ -23,6 +29,7 @@ const routes = {
   respond: processRoute((all) => all.friends.respond),
   remove: processRoute((all) => all.friends.remove),
 };
+const presenceRoute = processRoute((all) => all.friends.presence);
 const friendList = processRoute((all) => all.friends.list);
 const createRoom = processRoute((all) => all.rooms.create);
 const roomCatalog = processRoute((all) => all.rooms.catalog);
@@ -93,4 +100,33 @@ export async function challengeAction(
     create: (room) =>
       submitRoomCreation(inProcessFetch(createRoom, incoming), incoming, room),
   });
+}
+
+/**
+ * The member's own online-status choice: the same route a script would
+ * call, in process with this request's headers.
+ */
+export async function presenceAction(
+  _previous: PresenceFormState,
+  form: FormData,
+): Promise<PresenceFormState> {
+  const hidden = form.get('hidden') === 'true';
+  try {
+    const response = await inProcessFetch(
+      presenceRoute,
+      new Headers(await headers()),
+    )('/api/friends/presence', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: 1, hidden }),
+    });
+    const result = presenceSettingResultSchema.safeParse(
+      response.ok ? await response.json() : null,
+    );
+    if (!result.success) return presenceFormUnavailable();
+    revalidatePath('/friends');
+    return { notice: presenceNotice(result.data.hidden) };
+  } catch {
+    return presenceFormUnavailable();
+  }
 }
