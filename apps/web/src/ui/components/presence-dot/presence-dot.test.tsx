@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PresenceDot } from './presence-dot';
-import { presenceStatuses as statuses } from '@daisy/protocol';
+import { friendPresences as statuses } from '@daisy/protocol';
 import { presenceDotClass } from './presence-dot-class';
 
 setupRitewayBun();
@@ -13,7 +13,7 @@ const base =
 describe('PresenceDot', () => {
   test('names each presence without claiming to be a live region', () => {
     assert({
-      given: 'each protocol presence status',
+      given: 'each Social presence (S8)',
       should: 'render an img role labelled with that presence, not status',
       actual: statuses.map((presence) => {
         const html = renderToString(h(PresenceDot, { presence }));
@@ -29,11 +29,10 @@ describe('PresenceDot', () => {
 
   test('gives every presence its own fill', () => {
     assert({
-      given: 'each protocol presence status',
+      given: 'each Social presence (S8)',
       should: 'add a distinct fill token to the shared dot classes',
       actual: statuses.map((presence) => presenceDotClass(presence)),
       expected: [
-        `${base} bg-live`,
         `${base} bg-online`,
         `${base} bg-gold`,
         `${base} bg-ink-faint`,

@@ -149,11 +149,10 @@ export {
   heartbeatMs,
   cursorSchema,
   presenceActivitySchema,
-  presenceStatuses,
   clientMessageSchema,
   ticketSchema,
 } from './realtime';
-export type { PresenceActivity, PresenceStatus } from './realtime';
+export type { PresenceActivity } from './realtime';
 
 export {
   roomCreateSchema,
@@ -316,6 +315,7 @@ export {
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
+  friendPresences,
   friendshipStates,
   onlineCountsSchema,
   presenceSettingResultSchema,

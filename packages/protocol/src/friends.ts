@@ -17,7 +17,7 @@ const friendRelations = ['none', 'friends', 'outgoing', 'incoming'] as const;
 export type FriendRelation = (typeof friendRelations)[number];
 
 /** What a friend's online status shows: presence without seat facts. */
-const friendPresences = ['online', 'away', 'offline'] as const;
+export const friendPresences = ['online', 'away', 'offline'] as const;
 export type FriendPresence = (typeof friendPresences)[number];
 
 const command = { version: z.literal(1), username };

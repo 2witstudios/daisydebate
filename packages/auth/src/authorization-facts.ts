@@ -234,12 +234,12 @@ export type MessagingCollectionAuthorizationFact = {
   readonly actorId: string;
 };
 /** A member's own friend list and challenges (ADR 0072), never another's. */
-export type FriendCollectionAuthorizationFact = {
+type FriendCollectionAuthorizationFact = {
   readonly kind: 'friend_collection';
   readonly actorId: string;
 };
 /** A member's own presence visibility setting (ADR 0072). */
-export type PresenceSettingAuthorizationFact = {
+type PresenceSettingAuthorizationFact = {
   readonly kind: 'presence_setting';
   readonly actorId: string;
 };

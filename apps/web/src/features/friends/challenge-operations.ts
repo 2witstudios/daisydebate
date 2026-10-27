@@ -8,7 +8,7 @@ import { mayChallenge } from './friendship';
 import { requireMemberActor } from '../access/actor';
 
 type ChallengeCommand = 'challenge' | 'decline';
-export type ChallengeCapability =
+type ChallengeCapability =
   'social.challenge.send' | 'social.challenge.decline';
 
 /**

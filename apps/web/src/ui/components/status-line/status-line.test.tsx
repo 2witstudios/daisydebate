@@ -37,11 +37,11 @@ describe('Stat', () => {
 
 describe('PresenceDot', () => {
   test('names the presence state', () => {
-    const html = renderToString(h(PresenceDot, { presence: 'in-debate' }));
+    const html = renderToString(h(PresenceDot, { presence: 'away' }));
     assert({
       given: 'a presence dot',
       should: 'name the presence without an unrelated live-region role',
-      actual: [html.includes('role="img"'), html.includes('in-debate')],
+      actual: [html.includes('role="img"'), html.includes('away')],
       expected: [true, true],
     });
   });
