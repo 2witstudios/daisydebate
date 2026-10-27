@@ -18,7 +18,11 @@ test('the per-address realtime caps are raised only by the browser launch harnes
   for (const file of files) {
     const source = Bun.file(`${root}${file}`);
     if (!(await source.exists()) || source.size > 2_000_000) continue;
-    if (/REALTIME_MAX_IP_(CONNECTIONS|UPGRADES)/.test(await source.text()))
+    if (
+      /REALTIME_MAX_(IP_CONNECTIONS|IP_UPGRADES|UNAUTHENTICATED)/.test(
+        await source.text(),
+      )
+    )
       overriding.push(file);
   }
   assert({
