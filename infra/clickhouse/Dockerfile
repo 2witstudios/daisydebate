@@ -10,7 +10,7 @@ RUN rm -f /etc/clickhouse-server/config.d/docker_related_config.xml
 COPY infra/clickhouse/config.d/ /etc/clickhouse-server/config.d/
 COPY infra/clickhouse/users.d/ /etc/clickhouse-server/users.d/
 COPY infra/clickhouse/migrations/ /daisy/migrations/
-COPY infra/clickhouse/sweep.sql /daisy/sweep.sql
+COPY infra/clickhouse/sweep.sql infra/clickhouse/sweep.sh /daisy/
 COPY --chmod=0755 infra/clickhouse/entrypoint.sh /daisy/entrypoint.sh
 # 6PN on Fly; compose overrides it for the local and CI stack.
 ENV CLICKHOUSE_CLIENT_NETWORK=fdaa::/16

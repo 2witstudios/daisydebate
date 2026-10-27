@@ -156,8 +156,12 @@ therefore rests on several mechanisms together:
   dropped by the first sweep of day D + 29. A row received at the very start
   of D is then at most 29 days and 1 hour old, about 23 hours inside the
   ceiling. Every client call has a 300 s timeout, so a hung call cannot
-  stall the loop. Each completed sweep is recorded in `daisy_meta.sweeps`
-  (28-day TTL). An integration test runs the same file with injected dates.
+  stall the loop. A sweep is recorded in `daisy_meta.sweeps` (28-day TTL)
+  only when the partition listing and every drop succeeded. Any failure
+  returns non-zero, unrecorded, and prints `partition sweep failed`
+  (`infra/clickhouse/sweep.sh`, tested with a stubbed client in
+  `scripts/clickhouse-sweep.test.ts`). An integration test runs `sweep.sql`
+  with injected dates.
 - **Bounded reads.** No read goes past 28 days: the longest window on the
   Security page is 28 days.
 - **Monitoring.** The Security page shows each table's oldest stored row.

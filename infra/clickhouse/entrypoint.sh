@@ -3,8 +3,8 @@
 # expired partitions every hour (ADR 0084 §5). The TTL drops a whole day by
 # day + 29 once a TTL merge runs; the sweep (sweep.sql) is what bounds every
 # row under DEC-42's 30-day ceiling, since a TTL merge has no deadline. Each
-# client call has a timeout, so a hung call cannot stall the loop, and each
-# completed sweep is recorded in daisy_meta.sweeps for the admin page.
+# client call has a timeout, so a hung call cannot stall the loop, and only a
+# fully successful sweep (sweep.sh) is recorded in daisy_meta.sweeps.
 set -euo pipefail
 
 /entrypoint.sh "$@" &
@@ -40,15 +40,9 @@ for file in /daisy/migrations/*.sql; do
   fi
 done
 
-sweep() {
-  local dropped=0 table partition
-  while IFS=$'\t' read -r table partition; do
-    ch -q "ALTER TABLE daisy_logs.\`$table\` DROP PARTITION ID '$partition'"
-    dropped=$((dropped + 1))
-  done < <(ch --param_today="$(date -u +%F)" < /daisy/sweep.sql)
-  ch --param_dropped="$dropped" \
-    -q 'INSERT INTO daisy_meta.sweeps (at, dropped) VALUES (now(), {dropped:UInt32})'
-}
+SWEEP_SQL=/daisy/sweep.sql
+# shellcheck source=sweep.sh
+. /daisy/sweep.sh
 (while kill -0 "$server" 2>/dev/null; do
   sweep || echo 'partition sweep failed' >&2
   sleep 3600
