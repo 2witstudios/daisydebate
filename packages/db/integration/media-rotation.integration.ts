@@ -59,6 +59,7 @@ for (const failure of [
           authorize: () => undefined,
         });
         await f.sql`insert into media_worker_leases(session_id,worker_id,epoch,expires_at) values(${binding.sessionId},${createId()},1,clock_timestamp()+interval '15 seconds')`;
+        await f.sql`insert into bot_listener_leases(session_id,worker_id,epoch,expires_at) values(${binding.sessionId},${createId()},1,clock_timestamp()+interval '15 seconds')`;
         await f.sql`update users set email_verified=false where id=(select user_id from actors where id=${judge.actorId})`;
         if (failure !== 'pending')
           await store.settleMediaMutation(mutation, 'succeeded');
@@ -80,6 +81,8 @@ for (const failure of [
           await f.sql`select id, room_name, ended_at from media_sessions where id=${binding.sessionId}`;
         const [lease] =
           await f.sql`select epoch,expires_at<=clock_timestamp() as expired from media_worker_leases where session_id=${binding.sessionId}`;
+        const [listener] =
+          await f.sql`select epoch,expires_at<=clock_timestamp() as expired from bot_listener_leases where session_id=${binding.sessionId}`;
         const bindings: readonly { round_participant_id: string }[] =
           await f.sql`select round_participant_id from media_participants where session_id=${binding.sessionId}`;
         const [journal] =
@@ -87,18 +90,22 @@ for (const failure of [
         assert({
           given: `revoked bound human and ${failure} proof condition`,
           should:
-            'rotate only behind the exact settled nonterminal fence, retaining session and journal',
+            'rotate only behind the exact settled nonterminal fence, retaining session and journal, and fence the bot listener with capture (ISSUE-764)',
           actual: [
             session!.id,
             session!.room_name !== binding.roomName,
             lease!.epoch,
             lease!.expired,
+            listener!.epoch,
+            listener!.expired,
             bindings.some((row) => row.round_participant_id === judge.id),
             bindings.some((row) => row.round_participant_id === seat.id),
             journal!.count,
           ],
           expected: [
             binding.sessionId,
+            rotated,
+            expectedEpoch,
             rotated,
             expectedEpoch,
             rotated,

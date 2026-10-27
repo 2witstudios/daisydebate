@@ -4,10 +4,11 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
 import { mediaWorkerLeases } from './schema/transcript-segments';
+import { botListenerLeases } from './schema/bot-listener-leases';
 
 /**
- * Drops revoked human seats from the media session and fences its worker
- * lease; returns the next vendor room name, so the session moves to a fresh
+ * Drops revoked human seats from the media session and fences its capture
+ * and bot-listener leases; returns the next vendor room name, so the session moves to a fresh
  * LiveKit room. Called only after the locked owner/epoch and settled absence
  * proof pass.
  */
@@ -39,5 +40,10 @@ export async function rotateRevokedMediaSession(
       expiresAt: now,
     })
     .where(eq(mediaWorkerLeases.sessionId, sessionId));
+  // The bot listener reads the same vendor room, so it is fenced too.
+  await tx
+    .update(botListenerLeases)
+    .set({ epoch: sql`${botListenerLeases.epoch} + 1`, expiresAt: now })
+    .where(eq(botListenerLeases.sessionId, sessionId));
   return mediaId(nextId());
 }
