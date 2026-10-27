@@ -152,7 +152,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the thirteen database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the fourteen database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,

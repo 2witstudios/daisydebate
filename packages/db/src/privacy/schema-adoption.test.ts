@@ -6,13 +6,19 @@ import { corePrivacyFields } from './core-declarations';
 import { validatePrivacyAdoption } from './declarations';
 
 setupRitewayBun();
-test('core privacy declarations match actual current schema columns', () => {
-  const expected = Object.fromEntries(
-    [users, privacyJobs].map((table) => [
+
+/** Each table's actual column names, keyed by table name. */
+const currentColumns = (
+  tables: readonly Parameters<typeof getTableName>[0][],
+) =>
+  Object.fromEntries(
+    tables.map((table) => [
       getTableName(table),
       Object.values(getTableColumns(table)).map((column) => column.name),
     ]),
   );
+test('core privacy declarations match actual current schema columns', () => {
+  const expected = currentColumns([users, privacyJobs]);
   assert({
     given: 'actual users and privacy_jobs Drizzle schema',
     should:
@@ -37,12 +43,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(subjects),
     ...Object.values(messages),
   ];
-  const expected = Object.fromEntries(
-    tables.map((table) => [
-      getTableName(table),
-      Object.values(getTableColumns(table)).map((column) => column.name),
-    ]),
-  );
+  const expected = currentColumns(tables);
   assert({
     given: 'MSG dedicated social/channel/message producer schema',
     should: 'declare the exact real table and column set with policy holds',
@@ -211,12 +212,7 @@ test('beta access declarations match all actual producer columns', async () => {
     beta.operatorCommandReceipts,
     intents.mailIntents,
   ];
-  const expected = Object.fromEntries(
-    tables.map((table) => [
-      getTableName(table),
-      Object.values(getTableColumns(table)).map((column) => column.name),
-    ]),
-  );
+  const expected = currentColumns(tables);
   assert({
     given: 'the ADR 0075 beta access and mail intent schema',
     should: 'declare the exact real table and column set with policy holds',

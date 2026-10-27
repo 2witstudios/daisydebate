@@ -348,3 +348,16 @@ export const columnNames = async (fixture: Fixture, table: string) =>
       [table],
     )) as Array<{ column_name: string }>
   ).map((row) => row.column_name);
+
+/** A database over its own pool for one test, always closed afterwards. */
+export const withDatabase = async <T>(
+  url: string,
+  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
+): Promise<T> => {
+  const database = createDatabase({ url, nextActorId: createId });
+  try {
+    return await run(database);
+  } finally {
+    await database.close();
+  }
+};

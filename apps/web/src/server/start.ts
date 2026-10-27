@@ -5,6 +5,7 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
+import type { WorkerTimers } from '../features/round-bots/worker-timers';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -96,20 +97,22 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
       clearInterval(handle as ReturnType<typeof setInterval>),
   },
 });
+/** Process timers for the async worker loops; `unref` never holds the process open. */
+const workerTimers: WorkerTimers = {
+  setInterval: (tick, ms) =>
+    setInterval(() => {
+      void tick();
+    }, ms).unref(),
+  clearInterval: (handle) =>
+    clearInterval(handle as ReturnType<typeof setInterval>),
+};
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
   botToken: mediaRuntime
     ? (scope, token) => mediaRuntime.operations().botToken(scope, token)
     : null,
-  timers: {
-    setInterval: (tick, ms) =>
-      setInterval(() => {
-        void tick();
-      }, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
+  timers: workerTimers,
 });
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
@@ -139,14 +142,7 @@ const retention = startRetentionSweep({
 });
 const betaMail = startBetaMail({
   app,
-  timers: {
-    setInterval: (tick, ms) =>
-      setInterval(() => {
-        void tick();
-      }, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
+  timers: workerTimers,
 });
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance

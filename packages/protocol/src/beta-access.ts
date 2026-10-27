@@ -7,7 +7,6 @@ import { z } from 'zod';
  * `revoked` is paused. An erased account has no beta state at all.
  */
 export const betaAccessStates = ['pending', 'approved', 'revoked'] as const;
-export type BetaAccessState = (typeof betaAccessStates)[number];
 
 /** How a beta access row came to exist: a sign-up, or the expand migration's cohort. */
 export const betaAccessProvenances = ['signup', 'grandfathered'] as const;
@@ -29,6 +28,3 @@ export const betaAccessCommandResultSchema = z.strictObject({
   accessRevision: z.number().int().positive(),
   mail: z.enum(['queued', 'none']),
 });
-export type BetaAccessCommandResult = z.infer<
-  typeof betaAccessCommandResultSchema
->;

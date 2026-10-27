@@ -1,8 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src';
-import { withFixture, type Fixture } from './constraint-helpers';
+import type { createDatabase } from '../src';
+import { withFixture, type Fixture, withDatabase } from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -52,142 +52,125 @@ const stateOf = async (fixture: Fixture, id: string) => {
   return row;
 };
 
-const withDatabase = async <T>(
-  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
-) => {
-  const database = createDatabase({ url, nextActorId: createId });
-  try {
-    return await run(database);
-  } finally {
-    await database.close();
-  }
-};
+const claim = (database: ReturnType<typeof createDatabase>) =>
+  database.claimMailIntents({ limit: 50, leaseMs: 60_000, nextToken: token });
+
+/** One due approval intent for an approved member, removed afterwards. */
+const withApprovedIntent = (
+  run: (input: {
+    readonly fixture: Fixture;
+    readonly id: string;
+    readonly database: ReturnType<typeof createDatabase>;
+  }) => Promise<void>,
+) =>
+  withFixture(url, async (fixture) => {
+    const recipient = await member(fixture, 'approved');
+    const id = await dueIntent(fixture, {
+      purpose: 'beta-approved',
+      recipient,
+    });
+    try {
+      await withDatabase(url, (database) => run({ fixture, id, database }));
+    } finally {
+      await fixture.sql.unsafe('delete from mail_intents where id = $1', [id]);
+    }
+  });
 
 describe('the durable mail queue (ADR 0075)', () => {
   test('a claim leases due intents once, and only the holder settles them', async () => {
-    await withFixture(url, async (fixture) => {
-      const recipient = await member(fixture, 'approved');
-      const id = await dueIntent(fixture, {
-        purpose: 'beta-approved',
-        recipient,
+    await withApprovedIntent(async ({ fixture, id, database }) => {
+      const [first, second] = await Promise.all([
+        claim(database),
+        claim(database),
+      ]);
+      const claims = [...first, ...second].filter((claim) => claim.id === id);
+      const stranger = await database.settleMailIntent({
+        id,
+        token: token(),
+        outcome: { kind: 'sent' },
       });
-      await withDatabase(async (database) => {
-        const [first, second] = await Promise.all([
-          database.claimMailIntents({
-            limit: 50,
-            leaseMs: 60_000,
-            nextToken: token,
-          }),
-          database.claimMailIntents({
-            limit: 50,
-            leaseMs: 60_000,
-            nextToken: token,
-          }),
-        ]);
-        const claims = [...first, ...second].filter((claim) => claim.id === id);
-        const stranger = await database.settleMailIntent({
-          id,
-          token: token(),
-          outcome: { kind: 'sent' },
-        });
-        const holder = await database.settleMailIntent({
-          id,
-          token: claims[0]!.token,
-          outcome: { kind: 'sent' },
-        });
-        assert({
-          given:
-            'two workers claiming at once, then a stranger and the holder settling',
-          should:
-            'lease the intent to exactly one worker and accept only the holder',
-          actual: {
-            claimed: claims.map(({ purpose, attempts }) => ({
-              purpose,
-              attempts,
-            })),
-            stranger,
-            holder,
-            row: await stateOf(fixture, id),
-          },
-          expected: {
-            claimed: [{ purpose: 'beta-approved', attempts: 1 }],
-            stranger: false,
-            holder: true,
-            row: {
-              state: 'sent',
-              attempts: 1,
-              last_error_code: null,
-              completed: true,
-            },
-          },
-        });
+      const holder = await database.settleMailIntent({
+        id,
+        token: claims[0]!.token,
+        outcome: { kind: 'sent' },
       });
-      await fixture.sql.unsafe('delete from mail_intents where id = $1', [id]);
+      assert({
+        given:
+          'two workers claiming at once, then a stranger and the holder settling',
+        should:
+          'lease the intent to exactly one worker and accept only the holder',
+        actual: {
+          claimed: claims.map(({ purpose, attempts }) => ({
+            purpose,
+            attempts,
+          })),
+          stranger,
+          holder,
+          row: await stateOf(fixture, id),
+        },
+        expected: {
+          claimed: [{ purpose: 'beta-approved', attempts: 1 }],
+          stranger: false,
+          holder: true,
+          row: {
+            state: 'sent',
+            attempts: 1,
+            last_error_code: null,
+            completed: true,
+          },
+        },
+      });
     });
   });
 
   test('a lapsed lease is claimed again and a retry waits for its next attempt', async () => {
-    await withFixture(url, async (fixture) => {
-      const recipient = await member(fixture, 'approved');
-      const id = await dueIntent(fixture, {
-        purpose: 'beta-approved',
-        recipient,
+    await withApprovedIntent(async ({ fixture, id, database }) => {
+      const mine = async () =>
+        (await claim(database)).filter((held) => held.id === id);
+      const [crashed] = await mine();
+      // The holder crashed: its lease has run out by the database's clock.
+      await fixture.sql.unsafe(
+        "update mail_intents set lease_expires_at = now() - interval '1 second' where id = $1",
+        [id],
+      );
+      const [again] = await mine();
+      const late = await database.settleMailIntent({
+        id,
+        token: crashed!.token,
+        outcome: { kind: 'sent' },
       });
-      await withDatabase(async (database) => {
-        const mine = async () =>
-          (
-            await database.claimMailIntents({
-              limit: 50,
-              leaseMs: 60_000,
-              nextToken: token,
-            })
-          ).filter((claim) => claim.id === id);
-        const [crashed] = await mine();
-        // The holder crashed: its lease has run out by the database's clock.
-        await fixture.sql.unsafe(
-          "update mail_intents set lease_expires_at = now() - interval '1 second' where id = $1",
-          [id],
-        );
-        const [again] = await mine();
-        const late = await database.settleMailIntent({
-          id,
-          token: crashed!.token,
-          outcome: { kind: 'sent' },
-        });
-        await database.settleMailIntent({
-          id,
-          token: again!.token,
-          outcome: {
-            kind: 'retry',
-            errorCode: 'delivery',
-            nextAttemptAt: '2999-01-01T00:00:00.000Z',
-          },
-        });
-        assert({
-          given:
-            'a worker that crashed holding a lease, and a later worker that retries',
-          should:
-            'reclaim the intent, refuse the crashed holder, and queue it for later',
-          actual: {
-            attempts: [crashed?.attempts, again?.attempts],
-            late,
-            row: await stateOf(fixture, id),
-            reclaimed: (await mine()).length,
-          },
-          expected: {
-            attempts: [1, 2],
-            late: false,
-            row: {
-              state: 'queued',
-              attempts: 2,
-              last_error_code: 'delivery',
-              completed: false,
-            },
-            reclaimed: 0,
-          },
-        });
+      await database.settleMailIntent({
+        id,
+        token: again!.token,
+        outcome: {
+          kind: 'retry',
+          errorCode: 'delivery',
+          nextAttemptAt: '2999-01-01T00:00:00.000Z',
+        },
       });
-      await fixture.sql.unsafe('delete from mail_intents where id = $1', [id]);
+      assert({
+        given:
+          'a worker that crashed holding a lease, and a later worker that retries',
+        should:
+          'reclaim the intent, refuse the crashed holder, and queue it for later',
+        actual: {
+          attempts: [crashed?.attempts, again?.attempts],
+          late,
+          row: await stateOf(fixture, id),
+          reclaimed: (await mine()).length,
+        },
+        expected: {
+          attempts: [1, 2],
+          late: false,
+          row: {
+            state: 'queued',
+            attempts: 2,
+            last_error_code: 'delivery',
+            completed: false,
+          },
+          reclaimed: 0,
+        },
+      });
     });
   });
 
@@ -201,7 +184,7 @@ describe('the durable mail queue (ADR 0075)', () => {
           dueIntent(fixture, { purpose: 'beta-approved', recipient }),
         ),
       );
-      await withDatabase(async (database) => {
+      await withDatabase(url, async (database) => {
         assert({
           given:
             'approval mail for an approved, a since-revoked and an erased account',
@@ -245,7 +228,7 @@ describe('the durable mail queue (ADR 0075)', () => {
         purpose: 'beta-requests-digest',
         dedupeKey: 'beta-requests:2001-02-03T05:00Z',
       });
-      await withDatabase(async (database) => {
+      await withDatabase(url, async (database) => {
         const digest = await database.readMailIntentDelivery(id);
         assert({
           given:
@@ -287,7 +270,7 @@ describe('the durable mail queue (ADR 0075)', () => {
         "update mail_intents set state = 'sent', completed_at = timestamptz '2001-01-01 00:00:00+00' where id = $1",
         [finished],
       );
-      await withDatabase(async (database) => {
+      await withDatabase(url, async (database) => {
         await database.purgeExpiredMailIntents({
           before: '2002-01-01T00:00:00.000Z',
           limit: 500,
