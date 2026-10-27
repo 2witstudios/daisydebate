@@ -24,10 +24,10 @@ import { attendanceEvidence } from './attendance-evidence';
 import { subscriptionLedger } from './subscription-ledger';
 
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
-type Player = { readonly page: Page; readonly seat: Seat };
+export type Player = { readonly page: Page; readonly seat: Seat };
 
 /** Prep before the round off through Room setup; prep time during the round stays on. */
-async function skipPreRoundPrep(host: Page, room: RoomView) {
+export async function skipPreRoundPrep(host: Page, room: RoomView) {
   await turnOffPreRoundPrep(host);
   await expect(async () => {
     room = await reread(host.request, room.id);
@@ -39,7 +39,7 @@ async function skipPreRoundPrep(host: Page, room: RoomView) {
 }
 
 /** Every seat taken, device-checked where it speaks and Ready, all through the Room page. */
-async function assemble(players: readonly Player[], room: RoomView) {
+export async function assemble(players: readonly Player[], room: RoomView) {
   for (const { page, seat } of players) room = await claim(page, room, seat);
   for (const { page, seat } of players) {
     await page.goto(`/rooms/${room.id}`);
@@ -53,7 +53,7 @@ async function assemble(players: readonly Player[], room: RoomView) {
 }
 
 /** The host's Launch, with the native command identity kept for a later replay. */
-async function launch(host: Page) {
+export async function launch(host: Page) {
   const button = host.getByRole('button', { name: 'Start round', exact: true });
   await expect(button).toBeEnabled();
   const form = button.locator('..');
@@ -71,7 +71,7 @@ async function launch(host: Page) {
   };
 }
 
-const readRound = async (page: Page, id: string): Promise<RoundView> =>
+export const readRound = async (page: Page, id: string): Promise<RoundView> =>
   readBallotRound(page.request, id);
 
 type Debaters = Record<'affirmative' | 'negative', Page>;
@@ -104,7 +104,7 @@ async function endSpeech(page: Page) {
  * its constructive and refreshes mid-speech, and the affirmative reconnects
  * from a new tab before its first rebuttal. Returns the pages still open.
  */
-async function playEveryTurn(
+export async function playEveryTurn(
   debaters: Debaters,
   contexts: Readonly<Record<keyof Debaters, BrowserContext>>,
   roundId: string,
@@ -182,7 +182,7 @@ async function attendanceSettled(judge: Page, roundId: string) {
 }
 
 /** The judge's own enhanced ballot after the autonomous freeze and settled attendance. */
-async function judgeBallot(judge: Page, roundId: string) {
+export async function judgeBallot(judge: Page, roundId: string) {
   await expect(async () => {
     const response = await judge.request.get(`/api/rounds/${roundId}/ballots`);
     expect(response.status()).toBe(200);
@@ -208,6 +208,24 @@ async function judgeBallot(judge: Page, roundId: string) {
 }
 
 /**
+ * The affirmative host's, the negative's and the judge's pages, each member
+ * allowed the camera and microphone its seat may need.
+ */
+export async function openThreePlayers(
+  members: readonly { readonly context: BrowserContext }[],
+  label: string,
+): Promise<readonly [Page, Page, Page]> {
+  for (const { context } of members)
+    await context.grantPermissions(['camera', 'microphone'], { origin });
+  const [aff, neg, judge] = await Promise.all(
+    ['affirmative host', 'negative', 'judge'].map((role, index) =>
+      openPage(members[index]!.context, `${label} ${role}`),
+    ),
+  );
+  return [aff!, neg!, judge!];
+}
+
+/**
  * ROOM-6.2 as reconciled (Round delivery reconciliation): three browsers play
  * one human game to a real ballot; the started Room stays immutable; the next
  * match is a distinct Room through the create journey with fresh Ready.
@@ -216,12 +234,9 @@ export async function proveThreeBrowserRound(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 3);
   const ledger = subscriptionLedger();
   try {
-    for (const { context } of accounts.members)
-      await context.grantPermissions(['camera', 'microphone'], { origin });
-    const [aff, neg, judge] = await Promise.all(
-      ['affirmative host', 'negative', 'judge'].map((label, index) =>
-        openPage(accounts.members[index]!.context, `ROOM-6.2 ${label}`),
-      ),
+    const [aff, neg, judge] = await openThreePlayers(
+      accounts.members,
+      'ROOM-6.2',
     );
     for (const [page, label] of [
       [aff!, 'affirmative'],
