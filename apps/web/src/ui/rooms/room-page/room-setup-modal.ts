@@ -88,6 +88,12 @@ export function sheetOpen(hash: string, refused: boolean): boolean {
   return hash === ROOM_SETUP_HREF || refused;
 }
 
+/** The parts of the window the sheet listens to. */
+export type SheetWindow = Pick<
+  typeof globalThis,
+  'location' | 'addEventListener' | 'removeEventListener' | 'MutationObserver'
+>;
+
 /**
  * The open sheet's modal behaviour, framework-free so it is tested as wired:
  * while it is open the rest of the page is inert, content mounted anywhere
@@ -101,7 +107,7 @@ export function modalSheet({
   sheet,
   heading,
 }: {
-  readonly window: Window;
+  readonly window: SheetWindow;
   readonly sheet: HTMLElement;
   readonly heading: () => HTMLElement | null;
 }): () => void {

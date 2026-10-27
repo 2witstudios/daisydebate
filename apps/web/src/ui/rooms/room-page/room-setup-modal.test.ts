@@ -6,6 +6,7 @@ import {
   modalSheet,
   ROOM_SETUP_HOME,
   ROOM_TITLE,
+  type SheetWindow,
   openOnInvalid,
   releaseInert,
   returnTarget,
@@ -28,7 +29,8 @@ function roomPage() {
   const byId = (id: string) =>
     document.getElementById(id) as unknown as HTMLElement;
   return {
-    window: window as unknown as Window & typeof globalThis,
+    happy: window,
+    window: window as unknown as SheetWindow,
     document: document as unknown as Document,
     byId,
   };
@@ -41,15 +43,17 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const openFrom = async (page: ReturnType<typeof roomPage>, id: string) => {
   const link = page.byId(id);
   link.focus();
-  link.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
-  page.window.location.hash = '#room-setup';
-  page.window.dispatchEvent(new page.window.Event('hashchange'));
+  link.dispatchEvent(
+    new page.happy.MouseEvent('click', { bubbles: true }) as unknown as Event,
+  );
+  page.happy.location.hash = '#room-setup';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
   await settle();
 };
 
 const closeByFragment = async (page: ReturnType<typeof roomPage>) => {
-  page.window.location.hash = '';
-  page.window.dispatchEvent(new page.window.Event('hashchange'));
+  page.happy.location.hash = '';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
   await settle();
 };
 
@@ -219,14 +223,15 @@ test('held nodes that room sync replaced are dropped, and only a plain click ope
   releaseInert(held);
   const stop = watch(page);
   for (const init of [{ ctrlKey: true }, { metaKey: true }, { button: 1 }])
-    page
-      .byId('edit')
-      .dispatchEvent(
-        new page.window.MouseEvent('click', { bubbles: true, ...init }),
-      );
+    page.byId('edit').dispatchEvent(
+      new page.happy.MouseEvent('click', {
+        bubbles: true,
+        ...init,
+      }) as unknown as Event,
+    );
   // The sheet then opens from the address bar, with no link focused.
-  page.window.location.hash = '#room-setup';
-  page.window.dispatchEvent(new page.window.Event('hashchange'));
+  page.happy.location.hash = '#room-setup';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
   await settle();
   await closeByFragment(page);
   const focused = page.document.activeElement?.id;

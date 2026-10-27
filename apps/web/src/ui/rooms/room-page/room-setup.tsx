@@ -13,7 +13,7 @@ import type { FormAction } from '../../form-action/form-action';
 import { Icon } from '../../components/icon/icon';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblySettingsForm } from './assembly-settings-form';
-import { formatLine, ROOM_SETUP_HREF, ROOM_SETUP_ID } from './room-labels';
+import { formatLine, ROOM_SETUP_ID } from './room-labels';
 import { dismissal, modalSheet } from './room-setup-modal';
 
 const competition = {
