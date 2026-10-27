@@ -256,7 +256,8 @@ test('a terminal stop ends the microphone whose warm capture is still in flight'
   assert({
     given:
       "a terminal stop while warmMicrophone's capture of the microphone is pending",
-    should: 'end the track that capture returns, never keep it warm (ISSUE-574)',
+    should:
+      'end the track that capture returns, never keep it warm (ISSUE-574)',
     actual: stub.captured.map((track) => [track.source, track.ended]),
     expected: [
       ['camera', true],
