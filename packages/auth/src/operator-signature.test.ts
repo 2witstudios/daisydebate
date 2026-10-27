@@ -85,6 +85,26 @@ describe('operator request signature (ADR 0079)', () => {
     });
   });
 
+  test('query values are encoded strictly per RFC 3986', () => {
+    const canonical = canonicalOperatorRequest(
+      {
+        ...parts,
+        method: 'GET',
+        path: '/operator/v1/accounts',
+        query: [['cursor', "a!'()*b c"]],
+        body: new Uint8Array(),
+      },
+      fakeCrypto,
+    );
+    assert({
+      given: "a query value holding !'()* and a space",
+      should:
+        'percent-encode the characters encodeURIComponent leaves alone, so both sides sign the same bytes',
+      actual: canonical?.split('\n')[4],
+      expected: 'cursor=a%21%27%28%29%2Ab%20c',
+    });
+  });
+
   test('the canonical string binds every field in a fixed order', () => {
     const canonical = canonicalOperatorRequest(
       {
