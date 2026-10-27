@@ -1,4 +1,11 @@
+import { getTableColumns, getTableName } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
+import {
+  memberInterests,
+  memberOnboarding,
+  memberTopics,
+} from './schema/onboarding';
 import { scriptedTransaction } from './scripted-transaction.test-support';
 import { onboardingPrivacyAdopter } from './onboarding-privacy';
 
@@ -57,5 +64,23 @@ test('optional answers are personal/private, exported to and erased with their s
       ],
       true,
     ],
+  });
+});
+
+test('the optional answers declare exactly their columns (ISSUE-678)', () => {
+  assert({
+    given: 'the member_interests, member_topics and member_onboarding schemas',
+    should:
+      'match every column with an approved declaration, so a new column cannot ship unclassified',
+    actual: validatePrivacyAdoption(
+      Object.fromEntries(
+        [memberInterests, memberTopics, memberOnboarding].map((table) => [
+          getTableName(table),
+          Object.values(getTableColumns(table)).map((column) => column.name),
+        ]),
+      ),
+      onboardingPrivacyAdopter.fields,
+    ),
+    expected: { problems: [], activationHeld: false },
   });
 });
