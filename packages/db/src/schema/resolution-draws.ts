@@ -231,7 +231,7 @@ export const roundDrawSeeds = pgTable(
   {
     roundId: text('round_id')
       .primaryKey()
-      .references(() => rounds.id, { onDelete: 'restrict' }),
+      .references(() => rounds.id, { onDelete: 'cascade' }),
     seed: text('seed').notNull(),
   },
   (table) => [check('round_draw_seeds_seed_hex', hex64(table.seed))],
@@ -243,7 +243,7 @@ export const roundResolutionDrawTexts = pgTable(
   {
     roundId: text('round_id')
       .notNull()
-      .references(() => rounds.id, { onDelete: 'restrict' }),
+      .references(() => rounds.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     text: text('text').notNull(),
   },
@@ -256,7 +256,7 @@ export const roundDrawPrivateInputs = pgTable(
   {
     roundId: text('round_id')
       .primaryKey()
-      .references(() => rounds.id, { onDelete: 'restrict' }),
+      .references(() => rounds.id, { onDelete: 'cascade' }),
     inputs: jsonbColumn('inputs', drawPrivateInputsSchema).notNull(),
   },
   (table) => [jsonbIsObject('round_draw_private_inputs', table.inputs)],

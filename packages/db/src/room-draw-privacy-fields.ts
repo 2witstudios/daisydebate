@@ -123,6 +123,20 @@ const tables: readonly {
   },
 ];
 
+/**
+ * What erasure does to each kind of column: Room draw items keep their row
+ * with the text scrubbed to a placeholder; private inputs and Round texts
+ * are deleted. A seed is not the subject's data and is never erased, but a
+ * secret cannot be declared retained, so it is declared deleted with the
+ * row that owns it (its Room or Round).
+ */
+const erasureOf = (table: string, field: Field) =>
+  field.category === 'none' || field.category === 'identifier'
+    ? ('retain-nonpersonal' as const)
+    : table === 'room_resolution_draw_items'
+      ? ('scrub' as const)
+      : ('delete' as const);
+
 /** Every bank, draw and Round evidence column, declared (DEC-245). */
 export const roomDrawPrivacyFields: readonly PrivacyFieldDeclaration[] =
   tables.flatMap(({ table, purpose, fields }) =>
@@ -134,9 +148,6 @@ export const roomDrawPrivacyFields: readonly PrivacyFieldDeclaration[] =
       purpose,
       lawfulBasis: retention,
       retention,
-      erasure:
-        field.category === 'personal' || field.category === 'secret'
-          ? ('delete' as const)
-          : ('retain-nonpersonal' as const),
+      erasure: erasureOf(table, field),
     })),
   );

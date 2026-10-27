@@ -73,7 +73,9 @@ export const roomLifecycleOperations = ({
       input.limit < 1
     )
       throw createAppError('VALIDATION');
-    const lastActivity = sql`greatest(${rooms.lastCommandAt}, coalesce(${rooms.prepStartedAt} + ${rooms.prepRemainingMs} * interval '1 millisecond', ${rooms.lastCommandAt}))`;
+    // The last strike's instant covers the reveal, which the engine counts too.
+    const lastStrike = sql`(select max(s.struck_at) from ${roomResolutionStrikes} s join ${roomResolutionDraws} d on d.id = s.draw_id where d.room_id = ${rooms.id})`;
+    const lastActivity = sql`greatest(${rooms.lastCommandAt}, coalesce(${rooms.prepStartedAt} + ${rooms.prepRemainingMs} * interval '1 millisecond', ${rooms.lastCommandAt}), coalesce(${lastStrike}, ${rooms.lastCommandAt}))`;
     const openDraw = sql`exists (select 1 from ${roomResolutionDraws} d where d.room_id = ${rooms.id} and (select count(*) from ${roomResolutionStrikes} s where s.draw_id = d.id) < d.draw_size - 1)`;
     const idle =
       input.idleTimeoutMs === null

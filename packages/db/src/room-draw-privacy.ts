@@ -120,9 +120,11 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
         config: room.config,
         executionPlan: room.executionPlan,
         topic: room.topic,
+        changeVersion: room.changeVersion + 1,
       })
       .where(eq(rooms.id, room.id));
     await scrubItems(tx, room);
+    await appendRoomChanged(tx, room.id, room.changeVersion + 1);
   };
   const scrubItems = async (tx: Tx, room: RoomAssemblyState) => {
     if (room.resolutionDraw)

@@ -83,8 +83,8 @@ describe('canonical authorization', () => {
     if (resource.kind !== 'room') throw new Error('Room fixture required');
     assert({
       given: 'a seated nonhost',
-      should: 'allow self readiness and leave but refuse management',
-      actual: ['room.ready', 'room.leave', 'room.manage'].map(
+      should: 'allow self readiness, leave and a strike but refuse management',
+      actual: ['room.ready', 'room.leave', 'room.strike', 'room.manage'].map(
         (capability) =>
           authorize({
             ...input,
@@ -95,7 +95,7 @@ describe('canonical authorization', () => {
             },
           }).allow,
       ),
-      expected: [true, true, false],
+      expected: [true, true, true, false],
     });
   });
 });
