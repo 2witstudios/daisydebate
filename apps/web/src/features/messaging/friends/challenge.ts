@@ -69,7 +69,8 @@ async function isFriend(friends: FetchLike, username: string) {
 /**
  * Delivers the challenge to the friend (ADR 0072): their /friends page then
  * offers the room. Best effort: the room exists either way, and its invite
- * link still reaches them.
+ * link still reaches them. A refused delivery is not silent to operators:
+ * the challenges route logs its status like every route.
  */
 async function deliverChallenge(
   challenges: FetchLike,
@@ -111,7 +112,7 @@ export async function challengeFriend({
   };
   readonly create: (
     form: FormData,
-    afterCreate: (roomId: string) => Promise<void>,
+    beforeMoveOn: (roomId: string) => Promise<void>,
   ) => Promise<MockFormState>;
 }): Promise<ChallengeAnswer> {
   const friend = parseUsername(form.get('username'));

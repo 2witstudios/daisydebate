@@ -23,7 +23,7 @@ const input = {
 const now = '2026-10-26T18:00:00.000Z';
 
 test('commitChallenge records only a room the caller hosts while it assembles', async () => {
-  const { client, queries } = fakeSql([[[room]], []]);
+  const { client, queries } = fakeSql([[], [[room]], [], []]);
   let fences = 0;
   const frame = challengeFrame(drizzle({ client }), input, [pair], async () => {
     fences += 1;
@@ -33,19 +33,21 @@ test('commitChallenge records only a room the caller hosts while it assembles', 
   assert({
     given: 'a challenge the room check admits, then one it does not',
     should:
-      'fence each write, insert for the pair’s other member, and report whether it recorded',
+      'fence each write, drop the pair’s spent challenges, insert for the pair’s other member, and report whether it recorded',
     actual: [
       fences,
       recorded,
       missing,
-      queries[0]?.query.includes('r.host_actor_id'),
-      queries[0]?.query.includes("r.status in ('assembling', 'ready')"),
-      queries[0]?.params.slice(0, 2),
+      queries[0]?.query.includes("r.status not in ('assembling', 'ready')"),
+      queries[1]?.query.includes('r.host_actor_id'),
+      queries[1]?.query.includes("r.status in ('assembling', 'ready')"),
+      queries[1]?.params.slice(0, 2),
     ],
     expected: [
       2,
       { recorded: true },
       { recorded: false },
+      true,
       true,
       true,
       [high, low],

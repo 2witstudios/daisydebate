@@ -40,9 +40,9 @@ const run = async (
         return Response.json({});
       },
     },
-    create: async (form, afterCreate) => {
+    create: async (form, beforeMoveOn) => {
       created.push(form);
-      if (outcome.next) await afterCreate('r'.repeat(24));
+      if (outcome.next) await beforeMoveOn('r'.repeat(24));
       return { values: {}, ...outcome };
     },
   });

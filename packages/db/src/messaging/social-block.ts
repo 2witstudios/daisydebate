@@ -9,6 +9,7 @@ import {
 } from '../schema/messaging-social';
 import { messagingChannels } from '../schema/messaging-channels';
 import { advanceSocialChannelAuthority } from './social-channel-change';
+import { endPairChallenges } from './social-challenge';
 import type {
   MessagingSocialFrame,
   MessagingSocialInput,
@@ -96,6 +97,7 @@ async function endFriendshipOnBlock(
         eq(messagingFriendships.highActorId, pair.highActorId),
       ),
     );
+  await endPairChallenges(tx, pair);
 }
 
 function requireChannel<T>(channel: T | undefined): asserts channel is T {

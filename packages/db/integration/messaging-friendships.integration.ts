@@ -1,12 +1,10 @@
 import { SQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
-import { createMessagingSocialStore } from '../src/messaging';
-import type { MessagingSocialFrame } from '../src/messaging/social-contracts';
 import { listMessagingFriendships } from '../src/messaging/friendships';
+import { openPairStore } from './messaging-pair-store.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -18,28 +16,10 @@ const rowsOf = async (client: SQL, low: string, high: string) =>
   )) as { requester: string; state: string; accepted: boolean }[];
 
 test('a friendship is asked, accepted, listed both ways and ended by a block (ADR 0072)', async () => {
-  const client = new SQL(databaseUrl);
-  const database = drizzle({ client });
-  const fixture = await createMessagingTestFixture(client);
+  const { client, database, fixture, frameFor } =
+    await openPairStore(databaseUrl);
   const { userId, otherUserId, actorId, otherActorId, low, high, now } =
     fixture;
-  const store = createMessagingSocialStore({
-    database,
-    authorize: async () => {},
-  });
-  const frameFor = <T>(
-    self: string,
-    selfUser: string,
-    work: (frame: MessagingSocialFrame) => Promise<T>,
-  ) =>
-    store.withContacts(
-      {
-        actorId: self,
-        userId: selfUser,
-        memberActorIds: [actorId!, otherActorId!],
-      },
-      work,
-    );
   try {
     await frameFor(actorId!, userId!, async (frame) => {
       const facts = await frame.readFriendship();

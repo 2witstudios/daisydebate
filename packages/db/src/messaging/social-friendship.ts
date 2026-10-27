@@ -9,6 +9,7 @@ import type {
   MessagingSocialFrame,
   MessagingSocialInput,
 } from './social-contracts';
+import { endPairChallenges } from './social-challenge';
 
 type FriendshipTransaction = Pick<
   BunSQLDatabase,
@@ -92,6 +93,7 @@ export function friendshipFrame(
       const pair = pairOf();
       if (!next) {
         await tx.delete(messagingFriendships).where(where(pair));
+        await endPairChallenges(tx, pair);
         return;
       }
       if (!previous) {

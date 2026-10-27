@@ -94,13 +94,13 @@ export async function challengeAction(
       catalog: inProcessFetch(roomCatalog, incoming),
       challenges: inProcessFetch(routes.challenge, incoming),
     },
-    create: (room, afterCreate) =>
+    create: (room, beforeMoveOn) =>
       submitRoomCreation(
         inProcessFetch(createRoom, incoming),
         incoming,
         room,
         '/api/rooms',
-        afterCreate,
+        beforeMoveOn,
       ),
   });
 }

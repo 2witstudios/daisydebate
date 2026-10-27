@@ -154,12 +154,13 @@ test('a challenge reaches the friend, who can join or decline it, with JavaScrip
     await friendPage.goto('/friends');
     const challenges = friendPage.getByRole('region', { name: 'Challenges' });
     await expect(challenges).toContainText(`@${challengerName}`);
-    await expect(
-      challenges.getByRole('link', {
-        name: `Join @${challengerName}'s challenge`,
-      }),
-    ).toHaveAttribute('href', roomPath);
     await challenges
+      .getByRole('link', { name: `Join @${challengerName}'s challenge` })
+      .click();
+    await expect(friendPage).toHaveURL(new RegExp(`${roomPath}$`));
+    await friendPage.goto('/friends');
+    await friendPage
+      .getByRole('region', { name: 'Challenges' })
       .getByRole('button', { name: `Decline @${challengerName}'s challenge` })
       .click();
     await expect(

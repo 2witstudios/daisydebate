@@ -24,6 +24,9 @@ export async function changeChallenge(
   const otherActorId = await dependencies.lookup(input.username);
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');
+  // A challenge is offered on the same terms as a friend request (no block
+  // either way, both accounts current); the accepted friendship is checked
+  // below under the same lock. Split the capability if those terms diverge.
   const capability =
     command === 'challenge' ? 'social.friend.request' : 'social.friend.end';
   try {

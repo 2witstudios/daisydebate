@@ -53,7 +53,7 @@ test('readFriendship reads the locked pair and both members’ counts', async ()
 });
 
 test('commitFriendship reauthorizes and writes the next pair', async () => {
-  const { client, queries } = fakeSql([[], [], []]);
+  const { client, queries } = fakeSql([[], [], [], []]);
   let fences = 0;
   const frame = friendshipFrame(
     drizzle({ client }),
@@ -80,14 +80,16 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
   });
   assert({
     given: 'an insert, an acceptance and a removal',
-    should: 'fence each write and issue insert, update and delete',
+    should:
+      'fence each write, issue insert, update and delete, and end the pair’s challenges with the friendship',
     actual: [
       fences,
       queries.map((query) => query.query.split(' ')[0]),
       queries[0]?.params.includes(high),
       queries[1]?.params.includes('accepted'),
+      queries[3]?.query.includes('"messaging_friend_challenges"'),
     ],
-    expected: [3, ['insert', 'update', 'delete'], true, true],
+    expected: [3, ['insert', 'update', 'delete', 'delete'], true, true, true],
   });
 });
 
