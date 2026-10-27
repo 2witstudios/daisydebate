@@ -137,6 +137,29 @@ test('canonical revocation rotates actual self-hosted admission and capture with
             expectedEpoch: scope.epoch,
           }),
       });
+      await assertRejects({
+        given: 'the rotated-out worker asking for another token',
+        should: 'deny old-room capture authority',
+        code: 'CONFLICT',
+        actual: () => broker.captureToken(scope, principal),
+      });
+      await assertRejects({
+        given: 'a late old-epoch transcript append after rotation',
+        should: 'reject it at the lease fence before touching any stream',
+        code: 'CONFLICT',
+        actual: () =>
+          capture.appendCapturedTranscript({
+            ...scope,
+            segmentId: createId(),
+            roundParticipantId: createId(),
+            trackId: 'old-track',
+            startOffsetMs: 0,
+            durationMs: 1,
+            text: 'Must not persist',
+            before: '2026-01-01T00:00:00.000Z',
+            after: '2026-01-01T00:00:00.001Z',
+          }),
+      });
       const reopened = await operations.session(roundId, f.host.actorId);
       const replacement = await join(reopened.token);
       const freshWorker = { ...scope, workerId: createId() };
