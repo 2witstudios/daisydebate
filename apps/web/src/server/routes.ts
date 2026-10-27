@@ -12,6 +12,7 @@ import {
   createRevokeSessionHandler,
 } from '../features/account/sessions';
 import { createOnboardingHandler } from '../features/onboarding/save-answers';
+import { createSignOutFormHandler } from '../features/auth/sessions/sign-out-form';
 import { createAgeStepHandler } from '../features/account/age-step';
 import { ACCOUNT_AGE_FLOOR } from '@daisy/auth/age-floor';
 import { TERMS_VERSION } from '../features/legal/versions';
@@ -61,6 +62,7 @@ export function createRoutes(app: App) {
     return { handler: instance.handler, config };
   };
   const rooms = composeRoomRoutes(app);
+  const auth = createAuthRouteHandlers(confirmAuth, logger);
   return {
     mediaCapture: composeMediaCaptureRoutes(app),
     roundMedia: createRoundMediaHandlers({
@@ -77,7 +79,10 @@ export function createRoutes(app: App) {
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
     },
-    auth: createAuthRouteHandlers(confirmAuth, logger),
+    auth,
+    signOut: {
+      POST: createSignOutFormHandler({ origin, signOut: auth.POST }),
+    },
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
     sessions: {

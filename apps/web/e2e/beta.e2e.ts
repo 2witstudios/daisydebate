@@ -52,3 +52,23 @@ test('a fresh sign-up from a protected page finishes onboarding on /beta and rea
   await page.reload();
   await expect(page).toHaveURL(/\/ranked$/);
 });
+
+test.describe('without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  // ISSUE-691 (plan BETA §5): a waiting account can always leave.
+  test('a waitlisted account signs out from /beta and lands signed out', async ({
+    page,
+  }) => {
+    const { username } = await signUpWaitlisted(page.request);
+    await page.goto('/beta');
+    await expect(
+      page.getByRole('heading', { name: `You're on the list, @${username}` }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/play');
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
+});
