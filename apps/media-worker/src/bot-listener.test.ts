@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { runBotListener } from './bot-listener';
+import { keepListening, runBotListener } from './bot-listener';
 import { createPeerAudioTap } from './peer-audio';
 setupRitewayBun();
 
@@ -135,5 +135,32 @@ test('the listener renews its own lease at its epoch', async () => {
     should: 'renew with its own epoch as the expected one',
     actual: calls.some((c) => c.op === 'lease' && c.arg === 3),
     expected: true,
+  });
+});
+
+test('a listener failure re-claims and resumes until capture stops (ISSUE-764)', async () => {
+  const controller = new AbortController();
+  let leases = 0;
+  const waits: number[] = [];
+  await keepListening(
+    {
+      run: async () => {
+        leases += 1;
+        if (leases < 3) throw new Error('lease is held');
+        controller.abort();
+        return { relayedBatches: 0 };
+      },
+      nowMs: () => 0,
+      waitUntilMs: async (due) => {
+        waits.push(due);
+      },
+    },
+    controller.signal,
+  );
+  assert({
+    given: 'a listener that fails twice, then runs until capture stops',
+    should: 'pause and re-claim after each failure, and stop with capture',
+    actual: [leases, waits],
+    expected: [3, [1000, 1000]],
   });
 });

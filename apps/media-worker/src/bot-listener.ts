@@ -102,3 +102,30 @@ export async function runBotListener(
   }
   return { relayedBatches };
 }
+
+const RESUME_AFTER_MS = 1000;
+
+/**
+ * Keeps the bot listener running for as long as capture does: a failed run
+ * (a held or stale lease, a refused read) pauses briefly and claims again, so
+ * one fault never silences the bot for the rest of the session.
+ */
+export async function keepListening(
+  input: {
+    readonly run: (signal: AbortSignal) => Promise<unknown>;
+    readonly nowMs: () => number;
+    readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+  },
+  signal: AbortSignal,
+) {
+  while (!signal.aborted) {
+    try {
+      await input.run(signal);
+    } catch {
+      if (signal.aborted) return;
+      await input
+        .waitUntilMs(input.nowMs() + RESUME_AFTER_MS, signal)
+        .catch(() => undefined);
+    }
+  }
+}

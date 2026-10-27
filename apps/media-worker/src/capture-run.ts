@@ -14,7 +14,7 @@ import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
-import { runBotListener } from './bot-listener';
+import { keepListening, runBotListener } from './bot-listener';
 import { createPeerAudioTap } from './peer-audio';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
 import {
@@ -95,15 +95,24 @@ export async function runCaptureProcess(input: {
   // never relays for bots. The listener ends with capture and never fails it.
   const audio = createPeerAudioTap();
   const listenerStop = new AbortController();
-  const listening = runBotListener(
+  const listenerClient = createBotListenerClient(transport);
+  const listening = keepListening(
     {
-      client: createBotListenerClient(transport),
-      audio,
+      run: (signal) =>
+        runBotListener(
+          {
+            client: listenerClient,
+            audio,
+            nowMs: performance.now,
+            waitUntilMs,
+          },
+          signal,
+        ),
       nowMs: performance.now,
       waitUntilMs,
     },
     AbortSignal.any([stop.signal, listenerStop.signal]),
-  ).catch(() => undefined);
+  );
   try {
     const ended = await runCaptureSession(
       {
