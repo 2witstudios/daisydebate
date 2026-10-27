@@ -21,7 +21,7 @@ await migrateAdminDatabase(owner);
 const sql = new SQL(owner, { max: 1 });
 try {
   await sql.unsafe(`
-    truncate audit_events, chain_checkpoints, auth_attempts, operator_sessions,
+    truncate audit_events, chain_checkpoints, auth_attempts, pending_commands, operator_sessions,
       operator_challenges, operator_credentials, operator_enrollments, operators;
     do $$ begin
       if not exists (select from pg_roles where rolname = 'daisy_admin_e2e') then

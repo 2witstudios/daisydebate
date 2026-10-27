@@ -4,6 +4,7 @@ import { appendAudit } from '../audit/store';
 import {
   authorizeOperator,
   currentApprovalPolicy,
+  deniedDetail,
   type OperatorAction,
 } from '../authorization/authorize-operator';
 import { sameOrigin } from '../auth/origin';
@@ -55,8 +56,7 @@ export async function requireOperator(
       commandId: null,
       targetUserId: null,
       outcome: null,
-      detail:
-        decision.reason === 'disabled' ? 'operator_disabled' : decision.reason,
+      detail: deniedDetail(decision.reason),
       at: auth.clock.now(),
     }),
   );

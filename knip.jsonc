@@ -72,6 +72,7 @@
         "src/db/migrate.ts",
         "src/scripts/operator-enroll.ts",
         "e2e/support/prepare.ts",
+        "e2e/support/operator-api-server.ts",
         "integration/**/*.integration.ts",
       ],
     },

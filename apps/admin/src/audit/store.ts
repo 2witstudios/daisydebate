@@ -1,4 +1,4 @@
-import { asc, desc, lt, sql } from 'drizzle-orm';
+import { and, asc, countDistinct, desc, inArray, lt, sql } from 'drizzle-orm';
 import type { AdminExecutor, AdminTransaction } from '../db/client';
 import { auditEvents, chainCheckpoints } from '../db/schema';
 import {
@@ -81,4 +81,21 @@ export async function verifyStoredChain(
     .from(auditEvents)
     .orderBy(asc(auditEvents.seq));
   return verifyAuditChain(rows.map(toRow), start, known);
+}
+
+/**
+ * Commands whose anchor the participant app acknowledged: a result came
+ * back, directly or by reconciliation, so its receipt holds the chain head.
+ */
+export async function acknowledgedAnchors(db: AdminExecutor): Promise<number> {
+  const [row] = await db
+    .select({ anchors: countDistinct(auditEvents.commandId) })
+    .from(auditEvents)
+    .where(
+      and(
+        inArray(auditEvents.kind, ['command.outcome', 'command.reconciled']),
+        inArray(auditEvents.outcome, ['changed', 'unchanged']),
+      ),
+    );
+  return row?.anchors ?? 0;
 }

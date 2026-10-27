@@ -5,13 +5,15 @@ import {
   operatorChallenges,
   operatorEnrollments,
   operatorSessions,
+  pendingCommands,
 } from './schema';
 
 /**
  * The admin retention rules this app enforces itself (privacy.ts, plan §8):
  * expired challenges, enrollments and sessions go 7 days after expiry, and
- * rate-limit buckets a day after their window opened. Credentials, operators
- * and the audit chain are never swept here.
+ * rate-limit buckets a day after their window opened, and settled commands
+ * 30 days after they settled (an open one never goes). Credentials,
+ * operators and the audit chain are never swept here.
  */
 const day = 86_400_000;
 export const SWEEP_INTERVAL_MS = 60 * 60_000;
@@ -23,6 +25,7 @@ export async function sweepExpired(
   const at = Date.parse(now);
   const secretsBefore = new Date(at - 7 * day);
   const attemptsBefore = new Date(at - day);
+  const commandsBefore = new Date(at - 30 * day);
   return db.transaction(async (tx) => {
     // Challenges first: they reference their enrollment, and one issued in
     // an enrollment's last minutes expires after it, so it goes with it.
@@ -52,6 +55,10 @@ export async function sweepExpired(
         .delete(authAttempts)
         .where(lt(authAttempts.windowStart, attemptsBefore))
         .returning({ id: authAttempts.bucket }),
+      await tx
+        .delete(pendingCommands)
+        .where(lt(pendingCommands.resolvedAt, commandsBefore))
+        .returning({ id: pendingCommands.commandId }),
     ];
     return removed.reduce((total, rows) => total + rows.length, 0);
   });
