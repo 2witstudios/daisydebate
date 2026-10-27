@@ -121,6 +121,15 @@ ${block('Privacy policy &amp; terms', { ...rounds, Category: 'Business &amp; leg
     });
   });
 
+  test('refuses a Score heading without an area name', () => {
+    assert({
+      given: 'a heading that reads only "Score:"',
+      should: 'throw naming the page',
+      actual: message(block('', rounds)),
+      expected: 'Rooms and play (p1): a Score heading needs an area name',
+    });
+  });
+
   test('reads a Score heading whose text an editor wrapped in markup', () => {
     const wrapped = block('Rounds', rounds).replace(
       '<h3>Score: Rounds</h3>',
@@ -309,6 +318,24 @@ describe('runProgressSync', () => {
         'Project Status scores in sync with 1 areas; the Now section is out of date (run --apply to refresh it)\n',
         0,
         1,
+      ],
+    });
+  });
+
+  test('refuses two Score blocks with the same area name', () => {
+    const twice = [
+      ...PAGES,
+      { id: 'p2', title: 'Other', content: block('Rounds', rounds) },
+    ];
+    const { deps, writes, output } = fakes('<p>old</p>', twice);
+    assert({
+      given: 'the area Rounds scored on two pages',
+      should: 'exit 1 naming both pages and never write',
+      actual: [runProgressSync(deps, true), writes.length, output.join('')],
+      expected: [
+        1,
+        0,
+        'Area "Rounds" is scored on more than one page (p1, p2); Project Status left unchanged\n',
       ],
     });
   });

@@ -80,6 +80,10 @@ export function parseScoreBlocks(
   ].filter(([, heading]) => text(heading).startsWith('Score:'));
   return headings.map((match) => {
     const name = text(match[1]).slice('Score:'.length).trim();
+    if (name === '')
+      throw new Error(
+        `${page.title} (${page.id}): a Score heading needs an area name`,
+      );
     const where = `${page.title} (${page.id}), Score: ${name}`;
     const after = html.slice((match.index ?? 0) + match[0].length);
     const table = /^\s*<table[^>]*>([\s\S]*?)<\/table>/.exec(after)?.[1];
@@ -186,7 +190,7 @@ function row(area: Area): string {
   const tag = area.tag
     ? `<span class="tag fut">${escape(area.tag)}</span> `
     : '';
-  return `<tr><td class="name"><a href="${pageUrl(area.pageId)}">${escape(area.name)}</a><small>${escape(area.subtitle)}</small></td>${cells.join('')}<td>${bar(overall(area))}</td><td class="note hide-sm">${tag}${escape(area.status)}</td></tr>`;
+  return `<tr><td class="name"><a href="${escape(pageUrl(area.pageId))}">${escape(area.name)}</a><small>${escape(area.subtitle)}</small></td>${cells.join('')}<td>${bar(overall(area))}</td><td class="note hide-sm">${tag}${escape(area.status)}</td></tr>`;
 }
 
 /** The whole Project Status canvas: no clock, so an unchanged board renders identically. */
@@ -260,6 +264,18 @@ export function runProgressSync(deps: ProgressDeps, apply: boolean): number {
   const areas = deps
     .areaPages()
     .flatMap((page) => parseScoreBlocks(page.content, page));
+  const repeated = areas.find((area, index) =>
+    areas.slice(index + 1).some((other) => other.name === area.name),
+  );
+  if (repeated) {
+    const pages = areas
+      .filter((area) => area.name === repeated.name)
+      .map((area) => area.pageId);
+    deps.out(
+      `Area "${repeated.name}" is scored on more than one page (${pages.join(', ')}); Project Status left unchanged\n`,
+    );
+    return 1;
+  }
   if (areas.length === 0) {
     deps.out(
       'No Score blocks found on the Product intent pages; Project Status left unchanged\n',
