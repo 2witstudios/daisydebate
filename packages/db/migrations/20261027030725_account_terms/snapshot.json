@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1917abb3-e065-4f15-9064-053f6c79b033",
+  "id": "69e89b78-46c6-4181-be74-b3d0b683637d",
   "prevIds": [
     "3d8ad216-12b0-44d2-845d-1cebbd8cf02b"
   ],
@@ -12532,7 +12532,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
+      "onDelete": "CASCADE",
       "name": "account_age_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -12549,7 +12549,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
+      "onDelete": "CASCADE",
       "name": "account_terms_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
