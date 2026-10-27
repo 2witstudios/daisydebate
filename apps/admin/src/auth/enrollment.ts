@@ -7,8 +7,9 @@ import type { AdminTransaction } from '../db/client';
 import { operatorCredentials } from '../db/schema';
 import {
   isUniqueViolation,
-  rateLimited,
   refuse,
+  releaseAttempt,
+  reserveAttempt,
   type Attempt,
   type AuthDeps,
   type Refusal,
@@ -47,18 +48,17 @@ const enrollAttempt = (address: string): Attempt => ({
 const openEnrollment = (deps: AuthDeps, token: unknown, now: string) =>
   isSecret(token) ? findOpenEnrollment(deps.db, sha3(token), now) : null;
 
-/** Both steps start alike: the rate limit, then a still-open enrollment. */
+/** Both steps start alike: a rate-limit slot, then a still-open enrollment. */
 async function openForAttempt(
   deps: AuthDeps,
   input: { readonly token: unknown; readonly address: string },
 ) {
-  const attempt = enrollAttempt(input.address);
-  const limited = await rateLimited(deps, attempt);
-  if (limited) return limited;
+  const slot = await reserveAttempt(deps, enrollAttempt(input.address));
+  if ('code' in slot) return slot;
   const now = deps.clock.now();
   const open = await openEnrollment(deps, input.token, now);
-  if (!open) return refuse(deps, attempt, 'enrollment_invalid');
-  return { attempt, open, now };
+  if (!open) return refuse(deps, slot, 'enrollment_invalid');
+  return { slot, open, now };
 }
 
 export async function beginEnrollment(
@@ -73,7 +73,7 @@ export async function beginEnrollment(
 > {
   const opened = await openForAttempt(deps, input);
   if ('code' in opened) return opened;
-  const { open, now } = opened;
+  const { slot, open, now } = opened;
   const bytes = deps.random(SECRET_BYTES);
   await insertChallenge(deps.db, {
     id: deps.ids.next(),
@@ -89,6 +89,7 @@ export async function beginEnrollment(
     challenge: bytes,
     existing: await activeCredentials(deps.db, open.operator.id),
   });
+  await releaseAttempt(deps, slot);
   return { ok: true, options };
 }
 
@@ -188,7 +189,7 @@ export async function finishEnrollment(
 ): Promise<Refusal | { readonly ok: true }> {
   const opened = await openForAttempt(deps, input);
   if ('code' in opened) return opened;
-  const { attempt, open, now } = opened;
+  const { slot, open, now } = opened;
   const operatorId = open.operator.id;
   const answered = await answeredChallenge(
     deps,
@@ -196,15 +197,14 @@ export async function finishEnrollment(
     open.enrollment.id,
     now,
   );
-  if (!answered) return refuse(deps, attempt, 'challenge_invalid', operatorId);
+  if (!answered) return refuse(deps, slot, 'challenge_invalid', operatorId);
   const { challenge, challengeHash } = answered;
   const credential = await verifyRegistration({
     response: input.response,
     challenge,
     ceremony: deps.ceremony,
   });
-  if (!credential)
-    return refuse(deps, attempt, 'verification_failed', operatorId);
+  if (!credential) return refuse(deps, slot, 'verification_failed', operatorId);
   const enrolling = {
     enrollmentId: open.enrollment.id,
     operatorId,
@@ -216,10 +216,11 @@ export async function finishEnrollment(
     await storeEnrollment(deps, enrolling, now);
   } catch (error) {
     if (error instanceof EnrollmentTaken)
-      return refuse(deps, attempt, 'enrollment_invalid', operatorId);
+      return refuse(deps, slot, 'enrollment_invalid', operatorId);
     if (isUniqueViolation(error))
-      return refuse(deps, attempt, 'credential_duplicate', operatorId);
+      return refuse(deps, slot, 'credential_duplicate', operatorId);
     throw error;
   }
+  await releaseAttempt(deps, slot);
   return { ok: true };
 }

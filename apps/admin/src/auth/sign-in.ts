@@ -10,6 +10,8 @@ import { operatorCredentials, operatorSessions } from '../db/schema';
 import {
   rateLimited,
   refuse,
+  releaseAttempt,
+  reserveAttempt,
   type Attempt,
   type AuthDeps,
   type Refusal,
@@ -197,29 +199,27 @@ export async function finishSignIn(
     readonly presented: string | null;
   },
 ): Promise<Refusal | { readonly ok: true; readonly sessionToken: string }> {
-  const attempt = signInAttempt(input.address);
-  const limited = await rateLimited(deps, attempt);
-  if (limited) return limited;
+  const slot = await reserveAttempt(deps, signInAttempt(input.address));
+  if ('code' in slot) return slot;
   const now = deps.clock.now();
   const challenge = await consumedChallenge(deps, input.response, now);
-  if (!challenge) return refuse(deps, attempt, 'challenge_invalid');
+  if (!challenge) return refuse(deps, slot, 'challenge_invalid');
   const found = await findActiveCredential(deps.db, input.response.id);
-  if (!found) return refuse(deps, attempt, 'credential_unknown');
+  if (!found) return refuse(deps, slot, 'credential_unknown');
   const { credential, operator } = found;
   if (operator.disabledAt !== null)
-    return refuse(deps, attempt, 'operator_disabled', operator.id);
+    return refuse(deps, slot, 'operator_disabled', operator.id);
   const verified = await verifyAuthentication({
     response: input.response,
     challenge,
     credential,
     ceremony: deps.ceremony,
   });
-  if (!verified)
-    return refuse(deps, attempt, 'verification_failed', operator.id);
+  if (!verified) return refuse(deps, slot, 'verification_failed', operator.id);
   const counter = { stored: credential.signCount, received: verified.counter };
   // The registered backup state decides: an assertion cannot opt itself out.
   if (!counterAccepted({ ...counter, backedUp: credential.backedUp }))
-    return refuse(deps, attempt, 'counter_regressed', operator.id);
+    return refuse(deps, slot, 'counter_regressed', operator.id);
   try {
     const sessionToken = await openSession(deps, {
       credentialRowId: credential.id,
@@ -231,10 +231,11 @@ export async function finishSignIn(
       presented: input.presented,
       now,
     });
+    await releaseAttempt(deps, slot);
     return { ok: true, sessionToken };
   } catch (error) {
     if (error instanceof CounterRaced)
-      return refuse(deps, attempt, 'counter_regressed', operator.id);
+      return refuse(deps, slot, 'counter_regressed', operator.id);
     throw error;
   }
 }

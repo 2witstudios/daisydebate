@@ -11,7 +11,7 @@ import {
   clientDigest,
   type AttemptPurpose,
 } from './rate-limit';
-import { failuresIn, recordFailure } from './store';
+import { failuresIn, releaseSlot, reserveSlot } from './store';
 import type { CeremonyOrigin } from './webauthn';
 
 /** Everything a ceremony needs, injected at the process edge. */
@@ -62,29 +62,51 @@ const audited = (
     }),
   );
 
+/** A slot in the client's window, held by an attempt that can still fail. */
+export type Reservation = { readonly bucket: string; readonly count: number };
+
 /**
- * Counts and audits one failed attempt, then refuses uniformly. The failure
- * that exhausts the window also records the limit, once: the count comes
- * back from the same atomic increment, so racing failures cross it exactly
- * once, and blocked requests after it write nothing.
+ * Takes a slot before a ceremony that can fail. The count comes back from
+ * one atomic increment, so racing attempts never get more than the limit
+ * between them; a refused attempt keeps its slot, a success gives it back.
+ */
+export async function reserveAttempt(
+  deps: AuthDeps,
+  attempt: Attempt,
+): Promise<Refusal | Reservation> {
+  const now = deps.clock.now();
+  const bucket = bucketOf(deps, attempt, now);
+  const count = await reserveSlot(deps.db, {
+    bucket,
+    windowStart: attemptWindow(now),
+  });
+  return count > ATTEMPT_LIMIT
+    ? { ok: false, code: 'RATE_LIMIT' }
+    : { bucket, count };
+}
+
+export const releaseAttempt = (deps: AuthDeps, reservation: Reservation) =>
+  releaseSlot(deps.db, reservation.bucket);
+
+/**
+ * The reserved slot was a failure: audit it and refuse uniformly. The
+ * failure holding the window's last slot also records the limit, once;
+ * blocked requests after it write nothing.
  */
 export async function refuse(
   deps: AuthDeps,
-  attempt: Attempt,
+  reservation: Reservation,
   detail: AuditDetail,
   operatorId: string | null = null,
 ): Promise<Refusal> {
   const now = deps.clock.now();
-  const count = await recordFailure(deps.db, {
-    bucket: bucketOf(deps, attempt, now),
-    windowStart: attemptWindow(now),
-  });
   await audited(deps, now, detail, operatorId);
-  if (count === ATTEMPT_LIMIT) await audited(deps, now, 'rate_limited', null);
+  if (reservation.count === ATTEMPT_LIMIT)
+    await audited(deps, now, 'rate_limited', null);
   return { ok: false, code: 'AUTHENTICATION' };
 }
 
-/** Refuses before any ceremony, unaudited, once the window is exhausted. */
+/** A read-only check for a step that cannot fail (issuing a challenge). */
 export async function rateLimited(
   deps: AuthDeps,
   attempt: Attempt,

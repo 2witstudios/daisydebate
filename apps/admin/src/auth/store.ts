@@ -275,8 +275,8 @@ export async function failuresIn(
   return row?.count ?? 0;
 }
 
-/** The window's count after this failure, incremented atomically. */
-export async function recordFailure(
+/** The window's count after taking one slot, incremented atomically. */
+export async function reserveSlot(
   db: AdminExecutor,
   input: { readonly bucket: string; readonly windowStart: string },
 ): Promise<number> {
@@ -293,4 +293,18 @@ export async function recordFailure(
     })
     .returning({ count: authAttempts.count });
   return row?.count ?? 0;
+}
+
+/** Gives a slot back after a success; the row goes with its last slot. */
+export async function releaseSlot(
+  db: AdminExecutor,
+  bucket: string,
+): Promise<void> {
+  await db
+    .delete(authAttempts)
+    .where(and(eq(authAttempts.bucket, bucket), eq(authAttempts.count, 1)));
+  await db
+    .update(authAttempts)
+    .set({ count: sql`${authAttempts.count} - 1` })
+    .where(and(eq(authAttempts.bucket, bucket), gt(authAttempts.count, 1)));
 }

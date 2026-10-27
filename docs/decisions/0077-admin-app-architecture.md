@@ -90,9 +90,13 @@ Path=/`, without `Secure` or `__Host-` because the origin is http on
   localhost. 12 h absolute and 30 min idle, enforced server-side on every
   request, which also re-reads the `operators` row: a disabled operator's
   session is revoked on its next request. Sign-out revokes the session.
-- **Request checks.** Every server action checks the browser's Origin against
-  the canonical origin. Failed authentication is limited to 10 per 10-minute
-  window per purpose and client, in the admin-owned `auth_attempts` table; the
+- **Request checks.** The server answers a request other than GET or HEAD
+  whose Origin is not the canonical origin with 421 before Next runs, and
+  every server action checks the Origin again. Failed authentication is limited to 10 per 10-minute
+  window per purpose and client, in the admin-owned `auth_attempts` table. An
+  attempt that can fail takes its slot by one atomic increment before the
+  ceremony and a success gives it back, so racing attempts cannot pass the
+  limit; the limit is audited once, when it is reached. The
   client is stored as SHA3-256 of its socket address under `ADMIN_ATTEMPT_KEY`,
   never raw. The peer address is the socket's, written by the custom server
   into a header it owns.

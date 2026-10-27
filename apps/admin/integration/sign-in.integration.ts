@@ -119,6 +119,31 @@ test('racing assertions from a cloned device-bound key', async () => {
   });
 });
 
+test('racing failures cannot pass the limit', async () => {
+  const deps = testDeps(db);
+  const device = await enrolledOwner(deps, 17);
+  const bogus = async () =>
+    finishSignIn(deps, {
+      address,
+      presented: null,
+      response: await device.assert('bogus-challenge', deps.ceremony, 1),
+    });
+  for (let failure = 1; failure < ATTEMPT_LIMIT; failure += 1) await bogus();
+  const racing = await Promise.all([1, 2, 3, 4, 5].map(bogus));
+  assert({
+    given: 'one failure left in the window and five failures at once',
+    should: 'let exactly one through to fail and refuse the rest as limited',
+    actual: racing.map((result) => (result.ok ? 'ok' : result.code)).sort(),
+    expected: [
+      'AUTHENTICATION',
+      'RATE_LIMIT',
+      'RATE_LIMIT',
+      'RATE_LIMIT',
+      'RATE_LIMIT',
+    ],
+  });
+});
+
 test('a synced passkey may report a zero counter', async () => {
   const deps = testDeps(db);
   const synced = await enrolledOwner(deps, 14, { backedUp: true });
