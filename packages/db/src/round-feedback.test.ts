@@ -115,6 +115,21 @@ describe('createRoundFeedbackJobs()', () => {
       });
   });
 
+  test('subject erasure refuses coaching before deciding or spending an attempt', async () => {
+    const { jobs, left } = jobsWith([[], [{ erased: true }]]);
+    let decisions = 0;
+    const claimed = await jobs.claim('r1', () => {
+      decisions++;
+      return 'claim';
+    });
+    assert({
+      given: 'a Round whose participant was erased before a coaching claim',
+      should: 'refuse even an unconditional claim without buying an attempt',
+      actual: { claimed, decisions, left: left() },
+      expected: { claimed: null, decisions: 0, left: 0 },
+    });
+  });
+
   test('scan', async () => {
     const { jobs, left } = jobsWith([
       [{ roundId: 'r1' }, { roundId: 'r2' }],
@@ -144,8 +159,19 @@ describe('createRoundFeedbackJobs()', () => {
 
   test('the decision leaves or ends a Round', async () => {
     const seen: RoundCoachingFacts[] = [];
-    const skipped = jobsWith([[], [accessRow], [factsRow]]);
-    const ended = jobsWith([[], [accessRow], [factsRow], undefined]);
+    const skipped = jobsWith([
+      [],
+      [{ erased: false }],
+      [accessRow],
+      [factsRow],
+    ]);
+    const ended = jobsWith([
+      [],
+      [{ erased: false }],
+      [accessRow],
+      [factsRow],
+      undefined,
+    ]);
     assert({
       given: 'a decision to leave the Round, then one to end its lapsed lease',
       should:
@@ -186,6 +212,7 @@ describe('createRoundFeedbackJobs()', () => {
   };
   const claimAnswers = (claimed: unknown) => [
     [],
+    [{ erased: false }],
     [accessRow],
     [factsRow],
     [freeze],

@@ -44,7 +44,10 @@ test('raw SQL cannot alter frozen input or remove its freeze, while lawful erasu
         'refuse insert, text mutation, both movement directions and direct freeze deletion',
       actual: refusals,
       expected: [
-        ...Array<string>(4).fill('utterances_frozen_transcript_check'),
+        'utterances_frozen_transcript_check',
+        'utterances_frozen_transcript_check',
+        'utterances_frozen_transcript_check',
+        'utterances_frozen_transcript_check',
         'round_transcript_freezes_immutable',
       ],
     });
