@@ -5,6 +5,7 @@ import {
   unsafeFormatDefinitions,
   oneOnOneFormatFixture,
 } from '@daisy/protocol/testing';
+import { unboundedFormatDefinitions } from '@daisy/protocol/format-bounds-testing';
 import { oneOnOneConfig } from './runtime.test-support';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
@@ -13,6 +14,7 @@ setupRitewayBun();
 for (const [name, definition] of [
   ...invalidFormatDefinitions,
   ...unsafeFormatDefinitions,
+  ...unboundedFormatDefinitions,
 ]) {
   test(`rejects ${name} before compiling executable rules`, () => {
     const outcome = resolveRoomConfiguration(definition, {

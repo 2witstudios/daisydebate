@@ -3,19 +3,34 @@ import Link from 'next/link';
 import { destinationHref } from '../../../features/coming-soon/launch';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { clockDuration } from '../../../features/rooms/duration-input';
+import {
+  clockDuration,
+  countdownClock,
+} from '../../../features/rooms/duration-input';
 import { buttonClass } from '../../components/button/button-class';
 import { CommandForm } from './assembly-readiness';
 
+/** A strike with no prep after it: before the draw, while striking, then revealed. */
+function strikeState(view: RoomView): string {
+  if (!view.resolutionDraw)
+    return 'Once everyone is Ready, draw the resolutions and strike to one';
+  return view.resolutionDraw.revealedAt
+    ? 'Resolution chosen · start the round when the room is ready'
+    : 'The debaters are striking';
+}
+
 function prepState(view: RoomView): string {
   const config = view.config.preRoundPrep;
-  if (!config.enabled) return 'Off';
+  const draw = view.config.resolutionDraw.enabled;
+  if (!config.enabled) return draw ? strikeState(view) : 'Off';
   if (!view.prep.startedAt)
-    return `Optional · ${clockDuration(config.durationMs)} for both sides`;
+    return draw
+      ? `${clockDuration(config.durationMs)} for both sides, starting when the resolution is chosen`
+      : `Optional · ${clockDuration(config.durationMs)} for both sides`;
   if (view.prep.finished) return 'Done';
   return view.prep.remainingMs === null
     ? 'Under way'
-    : `${clockDuration(view.prep.remainingMs)} left`;
+    : `${countdownClock(view.prep.remainingMs)} left`;
 }
 
 /** Prep before the round, inside the Start card: its length or live state, the host's controls, and the library. */
@@ -29,7 +44,7 @@ export function RoomPrep({
   readonly commandIds: { readonly start: string; readonly finish: string };
 }) {
   const command = (
-    type: 'start-prep' | 'finish-prep',
+    type: 'start-pre-round' | 'finish-prep',
     label: string,
     commandId: string,
   ) =>
@@ -49,7 +64,9 @@ export function RoomPrep({
     >
       <div className="min-w-0 flex-1">
         <h3 id="room-prep-title" className="text-sm font-semibold">
-          Prep before the round
+          {view.config.preRoundPrep.enabled
+            ? 'Prep before the round'
+            : 'Resolution strike'}
         </h3>
         <p role="status" className="text-sm text-ink-muted tabular-nums">
           {prepState(view)}
@@ -58,8 +75,14 @@ export function RoomPrep({
       <Link href={destinationHref('prep')} className={buttonClass('secondary')}>
         Prep library
       </Link>
-      {view.capabilities.canStartPrep
-        ? command('start-prep', 'Start prep', commandIds.start)
+      {view.capabilities.canStartPreRound
+        ? command(
+            'start-pre-round',
+            view.config.resolutionDraw.enabled
+              ? 'Draw the resolutions'
+              : 'Start prep',
+            commandIds.start,
+          )
         : null}
       {view.capabilities.canFinishPrep
         ? command('finish-prep', 'End prep', commandIds.finish)

@@ -102,14 +102,14 @@ test('idle candidates refuse invalid policy and return the prefiltered ids', asy
     given: 'a zero idle timeout',
     should: 'refuse it as invalid',
     actual: () =>
-      database.readIdleRoomCandidates({ idleTimeoutMs: 0, limit: 64 }),
+      database.readMaintenanceCandidates({ idleTimeoutMs: 0, limit: 64 }),
     code: 'VALIDATION',
   });
   assert({
     given: 'a ten minute timeout',
     should: 'return the open Rooms idle by database time',
     actual: [
-      await database.readIdleRoomCandidates({
+      await database.readMaintenanceCandidates({
         idleTimeoutMs: 600_000,
         limit: 64,
       }),
@@ -128,9 +128,10 @@ test('a Room another writer holds, or the engine keeps open, is not expired', as
     [],
     [],
     [],
+    [],
   ]);
   const decided: string[] = [];
-  const expire = (_state: unknown, facts: { lastCommandAt: string }) => {
+  const maintain = (_state: unknown, facts: { lastCommandAt: string }) => {
     decided.push(facts.lastCommandAt);
     return null;
   };
@@ -138,8 +139,8 @@ test('a Room another writer holds, or the engine keeps open, is not expired', as
     given: 'a Room locked by another writer, then one the engine keeps open',
     should: 'skip the locked Room and write nothing for either',
     actual: [
-      await database.expireIdleRoom({ roomId: room.id, expire }),
-      await database.expireIdleRoom({ roomId: room.id, expire }),
+      await database.maintainRoom({ roomId: room.id, maintain }),
+      await database.maintainRoom({ roomId: room.id, maintain }),
       decided,
       queries.some(({ query }) => query.startsWith('update "rooms"')),
       queries.some(({ query }) => query.includes('skip locked')),
@@ -163,9 +164,9 @@ test('an idle Room the engine expires is closed, released and announced', async 
     [[1n, '42']],
     [],
   ]);
-  const expired = await database.expireIdleRoom({
+  const expired = await database.maintainRoom({
     roomId: room.id,
-    expire: (state) => ({
+    maintain: (state) => ({
       ok: true,
       mutation: {
         state: { ...state, status: 'abandoned', changeVersion: 2 },
@@ -173,6 +174,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
         freeze: false,
         spendsAiRound: false,
         publishDefinition: false,
+        drawSecrets: null,
         members: [],
       },
     }),

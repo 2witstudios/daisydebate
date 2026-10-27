@@ -53,8 +53,10 @@ Four causes stood out:
    one PR naming every task code. It splits off an earlier PR only when a
    piece must ship first. Commits from inherited branches are carried into
    the slice branch, and only main ever receives a merged PR.
-5. **The Ralph loop.** The builder converges the PR with the owner's Ralph
-   loop (PageSpace `p4xbp1iwavowuruqpi5fguf7`, run verbatim). The loop ends
+5. **The PR loop.** The builder converges the PR with its harness's PR loop,
+   run verbatim from PageSpace Resources › Universal prompts (PR Loop (Ralph
+   Loop) `cvslieavdwwkbz8l551hhhsz` for Claude Code, PR Loop (Goal)
+   `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode). The loop ends
    only when all of these hold:
    - zero unresolved review threads;
    - three consecutive clean scans;

@@ -86,8 +86,8 @@ test('challenging a friend opens an unlisted room for the pair', async () => {
         kind: 'catalog',
         formatId: template.formatId,
         formatVersion: template.formatVersion,
+        presetVersion: template.preset.version,
         competitionType: 'casual',
-        config: template.defaultConfig,
       },
       [
         [

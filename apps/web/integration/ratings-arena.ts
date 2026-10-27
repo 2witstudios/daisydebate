@@ -15,6 +15,7 @@ import { testDatabaseUrl, withSql } from './fixtures';
 /** The sanctioned RoomConfig the arena's presets approve. */
 const config = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
   crossExamination: { crossExMode: 'ordered' },
@@ -77,7 +78,7 @@ export async function arena(
   };
   await withSql(async (sql) => {
     await sql`insert into format_revisions (format_id, version, definition)
-      values (${formatId}, 1, ${{ version: 1, seats: rules.seats, segments: [], configurable: { timing: { segmentDurationMs: {}, countdownMs: { min: 0, max: 60_000 } }, inRoundPrep: null, preRoundPrep: null, interaction: { crossExModes: ['ordered'], interruptions: null, yield: null } } }}::jsonb)`;
+      values (${formatId}, 1, ${{ version: 1, seats: rules.seats, segments: [], configurable: { timing: { segmentDurationMs: {}, countdownMs: { min: 0, max: 60_000 } }, inRoundPrep: null, preRoundPrep: null, resolutionDraw: null, interaction: { crossExModes: ['ordered'], interruptions: null, yield: null } } }}::jsonb)`;
     await sql`insert into formats (id, name, current_version)
       values (${formatId}, 'Ranked fixture', 1)`;
   });

@@ -17,6 +17,7 @@ setupRitewayBun();
 
 const proofConfig = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
   crossExamination: { crossExMode: 'ordered' },

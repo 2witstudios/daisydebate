@@ -11,9 +11,7 @@ type Caller = Runtime['host'];
 
 /** A casual room with one seat per side and a judge seat, created by the host. */
 const createThreeSeatRoom = async (f: Runtime): Promise<RoomView> => {
-  const choice = (await f.operations.catalog(f.host)).find(
-    (c) => c.formatId === 'foundation',
-  )!;
+  const choice = await f.foundation();
   return (
     await f.create({
       selection: {
@@ -22,7 +20,7 @@ const createThreeSeatRoom = async (f: Runtime): Promise<RoomView> => {
           ...choice.definition,
           seats: { affirmative: 1, negative: 1, judge: 1 },
         },
-        config: choice.defaultConfig,
+        config: choice.preset.config,
         competitionType: 'casual',
       },
     })

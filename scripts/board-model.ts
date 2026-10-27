@@ -25,7 +25,8 @@ export type BoardCommand =
     }
   | {
       readonly command: 'create';
-      readonly listId: string;
+      /** A task list by id, or (for an issue) an Issues bucket by name. */
+      readonly into: { readonly listId: string } | { readonly bucket: string };
       /** Auto-number the title with this code prefix, e.g. ISSUE or DEC. */
       readonly prefix: string | undefined;
       readonly title: string;
@@ -48,7 +49,7 @@ const BOARD_USAGE = [
   'bun board:hash <pageId>',
   'bun board:status <taskPageId> <status-slug>',
   'bun board:relate <pageId> <Label> <targetPageId>',
-  'bun board:create <taskListPageId> [--issue | --prefix <CODE>] --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
+  'bun board:create (<taskListPageId> [--prefix <CODE>] | --issue --bucket <Issues bucket name>) --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
   'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> (--expect-hash <board:hash> | --old-file <old.html>)',
 ].join('\n');
 
@@ -64,6 +65,10 @@ export const contentHash = (text: string): string =>
 const SLUG = /^[a-z][a-z0-9_-]*$/;
 
 type Parsed = BoardCommand | { readonly error: string };
+type BoardCommandOf<C extends BoardCommand['command']> = Extract<
+  BoardCommand,
+  { readonly command: C }
+>;
 
 const fail = (error: string): Parsed => ({ error: `${error}\n${BOARD_USAGE}` });
 
@@ -111,7 +116,7 @@ function flagValues(
 }
 
 const CREATE_FLAGS = {
-  values: ['--title', '--criterion', '--related', '--prefix'],
+  values: ['--title', '--criterion', '--related', '--prefix', '--bucket'],
   switches: ['--issue'],
   repeatable: ['--criterion', '--related'],
 };
@@ -137,14 +142,36 @@ function parseRelated(entries: readonly string[]): RelatedRef[] | undefined {
     : undefined;
 }
 
+// Every issue lives in a bucket: numbering and board:stale read one level.
+function createTarget(
+  issue: boolean,
+  bucket: string | undefined,
+  listId: string | undefined,
+): BoardCommandOf<'create'>['into'] | { readonly error: string } {
+  if (issue && bucket === undefined)
+    return {
+      error:
+        '--issue needs --bucket <name>: every issue lives in an Issues bucket',
+    };
+  if (issue && listId !== undefined)
+    return { error: '--issue takes its list from --bucket, not a list id' };
+  if (bucket !== undefined)
+    return issue ? { bucket } : { error: '--bucket applies only to --issue' };
+  return listId !== undefined && PAGE_ID.test(listId)
+    ? { listId }
+    : { error: 'create needs a task list id' };
+}
+
 function parseCreate(args: readonly string[]): Parsed {
   const flags = flagValues(args, CREATE_FLAGS);
   if ('error' in flags) return fail(flags.error);
   const { values, positional, switches } = flags;
   const [listId] = positional;
+  const issue = switches.has('--issue');
+  const into = createTarget(issue, values.get('--bucket')?.[0], listId);
+  if ('error' in into) return fail(into.error);
   const title = values.get('--title')?.[0] ?? '';
   const related = parseRelated(values.get('--related') ?? []);
-  if (!PAGE_ID.test(listId ?? '')) return fail('create needs a task list id');
   if (title.trim() === '') return fail('create needs --title');
   if (!related) return fail('--related takes Label=<pageId>');
   const prefix = values.get('--prefix')?.[0];
@@ -152,8 +179,8 @@ function parseCreate(args: readonly string[]): Parsed {
     return fail('--prefix takes 2-6 capital letters');
   return {
     command: 'create',
-    listId,
-    prefix: switches.has('--issue') ? 'ISSUE' : values.get('--prefix')?.[0],
+    into,
+    prefix: issue ? 'ISSUE' : prefix,
     title: title.trim(),
     criteria: values.get('--criterion') ?? [],
     related,
@@ -283,6 +310,33 @@ export function bucketPageIds(
     .map((t) => t.pageId);
 }
 
+/** The Issues bucket a name refers to (case-insensitive), or why there is none. */
+export function findBucket(
+  issuesRoot: readonly { readonly title: string; readonly pageId: string }[],
+  name: string,
+): { readonly pageId: string } | { readonly error: string } {
+  const buckets = new Set(bucketPageIds(issuesRoot, 'ISSUE'));
+  const named = issuesRoot.filter((task) => buckets.has(task.pageId));
+  const found = named.find(
+    (task) => task.title.toLowerCase() === name.toLowerCase(),
+  );
+  return found
+    ? { pageId: found.pageId }
+    : {
+        error: `No Issues bucket named "${name}"; buckets: ${named.map((task) => task.title).join(', ')}`,
+      };
+}
+
+/** Issues filed directly under the Issues list instead of in a bucket. */
+export function strayIssues<T extends { readonly title?: string }>(
+  tasks: readonly T[],
+): readonly (T & { readonly code: string })[] {
+  return tasks.flatMap((task) => {
+    const code = /^ISSUE-\d+\b/.exec(task.title ?? '')?.[0];
+    return code ? [{ ...task, code }] : [];
+  });
+}
+
 /** One more than the highest `<PREFIX>-n` title; 1 for an empty list. */
 export function nextCodeNumber(
   titles: readonly string[],
@@ -296,7 +350,7 @@ export function nextCodeNumber(
   return Math.max(0, ...numbers) + 1;
 }
 
-const escapeHtml = (text: string): string =>
+export const escapeHtml = (text: string): string =>
   text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

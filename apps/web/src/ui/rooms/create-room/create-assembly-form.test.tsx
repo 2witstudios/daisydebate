@@ -48,11 +48,11 @@ test('native template selection carries the immutable revision and exact default
     given:
       'a producer template and a refused draft with a retained dedupe identity',
     should:
-      'show unequal teams and submit exact catalog defaults without a fresh dedupe ID or symmetric speech setting',
+      'show unequal teams and submit the canonical preset tuple without a fresh dedupe ID or symmetric speech setting',
     actual: [
       html.includes('Unequal team template (2v3) · about'),
       html.includes('&quot;formatVersion&quot;:7'),
-      html.includes('&quot;countdownMs&quot;:444'),
+      html.includes('&quot;presetVersion&quot;:5'),
       html.includes('p'.repeat(24)),
       html.includes('q'.repeat(24)),
       html.includes('Retained title'),

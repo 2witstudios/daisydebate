@@ -17,6 +17,13 @@ import {
 } from './authorization';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { retryStale } from './retry-stale';
+import {
+  readFormatSelectionFacts,
+  type FormatSelectionFactsRecord,
+  type SelectionTuple,
+} from './format-operations';
+import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -27,7 +34,7 @@ import {
   type AuthorizeRoom,
   type Actor,
   actorFact,
-  roomState,
+  roomFacts,
   lockCommand,
   replayReceipt,
   acceptCommand,
@@ -42,19 +49,29 @@ type CommandInput = {
   readonly payloadDigest: string;
   readonly type: string;
   readonly targetActorId: string | null;
+  /** The catalog tuple a select-format names; its facts load under this transaction (FMT-1). */
+  readonly formatTuple: SelectionTuple | null;
   readonly roundId: string;
   readonly prepare: (
     state: RoomAssemblyState,
     now: string,
     account: Account,
+    drawSeed: string | null,
   ) => Promise<
     (
       state: RoomAssemblyState,
       now: string,
       target: Actor | null,
       account: Account,
+      draw: RoomDrawFacts,
+      formatFacts: FormatSelectionFactsRecord | null,
     ) => RoomMutationOutcome
   >;
+};
+
+/** The draw facts a command executes with: the seed, and new-draw facts. */
+type RoomDrawFacts = Awaited<ReturnType<typeof drawStartFacts>> & {
+  readonly seed: string | null;
 };
 
 export const roomWriteOperations = ({
@@ -68,86 +85,121 @@ export const roomWriteOperations = ({
 }) => ({
   async executeRoomCommand(input: CommandInput): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'executeRoomCommand', () =>
-      transaction(async (tx) => {
-        const preparation = await prepareCommand(tx, input);
-        if ('replay' in preparation) return preparation.replay;
-        const { prepared, execute } = preparation;
-        await lockBotFreeze(tx, input.type, botAdmission);
-        const initialSeats = await tx
-          .select({ actorId: roomParticipants.actorId })
-          .from(roomParticipants)
-          .where(eq(roomParticipants.roomId, input.roomId));
-        const fencedActors = [
-          ...new Set([
-            input.caller.actorId,
-            ...initialSeats.map((p) => p.actorId),
-            ...(input.targetActorId ? [input.targetActorId] : []),
-          ]),
-        ];
-        await lockAuthorizationActors(tx, fencedActors, {
-          maxActors: fencedActors.length,
-        });
-        const account = await loadAuthorizationAccount(tx, input.caller.userId);
-        const [row] = await tx
-          .select()
-          .from(rooms)
-          .where(eq(rooms.id, input.roomId))
-          .for('update');
-        if (!row) throw createAppError('NOT_FOUND');
-        const state = await roomState(tx, row);
-        if (!input.authorizeRead(state, account))
-          throw createAppError('NOT_FOUND');
-        if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
-          throw createAppError(
-            'CONFLICT',
-            'Cast changed while acquiring authority',
-          );
-        if (state.changeVersion !== prepared.changeVersion)
-          throw createAppError(
-            'CONFLICT',
-            'Room changed while preparing consent',
-          );
-        const now = await transactionNow(tx);
-        const target = input.targetActorId
-          ? await actorFact(tx, input.targetActorId)
-          : null;
-        const outcome = execute(state, now, target, account);
-        if (!outcome.ok)
-          throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
-        const next = outcome.mutation.state;
-        const roundRef = await persistRoomMutation(
-          tx,
-          outcome.mutation,
-          input.roundId,
-          now,
-        );
-        await reserveBotFreeze(
-          tx,
-          outcome.mutation,
-          input.roundId,
-          botAdmission,
-        );
-        const receipt: RoomCommandReceipt = {
-          commandId: input.commandId,
-          roomId: next.id,
-          resultingVersion: next.version,
-          roundRef,
-          replayed: false,
-        };
-        await acceptCommand(
-          tx,
-          receipt,
-          input.actorId,
-          input.payloadDigest,
-          input.type,
-          now,
-          next.changeVersion,
-        );
-        return receipt;
-      }),
+      retryStale(
+        () => transaction((tx) => executeOnce(tx, input, botAdmission)),
+        (error) => error instanceof RoomMoved,
+        ATTEMPTS,
+        // The Room kept moving under the command: the caller rereads it.
+        () => createAppError('CONFLICT', 'version-conflict'),
+      ),
     );
   },
 });
+
+/** The Room moved between preparation and its lock: retry from fresh facts. */
+class RoomMoved extends Error {}
+
+const ATTEMPTS = 3;
+
+async function executeOnce(
+  tx: Tx,
+  input: CommandInput,
+  botAdmission: RoundBotAdmission | undefined,
+): Promise<RoomCommandReceipt> {
+  const preparation = await prepareCommand(tx, input);
+  if ('replay' in preparation) return preparation.replay;
+  const { prepared, execute } = preparation;
+  await lockBotFreeze(tx, input.type, botAdmission);
+  const initialSeats = await tx
+    .select({ actorId: roomParticipants.actorId })
+    .from(roomParticipants)
+    .where(eq(roomParticipants.roomId, input.roomId));
+  const fencedActors = [
+    ...new Set([
+      input.caller.actorId,
+      ...initialSeats.map((p) => p.actorId),
+      ...(input.targetActorId ? [input.targetActorId] : []),
+    ]),
+  ];
+  await lockAuthorizationActors(tx, fencedActors, {
+    maxActors: fencedActors.length,
+  });
+  const account = await loadAuthorizationAccount(tx, input.caller.userId);
+  const [row] = await tx
+    .select()
+    .from(rooms)
+    .where(eq(rooms.id, input.roomId))
+    .for('update');
+  if (!row) throw createAppError('NOT_FOUND');
+  const { state, drawSeed } = await roomFacts(tx, row);
+  if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
+  if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
+    throw new RoomMoved('Cast changed while acquiring authority');
+  if (state.changeVersion !== prepared.changeVersion)
+    throw new RoomMoved('Room changed while preparing consent');
+  const now = await transactionNow(tx);
+  const target = input.targetActorId
+    ? await actorFact(tx, input.targetActorId)
+    : null;
+  // FOR SHARE: a concurrent publication (FOR UPDATE on the format
+  // row) serializes with this selection, so the policy judges facts
+  // that hold at commit.
+  const formatFacts = input.formatTuple
+    ? await readFormatSelectionFacts(tx, input.formatTuple)
+    : null;
+  const outcome = execute(
+    state,
+    now,
+    target,
+    account,
+    await drawFacts(tx, input.type, state, drawSeed),
+    formatFacts,
+  );
+  if (!outcome.ok)
+    throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
+  const next = outcome.mutation.state;
+  const roundRef = await persistRoomMutation(
+    tx,
+    outcome.mutation,
+    input.roundId,
+    now,
+    true,
+    storedStrikes(state),
+  );
+  await reserveBotFreeze(tx, outcome.mutation, input.roundId, botAdmission);
+  const receipt: RoomCommandReceipt = {
+    commandId: input.commandId,
+    roomId: next.id,
+    resultingVersion: next.version,
+    roundRef,
+    replayed: false,
+  };
+  await acceptCommand(
+    tx,
+    receipt,
+    input.actorId,
+    input.payloadDigest,
+    input.type,
+    now,
+    next.changeVersion,
+  );
+  return receipt;
+}
+
+/** The seed, plus new-draw facts only for `start-pre-round`. */
+const drawFacts = async (
+  tx: Tx,
+  type: string,
+  state: RoomAssemblyState,
+  seed: string | null,
+): Promise<RoomDrawFacts> => ({
+  seed,
+  ...(type === 'start-pre-round'
+    ? await drawStartFacts(tx, state)
+    : { bank: null, exclusions: [] }),
+});
+const storedStrikes = (state: RoomAssemblyState) =>
+  state.resolutionDraw?.strikes.length ?? 0;
 
 const refusalCode = (refusal: string) =>
   refusal === 'host-required'
@@ -169,7 +221,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     .from(rooms)
     .where(eq(rooms.id, input.roomId));
   if (!preparationRow) throw createAppError('NOT_FOUND');
-  const prepared = await roomState(tx, preparationRow);
+  const { state: prepared, drawSeed } = await roomFacts(tx, preparationRow);
   if (!input.authorizeRead(prepared, preparationAccount))
     throw createAppError('NOT_FOUND');
   if (input.caller.actorId !== input.actorId)
@@ -186,6 +238,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     prepared,
     await transactionNow(tx),
     preparationAccount,
+    drawSeed,
   );
   return { prepared, execute } as const;
 }

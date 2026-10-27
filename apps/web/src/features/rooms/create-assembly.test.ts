@@ -103,3 +103,37 @@ test('invalid create selections refuse before transport; server refusals never b
     ],
   });
 });
+
+test('a striking format leaves the resolution empty; its refusals name the settings (PR #472 review)', async () => {
+  const posted: unknown[] = [];
+  const empty = form();
+  empty.set('topic', '   ');
+  await createAssembly(async (_path, init) => {
+    posted.push(JSON.parse(String(init.body)).topic);
+    return Response.json(
+      { receipt: { roomId: 'i'.repeat(24) }, view: assemblySnapshot },
+      { status: 201 },
+    );
+  }, empty);
+  const refused = async (refusal: string) =>
+    createAssembly(
+      async () => Response.json({ refusal }, { status: 409 }),
+      form(),
+    );
+  assert({
+    given:
+      'an empty resolution, then a topic that does not fit the format and a catalog preset that moved on',
+    should:
+      'post no topic for the strike to fill, and explain both refusals as settings, never as a replay',
+    actual: [
+      posted,
+      await refused('illegal-config'),
+      await refused('format-unavailable'),
+    ],
+    expected: [
+      [null],
+      { kind: 'refused', reason: 'settings' },
+      { kind: 'refused', reason: 'settings' },
+    ],
+  });
+});

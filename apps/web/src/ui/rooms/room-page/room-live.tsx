@@ -4,16 +4,24 @@ import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
-import type { RoomCastChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCastChoice,
+  RoomCatalogChoice,
+  RoomView,
+  RoomRefusal,
+} from '@daisy/protocol';
 import { systemScheduler } from '../../../features/realtime/browser-adapters';
 import { browserSyncEdges } from '../../../features/resource-sync/browser';
-import type { RoomFormState } from '../../../features/rooms/command-answer';
+import {
+  commandRefusalText,
+  type RoomFormState,
+} from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import {
-  prepDeadline,
   presentedView,
+  roomDeadline,
   seedRoomSync,
 } from '../../../features/rooms/room-sync';
 import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
@@ -25,6 +33,8 @@ import { RoomSetup } from './room-setup';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
+import { RoomStrike } from './room-strike';
+import { RoomStrikeReveal } from './room-strike-reveal';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -35,10 +45,12 @@ type Props = {
   readonly actorId: string;
   readonly viewerLabel: string;
   readonly bots: readonly RoomCastChoice[];
+  /** The picker's catalog for Room setup (FMT-3). */
+  readonly choices: readonly RoomCatalogChoice[];
   /** The realtime endpoint, or null when realtime is not configured. */
   readonly socketUrl: string | null;
-  /** A native post was refused and returned here with the notice. */
-  readonly refused: boolean;
+  /** A native post was refused and returned here with the notice and its reason. */
+  readonly refusal: { readonly reason: RoomRefusal | null } | null;
   readonly commandAction: FormAction<RoomFormState>;
   readonly detailsAction: FormAction<RoomFormState>;
   readonly settingsAction: FormAction<RoomFormState>;
@@ -82,7 +94,7 @@ export function RoomLive(props: Props) {
     () => driver && { accepted: driver.accepted, signal: driver.signal },
     [driver],
   );
-  const now = useNow(prepDeadline(sync) !== null, sync.readAt);
+  const now = useNow(roomDeadline(sync) !== null, sync.readAt);
   const view = useMemo(() => presentedView(sync, now), [sync, now]);
   const { ids } = sync.value;
   return (
@@ -96,18 +108,25 @@ export function RoomLive(props: Props) {
       {view.capabilities.canEdit ? (
         <RoomSetup
           view={view}
+          choices={props.choices}
           commandIds={{ details: ids.header.details, settings: ids.settings }}
+          formatIds={ids.format}
           detailsAction={props.detailsAction}
           settingsAction={props.settingsAction}
+          commandAction={props.commandAction}
         />
       ) : null}
+      <RoomStrike
+        view={view}
+        actorId={props.actorId}
+        action={props.commandAction}
+        strikeIds={ids.strikes}
+      />
       <RoomResolution view={view} />
+      <RoomStrikeReveal view={view} actorId={props.actorId} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
-      {props.refused ? (
-        <p role="alert">
-          The command was not acknowledged. Review the current room and try
-          again.
-        </p>
+      {props.refusal ? (
+        <p role="alert">{commandRefusalText(props.refusal.reason)}</p>
       ) : null}
       <AssemblyDeviceReadiness
         side={
@@ -123,8 +142,9 @@ export function RoomLive(props: Props) {
           </>
         }
         prep={
-          view.definition.configurable.preRoundPrep &&
-          view.config.preRoundPrep.enabled ? (
+          view.config.resolutionDraw.enabled ||
+          (view.definition.configurable.preRoundPrep &&
+            view.config.preRoundPrep.enabled) ? (
             <RoomPrep
               view={view}
               action={props.commandAction}

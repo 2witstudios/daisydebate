@@ -20,6 +20,7 @@ export function roomLaunchClaimProblems(input: BrowserRegistration) {
       '**/debate-room.e2e.ts',
       '**/round-commands.e2e.ts',
       '**/round-command-recovery.e2e.ts',
+      '**/resolution-strike.e2e.ts',
     ],
   });
 }

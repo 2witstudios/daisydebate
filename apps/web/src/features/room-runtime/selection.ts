@@ -1,88 +1,98 @@
-import type {
-  CompetitionType,
-  FormatDefinition,
-  RoomConfig,
-  RoomCreate,
-} from '@daisy/protocol';
-import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import type { FormatSelectionFacts, RoomCreate } from '@daisy/protocol';
+import {
+  decideFormatSelection,
+  resolveRoomConfiguration,
+} from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
-import type { RoomCatalogChoice } from '@daisy/protocol';
 import type { Store } from './operations';
+
+/**
+ * Everything a create persists from a selection decision. The create
+ * transaction admits only an identical fingerprint, so a field added here
+ * is rechecked at once.
+ */
+const fingerprint = (
+  decision: Extract<ReturnType<typeof decideFormatSelection>, { ok: true }>,
+) =>
+  JSON.stringify([
+    decision.definition,
+    decision.config,
+    decision.basis,
+    decision.rankedPresetVersion,
+  ]);
+
+/**
+ * What a create body selects, decided by the one selection policy (FMT-1):
+ * a catalog format at its canonical preset, ranked play at an eligible
+ * preset, or a private custom definition. The client never supplies a
+ * catalog config or a basis.
+ */
 export async function resolveRoomSelection(
   body: RoomCreate,
-  choices: readonly RoomCatalogChoice[],
-  store: Store,
+  store: Pick<Store, 'getFormatSelectionFacts'>,
   ids: IdGenerator,
 ) {
   const selection = body.selection;
-  let definition: FormatDefinition;
-  let config: RoomConfig;
-  let formatId: string;
-  let formatVersion: number;
-  let presetVersion: number | null = null;
-  let competitionType: CompetitionType;
   if (selection.kind === 'custom') {
-    definition = selection.definition;
-    config = selection.config;
-    formatId = ids.next();
-    formatVersion = 1;
-    competitionType = selection.competitionType;
-  } else {
-    const choice = choices.find(
-      (choice) =>
-        choice.formatId === selection.formatId &&
-        choice.formatVersion === selection.formatVersion,
+    const resolved = resolveRoomConfiguration(
+      selection.definition,
+      selection.config,
     );
-    if (!choice) throw createAppError('VALIDATION');
-    definition = choice.definition;
-    formatId = choice.formatId;
-    formatVersion = choice.formatVersion;
-    if (selection.kind === 'ranked') {
-      const preset = await rankedPreset(
-        store,
-        definition,
-        formatId,
-        formatVersion,
-        selection,
-      );
-      config = preset.config;
-      presetVersion = preset.version;
-      competitionType = 'ranked';
-    } else {
-      config = selection.config;
-      competitionType = selection.competitionType;
-    }
+    if (!resolved.ok) throw createAppError('VALIDATION', resolved.refusal.kind);
+    return {
+      selection,
+      definition: selection.definition,
+      config: selection.config,
+      formatId: ids.next(),
+      formatVersion: 1,
+      presetVersion: null,
+      basis: null,
+      competitionType: selection.competitionType,
+      resolved,
+      recheck: null,
+    };
   }
-  const resolved = resolveRoomConfiguration(definition, config);
-  if (!resolved.ok) throw createAppError('VALIDATION', resolved.refusal.kind);
+  const tuple = {
+    formatId: selection.formatId,
+    formatVersion: selection.formatVersion,
+    presetVersion: selection.presetVersion,
+  };
+  const request = {
+    ...tuple,
+    intent:
+      selection.kind === 'ranked'
+        ? ('create-ranked' as const)
+        : ('create-casual' as const),
+    basis: null,
+  };
+  const decision = decideFormatSelection(
+    request,
+    await store.getFormatSelectionFacts(tuple),
+  );
+  if (!decision.ok) throw createAppError('VALIDATION', decision.refusal);
+  const decided = fingerprint(decision);
   return {
     selection,
-    definition,
-    config,
-    formatId,
-    formatVersion,
-    presetVersion,
-    competitionType,
-    resolved,
+    definition: decision.definition,
+    config: decision.config,
+    formatId: selection.formatId,
+    formatVersion: selection.formatVersion,
+    presetVersion: decision.rankedPresetVersion,
+    basis: decision.basis,
+    competitionType:
+      selection.kind === 'ranked' ? ('ranked' as const) : ('casual' as const),
+    resolved: decision.resolved,
+    /**
+     * The create transaction rereads the facts FOR SHARE and admits only an
+     * identical decision, so a publication in between refuses the create.
+     */
+    recheck: {
+      tuple,
+      admits: (facts: FormatSelectionFacts | null) => {
+        const again = decideFormatSelection(request, facts);
+        return again.ok && fingerprint(again) === decided;
+      },
+    },
   };
 }
-const rankedPreset = async (
-  store: Store,
-  definition: FormatDefinition,
-  formatId: string,
-  formatVersion: number,
-  selection: Extract<RoomCreate['selection'], { kind: 'ranked' }>,
-) => {
-  const preset = await store.getCurrentPreset(formatId);
-  if (
-    !preset ||
-    preset.version !== selection.presetVersion ||
-    preset.formatVersion !== formatVersion ||
-    definition.seats.affirmative !== 1 ||
-    definition.seats.negative !== 1 ||
-    definition.seats.judge !== 1
-  )
-    throw createAppError('VALIDATION');
-  return preset;
-};
