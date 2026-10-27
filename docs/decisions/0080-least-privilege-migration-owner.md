@@ -57,16 +57,21 @@ NOCREATEROLE NOREPLICATION NOBYPASSRLS`. It owns the participant
 
 - The `SECURITY DEFINER` functions run as the table owner, which reads
   everything they read and nothing beyond the participant database.
+- **The invariant is tested.** `packages/db/integration/least-privilege-migrator.integration.ts`
+  runs in CI on every change. It pre-creates the runtime roles, then
+  migrates an empty database as a fresh `NOSUPERUSER NOCREATEDB NOCREATEROLE`
+  login that owns it. It asserts that every migration applies and that the
+  login owns every migrated relation, function, type, schema and
+  `btree_gist`. Two kinds of object are owned on the database owner's behalf
+  instead: the extension's own members (the bootstrap superuser runs a
+  trusted extension's script) and schema `public` (`pg_database_owner`).
+  A migration that needs `CREATEROLE`, an ownership change or a superuser
+  function fails the test, not the staging release. An unguarded
+  `CREATE ROLE` was checked as a negative control.
 - Staging applied this on 2026-10-27: `ALTER ROLE daisy_migrator NOSUPERUSER
-NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`. Proofs, all as the
-  reduced role:
-  - A full 37-migration run from an empty database it owned. The result
-    matched staging: 37 journal entries, 77 tables, 235 functions, every
-    object owned by `daisy_migrator`, and `btree_gist` installed.
-  - A no-op run against staging.
-  - The authorization functions called as `daisy_web`.
-  - The gated release v100 (12:43:47Z, deploy-staging run 40505512868)
-    applied the 38th migration, raising the journal to 38.
+NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`. The gated release v100
+  (12:43:47Z, deploy-staging run 40505512868) then applied the 38th
+  migration as the reduced role.
 - Production must be provisioned the same way: create the owner with
   `CREATE ROLE ... LOGIN` and `CREATE DATABASE ... OWNER`, or reduce an
   attached superuser with the `ALTER ROLE` above. Production also needs the

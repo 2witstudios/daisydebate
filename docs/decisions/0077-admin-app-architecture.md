@@ -211,11 +211,20 @@ operator API (ADR 0079), with this client:
     resend idempotent.
   - When that operator is no longer allowed, nothing is signed, and the
     denial is audited. A NOT_FOUND only means the receipt has not committed
-    yet. A PUT the client gave up on can still land while its signature is
-    valid, which is up to the operator API's 30 s clock skew after the 5 s
-    client timeout. So the command stays open until that window has passed,
-    and only then closes as `abandoned`. At that point it is true that it
-    was never applied (ISSUE-708).
+    yet. A PUT the client gave up on can still commit until its deadline
+    (ADR 0079 §5).
+  - **The abandon bound.** The participant admits a timestamp up to skew
+    ahead of its own clock, and commits only while its clock is within skew
+    of that timestamp, inside a bounded transaction. So by the admin
+    clock, the latest PUT for a command can commit no later than
+    `last_signed_at + 2 × skew + commandBoundMs` (65 s).
+  - **Recording the signing.** Every send records its signing time in
+    `pending_commands.last_signed_at` before the PUT is signed with that
+    exact time. This holds for the first send and for every resend, so a
+    crash can never leave an earlier time.
+  - **Closing as `abandoned`.** The command stays open until that bound has
+    passed, and only then closes as `abandoned`. That is true at that point,
+    because nothing can still apply it (ISSUE-708; the A1 review of #471).
   - A read that returns `unknown` (the participant app is unreachable) stops
     the batch, and the rest stay open. A page load never waits out every call.
 - **Screens.** The accounts screen has Pending, Approved and Revoked tabs with

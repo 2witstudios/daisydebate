@@ -10,13 +10,11 @@ import {
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
 import { operatorLimits } from '@daisy/protocol/operator';
-import {
-  OPERATOR_TIMEOUT_MS,
-  type OperatorClient,
-} from '../operator-client/client';
+import type { OperatorClient } from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
 import {
   intentAnchor,
+  markSigned,
   openCommands,
   openPendingCommand,
   resolvePendingCommand,
@@ -129,14 +127,25 @@ async function recordOutcome(
   });
 }
 
-const send = (deps: CommandDeps, command: PendingCommand, anchor: string) =>
-  deps.client.setBetaAccess(command.operatorId, command.targetUserId, {
-    v: 1,
-    commandId: command.commandId,
-    state: command.desiredState,
-    expectedRevision: command.expectedRevision,
-    adminAuditHead: anchor,
-  });
+/** Sends the PUT signed at `signedAt`, which the caller has already recorded. */
+const send = (
+  deps: CommandDeps,
+  command: PendingCommand,
+  anchor: string,
+  signedAt: string,
+) =>
+  deps.client.setBetaAccess(
+    command.operatorId,
+    command.targetUserId,
+    {
+      v: 1,
+      commandId: command.commandId,
+      state: command.desiredState,
+      expectedRevision: command.expectedRevision,
+      adminAuditHead: anchor,
+    },
+    signedAt,
+  );
 
 export async function submitBetaAccess(
   deps: CommandDeps,
@@ -158,7 +167,7 @@ export async function submitBetaAccess(
       at: now,
     });
   });
-  const call = await send(deps, command, intent.hash);
+  const call = await send(deps, command, intent.hash, now);
   await recordOutcome(deps, command, 'command.outcome', auditedOutcome(call));
   return commandView(call);
 }
@@ -175,11 +184,14 @@ const settledBy = (recorded: boolean): Reconciled => ({
 });
 
 /**
- * How long a NOT_FOUND read-back may still hide a PUT in flight: a signed
- * request stays valid for the participant's clock skew, and the client may
- * have given up on it after its own timeout (ISSUE-708).
+ * How long after its latest signing a NOT_FOUND read-back may still hide a
+ * PUT that will commit (ISSUE-708, ADR 0077). The participant admits a
+ * timestamp up to skew ahead of its own clock and commits only while its
+ * clock is within skew of it, so in this clock the last commit starts by
+ * signing + 2 × skew, and finishes within the participant's command bound.
  */
-export const ABANDON_AFTER_MS = operatorLimits.skewMs + OPERATOR_TIMEOUT_MS;
+export const ABANDON_AFTER_MS =
+  2 * operatorLimits.skewMs + operatorLimits.commandBoundMs;
 
 /**
  * A command the participant has not seen: resend it under its own operator
@@ -193,7 +205,7 @@ async function resendOrAbandon(
 ): Promise<Reconciled> {
   const refused = await updateRefusal(deps, command.operatorId);
   const inFlight =
-    Date.parse(deps.clock.now()) - Date.parse(command.openedAt) <
+    Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
     ABANDON_AFTER_MS;
   if (refused !== null && inFlight) return { kind: 'open' };
   if (refused !== null)
@@ -206,7 +218,9 @@ async function resendOrAbandon(
     );
   const anchor = await intentAnchor(deps.db, command.commandId);
   if (anchor === null) return { kind: 'open' };
-  const audited = auditedOutcome(await send(deps, command, anchor));
+  const signedAt = deps.clock.now();
+  await markSigned(deps.db, command.commandId, signedAt);
+  const audited = auditedOutcome(await send(deps, command, anchor, signedAt));
   const recorded = await recordOutcome(
     deps,
     command,

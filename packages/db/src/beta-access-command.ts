@@ -4,6 +4,7 @@ import {
   type BetaAccessCommandResult,
   type BetaAccessState,
 } from '@daisy/protocol';
+import { operatorLimits } from '@daisy/protocol/operator';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
@@ -26,6 +27,8 @@ export type BetaAccessCommandInput = {
   readonly requestDigest: string;
   readonly adminAuditHead: string;
   readonly nextId: () => string;
+  /** True while the signed request may still commit (ADR 0079, checked last). */
+  readonly live: () => boolean;
   readonly authorize: (target: AccountFact | null) => boolean;
   readonly decide: (
     current: {
@@ -170,6 +173,11 @@ export async function runBetaAccessCommand(
   input: BetaAccessCommandInput,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<BetaAccessCommandOutcome> {
+  // Every statement, COMMIT included, is bounded, so a command that passes
+  // its deadline check commits within the bound or not at all.
+  await tx.execute(
+    sql.raw(`set local statement_timeout = ${operatorLimits.commandBoundMs}`),
+  );
   // One command id is one command, whatever its target: a concurrent reuse
   // waits here and then meets the receipt as a conflict, not a key error.
   await tx.execute(
@@ -188,5 +196,8 @@ export async function runBetaAccessCommand(
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
       'account.beta_access.update', ${input.targetUserId},
       ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${input.adminAuditHead})`);
+  // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
+  // writes nothing, so an admin that waited out the deadline may abandon it.
+  if (!input.live()) throw createAppError('CONFLICT');
   return { kind: 'applied', result };
 }

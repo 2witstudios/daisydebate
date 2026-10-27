@@ -21,6 +21,25 @@ const { db } = suiteDatabase();
 const routes = (stub: { received: readonly { route: string }[] }) =>
   stub.received.map(({ route }) => route);
 
+/** Disables the command's operator; a second owner, returned, reconciles. */
+async function disableForSecondOwner(
+  deps: Awaited<ReturnType<typeof setupCommands>>['deps'],
+  operatorId: string,
+) {
+  await db
+    .update(operators)
+    .set({ disabledAt: new Date(deps.clock.now()) })
+    .where(eq(operators.id, operatorId));
+  const viewer = deps.ids.next();
+  await db.insert(operators).values({
+    id: viewer,
+    displayName: 'second owner',
+    role: 'owner',
+    createdAt: new Date(deps.clock.now()),
+  });
+  return viewer;
+}
+
 test('an approval refused for a missing age record settles and is never resent', async () => {
   const { deps, stub, operatorId, approve } = await setupCommands(db, {
     accounts: [{ ...pending(), ageAdmitted: false }],
@@ -53,24 +72,14 @@ test('a lost command whose operator is disabled is abandoned only once its PUT c
   const { deps, stub, operatorId, approve, advance } = await setupCommands(db);
   stub.lose('lose-before-apply');
   await approve();
-  await db
-    .update(operators)
-    .set({ disabledAt: new Date('2026-10-26T12:00:00.000Z') })
-    .where(eq(operators.id, operatorId));
-  const viewer = deps.ids.next();
-  await db.insert(operators).values({
-    id: viewer,
-    displayName: 'second owner',
-    role: 'owner',
-    createdAt: new Date(deps.clock.now()),
-  });
+  const viewer = await disableForSecondOwner(deps, operatorId);
   const inFlight = await reconcileOpenCommands(deps, viewer);
   const openWhileInFlight = await openCount(db);
   advance(ABANDON_AFTER_MS);
   const settled = await reconcileOpenCommands(deps, viewer);
   assert({
     given:
-      'a command lost before it arrived, its operator then disabled, and a second owner reconciling inside and then past the skew-plus-timeout window',
+      'a command lost before it arrived, its operator then disabled, and a second owner reconciling inside and then past the window its PUT could still commit in',
     should:
       'read it back as the viewer and never resend; keep it open while its PUT could still land, then close it as abandoned',
     actual: [
@@ -95,6 +104,41 @@ test('a lost command whose operator is disabled is abandoned only once its PUT c
       { settled: 1, open: 0 },
       ['command.reconciled:abandoned:operator_disabled'],
       0,
+    ],
+  });
+});
+
+test('a resend restarts the abandon window from its own signing (ADR 0077, A1)', async () => {
+  const { deps, stub, operatorId, approve, advance } = await setupCommands(db);
+  stub.lose('lose-before-apply');
+  stub.lose('lose-before-apply');
+  await approve();
+  // Long after the intent, the still-allowed operator's command is resent,
+  // and that resend is lost too.
+  advance(2 * ABANDON_AFTER_MS);
+  const resent = await reconcileOpenCommands(deps, operatorId);
+  const viewer = await disableForSecondOwner(deps, operatorId);
+  advance(ABANDON_AFTER_MS - 1);
+  const insideResendWindow = await reconcileOpenCommands(deps, viewer);
+  advance(1);
+  const pastResendWindow = await reconcileOpenCommands(deps, viewer);
+  assert({
+    given:
+      'a resend signed long after the intent and lost, then its operator disabled',
+    should:
+      'keep the command open until the resend itself can no longer land, then abandon it',
+    actual: [routes(stub), resent, insideResendWindow, pastResendWindow],
+    expected: [
+      [
+        'setBetaAccess',
+        'readCommand',
+        'setBetaAccess',
+        'readCommand',
+        'readCommand',
+      ],
+      { settled: 0, open: 1 },
+      { settled: 0, open: 1 },
+      { settled: 1, open: 0 },
     ],
   });
 });

@@ -12,7 +12,7 @@ import {
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
+import type { ErrorReporter } from '@daisy/observability';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
   betaAccessCommandSchema,
@@ -58,8 +58,11 @@ export type OperatorApiDependencies = {
   readonly store: Store;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
-  /** ADR 0037: only the scrubbed reporter sees an unexpected raw error. */
-  readonly reporter?: ErrorReporter;
+  /**
+   * ADR 0037: only the scrubbed reporter sees an unexpected raw error.
+   * Required, so the composition root chooses it (ISSUE-681).
+   */
+  readonly reporter: ErrorReporter;
 };
 
 const cursorOf = (value: string | undefined) => {
@@ -125,11 +128,17 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       capabilities: operatorService.capabilities,
     };
     try {
-      return json(200, await dispatch(deps, principal, route, url, body));
+      return json(
+        200,
+        await dispatch(deps, principal, route, url, {
+          body,
+          signedAtMs: verified.timestampMs,
+        }),
+      );
     } catch (error) {
       if (isAppError(error)) return refuse('handler', error.code);
       // An unexpected failure is a defect, not a refusal (ISSUE-681).
-      (deps.reporter ?? noopErrorReporter).capture(error, {
+      deps.reporter.capture(error, {
         requestId: deps.nextId(),
         route: `operator.${route.route}`,
         errorCode: 'INTERNAL',
@@ -162,13 +171,13 @@ function dispatch(
   principal: AuthorizationPrincipal,
   route: NonNullable<ReturnType<typeof matchOperatorRoute>>,
   url: URL,
-  body: Uint8Array,
+  request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
   switch (route.route) {
     case 'listAccounts':
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
-      return setBetaAccess(deps, principal, route.id!, body);
+      return setBetaAccess(deps, principal, route.id!, request);
     case 'readCommand':
       return readCommand(deps, principal, route.id!);
   }
@@ -252,7 +261,10 @@ async function setBetaAccess(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
   targetUserId: string,
-  body: Uint8Array,
+  {
+    body,
+    signedAtMs,
+  }: { readonly body: Uint8Array; readonly signedAtMs: number },
 ) {
   if (principal.kind !== 'operator_service')
     throw createAppError('AUTHORIZATION');
@@ -274,6 +286,8 @@ async function setBetaAccess(
     requestDigest: commandDigest(deps, principal, targetUserId, command.data),
     adminAuditHead: command.data.adminAuditHead,
     nextId: deps.nextId,
+    // The verifier admitted it within skew; it commits only while still so.
+    live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
     authorize: (account) =>
       requireCapability(principal, 'account.beta_access.update', account),
     decide: (current, ageBand) =>

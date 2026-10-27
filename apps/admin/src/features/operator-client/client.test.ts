@@ -20,6 +20,8 @@ const config = {
   audience: 'daisy-web:local',
 };
 const now = '2026-10-27T12:00:00.000Z';
+/** A PUT's signing time, recorded before the send (ADR 0077), not the clock's now. */
+const signedAt = '2026-10-27T11:59:58.000Z';
 
 /** Each call draws the next byte pattern, so nonces are distinguishable. */
 const countingRandom = () => {
@@ -79,7 +81,7 @@ const headersOf = (init: RequestInit) =>
 describe('the signing operator client', () => {
   test('signs each request with the shared signer', async () => {
     const { client, sent } = clientWith(() => json(200, applied));
-    await client.setBetaAccess(operatorRef, userId, command);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
     const [request] = sent;
     const body = new TextEncoder().encode(String(request?.init.body));
     const expected = signOperatorRequest(
@@ -89,7 +91,7 @@ describe('the signing operator client', () => {
         path: `/operator/v1/accounts/${userId}/beta-access`,
         query: [],
         keyId: config.keyId,
-        timestamp: String(Date.parse(now)),
+        timestamp: String(Date.parse(signedAt)),
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
         operatorRef,
         body,
@@ -99,8 +101,9 @@ describe('the signing operator client', () => {
     );
     const headers = headersOf(request?.init ?? {});
     assert({
-      given: 'a beta access command',
-      should: 'send the canonical signature headers and the JSON body',
+      given: 'a beta access command recorded as signed two seconds ago',
+      should:
+        'sign it at that recorded time with the canonical headers and send the JSON body',
       actual: {
         url: request?.url,
         method: request?.init.method,
@@ -150,14 +153,15 @@ describe('the signing operator client', () => {
         keyId: config.keyId,
         operatorRef,
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
+        timestampMs: Date.parse(now),
       },
     });
   });
 
   test('a retry is signed with a fresh nonce', async () => {
     const { client, sent } = clientWith(() => json(200, applied));
-    await client.setBetaAccess(operatorRef, userId, command);
-    await client.setBetaAccess(operatorRef, userId, command);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
     const nonces = sent.map(({ init }) => headersOf(init)['daisy-nonce']);
     assert({
       given: 'the same command sent twice',
@@ -175,6 +179,7 @@ describe('operator response outcomes', () => {
         operatorRef,
         userId,
         command,
+        signedAt,
       )
     ).kind;
 
@@ -186,6 +191,7 @@ describe('operator response outcomes', () => {
         operatorRef,
         userId,
         command,
+        signedAt,
       ),
       expected: { kind: 'ok', value: applied },
     });
@@ -207,7 +213,7 @@ describe('operator response outcomes', () => {
       actual.push(
         await clientWith(() =>
           json(status, { error: { code } }),
-        ).client.setBetaAccess(operatorRef, userId, command),
+        ).client.setBetaAccess(operatorRef, userId, command, signedAt),
       );
     assert({
       given: 'each refusal the API makes before or instead of a change',
@@ -247,7 +253,12 @@ describe('operator response outcomes', () => {
         }),
       1,
     );
-    const outcome = await client.setBetaAccess(operatorRef, userId, command);
+    const outcome = await client.setBetaAccess(
+      operatorRef,
+      userId,
+      command,
+      signedAt,
+    );
     assert({
       given: 'a participant that never answers, with a 1 ms timeout',
       should:

@@ -179,6 +179,16 @@ target's account fence:
 
 A refused command writes nothing.
 
+**The commit deadline.** A request is admitted only when its signed
+timestamp is within skew of the participant's clock. Its command commits
+only while that is still true: the check runs last, after the locks and the
+writes, and a late command is refused with `CONFLICT`, writing nothing.
+Every statement in the transaction, `COMMIT` included, runs under
+`statement_timeout = operatorLimits.commandBoundMs` (5 s). So no PUT can
+apply later than its signed timestamp + skew + that bound by the
+participant's clock. A PUT delayed behind a lock is proven to write nothing
+by `packages/db/integration/operator-command-deadline.integration.ts`.
+
 **Reconciliation.** `GET /operator/v1/commands/{id}` answers the stored
 result and the approval mail's state. The admin app uses it to settle a
 command whose response it never received.

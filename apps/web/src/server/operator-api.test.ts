@@ -1,3 +1,4 @@
+import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { App } from './app';
 import { startOperatorApi } from './operator-api';
@@ -33,7 +34,7 @@ const outcomeOf = (promise: Promise<unknown>) =>
 
 test('the operator listener stays off without keys and refuses a bad configuration (ISSUE-684)', async () => {
   const off = appWith({ OPERATOR_API_KEYS: undefined });
-  const disabled = await startOperatorApi(off.app);
+  const disabled = await startOperatorApi(off.app, noopErrorReporter);
   assert({
     given: 'no OPERATOR_API_KEYS, then malformed keys',
     should:
@@ -42,7 +43,10 @@ test('the operator listener stays off without keys and refuses a bad configurati
       disabled,
       events: off.events,
       malformed: await outcomeOf(
-        startOperatorApi(appWith({ OPERATOR_API_KEYS: 'not-a-key' }).app),
+        startOperatorApi(
+          appWith({ OPERATOR_API_KEYS: 'not-a-key' }).app,
+          noopErrorReporter,
+        ),
       ),
     },
     expected: {
@@ -55,7 +59,7 @@ test('the operator listener stays off without keys and refuses a bad configurati
 
 test('a listener that cannot bind fails startup instead of running without it (ISSUE-684)', async () => {
   const started = appWith({ OPERATOR_API_KEYS: keys });
-  const listener = await startOperatorApi(started.app);
+  const listener = await startOperatorApi(started.app, noopErrorReporter);
   const taken = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -65,6 +69,7 @@ test('a listener that cannot bind fails startup instead of running without it (I
     const clash = await outcomeOf(
       startOperatorApi(
         appWith({ OPERATOR_API_KEYS: keys, OPERATOR_PORT: taken.port }).app,
+        noopErrorReporter,
       ),
     );
     assert({
