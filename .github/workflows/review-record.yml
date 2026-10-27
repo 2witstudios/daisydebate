@@ -14,14 +14,23 @@ on:
   # Re-verify on demand: gh api repos/{repo}/dispatches -f event_type=review-record -F 'client_payload[pr]=N'
   repository_dispatch:
     types: [review-record]
+  # Queue runs execute candidate code without access to the review App. Only
+  # this default-branch workflow handles the resulting event; no artifacts or
+  # queue code are downloaded/executed by the privileged verifier.
+  workflow_run:
+    workflows: [Browser E2E]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr:
         description: Pull request number
-        required: true
+        required: false
+      queue_run:
+        description: Browser E2E merge_group run id (exact queue record must be linked on the PR)
+        required: false
 permissions: {}
 concurrency:
-  group: review-record-${{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr || inputs.pr }}
+  group: review-record-${{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr || inputs.pr || github.event.workflow_run.head_sha || inputs.queue_run }}
   cancel-in-progress: false
 jobs:
   # Until the owner creates the review-record App (GRD-6.2), verify is
@@ -29,7 +38,9 @@ jobs:
   # sets a status, so nothing reports success without a verified record.
   gate:
     name: Check the review-record App is configured
-    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    if: >-
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request) &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.event == 'merge_group')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review-record
@@ -85,9 +96,18 @@ jobs:
           permission-pull-requests: read
           permission-issues: read
       - name: Verify the record and set the status
+        if: github.event_name != 'workflow_run' && inputs.queue_run == ''
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
           CI_READ_TOKEN: ${{ github.token }}
           REVIEW_PR: ${{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr || inputs.pr }}
         run: bun scripts/review-record.ts
+      - name: Verify exact merge-queue candidate record
+        if: github.event_name == 'workflow_run' || inputs.queue_run != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
+          CI_READ_TOKEN: ${{ github.token }}
+          QUEUE_RUN_ID: ${{ github.event.workflow_run.id || inputs.queue_run }}
+        run: bun scripts/merge-queue-review.ts

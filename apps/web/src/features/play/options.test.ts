@@ -1,11 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationSlugs } from '../coming-soon/destinations';
-import {
-  lobbyHref,
-  openRoomHref,
-  playOptions,
-  playOptionsFor,
-} from './options';
+import { liveHref } from '../coming-soon/launch';
+import { openRoomHref, playOptions, playOptionsFor } from './options';
 
 setupRitewayBun();
 
@@ -43,7 +39,9 @@ describe('playOptions', () => {
         options[0]?.id,
         options.find((option) => option.id === 'room')?.href,
         options.some((option) => option.comingSoon),
-        options.some((option) => ['/play', lobbyHref].includes(option.href)),
+        options.some((option) =>
+          ['/play', liveHref('lobby')].includes(option.href),
+        ),
       ],
       expected: ['ranked', openRoomHref, false, false],
     });

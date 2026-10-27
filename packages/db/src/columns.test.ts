@@ -63,6 +63,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
+        'operator_command_receipts.result',
         'outbox.payload',
         'room_commands.result',
         'room_resolution_draw_inputs.inputs',

@@ -1,6 +1,5 @@
-import type { RoomListQuery } from '@daisy/protocol';
+import { roomListDefaultPageSize, type RoomListQuery } from '@daisy/protocol';
 import {
-  defaultPageSize,
   isFiltered,
   lobbyHref,
   lobbyModeChoices,
@@ -67,7 +66,7 @@ export function LobbyFilters({
       {query.status ? (
         <input type="hidden" name="status" value={query.status} />
       ) : null}
-      {query.pageSize === defaultPageSize ? null : (
+      {query.pageSize === roomListDefaultPageSize ? null : (
         <input type="hidden" name="pageSize" value={query.pageSize} />
       )}
       <TabLinks

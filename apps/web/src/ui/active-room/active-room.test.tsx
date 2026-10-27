@@ -99,7 +99,7 @@ describe('ActiveRoomBar', () => {
     );
     assert({
       given: 'a live Room rendered outside a page route',
-      should: 'render one link to the Room naming it and Live',
+      should: 'render one link to the Room naming it and In progress',
       actual: [
         html.includes(`href="${roomHref}"`),
         html.includes('Tuesday night'),
@@ -107,6 +107,23 @@ describe('ActiveRoomBar', () => {
         html.includes('Return to room'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('sits on the room tint in page ink, not brand colours', () => {
+    const html = renderToStaticMarkup(<ActiveRoomBar room={room} />);
+    const bar = /<a[^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+    assert({
+      given:
+        'the bar on every other shell page (forest on butter is 3.01:1 in dark)',
+      should:
+        'draw page ink on the sky tint, the pair palette-contrast declares, and no forest or butter',
+      actual: [
+        /\bbg-hue-sky-soft\b/.test(bar),
+        /\btext-ink\b/.test(bar),
+        /\b(?:bg|text)-(?:forest|butter)\b/.test(html),
+      ],
+      expected: [true, true, false],
     });
   });
 });

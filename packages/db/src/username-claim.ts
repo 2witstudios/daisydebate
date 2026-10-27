@@ -4,6 +4,7 @@ import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isUniqueViolation } from './unique-violation';
+import { enrolPendingBetaAccess } from './beta-access';
 
 export type UsernameClaim = {
   readonly kind:
@@ -23,6 +24,7 @@ export type UsernameClaim = {
  * inserts exactly that shape (a signed-up user who never claims one) — so a
  * later claim keeps the existing actor rather than racing a unique
  * violation. A retry by the owner reports `unchanged` and inserts no actor.
+ * The first claim also puts the account on the beta list (ADR 0075).
  */
 export async function claimUsername(
   database: Pick<BunSQLDatabase, 'transaction'>,
@@ -48,6 +50,7 @@ export async function claimUsername(
             .insert(actors)
             .values({ id: nextActorId(), kind: 'human', userId: input.userId })
             .onConflictDoNothing({ target: actors.userId });
+          await enrolPendingBetaAccess(tx, input.userId, nextActorId);
           return { kind: 'claimed' } as const;
         }
         const [current] = await tx

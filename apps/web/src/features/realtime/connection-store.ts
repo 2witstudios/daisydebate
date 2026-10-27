@@ -4,6 +4,7 @@ import {
   PROTOCOL_VERSION,
   heartbeatMs,
 } from '@daisy/protocol';
+import { createActivityReport } from './presence-activity';
 import {
   createTopicSubscriptions,
   parseServerMessage,
@@ -63,6 +64,10 @@ export function createConnectionStore(
   let pingCounter = 0;
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
+  const activity = createActivityReport(
+    (frame) => socket?.send(frame),
+    deps.reportsPresence === true,
+  );
   const listeners = new Set<(state: ConnectionState) => void>();
   const topics = createTopicSubscriptions({
     send: (frame) => {
@@ -224,6 +229,7 @@ export function createConnectionStore(
       consecutiveAuthFailures = 0;
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
+      activity.ready();
       topics.reconnect();
       notify();
       topics.emit(frame);
@@ -344,6 +350,7 @@ export function createConnectionStore(
     resubscribeTopic: topics.resubscribe,
     connect,
     close,
+    reportActivity: (next) => activity.report(next, status === 'open'),
     notifyTokenRefreshed: () => {
       // Intentionally a no-op: a token refresh never reconnects a healthy
       // socket (RT-2.6a AC4). The seam exists so a caller has somewhere to

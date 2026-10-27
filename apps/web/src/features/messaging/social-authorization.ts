@@ -22,6 +22,10 @@ export function messagingSocialAuthorizationFence({
   readonly operation:
     | { readonly kind: 'block' }
     | {
+        readonly kind: 'friend';
+        readonly capability: 'social.friend.request' | 'social.friend.end';
+      }
+    | {
         readonly kind: 'dm' | 'private_group';
         readonly policy: SocialCreationPolicy;
       };
@@ -36,7 +40,7 @@ export function messagingSocialAuthorizationFence({
     const account =
       facts.accounts.find((row) => row?.actorId === input.actorId) ?? null;
     const contacts: readonly ContactAuthorizationFact[] = facts.contacts;
-    if (operation.kind === 'block') {
+    if (operation.kind === 'block' || operation.kind === 'friend') {
       if (contacts.length !== 1) throw createAppError('VALIDATION');
       const resource: ContactPairAuthorizationFact = {
         ...contacts[0]!,
@@ -44,7 +48,8 @@ export function messagingSocialAuthorizationFence({
       };
       requireMessagingAuthorization({
         principal,
-        capability: 'social.block',
+        capability:
+          operation.kind === 'block' ? 'social.block' : operation.capability,
         resource,
         context: {
           account,

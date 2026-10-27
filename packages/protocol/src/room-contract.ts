@@ -220,14 +220,17 @@ export type RoomMutationOutcome =
   | { readonly ok: true; readonly mutation: RoomMutation }
   | { readonly ok: false; readonly refusal: RoomRefusal };
 
-/** Provisional discovery resource-work settings; these are not Room capacity. */
 /** The discovery statuses a listing can be narrowed to. */
 export const roomListStatuses = ['open', 'starting', 'live'] as const;
 export type RoomListStatus = (typeof roomListStatuses)[number];
 
+/** The page size a listing query takes when it names none. */
+export const roomListDefaultPageSize = 20;
+
+/** Provisional discovery resource-work settings; these are not Room capacity. */
 export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
-  pageSize: z.int().min(1).max(50).default(20),
+  pageSize: z.int().min(1).max(50).default(roomListDefaultPageSize),
   q: z.string().trim().max(100).default(''),
   /**
    * The canonical Lobby filters, applied in the database before paging.
