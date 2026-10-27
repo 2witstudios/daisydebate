@@ -38,11 +38,17 @@ export const withJudgingJob = (
     jobs: ReturnType<typeof createRoundJudgingJobs>;
   }) => Promise<void>,
   completeness: 'complete' | 'incomplete' = 'complete',
+  beforeFreeze?: (
+    fixture: Fixture,
+    target: { roundId: string; judgeParticipantId: string },
+  ) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
     const actorId = await judgingSponsor(fixture, roundId);
+    const target = { roundId, judgeParticipantId: seat.id };
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
+    await beforeFreeze?.(fixture, target);
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status) values(${roundId},${seat.id},1,'queued')`;
     try {
@@ -57,7 +63,7 @@ export const withJudgingJob = (
       await work({
         fixture,
         roundId,
-        target: { roundId, judgeParticipantId: seat.id },
+        target,
         jobs: createRoundJudgingJobs({
           run,
           nextId: createId,
