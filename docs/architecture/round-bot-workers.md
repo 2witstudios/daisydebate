@@ -65,7 +65,9 @@ judge model and one bounded provider budget. Pure `providerAdmission` caps
 coaching at half that budget (rounded down), and coaching never takes the last
 competitive slot. With one slot, only competitive work runs. Realtime speech
 and TTS keep the existing budget; this reservation protects judging from
-coaching, not from other competitive work.
+coaching, not from other competitive work. The allocator is process-local,
+not a fleet-wide quota. Coaching cannot monopolize its budget; there is no
+fairness queue or guarantee of eventual judging under arbitrary realtime load.
 
 Judging reserves admission **before** claiming its durable lease. A full budget
 therefore leaves the job unclaimed for the next scan, rather than stranding it
@@ -73,12 +75,25 @@ until lease expiry. The reservation covers saved-ballot retries and remains
 occupied until actual execution settles, even after cancellation. An old lease
 renewal can release only its own entry, never a replacement claim.
 
+If shutdown begins while a durable claim is in flight and that claim succeeds,
+the service returns its local reservation without starting execution. Another
+process recovers the job after normal lease expiry, not immediately. Prompt
+durable release would require a separate token-fenced operation; this service
+never clears a lease without fencing.
+
 Coaching is premium (DEC-247). The authorization evaluator owns
 `round.coaching.generate` and `round.coaching.read`. The named
 `accountEntitlements.coaching` fact currently derives only from approved beta
 access and the validated server setting `PREMIUM_BETA_GRANT` (default `true`).
 Launch sets the grant to `false`; billing supplies the future premium source
 through the same entitlement function, without changes to coaching callers.
+That source seam changes premium facts only: launch also needs its own
+canonical participant-admission transition away from beta approval. A future
+paid entitlement does not bypass the current participant gate. Likewise,
+`coaching: true` is an entitlement fact, not full authorization; identity,
+participant admission and an own debating seat still apply. Age eligibility
+belongs to participant admission, which coaching inherits; there is no second
+coaching-specific age rule.
 AI-round allowance grants do not grant coaching. No billing writer or generic
 flags platform exists here.
 

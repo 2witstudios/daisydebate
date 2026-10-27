@@ -70,3 +70,59 @@ test('coaching authorization never gates the official round read', () => {
     ],
   });
 });
+
+test('premium spectators, host-only members and judges cannot read or generate coaching', () => {
+  const actorId = input.context.account!.actorId!;
+  const scenarios = [
+    {
+      given: 'spectator with no seat',
+      createdByActorId: 'another-host',
+      participants: [],
+    },
+    {
+      given: 'spectator while another member debates',
+      createdByActorId: 'another-host',
+      participants: [
+        { actorId: 'other-debater', role: 'affirmative', slot: 0 },
+      ],
+    },
+    {
+      given: 'host without a debating seat',
+      createdByActorId: actorId,
+      participants: [],
+    },
+    {
+      given: 'seated judge',
+      createdByActorId: actorId,
+      participants: [{ actorId, role: 'judge', slot: 0 }],
+    },
+  ];
+  for (const scenario of scenarios) {
+    const actual = (
+      ['round.read', 'round.coaching.read', 'round.coaching.generate'] as const
+    ).map(
+      (capability) =>
+        authorize({
+          ...input,
+          capability,
+          resource: {
+            kind: 'round',
+            roundId: 'round',
+            status: 'completed',
+            visibility: 'public',
+            revision: 1,
+            createdByActorId: scenario.createdByActorId,
+            participants: scenario.participants,
+          },
+          context: { ...input.context, entitlements: { coaching: true } },
+        }).allow,
+    );
+    assert({
+      given: `an approved premium ${scenario.given}`,
+      should:
+        'preserve the official read while refusing both coaching capabilities',
+      actual,
+      expected: [true, false, false],
+    });
+  }
+});

@@ -1,6 +1,10 @@
 import type { AccountAuthorizationFact } from './authorization-facts';
 
-/** DEC-247: the beta grant is the sole coaching premium source until billing exists. */
+/**
+ * DEC-247: the beta grant is the sole premium source until billing exists.
+ * These are entitlement facts, not authorization: identity, participant
+ * admission and the caller's debating seat are still evaluated separately.
+ */
 export function accountEntitlements(
   account: AccountAuthorizationFact | null,
   policy: { readonly betaGrantsPremium: boolean },

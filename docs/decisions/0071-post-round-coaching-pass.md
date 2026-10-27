@@ -125,3 +125,18 @@ strand a judge lease. Discovery reads advisory canonical account facts without a
 reevaluate under canonical account fences;
 reads withhold the separate coaching pass when the reader lacks premium.
 Official ballots retain their existing side-private feedback projection.
+
+The premium source seam does not replace participant admission. Launch must
+also transition the canonical participant gate from beta approval to its
+launch admission policy. `coaching: true` is an entitlement fact, not full
+authorization; identity, participant eligibility and an own debating seat
+remain required. Coaching inherits the canonical admission age rule and adds
+no separate age branch. Premium spectators, host-only members and judges have
+no coaching grant for the Round.
+
+The admission budget is process-local. Coaching cannot monopolize it or cause
+a judge lease to be created without capacity. It does not guarantee eventual
+judging under arbitrary realtime load or impose a fleet-wide quota. If shutdown
+starts while a durable claim is pending and that claim succeeds, local admission
+is freed but the job recovers through normal lease expiry. The service does not
+clear durable leases without a token-fenced release.

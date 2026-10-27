@@ -104,6 +104,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
           try {
             const claim = await input.store.claimRoundJudgingJob(target);
             if (stopped) {
+              // A successful durable claim recovers by lease expiry. This
+              // process has not started execution; never clear an unfenced lease.
               freeCapacity();
               break;
             }

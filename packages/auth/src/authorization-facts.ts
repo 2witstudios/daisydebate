@@ -248,7 +248,7 @@ export type AuthorizationInput = {
     | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;
-    /** Named premium facts derived at the trusted edge for this exact account. */
+    /** Named premium facts for this exact account; they do not grant participant admission or a seat. */
     readonly entitlements?: { readonly coaching: boolean };
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
