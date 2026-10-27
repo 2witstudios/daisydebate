@@ -3,7 +3,11 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingSocialCommands } from '../schema/messaging-social';
-import { withLockedMessagingAuthority } from './authority-frame';
+import {
+  restartingRead,
+  withLockedMessagingAuthority,
+  withSharedMessagingAuthority,
+} from './authority-frame';
 import {
   readGroupInvitationRow,
   groupInvitationFacts,
@@ -28,10 +32,22 @@ export function createMessagingGroupInvitationStore({
     withInvitation: (scope, work) => {
       if (!idSchema.safeParse(scope.inviteeActorId).success)
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      // A preview only reads: shared fences and a bounded restart; a decision
+      // takes the exclusive fences it writes under (MSG-2.1-arch1).
+      const reading = scope.operation === 'read';
+      const fenced = reading
+        ? withSharedMessagingAuthority
+        : withLockedMessagingAuthority;
+      const run = <R>(
+        work: (
+          tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+        ) => Promise<R>,
+      ) =>
+        reading ? restartingRead(database, work) : database.transaction(work);
+      return run(async (tx) => {
         const discovered = await readGroupInvitationRow(tx, scope);
         let contacts: MessagingGroupInvitationFact['contactPairs'] = [];
-        return withLockedMessagingAuthority(
+        return fenced(
           tx,
           scope,
           async (authority) => {
@@ -144,6 +160,7 @@ export function createMessagingGroupInvitationStore({
                     ]
                   : [discovered.invitedByActorId, scope.inviteeActorId],
                 admitting,
+                reading,
               );
             },
           },

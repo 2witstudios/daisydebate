@@ -90,13 +90,13 @@ test('pending preview exposes only invitation state after ordered fresh authorit
   assert({
     given: 'metadata-only reader',
     should:
-      'lock accounts then pairs then channel without content or grant writes',
+      'share-fence accounts then pairs then channel (MSG-2.1-arch1) without content, grant writes or any exclusive lock',
     actual: [
-      queries[2]?.query.includes('daisy_authorization_accounts'),
-      queries[4]?.query.includes('for update'),
-      queries[5]?.query.includes('daisy_messaging_channel_fence'),
+      queries[2]?.query.includes('daisy_authorization_read_accounts_v2('),
+      queries[4]?.query.includes('for share'),
+      queries[5]?.query.includes('daisy_messaging_channel_read_fence('),
       queries.some((q) =>
-        /messaging_messages|insert into|update /.test(q.query),
+        /messaging_messages|insert into|update |for update/.test(q.query),
       ),
     ],
     expected: [true, true, true, false],
