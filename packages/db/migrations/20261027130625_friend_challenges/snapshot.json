@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "4219adcf-368e-42a1-963d-506f2ab886ca",
+  "id": "97bc70a9-6921-4dd8-99dd-c283670584ef",
   "prevIds": [
-    "e629a460-738b-4969-b28a-12f616ae658c"
+    "7d32ad2c-e3ef-4c14-b701-f5d0c92585f6"
   ],
   "ddl": [
     {
@@ -243,6 +243,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_group_invitations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_presence_settings",
       "entityType": "tables",
       "schema": "public"
     },
@@ -4295,6 +4301,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_group_invitations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_presence_settings"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hidden",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_presence_settings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_presence_settings"
     },
     {
       "type": "text",
@@ -13702,6 +13747,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "name": "messaging_presence_settings_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_presence_settings"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "name": "messaging_social_commands_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -15489,6 +15551,16 @@
       "name": "messaging_friend_challenges_pkey",
       "schema": "public",
       "table": "messaging_friend_challenges",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_presence_settings_pkey",
+      "schema": "public",
+      "table": "messaging_presence_settings",
       "entityType": "pks"
     },
     {

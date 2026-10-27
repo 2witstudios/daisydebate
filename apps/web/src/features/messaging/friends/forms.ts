@@ -113,3 +113,16 @@ export function friendRefusalNotice(
     return 'You have reached a friend limit for now. Try again later.';
   return 'Could not change this friendship. Try again.';
 }
+
+export type PresenceFormState = { readonly notice?: string };
+
+/** A failed call says to try again; the choice is two buttons, so nothing is lost. */
+export const presenceFormUnavailable = (): PresenceFormState => ({
+  notice: 'Could not change your online status. Try again.',
+});
+
+/** The confirmation for the member's own online-status choice. */
+export const presenceNotice = (hidden: boolean): string =>
+  hidden
+    ? 'Your friends now see you as offline.'
+    : 'Your friends can see when you are online.';

@@ -49,6 +49,7 @@ test('friend reads', () => {
     should: 'refuse it',
     actual: friendListSchema.safeParse({
       version: 1,
+      hidden: false,
       friends: [{ username: 'ada', presence: 'in-debate' }],
       incoming: [],
       outgoing: [],
@@ -82,6 +83,23 @@ test('challenge commands', () => {
         version: 1,
         username: 'ada',
         roomId: 'not-a-room',
+      }).success,
+    ],
+    expected: [true, false],
+  });
+});
+
+test('the presence setting command', () => {
+  assert({
+    given: 'a boolean choice, and a choice naming another member',
+    should: 'accept the first and refuse the second',
+    actual: [
+      friendCommandSchemas.presence.safeParse({ version: 1, hidden: true })
+        .success,
+      friendCommandSchemas.presence.safeParse({
+        version: 1,
+        hidden: true,
+        username: 'ada',
       }).success,
     ],
     expected: [true, false],

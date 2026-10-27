@@ -57,6 +57,7 @@ test('subject export removes other-direction private state and serializes dates/
         created_at: date,
       },
     ],
+    [{ actor_id: actorId, hidden: true, updated_at: date }],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
     [
@@ -97,6 +98,7 @@ test('subject export removes other-direction private state and serializes dates/
       result.messaging_contact_pairs,
       result.messaging_dm_pairs,
       result.messaging_friendships,
+      result.messaging_presence_settings,
       result.messaging_friend_challenges,
       result.messaging_group_invitations,
       result.messaging_files,
@@ -132,6 +134,7 @@ test('subject export removes other-direction private state and serializes dates/
           accepted_at: now,
         },
       ],
+      [{ actor_id: actorId, hidden: true, updated_at: now }],
       [
         {
           room_id: 'r'.repeat(24),
@@ -200,6 +203,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [],
+    [],
     [{ changeVersion: 4 }],
     [[1, '9']],
     [],
@@ -246,7 +250,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
   assert({
     given: 'subject association cleanup',
     should:
-      'hold complete channel union first, transfer opaque charge before deleting files and delete receipt identity outright',
+      'hold complete channel union first, transfer opaque charge before deleting files, and delete receipt identity and presence choice outright',
     actual: [
       fileIntent > 1,
       queries[1]?.query.includes('order by id for update'),
@@ -258,8 +262,11 @@ test('erasure fences every subject channel before file cleanup and publishes fin
         queries.findIndex((query) =>
           query.query.includes('delete from messaging_contact_pairs'),
         ),
+      queries.find((query) =>
+        query.query.includes('delete from messaging_presence_settings'),
+      )?.params,
     ],
-    expected: [true, true, true, [actorId], true],
+    expected: [true, true, true, [actorId], true, [actorId]],
   });
 });
 test('exhausted erase version refuses before association or file deletion', async () => {

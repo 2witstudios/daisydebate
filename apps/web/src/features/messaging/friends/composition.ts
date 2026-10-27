@@ -6,10 +6,13 @@ import { messagingHttpBoundary } from '../handler-boundary';
 import { messagingSocialAuthorizationFence } from '../social-authorization';
 import { createFriendHandlers } from './handlers';
 import { changeChallenge } from './challenge-operations';
+import { setPresenceHidden } from './presence-setting';
+import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
   type FriendOperationDependencies,
   friendPresenceOf,
+  friendsOnlineOf,
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
@@ -17,39 +20,46 @@ import {
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
 
-const friendReads = (
-  app: App,
-  principal: AuthorizationPrincipal,
-): FriendReadDependencies => {
-  const fence = (
-    scope: { readonly actorId: string },
-    account: Parameters<
-      Parameters<typeof app.database.listMessagingFriendships>[1]
-    >[0]['account'],
-  ) =>
+/** The decision over the principal's own collection, on their locked account. */
+const ownFence =
+  (
+    principal: AuthorizationPrincipal,
+    capability: 'social.friend.list' | 'social.presence.update',
+  ): OwnCollectionFence<{ readonly actorId: string }> =>
+  async ({ scope, account }) =>
     requireMessagingAuthorization({
       principal,
-      capability: 'social.friend.list',
+      capability,
       resource: { kind: 'messaging_collection', actorId: scope.actorId },
       context: { account },
     });
-  return {
-    list: (scope) =>
-      app.database.listMessagingFriendships(scope, async ({ account }) =>
-        fence(scope, account),
+
+const friendReads = (
+  app: App,
+  principal: AuthorizationPrincipal,
+): FriendReadDependencies => ({
+  list: (scope) =>
+    app.database.listMessagingFriendships(
+      scope,
+      ownFence(principal, 'social.friend.list'),
+    ),
+  challenges: (scope) =>
+    app.database.listMessagingFriendChallenges(
+      scope,
+      ownFence(principal, 'social.friend.list'),
+    ),
+  hidden: (scope) =>
+    app.database.readPresenceHidden(
+      scope,
+      ownFence(principal, 'social.friend.list'),
+    ),
+  presence: async (actorIds) =>
+    new Map(
+      [...(await app.redis.readActorsPresence(actorIds))].map(
+        ([actorId, activity]) => [actorId, friendPresenceOf(activity)],
       ),
-    challenges: (scope) =>
-      app.database.listMessagingFriendChallenges(scope, async ({ account }) =>
-        fence(scope, account),
-      ),
-    presence: async (actorIds) =>
-      new Map(
-        [...(await app.redis.readActorsPresence(actorIds))].map(
-          ([actorId, activity]) => [actorId, friendPresenceOf(activity)],
-        ),
-      ),
-  };
-};
+    ),
+});
 
 /** The member's own friend list, for pages and the list route. */
 const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
@@ -87,6 +97,23 @@ export function composeFriendRoutes(app: App) {
       ),
     challenge: (principal, command, input) =>
       changeChallenge(principal, command, input, friendPorts(app, principal)),
+    presence: (principal, hidden) =>
+      setPresenceHidden(principal, hidden, {
+        clock: app.clock,
+        // Its own bucket: toggling visibility never spends friend changes.
+        limit: (actorId) =>
+          consumeOrThrow(
+            app.auth().limiter,
+            `friends-presence:${actorId}`,
+            FRIEND_RULE,
+          ),
+        write: (scope, input) =>
+          app.database.writePresenceHidden(
+            scope,
+            input,
+            ownFence(principal, 'social.presence.update'),
+          ),
+      }),
     list,
     websocketEndpoint: app.websocketEndpoint,
     counts: async (principal) => {
@@ -95,8 +122,7 @@ export function composeFriendRoutes(app: App) {
         app.redis.countOnlinePresence(),
       ]);
       return {
-        friendsOnline: friends.filter((friend) => friend.presence !== 'offline')
-          .length,
+        friendsOnline: friendsOnlineOf(friends),
         membersOnline,
       };
     },

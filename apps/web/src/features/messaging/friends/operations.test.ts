@@ -7,6 +7,7 @@ import {
   capabilityFor,
   changeFriendship,
   friendPresenceOf,
+  friendsOnlineOf,
   readFriendList,
   type FriendCapability,
 } from './operations';
@@ -211,6 +212,7 @@ test('readFriendList', async () => {
     state,
     requesterActorId,
     requestedAt: now,
+    otherHidden: otherActorId === 'g'.repeat(24),
   });
   const asked: (readonly string[])[] = [];
   const list = await readFriendList(principal, {
@@ -218,6 +220,7 @@ test('readFriendList', async () => {
       row(them, 'zed', 'accepted', me),
       row(c, 'bea', 'accepted', c),
       row(e, 'cat', 'accepted', me),
+      row('g'.repeat(24), 'gus', 'accepted', me),
       row(d, 'dan', 'pending', d),
       row('f'.repeat(24), 'eve', 'pending', me),
     ],
@@ -229,11 +232,14 @@ test('readFriendList', async () => {
         challengedAt: now,
       },
     ],
+    hidden: async () => true,
     presence: async (ids) => {
       asked.push(ids);
       return new Map([
         [them, 'online' as const],
         [e, 'away' as const],
+        // Gus hides: even a live lease of theirs must never reach the list.
+        ['g'.repeat(24), 'online' as const],
       ]);
     },
   });
@@ -242,10 +248,12 @@ test('readFriendList', async () => {
     should: 'list online first, then away, then offline, and split requests',
     actual: list,
     expected: {
+      hidden: true,
       friends: [
         { username: 'zed', presence: 'online' },
         { username: 'cat', presence: 'away' },
         { username: 'bea', presence: 'offline' },
+        { username: 'gus', presence: 'offline' },
       ],
       incoming: [{ username: 'dan', requestedAt: now }],
       outgoing: [{ username: 'eve', requestedAt: now }],
@@ -261,9 +269,15 @@ test('readFriendList', async () => {
   });
   assert({
     given: 'the presence read',
-    should: 'ask only about accepted friends',
+    should: 'ask only about accepted friends who do not hide their status',
     actual: asked,
     expected: [[them, c, e]],
+  });
+  assert({
+    given: 'the list with a hidden friend holding a live lease',
+    should: 'count only the visible online and away friends in the badge',
+    actual: friendsOnlineOf(list.friends),
+    expected: 2,
   });
 });
 

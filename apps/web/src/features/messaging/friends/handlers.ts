@@ -6,6 +6,7 @@ import {
   friendCommandSchemas,
   friendListSchema,
   onlineCountsSchema,
+  presenceSettingResultSchema,
   type FriendCommandResult,
   type FriendList,
   type OnlineCounts,
@@ -39,6 +40,10 @@ export function createFriendHandlers(dependencies: {
     command: 'challenge' | 'decline',
     input: { readonly username: string; readonly roomId: string },
   ) => Promise<Omit<FriendCommandResult, 'version'>>;
+  readonly presence: (
+    principal: AuthorizationPrincipal,
+    hidden: boolean,
+  ) => Promise<{ readonly hidden: boolean }>;
   readonly list: (
     principal: AuthorizationPrincipal,
   ) => Promise<Omit<FriendList, 'version'>>;
@@ -124,6 +129,20 @@ export function createFriendHandlers(dependencies: {
       })),
     challenge: (request: Request) => challengeWrite(request, 'challenge'),
     declineChallenge: (request: Request) => challengeWrite(request, 'decline'),
+    presence: (request: Request) =>
+      runMessagingHandler(dependencies.boundary, request, {
+        name: 'friends.presence',
+        readOnly: false,
+        readInput: () => readJson(request, MAX_BODY_BYTES),
+        operation: async (input, principal) =>
+          presenceSettingResultSchema.parse({
+            version: 1,
+            ...(await dependencies.presence(
+              principal,
+              parseValidated(friendCommandSchemas.presence, input).hidden,
+            )),
+          }),
+      }),
     list: (request: Request) =>
       read(request, 'list', async (principal) =>
         friendListSchema.parse({

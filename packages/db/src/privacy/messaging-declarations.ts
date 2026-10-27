@@ -55,6 +55,11 @@ const messagingColumns = {
     personal: ['challenger_actor_id', 'challenged_actor_id', 'created_at'],
     none: [],
   },
+  messaging_presence_settings: {
+    identifier: [],
+    personal: ['actor_id', 'hidden', 'updated_at'],
+    none: [],
+  },
   messaging_dm_pairs: {
     identifier: ['channel_id'],
     personal: [
