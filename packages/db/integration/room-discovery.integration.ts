@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import type { RoomListQuery } from '@daisy/protocol';
 import { assert, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -175,5 +176,103 @@ test('discovery uses partial ordered indexes independently of historical Room an
       await f.sql`delete from rounds where room_id=any(${historyArray}::text[]) or room_id=any(${liveArray}::text[])`;
       await f.sql`delete from rooms where id=any(${historyArray}::text[]) or id=any(${liveArray}::text[])`;
     }
+  });
+});
+
+test('a ready Room lists under the starting filter with its ranked host’s active-season rating', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const caller = await createAuthorizationSubject(f);
+    const formatId = await f.format();
+    const token = createId();
+    const hostUser = await f.user();
+    const hostActor = await f.actor(hostUser);
+    const activeSeason = createId();
+    const closedSeason = createId();
+    await f.insert('seasons', {
+      id: activeSeason,
+      name: token,
+      starts_at: new Date('2026-01-01'),
+      status: 'active',
+    });
+    await f.insert('seasons', {
+      id: closedSeason,
+      name: token,
+      starts_at: new Date('2025-01-01'),
+      ends_at: new Date('2025-12-31'),
+      status: 'closed',
+    });
+    // The stale closed-season rating must lose to the active season's.
+    await f.insert('ratings', {
+      actor_id: hostActor,
+      format_id: formatId,
+      season_id: closedSeason,
+      ladder: 'ranked',
+      rating: 900.5,
+      deviation: 60,
+      volatility: 0.06,
+    });
+    await f.insert('ratings', {
+      actor_id: hostActor,
+      format_id: formatId,
+      season_id: activeSeason,
+      ladder: 'ranked',
+      rating: 1500.25,
+      deviation: 45,
+      volatility: 0.05,
+    });
+    const roomId = createId();
+    await f.insert('rooms', {
+      id: roomId,
+      host_actor_id: hostActor,
+      title: token,
+      topic: token,
+      visibility: 'public',
+      format_id: formatId,
+      format_version: 1,
+      competition_type: 'ranked',
+      config: validConfig,
+      execution_plan: {},
+      rules_snapshot: validRules,
+      status: 'ready',
+      created_at: new Date('2026-01-01'),
+    });
+    const db = drizzle({ client: f.sql });
+    const list = (query: RoomListQuery) =>
+      db.transaction((tx) =>
+        discoverRooms(
+          tx,
+          caller,
+          query,
+          () => true,
+          () => true,
+          () => false,
+        ),
+      );
+    const [starting, open] = await Promise.all([
+      list({ q: token, status: 'starting', mode: 'ranked', pageSize: 10 }),
+      list({ q: token, status: 'open', pageSize: 10 }),
+    ]);
+    assert({
+      given:
+        'a ready ranked Room whose host holds a rating in the active season and a stale one in a closed season',
+      should:
+        'list it under the starting filter with the host’s username and the active season’s integer rating, and never under the open filter',
+      actual: {
+        starting: starting.rooms.map((room) => [
+          room.id === roomId,
+          room.status,
+          room.competitionType,
+          room.hostLabel,
+          room.hostRating,
+        ]),
+        open: open.rooms.length,
+        nextCursor: starting.nextCursor,
+      },
+      expected: {
+        starting: [[true, 'ready', 'ranked', `u-${hostUser}`, 1500]],
+        open: 0,
+        nextCursor: null,
+      },
+    });
   });
 });
