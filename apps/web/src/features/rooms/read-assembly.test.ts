@@ -187,7 +187,7 @@ test('discovery preserves the producer creation order without treating opaque id
         ...(sort ? { sort } : {}),
       }),
     );
-    expected.push({ kind: 'found', ...page });
+    expected.push({ kind: 'found' as const, ...page });
   }
   assert({
     given: 'creation-ordered pages whose opaque ids descend under either sort',
