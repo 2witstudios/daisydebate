@@ -8,8 +8,7 @@ import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
-import { verifications } from './schema/auth';
-import { emailDeliveries } from './schema/email-delivery';
+import { clearProvisionalMail } from './provisional-cleanup';
 import { users } from './schema/users';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
@@ -121,21 +120,11 @@ export const ageStepOperations = ({
           .from(accountAge)
           .where(eq(accountAge.userId, input.userId));
         if (answered) return 'refused';
-        if (user.email !== null) {
-          await tx
-            .delete(verifications)
-            .where(
-              sql`case when starts_with(${verifications.identifier}, ${`${input.signInPurpose}:`}) then lower(${verifications.value}::jsonb ->> 'email') = lower(${user.email}) else false end`,
-            );
-          await tx
-            .delete(emailDeliveries)
-            .where(
-              eq(
-                emailDeliveries.recipientHash,
-                input.recipientHashOf(user.email),
-              ),
-            );
-        }
+        await clearProvisionalMail(
+          tx,
+          { id: input.userId, email: user.email },
+          input,
+        );
         const deleted = await tx
           .delete(users)
           .where(and(eq(users.id, input.userId), isNull(users.username)))

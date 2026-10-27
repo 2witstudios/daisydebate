@@ -20,7 +20,7 @@ describe('retention targets', () => {
     const calls: Record<string, Array<{ before: string; limit: number }>> = {};
     const record =
       (name: string) => async (input: { before: string; limit: number }) => {
-        (calls[name] ??= []).push(input);
+        (calls[name] ??= []).push({ before: input.before, limit: input.limit });
         return 0;
       };
     const sweeps: number[] = [];
@@ -34,6 +34,7 @@ describe('retention targets', () => {
         purgeExpiredEmailDeliveries: record('email_delivery'),
         purgeExpiredMailIntents: record('mail_intents'),
         purgeExpiredSessions: record('session'),
+        purgeExpiredProvisionalUsers: record('provisional_user'),
         purgeExpiredRoomCommands: record('room_commands'),
         purgeExpiredRoundCommands: record('round_commands'),
         purgeExpiredRoundCheckInAttempts: record('round_check_in_attempts'),
@@ -54,7 +55,14 @@ describe('retention targets', () => {
 
   test('prunes each store with its own retention window and batch bounds', async () => {
     const { calls, sweeps, database, redis } = purges();
-    const targets = retentionTargets({ database, redis });
+    const targets = retentionTargets({
+      database,
+      redis,
+      provisionalMail: {
+        signInPurpose: 'sign-in',
+        recipientHashOf: (email) => email,
+      },
+    });
     const { logger } = recorder();
     await createRetentionSweep({
       targets,
@@ -79,6 +87,7 @@ describe('retention targets', () => {
           { name: 'retention.verification', batchSize: 500, maxBatches: 20 },
           { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           { name: 'retention.session', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.provisional_user', batchSize: 50, maxBatches: 20 },
           { name: 'retention.room_commands', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_commands', batchSize: 500, maxBatches: 20 },
           {
@@ -115,6 +124,7 @@ describe('retention targets', () => {
         calls: {
           verification: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          provisional_user: [{ before: '2026-09-19T12:00:00.000Z', limit: 50 }],
           room_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           round_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           round_check_in_attempts: [
@@ -145,14 +155,21 @@ describe('retention targets', () => {
     const { calls, sweeps, database, redis } = purges();
     const { logged, logger } = recorder();
     const results = await createRetentionSweep({
-      targets: retentionTargets({ database, redis }),
+      targets: retentionTargets({
+        database,
+        redis,
+        provisionalMail: {
+          signInPurpose: 'sign-in',
+          recipientHashOf: (email) => email,
+        },
+      }),
       clock: { now: () => 'not a timestamp' },
       logger,
     }).run();
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the fourteen database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the fifteen database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -165,6 +182,7 @@ describe('retention targets', () => {
           ['retention.verification', false],
           ['retention.outbox', false],
           ['retention.session', false],
+          ['retention.provisional_user', false],
           ['retention.room_commands', false],
           ['retention.round_commands', false],
           ['retention.round_check_in_attempts', false],
@@ -180,7 +198,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 14,
+        failed: 15,
       },
     });
   });

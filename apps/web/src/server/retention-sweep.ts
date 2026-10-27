@@ -44,7 +44,12 @@ const cutoff = (now: string, windowMs: number) => {
 export function retentionTargets({
   database,
   redis,
+  provisionalMail,
 }: {
+  readonly provisionalMail: {
+    readonly signInPurpose: string;
+    readonly recipientHashOf: (email: string) => string;
+  };
   readonly database: {
     readonly purgeExpiredVerifications: (batch: Batch) => Promise<number>;
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
@@ -58,6 +63,12 @@ export function retentionTargets({
     ) => Promise<number>;
     readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
     readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredProvisionalUsers: (
+      batch: Batch & {
+        readonly signInPurpose: string;
+        readonly recipientHashOf: (email: string) => string;
+      },
+    ) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
@@ -116,6 +127,18 @@ export function retentionTargets({
         database.purgeExpiredSessions({
           before: cutoff(now, DAY_MS),
           limit,
+        }),
+    },
+    // ISSUE-660(b), orchestrator policy: abandoned accounts expire after 24h.
+    {
+      name: 'retention.provisional_user',
+      batchSize: 50,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredProvisionalUsers({
+          before: cutoff(now, DAY_MS),
+          limit,
+          ...provisionalMail,
         }),
     },
     // ADR0059/DEC-81: accepted command receipts dedupe for 24 hours.
