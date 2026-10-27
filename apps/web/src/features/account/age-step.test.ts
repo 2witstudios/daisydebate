@@ -144,20 +144,42 @@ describe('POST /api/account/age', () => {
     });
   });
 
-  test('a held browser is refused before anything is read or stored', async () => {
+  test('a held browser is refused and its new provisional account forgotten', async () => {
     const { handler, recorded, forgotten } = handlerWith();
     const response = await handler(
       post(answer(1990), `${AGE_HOLD_COOKIE}=under-13`),
     );
     assert({
-      given: 'an adult answer from a browser held after an under-13 refusal',
-      should: 'give the same refusal and touch nothing',
+      given:
+        'an adult answer from a browser held after an under-13 refusal, signed in to a new provisional account (ISSUE-660)',
+      should:
+        'give the same refusal, record nothing and forget the new provisional account',
       actual: [
         response.status,
         (await response.json()).error.refusal,
-        recorded.length + forgotten.length,
+        recorded.length,
+        forgotten,
       ],
-      expected: [403, 'under-13', 0],
+      expected: [403, 'under-13', 0, ['user1']],
+    });
+  });
+
+  test('a held browser on an account that already answered keeps that account', async () => {
+    const { handler, recorded } = handlerWith({ forgets: 'refused' });
+    const response = await handler(
+      post(answer(1990), `${AGE_HOLD_COOKIE}=below-floor`),
+    );
+    assert({
+      given:
+        'a held browser signed in to an account whose first answer was accepted',
+      should:
+        'still give the held refusal and record nothing, while the account and its first answer stand',
+      actual: [
+        response.status,
+        (await response.json()).error.refusal,
+        recorded.length,
+      ],
+      expected: [403, 'below-floor', 0],
     });
   });
 

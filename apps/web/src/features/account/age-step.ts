@@ -105,7 +105,8 @@ const refused = (refusal: AgeRefusal, requestId: string) =>
  * durable work. The server bands the birth month with its own clock: at or
  * above the floor it stores the month and the Terms version together;
  * below it, it stores nothing, deletes the provisional account and holds
- * the browser to the same refusal for a day.
+ * the browser to the same refusal for a day. A held browser gets that
+ * refusal again, and its new provisional account is deleted the same way.
  */
 export function createAgeStepHandler(dependencies: AgeStepDependencies) {
   return (request: Request) =>
@@ -119,13 +120,18 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
         if (identity.state !== 'provisional')
           throw createAppError('AUTHORIZATION');
         const { userId } = identity.principal;
-        const held = heldRefusal(request.headers.get('cookie'));
-        if (held !== null) return refused(held, id);
         await consumeOrThrow(
           dependencies.limiter(),
           `account:age:${userId}`,
           AGE_RULE,
         );
+        const held = heldRefusal(request.headers.get('cookie'));
+        if (held !== null) {
+          // ISSUE-660: a held browser that signed up again keeps no new
+          // account. One that already answered is kept: its first answer stands.
+          await dependencies.forget(userId);
+          return refused(held, id);
+        }
         const { month, year } = parseValidated(
           ageBody,
           await readJson(request),
