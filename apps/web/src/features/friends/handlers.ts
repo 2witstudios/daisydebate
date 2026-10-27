@@ -13,7 +13,7 @@ import {
 } from '@daisy/protocol';
 import type { FriendshipCommand } from './friendship';
 import { parseValidated, readJson } from '../../server/http';
-import { runMessagingHandler } from '../messaging/handler-boundary';
+import { runMemberHandler } from '../../server/member-handler';
 
 const MAX_BODY_BYTES = 1024;
 
@@ -61,7 +61,7 @@ export function createFriendHandlers(dependencies: {
       readonly username: string;
     },
   ) =>
-    runMessagingHandler(dependencies.boundary, request, {
+    runMemberHandler(dependencies.boundary, request, {
       name: `friends.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
@@ -78,7 +78,7 @@ export function createFriendHandlers(dependencies: {
       },
     });
   const challengeWrite = (request: Request, command: 'challenge' | 'decline') =>
-    runMessagingHandler(dependencies.boundary, request, {
+    runMemberHandler(dependencies.boundary, request, {
       name: `friends.challenge.${command}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
@@ -104,7 +104,7 @@ export function createFriendHandlers(dependencies: {
     operation: (principal: AuthorizationPrincipal) => Promise<T>,
     headers: Readonly<Record<string, string>> = {},
   ) =>
-    runMessagingHandler(dependencies.boundary, request, {
+    runMemberHandler(dependencies.boundary, request, {
       name: `friends.${name}`,
       readOnly: true,
       readInput: async () => null,
@@ -130,7 +130,7 @@ export function createFriendHandlers(dependencies: {
     challenge: (request: Request) => challengeWrite(request, 'challenge'),
     declineChallenge: (request: Request) => challengeWrite(request, 'decline'),
     presence: (request: Request) =>
-      runMessagingHandler(dependencies.boundary, request, {
+      runMemberHandler(dependencies.boundary, request, {
         name: 'friends.presence',
         readOnly: false,
         readInput: () => readJson(request, MAX_BODY_BYTES),

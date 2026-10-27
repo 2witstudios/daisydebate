@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { FriendRelation } from '@daisy/protocol';
-import { singleFormField } from '../messaging/forms/form-scope';
+import { singleFormField } from '../../server/form-field';
 
 /** What each friend form button asks; `cancel` withdraws one's own request. */
 const friendIntents = [

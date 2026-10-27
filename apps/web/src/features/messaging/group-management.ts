@@ -8,8 +8,9 @@ import {
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 type Operation = 'remove' | 'leave' | 'transfer' | 'archive';
 function managementCommand(
   operation: Operation,
@@ -41,7 +42,7 @@ export async function manageMessagingGroup(
     readonly store: MessagingGroupManagementStore;
   },
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const command = managementCommand(operation, input, dependencies.bounds);
   const { targetActorId } = command;
   const digest = messagingSocialDigest(`group.${operation}`, [

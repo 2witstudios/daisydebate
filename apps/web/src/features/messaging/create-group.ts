@@ -3,12 +3,13 @@ import type { IdGenerator } from '@daisy/clock';
 import type { MessagingGroupCreationStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
-import { requireMessagingActor } from './principal';
+
 import {
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 export async function createMessagingGroup(
   input: unknown,
   principal: AuthorizationPrincipal,
@@ -17,7 +18,7 @@ export async function createMessagingGroup(
     readonly policyRevision?: number;
   },
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const command = parseSocialCommand(
     dependencies.bounds,
     input,

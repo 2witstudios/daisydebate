@@ -7,7 +7,7 @@ import {
   type MessagingReactionPolicy,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+import { requireMemberActor } from '../access/actor';
 
 type ReactionDependencies = {
   readonly policy: MessagingReactionPolicy;
@@ -21,7 +21,7 @@ export async function changeMessagingReaction(
   principal: AuthorizationPrincipal,
   dependencies: ReactionDependencies,
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const schemas = createMessagingReactionSchemas(dependencies.policy);
   const command = parseValidated(schemas.command, input);
   await dependencies.limit(actor.actorId, command.channelId);
@@ -59,7 +59,7 @@ export async function readMessagingReactions(
   principal: AuthorizationPrincipal,
   dependencies: ReactionDependencies,
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const schemas = createMessagingReactionSchemas(dependencies.policy);
   const scope = parseValidated(schemas.scope, input);
   await dependencies.limit(actor.actorId, scope.channelId);

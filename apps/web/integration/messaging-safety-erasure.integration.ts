@@ -4,8 +4,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+
 import { blockMessagingContact } from '../src/features/messaging/block';
+import { contactAuthorizationFence } from '../src/features/contacts/authorization';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const gate = () => {
@@ -29,7 +30,7 @@ for (const [blockFirst, noDm] of [
     const entered = gate(),
       release = gate();
     let first = blockFirst;
-    const canonical = messagingSocialAuthorizationFence({
+    const canonical = contactAuthorizationFence({
       principal,
       clock,
       operation: { kind: 'block' },

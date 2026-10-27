@@ -14,7 +14,8 @@ import { decideMessagingDm } from '../src/features/messaging/decide-request';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
 import { sendMessagingMessage } from '../src/features/messaging/send';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const bounds = { introductionUnits: 100, titleUnits: 80, batchActors: 10 };
@@ -110,7 +111,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
         clock,
         limit: async () => {},
         store: database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
+          contactAuthorizationFence({
             principal: sender,
             clock,
             operation: { kind: 'block' },

@@ -2,9 +2,13 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
 import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
-import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
+
 import type { MessagingRuntimePolicy } from './composition';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 type Context = {
   readonly policy: MessagingRuntimePolicy;
   readonly social: MessagingSocialRuntimePolicy;
@@ -33,7 +37,7 @@ export function messagingGroupCommandRoute(
           social.abuse,
         ),
     };
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name,
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),

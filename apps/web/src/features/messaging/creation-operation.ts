@@ -6,7 +6,8 @@ import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { requestMessagingDm } from './request';
 import { createMessagingGroup } from './create-group';
 import { composeMessagingGroupCreationStore } from './group-creation-composition';
-import { messagingSocialAuthorizationFence } from './social-authorization';
+import { contactAuthorizationFence } from '../contacts/authorization';
+
 /** Actor-ID and username intent routes converge on these exact fenced operations. */
 export function composeMessagingCreationOperation(
   app: App,
@@ -32,7 +33,7 @@ export function composeMessagingCreationOperation(
       return requestMessagingDm(input, principal, {
         ...common,
         store: app.database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
+          contactAuthorizationFence({
             principal,
             clock: app.clock,
             operation: { kind: 'dm', policy: social.creation },

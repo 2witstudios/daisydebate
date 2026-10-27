@@ -1,9 +1,8 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeOrThrow } from '../auth/abuse/rate-limit';
-import { requireMessagingAuthorization } from '../messaging/authorization';
-import { messagingHttpBoundary } from '../messaging/handler-boundary';
-import { messagingSocialAuthorizationFence } from '../messaging/social-authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
+
 import { createFriendHandlers } from './handlers';
 import { changeChallenge } from './challenge-operations';
 import { setPresenceHidden } from '../presence/setting';
@@ -16,6 +15,8 @@ import {
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
+import { memberHttpBoundary } from '../../server/member-handler';
+import { contactAuthorizationFence } from '../contacts/authorization';
 
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
@@ -27,7 +28,7 @@ const ownFence =
     capability: 'social.friend.list' | 'social.presence.update',
   ): OwnCollectionFence<{ readonly actorId: string }> =>
   async ({ scope, account }) =>
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability,
       resource: { kind: 'messaging_collection', actorId: scope.actorId },
@@ -78,7 +79,7 @@ const friendPorts = (
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
     app.database.friendStore(
-      messagingSocialAuthorizationFence({
+      contactAuthorizationFence({
         principal,
         clock: app.clock,
         operation: { kind: 'friend', capability },
@@ -89,7 +90,7 @@ const friendPorts = (
 export function composeFriendRoutes(app: App) {
   const list = composeFriendList(app);
   return createFriendHandlers({
-    boundary: messagingHttpBoundary(app),
+    boundary: memberHttpBoundary(app),
     change: (principal, command, username) =>
       changeFriendship(
         principal,

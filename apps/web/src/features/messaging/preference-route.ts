@@ -2,13 +2,14 @@ import { messagingPreferenceSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 import {
-  runMessagingHandler,
   messagingActorHandlerPort,
   readMessagingScope,
   type MessagingHandlerPort,
 } from './handler-boundary';
-import { requireMessagingActor } from './principal';
+
 import { composeMessagingPreferences } from './preference-composition';
+import { runMemberHandler } from '../../server/member-handler';
+import { requireMemberActor } from '../access/actor';
 export function composeMessagingPreferenceRoutes(app: App) {
   return (
     request: Request,
@@ -40,7 +41,7 @@ export function createMessagingPreferenceHandler({
     operation: 'read' | 'update' | 'clear',
     channelId?: string,
   ) =>
-    runMessagingHandler(boundary, request, {
+    runMemberHandler(boundary, request, {
       name: `messaging.preferences.${operation}`,
       readOnly: operation === 'read',
       readInput: () =>
@@ -51,7 +52,7 @@ export function createMessagingPreferenceHandler({
           channelId,
         ),
       operation: async (input, principal) => {
-        const actor = requireMessagingActor(principal);
+        const actor = requireMemberActor(principal);
         await consume(actor.actorId);
         const preferences = store(principal);
         if (operation === 'update') {

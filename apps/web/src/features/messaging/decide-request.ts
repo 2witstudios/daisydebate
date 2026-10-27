@@ -6,8 +6,9 @@ import {
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 const resultStates = {
   accept: 'accepted',
   decline: 'declined',
@@ -22,7 +23,7 @@ export async function decideMessagingDm(
     readonly limits: SocialRequestLimits;
   },
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const command = parseSocialCommand(
     dependencies.bounds,
     input,

@@ -9,10 +9,10 @@ import type { Clock } from '@daisy/clock';
 import type { ContactAuthorizationFence } from '@daisy/db/contacts';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 /** Policy is supplied by its authority; absent approval or group scope fails closed. */
-export function messagingSocialAuthorizationFence({
+export function contactAuthorizationFence({
   principal,
   clock,
   operation,
@@ -46,7 +46,7 @@ export function messagingSocialAuthorizationFence({
         ...contacts[0]!,
         kind: 'contact_pair',
       };
-      requireMessagingAuthorization({
+      requireAuthorization({
         principal,
         capability:
           operation.kind === 'block' ? 'social.block' : operation.capability,
@@ -71,7 +71,7 @@ export function messagingSocialAuthorizationFence({
       contacts,
       input.policyRevision,
     );
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability:
         operation.kind === 'dm'

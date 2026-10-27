@@ -5,15 +5,16 @@ import {
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 
 export async function blockMessagingContact(
   input: unknown,
   principal: AuthorizationPrincipal,
   dependencies: SocialOperationDependencies<MessagingSocialStore>,
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const command = parseSocialCommand(
     dependencies.bounds,
     input,

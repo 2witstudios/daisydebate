@@ -8,9 +8,10 @@ import type {
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingActor } from './principal';
-import { requireMessagingAuthorization } from './authorization';
+
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { requireMessagingGroupResult } from './group-command-result';
+import { requireMemberActor } from '../access/actor';
 /** Actual cast plus proposed accounts are fenced in the exact same persistence transaction. */
 export function composeMessagingGroupIssuanceStore(input: {
   readonly database: Database;
@@ -19,7 +20,7 @@ export function composeMessagingGroupIssuanceStore(input: {
   readonly policy: SocialCreationPolicy | undefined;
 }) {
   const authorize: MessagingGroupIssuanceFence = async (tx, scope, facts) => {
-    const actor = requireMessagingActor(input.principal);
+    const actor = requireMemberActor(input.principal);
     if (actor.actorId !== scope.actorId || actor.userId !== scope.userId)
       throw createAppError('AUTHORIZATION');
     if (facts.receipt) {
@@ -39,7 +40,7 @@ export function composeMessagingGroupIssuanceStore(input: {
       inviteeActorIds: scope.inviteeActorIds,
       contactPairs: facts.contactPairs,
     };
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal: input.principal,
       capability: 'channel.group.invite',
       resource,

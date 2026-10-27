@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { formRequestId, singleFormField } from './form-scope';
+import { formRequestId } from './form-scope';
+import { singleFormField } from '../../../server/form-field';
 export type BlockFormState = {
   readonly requestId: string;
   readonly username: string;

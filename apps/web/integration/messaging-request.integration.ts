@@ -5,7 +5,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { requestMessagingDm } from '../src/features/messaging/request';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -23,7 +24,7 @@ const requestDeps = (
   limits: dec251MessagingValues.socialRequests,
   limit,
   store: db.messagingSocialStore(
-    messagingSocialAuthorizationFence({
+    contactAuthorizationFence({
       principal,
       clock,
       operation: {

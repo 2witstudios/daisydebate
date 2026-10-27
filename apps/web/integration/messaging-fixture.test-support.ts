@@ -3,7 +3,7 @@ import { createDatabase } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { contactAuthorizationFence } from '../src/features/contacts/authorization';
 
 export async function openMessagingFixture(databaseUrl: string) {
   const client = new SQL(databaseUrl);
@@ -34,7 +34,7 @@ export const blockDependencies = (
     clock,
     limit: async () => {},
     store: database.messagingSocialStore(
-      messagingSocialAuthorizationFence({
+      contactAuthorizationFence({
         principal,
         clock,
         operation: { kind: 'block' },

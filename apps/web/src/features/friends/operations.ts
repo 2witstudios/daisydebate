@@ -13,13 +13,14 @@ import type {
   FriendPresence,
   PresenceActivity,
 } from '@daisy/protocol';
-import { requireMessagingActor } from '../messaging/principal';
+
 import {
   decideFriendship,
   friendRelationOf,
   type FriendshipCommand,
   type FriendshipRefusal,
 } from './friendship';
+import { requireMemberActor } from '../access/actor';
 
 export type FriendCapability = 'social.friend.request' | 'social.friend.end';
 
@@ -63,7 +64,7 @@ export async function changeFriendship(
   username: string,
   dependencies: FriendOperationDependencies,
 ): Promise<Omit<FriendCommandResult, 'version'>> {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   const otherActorId = await dependencies.lookup(username);
   if (!otherActorId) throw createAppError('NOT_FOUND');
@@ -148,7 +149,7 @@ export async function readFriendList(
   principal: AuthorizationPrincipal,
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const [rows, challenges, hidden] = await Promise.all([
     dependencies.list({ userId, actorId }),
     dependencies.challenges({ userId, actorId }),

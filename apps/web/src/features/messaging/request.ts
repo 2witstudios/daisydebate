@@ -7,8 +7,9 @@ import {
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 
 /**
  * A DM request by actor ID. An unknown recipient, a block, a decline block
@@ -28,7 +29,7 @@ export async function requestMessagingDm(
     readonly limits: SocialRequestLimits;
   },
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const command = parseSocialCommand(
     dependencies.bounds,
     input,

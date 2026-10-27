@@ -1,4 +1,3 @@
-import { messagingHttpBoundary } from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
@@ -16,6 +15,7 @@ import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
 import { composeMessagingBlockOperation } from './block-composition';
+import { memberHttpBoundary } from '../../server/member-handler';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;
@@ -53,7 +53,7 @@ export function composeMessagingSocialRoutes(app: App) {
         readingPolicy: policy.reading,
       });
     const handlers = createMessagingSocialHandlers({
-      ...messagingHttpBoundary(app),
+      ...memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       bounds: social.bounds,
       request: composeMessagingCreationOperation(app, 'dm'),

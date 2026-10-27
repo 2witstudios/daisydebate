@@ -2,7 +2,8 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { blockMessagingContact } from './block';
-import { messagingSocialAuthorizationFence } from './social-authorization';
+import { contactAuthorizationFence } from '../contacts/authorization';
+
 /** Both participant entry points use the same canonical, age-independent safety fence. */
 export function composeMessagingBlockOperation(app: App) {
   return (input: unknown, principal: AuthorizationPrincipal) => {
@@ -17,7 +18,7 @@ export function composeMessagingBlockOperation(app: App) {
           social.abuse,
         ),
       store: app.database.messagingSocialStore(
-        messagingSocialAuthorizationFence({
+        contactAuthorizationFence({
           principal,
           clock: app.clock,
           operation: { kind: 'block' },

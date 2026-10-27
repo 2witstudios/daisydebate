@@ -5,8 +5,9 @@ import type { MessagingGroupIssuanceStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 export async function inviteMessagingGroup(
   input: unknown,
   principal: AuthorizationPrincipal,
@@ -17,7 +18,7 @@ export async function inviteMessagingGroup(
       | undefined;
   },
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const command = parseValidated(
     createMessagingSocialSchemas(dependencies.bounds).inviteGroup,
     input,

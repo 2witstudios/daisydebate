@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import { requireMessagingActor } from '../messaging/principal';
+import { requireMemberActor } from '../access/actor';
 
 /**
  * The member's own choice to hide their online status from friends (ADR
@@ -19,7 +19,7 @@ export async function setPresenceHidden(
     ) => Promise<boolean>;
   },
 ): Promise<{ readonly hidden: boolean }> {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   return {
     hidden: await dependencies.write(

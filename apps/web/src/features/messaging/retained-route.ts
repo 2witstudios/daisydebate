@@ -4,9 +4,12 @@ import type { OwnCollectionFence } from '@daisy/db/authorization';
 import { messagingRetainedSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { requireMessagingAuthorization } from './authorization';
-import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
-import { requireMessagingActor } from './principal';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
+import { requireMemberActor } from '../access/actor';
 
 type Scope = { readonly actorId: string; readonly userId: string };
 
@@ -17,7 +20,7 @@ const retainedFence =
     capability: 'channel.retained.read' | 'channel.retained.delete',
   ): OwnCollectionFence<Scope> =>
   async ({ scope, account }) =>
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability,
       resource: { kind: 'messaging_collection', actorId: scope.actorId },
@@ -32,14 +35,14 @@ const retainedFence =
 export function composeRetainedConversationRoutes(app: App) {
   const policy = app.messagingPolicy;
   const scopeOf = (principal: AuthorizationPrincipal) => {
-    const { actorId, userId } = requireMessagingActor(principal);
+    const { actorId, userId } = requireMemberActor(principal);
     return { actorId, userId };
   };
   const limit = (actorId: string) => consumeMessagingRead(app, actorId);
-  const boundary = messagingHttpBoundary(app);
+  const boundary = memberHttpBoundary(app);
   return {
     list: (request: Request) =>
-      runMessagingHandler(boundary, request, {
+      runMemberHandler(boundary, request, {
         name: 'messaging.retained.list',
         readOnly: true,
         readInput: async () => null,
@@ -56,7 +59,7 @@ export function composeRetainedConversationRoutes(app: App) {
         },
       }),
     read: (request: Request, channelId: string) =>
-      runMessagingHandler(boundary, request, {
+      runMemberHandler(boundary, request, {
         name: 'messaging.retained.read',
         readOnly: true,
         readInput: async () => channelId,
@@ -74,7 +77,7 @@ export function composeRetainedConversationRoutes(app: App) {
         },
       }),
     remove: (request: Request) =>
-      runMessagingHandler(boundary, request, {
+      runMemberHandler(boundary, request, {
         name: 'messaging.retained.delete',
         readOnly: false,
         readInput: () => readJson(request, policy.maxBodyBytes),

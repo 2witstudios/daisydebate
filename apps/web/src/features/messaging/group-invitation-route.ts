@@ -4,12 +4,16 @@ import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
-import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
+
 import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import {
   readMessagingGroupInvitation,
   decideMessagingGroupInvitation,
 } from './group-invitation';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 /** Refusal and minimal reads do not depend on group admission approval. */
 export function composeMessagingGroupInvitationRoutes(app: App) {
   const run = (
@@ -19,7 +23,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy.social;
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name: `messaging.invitation.${mode}`,
       readOnly: mode === 'read',
       readInput:

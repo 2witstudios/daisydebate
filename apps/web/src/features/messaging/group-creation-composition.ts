@@ -8,8 +8,8 @@ import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingAuthorization } from './authorization';
-import { creationResource } from './social-authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
+import { creationResource } from '../contacts/authorization';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
@@ -62,7 +62,7 @@ export function composeMessagingGroupCreationStore(input: {
         scope.proposedActorIds.includes(row.actorId),
     );
     const socialAccounts = await loadAccountPolicyFacts(tx, accounts, now);
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability: 'channel.create.private_group',
       resource: creationResource(

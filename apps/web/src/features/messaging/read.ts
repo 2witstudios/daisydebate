@@ -9,7 +9,7 @@ import {
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { messagingMessageView } from './message-view';
-import { requireMessagingActor } from './principal';
+import { requireMemberActor } from '../access/actor';
 
 export function createMessagingReadOperations({
   bounds,
@@ -24,7 +24,7 @@ export function createMessagingReadOperations({
     principal: AuthorizationPrincipal,
     work: (frame: MessagingLockedFrame) => Promise<T>,
   ) => {
-    const identity = requireMessagingActor(principal);
+    const identity = requireMemberActor(principal);
     return store.withChannel({ channelId, ...identity }, work);
   };
   const history = (

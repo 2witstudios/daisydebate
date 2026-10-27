@@ -10,7 +10,7 @@ import {
 } from './messaging-fixture.test-support';
 import { changeFriendship } from '../src/features/friends/operations';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { contactAuthorizationFence } from '../src/features/contacts/authorization';
 
 export type Opened = Awaited<ReturnType<typeof openMessagingFixture>>;
 
@@ -31,7 +31,7 @@ export const friendChange =
       lookup: (name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>
         database.friendStore(
-          messagingSocialAuthorizationFence({
+          contactAuthorizationFence({
             principal,
             clock,
             operation: { kind: 'friend', capability },

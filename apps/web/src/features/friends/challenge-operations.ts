@@ -1,8 +1,9 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError, isAppError } from '@daisy/errors';
-import { requireMessagingActor } from '../messaging/principal';
+
 import { mayChallenge } from './friendship';
 import type { FriendOperationDependencies } from './operations';
+import { requireMemberActor } from '../access/actor';
 
 type ChallengeCommand = 'challenge' | 'decline';
 
@@ -19,7 +20,7 @@ export async function changeChallenge(
   input: { readonly username: string; readonly roomId: string },
   dependencies: FriendOperationDependencies,
 ): Promise<{ readonly username: string; readonly relation: 'friends' }> {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   const otherActorId = await dependencies.lookup(input.username);
   if (!otherActorId || otherActorId === actorId)

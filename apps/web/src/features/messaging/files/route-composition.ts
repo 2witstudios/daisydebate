@@ -2,19 +2,17 @@ import { nativeFileCleanup } from './native-cleanup-handler';
 import { nativeFileHandler } from './native-handler';
 import type { MessagingFileFormState } from '../forms/file-form';
 import type { App } from '../../../server/app';
-import {
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from '../handler-boundary';
+import { unavailableMessagingHandler } from '../handler-boundary';
 import { messagingFileDependencies } from './composition';
 import { createMessagingFileHandlers } from './handlers';
+import { memberHttpBoundary } from '../../../server/member-handler';
 /** Absence of explicit storage/scanner/policy remains unavailable at every mounted edge. */
 export function composeMessagingFileRoutes(app: App) {
   const configured = () => {
     const runtime = app.messagingFiles;
     if (!runtime) return null;
     return createMessagingFileHandlers({
-      boundary: messagingHttpBoundary(app),
+      boundary: memberHttpBoundary(app),
       maxJsonBytes: app.messagingPolicy.maxBodyBytes,
       bounds: runtime.policy,
       dependencies: (principal) => messagingFileDependencies(app, principal),
@@ -42,7 +40,7 @@ export function composeMessagingFileRoutes(app: App) {
       if (!files || !runtime) return unavailableMessagingHandler(app, request);
       return nativeFileHandler(
         {
-          boundary: messagingHttpBoundary(app),
+          boundary: memberHttpBoundary(app),
           maxMultipartBytes: runtime.maxMultipartBytes,
           files,
           respond,
@@ -60,7 +58,7 @@ export function composeMessagingFileRoutes(app: App) {
         return unavailableMessagingHandler(app, request);
       return nativeFileCleanup(
         {
-          boundary: messagingHttpBoundary(app),
+          boundary: memberHttpBoundary(app),
           maxBodyBytes: policy.maxBodyBytes,
           bounds: runtime.policy,
           cleanup: files.cleanup,

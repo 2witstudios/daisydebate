@@ -3,16 +3,20 @@ import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
-import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
+
 import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { composeMessagingBlockOperation } from './block-composition';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 export function composeMessagingCreationIntentRoutes(app: App) {
   const run = (request: Request, kind: 'dm' | 'private_group' | 'block') => {
     const policy = app.messagingPolicy,
       social = policy.social;
     const schemas = createMessagingSocialSchemas(social.bounds);
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name: `messaging.${kind}.username`,
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),

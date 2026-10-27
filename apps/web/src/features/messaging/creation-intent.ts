@@ -5,7 +5,8 @@ import {
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+import { requireMemberActor } from '../access/actor';
+
 /** Username discovery produces proposed IDs only; the existing transaction still authorizes creation. */
 export async function resolveMessagingCreationIntent(
   kind: 'dm' | 'private_group',
@@ -17,7 +18,7 @@ export async function resolveMessagingCreationIntent(
     readonly limit: (actorId: string) => Promise<void>;
   },
 ) {
-  const { actorId } = requireMessagingActor(principal);
+  const { actorId } = requireMemberActor(principal);
   const schemas = createMessagingSocialSchemas(dependencies.bounds);
   const command =
     kind === 'dm'

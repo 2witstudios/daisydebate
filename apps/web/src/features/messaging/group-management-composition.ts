@@ -5,12 +5,13 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { requireMessagingAuthorization } from './authorization';
-import { requireMessagingActor } from './principal';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
+
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
 } from './authorization-fence';
+import { requireMemberActor } from '../access/actor';
 const capabilities = {
   remove: 'channel.group.revoke',
   leave: 'channel.leave',
@@ -27,7 +28,7 @@ export function composeMessagingGroupManagementStore(input: {
 }) {
   const authorize: MessagingGroupManagementFence = async (tx, scope, facts) => {
     const { principal } = input;
-    const actor = requireMessagingActor(principal);
+    const actor = requireMemberActor(principal);
     if (actor.userId !== scope.userId || actor.actorId !== scope.actorId)
       throw createAppError('AUTHORIZATION');
     if (
@@ -47,7 +48,7 @@ export function composeMessagingGroupManagementStore(input: {
       })(tx, scope, { fact: facts.channel, accounts: facts.accounts });
       return;
     }
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability: capabilities[scope.operation],
       resource: facts.channel,

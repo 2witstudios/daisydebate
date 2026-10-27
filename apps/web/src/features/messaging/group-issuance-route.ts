@@ -2,18 +2,19 @@ import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { messagingGroupCommandRoute } from './group-command-route';
 import { composeMessagingGroupIssuanceStore } from './group-issuance-composition';
 import { inviteMessagingGroup } from './group-issuance';
 import { requirePrivateGroups } from './private-groups';
+import { requireMemberActor } from '../access/actor';
 export function composeMessagingGroupIssuanceRoute(app: App) {
   return messagingGroupCommandRoute(
     app,
     'messaging.group.invite',
     async (input, principal, { policy, social, limit }) => {
       requirePrivateGroups(policy);
-      const actor = requireMessagingActor(principal);
+      const actor = requireMemberActor(principal);
       const intent = parseValidated(
         createMessagingSocialSchemas(social.bounds).inviteGroupUsernames,
         input,

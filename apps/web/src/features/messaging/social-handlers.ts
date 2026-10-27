@@ -6,7 +6,8 @@ import {
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { readJson } from '../../server/http';
-import { runMessagingHandler } from './handler-boundary';
+import { runMemberHandler } from '../../server/member-handler';
+
 type Operation = (
   input: unknown,
   principal: AuthorizationPrincipal,
@@ -37,7 +38,7 @@ export function createMessagingSocialHandlers(dependencies: {
     kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
     readInput: () => Promise<unknown>,
   ) =>
-    runMessagingHandler(dependencies, request, {
+    runMemberHandler(dependencies, request, {
       name: `messaging.${kind}`,
       readOnly: kind === 'preview' || kind === 'status',
       readInput,
