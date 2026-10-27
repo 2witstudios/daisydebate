@@ -8,10 +8,7 @@ import {
 } from '@daisy/media/capture';
 import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
-import {
-  createMediaWorkerClient,
-  isCaptureClosedRefusal,
-} from '@daisy/media/worker';
+import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -20,6 +17,7 @@ import { CAPTURE_FINISHED_EXIT } from './supervisor';
 import {
   CAPTURE_UNCAUGHT_EXIT,
   captureFailureExit,
+  startRefusalExit,
   tagCaptureFailure,
 } from './capture-exit';
 
@@ -107,10 +105,7 @@ export async function runCaptureProcess(input: {
     );
     process.exitCode = exitStatus(ended.closed);
   } catch (error) {
-    // Refused at start (lease, token) because the capture is closed for good.
-    process.exitCode = isCaptureClosedRefusal(error)
-      ? CAPTURE_FINISHED_EXIT
-      : captureFailureExit(error);
+    process.exitCode = startRefusalExit(error);
   } finally {
     await disposeCaptureRuntime();
   }

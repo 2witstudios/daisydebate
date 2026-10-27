@@ -1,9 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, isAppError } from '@daisy/errors';
-import {
-  createMediaWorkerClient,
-  isCaptureClosedRefusal,
-} from '@daisy/media/worker';
+import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { namedCaptureRefusal } from '../apps/web/src/features/media-capture/handlers';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
@@ -20,6 +17,7 @@ import { issueCaptureToken } from '../apps/media-worker/src/capture-token';
 import {
   captureFailureExit,
   describeCaptureExit,
+  startRefusalExit,
   tagCaptureFailure,
 } from '../apps/media-worker/src/capture-exit';
 import {
@@ -97,10 +95,7 @@ function superviseCapture(
         new AbortController().signal,
       ).then(
         () => CAPTURE_FINISHED_EXIT,
-        (error: unknown) =>
-          isCaptureClosedRefusal(error)
-            ? CAPTURE_FINISHED_EXIT
-            : captureFailureExit(error),
+        (error: unknown) => startRefusalExit(error),
       );
       settled = exited;
       return { exited, stop: () => undefined };

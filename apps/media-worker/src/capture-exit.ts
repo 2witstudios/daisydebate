@@ -1,4 +1,6 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
+import { isCaptureClosedRefusal } from '@daisy/media/worker';
+import { CAPTURE_FINISHED_EXIT } from './supervisor';
 
 /**
  * Where a capture process failed (ISSUE-571). The child's only channel back
@@ -97,3 +99,13 @@ export function describeCaptureExit(status: number): {
     return { cause: 'unknown' };
   return { cause: stage, errorCode: codes[offset % codes.length]! };
 }
+
+/**
+ * The exit for a session refused at start (lease, token): a capture the
+ * server closed for good finishes and is never relaunched (ISSUE-494,
+ * ISSUE-521); anything else is its stage-coded failure.
+ */
+export const startRefusalExit = (error: unknown) =>
+  isCaptureClosedRefusal(error)
+    ? CAPTURE_FINISHED_EXIT
+    : captureFailureExit(error);

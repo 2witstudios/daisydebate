@@ -182,5 +182,5 @@ function streamStatus(
   if (streams.length > 0 && streams.every((s) => s.state === 'complete'))
     return 'complete';
   if (frozen === null) return 'pending';
-  return streams.length === 0 && frozen === 'complete' ? 'complete' : 'partial';
+  return frozen === 'complete' ? 'complete' : 'partial';
 }
