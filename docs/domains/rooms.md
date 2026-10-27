@@ -63,6 +63,14 @@ the scheduled speaker, whose segment continues (DEC-203). Humans, bots and
 services all act through the one shared command operation; people reach it
 through the Round command route.
 
+The Round's room page sends each member to their own view: a debater to the
+live room, the assigned judge to the judge view, and a seatless host to the
+spectator view, a read-only projection of the Round (who holds the floor, the
+clock and the speech order) with no controls and no media. The spectator
+view is the seed of spectating: `SpectatorAudience` names why a viewer
+watches, today only `host`, and later audiences join that union without a
+second view. Everyone else gets the Round's public page.
+
 Media is a scoped LiveKit session. The capture worker turns the published
 audio of every debater, human or bot, into the transcript; bot speech enters
 the transcript only this way (DEC-212, DEC-213, DEC-215). When the final
