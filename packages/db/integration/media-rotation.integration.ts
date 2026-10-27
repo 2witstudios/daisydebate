@@ -74,7 +74,7 @@ for (const failure of [
           await f.sql`select id, room_name, ended_at from media_sessions where id=${binding.sessionId}`;
         const [lease] =
           await f.sql`select epoch,expires_at<=clock_timestamp() as expired from media_worker_leases where session_id=${binding.sessionId}`;
-        const bindings =
+        const bindings: readonly { round_participant_id: string }[] =
           await f.sql`select round_participant_id from media_participants where session_id=${binding.sessionId}`;
         const [journal] =
           await f.sql`select count(*)::int as count from media_vendor_mutations where session_id=${binding.sessionId}`;

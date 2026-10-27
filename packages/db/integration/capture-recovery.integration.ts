@@ -64,7 +64,10 @@ for (const mode of [
           }
         }
         if (mode === 'room-deletion') {
-          const rows =
+          const rows: readonly {
+            text: string;
+            capture_worker_epoch: number;
+          }[] =
             await fixture.sql`select text,capture_worker_epoch from utterances where segment_id=${f.stream.segmentId}`;
           assert({
             given: 'rotation with no old utterance',
