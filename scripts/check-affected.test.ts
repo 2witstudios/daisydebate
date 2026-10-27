@@ -87,16 +87,14 @@ describe('partitionAffected', () => {
 });
 
 describe('planGates', () => {
-  test('always includes the repo-wide boundaries and duplication gates', () => {
+  test('always includes the repo-wide boundaries and styling gates', () => {
     assert({
       given: 'no changed files',
-      should: 'still verify architecture boundaries and the duplication gate',
+      should: 'still verify architecture boundaries and styling',
       actual: planGates(partitionAffected([]), 'sha0'),
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
         { name: 'styling', args: ['bun', 'scripts/check-styling.ts'] },
-        { name: 'knip', args: ['bun', 'run', 'knip'] },
-        { name: 'duplication', args: ['bun', 'run', 'duplication'] },
       ],
     });
   });
@@ -127,13 +125,7 @@ describe('planGates', () => {
       given: 'only a deleted workspace file',
       should: 'run the repo-wide gates and turbo without file-based gates',
       actual: gates.map(({ name }) => name),
-      expected: [
-        'boundaries',
-        'styling',
-        'knip',
-        'duplication',
-        'turbo affected (typecheck, test)',
-      ],
+      expected: ['boundaries', 'styling', 'turbo affected (typecheck, test)'],
     });
   });
 });
@@ -184,14 +176,14 @@ describe('global affected fanout', () => {
       });
     }
   });
-  test('repository-wide dead-code detection runs for leaf changes', () => {
+  test('reports stay out of the quick check', () => {
     assert({
       given: 'a leaf edit',
-      should: 'include Knip across package boundaries',
+      should: 'leave knip and duplication to the advisory reports',
       actual: planGates(partitionAffected(['apps/web/src/a.ts']), 'base').some(
-        ({ name }) => name === 'knip',
+        ({ name }) => name === 'knip' || name === 'duplication',
       ),
-      expected: true,
+      expected: false,
     });
   });
 });

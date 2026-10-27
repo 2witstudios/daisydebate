@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { AuthEmailMessage } from '../auth/mail/mail-types';
 import { createMailIntentDelivery } from './mail-delivery';
+import { MAIL_INTENT_MAX_ATTEMPTS } from './retry-policy';
 
 setupRitewayBun();
 
@@ -47,6 +48,7 @@ const scripted = (input: {
     appUrl: 'https://daisy.example.com',
     nextToken: () => 'tok',
     now: () => '2026-10-26T00:00:00.000Z',
+    failed: () => {},
   });
   return { delivery, sent, settled };
 };
@@ -160,5 +162,68 @@ describe('mail intent delivery (ADR 0075)', () => {
         { kind: 'cancelled', errorCode: 'suppressed' },
       ],
     });
+  });
+});
+
+test('an intent whose read fails never aborts the batch, and stops at the attempt cap (ISSUE-656)', async () => {
+  const settled: Settled[] = [];
+  const sent: string[] = [];
+  const failures: unknown[] = [];
+  const delivery = createMailIntentDelivery({
+    store: {
+      claimMailIntents: async () => [
+        { id: 'erased', purpose: 'beta-approved', attempts: 1, token: 't1' },
+        { id: 'owed', purpose: 'beta-approved', attempts: 1, token: 't2' },
+        {
+          id: 'unreadable',
+          purpose: 'beta-approved',
+          attempts: MAIL_INTENT_MAX_ATTEMPTS,
+          token: 't3',
+        },
+      ],
+      readMailIntentDelivery: async (id) => {
+        if (id !== 'owed') throw new Error('read failed');
+        return { kind: 'member', to: 'm@daisy.invalid', username: 'mia' };
+      },
+      settleMailIntent: async (settle) => {
+        settled.push(settle);
+        return true;
+      },
+    },
+    deliver: async (message) => {
+      sent.push(message.idempotencyKey ?? '');
+      return 'sent';
+    },
+    ownerAddress: undefined,
+    appUrl: 'https://daisy.example.com',
+    nextToken: () => 'tok',
+    now: () => '2026-10-26T00:00:00.000Z',
+    failed: (error) => failures.push(error),
+  });
+  const count = await delivery.run(10);
+  assert({
+    given:
+      'a batch whose first intent cannot be read, a deliverable one, and one unreadable at the attempt cap',
+    should:
+      'retry the first with backoff, still send the second, fail the third for good, and report both read failures',
+    actual: {
+      count,
+      sent,
+      failures: failures.map((error) => (error as Error).message),
+      outcomes: settled.map(({ id, outcome }) => [
+        id,
+        (outcome as { kind: string }).kind,
+      ]),
+    },
+    expected: {
+      count: 3,
+      sent: ['owed'],
+      failures: ['read failed', 'read failed'],
+      outcomes: [
+        ['erased', 'retry'],
+        ['owed', 'sent'],
+        ['unreadable', 'failed'],
+      ],
+    },
   });
 });

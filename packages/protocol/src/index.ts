@@ -298,6 +298,7 @@ export {
   friendListSchema,
   friendshipStates,
   onlineCountsSchema,
+  presenceSettingResultSchema,
 } from './friends';
 export type {
   FriendCommandResult,

@@ -1,6 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type {
+  MessagingFriendChallengeRow,
   MessagingFriendshipRow,
   MessagingSocialStore,
 } from '@daisy/db/messaging';
@@ -104,6 +105,16 @@ export type FriendReadDependencies = {
     readonly userId: string;
     readonly actorId: string;
   }) => Promise<readonly MessagingFriendshipRow[]>;
+  /** Friends' challenges waiting for the reader, behind the same decision. */
+  readonly challenges: (scope: {
+    readonly userId: string;
+    readonly actorId: string;
+  }) => Promise<readonly MessagingFriendChallengeRow[]>;
+  /** Whether the reader hides their own status, behind the same decision. */
+  readonly hidden: (scope: {
+    readonly userId: string;
+    readonly actorId: string;
+  }) => Promise<boolean>;
   /** Each actor's presence; only friends are ever asked about. */
   readonly presence: (
     actorIds: readonly string[],
@@ -122,16 +133,27 @@ const presenceRank: Record<FriendPresence, number> = {
   offline: 2,
 };
 
+/** How many of a friend list's friends the badge counts: away is still here. */
+export const friendsOnlineOf = (friends: FriendList['friends']): number =>
+  friends.filter((friend) => friend.presence !== 'offline').length;
+
 /** The principal's friends, online first, and their pending requests. */
 export async function readFriendList(
   principal: AuthorizationPrincipal,
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
   const { actorId, userId } = requireMessagingActor(principal);
-  const rows = await dependencies.list({ userId, actorId });
+  const [rows, challenges, hidden] = await Promise.all([
+    dependencies.list({ userId, actorId }),
+    dependencies.challenges({ userId, actorId }),
+    dependencies.hidden({ userId, actorId }),
+  ]);
   const accepted = rows.filter((row) => row.state === 'accepted');
-  const presence = accepted.length
-    ? await dependencies.presence(accepted.map((row) => row.otherActorId))
+  // A friend who hides their status is offline to everyone (ADR 0072): their
+  // leases are never even read.
+  const visible = accepted.filter((row) => !row.otherHidden);
+  const presence = visible.length
+    ? await dependencies.presence(visible.map((row) => row.otherActorId))
     : new Map<string, FriendPresence>();
   const pending = (incoming: boolean) =>
     rows
@@ -142,10 +164,13 @@ export async function readFriendList(
       )
       .map(({ username, requestedAt }) => ({ username, requestedAt }));
   return {
+    hidden,
     friends: accepted
       .map((row) => ({
         username: row.username,
-        presence: presence.get(row.otherActorId) ?? 'offline',
+        presence: row.otherHidden
+          ? ('offline' as const)
+          : (presence.get(row.otherActorId) ?? 'offline'),
       }))
       .sort(
         (a, b) =>
@@ -154,5 +179,11 @@ export async function readFriendList(
       ),
     incoming: pending(true),
     outgoing: pending(false),
+    challenges: challenges.map(({ username, roomId, title, challengedAt }) => ({
+      username,
+      roomId,
+      title,
+      challengedAt,
+    })),
   };
 }

@@ -86,9 +86,11 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    excludes these two suites, while the same native CI job runs each dedicated
    profile and enforces its reporter count before sanitizing artifacts. Separate
    output directories preserve reports and traces from earlier profiles.
-4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
-   policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
-   production build). CI additionally runs the
+4. **CI parity** — `bun check` mirrors CI's blocking gates (format, lint,
+   policy, invariants, typecheck, unit tests, production build). knip,
+   duplication, evidence and the coverage trend are reports: CI runs them in
+   its non-blocking "Advisory reports" job, and knip blocks only the nightly
+   main run (ADR 0083). CI additionally runs the
    integration tier (Redis and LiveKit from `infra/compose.yaml`, the same
    memory-only Redis and dev-key SFU every slot uses) and the browser tier in the
    dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
@@ -189,9 +191,9 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   `*.e2e.ts` under `apps/web/e2e/`. A `*.integration.ts(x)` or
   `*.e2e.ts(x)` under `src/`, and any `*.e2e.tsx`, is recognized as a
   suite but executed by no runner, so it fails as ORPHAN_SUITE.
-- The `knip`, `policy`, `duplication`, `invariants`, `evidence`, and `migrations:check` gates must
-  appear in `ci.yml`, so deleting a job breaks CI instead of silently
-  retiring a gate.
+- The `knip`, `policy`, `duplication`, `invariants`, `evidence`, and `migrations:check` commands must
+  appear in `ci.yml`, so deleting a job is flagged instead of silently
+  retiring a gate or a report. `bun evidence` itself is a report (ADR 0083).
 - `bun policy` scans repository-owned source for direct UUID generation and UUID
   contracts. Only exact, documented entries in `policy/exceptions.json` can
   allow framework, tooling, migration, or integration-isolation uses. Every
@@ -220,12 +222,16 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   tests assert the parsed value or the issue paths, not a `.success`
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
-- **Dead code.** `bun run knip` fails on unused files, exports and
-  dependencies; keep findings at zero (ADR 0013).
-- **Duplication.** `bun run duplication` fails on any copy-pasted block not
-  in `.jscpd-baseline.json`, and on any copy-pasted test block not in
-  `.jscpd-tests-baseline.json` (tests have their own scan and baseline);
-  consolidate instead of re-baselining (ADR 0026).
+- **Dead code.** `bun run knip` reports unused files, exports and
+  dependencies. It warns on PRs and fails the nightly main run, so keep
+  findings at zero (ADR 0013, ADR 0083).
+- **Duplication.** `bun run duplication` reports copy-pasted blocks not in
+  `.jscpd-baseline.json`, and copy-pasted test blocks not in
+  `.jscpd-tests-baseline.json` (tests have their own scan and baseline). It
+  is a report, not a gate: consolidate what it finds during the review
+  loop's `/simplify` pass (ADR 0026, ADR 0083).
+- **Size and complexity.** ESLint's `max-lines` and `complexity` rules warn.
+  Treat a warning as a prompt to split or simplify, not as a merge blocker.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
@@ -303,8 +309,7 @@ serious/critical findings, plus keyboard-only navigation, a live-region
 assertion and a 200%-effective-zoom reflow check (halving the viewport, the
 standard technique since Playwright has no native browser-zoom control).
 Real-device rows (Safari/iOS, Chrome/Android, a roaming security key) are
-owner-recorded pre-release evidence, never emulated; see the review record
-for the exact NOT RUN rows and what to capture.
+owner-recorded pre-release evidence, never emulated.
 
 ## Styling safeguards and visual parity
 
@@ -328,10 +333,10 @@ Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
 
 ### Visual parity
 
-`apps/web/e2e/visual.e2e.ts` is a stable core of 13 full-page baselines in
+`apps/web/e2e/visual.e2e.ts` is a stable core of 16 full-page baselines in
 `apps/web/e2e/visual-baselines/` (ADR 0073): the signed-out dashboard (the
-app shell frame) and settings, and the AUTH-4.7 sign-in and email-change
-confirm pages. A surface keeps a baseline only when it rarely changes on
+app shell frame) and settings, the WAIT-4.6 age step, and the AUTH-4.7
+sign-in and email-change confirm pages. A surface keeps a baseline only when it rarely changes on
 purpose and a purely visual regression there would matter; surfaces under
 active design have none. Baselines are Linux-only: fonts render
 differently elsewhere. CI runs on Linux natively. On any other host the
@@ -348,7 +353,7 @@ renders the visual project with `--update-snapshots` on the E2E runner image
 and commits only changed baselines to that same-repository branch (never a
 fork or `main`). GitHub starts no CI for that commit, so pull it and push
 your next commit (or close and reopen the PR) to run the gates; the commit
-moves the PR head, so rebaseline before the independent review record. Review the
+moves the PR head, so rebaseline before reviewers start. Review the
 image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
 which takes the image tag and run-server version from the web app's exact
 `@playwright/test` pin, so they always match. The command lives in a script
@@ -480,10 +485,9 @@ Only task outputs and logs are archived, never `.env`, credentials or service
 state. Infrastructure and browser test results are always executed fresh.
 
 Only successful task steps save, and only for main pushes or pull requests
-whose head repository is this repository, plus `pu/**` branch pushes. The latter
-seed standalone quick-check runs in their own GitHub branch scope; main and
-sibling branches cannot restore those caches. No privileged token or scope
-override is used. Fork PRs and manual dispatches may
+whose head repository is this repository. Branch pushes without a PR start no
+CI (ADR 0083), so they save nothing. No privileged token or scope override is
+used. Fork PRs and manual dispatches may
 restore but never save through this action. GitHub also scopes PR caches to
 their merge ref: main cannot restore a PR cache. No `pull_request_target` job
 executes PR code or publishes its outputs into a main cache.
@@ -504,61 +508,77 @@ References read before configuration:
 [GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
 and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/apps/docs/content/docs/reference/configuration.mdx).
 
-### Fast branch checks and affected browser selection
+### One quick check per PR push and the browser tier
 
-`gh workflow run quick-check.yml -f ref=<branch>` checks the requested ref;
-a trusted read-only job resolves the ref before checkout, and a separate job
-publishes `Quick check (dispatched)` on that exact SHA. The publishing job
-executes no candidate code and alone has checks-write permission. Candidate
-execution keeps contents-read permission; dispatches never save task caches.
-Pushes to `pu/**` also publish `Quick check`. Browser E2E
-calls the same workflow in-process; both browser jobs require its success
-before allocating their runners. CI also calls quick-check before its complete
-11-task matrix (including build), image and integration jobs. Audit and migration
-checks remain immediately runnable. Across CI and Browser E2E, this changes the
-original 17 initially runnable jobs to 4 (5 including the standalone branch-push
-quick check): two quick checks, audit and migrations. All 15 existing expensive
-jobs wait for quick success. Passing PRs still fan out; this reduces initial
-fanout, not peak concurrency across distinct passing PRs. Existing per-PR
-cancellation remains scoped to superseded runs of the same PR. Main,
-merge-group and manual runs use unique per-run groups and never cancel each
-other; a new merge cannot prevent the previous main candidate from finishing.
-CI gate requires quick and every full job.
-Always-running terminal checks require both the quick prerequisite and actual
-suite success; skipped or cancelled browser jobs cannot pass a required check.
-The existing full CI matrix and aggregate gate remain required.
+CI runs the quick check (`bun check:affected`) once per PR or main push (a
+branch push without a PR runs no CI), as a reusable
+workflow called from `ci.yml` alone (ADR 0083). The quick check owns:
 
-`check:affected` uses the merge base, includes deletions in graph selection,
-and excludes missing paths from file CLIs. Turbo's affected typecheck graph
-selects whole workspace directories for ESLint, including reverse dependents:
-imported types can change type-aware lint in consumers. Root configuration,
-lockfiles, unknown non-document root inputs and every `globalDependencies`
-pattern in `turbo.json` fan out to all workspaces. Knip, duplication,
-architecture and styling checks remain repository-wide. `--full` forces full
-static/unit checks even when HEAD equals the base (main and queue runs).
-The inner loop is not the production build or main acceptance gate.
+- format and lint;
+- boundaries and styling;
+- root script tests;
+- turbo typecheck and unit tests.
 
-`scripts/affected-e2e.ts` explicitly owns every `apps/web/e2e/*.e2e.ts` file.
-An inventory mismatch fails before browser work. Recognized PR changes select
-owned specs plus `app`, `journey-no-js`, `csp` and `shell` smoke. Unknown files,
-shared fixtures, routes, core packages and configuration fall back to full.
-Main, merge groups and manual three-run release qualification always run full.
-Native Launch retains `room-launch` smoke, adds owned round/media specs, and
-falls back to all eight specs for auth, room, realtime, shared or unknown inputs.
-Main, merge groups, manual runs and unenforced PRs retain all eight. Both
-one-file realtime profiles stay full. Native admission and full configuration
-inventories remain unchanged; validated CLI file filters select execution.
-Every selected standard and native spec must have a passed result in its report; existing zero-discovery, skipped-test and retry guards
-remain enforced.
+It runs affected on PRs, and full on main pushes, merge groups and the
+nightly schedule. The CI matrix behind it runs only `policy`, `invariants`
+and `build`, beside the image, audit, migration and Infrastructure contracts
+jobs. CI gate requires every one of them.
 
-Affected PR selection activates only after the live main branch rules API
-reports a merge queue and all four required checks, bound to their expected
-Apps: CI gate, Playwright E2E, Isolated Room Launch E2E and review-record.
-Absent, unreadable or incomplete enforcement retains full PR browser coverage.
-This is a fail-closed rollout, not a claim that a queue has been enabled.
+`gh workflow run quick-check.yml -f ref=<branch>` checks a ref on demand:
 
-Measurements belong in the linked CI-speed handoff with candidate/run/job URLs.
-The initial Quick check on `a871b592ba99f9af748a4f87810dd257a437c203`
-ran 23:16:30–23:20:39 UTC on 2026-10-26 (249 seconds, including job setup).
-Warm <=240 seconds is a target, not an asserted result. Browser execution
-savings for standard and native selection remain conditional on owner queue activation.
+- A trusted read-only job resolves the ref before checkout.
+- A separate job publishes `Quick check (dispatched)` on that exact SHA.
+- The publishing job executes no candidate code and alone has checks-write
+  permission.
+
+Main, merge-group, scheduled and manual runs use unique per-run concurrency
+groups and never cancel each other. Only a superseded run of the same PR is
+cancelled.
+
+`check:affected` uses the merge base, includes deletions in graph
+selection, and excludes missing paths from file CLIs. Turbo's affected
+typecheck graph selects whole workspace directories for ESLint, including
+reverse dependents, because imported types can change type-aware lint in
+consumers. These inputs fan out to every workspace:
+
+- root configuration;
+- lockfiles;
+- unknown non-document root inputs;
+- every `globalDependencies` pattern in `turbo.json`.
+
+Architecture and styling checks stay repository-wide. `--full` forces full
+static and unit checks even when HEAD equals the base.
+
+The browser workflow runs no quick check of its own, so a lint failure never
+cascades into browser reds.
+
+- **Projects.** `scripts/select-e2e.ts` passes `--project=chromium` on PRs,
+  main pushes and merge groups. The visual spec, which no Chromium project
+  runs, is left out of those selections. The nightly scheduled run on main
+  runs every project (chromium, chromium-mobile, firefox, webkit,
+  webkit-mobile and visual) and posts a failure to the drive's Incidents
+  channel.
+- **Isolated Room Launch.** A light `scope` job runs the same selector
+  without installing anything. It fails safe: a PR skips the native suite
+  only when every changed file is documentation (`docs/` or any `.md`) or
+  sits in a known area the suite does not exercise:
+  - agent process files (`.claude/`, `.opencode/`, `policy/agent-pipeline/`);
+  - the admin app;
+  - theme, dashboard and the beta gate screens.
+
+  Anything else runs it, including room, round, realtime, messaging, media,
+  auth, database, Redis, dependency and unknown paths, and so does an empty
+  diff.
+
+  Main pushes, merge groups, the nightly run and dispatches always run it.
+  The required `Isolated Room Launch E2E` check passes when the suite
+  passed, or when `scope` succeeded, ruled the suite out, and the suite was
+  skipped for that reason alone.
+
+- **Spec ownership.** `scripts/affected-e2e.ts` explicitly owns every
+  `apps/web/e2e/*.e2e.ts` file, and an inventory mismatch fails before
+  browser work. Affected spec selection within a suite activates only once
+  the live main rules report a merge queue and the three required checks
+  bound to GitHub Actions. Absent, unreadable or incomplete enforcement keeps
+  the full spec set. Every selected spec must have a passed result in its
+  report. The zero-discovery, skipped-test and retry guards stay enforced.

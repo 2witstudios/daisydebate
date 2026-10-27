@@ -8,6 +8,7 @@ setupRitewayBun();
 
 const at = '2026-10-26T18:00:00.000Z';
 const action = async () => ({ username: '' });
+const presenceAction = async () => ({});
 const noop = () => {};
 const router = {
   bfcacheId: 'test',
@@ -29,6 +30,7 @@ const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
         challengeAction: action,
         message: (username: string) =>
           h('button', { type: 'submit' }, `Message @${username}`),
+        presenceAction,
       }),
     ),
   );
@@ -37,17 +39,26 @@ describe('FriendsPage', () => {
   test('friends online first, with requests both ways and what you can do', () => {
     const html = render({
       version: 1,
+      hidden: false,
       friends: [
         { username: 'ada', presence: 'online' },
         { username: 'cat', presence: 'offline' },
       ],
       incoming: [{ username: 'dan', requestedAt: at }],
       outgoing: [{ username: 'eve', requestedAt: at }],
+      challenges: [
+        {
+          username: 'ada',
+          roomId: 'r'.repeat(24),
+          title: '@ada vs @me',
+          challengedAt: at,
+        },
+      ],
     });
     assert({
       given: 'two friends, one incoming and one sent request',
       should:
-        'count who is online, show requests first, and offer each row its forms',
+        'count who is online, show challenges then requests first, and offer each row its forms',
       actual: [
         html.includes('>Friends</h1>'),
         html.includes('1 of 2 online'),
@@ -60,6 +71,9 @@ describe('FriendsPage', () => {
         html.includes('aria-label="Remove @cat"'),
         html.includes('aria-label="Cancel @eve"'),
         html.includes('href="/profile/ada"'),
+        html.includes('href="/rooms/rrrrrrrrrrrrrrrrrrrrrrrr"'),
+        html.includes('aria-label="Decline @ada&#x27;s challenge"'),
+        html.indexOf('>Challenges</h2>') < html.indexOf('>Requests</h2>'),
         html.includes('Watch'),
       ],
       expected: [
@@ -74,6 +88,9 @@ describe('FriendsPage', () => {
         true,
         true,
         true,
+        true,
+        true,
+        true,
         false,
       ],
     });
@@ -82,19 +99,23 @@ describe('FriendsPage', () => {
   test('a member with no friends sees how to add one', () => {
     const html = render({
       version: 1,
+      hidden: true,
       friends: [],
       incoming: [],
       outgoing: [],
+      challenges: [],
     });
     assert({
       given: 'an empty list',
-      should: 'invite adding a friend by username with a native form',
+      should:
+        'invite adding a friend by username with a native form, and offer showing a hidden status',
       actual: [
         html.includes('Add a friend by username'),
         html.includes('name="username"'),
         html.includes('>Your friends</h2>'),
+        html.includes('Show my online status'),
       ],
-      expected: [true, true, false],
+      expected: [true, true, false, true],
     });
   });
 

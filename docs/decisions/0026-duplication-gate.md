@@ -1,6 +1,6 @@
 # 0026: Duplication gate
 
-Status: accepted.
+Status: accepted; amended by [ADR 0083](0083-lean-gates-and-slice-process.md): duplication is a report, not a gate. jscpd keeps its configuration and baselines and runs in CI's advisory reports job. It is out of `bun check` and the quick check, and the review loop's `/simplify` pass consolidates clones.
 
 ## Context
 

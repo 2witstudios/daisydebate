@@ -30,6 +30,23 @@ async function withTwoNoScriptContexts(
   }
 }
 
+/** One signed-out context that runs no script at all, closed after `work`. */
+async function withNoScriptContext(
+  browser: Browser,
+  work: (context: NoScriptContext) => Promise<void>,
+) {
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled: false,
+  });
+  try {
+    await work(context);
+  } finally {
+    await context.close();
+  }
+}
+
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
@@ -85,12 +102,7 @@ test('two members befriend each other and part with JavaScript off', async ({
 test('an unknown username is refused with the name kept', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-  });
-  try {
+  await withNoScriptContext(browser, async (context) => {
     await signUpMember(context.request);
     const page = await openPage(context, 'a member adding nobody');
     await page.goto('/friends');
@@ -103,9 +115,7 @@ test('an unknown username is refused with the name kept', async ({
       'nobody-by-this-name',
     );
     expectNotInUrl(page, 'nobody-by-this-name');
-  } finally {
-    await context.close();
-  }
+  });
 });
 
 test('a member asks from a profile with JavaScript off', async ({
@@ -121,5 +131,68 @@ test('a member asks from a profile with JavaScript off', async ({
     await expect(
       page.getByRole('button', { name: `Cancel friend request @${username}` }),
     ).toBeVisible();
+  });
+});
+
+test('a challenge reaches the friend, who can join or decline it, with JavaScript off', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await withTwoNoScriptContexts(browser, async (challenger, friend) => {
+    const { username: challengerName } = await signUpMember(challenger.request);
+    const { username: friendName } = await signUpMember(friend.request);
+    const asked = await challenger.request.post('/api/friends', {
+      headers: { origin },
+      data: { version: 1, username: friendName },
+    });
+    expect(asked.status()).toBe(200);
+    const accepted = await friend.request.post('/api/friends/respond', {
+      headers: { origin },
+      data: { version: 1, username: challengerName, decision: 'accept' },
+    });
+    expect(accepted.status()).toBe(200);
+
+    const challengerPage = await openPage(challenger, 'the challenger');
+    await challengerPage.goto('/friends');
+    await challengerPage
+      .getByRole('button', { name: `Challenge @${friendName}` })
+      .click();
+    await expect(challengerPage).toHaveURL(/\/rooms\/[a-z0-9]{24}$/);
+    const roomPath = new URL(challengerPage.url()).pathname;
+
+    const friendPage = await openPage(friend, 'the challenged friend');
+    await friendPage.goto('/friends');
+    const challenges = friendPage.getByRole('region', { name: 'Challenges' });
+    await expect(challenges).toContainText(`@${challengerName}`);
+    await challenges
+      .getByRole('link', { name: `Join @${challengerName}'s challenge` })
+      .click();
+    await expect(friendPage).toHaveURL(new RegExp(`${roomPath}$`));
+    await friendPage.goto('/friends');
+    await friendPage
+      .getByRole('region', { name: 'Challenges' })
+      .getByRole('button', { name: `Decline @${challengerName}'s challenge` })
+      .click();
+    await expect(
+      friendPage.getByRole('region', { name: 'Challenges' }),
+    ).toHaveCount(0);
+  });
+});
+
+test('a member hides and shows their online status with JavaScript off', async ({
+  browser,
+}) => {
+  await withNoScriptContext(browser, async (context) => {
+    await signUpMember(context.request);
+    const page = await openPage(context, 'a member choosing their status');
+    await page.goto('/friends');
+    await page.getByRole('button', { name: 'Hide my online status' }).click();
+    await expect(page.locator('#presence-notice')).toContainText(
+      'Your friends now see you as offline.',
+    );
+    await page.getByRole('button', { name: 'Show my online status' }).click();
+    await expect(page.locator('#presence-notice')).toContainText(
+      'Your friends can see when you are online.',
+    );
   });
 });

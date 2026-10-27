@@ -238,3 +238,56 @@ describe('the private operator API (ADR 0079)', () => {
     });
   });
 });
+
+test('an unexpected handler failure reaches the error reporter; a refusal does not (ISSUE-681)', async () => {
+  const captured: unknown[] = [];
+  const reporter = {
+    capture: (error: unknown, context: unknown) => {
+      captured.push([(error as Error).message, context]);
+    },
+  };
+  const broken = api({
+    reporter,
+    store: {
+      listOperatorAccounts: async () => {
+        throw new Error('pool exhausted');
+      },
+      runBetaAccessCommand: async () => {
+        throw createAppError('CONFLICT');
+      },
+      readOperatorCommand: async () => null,
+    },
+  });
+  const list = signed({
+    method: 'GET',
+    path: '/operator/v1/accounts',
+    query: [['access', 'pending']],
+  });
+  const results = [
+    await status(await broken.handle(list)),
+    await status(await broken.handle(put())),
+  ];
+  assert({
+    given:
+      'a listing whose store throws a plain error, and a command refused as CONFLICT',
+    should:
+      'answer INTERNAL and report only the unexpected error, with a fixed code and the route',
+    actual: { results, captured },
+    expected: {
+      results: [
+        [500, 'INTERNAL'],
+        [409, 'CONFLICT'],
+      ],
+      captured: [
+        [
+          'pool exhausted',
+          {
+            requestId: 'i'.repeat(24),
+            route: 'operator.listAccounts',
+            errorCode: 'INTERNAL',
+          },
+        ],
+      ],
+    },
+  });
+});

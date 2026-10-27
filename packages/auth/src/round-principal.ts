@@ -3,6 +3,7 @@ import type {
   RoundCommandPrincipal,
   RoundRefusal,
 } from '@daisy/protocol';
+import { admitsPrincipalAccess } from './participant-access';
 
 export function runScopeMatches(
   principal: Extract<RoundCommandPrincipal, { kind: 'agent' }>,
@@ -41,4 +42,27 @@ export function bindOwnedRoundSeat(
   return ownsRoundSeat(principal, seat)
     ? { ok: true, actorId: seat.actorId, participantId: seat.id }
     : { ok: false, refusal: 'not-authorized' };
+}
+
+/**
+ * ADR 0075: Round commands a human keeps without participant access, the
+ * Round's own withdrawal (leaving it), as `admitsCapability` keeps leaving
+ * a Room.
+ */
+const roundWithdrawals: readonly string[] = ['forfeit'];
+
+/**
+ * A human principal commands or judges only with participant access, read
+ * under the fence after any lock wait; a withdrawal needs none. Seats stay
+ * membership-only, so a revoked opponent never blocks this Round.
+ */
+export function roundPrincipalAdmitted(
+  principal: RoundCommandPrincipal,
+  access: RoundCommandAuthority['principalAccess'],
+  commandType: string | null,
+): boolean {
+  if (principal.kind !== 'human') return true;
+  if (commandType !== null && roundWithdrawals.includes(commandType))
+    return true;
+  return admitsPrincipalAccess(access);
 }

@@ -45,8 +45,8 @@ Agents: read `AGENTS.md` first — it is the binding engineering contract.
 ## Verification
 
 ```sh
-bun check              # main acceptance gate: static, policy, duplication, unit, and build gates (catalog: AGENTS.md)
-bun run duplication    # copy-paste tripwire: fails on any clone not in .jscpd-baseline.json (ADR 0026)
+bun check              # the blocking gates, as in CI: static, policy, invariants, unit, and build (catalog: AGENTS.md)
+bun run duplication    # copy-paste report: lists clones not in .jscpd-baseline.json (ADR 0026, advisory)
 bun invariants         # execute every registered domain invariant fixture
 bun verify             # bun check plus migration, integration, and browser gates
 bun test:integration   # real PostgreSQL/Redis + web vertical proof

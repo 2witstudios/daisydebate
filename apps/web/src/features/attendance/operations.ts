@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createRoundRuntime,
   deriveOutageIntervals,
@@ -108,6 +109,7 @@ export function createAttendanceFeature(deps: {
     const facts = await deps.checkIns.readRoundAttendanceTargets({
       principal,
       roundId,
+      admits: admitsPrincipalAccess,
     });
     const nowMs = Date.parse(facts.now);
     const availability = availabilityFor(facts);
@@ -174,6 +176,8 @@ export function createAttendanceFeature(deps: {
           .digest('hex'),
         acceptWindow: (facts) =>
           acceptAttendanceReceipt(facts, envelope.segmentId),
+        // ADR 0075: a human checks in only with participant access.
+        admits: admitsPrincipalAccess,
       });
     },
     evaluate: (roundId: string) =>

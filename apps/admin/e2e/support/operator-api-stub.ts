@@ -26,6 +26,8 @@ export type StubAccount = {
   accessRevision: number;
   readonly requestedAt: string;
   decidedAt: string | null;
+  /** A durable 16+ age record (ISSUE-664); absent means it has one. */
+  readonly ageAdmitted?: boolean;
 };
 
 type StubRequest = {
@@ -65,7 +67,7 @@ type Command = {
 };
 type Decision = ReturnType<typeof decideBetaAccessChange>;
 
-/** The shared transition over the stub's account (age is not this suite's subject). */
+/** The shared transition over the stub's account and its age record. */
 const decide = (account: StubAccount | undefined, command: Command) =>
   decideBetaAccessChange({
     current: account
@@ -73,14 +75,17 @@ const decide = (account: StubAccount | undefined, command: Command) =>
       : null,
     desired: command.state,
     expectedRevision: command.expectedRevision,
-    ageAdmitted: true,
+    ageAdmitted: account?.ageAdmitted ?? true,
   });
 
-/** Not found when the account is missing; every other refusal is a conflict. */
-const refusalOf = (decision: Decision) =>
-  decision.kind === 'refused' && decision.reason !== 'not-found'
-    ? refusal(409, 'CONFLICT')
-    : refusal(404, 'NOT_FOUND');
+/** The real router's codes: not found, a stale form, or the age refusal. */
+const refusalOf = (decision: Decision) => {
+  if (decision.kind === 'refused' && decision.reason === 'stale')
+    return refusal(409, 'CONFLICT');
+  if (decision.kind === 'refused' && decision.reason === 'age-required')
+    return refusal(422, 'INVARIANT');
+  return refusal(404, 'NOT_FOUND');
+};
 
 const resultOf = (
   commandId: string,

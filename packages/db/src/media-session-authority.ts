@@ -8,6 +8,19 @@ import { hydrateRoundRows } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import {
+  requireAdmittedPrincipal,
+  type ParticipantAdmission,
+} from './participant-admission';
+
+/**
+ * A human caller and the participant-access rule its own fenced facts must
+ * meet (ADR 0075): one cannot be named without the other.
+ */
+export type MediaCaller = {
+  readonly actorId: string;
+  readonly admits: ParticipantAdmission;
+};
 
 export const mediaId = (value: string) => {
   const parsed = idSchema.safeParse(value);
@@ -15,12 +28,33 @@ export const mediaId = (value: string) => {
   return parsed.data;
 };
 
+/**
+ * The caller's own eligible human seat, refused unless it holds
+ * participant access read after the fence. Seats stay membership-only.
+ */
+function boundCaller(
+  participants: RoundCommandAuthority['participants'],
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+  mediaCaller: MediaCaller,
+) {
+  const seat = participants.find(
+    (candidate) =>
+      candidate.actorId === mediaCaller.actorId &&
+      candidate.kind === 'human' &&
+      candidate.eligible,
+  );
+  if (!seat) throw createAppError('AUTHORIZATION');
+  requireAdmittedPrincipal(mediaCaller.admits, accounts, mediaCaller.actorId);
+  return seat;
+}
+
 /** Account fences precede the Round fence, matching competitive writes and erasure. */
 export async function lockMediaRound(
   tx: BoundedTransactionContext,
   roundId: string,
-  actorId?: string,
+  mediaCaller?: MediaCaller,
 ) {
+  const actorId = mediaCaller?.actorId;
   mediaId(roundId);
   if (actorId !== undefined) mediaId(actorId);
   const seats = await tx
@@ -53,15 +87,10 @@ export async function lockMediaRound(
       return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
     }),
   );
-  const caller =
-    actorId === undefined
-      ? null
-      : participants.find(
-          (seat) =>
-            seat.actorId === actorId && seat.kind === 'human' && seat.eligible,
-        );
-  if (actorId !== undefined && !caller) throw createAppError('AUTHORIZATION');
-  return { participants, caller };
+  const caller = mediaCaller
+    ? boundCaller(participants, accounts, mediaCaller)
+    : null;
+  return { participants, caller, accounts };
 }
 
 export const mediaWindowClosed = (

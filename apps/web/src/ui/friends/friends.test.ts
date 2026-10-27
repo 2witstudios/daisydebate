@@ -38,9 +38,11 @@ describe('relationTo', () => {
   test('reads the viewer’s relation from their own list', () => {
     const list = {
       version: 1 as const,
+      hidden: false,
       friends,
       incoming: [{ username: 'dan', requestedAt: '2026-10-26T18:00:00.000Z' }],
       outgoing: [{ username: 'eve', requestedAt: '2026-10-26T18:00:00.000Z' }],
+      challenges: [],
     };
     assert({
       given: 'a friend, an incoming, an outgoing and a stranger, in any case',

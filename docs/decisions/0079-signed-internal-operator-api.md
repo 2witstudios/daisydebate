@@ -179,6 +179,16 @@ target's account fence:
 
 A refused command writes nothing.
 
+**The commit deadline.** A request is admitted only when its signed
+timestamp is within skew of the participant's clock. Its command commits
+only while that is still true: the check runs last, after the locks and the
+writes, and a late command is refused with `CONFLICT`, writing nothing.
+Every statement in the transaction, `COMMIT` included, runs under
+`statement_timeout = operatorLimits.commandBoundMs` (5 s). So no PUT can
+apply later than its signed timestamp + skew + that bound by the
+participant's clock. A PUT delayed behind a lock is proven to write nothing
+by `packages/db/integration/operator-command-deadline.integration.ts`.
+
 **Reconciliation.** `GET /operator/v1/commands/{id}` answers the stored
 result and the approval mail's state. The admin app uses it to settle a
 command whose response it never received.
@@ -207,7 +217,13 @@ proposal of 400 days is pending the owner's privacy decision.
 | 404    | `NOT_FOUND`         |
 | 409    | `CONFLICT`          |
 | 413    | `PAYLOAD_TOO_LARGE` |
+| 422    | `INVARIANT`         |
+| 500    | `INTERNAL`          |
 | 503    | `INFRASTRUCTURE`    |
+
+- **422 `INVARIANT`:** an approval of an account with no durable 16+ age record (ISSUE-664). It is definite, and nothing is written.
+- **500 `INTERNAL`:** an unexpected handler failure. The scrubbed ErrorReporter gets the raw error (ADR 0037, ISSUE-681); the caller gets only the code.
+- **Read-backs:** reading a command back (`GET /operator/v1/commands/{id}`) needs `account.collection.read`, decided by the shared evaluator. It reveals one account's access state, as a listing does, and the store scopes it to the issuing service.
 
 Nothing internal leaves, and there are no redirects.
 

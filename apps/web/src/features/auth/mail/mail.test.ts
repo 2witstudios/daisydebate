@@ -188,6 +188,51 @@ describe('Resend sender', () => {
     });
   });
 
+  test('an idempotency conflict on a different payload means already delivered (ISSUE-655)', async () => {
+    const conflict = (name: string) =>
+      new Response(JSON.stringify({ statusCode: 409, name }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      });
+    const delivered = create([conflict('invalid_idempotent_request')]);
+    const resent = await delivered.sender.send({
+      ...message,
+      idempotencyKey: 'intent-1',
+    });
+    const busy = create([conflict('concurrent_idempotent_requests'), ok()]);
+    const retried = await busy.sender.send({
+      ...message,
+      idempotencyKey: 'intent-2',
+    });
+    const unknown = await failureOf(
+      create([conflict('something_else')]).sender.send(message),
+    );
+    assert({
+      given:
+        'a resend whose key already sent a different payload, one whose first send is in flight, and an unknown 409',
+      should:
+        'treat the first as delivered with no new receipt and no retry, retry the second once, and fail the third as permanent',
+      actual: {
+        resent,
+        resentCalls: delivered.calls.length,
+        retried,
+        retriedCalls: busy.calls.length,
+        unknown,
+      },
+      expected: {
+        resent: undefined,
+        resentCalls: 1,
+        retried: { providerMessageId: 'msg_1' },
+        retriedCalls: 2,
+        unknown: {
+          message: 'Email delivery failed',
+          transient: false,
+          status: 409,
+        },
+      },
+    });
+  });
+
   test('bounds the whole operation by the delivery deadline', async () => {
     // The injected elapsed clock reads 0 when the send starts and the whole
     // 60ms budget once the first attempt has timed out: no retry fits.

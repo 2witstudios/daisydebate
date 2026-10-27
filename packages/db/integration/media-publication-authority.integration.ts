@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,6 +18,7 @@ test('media reconciliation requires an actual current generation lease independe
     const eligible = async () =>
       (await store.readMediaSession({
         roundId: target.roundId,
+        admits: admitsPrincipalAccess,
         buildProjection: mediaTestTick,
       }))!.participants.find((seat) => seat.id === target.roundParticipantId)!
         .eligible;

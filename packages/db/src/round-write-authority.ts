@@ -17,6 +17,7 @@ import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import { principalAccessOf } from './participant-admission';
 export type RoundWriteTransaction = Pick<
   BunSQLDatabase,
   'select' | 'insert' | 'update' | 'execute'
@@ -83,6 +84,7 @@ export async function readRoundWriteContext(
     authority: {
       roundId: round.id,
       hostActorId: row?.hostActorId ?? null,
+      principalAccess: roundPrincipalAccess(input.principal, accounts),
       participants,
       agentRun: commandRunAuthority(agentRun, purpose, {
         principal: input.principal,
@@ -96,6 +98,15 @@ export async function readRoundWriteContext(
     now,
   };
 }
+
+/** The commanding human's own fenced access facts; the evaluator decides. */
+const roundPrincipalAccess = (
+  principal: RoundCommandPrincipal,
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+): RoundCommandAuthority['principalAccess'] =>
+  principal.kind === 'human'
+    ? principalAccessOf(accounts, principal.actorId)
+    : null;
 
 export const roundPrincipalColumns = (principal: RoundCommandPrincipal) => ({
   actorId: principal.kind === 'human' ? principal.actorId : null,

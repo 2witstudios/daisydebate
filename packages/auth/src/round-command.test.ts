@@ -4,6 +4,8 @@ import type { RoundCommandAuthority } from '@daisy/protocol';
 setupRitewayBun();
 const authority: RoundCommandAuthority = {
   roundId: 'round',
+  // An admitted participant (ADR 0075).
+  principalAccess: { beta: 'approved', ageBand: 'adult' },
   hostActorId: 'host',
   participants: [
     {
@@ -124,5 +126,46 @@ test('start and missing eligibility refuse closed without fabricating an actor',
       command: { type: 'start' },
     }),
     expected: { ok: true, actorId: null, participantId: null },
+  });
+});
+
+test('a human without participant access keeps only the Round withdrawal (ADR 0075)', () => {
+  const host = { kind: 'human', actorId: 'host' } as const;
+  const person = { kind: 'human', actorId: 'person' } as const;
+  const agent = {
+    kind: 'agent',
+    serviceId: 'worker',
+    agentRunId: 'run',
+    roundId: 'round',
+    participantId: 'bot-seat',
+  } as const;
+  const bound = (
+    principalAccess: RoundCommandAuthority['principalAccess'],
+    principal: typeof host | typeof person | typeof agent,
+    command: Parameters<typeof bindRoundCommandPrincipal>[0]['command'],
+  ) =>
+    bindRoundCommandPrincipal({
+      principal,
+      authority: { ...authority, principalAccess },
+      command,
+    }).ok;
+  const revoked = { beta: 'revoked', ageBand: 'adult' } as const;
+  const ageless = { beta: 'approved', ageBand: null } as const;
+  assert({
+    given:
+      'a revoked and an age-less human commanding start, yield and forfeit, and an AgentRun with no human facts',
+    should:
+      'refuse every participation command, keep forfeit (leaving the Round), and leave AgentRuns to their own scope',
+    actual: [
+      bound(revoked, host, { type: 'start' }),
+      bound(revoked, person, { type: 'yield', participantId: 'human-seat' }),
+      bound(ageless, person, { type: 'yield', participantId: 'human-seat' }),
+      bound(revoked, person, {
+        type: 'forfeit',
+        participantId: 'human-seat',
+      }),
+      bound(null, agent, { type: 'yield', participantId: 'bot-seat' }),
+    ],
+    expected: [false, false, false, true, true],
   });
 });

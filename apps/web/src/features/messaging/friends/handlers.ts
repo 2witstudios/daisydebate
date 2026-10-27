@@ -6,6 +6,7 @@ import {
   friendCommandSchemas,
   friendListSchema,
   onlineCountsSchema,
+  presenceSettingResultSchema,
   type FriendCommandResult,
   type FriendList,
   type OnlineCounts,
@@ -34,6 +35,15 @@ export function createFriendHandlers(dependencies: {
     command: FriendshipCommand,
     username: string,
   ) => Promise<Omit<FriendCommandResult, 'version'>>;
+  readonly challenge: (
+    principal: AuthorizationPrincipal,
+    command: 'challenge' | 'decline',
+    input: { readonly username: string; readonly roomId: string },
+  ) => Promise<Omit<FriendCommandResult, 'version'>>;
+  readonly presence: (
+    principal: AuthorizationPrincipal,
+    hidden: boolean,
+  ) => Promise<{ readonly hidden: boolean }>;
   readonly list: (
     principal: AuthorizationPrincipal,
   ) => Promise<Omit<FriendList, 'version'>>;
@@ -67,6 +77,27 @@ export function createFriendHandlers(dependencies: {
         });
       },
     });
+  const challengeWrite = (request: Request, command: 'challenge' | 'decline') =>
+    runMessagingHandler(dependencies.boundary, request, {
+      name: `friends.challenge.${command}`,
+      readOnly: false,
+      readInput: () => readJson(request, MAX_BODY_BYTES),
+      operation: async (input, principal) => {
+        const { username, roomId } = parseValidated(
+          command === 'challenge'
+            ? friendCommandSchemas.challenge
+            : friendCommandSchemas.declineChallenge,
+          input,
+        );
+        return friendCommandResultSchema.parse({
+          version: 1,
+          ...(await dependencies.challenge(principal, command, {
+            username,
+            roomId,
+          })),
+        });
+      },
+    });
   const read = <T>(
     request: Request,
     name: string,
@@ -96,6 +127,22 @@ export function createFriendHandlers(dependencies: {
         command: 'remove',
         username: parseValidated(friendCommandSchemas.remove, input).username,
       })),
+    challenge: (request: Request) => challengeWrite(request, 'challenge'),
+    declineChallenge: (request: Request) => challengeWrite(request, 'decline'),
+    presence: (request: Request) =>
+      runMessagingHandler(dependencies.boundary, request, {
+        name: 'friends.presence',
+        readOnly: false,
+        readInput: () => readJson(request, MAX_BODY_BYTES),
+        operation: async (input, principal) =>
+          presenceSettingResultSchema.parse({
+            version: 1,
+            ...(await dependencies.presence(
+              principal,
+              parseValidated(friendCommandSchemas.presence, input).hidden,
+            )),
+          }),
+      }),
     list: (request: Request) =>
       read(request, 'list', async (principal) =>
         friendListSchema.parse({

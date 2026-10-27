@@ -1,13 +1,18 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { FriendList } from '@daisy/protocol';
-import type { FriendFormState } from '../../../features/messaging/friends/forms';
+import type {
+  FriendFormState,
+  PresenceFormState,
+} from '../../../features/messaging/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
+import { buttonClass } from '../../components/button/button-class';
+import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import type { FormAction } from '../../form-action/form-action';
 import { profileHref } from '../../layout/app-shell/components/destinations';
-import { AddFriendForm, FriendButtonForm } from '../friend-forms';
+import { AddFriendForm, FriendButtonForm, PresenceForm } from '../friend-forms';
 import { friendsLede, presenceLabel } from '../friends';
 
 type Action = FormAction<FriendFormState>;
@@ -61,6 +66,51 @@ function PersonRow({
   );
 }
 
+/** The challenges friends sent the member, each with Join and Decline. */
+function ChallengesSection({
+  challenges,
+  friendAction,
+}: {
+  readonly challenges: FriendList['challenges'];
+  readonly friendAction: Action;
+}) {
+  if (challenges.length === 0) return null;
+  return (
+    <Section id="friends-challenges" title="Challenges">
+      <ul className="flex flex-col">
+        {challenges.map(({ username, roomId, title }) => (
+          <PersonRow
+            key={roomId}
+            username={username}
+            detail={`Challenged you: ${title}`}
+          >
+            {/* A document load: the room's media page sets its own camera policy. */}
+            <a
+              href={`/rooms/${roomId}`}
+              aria-label={`Join @${username}'s challenge`}
+              className={cn(
+                buttonClass('primary'),
+                'px-3 py-2 text-sm no-underline hover:no-underline',
+              )}
+            >
+              Join
+            </a>
+            <FriendButtonForm
+              action={friendAction}
+              username={username}
+              roomId={roomId}
+              intent="decline-challenge"
+              label="Decline"
+              accessibleName={`Decline @${username}'s challenge`}
+              variant="ghost"
+            />
+          </PersonRow>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 /**
  * A member's friends, online first, the requests waiting on them and the
  * ones they sent, and a way to add someone. Every button is a native form,
@@ -71,12 +121,14 @@ export function FriendsPage({
   friendAction,
   challengeAction,
   message,
+  presenceAction,
 }: {
   readonly list: FriendList | null;
   readonly friendAction: Action;
   readonly challengeAction: Action;
   /** The Message control for one friend; each carries its own request. */
   readonly message: (username: string) => ReactNode;
+  readonly presenceAction: FormAction<PresenceFormState>;
 }) {
   return (
     <ReadingPage>
@@ -84,6 +136,12 @@ export function FriendsPage({
         title="Friends"
         lede={list ? friendsLede(list) : 'Friends are unavailable right now.'}
       />
+      {list ? (
+        <ChallengesSection
+          challenges={list.challenges}
+          friendAction={friendAction}
+        />
+      ) : null}
       {list && list.incoming.length > 0 ? (
         <Section id="friends-incoming" title="Requests">
           <ul className="flex flex-col">
@@ -160,6 +218,11 @@ export function FriendsPage({
               </PersonRow>
             ))}
           </ul>
+        </Section>
+      ) : null}
+      {list ? (
+        <Section id="friends-status" title="Your status">
+          <PresenceForm action={presenceAction} hidden={list.hidden} />
         </Section>
       ) : null}
       <Section id="friends-add" title="Add a friend">

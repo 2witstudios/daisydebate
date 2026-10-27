@@ -63,19 +63,8 @@ function fakes(gh?: StaleDeps['gh']) {
             lists[args[2]] ?? { tasks: [], availableStatuses: [] },
           ),
         };
-      if (args[0] === 'pages' && args[1] === 'read')
-        return {
-          code: 0,
-          stdout: JSON.stringify({
-            content:
-              args[2] === 'p3'
-                ? 'Review: <a>@Review record — RT-1.3 (x)</a>'
-                : '<p>none</p>',
-          }),
-        };
       return { code: 0, stdout: '{}' };
     },
-    cutoff: '2026-09-24T00:00:00Z',
     gh:
       gh ??
       (() => ({
@@ -100,19 +89,16 @@ describe('bun board:stale', () => {
     const { deps, calls, output } = fakes();
     const code = runStaleCheck(deps, false);
     assert({
-      given:
-        'a merged task in progress and an unmerged Done task without a record',
-      should: 'report both with their fix and update nothing',
+      given: 'a merged task in progress and two Done tasks',
+      should: 'report only the merged task with its fix and update nothing',
       actual: [
         code,
         output.join('').includes('RT-1.1 merged but in_progress → merged'),
-        output
-          .join('')
-          .includes('RT-1.2 Done without a review record → in_review'),
-        output.join('').includes('RT-1.3'),
+        output.join('').includes('RT-1.2') ||
+          output.join('').includes('RT-1.3'),
         calls.some((call) => call[1] === 'update'),
       ],
-      expected: [0, true, true, false, false],
+      expected: [0, true, false, false],
     });
   });
 
@@ -130,7 +116,6 @@ describe('bun board:stale', () => {
       expected: [
         'tasks create-status phase1 --name Merged',
         'tasks update phase1 t1 --status',
-        'tasks update phase1 t2 --status',
       ],
     });
     assert({

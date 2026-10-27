@@ -187,6 +187,8 @@ const composeBetterAuth = (dependencies: {
           origin,
           deliver: dependencies.deliver,
           spendCeiling: createSignUpCeiling({
+            clock: dependencies.clock,
+            ceilings: config.AUTH_SIGN_UP_MAIL_CEILINGS,
             limiter: dependencies.limiter,
             logger: dependencies.logger,
           }),
