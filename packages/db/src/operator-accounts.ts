@@ -23,14 +23,14 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 /** Each operator command action's owner completes its own readback. */
-const commandStateReaders: Record<
+const commandStateReaders = new Map<
   string,
   (
     database: Pick<Database, 'execute'>,
     commandId: string,
     result: unknown,
   ) => Promise<Omit<OperatorCommandState, 'action'>>
-> = { [betaAccessCommandAction]: readBetaAccessCommandState };
+>([[betaAccessCommandAction, readBetaAccessCommandState]]);
 
 const instant = z
   .union([z.date(), z.string()])
@@ -135,7 +135,7 @@ export function operatorAccountOperations({
           result: unknown;
         }[];
         if (!row) return null;
-        const read = commandStateReaders[row.action];
+        const read = commandStateReaders.get(row.action);
         if (!read)
           throw createAppError('INFRASTRUCTURE', 'Unknown operator command');
         return operatorCommandStateSchema.parse({

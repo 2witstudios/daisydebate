@@ -8,8 +8,17 @@ const human = 'h'.repeat(24),
   segmentId = 'g'.repeat(24);
 const T0 = Date.parse('2026-10-27T12:00:00.000Z');
 
-/** A listener run over a fake client and clock; `frames` arrive at each wait. */
-async function run(segmentType: 'cross_ex' | 'speech', waits = 6) {
+/**
+ * A listener run over a fake client and clock. Local time `t` maps to server
+ * time T0 + t; five 10 ms frames of the human seat arrive at each wait.
+ */
+async function run(options: {
+  readonly segmentType: 'cross_ex' | 'speech';
+  readonly botSeat?: boolean;
+  readonly humanHasFloor?: boolean;
+  readonly waits?: number;
+}) {
+  const { segmentType, botSeat = true, humanHasFloor = true } = options;
   const calls: { op: string; arg: unknown }[] = [];
   let t = 1000;
   const tap = createPeerAudioTap();
@@ -27,15 +36,37 @@ async function run(segmentType: 'cross_ex' | 'speech', waits = 6) {
           roundId: 'r'.repeat(24),
           sessionId: 's'.repeat(24),
           serverNow: new Date(T0 + t).toISOString(),
-          segment: { id: segmentId, type: segmentType, endedAt: null },
+          segment: {
+            id: segmentId,
+            type: segmentType,
+            startedAt: new Date(T0).toISOString(),
+            durationMs: 600_000,
+          },
           participants: [
             {
               roundParticipantId: human,
               kind: 'human' as const,
               identity: 'hid',
             },
-            { roundParticipantId: bot, kind: 'bot' as const, identity: 'bid' },
+            ...(botSeat
+              ? [
+                  {
+                    roundParticipantId: bot,
+                    kind: 'bot' as const,
+                    identity: 'bid',
+                  },
+                ]
+              : []),
           ],
+          intervals: humanHasFloor
+            ? [
+                {
+                  roundParticipantId: human,
+                  startedAt: new Date(T0).toISOString(),
+                  endedAt: null,
+                },
+              ]
+            : [],
         },
         calibration: {
           sentAtMs: t - 1,
@@ -72,16 +103,17 @@ async function run(segmentType: 'cross_ex' | 'speech', waits = 6) {
           });
         }
         t = due;
-        if (++waited >= waits) controller.abort();
+        if (++waited >= (options.waits ?? 6)) controller.abort();
       },
     },
     controller.signal,
   );
-  return { calls, result };
+  const count = (op: string) => calls.filter((c) => c.op === op).length;
+  return { calls, result, count };
 }
 
-test('in a bot cross-ex the listener relays a peer seat under its own lease epoch (ISSUE-764)', async () => {
-  const { calls, result } = await run('cross_ex');
+test('in a bot cross-ex the listener relays a peer seat holding the floor, under its own lease epoch (ISSUE-764)', async () => {
+  const { calls, result } = await run({ segmentType: 'cross_ex' });
   const batches = calls
     .filter((c) => c.op === 'activity')
     .map(
@@ -93,7 +125,7 @@ test('in a bot cross-ex the listener relays a peer seat under its own lease epoc
         },
     );
   assert({
-    given: 'a bot cross-examination with a human peer speaking',
+    given: 'a bot cross-examination with a human peer speaking on the floor',
     should:
       'claim its lease, then relay that seat under its own epoch and the open segment',
     actual: {
@@ -115,21 +147,51 @@ test('in a bot cross-ex the listener relays a peer seat under its own lease epoc
   });
 });
 
-test('outside a bot cross-ex the listener relays nothing', async () => {
-  const { calls, result } = await run('speech');
+test('a seat without the floor is never relayed, as capture never keeps it', async () => {
+  const { count } = await run({
+    segmentType: 'cross_ex',
+    humanHasFloor: false,
+  });
   assert({
-    given: 'a speech segment with the same peer audio',
-    should: 'hear it but relay no activity',
-    actual: [
-      calls.filter((c) => c.op === 'activity').length,
-      result.relayedBatches,
-    ],
-    expected: [0, 0],
+    given: 'a bot cross-ex whose speaking peer holds no speaking grant',
+    should: 'relay none of its frames',
+    actual: count('activity'),
+    expected: 0,
+  });
+});
+
+test('outside a bot cross-ex the listener relays nothing and reads slowly', async () => {
+  const speech = await run({ segmentType: 'speech', waits: 40 });
+  const crossEx = await run({ segmentType: 'cross_ex', waits: 40 });
+  assert({
+    given:
+      'two seconds of a speech segment, then of a cross-ex, with the same peer audio',
+    should:
+      'relay nothing in the speech and read about once a second there, five times as often in cross-ex',
+    actual: {
+      activity: speech.count('activity'),
+      slow: speech.count('read') <= 3,
+      fast: crossEx.count('read') >= 9,
+    },
+    expected: { activity: 0, slow: true, fast: true },
+  });
+});
+
+test('a Round with no bot debater leaves the listener idle after one read', async () => {
+  const { calls, result } = await run({
+    segmentType: 'cross_ex',
+    botSeat: false,
+  });
+  assert({
+    given: 'a frozen cast with no bot debater',
+    should: 'claim, read once and go idle for the session, relaying nothing',
+    actual: [calls.map((c) => c.op), result],
+    expected: [['lease', 'read'], { relayedBatches: 0, idle: true }],
   });
 });
 
 test('the listener renews its own lease at its epoch', async () => {
-  const { calls } = await run('speech', 120);
+  const { calls } = await run({ segmentType: 'speech', waits: 120 });
   assert({
     given: 'a listener running past its renewal interval',
     should: 'renew with its own epoch as the expected one',
@@ -138,17 +200,16 @@ test('the listener renews its own lease at its epoch', async () => {
   });
 });
 
-test('a listener failure re-claims and resumes until capture stops (ISSUE-764)', async () => {
+test('failures back off and re-claim, and an idle listener stops for good (ISSUE-764)', async () => {
   const controller = new AbortController();
-  let leases = 0;
+  let runs = 0;
   const waits: number[] = [];
   await keepListening(
     {
       run: async () => {
-        leases += 1;
-        if (leases < 3) throw new Error('lease is held');
-        controller.abort();
-        return { relayedBatches: 0 };
+        runs += 1;
+        if (runs < 4) throw new Error('lease is held');
+        return { relayedBatches: 0, idle: true };
       },
       nowMs: () => 0,
       waitUntilMs: async (due) => {
@@ -158,9 +219,9 @@ test('a listener failure re-claims and resumes until capture stops (ISSUE-764)',
     controller.signal,
   );
   assert({
-    given: 'a listener that fails twice, then runs until capture stops',
-    should: 'pause and re-claim after each failure, and stop with capture',
-    actual: [leases, waits],
-    expected: [3, [1000, 1000]],
+    given: 'a listener that fails three times, then finds no bot debater',
+    should: 'pause 1, 2 then 4 s before each re-claim, then stop',
+    actual: [runs, waits],
+    expected: [4, [1000, 2000, 4000]],
   });
 });

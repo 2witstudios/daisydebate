@@ -1,13 +1,13 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { cutCaptureClips } from '@daisy/media/clips';
 import {
-  contained,
   observedWindow,
   readCaptureHistory,
   type CaptureClient,
   type CaptureState,
   type FrameWindow,
 } from './capture-history';
+import { contained } from './speaking-grant';
 export type QueuedClip = ReturnType<typeof cutCaptureClips>['clips'][number] & {
   readonly bytes: number;
 };

@@ -300,9 +300,15 @@ worker, the bot listener (`apps/media-worker/src/bot-listener.ts`) runs beside
 capture in the session's process. It reads the one LiveKit subscription only
 through the named, read-only peer-audio input (`peer-audio.ts`), never
 capture's session or types, times frames on its own calibration, and ends with
-capture without ever failing it. It produces activity only while a consumer
-exists: the current segment is cross-examination and the Round has a bot seat.
-Otherwise no PCM leaves the worker. Each timed frame joins its seat's sliding
+capture without ever failing it. A cast with no bot debater, frozen at
+launch, leaves it idle for the session after one read; a failed run backs off
+from 1 s to 30 s before claiming again. It produces activity only while a
+consumer exists: the current segment is cross-examination and the Round has a
+bot seat. It relays only frames inside the segment's window and inside one of
+the seat's speaking grants, the same `contained` rule capture's staging keeps
+(`speaking-grant.ts`), so a seat without the floor never reaches the bot. It
+reads every 200 ms in a bot cross-ex and once a second otherwise. Otherwise no
+PCM leaves the worker. Each timed frame joins its seat's sliding
 window of the newest twenty, with native sequence, brackets and calibrated
 server window. Every 50 ms the worker sends the window of each seat that has
 new frames. Because each batch repeats the window and the consumer skips frames

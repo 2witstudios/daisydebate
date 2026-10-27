@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { nextEpoch } from './lease-policy';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
   captureAdmission,
@@ -75,8 +76,26 @@ export async function verifyMediaWorkerLease(
   };
 }
 
-/** Renewal cannot turn an expired or rotated lease into a new initial claim. */
-export function requireCaptureRenewal(
+type LeaseRefusals = {
+  readonly held: string;
+  readonly stale: string;
+  readonly exhausted: string;
+};
+/** Capture's refusal wording, which its worker tells apart. */
+export const captureLeaseRefusals: LeaseRefusals = {
+  held: 'Capture worker lease is held',
+  stale: 'Capture worker lease is stale',
+  exhausted: 'Capture worker epoch exhausted',
+};
+
+/**
+ * The one claim rule for every media worker role's lease on a session
+ * (capture, bot listener): another worker's live lease refuses as held; a
+ * renewal must match this worker's live epoch, so it cannot turn an expired
+ * or rotated lease into a new initial claim; a first claim takes epoch 1, a
+ * live lease keeps its epoch and an expired one moves it on.
+ */
+export function mediaWorkerLeaseEpoch(
   current:
     | {
         readonly workerId: string;
@@ -89,13 +108,20 @@ export function requireCaptureRenewal(
     readonly expectedEpoch?: number | undefined;
   },
   now: Date,
-) {
-  if (request.expectedEpoch === undefined) return;
+  refusals: LeaseRefusals,
+): number {
+  const live = current !== undefined && current.expiresAt > now;
+  if (live && current.workerId !== request.workerId)
+    throw createAppError('CONFLICT', refusals.held);
   if (
-    !current ||
-    current.workerId !== request.workerId ||
-    current.epoch !== request.expectedEpoch ||
-    current.expiresAt <= now
+    request.expectedEpoch !== undefined &&
+    !(
+      live &&
+      current.workerId === request.workerId &&
+      current.epoch === request.expectedEpoch
+    )
   )
-    throw createAppError('CONFLICT', 'Capture worker lease is stale');
+    throw createAppError('CONFLICT', refusals.stale);
+  if (!current) return 1;
+  return live ? current.epoch : nextEpoch(current.epoch, refusals.exhausted);
 }

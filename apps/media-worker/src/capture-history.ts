@@ -4,29 +4,7 @@ import { isDefiniteRefusal } from '@daisy/media/worker';
 import type { createMediaWorkerClient } from '@daisy/media/worker';
 export type CaptureClient = ReturnType<typeof createMediaWorkerClient>;
 export type CaptureState = Awaited<ReturnType<CaptureClient['read']>>['state'];
-export type Window = { readonly beforeMs: number; readonly afterMs: number };
-/** Cached authority is only a staging filter; fresh PG horizon is checked separately. */
-export function contained(state: CaptureState, seat: string, window: Window) {
-  const segment = state.segment;
-  if (
-    !segment ||
-    window.beforeMs < Date.parse(segment.startedAt) ||
-    window.afterMs >=
-      Math.min(
-        segment.endedAt === null ? Infinity : Date.parse(segment.endedAt),
-        Date.parse(segment.startedAt) + segment.durationMs,
-      )
-  )
-    return false;
-  return (
-    state.intervals.filter(
-      (i) =>
-        i.roundParticipantId === seat &&
-        Date.parse(i.startedAt) <= window.beforeMs &&
-        (i.endedAt === null || window.afterMs < Date.parse(i.endedAt)),
-    ).length === 1
-  );
-}
+type Window = { readonly beforeMs: number; readonly afterMs: number };
 /** A calibrated 10 ms frame: its nominal start and server-time bracket. */
 export type FrameWindow = Window & { readonly nominalStartMs: number };
 const straddles = (frame: Window, edgeMs: number) =>

@@ -11,16 +11,27 @@ const frame = (sequence: number): PeerAudioFrame => ({
   afterMs: sequence * 10 + 10,
 });
 
-test('every reader sees each frame, a failing reader harms no one, and a stopped reader sees no more', () => {
+test('every reader sees each frame and track close, a failing reader harms no one, and a stopped reader sees no more', () => {
   const tap = createPeerAudioTap();
   const seen: number[] = [];
-  tap.read(() => {
-    throw new Error('reader fault');
+  const closed: string[] = [];
+  tap.read({
+    frame: () => {
+      throw new Error('reader fault');
+    },
+    closed: () => {
+      throw new Error('reader fault');
+    },
   });
-  const stop = tap.read((f) => seen.push(f.sequence));
+  const stop = tap.read({
+    frame: (f) => seen.push(f.sequence),
+    closed: (trackId) => closed.push(trackId),
+  });
   tap.publish(frame(1));
+  tap.close('TR_a');
   stop();
   tap.publish(frame(2));
+  tap.close('TR_b');
   assert({
     given: 'a failing reader and a reader that stops after one frame',
     should:

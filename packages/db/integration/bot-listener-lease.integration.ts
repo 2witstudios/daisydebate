@@ -86,7 +86,12 @@ test('the bot listener holds its own lease, apart from capture (ISSUE-764)', asy
         expected: [
           1,
           1,
-          { id: segmentId, type: 'speech', endedAt: null },
+          {
+            id: segmentId,
+            type: 'speech',
+            startedAt: state.segment?.startedAt,
+            durationMs: rule.durationMs,
+          },
           true,
           true,
         ],

@@ -3,6 +3,10 @@ import {
   botActivityBatchSchema,
   botActivityRelaySchema,
 } from '@daisy/protocol/bot-activity';
+import {
+  requireCurrentSeat,
+  type WorkerSeatRead,
+} from '../round-media/worker-seat';
 
 /** The signed bot-listener identity under one listener lease epoch. */
 export type ListenerIdentity = {
@@ -11,38 +15,9 @@ export type ListenerIdentity = {
   readonly workerId: string;
   readonly epoch: number;
 };
-/** The listener's own read: the open segment and the non-judge seats. */
-type ListenerRead = {
-  readonly segment: {
-    readonly id: string;
-    readonly endedAt: string | null;
-  } | null;
-  readonly participants: readonly {
-    readonly roundParticipantId: string;
-    readonly identity: string | null;
-  }[];
-};
 type LeaseRead = (
   identity: ListenerIdentity & { readonly segmentId: string },
 ) => Promise<{ readonly serverNow: string }>;
-
-/** An actually bound seat and the current open segment. */
-function requireBoundSeat(
-  read: ListenerRead,
-  roundParticipantId: string,
-  segmentId: string,
-) {
-  if (
-    !read.participants.some(
-      (seat) =>
-        seat.roundParticipantId === roundParticipantId &&
-        seat.identity !== null,
-    )
-  )
-    throw createAppError('AUTHORIZATION');
-  if (read.segment?.id !== segmentId || read.segment.endedAt !== null)
-    throw createAppError('CONFLICT', 'Activity segment is not current');
-}
 
 const MAX_ADMISSIONS = 4096;
 /**
@@ -55,7 +30,9 @@ const MAX_ADMISSIONS = 4096;
  * PostgreSQL time, never the worker body. Redis carries no authority.
  */
 export function createBotActivityRelay(input: {
-  readonly readListener: (identity: ListenerIdentity) => Promise<ListenerRead>;
+  readonly readListener: (
+    identity: ListenerIdentity,
+  ) => Promise<WorkerSeatRead>;
   readonly readLease: LeaseRead;
   readonly write: (batch: unknown) => Promise<void>;
 }) {
@@ -65,7 +42,7 @@ export function createBotActivityRelay(input: {
     roundParticipantId: string,
     segmentId: string,
   ) =>
-    requireBoundSeat(
+    requireCurrentSeat(
       await input.readListener(identity),
       roundParticipantId,
       segmentId,

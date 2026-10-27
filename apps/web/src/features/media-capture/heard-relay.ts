@@ -1,11 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { captureHeardReportSchema } from '@daisy/protocol/capture-heard';
-import {
-  requireCurrentSeat,
-  type CaptureIdentity,
-  type CaptureRead,
-  type LeaseRead,
-} from './admission';
+import { requireCurrentSeat } from '../round-media/worker-seat';
+import type { CaptureIdentity, CaptureRead, LeaseRead } from './admission';
 
 /**
  * Capture's own report that it subscribed to a bot seat's track and reads

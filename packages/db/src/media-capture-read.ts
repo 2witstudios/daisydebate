@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { and, desc, eq, gt, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import {
   captureAdmission,
   lockCaptureLease,
@@ -9,11 +9,8 @@ import {
   type CaptureIdentity,
   type CaptureTx,
 } from './media-capture-context';
-import { roundParticipants } from './schema/round-participants';
-import { mediaParticipants } from './schema/media-sessions';
-import { actors } from './schema/actors';
 import { roundSegments } from './schema/round-segments';
-import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
+import { readSessionSeats, readSpeakingIntervals } from './media-session-reads';
 import { rounds } from './schema/rounds';
 import { requireLiveCaptureLease } from './capture-rules';
 
@@ -22,39 +19,6 @@ type ReadScope = CaptureIdentity & {
   readonly expectedVersion?: number | undefined;
   readonly afterIntervalId?: string | undefined;
 };
-const historyPage = async (
-  tx: CaptureTx,
-  input: ReadScope,
-  segmentId: string,
-) => {
-  const rows = await tx
-    .select()
-    .from(roundSpeakingIntervals)
-    .where(
-      and(
-        eq(roundSpeakingIntervals.roundId, input.roundId),
-        eq(roundSpeakingIntervals.segmentId, segmentId),
-        ...(input.afterIntervalId
-          ? [gt(roundSpeakingIntervals.id, input.afterIntervalId)]
-          : []),
-      ),
-    )
-    .orderBy(roundSpeakingIntervals.id)
-    .limit(513);
-  const page = rows.slice(0, 512);
-  return {
-    intervals: page.map((row) => ({
-      id: row.id,
-      roundParticipantId: row.roundParticipantId,
-      startedAt: row.startedAt.toISOString(),
-      endedAt: row.endedAt?.toISOString() ?? null,
-      startedVersion: row.startedVersion,
-      endedVersion: row.endedVersion,
-    })),
-    nextIntervalId: rows.length > 512 ? page.at(-1)!.id : null,
-  };
-};
-
 const segmentView = (segment: typeof roundSegments.$inferSelect | undefined) =>
   segment
     ? {
@@ -99,30 +63,18 @@ export async function readMediaCaptureState(
     .orderBy(desc(roundSegments.sequence))
     .limit(1);
   if (input.segmentId && !segment) throw createAppError('NOT_FOUND');
-  const participants = await tx
-    .select({
-      roundParticipantId: roundParticipants.id,
-      kind: actors.kind,
-      identity: mediaParticipants.identity,
-    })
-    .from(roundParticipants)
-    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-    .leftJoin(
-      mediaParticipants,
-      and(
-        eq(mediaParticipants.roundParticipantId, roundParticipants.id),
-        eq(mediaParticipants.sessionId, input.sessionId),
-      ),
-    )
-    .where(
-      and(
-        eq(roundParticipants.roundId, input.roundId),
-        ne(roundParticipants.role, 'judge'),
-      ),
-    )
-    .orderBy(roundParticipants.id);
+  const participants = await readSessionSeats(
+    tx,
+    input.roundId,
+    input.sessionId,
+  );
   const history = segment
-    ? await historyPage(tx, input, segment.id)
+    ? await readSpeakingIntervals(
+        tx,
+        input.roundId,
+        segment.id,
+        input.afterIntervalId,
+      )
     : { intervals: [], nextIntervalId: null };
   const now = await captureAdmission(
     tx,

@@ -7,6 +7,11 @@ export type PeerAudioFrame = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
+type Reader = {
+  readonly frame: (frame: PeerAudioFrame) => void;
+  /** The track ended; a reader drops whatever it kept for it. */
+  readonly closed: (trackId: string) => void;
+};
 
 /**
  * The session's subscribed audio as a named, read-only input (ISSUE-764).
@@ -15,18 +20,20 @@ export type PeerAudioFrame = {
  * reader's failure never reaches the publisher or another reader.
  */
 export function createPeerAudioTap() {
-  const readers = new Set<(frame: PeerAudioFrame) => void>();
+  const readers = new Set<Reader>();
+  const each = (deliver: (reader: Reader) => void) => {
+    for (const reader of readers)
+      try {
+        deliver(reader);
+      } catch {
+        // A heuristic reader's fault is its own.
+      }
+  };
   return {
-    publish(frame: PeerAudioFrame) {
-      for (const read of readers)
-        try {
-          read(frame);
-        } catch {
-          // A heuristic reader's fault is its own.
-        }
-    },
+    publish: (frame: PeerAudioFrame) => each((reader) => reader.frame(frame)),
+    close: (trackId: string) => each((reader) => reader.closed(trackId)),
     /** Starts reading; the returned function stops. */
-    read(reader: (frame: PeerAudioFrame) => void) {
+    read(reader: Reader) {
       readers.add(reader);
       return () => {
         readers.delete(reader);

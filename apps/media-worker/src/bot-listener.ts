@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
 import type { BotListenerClient } from '@daisy/media/bot-listener';
-import { createCaptureClock } from '@daisy/media/observation';
 import {
   ACTIVITY_RELAY_INTERVAL_MS,
   activityWanted,
@@ -8,21 +7,51 @@ import {
   relayActivity,
 } from './bot-listener-relay';
 import type { PeerAudioFrame, PeerAudioInput } from './peer-audio';
+import { contained } from './speaking-grant';
+import { createTrackClocks } from './track-clocks';
 
 const LEASE_MS = 15000;
 const RENEW_EVERY_MS = 5000;
-/** The segment, seats and calibration are read about as often as capture reads its history. */
-const READ_EVERY_MS = 200;
+/** In a bot cross-ex the segment, seats and grants are read as often as capture reads its history. */
+const READ_WANTED_MS = 200;
+/** Otherwise only often enough to notice cross-ex starting. */
+const READ_IDLE_MS = 1000;
 
 type Read = Awaited<ReturnType<BotListenerClient['read']>>;
+type TrackClocks = ReturnType<typeof createTrackClocks>;
+
+/** A peer frame timed on the listener's own calibration, kept only while that seat holds the floor. */
+function timedFrame(current: Read, clocks: TrackClocks, raw: PeerAudioFrame) {
+  const { state, calibration } = current;
+  const segment = state.segment;
+  if (!segment || !activityWanted(state)) return null;
+  const peer = state.participants.find((p) => p.identity === raw.identity);
+  if (!peer) return null;
+  const window = clocks.observe(raw, calibration);
+  if (!window) return null;
+  const { beforeMs, afterMs } = window;
+  if (!contained(state, peer.roundParticipantId, { beforeMs, afterMs }))
+    return null;
+  return {
+    seat: peer.roundParticipantId,
+    segmentId: segment.id,
+    original: {
+      sequence: raw.sequence,
+      beforeMs: raw.beforeMs,
+      afterMs: raw.afterMs,
+    },
+    frame: { trackId: raw.trackId, pcm: raw.pcm, beforeMs, afterMs },
+  };
+}
 
 /**
  * The bot listener (ISSUE-764): its own role, lease and routes. It hears the
  * session through the named peer-audio input only, never capture's session
  * or types, and while a bot may speak in cross-examination it relays each
- * seat's frames, timed on its own calibration, for the bot's turn-taking.
- * Activity is a heuristic: the caller treats any failure here as the
- * listener's own, never capture's.
+ * frame of a seat holding the floor, timed on its own calibration, for the
+ * bot's turn-taking. A cast without a bot debater (frozen at launch) leaves
+ * it idle for the session. Activity is a heuristic: the caller treats any
+ * failure here as the listener's own, never capture's.
  */
 export async function runBotListener(
   input: {
@@ -35,41 +64,22 @@ export async function runBotListener(
 ) {
   const { epoch } = await input.client.lease(LEASE_MS, signal);
   let current: Read = await input.client.read(epoch, signal);
-  const clocks = new Map<string, ReturnType<typeof createCaptureClock>>();
+  if (!current.state.participants.some((p) => p.kind === 'bot'))
+    return { relayedBatches: 0, idle: true };
+  const clocks = createTrackClocks();
   const relay = createActivityRelay();
-  const hear = (raw: PeerAudioFrame) => {
-    const { state, calibration } = current;
-    const segment = state.segment;
-    if (!segment || segment.endedAt !== null || !activityWanted(state)) return;
-    const peer = state.participants.find((p) => p.identity === raw.identity);
-    if (!peer) return;
-    let clock = clocks.get(raw.trackId);
-    if (!clock) {
-      clock = createCaptureClock(calibration);
-      clocks.set(raw.trackId, clock);
-    }
-    const window = clock.observe(raw);
-    if (!window) return;
-    relay.observe({
-      seat: peer.roundParticipantId,
-      segmentId: segment.id,
-      original: {
-        sequence: raw.sequence,
-        beforeMs: raw.beforeMs,
-        afterMs: raw.afterMs,
-      },
-      frame: {
-        trackId: raw.trackId,
-        pcm: raw.pcm,
-        beforeMs: Math.floor(window.beforeMs),
-        afterMs: Math.ceil(window.afterMs),
-      },
-    });
-  };
-  const stopHearing = input.audio.read(hear);
+  const stopHearing = input.audio.read({
+    frame: (raw) => {
+      const frame = timedFrame(current, clocks, raw);
+      if (frame) relay.observe(frame);
+    },
+    closed: (trackId) => {
+      clocks.close(trackId);
+    },
+  });
   let relayedBatches = 0;
   let renewAt = input.nowMs() + RENEW_EVERY_MS;
-  let readAt = input.nowMs() + READ_EVERY_MS;
+  let readAt = input.nowMs() + READ_WANTED_MS;
   try {
     while (!signal.aborted) {
       const now = input.nowMs();
@@ -82,8 +92,9 @@ export async function runBotListener(
       }
       if (now >= readAt) {
         current = await input.client.read(epoch, signal);
-        for (const clock of clocks.values()) clock.refresh(current.calibration);
-        readAt = now + READ_EVERY_MS;
+        clocks.refresh(current.calibration);
+        readAt =
+          now + (activityWanted(current.state) ? READ_WANTED_MS : READ_IDLE_MS);
       }
       if (activityWanted(current.state))
         relayedBatches += await relayActivity(
@@ -100,32 +111,38 @@ export async function runBotListener(
     relay.clear();
     clocks.clear();
   }
-  return { relayedBatches };
+  return { relayedBatches, idle: false };
 }
 
-const RESUME_AFTER_MS = 1000;
+const RESUME_FIRST_MS = 1000;
+const RESUME_MAX_MS = 30000;
 
 /**
  * Keeps the bot listener running for as long as capture does: a failed run
- * (a held or stale lease, a refused read) pauses briefly and claims again, so
- * one fault never silences the bot for the rest of the session.
+ * (a held or stale lease, a closed session, a refused read) waits and claims
+ * again, doubling the wait up to 30 s, so one fault never silences the bot
+ * for the session and a closed session is not retried every second. An idle
+ * run (no bot debater) ends it.
  */
 export async function keepListening(
   input: {
-    readonly run: (signal: AbortSignal) => Promise<unknown>;
+    readonly run: (signal: AbortSignal) => Promise<{ readonly idle: boolean }>;
     readonly nowMs: () => number;
     readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
   },
   signal: AbortSignal,
 ) {
+  let pauseMs = RESUME_FIRST_MS;
   while (!signal.aborted) {
     try {
-      await input.run(signal);
+      if ((await input.run(signal)).idle) return;
+      pauseMs = RESUME_FIRST_MS;
     } catch {
       if (signal.aborted) return;
       await input
-        .waitUntilMs(input.nowMs() + RESUME_AFTER_MS, signal)
+        .waitUntilMs(input.nowMs() + pauseMs, signal)
         .catch(() => undefined);
+      pauseMs = Math.min(pauseMs * 2, RESUME_MAX_MS);
     }
   }
 }

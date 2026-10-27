@@ -131,6 +131,10 @@ export async function runCaptureProcess(input: {
               audio.publish(frame);
               options.onFrame(frame);
             },
+            onTrackClosed: (track) => {
+              audio.close(track.trackId);
+              options.onTrackClosed(track);
+            },
           }),
         consume: consumeCaptureClips,
         nowMs: performance.now,

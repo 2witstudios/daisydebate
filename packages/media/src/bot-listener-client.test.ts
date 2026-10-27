@@ -32,6 +32,7 @@ test('the bot listener calls only its own signed routes (ISSUE-764)', async () =
           serverNow: '2026-10-27T12:00:00.000Z',
           segment: null,
           participants: [],
+          intervals: [],
         });
       return Response.json(null);
     },

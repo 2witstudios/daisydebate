@@ -1,12 +1,12 @@
-import { createCaptureClock } from '@daisy/media/observation';
+import { createTrackClocks } from './track-clocks';
 import type { createCaptureSubscription } from '@daisy/media/capture';
 import type { cutCaptureClips } from '@daisy/media/clips';
 import {
-  contained,
   straddlesGrantEdge,
   type CaptureClient,
   type FrameWindow,
 } from './capture-history';
+import { contained } from './speaking-grant';
 type Snapshot = Awaited<ReturnType<CaptureClient['read']>>;
 type Raw = Parameters<
   Parameters<typeof createCaptureSubscription>[0]['onFrame']
@@ -34,7 +34,7 @@ export function createCaptureStaging(input: {
   readonly dropped: (count: number) => void;
   readonly retained: () => void;
 }) {
-  const clocks = new Map<string, ReturnType<typeof createCaptureClock>>();
+  const clocks = createTrackClocks();
   // Frames refused for crossing a grant edge: the edge evidence observedWindow reads.
   const edges = new Map<string, FrameWindow[]>();
   const rememberEdge = (trackId: string, frame: FrameWindow) => {
@@ -55,16 +55,9 @@ export function createCaptureStaging(input: {
       (p) => p.identity === raw.identity,
     );
     if (!peer || !current.state.segment) return null;
-    let clock = clocks.get(raw.trackId);
-    if (!clock) {
-      clock = createCaptureClock(current.calibration);
-      clocks.set(raw.trackId, clock);
-    }
-    const window = clock.observe(raw);
+    const window = clocks.observe(raw, current.calibration);
     if (!window) return null;
-    const beforeMs = Math.floor(window.beforeMs),
-      afterMs = Math.ceil(window.afterMs),
-      nominalStartMs = window.nominalStartMs;
+    const { beforeMs, afterMs, nominalStartMs } = window;
     if (
       !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
     ) {
@@ -108,10 +101,10 @@ export function createCaptureStaging(input: {
       return frame;
     },
     refresh(calibration: Snapshot['calibration']) {
-      for (const clock of clocks.values()) clock.refresh(calibration);
+      clocks.refresh(calibration);
     },
     closeTrack(trackId: string) {
-      clocks.delete(trackId);
+      clocks.close(trackId);
       edges.delete(trackId);
     },
     /** Edge-straddling frames the batch saw against fresher history. */
