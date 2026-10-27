@@ -2,25 +2,32 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTypingWriter, TYPING_RETRY_MS } from './typing-writer';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 setupRitewayBun();
-test('renewal follows server timing, backs off only when refused as too soon, and stops on any other refusal or disposal', async () => {
-  const channelId = 'c'.repeat(24),
-    sent: boolean[] = [];
+
+const channelId = 'c'.repeat(24);
+/** A writer over queued timers whose nth write (1-based) answers `answer(n)`. */
+const writerAnswering = (answer: (n: number) => Response | Error) => {
+  const sent: boolean[] = [];
   const timers = createTimerQueue((clock, delay) => clock + delay);
   const writer = createTypingWriter({
     channelId,
     timers,
     write: async (value) => {
       sent.push(value);
-      return sent.length === 1
-        ? Response.json({
-            version: 1,
-            channelId,
-            typing: false,
-            refreshAfterMs: 450,
-          })
-        : new Response(null, { status: sent.length === 2 ? 429 : 503 });
+      const reply = answer(sent.length);
+      if (reply instanceof Error) throw reply;
+      return reply;
     },
   });
+  return { sent, timers, writer };
+};
+const renewIn = (refreshAfterMs: number, typing: boolean) =>
+  Response.json({ version: 1, channelId, typing, refreshAfterMs });
+test('renewal follows server timing, backs off only when refused as too soon, and stops on any other refusal or disposal', async () => {
+  const { sent, timers, writer } = writerAnswering((n) =>
+    n === 1
+      ? renewIn(450, false)
+      : new Response(null, { status: n === 2 ? 429 : 503 }),
+  );
   await writer.activity(true);
   timers.advance(449);
   assert({
@@ -78,23 +85,9 @@ test('renewal follows server timing, backs off only when refused as too soon, an
 });
 
 test('a write the network dropped backs off once and retries, never stalls', async () => {
-  const channelId = 'c'.repeat(24),
-    sent: boolean[] = [];
-  const timers = createTimerQueue((clock, delay) => clock + delay);
-  const writer = createTypingWriter({
-    channelId,
-    timers,
-    write: async (value) => {
-      sent.push(value);
-      if (sent.length === 1) throw new TypeError('Failed to fetch');
-      return Response.json({
-        version: 1,
-        channelId,
-        typing: true,
-        refreshAfterMs: 5000,
-      });
-    },
-  });
+  const { sent, timers, writer } = writerAnswering((n) =>
+    n === 1 ? new TypeError('Failed to fetch') : renewIn(5000, true),
+  );
   await writer.activity(true);
   await writer.activity(true);
   timers.advance(TYPING_RETRY_MS);
