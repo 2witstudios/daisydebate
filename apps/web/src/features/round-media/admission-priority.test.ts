@@ -7,6 +7,7 @@ test('Redis-down fairness degrades once and leaves canonical admission available
   const world = createMediaWorld();
   const events: string[] = [];
   const priority = createAdmissionPriority({
+    deadline: (work) => work,
     hint: async () => {
       throw Error('offline');
     },
@@ -26,6 +27,40 @@ test('Redis-down fairness degrades once and leaves canonical admission available
     should: 'still reconcile and admit with one classified degraded event',
     actual: [admission.state, events],
     expected: ['ready', ['round.media.fairness_degraded']],
+  });
+});
+test('a stalled Redis hint cannot hold admission or recovery beyond its injected deadline', async () => {
+  const world = createMediaWorld();
+  const events: string[] = [],
+    operations: string[] = [];
+  const priority = createAdmissionPriority({
+    hint: async (_session, operation) => {
+      operations.push(operation);
+      return new Promise<boolean>(() => {});
+    },
+    deadline: async () => {
+      throw new Error('Hint deadline');
+    },
+    logger: {
+      log: (event) => {
+        events.push(event);
+      },
+      child: () => world.input.logger,
+    },
+  });
+  const media = createRoundMediaOperations({ ...world.input, priority });
+  const admitted = await media.session(world.roundId, world.seats[0].actorId);
+  await media.reconcile(world.roundId);
+  assert({
+    given: 'Redis connected but never responding to enter, leave or waiting',
+    should:
+      'bound every optional wait, admit and recover canonically, and report one degraded episode',
+    actual: [admitted.state, operations, events],
+    expected: [
+      'ready',
+      ['enter', 'leave', 'waiting'],
+      ['round.media.fairness_degraded'],
+    ],
   });
 });
 test('another web instance yields its recovery claim to an admission already waiting', async () => {

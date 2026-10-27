@@ -1,4 +1,7 @@
-import { createAdmissionPriority } from '../src/features/round-media/admission-priority';
+import {
+  createAdmissionPriority,
+  MEDIA_ADMISSION_HINT_TIMEOUT_MS,
+} from '../src/features/round-media/admission-priority';
 import { Room, RoomEvent } from '@livekit/rtc-node';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
@@ -27,6 +30,7 @@ export const mediaDependencies = (
   media = createMediaService({ config: localMediaConfig }),
 ) => ({
   priority: createAdmissionPriority({
+    deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
     hint: fixture.redis.mediaAdmissionHint,
     logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
   }),

@@ -67,4 +67,8 @@ removes only its own token. A dead waiter cannot suppress recovery indefinitely.
 If Redis is unavailable or its hint capacity is exhausted, admission falls back
 to ordinary canonical lease competition and records the classified
 `round.media.fairness_degraded` event once per degraded episode. It never blocks
-capture merely because the fairness hint is unavailable.
+capture merely because the fairness hint is unavailable. Entry, release and
+recovery hint reads each have a 250 ms deadline at the composition edge, so a
+connected Redis that stops answering also degrades to canonical progress.
+An underlying hint may settle after that deadline; it has no authority and
+its existing expiry still bounds any stale scheduling effect.
