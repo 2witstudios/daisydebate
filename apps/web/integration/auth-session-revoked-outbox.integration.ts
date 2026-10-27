@@ -147,7 +147,11 @@ for (const route of routes) {
         should:
           'refuse and keep the session the first time, then delete it with exactly one control naming the actor and that session',
         actual: {
-          blocked: blockedStatus === undefined ? failureCode : blockedStatus,
+          // Refused either as a thrown INFRASTRUCTURE or as a 5xx answer.
+          refused:
+            blockedStatus === undefined
+              ? failureCode === 'INFRASTRUCTURE'
+              : blockedStatus >= 500,
           keptWhileBlocked,
           status,
           remaining: (
@@ -162,8 +166,7 @@ for (const route of routes) {
             .sort((a: string[], b: string[]) => a[1]!.localeCompare(b[1]!)),
         },
         expected: {
-          blocked:
-            blockedStatus === undefined ? 'INFRASTRUCTURE' : blockedStatus,
+          refused: true,
           keptWhileBlocked: targets.map(() => true),
           status: 200,
           remaining: 0,

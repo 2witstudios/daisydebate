@@ -173,6 +173,51 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
     });
   });
 
+  test('the web runtime role deletes a session and the trigger appends as that role', async () => {
+    await withSessionOwner(async (fixture, { actorId, id }) => {
+      await fixture.sql.begin(async (tx) => {
+        await tx.unsafe('set local role daisy_web');
+        await tx`delete from session where id=${id}`;
+      });
+      assert({
+        given:
+          'a session deleted by daisy_web (SECURITY INVOKER runs the trigger as it)',
+        should: 'commit the delete and its control without extra privilege',
+        actual: {
+          kept: await fixture.count('session', 'id', id),
+          controls: await controls(fixture, actorId),
+        },
+        expected: { kept: 0, controls: [[actorId, id]] },
+      });
+    });
+  });
+
+  test('the restore purge statement announces every live session it removes', async () => {
+    await withSessionOwner(async (fixture, { actorId, id }) => {
+      // purgeAllForRestore's own unscoped DELETE, rolled back so the shared
+      // test database keeps every other suite's sessions.
+      const seen = await fixture.sql
+        .begin(async (tx) => {
+          await tx.unsafe('set local role daisy_web');
+          await tx`delete from session`;
+          const rows = (await tx`select payload from outbox
+            where topic=${buildUserInboxTopic(actorId)}`) as {
+            payload: { ids: string[] };
+          }[];
+          throw Object.assign(new Error('roll back'), { rows });
+        })
+        .catch((error: { rows?: { payload: { ids: string[] } }[] }) =>
+          (error.rows ?? []).map(({ payload }) => payload.ids),
+        );
+      assert({
+        given: 'the restore purge’s delete of every session, as daisy_web',
+        should: 'append this actor’s control inside that same statement',
+        actual: seen,
+        expected: [[actorId, id]],
+      });
+    });
+  });
+
   test('a rolled-back delete leaves no control', async () => {
     await withSessionOwner(async (fixture, { actorId, id }) => {
       await fixture.sql

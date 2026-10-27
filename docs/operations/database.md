@@ -156,3 +156,25 @@ recovery timer cannot establish healthy availability. Provider work remains
 outside these transactions. RT owns complete receipt-window, durable marker,
 availability and adjudication acceptance; primitive integration fixtures alone
 do not establish that full consumer behavior.
+
+## Session deletes and the revocation trigger
+
+Every `DELETE` on `session` runs the statement-level trigger
+`daisy_session_revoked_control` (ADR 0032 §5), which appends one
+`session.revoked` outbox row per deleted live session whose account has an
+actor, plus one `pg_notify`, in the deleting transaction. The writers that
+delete sessions, and what each one costs:
+
+| Writer                                                   | What it deletes                     | Controls appended                                                                    |
+| -------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Better Auth sign-out and `/revoke-session`               | one session                         | one                                                                                  |
+| `revokeOtherSessions` (revoke-all, email change)         | the account's other or all sessions | one per deleted session                                                              |
+| `revokeSessionUnlessAddressHeld` (sign-in address check) | one fresh session                   | one; nothing reads it, the session never reached a client                            |
+| `purgeExpiredSessions` (retention)                       | expired sessions                    | none: expired sessions are skipped                                                   |
+| `purgeAllForRestore` (AUTH-7.6)                          | every session                       | one per live session, on a copy not yet taking traffic; they age out with the outbox |
+| `deleteProvisionalUser` cascade                          | a provisional account's sessions    | none: such an account has no actor                                                   |
+| An operator's emergency `DELETE FROM session`            | every session                       | one per live session; connected sockets close at once                                |
+
+`TRUNCATE session` fires no row or statement delete trigger: use `DELETE`
+for any reset that must close live sockets. A database reset that recreates
+the schema drops the trigger with it; migrations recreate it.

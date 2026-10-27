@@ -48,6 +48,15 @@ function deps(
   };
 }
 
+/** One store over a live visibility source, a virtual clock and fake sockets. */
+function freshStore() {
+  const visibility = liveVisibility();
+  const scheduler = createTimerQueue((clock, ms) => clock + ms);
+  const sockets: FakeSocket[] = [];
+  const store = createConnectionStore(deps(visibility, scheduler, sockets));
+  return { visibility, scheduler, sockets, store };
+}
+
 test('100 create, connect and dispose cycles return to the baseline', async () => {
   const visibility = liveVisibility();
   const scheduler = createTimerQueue((clock, ms) => clock + ms);
@@ -140,10 +149,7 @@ test('a ticket answered after disposal cannot open, send or schedule', async () 
 });
 
 test('a deliberate close stays reusable', async () => {
-  const visibility = liveVisibility();
-  const scheduler = createTimerQueue((clock, ms) => clock + ms);
-  const sockets: FakeSocket[] = [];
-  const store = createConnectionStore(deps(visibility, scheduler, sockets));
+  const { visibility, sockets, store } = freshStore();
   store.connect();
   store.close();
   store.connect();
@@ -192,10 +198,7 @@ test('the browser visibility adapter removes its document listener', () => {
 });
 
 test('a listener that reconnects on the final close cannot reopen a disposed store', () => {
-  const visibility = liveVisibility();
-  const scheduler = createTimerQueue((clock, ms) => clock + ms);
-  const sockets: FakeSocket[] = [];
-  const store = createConnectionStore(deps(visibility, scheduler, sockets));
+  const { scheduler, sockets, store } = freshStore();
   store.subscribe((state) => {
     if (state.status === 'closed') store.connect();
   });
