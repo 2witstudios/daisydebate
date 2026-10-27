@@ -15,11 +15,11 @@ on:
 permissions:
   contents: read
 
-# Same per-PR group as ci.yml: superseded pushes cancel instead of queueing
-# a second Chromium run for code that no longer exists.
+# Superseded PR runs cancel; main, queue and manual candidates each finish
+# independently so a later merge cannot erase the previous candidate's proof.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quick-check:
