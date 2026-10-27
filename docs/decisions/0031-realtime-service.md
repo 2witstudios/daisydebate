@@ -412,6 +412,16 @@ the wire is added.
   dropped is the one holding the largest backlog. Readiness reports the
   retained backlog and its oldest publication age. It reports them; it
   never gates `ready` on them.
+- **A topic's sustained rate is bounded by one authorization.** Each new
+  row's bell fences the in-flight authorization, and a fenced row is
+  authorized again (up to 64 times) rather than resynced. A topic still
+  delivers fewer than 1/L rows a second, for authorization latency L, so a
+  topic whose rows arrive faster than that for long enough overflows and
+  resyncs its viewers. Measured on the real registry at L = 20 ms with
+  Poisson arrivals: r·L = 0.5 overflows never, 0.9 about twice in 300 rows.
+  The planned envelope (5 ms, 4 doorbells a second) sits far below it. G8
+  must prove r·L = 1 without overflow, by letting one allow cover every
+  queued row whose bell preceded it.
 - **`resync_required` also means "a gap may exist".** Besides a `since`
   before the retained range, the server sends it when a topic overflows,
   when an event cannot be authorized now, and when a subscription whose

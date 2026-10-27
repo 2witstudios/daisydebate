@@ -5,32 +5,43 @@ const capacityRefusals = new WeakSet<Error>();
 /** Errors whose capacity refusal the database boundary already logged. */
 const reportedRefusals = new WeakSet<Error>();
 /**
- * Whether `marks` holds `error` or one of at most 16 native Error causes.
- * Only own data-property causes are followed; hostile links and execution
- * recovery detail objects fail closed to ordinary failure reporting.
+ * The member of `error`'s chain (itself or one of at most 16 native Error
+ * causes) that `marks` holds. Only own data-property causes are followed;
+ * hostile links and execution recovery detail objects fail closed to
+ * ordinary failure reporting.
  */
-function causeChainHas(marks: WeakSet<Error>, error: unknown): boolean {
+function causeChainMember(
+  marks: WeakSet<Error>,
+  error: unknown,
+): Error | undefined {
   const seen = new WeakSet<Error>();
   let current = error;
   try {
     for (let depth = 0; depth < 16 && current instanceof Error; depth += 1) {
-      if (marks.has(current)) return true;
-      if (seen.has(current)) return false;
+      if (marks.has(current)) return current;
+      if (seen.has(current)) return undefined;
       seen.add(current);
       current = Object.getOwnPropertyDescriptor(current, 'cause')?.value;
     }
   } catch {
     // A proxy may refuse descriptor/prototype inspection; never hide its failure.
-    return false;
+    return undefined;
   }
-  return false;
+  return undefined;
 }
+const causeChainHas = (marks: WeakSet<Error>, error: unknown) =>
+  causeChainMember(marks, error) !== undefined;
 /** Refused-unrun admission identity, through bounded native cause wrappers. */
 export const isTransactionCapacityRefusal = (error: unknown): boolean =>
   causeChainHas(capacityRefusals, error);
-/** Records that `db.capacity.refused` was emitted for this rejection. */
+/**
+ * Records that `db.capacity.refused` was emitted for this rejection. The
+ * refusal itself is marked, not the wrapper that carried it, so any other
+ * wrapper of the same refusal is recognised as already reported.
+ */
 export function markCapacityRefusalReported(error: unknown) {
-  if (error instanceof Error) reportedRefusals.add(error);
+  const refusal = causeChainMember(capacityRefusals, error);
+  if (refusal) reportedRefusals.add(refusal);
 }
 /**
  * A capacity refusal the database boundary already reported, so a caller
