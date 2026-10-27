@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { lobbyHref, openRoomHref } from '../../../features/play/options';
+import { liveHref } from '../../../features/coming-soon/launch';
+import { openRoomHref } from '../../../features/play/options';
 import {
   activeRoomDotClass,
   activeRoomPhaseLabel,
@@ -48,13 +49,13 @@ export function MemberHero({
             <MediaPageLink href={activeRoom.href} className={primaryClass}>
               Return to room
             </MediaPageLink>
-            <Link href={lobbyHref} className={secondaryClass}>
+            <Link href={liveHref('lobby')} className={secondaryClass}>
               Lobby
             </Link>
           </>
         ) : (
           <>
-            <Link href={lobbyHref} className={primaryClass}>
+            <Link href={liveHref('lobby')} className={primaryClass}>
               Go to the Lobby
             </Link>
             <Link href={openRoomHref} className={secondaryClass}>

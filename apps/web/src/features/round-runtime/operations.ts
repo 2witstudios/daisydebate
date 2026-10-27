@@ -1,7 +1,8 @@
 import { bindRoundCommandPrincipal } from '@daisy/auth';
 import { createRoundRuntime, decideStartHorizon } from '@daisy/debate-engine';
 import { ROUND_START_HORIZON_MS } from '../round-finalization/maintenance';
-import type { Database, LockedRoundCommandContext } from '@daisy/db';
+import type { Database } from '@daisy/db';
+import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,

@@ -252,3 +252,56 @@ test('a capture token is never minted into an unknown vendor outcome', async () 
     expected: 1,
   });
 });
+
+/**
+ * One token request against a live session a session-scoped operation first
+ * created and `mark` then shaped, as the hold's reconcile would find it.
+ */
+const outcomeAfter = async (
+  mark: (world: ReturnType<typeof createMediaWorld>) => void,
+) => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  mark(world);
+  const before = world.reconciles();
+  const outcome = await broker(world)
+    .tokens.captureToken(scope(world), authenticated(world))
+    .then(
+      () => 'minted',
+      (error: { code: string }) => `refused ${error.code}`,
+    );
+  return {
+    outcome,
+    reconciles: world.reconciles() - before,
+    room: world.rooms.has(world.roomName),
+  };
+};
+
+test('a session marked unsafe with no unsettled vendor write never mints on the fast path', async () => {
+  const { outcome, reconciles, room } = await outcomeAfter((world) =>
+    world.markUnsafe(),
+  );
+  assert({
+    given: 'a live session marked unsafe while every vendor write is settled',
+    should:
+      'take the ISSUE-551 hold, whose own reconcile cleans the session up, and never mint on the fast path',
+    actual: { outcome, reconciles, room },
+    expected: { outcome: 'refused INFRASTRUCTURE', reconciles: 1, room: false },
+  });
+});
+
+test('a live session whose human seat is no longer eligible never mints on the fast path', async () => {
+  const { outcome, reconciles, room } = await outcomeAfter((world) =>
+    world.revoke(world.seats[0].id),
+  );
+  assert({
+    given: 'a live, safe session whose human seat is no longer eligible',
+    should:
+      'take the hold, so its own reconcile acts on the closed admission before anything is minted',
+    actual: { outcome, reconciles, room },
+    expected: { outcome: 'refused INFRASTRUCTURE', reconciles: 1, room: false },
+  });
+});

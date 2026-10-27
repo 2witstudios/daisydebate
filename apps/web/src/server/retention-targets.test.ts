@@ -32,6 +32,7 @@ describe('retention targets', () => {
         purgeExpiredOutboxEvents: record('outbox'),
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),
         purgeExpiredEmailDeliveries: record('email_delivery'),
+        purgeExpiredMailIntents: record('mail_intents'),
         purgeExpiredSessions: record('session'),
         purgeExpiredRoomCommands: record('room_commands'),
         purgeExpiredRoundCommands: record('round_commands'),
@@ -101,6 +102,7 @@ describe('retention targets', () => {
             maxBatches: 20,
           },
           { name: 'retention.email_delivery', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
           { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_feedback', batchSize: 500, maxBatches: 20 },
@@ -129,6 +131,7 @@ describe('retention targets', () => {
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
           email_delivery: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
+          mail_intents: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
           utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           round_feedback: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
@@ -149,7 +152,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the thirteen database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the fourteen database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -169,6 +172,7 @@ describe('retention targets', () => {
           ['retention.availability_samples', false],
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
+          ['retention.mail_intents', false],
           ['retention.utterances', false],
           ['retention.pending_ballots', false],
           ['retention.round_feedback', false],
@@ -176,7 +180,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 13,
+        failed: 14,
       },
     });
   });

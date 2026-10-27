@@ -1,5 +1,5 @@
 import type { ConnectionDiagnostic } from './connection-diagnostics';
-import type { ServerMessage } from '@daisy/protocol';
+import type { PresenceActivity, ServerMessage } from '@daisy/protocol';
 import type { TerminalReason } from './close-code-policy';
 
 /**
@@ -47,6 +47,8 @@ export type ConnectionStoreDeps = {
   readonly onVisibilityChange: (
     callback: (visible: boolean) => void,
   ) => () => void;
+  /** Whether this connection reports the tab's presence (every browser one does). */
+  readonly reportsPresence?: boolean;
 };
 
 export type ConnectionStore = {
@@ -61,6 +63,12 @@ export type ConnectionStore = {
   readonly resubscribeTopic: (topic: string) => void;
   /** Single-flight: a no-op while already connecting or open. */
   readonly connect: () => void;
+  /**
+   * This tab's presence activity (ADR 0033 §1, ADR 0072): a reporting
+   * connection sends it on every ready and once per change while open; a
+   * connection built without `reportsPresence` ignores it.
+   */
+  readonly reportActivity: (activity: PresenceActivity) => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */
   readonly close: () => void;
   /**
