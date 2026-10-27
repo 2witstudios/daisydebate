@@ -86,6 +86,7 @@ async function withNamespaceKeys<T>(
 export function createTestApp(
   overrides: Readonly<Record<string, string | undefined>> = {},
   afterResponseLimits?: AfterResponseLimits,
+  clock = systemClock,
 ) {
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
@@ -107,7 +108,7 @@ export function createTestApp(
   const app = createApp({
     env,
     fetch: mailbox.fetch,
-    clock: systemClock,
+    clock,
     ids: systemId,
     logDestination: { write: (line) => logLines.push(line) },
     // ISSUE-237: no key the app writes can be immortal or outlive a run.
