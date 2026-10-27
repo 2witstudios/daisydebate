@@ -29,6 +29,9 @@ export const roundProtectedReads = ({
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
       const round = await readAuthorizedRound(tx, input);
+      // The counter first: under READ COMMITTED a later write can only make the
+      // rows below newer than this revision, so its doorbell still refetches.
+      const counter = await transcriptRevision(tx, input.roundId);
       const freeze = await readTranscriptFreeze(tx, input.roundId);
       const streams = await tx
         .select({
@@ -40,8 +43,7 @@ export const roundProtectedReads = ({
         .where(eq(transcriptSegments.roundId, input.roundId));
       return roundTranscriptReadSchema.parse({
         round: roundViewFor(round, input.caller.actorId),
-        revision:
-          (await transcriptRevision(tx, input.roundId)) + (freeze ? 1 : 0),
+        revision: counter + (freeze ? 1 : 0),
         freeze: freeze ? { completeness: freeze.completeness } : null,
         streams,
         utterances: await readOrderedRoundUtterances(

@@ -5,7 +5,7 @@ const selectionSchema = z.strictObject({
   camera: z.string().min(1).max(512).exactOptional(),
   microphone: z.string().min(1).max(512).exactOptional(),
 });
-type LocalStorage = () => Pick<Storage, 'getItem' | 'setItem'>;
+type LocalStorage = () => Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const tabStorage: LocalStorage = () => window.sessionStorage;
 const selectionKey = (roomId: string) => `daisy:checked-devices:${roomId}`;
 
@@ -42,5 +42,14 @@ export function rememberCheckedDevices(
     storage().setItem(selectionKey(roomId), JSON.stringify(choices));
   } catch {
     // Storage can be disabled; local device checks still run normally.
+  }
+}
+
+/** After a checked device went missing, an explicit retry uses the browser default. */
+export function forgetCheckedDevices(roomId: string, storage = tabStorage) {
+  try {
+    storage().removeItem(selectionKey(roomId));
+  } catch {
+    // Storage can be disabled; there is then no choice to forget.
   }
 }

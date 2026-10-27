@@ -87,10 +87,13 @@ export default async function RoundRoomPage({
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
   if (actorId === null) redirect(`/rounds/${id}`);
-  const result = await readPersistedRound(id);
+  // Independent reads; the transcript's own audience policy decides it.
+  const [result, text] = await Promise.all([
+    readPersistedRound(id),
+    readPersistedTranscript(id),
+  ]);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const text = await readPersistedTranscript(id);
   const transcript =
     text.kind === 'found' ? (
       <LiveTranscript

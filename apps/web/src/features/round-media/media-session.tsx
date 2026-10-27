@@ -1,7 +1,10 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
-import { readCheckedDevices } from '../video/device-selection';
+import {
+  forgetCheckedDevices,
+  readCheckedDevices,
+} from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
@@ -24,7 +27,7 @@ const messages: Record<MediaConnectionState, string> = {
   'device-blocked':
     'Camera or microphone access is blocked. Check your browser permissions, then retry.',
   'device-missing':
-    'Your checked camera or microphone is missing. Reconnect that device, then retry.',
+    'Your checked camera or microphone is missing. Reconnect it, or retry to use your default device.',
   unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
   ended: 'The call has ended.',
 };
@@ -169,6 +172,9 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
+              // An explicit retry after a missing checked device falls back.
+              if (connection === 'device-missing')
+                forgetCheckedDevices(view.roomId);
               refresh.current();
               void controller.current?.reconnect();
             }}

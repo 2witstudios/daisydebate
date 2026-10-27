@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBrowserMediaTransport } from './browser-transport';
+import { CHECKED_DEVICE_MISSING } from './media-controller';
 import {
   events,
   publish,
@@ -66,7 +67,7 @@ for (const source of ['camera', 'microphone'] as const) {
         published: sources(stub.published),
       },
       expected: {
-        failure: 'OverconstrainedError',
+        failure: CHECKED_DEVICE_MISSING,
         captures: source === 'camera' ? 1 : 2,
         published: source === 'camera' ? [] : ['camera'],
       },

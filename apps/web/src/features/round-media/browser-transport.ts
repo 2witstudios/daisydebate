@@ -9,7 +9,10 @@ import {
   type LocalTrack,
 } from 'livekit-client';
 import type { RoundMediaState } from '@daisy/protocol';
-import type { BrowserMediaTransport } from './media-controller';
+import {
+  CHECKED_DEVICE_MISSING,
+  type BrowserMediaTransport,
+} from './media-controller';
 
 export type MediaTrack = {
   readonly identity: string;
@@ -52,6 +55,15 @@ const desiredSources = (
   granted: readonly Source[],
   permitted: readonly Source[] | null,
 ): readonly Source[] => permitted ?? granted;
+
+const deviceAbsent = (error: unknown) =>
+  error instanceof Error &&
+  ['NotFoundError', 'OverconstrainedError'].includes(error.name);
+/** A device the Room check passed is gone; carries no browser detail. */
+const checkedDeviceMissing = () =>
+  Object.assign(new Error('Checked device missing'), {
+    name: CHECKED_DEVICE_MISSING,
+  });
 
 /** Browser SDK only. Opaque identities stay in memory; no SDK diagnostics reach console. */
 export function createBrowserMediaTransport(
@@ -148,30 +160,41 @@ export function createBrowserMediaTransport(
   const audioCapture = events.devices?.microphone
     ? { deviceId: { exact: events.devices.microphone } }
     : true;
+  /** Only a device the Room check passed is reported missing (ISSUE-573). */
+  const checked = <T>(source: Source, work: Promise<T>) =>
+    work.catch((error: unknown) => {
+      throw events.devices?.[source] && deviceAbsent(error)
+        ? checkedDeviceMissing()
+        : error;
+    });
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
       const held = warm;
       warm = null;
       return [held];
     }
-    return sdk.capture({
-      audio: source === 'microphone' ? audioCapture : false,
-      video:
-        source === 'camera'
-          ? {
-              resolution: VideoPresets.h360.resolution,
-              ...(events.devices?.camera
-                ? { deviceId: { exact: events.devices.camera } }
-                : {}),
-            }
-          : false,
-    });
+    return checked(
+      source,
+      sdk.capture({
+        audio: source === 'microphone' ? audioCapture : false,
+        video:
+          source === 'camera'
+            ? {
+                resolution: VideoPresets.h360.resolution,
+                ...(events.devices?.camera
+                  ? { deviceId: { exact: events.devices.camera } }
+                  : {}),
+              }
+            : false,
+      }),
+    );
   };
   /**
    * A seat that publishes anything is a debater's: its microphone waits warm
-   * so its grant costs a publish, not a device open. Best effort: a refusal
-   * here is reported by the capture its grant makes. A seat that publishes
-   * nothing holds no microphone.
+   * so its grant costs a publish, not a device open. Best effort for the
+   * default microphone: a refusal is reported by the capture its grant makes.
+   * A checked microphone that is gone is reported now, since its debater will
+   * need it (ISSUE-573). A seat that publishes nothing holds no microphone.
    */
   const holdsMicrophone = () =>
     stopped || warm !== null || tracks.has('microphone');
@@ -182,12 +205,13 @@ export function createBrowserMediaTransport(
   const warmMicrophone = async (desired: readonly Source[]) => {
     if (desired.length === 0) return releaseWarm();
     if (holdsMicrophone()) return;
-    const [track] = await sdk
-      .capture({ audio: audioCapture, video: false })
-      .catch((error: unknown) => {
-        if (events.devices?.microphone) throw error;
-        return [] as LocalTrack[];
-      });
+    const [track] = await checked(
+      'microphone',
+      sdk.capture({ audio: audioCapture, video: false }),
+    ).catch((error: unknown) => {
+      if (events.devices?.microphone) throw error;
+      return [] as LocalTrack[];
+    });
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };

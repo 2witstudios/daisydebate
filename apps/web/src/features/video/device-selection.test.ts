@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDeviceCheckController } from './device-check-controller';
-import { readCheckedDevices, rememberCheckedDevices } from './device-selection';
+import {
+  forgetCheckedDevices,
+  readCheckedDevices,
+  rememberCheckedDevices,
+} from './device-selection';
 
 setupRitewayBun();
 
@@ -9,6 +13,7 @@ test('checked device identities cross document navigation only within the local 
   const storage = () => ({
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
   });
   const devices = createDeviceCheckController({
     open: async (kind, selected) => ({
@@ -38,6 +43,13 @@ test('checked device identities cross document navigation only within the local 
       {},
     ],
   });
+  forgetCheckedDevices('room-a', storage);
+  assert({
+    given: 'a retry after the checked device went missing',
+    should: 'forget the stale choice so capture uses the browser default',
+    actual: readCheckedDevices('room-a', storage),
+    expected: {},
+  });
 });
 
 test('unavailable or invalid browser storage does not expose device data', () => {
@@ -52,6 +64,7 @@ test('unavailable or invalid browser storage does not expose device data', () =>
       readCheckedDevices('room-a', () => ({
         getItem: () => '{"camera":123}',
         setItem: () => undefined,
+        removeItem: () => undefined,
       })),
     ],
     expected: [{}, {}],

@@ -25,7 +25,6 @@ import { mediaSessions } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
 
-type Session = typeof mediaSessions.$inferSelect;
 import {
   proofMatches,
   type MediaVendorIntent,
@@ -72,20 +71,21 @@ export function createMediaReconcileStore(input: {
       .from(mediaSessions)
       .where(eq(mediaSessions.id, mediaId(sessionId)));
     if (!initial) throw createAppError('NOT_FOUND');
-    await lockMediaRound(tx, initial.roundId);
+    const authority = await lockMediaRound(tx, initial.roundId);
     const [session] = await tx
       .select()
       .from(mediaSessions)
       .where(eq(mediaSessions.id, sessionId))
       .for('update');
     if (!session) throw createAppError('NOT_FOUND');
-    return session;
+    // The fenced seats travel with the session, so no caller locks twice.
+    return { ...session, seats: authority.participants };
   };
   const withFence = <T>(
     request: MediaReconcileFence,
     work: (
       tx: BoundedTransactionContext,
-      session: Session,
+      session: Awaited<ReturnType<typeof locked>>,
       now: Date,
     ) => Promise<T>,
   ) =>
@@ -264,7 +264,7 @@ export function createMediaReconcileStore(input: {
             ? await rotateRevokedMediaRoom(
                 tx,
                 session.id,
-                (await lockMediaRound(tx, session.roundId)).participants,
+                session.seats,
                 now,
                 input.nextId,
               )

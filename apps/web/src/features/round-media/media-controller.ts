@@ -5,6 +5,9 @@ import {
   type RoundMediaState,
 } from '@daisy/protocol';
 
+/** The transport's error for a device the Room check passed that is now gone. */
+export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
+
 export type MediaConnectionState =
   | 'connecting'
   | 'reconnecting'
@@ -45,7 +48,12 @@ export function mediaFailure(status: number) {
 
 const deviceBlocked = (error: unknown) =>
   error instanceof Error &&
-  ['NotAllowedError', 'SecurityError', 'NotReadableError'].includes(error.name);
+  [
+    'NotAllowedError',
+    'SecurityError',
+    'NotFoundError',
+    'NotReadableError',
+  ].includes(error.name);
 
 /** One controller per committed Round, independent of competitive command acknowledgement lifetime. */
 export function createMediaController(input: {
@@ -106,8 +114,7 @@ export function createMediaController(input: {
     if (stale(generation)) return;
     transport = null;
     change(
-      error instanceof Error &&
-        ['NotFoundError', 'OverconstrainedError'].includes(error.name)
+      error instanceof Error && error.name === CHECKED_DEVICE_MISSING
         ? 'device-missing'
         : deviceBlocked(error)
           ? 'device-blocked'

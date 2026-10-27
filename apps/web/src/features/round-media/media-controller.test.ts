@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
 import {
+  CHECKED_DEVICE_MISSING,
   createMediaController,
   isTransientMediaFailure,
   mediaFailure,
@@ -267,25 +268,39 @@ test('a timeout or a server refusal for now is transient; other refusals are def
   });
 });
 
-test('a missing checked device is reported distinctly from permission denial', async () => {
-  const controller = createMediaController({
-    roundId,
-    api: { admit: async () => admission, reconcile: async () => snapshot },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async () => {
-        throw new DOMException('private device detail', 'OverconstrainedError');
-      },
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
-    changed: () => undefined,
-  });
-  await controller.join();
+test('only a missing checked device says so; an unchecked missing device is blocked', async () => {
+  const stateAfter = async (failure: Error) => {
+    const controller = createMediaController({
+      roundId,
+      api: { admit: async () => admission, reconcile: async () => snapshot },
+      transport: () => ({
+        connect: async () => undefined,
+        apply: async () => {
+          throw failure;
+        },
+        stopTracks: () => undefined,
+        disconnect: async () => undefined,
+      }),
+      changed: () => undefined,
+    });
+    await controller.join();
+    return controller.state();
+  };
   assert({
-    given: 'an exact selected device missing when Round capture starts',
-    should: 'report the missing device without raw browser details',
-    actual: controller.state(),
-    expected: 'device-missing',
+    given:
+      'a checked device gone when Round capture starts, then no device at all for a viewer who never checked one',
+    should:
+      'report the missing checked device, and the default case as blocked, never naming a check that did not happen',
+    actual: [
+      await stateAfter(
+        Object.assign(new Error('Checked device missing'), {
+          name: CHECKED_DEVICE_MISSING,
+        }),
+      ),
+      await stateAfter(
+        new DOMException('private device detail', 'NotFoundError'),
+      ),
+    ],
+    expected: ['device-missing', 'device-blocked'],
   });
 });
