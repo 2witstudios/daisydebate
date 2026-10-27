@@ -4,7 +4,6 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { appendSessionRevokedFor } from './session-revoked';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { isUniqueViolation } from './unique-violation';
 
@@ -36,24 +35,6 @@ export const authOperations = ({
   });
   return {
     authAdapter,
-    /**
-     * RT-2.2 (plan revision 4.1, ADR 0032 §5): appends one `session.revoked`
-     * outbox row in its own short transaction, for a caller that has already
-     * confirmed a session delete outside Daisy's control (Better Auth's own
-     * revoke endpoints). Never wraps the delete itself.
-     */
-    async appendSessionRevoked(userId: string): Promise<void> {
-      return instrumented(eventSink, 'appendSessionRevoked', () =>
-        database.transaction((tx) =>
-          appendSessionRevokedFor(
-            tx,
-            userId,
-            eventSink,
-            'appendSessionRevoked',
-          ),
-        ),
-      );
-    },
     /**
      * ISSUE-99 (AUTH-5.6): the email change's final step, in one
      * transaction. It moves the account from `email` to `newEmail` (marked
@@ -112,8 +93,8 @@ export const authOperations = ({
      * seen by this statement's snapshot, and one that commits later is
      * followed by its revoke-all, which the insert's user-row lock orders
      * after the insert (ISSUE-22), so either way no session proved by the
-     * old address outlives the change. The session has not yet reached its
-     * client, so there is nothing to announce: no `session.revoked` append.
+     * old address outlives the change. The delete trigger still announces it
+     * (ADR 0032 §5); the session never reached a client, so nothing acts on it.
      */
     async revokeSessionUnlessAddressHeld(input: {
       readonly token: string;
@@ -162,11 +143,10 @@ export const authOperations = ({
      * endpoints are routed here (`revoke-sessions.ts`), and every future
      * revoke-all (recovery, admin ban) must call it too.
      *
-     * Daisy's own operation, not one of Better Auth's internal deletes, so
-     * the `session.revoked` append happens in the *same* transaction as the
-     * DELETE (ADR 0032 §5, plan revision 4.7): a failed append rolls the
-     * DELETE back too, rather than being swallowed best-effort. Returns the
-     * number of sessions removed.
+     * The session delete trigger appends one exact `session.revoked` per
+     * deleted session in this same transaction (ADR 0032 §5): a failed
+     * append rolls the DELETE back too. Returns the number of sessions
+     * removed.
      */
     async revokeOtherSessions(
       userId: string,
@@ -190,13 +170,6 @@ export const authOperations = ({
                   ),
             )
             .returning({ id: sessions.id });
-          if (rows.length > 0)
-            await appendSessionRevokedFor(
-              tx,
-              userId,
-              eventSink,
-              'revokeOtherSessions',
-            );
           return rows.length;
         }),
       );
@@ -226,9 +199,9 @@ export const authOperations = ({
      * before it takes traffic, so a pre-restore session cookie or emailed
      * link can never authenticate against the restored copy. Unlike
      * `revokeOtherSessions` this is total and never scoped to one user — a
-     * restore has no live user context to scope to — so it never appends a
-     * `session.revoked` outbox row (no realtime instance watches a copy that
-     * has not taken traffic yet).
+     * restore has no live user context to scope to. The delete trigger
+     * still appends each session's control; no realtime instance watches a
+     * copy that has not taken traffic yet, so they only age out.
      */
     async purgeAllForRestore(): Promise<{
       readonly sessions: number;

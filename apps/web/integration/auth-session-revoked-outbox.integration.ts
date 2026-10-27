@@ -49,117 +49,132 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
 };
 
 /**
- * RT-2.2v nit: a real-fault forced-failure proof for every self-service
- * revoke endpoint. `/revoke-session` is Better Auth's own delete, so its
- * doorbell is the best-effort `sessionRevokedOutboxPlugin` append: a failure
- * never fails the call. `/revoke-other-sessions` and `/revoke-sessions` are
- * Daisy's serialized revoke-all (ISSUE-22, `revoke-sessions.ts`), whose
- * append shares the DELETE's transaction (ADR 0032 §5): a failure rolls the
- * whole revocation back and the call reports the outage.
+ * MSG-2.1-arch1 (G6): a real-fault proof for every route that deletes a
+ * session. The `session.revoked` control is appended by the database's own
+ * delete trigger in the deleting transaction, so a forced outbox failure
+ * rolls the revocation back on every route, Better Auth's own sign-out and
+ * `/revoke-session` included, and the caller sees the outage instead of a
+ * revocation that never reaches realtime.
  */
 const routes: readonly {
   readonly path: string;
-  readonly atomic: boolean;
+  /** Which signed-in sessions the route deletes. */
+  readonly deletes: readonly ('first' | 'second')[];
   readonly body: (secondToken: string) => string;
 }[] = [
-  { path: '/revoke-other-sessions', atomic: true, body: () => '{}' },
-  { path: '/revoke-sessions', atomic: true, body: () => '{}' },
+  { path: '/revoke-other-sessions', deletes: ['second'], body: () => '{}' },
+  { path: '/revoke-sessions', deletes: ['first', 'second'], body: () => '{}' },
   {
     path: '/revoke-session',
-    atomic: false,
+    deletes: ['second'],
     body: (secondToken) => JSON.stringify({ token: secondToken }),
   },
+  { path: '/sign-out', deletes: ['first'], body: () => '{}' },
 ];
 
-for (const route of routes) {
-  test(`a forced outbox failure on a real ${route.path} call ${route.atomic ? 'rolls the whole revocation back' : 'never fails it, and logs the registered event'}`, async () => {
-    const email = fixtureEmail();
-    const { sent, logged, database, auth } = createDatabaseAuthServer(
-      url,
-      (pool) => ({
-        appendSessionRevoked: (userId) => pool.appendSessionRevoked(userId),
+const postRoute = (
+  auth: ReturnType<typeof createTestAuthServer>,
+  route: (typeof routes)[number],
+  cookie: string,
+  secondToken: string,
+) =>
+  auth.instance.handler(
+    new Request(`${auth.config.PUBLIC_APP_URL}/api/auth${route.path}`, {
+      method: 'POST',
+      headers: new Headers({
+        origin: auth.config.PUBLIC_APP_URL,
+        cookie,
+        'content-type': 'application/json',
       }),
-    );
+      body: route.body(secondToken),
+    }),
+  );
+
+for (const route of routes) {
+  test(`a real ${route.path} call commits its session delete only with its session.revoked control`, async () => {
+    const email = fixtureEmail();
+    const { sent, database, auth } = createDatabaseAuthServer(url);
     const admin = new SQL(url);
     let userId: string | undefined;
     try {
       const first = await signInOnce(auth, email, sent);
       userId = first.userId;
       const second = await signInOnce(auth, email, sent);
+      const targets = route.deletes.map((which) =>
+        which === 'first' ? first : second,
+      );
       const actorId = createId();
-      // Plan revision 4.10: the append only runs once the actor resolves.
-      // This test signs in without ever claiming a username, so it inserts
-      // the actor directly rather than going through the onboarding route —
-      // an unrelated surface to what this test proves.
+      // The control names the actor, so the account needs one; this test
+      // never claims a username, so it inserts the actor directly.
       await admin.unsafe(
         "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
         [actorId, userId],
       );
-
-      let response: Response | undefined;
+      const topic = buildUserInboxTopic(actorId);
       let failureCode: unknown;
-      await withOutboxInsertBlockedForTopic(
-        buildUserInboxTopic(actorId),
-        async () => {
-          response = await auth.instance
-            .handler(
-              new Request(
-                `${auth.config.PUBLIC_APP_URL}/api/auth${route.path}`,
-                {
-                  method: 'POST',
-                  headers: new Headers({
-                    origin: auth.config.PUBLIC_APP_URL,
-                    cookie: first.cookie,
-                    'content-type': 'application/json',
-                  }),
-                  body: route.body(second.sessionToken),
-                },
+      let blockedStatus: number | undefined;
+      await withOutboxInsertBlockedForTopic(topic, async () => {
+        blockedStatus = await postRoute(
+          auth,
+          route,
+          first.cookie,
+          second.sessionToken,
+        )
+          .then((response) => response.status)
+          .catch((error: { code?: unknown }) => {
+            failureCode = error.code;
+            return undefined;
+          });
+      });
+      const keptWhileBlocked = await Promise.all(
+        targets.map(({ sessionToken }) => sessionExists(admin, sessionToken)),
+      );
+      const targetIds: string[] = (
+        await admin.unsafe(
+          'select id from session where token = any($1) order by id',
+          [targets.map(({ sessionToken }) => sessionToken)],
+        )
+      ).map(({ id }: { id: string }) => id);
+      const status = (
+        await postRoute(auth, route, first.cookie, second.sessionToken)
+      ).status;
+      const controls = await admin.unsafe(
+        'select payload from outbox where topic = $1',
+        [topic],
+      );
+      assert({
+        given: `a real ${route.path} call while its outbox insert is forced to fail, then the same call again`,
+        should:
+          'refuse and keep the session the first time, then delete it with exactly one control naming the actor and that session',
+        actual: {
+          blocked: blockedStatus === undefined ? failureCode : blockedStatus,
+          keptWhileBlocked,
+          status,
+          remaining: (
+            await Promise.all(
+              targets.map(({ sessionToken }) =>
+                sessionExists(admin, sessionToken),
               ),
             )
-            .catch((error: { code?: unknown }) => {
-              failureCode = error.code;
-              return undefined;
-            });
+          ).filter(Boolean).length,
+          controls: controls
+            .map(({ payload }: { payload: { ids: string[] } }) => payload.ids)
+            .sort((a: string[], b: string[]) => a[1]!.localeCompare(b[1]!)),
         },
-      );
-
-      const outboxRows = await admin.unsafe(
-        'select 1 from outbox where topic = $1',
-        [buildUserInboxTopic(actorId)],
-      );
-
+        expected: {
+          blocked:
+            blockedStatus === undefined ? 'INFRASTRUCTURE' : blockedStatus,
+          keptWhileBlocked: targets.map(() => true),
+          status: 200,
+          remaining: 0,
+          controls: targetIds.map((id) => [actorId, id]),
+        },
+      });
       assert({
-        given: `a real ${route.path} call while its topic's outbox insert is forced to fail`,
-        should: route.atomic
-          ? 'report the outage and keep the target session: the append and the DELETE commit together or not at all'
-          : 'still deny the target session and answer success, appending nothing and logging the registered failure event instead of throwing',
-        actual: {
-          status: response?.status,
-          failureCode,
-          secondSessionDenied: !(await sessionExists(
-            admin,
-            second.sessionToken,
-          )),
-          outboxRowsAppended: outboxRows.length,
-          loggedAppendFailure: logged.some(
-            ([event]) => event === 'realtime.outbox.append_failed',
-          ),
-        },
-        expected: route.atomic
-          ? {
-              status: undefined,
-              failureCode: 'INFRASTRUCTURE',
-              secondSessionDenied: false,
-              outboxRowsAppended: 0,
-              loggedAppendFailure: false,
-            }
-          : {
-              status: 200,
-              failureCode: undefined,
-              secondSessionDenied: true,
-              outboxRowsAppended: 0,
-              loggedAppendFailure: true,
-            },
+        given: `a forced outbox failure under a real ${route.path} call`,
+        should: 'never answer success',
+        actual: blockedStatus !== 200,
+        expected: true,
       });
     } finally {
       await database.close();
