@@ -186,10 +186,10 @@ operator API (ADR 0079), with this client:
   byte-identical to the participant app's `node:crypto`.
 - **Responses.** Parsed strictly with the protocol schemas
   (`operatorAccountsPageSchema`, `betaAccessCommandResultSchema`,
-  `operatorCommandStateSchema`). The six refusals the API makes before or
+  `operatorCommandStateSchema`). The seven refusals the API makes before or
   instead of a change (`VALIDATION`, `AUTHENTICATION`, `AUTHORIZATION`,
-  `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, each at its own status) are
-  definite. Anything else (`INFRASTRUCTURE`, `INTERNAL`, a code at the wrong
+  `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, and `INVARIANT` at 422 for an
+  account with no 16+ age record, each at its own status) are definite. Anything else (`INFRASTRUCTURE`, `INTERNAL`, a code at the wrong
   status, a malformed body, a network error or a 5 s timeout) is `unknown`,
   never `failed`.
 - **Commands** (`apps/admin/src/features/accounts`). Approve and revoke
@@ -199,12 +199,21 @@ operator API (ADR 0079), with this client:
   that intent row as `adminAuditHead`. `command.outcome` records `changed`,
   `unchanged`, `rejected:<code>` or `unknown`, with the mail status as its
   detail. A settled outcome closes the pending command by one conditional
-  UPDATE, so of two racing reconcilers exactly one records it.
+  UPDATE, so of two racing reconcilers exactly one records it, and only that
+  one counts it as settled.
 - **Reconciliation.** The accounts and audit pages, and their Reconcile forms,
-  read each open command back with `GET /operator/v1/commands/{id}` and append
-  `command.reconciled`. On `NOT_FOUND` (the PUT never arrived) the command is
-  resent under the same id and the same anchor with a fresh nonce; the
-  participant app's receipt makes any resend idempotent.
+  read each open command back with `GET /operator/v1/commands/{id}`, signed as
+  the viewer, who is authorized at that moment. They then append
+  `command.reconciled`.
+  - On `NOT_FOUND` (the PUT never arrived), the command's own operator is
+    re-read and authorized first. Only if allowed is it resent under the same
+    id and anchor with a fresh nonce. The participant app's receipt makes any
+    resend idempotent.
+  - When that operator is no longer allowed, nothing is signed. The denial is
+    audited, and the command closes as `abandoned`. That is true: it was never
+    applied.
+  - A read that returns `unknown` (the participant app is unreachable) stops
+    the batch, and the rest stay open. A page load never waits out every call.
 - **Screens.** The accounts screen has Pending, Approved and Revoked tabs with
   keyset paging. The `nextCursor` goes back unchanged, so the microsecond
   `requestedAt` inside it survives. Approve and Revoke are plain POST forms
