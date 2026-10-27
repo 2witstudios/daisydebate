@@ -137,6 +137,8 @@ test('adding and removing an own reaction atomically advance changes and emit on
           (value) => value !== null && typeof value === 'object',
         ),
         queries.filter((q) => q.query.includes('pg_notify')).length,
+        // A removal never reads the aggregates, so it reveals no other reactor.
+        queries.some((q) => q.query.includes('count(*)')),
       ],
       expected: [
         9,
@@ -149,11 +151,8 @@ test('adding and removing an own reaction atomically advance changes and emit on
               ['add', null],
               ['read', null],
             ]
-          : [
-              ['read', null],
-              ['remove', own],
-              ['read', null],
-            ],
+          : // A withdrawal (ADR 0075): only the own-association check, no read.
+            [['remove', own]],
         [scope.actorId, scope.channelId, command.messageId, command.reaction],
         {
           kind: 'channel.changed',
@@ -161,6 +160,7 @@ test('adding and removing an own reaction atomically advance changes and emit on
           changeVersion: 9,
         },
         1,
+        active,
       ],
     });
   }

@@ -12,7 +12,13 @@ import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const { flows, identifyAs, sessionAs, signUp, claim } = createAccountFlows();
+const {
+  flows,
+  identifyAs,
+  sessionAs,
+  signUp,
+  claimWaitlisted: claim,
+} = createAccountFlows();
 const { requestLink, redeem, session, newClient } = flows;
 const { redisKeys } = flows.testApp;
 

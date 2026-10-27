@@ -76,7 +76,11 @@ export function createAccountFlows(testApp?: TestApp) {
     return { email, token, response, cookie };
   };
 
-  const claim = (
+  /**
+   * The raw username claim, leaving the account on the beta list (ADR
+   * 0075): only for the gate and claim suites that prove that wait.
+   */
+  const claimWaitlisted = (
     cookie: string | null,
     body: unknown,
     headers: Record<string, string> = {},
@@ -89,12 +93,16 @@ export function createAccountFlows(testApp?: TestApp) {
     );
 
   /**
-   * The claim, then the operator's approval (ADR 0075): for suites that need
-   * a member rather than an account waiting on the beta list.
+   * The claim, then the operator's approval: every suite gets an admitted
+   * participant by default (ADR 0075). A refused claim approves nothing.
    */
-  const claimMember = async (cookie: string, body: unknown) => {
-    const response = await claim(cookie, body);
-    if (response.status === 201) {
+  const claim = async (
+    cookie: string | null,
+    body: unknown,
+    headers: Record<string, string> = {},
+  ) => {
+    const response = await claimWaitlisted(cookie, body, headers);
+    if (response.status === 201 && cookie) {
       const userId = identityUserId(await identifyAs(cookie));
       if (userId) await withSql((sql) => approveBetaAccess(sql, userId));
     }
@@ -107,7 +115,7 @@ export function createAccountFlows(testApp?: TestApp) {
       new Headers({ cookie, [CLIENT_IP_HEADER]: newClient() }),
     );
 
-  return { flows, identifyAs, sessionAs, signUp, claim, claimMember };
+  return { flows, identifyAs, sessionAs, signUp, claim, claimWaitlisted };
 }
 
 /** The user id behind a signed-in identity, or null for anyone else. */

@@ -122,8 +122,28 @@ The rest of this record describes BETA-2.
   - The account fence function returns the beta state.
   - `@daisy/auth`'s evaluator requires `approved` for every participant
     capability.
-  - Three safety exits do not need it: `room.leave`, `channel.leave` and
-    `social.block`.
+  - **Withdrawals do not need it.** A member who is not, or is no
+    longer, admitted can always withdraw their own footprint. They can
+    never add to it or read others' content (DEC-126). The withdrawals
+    are:
+    - leaving: `room.leave` and `channel.leave`;
+    - blocking: `social.block`;
+    - own cleanup: `channel.reaction.remove`, `channel.file.cleanup`,
+      `channel.invitation.decline` and `channel.group.archive`;
+    - the replay reads of their own commands: `channel.group.result` and
+      `channel.invitation.result`.
+  - **Not withdrawals.** Management transfer (`channel.manage`) grants
+    authority to someone else, so the last manager without admission
+    archives the group instead. Typing is presence, so it is refused.
+  - **A withdrawal reads nothing.** Removing your own reaction checks
+    only that the reaction is yours, then answers with your own
+    footprint: `reactions: []` and the change version, never the
+    aggregates. So the response shape and status never reveal whether
+    others reacted. A non-member has no own reaction, so they get 404.
+  - **One list, in one place.** `admitsCapability` in `@daisy/auth`
+    holds the list. The messaging and Room command edges hand a waitlisted
+    principal to the evaluator, so these withdrawals are reachable over
+    HTTP. Room reads and creation stay member-only at the edge.
 - **Age admission (ISSUE-664).** Participant access is beta approval
   _and_ a durable age record whose band, computed now, meets
   `ACCOUNT_AGE_FLOOR` (16 in the beta, DEC-106; 13 after). The account
@@ -135,6 +155,8 @@ The rest of this record describes BETA-2.
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
+  The same holds in a channel: one member losing admission never closes
+  reading for the others.
 - **What a pending account sees.**
   - Every member requirement is denied.
   - After onboarding, a pending account lands on `/beta` ("You're on the

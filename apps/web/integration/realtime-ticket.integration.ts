@@ -10,7 +10,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const socketUrl = 'wss://ticket-fixture.example.test/socket';
-const { flows, signUp, claimMember } = createAccountFlows(
+const { flows, signUp, claim } = createAccountFlows(
   createTestApp({ REALTIME_PUBLIC_URL: socketUrl }),
 );
 const { testApp, jsonPost } = flows;
@@ -20,7 +20,7 @@ const ticketRoute = testApp.routes.ticket;
 async function memberSession() {
   const { email, cookie } = await signUp();
   const username = uniqueName();
-  const claimed = await claimMember(cookie, { username });
+  const claimed = await claim(cookie, { username });
   if (claimed.status !== 201)
     throw new Error(`fixture: claiming a username failed (${claimed.status})`);
   const [row] = (await withSql(

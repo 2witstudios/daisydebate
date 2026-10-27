@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { Fixture } from './constraint-helpers';
+import { admitParticipants } from '../src/beta-access-testing';
 
 /**
  * The same tracked live human account for account, role and minimal-age
@@ -21,12 +22,16 @@ export async function createAuthorizationSubject(
     kind: 'human',
     user_id: userId,
   });
-  // An adult age record: participant access needs one at the 16+ floor.
-  await fixture.sql`insert into account_age (user_id, birth_month, version, recorded_at)
-    values (${userId}, '2000-01', 1, now())`;
-  // The users cleanup cascades to these rows.
-  await fixture.sql`insert into account_beta_access (user_id, state, requested_at, decided_at, provenance)
-    values (${userId}, ${beta}, now(), ${beta === 'approved' ? new Date() : null}, 'signup')`;
+  // An admitted participant by default (ADR 0075); gate suites opt out
+  // with a pending account that still has its adult age record. The users
+  // cleanup cascades to these rows.
+  if (beta === 'approved') await admitParticipants(fixture.sql, [userId]);
+  else {
+    await fixture.sql`insert into account_age (user_id, birth_month, version, recorded_at)
+      values (${userId}, '2000-01', 1, now())`;
+    await fixture.sql`insert into account_beta_access (user_id, state, requested_at, provenance)
+      values (${userId}, 'pending', now(), 'signup')`;
+  }
   return { userId, actorId };
 }
 

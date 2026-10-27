@@ -116,6 +116,7 @@ export {
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
 export {
+  admitParticipants,
   approveBetaAccess,
   removeUnowedBetaDigests,
 } from './beta-access-testing';

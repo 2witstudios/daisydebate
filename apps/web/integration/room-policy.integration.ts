@@ -16,7 +16,7 @@ const f = createTestApp({
 test('ordinary configured app enforces each canonical per-member rate budget', async () => {
   const account = createAccountFlows(f);
   const signed = await account.signUp();
-  const claim = await account.claimMember(signed.cookie, {
+  const claim = await account.claim(signed.cookie, {
     username: uniqueName(),
   });
   if (claim.status !== 201) throw new Error('Fixture membership claim failed');

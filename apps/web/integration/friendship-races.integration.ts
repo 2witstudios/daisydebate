@@ -192,7 +192,6 @@ test('the last friend place is granted once under concurrency', async () => {
   const befriended = friendshipPolicy.maxFriends - 1;
   const friends = await seedMembers(client, befriended, { now: fixture.now });
   const accepting = await seedMembers(client, 2, {
-    adult: true,
     now: fixture.now,
   });
   try {

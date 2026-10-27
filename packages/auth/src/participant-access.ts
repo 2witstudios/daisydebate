@@ -1,5 +1,6 @@
 import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
 import type { AgeBand } from './age-band';
+import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';
 
 type AccountBetaState = NonNullable<AccountAuthorizationFact['beta']>['state'];
@@ -25,4 +26,27 @@ export function participantAccess(
 /** Whether a durable age band meets the account floor; no record never does. */
 export function ageAdmitted(band: AgeBand | null): boolean {
   return band !== null && bandsAtFloor[ACCOUNT_AGE_FLOOR].includes(band);
+}
+/**
+ * ADR 0075: a member who is not, or no longer, admitted can always withdraw
+ * their own footprint, never add to it or read others' content. These are
+ * the exits and own cleanup, with the replay reads of their own commands.
+ */
+const withdrawals: readonly AuthorizationCapability[] = [
+  'room.leave',
+  'channel.leave',
+  'social.block',
+  'channel.reaction.remove',
+  'channel.file.cleanup',
+  'channel.invitation.decline',
+  'channel.invitation.result',
+  'channel.group.archive',
+  'channel.group.result',
+];
+/** Whether a bound member holds a capability under the admission rule. */
+export function admitsCapability(
+  capability: AuthorizationCapability,
+  account: Parameters<typeof participantAccess>[0],
+): boolean {
+  return withdrawals.includes(capability) || participantAccess(account);
 }

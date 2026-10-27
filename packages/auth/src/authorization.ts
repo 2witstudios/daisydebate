@@ -1,4 +1,4 @@
-import { participantAccess } from './participant-access';
+import { admitsCapability } from './participant-access';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
@@ -92,12 +92,6 @@ function validResourceKind(
   );
 }
 type UserPrincipal = Extract<AuthorizationPrincipal, { kind: 'user' }>;
-/** Safety exits a pending or revoked account keeps: leaving and blocking. */
-const safetyExits: readonly AuthorizationCapability[] = [
-  'room.leave',
-  'channel.leave',
-  'social.block',
-];
 function boundMember(
   principal: UserPrincipal,
   account: AccountAuthorizationFact | null,
@@ -209,7 +203,7 @@ export function authorize({
 }
 /**
  * A bound member holds a capability only with participant access (ADR
- * 0075), except the safety exits every member keeps.
+ * 0075), except the withdrawals every member keeps.
  */
 function admittedMember(
   principal: UserPrincipal,
@@ -217,8 +211,7 @@ function admittedMember(
   account: AccountAuthorizationFact | null,
 ): principal is UserPrincipal & { actorId: string } {
   return (
-    boundMember(principal, account) &&
-    (safetyExits.includes(capability) || participantAccess(account))
+    boundMember(principal, account) && admitsCapability(capability, account)
   );
 }
 const decision = (allowed: boolean): AuthorizationDecision =>
