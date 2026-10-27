@@ -228,4 +228,61 @@ describe('the age step (WAIT-4.6, WAIT-4.7)', () => {
       }
     });
   });
+
+  test('the sweep deletes only accounts abandoned before the age step, once (ISSUE-660)', async () => {
+    await withFixture(url, async (fixture) => {
+      const signedUp = '2001-01-01T00:00:00.000Z';
+      const before = '2001-01-02T00:00:00.000Z';
+      const account = async (row: Record<string, unknown> = {}) => {
+        const id = createId();
+        await fixture.insert('users', { id, created_at: signedUp, ...row });
+        return id;
+      };
+      const abandoned = await account({ email: `${createId()}@example.test` });
+      const answered = await account();
+      const member = await account({ username: `u-${createId()}` });
+      const erased = await account({ deleted_at: signedUp });
+      const recent = await account({ created_at: before });
+      await fixture.actor(erased);
+      const session = createId();
+      await fixture.sql`insert into session(id,token,user_id,expires_at,created_at,updated_at)
+        values(${session},${createId()},${abandoned},${before},${signedUp},${signedUp})`;
+      await withDatabase((database) =>
+        database.recordAgeStep({
+          userId: answered,
+          birthMonth: '1990-01',
+          termsVersion: 'draft-0',
+          now,
+        }),
+      );
+      try {
+        const runs = await withDatabase(async (database) => [
+          await database.purgeAbandonedProvisionalAccounts({
+            before,
+            limit: 500,
+          }),
+          await database.purgeAbandonedProvisionalAccounts({
+            before,
+            limit: 500,
+          }),
+        ]);
+        const left = await Promise.all(
+          [abandoned, answered, member, erased, recent].map((id) =>
+            fixture.count('users', 'id', id),
+          ),
+        );
+        assert({
+          given:
+            'accounts signed up before the cutoff: abandoned, age answered, member, erased; and one signed up at the cutoff',
+          should:
+            'delete only the abandoned account and its session, then find nothing on a second run',
+          actual: [runs, left, await fixture.count('session', 'id', session)],
+          expected: [[1, 0], [0, 1, 1, 1, 1], 0],
+        });
+      } finally {
+        await fixture.sql`delete from account_terms where user_id=${answered}`;
+        await fixture.sql`delete from account_age where user_id=${answered}`;
+      }
+    });
+  });
 });

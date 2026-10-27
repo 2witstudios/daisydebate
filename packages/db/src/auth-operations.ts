@@ -3,6 +3,11 @@ import { and, eq, ne, notExists, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
+import { accountAge } from './schema/account-age';
+import { accountTerms } from './schema/account-terms';
+import { actors } from './schema/actors';
+import { privacyJobs } from './schema/privacy-jobs';
+import { roleGrants } from './schema/role-grants';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
@@ -216,6 +221,34 @@ export const authOperations = ({
         deleteExpiredBatch(
           database,
           { table: sessions, key: sessions.id, at: sessions.expiresAt },
+          input,
+        ),
+      );
+    },
+    /**
+     * Retention (ISSUE-660): one bounded batch of abandoned provisional
+     * accounts, live users that signed up before the cutoff and never
+     * answered the age step or claimed a username. Anything that makes an
+     * account more than a sign-up (an age, a Terms acceptance, an actor, a
+     * role grant, a privacy job) keeps it, so a member or an erased account
+     * is never touched. Sessions, accounts and passkeys cascade.
+     */
+    async purgeAbandonedProvisionalAccounts(input: RetentionBatch) {
+      const none = (table: typeof accountAge | typeof accountTerms) =>
+        sql`not exists (select 1 from ${table} where ${table.userId} = ${users.id})`;
+      return instrumented(eventSink, 'purgeAbandonedProvisionalAccounts', () =>
+        deleteExpiredBatch(
+          database,
+          {
+            table: users,
+            key: users.id,
+            at: users.createdAt,
+            eligible: sql`${users.username} is null and ${users.deletedAt} is null
+              and ${none(accountAge)} and ${none(accountTerms)}
+              and not exists (select 1 from ${actors} where ${actors.userId} = ${users.id})
+              and not exists (select 1 from ${roleGrants} where ${roleGrants.userId} = ${users.id} or ${roleGrants.grantedByUserId} = ${users.id})
+              and not exists (select 1 from ${privacyJobs} where ${privacyJobs.subjectRef} = ${users.id})`,
+          },
           input,
         ),
       );

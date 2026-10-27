@@ -197,6 +197,23 @@ DELETE FROM session WHERE id IN (
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```
 
+## Retention of abandoned sign-ups (ISSUE-660)
+
+A sign-up creates a provisional account (no username) before the age step. An
+account that, 24 hours after signing up, has still answered no age step and
+claimed no username is abandoned. That includes a browser held by an under-age
+refusal that signed up again and never answered. Its row goes in the same
+hourly, idempotent sweep, with the same `SKIP LOCKED` batches (at most 20 of
+500 per run). Its sessions, accounts and passkeys cascade. Its emailed links
+and delivery receipts age out under their own retention above. An account
+with an age or Terms acceptance, an actor, a role grant or a privacy job is
+never swept, so members and erased accounts are untouched. Events, with
+`operation: 'retention.provisional_account'`: `retention.sweep.completed`
+(`deleted`, `batches`) and `retention.sweep.failed`.
+
+A held browser that answers the age step again is refused, and its new
+provisional account is deleted at once instead of waiting for the sweep.
+
 ## Alerting (AUTH-7.7)
 
 Nothing inside the app can alert on its own unavailability while it is

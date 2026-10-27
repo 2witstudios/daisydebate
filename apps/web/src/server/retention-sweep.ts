@@ -59,6 +59,9 @@ export function retentionTargets({
     readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
     readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
+    readonly purgeAbandonedProvisionalAccounts: (
+      batch: Batch,
+    ) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundFeedback: (batch: Batch) => Promise<number>;
@@ -114,6 +117,22 @@ export function retentionTargets({
       maxBatches: 20,
       purge: ({ now, limit }) =>
         database.purgeExpiredSessions({
+          before: cutoff(now, DAY_MS),
+          limit,
+        }),
+    },
+    /**
+     * ISSUE-660: an account that signed up but in 24 hours answered no age
+     * step and claimed no username is abandoned (a held browser's new
+     * account among them). It goes with its sessions; its emailed links
+     * and delivery receipts age out under their own rows above and below.
+     */
+    {
+      name: 'retention.provisional_account',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeAbandonedProvisionalAccounts({
           before: cutoff(now, DAY_MS),
           limit,
         }),

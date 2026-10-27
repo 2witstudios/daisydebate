@@ -61,6 +61,48 @@ describe('retention batch', () => {
     });
   });
 
+  test('abandoned provisional accounts go in one bounded, lock-skipping batch by sign-up time (ISSUE-660)', async () => {
+    const { database, queries } = createTestDatabase([[['a']]]);
+    const deleted = await database.purgeAbandonedProvisionalAccounts({
+      before,
+      limit: 500,
+    });
+    const text = queries[0]?.query ?? '';
+    assert({
+      given: 'a cutoff and a batch limit',
+      should:
+        'delete, oldest first and skipping locked rows, only live users that signed up before it with no username and no age, Terms, actor, role grant or privacy job',
+      actual: {
+        deleted,
+        statements: queries.length,
+        deletesUsers: text.trimStart().startsWith('delete from "users"'),
+        bySignUp: text.includes('"users"."created_at" < $1::timestamptz'),
+        oldestFirst: text.includes('order by "users"."created_at"'),
+        skipLocked: text.includes('for update skip locked'),
+        eligible: [
+          '"users"."username" is null',
+          '"users"."deleted_at" is null',
+          'from "account_age"',
+          'from "account_terms"',
+          'from "actors"',
+          'from "role_grants"',
+          'from "privacy_jobs"',
+        ].filter((fragment) => !text.includes(fragment)),
+        params: queries[0]?.params,
+      },
+      expected: {
+        deleted: 1,
+        statements: 1,
+        deletesUsers: true,
+        bySignUp: true,
+        oldestFirst: true,
+        skipLocked: true,
+        eligible: [],
+        params: [before, 500],
+      },
+    });
+  });
+
   test('public outbox retention deletes a certified prefix and advances its boundary in one statement', async () => {
     const { database, queries } = createTestDatabase([
       [{ known: true, count: 2 }],
