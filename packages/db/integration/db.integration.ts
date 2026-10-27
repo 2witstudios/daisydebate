@@ -1,8 +1,10 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { isAppError } from '@daisy/errors';
 import { createDatabase } from '../src';
 import { roundAuthoring, withFixture } from './constraint-helpers';
+import { authoredRoundCommand } from './round-command.test-support';
 
 setupRitewayBun();
 
@@ -10,15 +12,13 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 test('durable rounds survive reconnect; optimistic executions reject stale writers', () =>
   withFixture(url, async (fixture) => {
-    const { roundId, database, rules, formatId } = await roundAuthoring(
-      fixture,
-      url,
-    );
+    const { roundId, database, rules, formatId, actorId } =
+      await roundAuthoring(fixture, url);
     try {
       const healthy = await database.health();
       await database.createRound({
         id: roundId,
-        createdByActorId: null,
+        createdByActorId: actorId,
         resolution: 'Architecture proof',
         competitionType: 'casual',
         formatId,
@@ -30,21 +30,11 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
       const reopened = createDatabase({ url, nextActorId: createId });
       try {
         const stored = await reopened.getRound(roundId);
-        const command = {
-          commandId: createId(),
-          actorId: null,
-          serviceId: 'integration',
-          type: 'start',
-          payloadDigest: 'a'.repeat(64),
-          result: { ok: true },
-        };
         const outcomes = await Promise.all(
           [1, 2].map(() =>
             reopened
-              .applyRoundExecution({
-                roundId,
-                expectedVersion: 1,
-                command,
+              .executeRoundCommand({
+                ...authoredRoundCommand({ roundId, actorId }, 1),
                 buildProjection: () => ({
                   round: {
                     status: 'active',
@@ -64,11 +54,13 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
                   effects: [],
                 }),
               })
-              .then(() => true)
-              .catch(() => false),
+              .then(() => 'accepted')
+              .catch((error: unknown) =>
+                isAppError(error) ? error.code : 'unexpected',
+              ),
           ),
         );
-        const won = outcomes.filter(Boolean);
+        const won = outcomes.filter((outcome) => outcome === 'accepted');
         const after = await reopened.getRound(roundId);
         assert({
           given:
@@ -80,6 +72,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
             rules: stored?.rules.version,
             status: stored?.status,
             winners: won.length,
+            refusals: outcomes.filter((outcome) => outcome !== 'accepted'),
             winner: {
               status: after?.status,
               callerTime: after?.startedAt === '2001-01-01T00:00:00.000Z',
@@ -91,6 +84,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
             rules: 2,
             status: 'scheduled',
             winners: 1,
+            refusals: ['CONFLICT'],
             winner: { status: 'active', callerTime: false, validTime: true },
           },
         });

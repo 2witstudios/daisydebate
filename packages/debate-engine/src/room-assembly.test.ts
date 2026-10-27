@@ -96,12 +96,14 @@ describe('Room assembly authority', () => {
         'allow atomic freeze while keeping the prelaunch view server-owned',
       actual: [
         result.ok && result.mutation.freeze,
+        result.ok && result.mutation.spendsAiRound,
         view.capabilities.canStart,
         view.roundRef,
         view.participants.map((p) => [p.needsReady, p.ready]),
       ],
       expected: [
         true,
+        false,
         true,
         null,
         [

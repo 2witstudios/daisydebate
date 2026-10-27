@@ -10,7 +10,10 @@ import {
   oneOnOneDefinition,
   oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
-import { canReadRound } from '../src/features/round-runtime/reads';
+import {
+  canReadRound,
+  canReadTranscript,
+} from '../src/features/round-runtime/reads';
 import { everyoneReady } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -197,12 +200,11 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     const speaker = raw.participants.find((p) => p.role === 'affirmative')!;
     // Private-reader storage fixture, not a capture or generation producer.
     await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete) values(${createId()},${roundId},${segment.id},${speaker.id},0,'Private transcript',true)`;
-    const read = (caller: typeof f.host, segmentId = segment.id) =>
-      f.store.readRoundSegmentUtterances({
+    const read = (caller: typeof f.host) =>
+      f.store.readRoundTranscript({
         caller,
         roundId,
-        segmentId,
-        authorize: (r, a) => canReadRound(caller, r, a),
+        authorize: (r, a) => canReadTranscript(caller, r, a),
       });
     assert({
       given: 'a seated debater and the hidden judge',
@@ -221,11 +223,30 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       actual: () => read(spectator),
       code: 'NOT_FOUND',
     });
-    await assertRejects({
-      given: 'a seated caller naming a foreign segment',
-      should: 'refuse the cross-Round subresource',
-      actual: () => read(f.guest, createId()),
-      code: 'NOT_FOUND',
+    // A test audience adapter, not a production spectator grant: neither
+    // persistence nor presentation is allowed to add a second seat veto.
+    const futureAudience = await f.store.readRoundTranscript({
+      caller: spectator,
+      roundId,
+      authorize: (r, a) => canReadRound(spectator, r, a),
+    });
+    await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
+    const completedAudience = await f.store.readRoundBallot({
+      caller: spectator,
+      roundId,
+      authorize: (r, a) => canReadRound(spectator, r, a),
+      authorizeTranscript: (r, a) => canReadRound(spectator, r, a),
+      authorizeCoaching: () => false,
+    });
+    assert({
+      given:
+        'a server-authorized non-seat audience injected at the shared read boundary',
+      should: 'read live and completed text without another seat veto',
+      actual: [
+        futureAudience.utterances.map((l) => l.text),
+        completedAudience.read.transcript?.utterances.map((l) => l.text),
+      ],
+      expected: [['Private transcript'], ['Private transcript']],
     });
     await f.sql`update users set username='' where id=${f.guest.userId}`;
     await assertRejects({

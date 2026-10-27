@@ -2,12 +2,12 @@ import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {
   fixedId,
-  roomName,
   roundId,
   rules,
   seats,
   sessionId,
 } from './media-world-seats.test-support';
+export { fixedId } from './media-world-seats.test-support';
 import type { MediaOperationInput, Store } from './operation-context';
 import {
   createMediaVendor,
@@ -31,6 +31,17 @@ export function createMediaWorld(
     readonly reclaimedAfterFinish?: boolean;
   } = {},
 ) {
+  let roomName = fixedId('room');
+  const waiting = new Set<string>();
+  const priority = async (
+    _sessionId: string,
+    operation: string,
+    owner?: string,
+  ) => {
+    if (operation === 'enter') waiting.add(owner!);
+    if (operation === 'leave') waiting.delete(owner!);
+    return waiting.size > 0;
+  };
   const journal: string[] = [];
   const reported: unknown[] = [];
   const failures = new Map<Vendor, number>();
@@ -201,6 +212,15 @@ export function createMediaWorld(
       if (cleaned) {
         unsafeAt = null;
         if (terminal) endedAt ??= now;
+        else {
+          const kept = bindings.filter((binding) =>
+            eligible.get(binding.roundParticipantId),
+          );
+          if (kept.length !== bindings.length) {
+            bindings.splice(0, bindings.length, ...kept);
+            roomName = nextId();
+          }
+        }
       }
     },
     ensureBinding: async (input: { caller: Caller }) => {
@@ -243,6 +263,7 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    priority,
     store,
     media,
     publicUrl: 'wss://media.daisy.invalid',

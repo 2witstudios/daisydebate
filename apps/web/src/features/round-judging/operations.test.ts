@@ -11,7 +11,7 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
         expectedVersion: 1,
         pendingBallot: null,
       }),
-      beginRoundJudgingModelCall: async () => null,
+      beginRoundJudgingModelCall: async () => false,
       recordRoundJudgingUsage: async () => undefined,
       saveRoundJudgingResult: async () => undefined,
       submitRoundJudgingResult: async () => undefined,

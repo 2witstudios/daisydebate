@@ -1,3 +1,4 @@
+import type { createAdmissionPriority } from './admission-priority';
 import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { ErrorReporter } from '@daisy/observability';
@@ -12,6 +13,7 @@ export type Principal = Parameters<Store['issueMediaToken']>[0]['principal'];
 export type Scope = Parameters<Store['ensureBotBinding']>[0]['scope'];
 
 export type MediaOperationInput = {
+  readonly priority: ReturnType<typeof createAdmissionPriority>;
   readonly store: Store;
   readonly media: ReturnType<typeof createMediaService>;
   readonly publicUrl: string;

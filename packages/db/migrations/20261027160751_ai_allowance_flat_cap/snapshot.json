@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1e35c580-3fc8-414c-b841-853ee68f8640",
+  "id": "da07e818-2802-47fe-a2d4-3c59372ac359",
   "prevIds": [
-    "1da00c64-34fa-442c-82c1-8fe7a023834d"
+    "c2e7935e-66f3-4ef9-8077-d82d9ff3da14"
   ],
   "ddl": [
     {
@@ -27,12 +27,6 @@
     {
       "isRlsEnabled": false,
       "name": "agent_runs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "ai_allowance_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -309,60 +303,6 @@
     {
       "isRlsEnabled": false,
       "name": "seasons",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "resolution_bank_entries",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "resolution_bank_revisions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "room_resolution_draw_inputs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "room_resolution_draw_items",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "room_resolution_draws",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "room_resolution_strikes",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_draw_private_inputs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_draw_seeds",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_resolution_draw_texts",
       "entityType": "tables",
       "schema": "public"
     },
@@ -858,71 +798,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "period_start",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "period_end",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revoked_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "type": "text",
@@ -2394,19 +2269,6 @@
       "table": "format_presets"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "ranked_eligible",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "format_presets"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -2472,32 +2334,6 @@
       "table": "format_revisions"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "rules_edition",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "format_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_url",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "format_revisions"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -2558,71 +2394,6 @@
       "generated": null,
       "identity": null,
       "name": "current_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "catalog_role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "family",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "leagues",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "''",
-      "generated": null,
-      "identity": null,
-      "name": "search_terms",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "sort_order",
       "entityType": "columns",
       "schema": "public",
       "table": "formats"
@@ -5394,604 +5165,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "category",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "difficulty",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "locale",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "provenance",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "added_in_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "retired_in_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "note",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_revisions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "published_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "resolution_bank_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_inputs"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "inputs",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_inputs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "position",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_size",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "candidate_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "bank_entry_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "category",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_size",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "manifest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "manifest_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "commitment",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "seed",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "started_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ordinal",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "position",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "draw_size",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "side",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "command_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "struck_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_private_inputs"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "inputs",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_private_inputs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "seed",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_resolution_draw_texts"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "position",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_resolution_draw_texts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_resolution_draw_texts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "role_grants"
     },
     {
@@ -6361,7 +5534,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -6445,32 +5618,6 @@
       "generated": null,
       "identity": null,
       "name": "preset_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "basis_format_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "basis_preset_version",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -6562,19 +5709,6 @@
       "generated": null,
       "identity": null,
       "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "last_command_at",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -8025,19 +7159,6 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "resolution_evidence",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -9133,41 +8254,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "period_start",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "period_end",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "ai_allowance_grants_actor_period_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "nameExplicit": true,
@@ -11161,174 +10247,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "added_in_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "resolution_bank_entries_added_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "retired_in_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "resolution_bank_entries_retired_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "draw_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "source_kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "room_resolution_draw_items_kind_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "draw_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "draw_size",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "room_resolution_draw_items_size_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "bank_entry_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "room_resolution_draw_items_bank_entry_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "draw_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "draw_size",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "room_resolution_strikes_size_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "room_resolution_strikes_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "user_id",
           "isExpression": false,
           "asc": true,
@@ -11685,34 +10603,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "rooms_definition_revision_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "basis_format_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "basis_preset_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rooms_basis_preset_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "rooms"
@@ -13741,23 +12631,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ai_allowance_grants_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -15035,235 +13908,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "added_in_revision"
-      ],
-      "schemaTo": "public",
-      "tableTo": "resolution_bank_revisions",
-      "columnsTo": [
-        "revision"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "resolution_bank_entries_FGAsRWRioc6o_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "retired_in_revision"
-      ],
-      "schemaTo": "public",
-      "tableTo": "resolution_bank_revisions",
-      "columnsTo": [
-        "revision"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "resolution_bank_entries_GRt3VnDWx9mF_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "draw_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_resolution_draws",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_draw_inputs_x41u1vBnqo45_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_draw_inputs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "bank_entry_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "resolution_bank_entries",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "room_resolution_draw_items_yYfRJeit8DKX_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "draw_id",
-        "source_kind"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_resolution_draws",
-      "columnsTo": [
-        "id",
-        "source_kind"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_draw_items_kind_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "draw_id",
-        "draw_size"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_resolution_draws",
-      "columnsTo": [
-        "id",
-        "draw_size"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_draw_items_size_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "room_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rooms",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_draws_room_id_rooms_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "room_resolution_strikes_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "draw_id",
-        "position"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_resolution_draw_items",
-      "columnsTo": [
-        "draw_id",
-        "position"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_strikes_item_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "draw_id",
-        "draw_size"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_resolution_draws",
-      "columnsTo": [
-        "id",
-        "draw_size"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "room_resolution_strikes_size_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_draw_private_inputs_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_draw_private_inputs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_draw_seeds_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_resolution_draw_texts_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_resolution_draw_texts"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -15467,25 +14111,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "rooms_preset_provenance_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "basis_format_id",
-        "basis_preset_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "format_presets",
-      "columnsTo": [
-        "format_id",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "rooms_basis_preset_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "rooms"
@@ -16494,39 +15119,6 @@
     },
     {
       "columns": [
-        "draw_id",
-        "position"
-      ],
-      "nameExplicit": false,
-      "name": "room_resolution_draw_items_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "columns": [
-        "draw_id",
-        "ordinal"
-      ],
-      "nameExplicit": false,
-      "name": "room_resolution_strikes_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "columns": [
-        "round_id",
-        "position"
-      ],
-      "nameExplicit": false,
-      "name": "round_resolution_draw_texts_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "round_resolution_draw_texts"
-    },
-    {
-      "columns": [
         "round_id",
         "round_participant_id"
       ],
@@ -16596,16 +15188,6 @@
       "name": "agent_runs_pkey",
       "schema": "public",
       "table": "agent_runs",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "ai_allowance_grants_pkey",
-      "schema": "public",
-      "table": "ai_allowance_grants",
       "entityType": "pks"
     },
     {
@@ -16906,66 +15488,6 @@
       "name": "seasons_pkey",
       "schema": "public",
       "table": "seasons",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "resolution_bank_entries_pkey",
-      "schema": "public",
-      "table": "resolution_bank_entries",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "revision"
-      ],
-      "nameExplicit": false,
-      "name": "resolution_bank_revisions_pkey",
-      "schema": "public",
-      "table": "resolution_bank_revisions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "draw_id"
-      ],
-      "nameExplicit": false,
-      "name": "room_resolution_draw_inputs_pkey",
-      "schema": "public",
-      "table": "room_resolution_draw_inputs",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "room_resolution_draws_pkey",
-      "schema": "public",
-      "table": "room_resolution_draws",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_draw_private_inputs_pkey",
-      "schema": "public",
-      "table": "round_draw_private_inputs",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_draw_seeds_pkey",
-      "schema": "public",
-      "table": "round_draw_seeds",
       "entityType": "pks"
     },
     {
@@ -17293,42 +15815,6 @@
       "nameExplicit": true,
       "columns": [
         "id",
-        "source_kind"
-      ],
-      "nullsNotDistinct": false,
-      "name": "room_resolution_draws_kind_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
-        "draw_size"
-      ],
-      "nullsNotDistinct": false,
-      "name": "room_resolution_draws_size_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "draw_id",
-        "position"
-      ],
-      "nullsNotDistinct": false,
-      "name": "room_resolution_strikes_position_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
         "format_id"
       ],
       "nullsNotDistinct": false,
@@ -17369,17 +15855,6 @@
       "name": "mail_intents_dedupe_key_key",
       "schema": "public",
       "table": "mail_intents",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "room_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "room_resolution_draws_room_id_key",
-      "schema": "public",
-      "table": "room_resolution_draws",
       "entityType": "uniques"
     },
     {
@@ -17437,13 +15912,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "value": "\"period_end\" > \"period_start\"",
-      "name": "ai_allowance_grants_period_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "value": "\"freeze_revision\" > 0",
@@ -17665,41 +16133,6 @@
     {
       "value": "\"current_version\" > 0",
       "name": "formats_current_version_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "value": "\"catalog_role\" is null or \"catalog_role\" in ('standard', 'template')",
-      "name": "formats_catalog_role_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "value": "\"catalog_role\" is null or \"created_by_actor_id\" is null",
-      "name": "formats_catalog_is_publisher_owned",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "value": "\"catalog_role\" is distinct from 'standard' or \"id\" in ('policy', 'value', 'freestyle')",
-      "name": "formats_standard_ids",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "value": "(\"family\" is not null) = coalesce(\"catalog_role\" = 'template', false)",
-      "name": "formats_family_for_templates",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
-      "value": "\"family\" is null or \"family\" in ('policy', 'value', 'parli', 'other')",
-      "name": "formats_family_check",
       "entityType": "checks",
       "schema": "public",
       "table": "formats"
@@ -18307,153 +16740,6 @@
       "table": "seasons"
     },
     {
-      "value": "\"category\" in ('policy', 'value', 'fact')",
-      "name": "resolution_bank_entries_category_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "value": "\"difficulty\" in ('intro', 'standard', 'advanced')",
-      "name": "resolution_bank_entries_difficulty_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "value": "length(trim(\"text\")) between 1 and 300",
-      "name": "resolution_bank_entries_text_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "value": "\"retired_in_revision\" is null or \"retired_in_revision\" > \"added_in_revision\"",
-      "name": "resolution_bank_entries_retired_after_added",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "resolution_bank_entries"
-    },
-    {
-      "value": "jsonb_typeof(\"inputs\") = 'object'",
-      "name": "room_resolution_draw_inputs_inputs_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draw_inputs"
-    },
-    {
-      "value": "(\"source_kind\" = 'bank') = (\"bank_entry_id\" is not null)",
-      "name": "room_resolution_draw_items_bank_entry_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "value": "\"position\" >= 0 and \"position\" < \"draw_size\"",
-      "name": "room_resolution_draw_items_position_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "value": "\"category\" is null or \"category\" in ('policy', 'value', 'fact')",
-      "name": "room_resolution_draw_items_category_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draw_items"
-    },
-    {
-      "value": "\"source_kind\" in ('bank', 'host')",
-      "name": "room_resolution_draws_source_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"manifest\"->'source'->>'kind' = \"source_kind\" and (\"manifest\"->>'drawSize')::int = \"draw_size\"",
-      "name": "room_resolution_draws_manifest_match",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"draw_size\" between 2 and 20",
-      "name": "room_resolution_draws_size_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"seed\" ~ '^[0-9a-f]{64}$'",
-      "name": "room_resolution_draws_seed_hex",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"manifest_digest\" ~ '^[0-9a-f]{64}$'",
-      "name": "room_resolution_draws_digest_hex",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"commitment\" ~ '^[0-9a-f]{64}$'",
-      "name": "room_resolution_draws_commitment_hex",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "jsonb_typeof(\"manifest\") = 'object'",
-      "name": "room_resolution_draws_manifest_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_draws"
-    },
-    {
-      "value": "\"ordinal\" >= 0 and \"ordinal\" < \"draw_size\" - 1",
-      "name": "room_resolution_strikes_ordinal_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "value": "\"side\" in ('affirmative', 'negative')",
-      "name": "room_resolution_strikes_side_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "value": "\"kind\" in ('debater', 'timeout', 'automatic')",
-      "name": "room_resolution_strikes_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "value": "(\"kind\" = 'debater') = (\"actor_id\" is not null and \"command_id\" is not null)",
-      "name": "room_resolution_strikes_debater_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_resolution_strikes"
-    },
-    {
-      "value": "jsonb_typeof(\"inputs\") = 'object'",
-      "name": "round_draw_private_inputs_inputs_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_draw_private_inputs"
-    },
-    {
-      "value": "\"seed\" ~ '^[0-9a-f]{64}$'",
-      "name": "round_draw_seeds_seed_hex",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
       "value": "\"role\" in ('moderator', 'judge')",
       "name": "role_grants_role_check",
       "entityType": "checks",
@@ -18538,15 +16824,8 @@
       "table": "rooms"
     },
     {
-      "value": "\"topic\" is null or length(trim(\"topic\")) > 0",
+      "value": "length(trim(\"topic\")) > 0",
       "name": "rooms_topic_nonempty",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "value": "\"topic\" is not null or coalesce(\"execution_plan\"->'resolutionDraw'->>'enabled' = 'true', false)",
-      "name": "rooms_fixed_topic_present",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
@@ -18575,13 +16854,6 @@
     {
       "value": "\"competition_type\" in ('ranked', 'casual')",
       "name": "rooms_competition_type_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "value": "(\"basis_format_id\" is null) = (\"basis_preset_version\" is null)",
-      "name": "rooms_basis_complete",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
@@ -18918,13 +17190,6 @@
     {
       "value": "jsonb_typeof(\"room_config_snapshot\") = 'object'",
       "name": "rounds_room_config_snapshot_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "jsonb_typeof(\"resolution_evidence\") = 'object'",
-      "name": "rounds_resolution_evidence_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

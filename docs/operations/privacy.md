@@ -59,8 +59,8 @@ it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
   `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
-  `standings.updated` on `standings`, and `user.notification-delivered` on
-  `user:inbox`. The first two carry only ids and a projected competitive
+  `debate.transcript-changed` on `debate`, `standings.updated` on `standings`, and `user.notification-delivered` on
+  `user:inbox`. The Round and standings doorbells carry only ids and a projected competitive
   state (`identifier`/`none`). `user.notification-delivered` also carries
   `notificationType` (a controlled vocabulary string, category `none` —
   never free text) and `occurredAt` (a timestamp, category `none`);
@@ -330,6 +330,29 @@ and the PostHog adapter and consent banner (PRIV-6) are separate leaves of
 the privacy and telemetry epic, tracked on the epic's PageSpace plan page.
 This document describes the rules those leaves implement, not their
 current implementation status.
+
+### Transcript invalidation
+
+`debate.transcript-changed` carries `kind` (none), `ids` (identifier, the Round
+invalidation target) and `entityVersion` (none, the transcript revision), with no
+text, track, speaker or judge identity. Purpose: refetch the current protected
+transcript after capture or closure. Storage: the existing PostgreSQL outbox,
+retained for 24 hours; delivery is transient authenticated Round-topic fan-out.
+Existing Round identifier lifecycle and outbox deletion apply. This necessary
+transport adds no analytics event or new personal-data storage. Transcript text
+remains personal/private under DEC-101 and its 180-day retention/subject erasure.
+
+### Media admission hints
+
+`<namespace>:v1:media-admission:<sessionId>` stores a bounded sorted set of waiter
+identifiers and their expiry times. Session and waiter ids are category
+`identifier`; expiry scores are `none`. Purpose: expendable scheduling fairness
+between admissions and recovery, with PostgreSQL retaining authority. Storage:
+existing Redis, at most 256 entries and 15 seconds (one reconcile lease). No
+personal content, account identity or credential is stored; expiry and explicit
+waiter release erase it. `round.media.fairness_degraded` is registered in the
+logger with `operation` (`enter`, `leave`, `waiting`, category `none`) to report
+loss of the hint. No analytics event or new consent category is introduced.
 
 ### Abandoned provisional accounts
 

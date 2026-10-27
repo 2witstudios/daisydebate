@@ -1,38 +1,13 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { BoundedTransaction } from './bounded-transaction';
 import {
   createRoundFeedbackJobs,
   readRoundCoachingFacts,
   type RoundCoachingFacts,
 } from './round-feedback';
+import { scripted } from './round-feedback.test-support';
 
 setupRitewayBun();
-
-/** A query builder chain that resolves to `result` whichever methods it is called with. */
-const chain = (result: unknown): unknown =>
-  new Proxy(() => undefined, {
-    get: (_target, key) =>
-      key === 'then'
-        ? (ok: (value: unknown) => void, no: (error: unknown) => void) =>
-            Promise.resolve(result).then(ok, no)
-        : () => chain(result),
-  });
-
-/** A transaction answering each statement, in order, from `answers`. */
-const scripted = (answers: unknown[]) => {
-  const queue = [...answers];
-  const next = () => queue.shift();
-  const tx = {
-    execute: async () => next(),
-    select: () => chain(next()),
-    insert: () => chain(next()),
-    update: () => chain(next()),
-  };
-  const run: BoundedTransaction = (work) =>
-    work(tx as never, new AbortController().signal, {} as never);
-  return { run, left: () => queue.length };
-};
 
 const accessRow = {
   roundId: 'r1',
@@ -115,6 +90,21 @@ describe('createRoundFeedbackJobs()', () => {
       });
   });
 
+  test('subject erasure refuses coaching before deciding or spending an attempt', async () => {
+    const { jobs, left } = jobsWith([[], [{ erased: true }]]);
+    let decisions = 0;
+    const claimed = await jobs.claim('r1', () => {
+      decisions++;
+      return 'claim';
+    });
+    assert({
+      given: 'a Round whose participant was erased before a coaching claim',
+      should: 'refuse even an unconditional claim without buying an attempt',
+      actual: { claimed, decisions, left: left() },
+      expected: { claimed: null, decisions: 0, left: 0 },
+    });
+  });
+
   test('scan', async () => {
     const { jobs, left } = jobsWith([
       [{ roundId: 'r1' }, { roundId: 'r2' }],
@@ -144,8 +134,19 @@ describe('createRoundFeedbackJobs()', () => {
 
   test('the decision leaves or ends a Round', async () => {
     const seen: RoundCoachingFacts[] = [];
-    const skipped = jobsWith([[], [accessRow], [factsRow]]);
-    const ended = jobsWith([[], [accessRow], [factsRow], undefined]);
+    const skipped = jobsWith([
+      [],
+      [{ erased: false }],
+      [accessRow],
+      [factsRow],
+    ]);
+    const ended = jobsWith([
+      [],
+      [{ erased: false }],
+      [accessRow],
+      [factsRow],
+      undefined,
+    ]);
     assert({
       given: 'a decision to leave the Round, then one to end its lapsed lease',
       should:
@@ -186,9 +187,11 @@ describe('createRoundFeedbackJobs()', () => {
   };
   const claimAnswers = (claimed: unknown) => [
     [],
+    [{ erased: false }],
     [accessRow],
     [factsRow],
     [freeze],
+    [{ revision: 1 }],
     [],
     [line],
     [claimed],

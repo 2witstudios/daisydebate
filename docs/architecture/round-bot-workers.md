@@ -10,7 +10,8 @@ models, scan/lease/renewal/call bounds and process resource capacities. Without
 it, job discovery stays inert. Configured application composition requires an
 injected OS-CSPRNG token producer. Only the process edge supplies that producer;
 the database uses the existing bounded transaction and connection pool. The
-admitted Round busy cap and host allowance remain separate economic controls.
+busy cap on live bot-debater Rounds and the host AI-round allowance remain
+separate economic controls; the free AI judge uses neither (DEC-186).
 
 A worker claims a scoped job/run/epoch with a memory-only bearer. Stored lease
 secrets are SHA3-256 digests. Renewal runs independently of provider calls and
@@ -94,7 +95,7 @@ paid entitlement does not bypass the current participant gate. Likewise,
 participant admission and an own debating seat still apply. Age eligibility
 belongs to participant admission, which coaching inherits; there is no second
 coaching-specific age rule.
-AI-round allowance grants do not grant coaching. No billing writer or generic
+The AI-round quota does not grant coaching. No billing writer or generic
 flags platform exists here.
 
 Discovery filters out rounds without an entitled human debater, using canonical

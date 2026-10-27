@@ -53,6 +53,8 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
 const serverFields = {
   AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
+  /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */
+  AI_ROUND_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(20),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
   /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
   PREMIUM_BETA_GRANT: z

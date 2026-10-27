@@ -9,6 +9,7 @@ test('one immutable transcript revision fences the durable judging intent', asyn
   await withFixture(url, async (fixture) => {
     const roundId = await fixture.round();
     const judge = await fixture.seat(roundId, 'judge');
+    await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},7)`;
     const freeze = () =>
       fixture.sql.unsafe(
         "insert into round_transcript_freezes (round_id, revision, frontier, completeness) values ($1, 1, 7, 'incomplete')",
@@ -75,18 +76,7 @@ test('one immutable transcript revision fences the durable judging intent', asyn
         expected: null,
       });
     } finally {
-      const [table] =
-        await fixture.sql`select to_regclass('public.round_transcript_freezes') as name`;
-      if (table?.name) {
-        await fixture.sql.unsafe(
-          'delete from round_judging_jobs where round_id=$1',
-          [roundId],
-        );
-        await fixture.sql.unsafe(
-          'delete from round_transcript_freezes where round_id=$1',
-          [roundId],
-        );
-      }
+      await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
 });

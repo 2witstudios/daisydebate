@@ -7,6 +7,7 @@ import {
   roundAuthoring,
   withFixture,
 } from './constraint-helpers';
+import { authoredRoundCommand } from './round-command.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -20,10 +21,8 @@ test('accepted Round projections append one phase signal with the stored version
       await createScheduledRound(authoring, 'A motion');
       const before = await database.getRound(roundId);
       if (!before) throw new Error('the scheduled Round did not hydrate');
-      await database.applyRoundExecution({
-        roundId,
-        expectedVersion: before.version,
-        command: null,
+      await database.executeRoundCommand({
+        ...authoredRoundCommand(authoring, before.version),
         buildProjection: () => ({
           round: {
             status: 'active',
@@ -77,11 +76,9 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
       await createScheduledRound(authoring, 'Revision completeness');
       const initial = await database.getRound(roundId);
       if (!initial) throw new Error('Round missing');
-      await database.applyRoundExecution({
-        roundId,
-        expectedVersion: 1,
-        command: null,
-        buildProjection: (now) => ({
+      await database.executeRoundCommand({
+        ...authoredRoundCommand(authoring, 1),
+        buildProjection: ({ now }) => ({
           round: {
             status: 'active',
             currentStage: 'live',
@@ -122,10 +119,8 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
           floor: { holder_participant_id: participant.id, granted_at: instant },
         },
       };
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 2,
-        command: null,
         buildProjection: () => ({
           round: floor,
           segmentInserts: [],
@@ -134,11 +129,9 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
         }),
       });
       const successor = rules.segments[1]!;
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 3,
-        command: null,
-        buildProjection: (now) => ({
+        buildProjection: ({ now }) => ({
           round: base,
           segmentInserts: [
             {
@@ -154,10 +147,8 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
           effects: [],
         }),
       });
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 4,
-        command: null,
         buildProjection: () => ({
           round: base,
           segmentInserts: [],
@@ -167,11 +158,9 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
       });
       // Duplicate sequence fails after round update; transaction must roll back its revision and event.
       await database
-        .applyRoundExecution({
+        .executeRoundTick({
           roundId,
-          expectedVersion: 4,
-          command: null,
-          buildProjection: (now) => ({
+          buildProjection: ({ now }) => ({
             round: floor,
             segmentInserts: [
               {

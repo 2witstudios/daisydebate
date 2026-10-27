@@ -112,6 +112,7 @@ export function executeRoomCommand(
   const {
     consent: consentEffect,
     freeze,
+    spendsAiRound,
     publishDefinition,
     drawSecrets,
   } = outcome.mutation;
@@ -129,6 +130,7 @@ export function executeRoomCommand(
       state: next,
       consent: consentEffect,
       freeze,
+      spendsAiRound,
       publishDefinition,
       drawSecrets,
       members: activeRoomMembers(next),

@@ -16,9 +16,7 @@ test('a judging job buys at most two model calls across lease expiries, then end
     for (let i = 0; i < 4; i++) {
       const claim = await jobs.claim(target).catch(() => null);
       if (!claim) break;
-      dispatched.push(
-        (await jobs.beginModelCall(claim.scope, claim.token)) !== null,
-      );
+      dispatched.push(await jobs.beginModelCall(claim.scope, claim.token));
       await expire(fixture, roundId);
     }
     const [job] =
@@ -59,7 +57,7 @@ test('a judging job past its ballot deadline buys no model call', async () => {
       given: 'a judging job claimed after the ballot deadline',
       should: 'refuse the model call and end the job failed',
       actual: { begun, status: job.status },
-      expected: { begun: null, status: 'failed' },
+      expected: { begun: false, status: 'failed' },
     });
   });
 });

@@ -152,6 +152,7 @@ const startInput: Parameters<
       },
       consent: null,
       freeze: true,
+      spendsAiRound: false,
       publishDefinition: false,
       drawSecrets: null,
       members: [state.hostActorId],

@@ -1,93 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { RoomEvent, Track } from 'livekit-client';
 import { createBrowserMediaTransport } from './browser-transport';
+import {
+  events,
+  publish,
+  settle,
+  sources,
+  stubSdk,
+} from './browser-transport.test-support';
 setupRitewayBun();
-
-/** A captured local track that records whether anything stopped it. */
-const capturedTrack = (source: string) => ({
-  source,
-  ended: false,
-  stop() {
-    this.ended = true;
-  },
-});
-type Captured = ReturnType<typeof capturedTrack>;
-
-/**
- * A Room whose disconnect and unpublish stop nothing, and whose publish never
- * settles: only the transport's own track.stop() can end a captured track.
- */
-function stubSdk(
-  options: {
-    /** Each capture waits for its gate here, in call order; undefined passes at once. */
-    readonly captureGates?: readonly (Promise<void> | undefined)[];
-    /** Publishes settle at once, recorded in `published`. */
-    readonly settles?: boolean;
-    readonly unpublishGate?: Promise<void>;
-  } = {},
-) {
-  const captured: Captured[] = [];
-  const published: Captured[] = [];
-  const gates = [...(options.captureGates ?? [])];
-  const handlers = new Map<string, (...args: unknown[]) => void>();
-  const localParticipant = {
-    trackPublications: new Map(),
-    permissions: undefined as
-      { canPublish: boolean; canPublishSources: number[] } | undefined,
-    publishTrack: (track: Captured) => {
-      if (!options.settles) return new Promise(() => {});
-      published.push(track);
-      return Promise.resolve();
-    },
-    unpublishTrack: async (track: Captured) => {
-      await options.unpublishGate;
-      published.splice(published.indexOf(track), 1);
-    },
-  };
-  const room = {
-    localParticipant,
-    remoteParticipants: new Map(),
-    on(event: string, handler: (...args: unknown[]) => void) {
-      handlers.set(event, handler);
-      return room;
-    },
-    connect: async () => undefined,
-    disconnect: async () => undefined,
-    removeAllListeners: () => undefined,
-    startAudio: async () => undefined,
-  };
-  return {
-    captured,
-    published,
-    fire: (event: string, ...args: unknown[]) => handlers.get(event)?.(...args),
-    /** LiveKit changes this participant's own permission. */
-    permit: (sources: Track.Source[]) => {
-      localParticipant.permissions = {
-        canPublish: sources.length > 0,
-        canPublishSources: sources.map((source) => Track.sourceToProto(source)),
-      };
-      handlers.get(RoomEvent.ParticipantPermissionsChanged)?.(
-        undefined,
-        localParticipant,
-      );
-    },
-    sdk: {
-      room: () => room,
-      capture: async (options_: { audio: boolean; video: unknown }) => {
-        await gates.shift();
-        const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
-        captured.push(track);
-        return [track];
-      },
-    } as never,
-  };
-}
-const events = { tracks: () => {}, invalidated: () => {}, reconnect: () => {} };
-const publish = (sources: string[]) =>
-  ({ grants: { publish: sources } }) as never;
-const settle = async () => {
-  for (let i = 0; i < 20; i++) await Promise.resolve();
-};
 
 test('a terminal stop ends a camera captured while its publish is in flight', async () => {
   const stub = stubSdk();
@@ -135,9 +56,6 @@ test('an unexpected disconnect ends every captured track', async () => {
     expected: [['camera', true]],
   });
 });
-
-const sources = (tracks: readonly Captured[]) =>
-  tracks.map((track) => track.source);
 
 test('a microphone opens when LiveKit allows it, before the reconcile reply', async () => {
   const stub = stubSdk({ settles: true });

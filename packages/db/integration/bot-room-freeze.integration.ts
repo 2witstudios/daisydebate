@@ -9,12 +9,25 @@ import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { roomCommandTransaction } from '../src/room-command-transaction';
 import { roomCommandOperations } from '../src/room-command-operations';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
+import { testBotAdmission } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('bot Room freeze reserves once atomically and replay cannot charge twice', async () => {
-  await withBoundedRound(async (fixture, run) => {
+/** A ready Room hosted by an approved member with one bot seat, and its start-round input. */
+const withBotRoom = (
+  botRole: 'negative' | 'judge',
+  work: (value: {
+    fixture: Parameters<Parameters<typeof withBoundedRound>[0]>[0];
+    run: Parameters<Parameters<typeof withBoundedRound>[0]>[1];
+    roomId: string;
+    roundId: string;
+    common: Omit<Parameters<typeof roomCommandOperations>[0], 'botAdmission'>;
+    input: Parameters<
+      ReturnType<typeof roomCommandOperations>['executeRoomCommand']
+    >[0];
+  }) => Promise<void>,
+) =>
+  withBoundedRound(async (fixture, run) => {
     const caller = await createAuthorizationSubject(fixture);
     const formatId = await fixture.format();
     const roomId = createId(),
@@ -25,7 +38,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
       'bot_profiles',
       {
         actor_id: bot,
-        name: 'Bot judge',
+        name: 'Fixture bot',
         persona: 'Fixture',
         voice: 'aura-2-thalia-en',
       },
@@ -50,7 +63,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
     });
     for (const [actorId, role] of [
       [caller.actorId, 'affirmative'],
-      [bot, 'judge'],
+      [bot, botRole],
     ] as const)
       await fixture.insert('room_participants', {
         id: createId(),
@@ -88,6 +101,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
             changeVersion: state.changeVersion + 1,
           },
           freeze: true,
+          spendsAiRound: botRole !== 'judge',
           consent: null,
           publishDefinition: false,
           drawSecrets: null,
@@ -95,32 +109,38 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
         },
       }),
     };
-    await assertRejects({
-      given: 'a bot judge and no explicit admission capacity',
-      should: 'refuse the whole freeze without leaving a Round',
-      actual: () => roomCommandOperations(common).executeRoomCommand(input),
-      code: 'INFRASTRUCTURE',
-    });
-    assert({
-      given: 'a refused bot freeze',
-      should: 'roll back durable Round creation',
-      actual: await fixture.count('rounds', 'id', roundId),
-      expected: 0,
-    });
-    const operations = roomCommandOperations({
-      ...common,
-      botAdmission: createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      }),
-    });
     try {
       fixture.track('rounds', roundId);
+      await work({ fixture, run, roomId, roundId, common, input });
+    } finally {
+      await fixture.sql`delete from outbox where topic=${buildRoomTopic(roomId)}`;
+    }
+  });
+
+test('bot-debater Room freeze reserves once atomically and replay cannot charge twice', async () => {
+  await withBotRoom(
+    'negative',
+    async ({ fixture, run, roundId, common, input }) => {
+      await assertRejects({
+        given: 'a bot debater and no explicit admission capacity',
+        should: 'refuse the whole freeze without leaving a Round',
+        actual: () => roomCommandOperations(common).executeRoomCommand(input),
+        code: 'INFRASTRUCTURE',
+      });
+      assert({
+        given: 'a refused bot freeze',
+        should: 'roll back durable Round creation',
+        actual: await fixture.count('rounds', 'id', roundId),
+        expected: 0,
+      });
+      const operations = roomCommandOperations({
+        ...common,
+        botAdmission: testBotAdmission(run),
+      });
       const first = await operations.executeRoomCommand(input);
       const replay = await operations.executeRoomCommand(input);
       assert({
-        given: 'an accepted bot judge freeze and exact replay',
+        given: 'an accepted bot-debater freeze and exact replay',
         should: 'retain one Round, one reservation and one result identity',
         actual: [
           first.roundRef,
@@ -135,8 +155,22 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
           1,
         ],
       });
-    } finally {
-      await fixture.sql`delete from outbox where topic=${buildRoomTopic(roomId)}`;
-    }
+    },
+  );
+});
+
+test('an AI judge alone is free: the freeze needs no bot admission and reserves nothing', async () => {
+  await withBotRoom('judge', async ({ fixture, roundId, common, input }) => {
+    const accepted =
+      await roomCommandOperations(common).executeRoomCommand(input);
+    assert({
+      given: 'human debaters with only an AI judge and no admission resource',
+      should: 'freeze the Round without reserving the host allowance',
+      actual: [
+        accepted.roundRef,
+        await fixture.count('usage_reservations', 'round_id', roundId),
+      ],
+      expected: [{ id: roundId, status: 'scheduled' }, 0],
+    });
   });
 });

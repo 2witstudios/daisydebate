@@ -9,6 +9,7 @@ import { withRoomRuntime } from './round-runtime.test-support';
 import { fixtureBallot, freezeBotJudge } from './round-judging.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createProviderCapacity } from '../src/features/round-bots/provider-capacity';
+import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 const ballot = fixtureBallot(
@@ -145,7 +146,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
         }
       },
       {
-        botBusyCap: 4,
+        ...botAdmissionForTests,
         judging: {
           leaseMs: 60000,
           model: 'fixture-model',

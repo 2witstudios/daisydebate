@@ -82,9 +82,10 @@ export function createMediaWorkerTokenBroker(input: {
           ).toISOString(),
         };
       };
-      // The hidden receive-only token grants no floor, so no reconcile's
-      // result changes it: a safe live session issues it at once, never
-      // queued behind admissions and browser reconciles (ISSUE-571).
+      // A safe receive-only admission skips the claim to avoid capture starvation.
+      // A foreign reconcile already running may still fail and delete this room
+      // after issue: the worker observes a connect drop and is relaunched. This
+      // race grants no floor and is accepted in exchange for bounded admission.
       const first = await read();
       if (
         !first.session.unsafeAt &&
@@ -93,8 +94,7 @@ export function createMediaWorkerTokenBroker(input: {
       )
         return issue(first);
       // An unknown vendor outcome takes the hold, so its own reconcile resolves
-      // or cleans it up first and nothing is minted into a room that reconcile
-      // then tears down (ISSUE-551).
+      // or cleans it up before this held issue (ISSUE-551).
       const held = await input.hold(scope.sessionId, async () => {
         const state = await read();
         if (state.session.unsafeAt || state.unresolved)
