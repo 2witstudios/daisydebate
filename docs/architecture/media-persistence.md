@@ -69,7 +69,13 @@ insertion and utterance INSERT/UPDATE serialize through the parent Round's
 and refuses writes to either the old or new Round when frozen; moves lock both
 parents in stable order. Lawful utterance DELETE remains available. The frozen
 reader compares `frontier` with `round_transcripts.revision` (absent means zero),
-never with the remaining line count. The finalizer must lock the owning Round, close admission, establish terminal
+never with the remaining line count. Freeze insertion must match that durable
+revision under the same parent fence. Counter INSERT/UPDATE/DELETE also fences
+both parents and refuses a frozen Round; owning-Round erasure may cascade the
+counter. Guarded mutations require `READ COMMITTED` and refuse other isolation
+levels explicitly, so a stale transaction snapshot cannot hide a committed
+freeze or counter change. Lawful line deletion leaves the counter unchanged.
+The finalizer must lock the owning Round, close admission, establish terminal
 speaking history and classify every required stream before inserting the freeze.
 `frozen_at` uses the database clock at insertion. Storage alone does not prove
 coverage or authorize freezing on silence.
