@@ -1,4 +1,4 @@
-import { isTransactionCapacityRefusal } from '@daisy/db';
+import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
 import { isAppError } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
 import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';

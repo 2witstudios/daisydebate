@@ -162,7 +162,7 @@ describe('AUTH-5.5 session management', () => {
       assert({
         given: 'revoke-other-sessions called from the first session',
         should:
-          'keep the calling session live, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+          'keep the calling session live, deny every other one, and append one exact session.revoked per deleted session (ADR 0032 §5)',
         actual: {
           revoked: revoke.ok,
           current: await isAuthenticated(currentAfter),
@@ -175,7 +175,7 @@ describe('AUTH-5.5 session management', () => {
           current: true,
           second: false,
           third: false,
-          outboxEventsAppended: 1,
+          outboxEventsAppended: 2,
         },
       });
     } finally {
@@ -183,7 +183,7 @@ describe('AUTH-5.5 session management', () => {
     }
   });
 
-  test("revoking every session (including the caller's own) denies it too, and appends one session.revoked doorbell for the call (RT-2.2)", async () => {
+  test("revoking every session (including the caller's own) denies it too, and appends one session.revoked per deleted session", async () => {
     const { email, cookie: first } = await signUp();
     const secondCookie = await flows.account.flows.signInAgain(email);
     const userId = await sessionUserIdOf(await protectedRead(first));
@@ -197,7 +197,7 @@ describe('AUTH-5.5 session management', () => {
       assert({
         given: 'revoke-sessions (revoke-all) called from the first session',
         should:
-          'deny the calling session too, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+          'deny the calling session too, deny every other one, and append one exact session.revoked per deleted session (ADR 0032 §5)',
         actual: {
           revoked: revoke.ok,
           first: await isAuthenticated(firstAfter),
@@ -208,7 +208,7 @@ describe('AUTH-5.5 session management', () => {
           revoked: true,
           first: false,
           second: false,
-          outboxEventsAppended: 1,
+          outboxEventsAppended: 2,
         },
       });
     } finally {

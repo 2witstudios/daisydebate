@@ -233,14 +233,14 @@ describe('resource sync driver', () => {
     assert({
       given: 'a read in flight when the page unmounts',
       should:
-        'close the connection, release listeners and timers, and keep the old value',
+        'dispose the connection, release listeners and timers, and keep the old value',
       actual: {
         log: gone.log.slice(3),
         timers: gone.timers(),
         version: gone.held().value.version,
       },
       expected: {
-        log: ['unsubscribe', 'close', 'visibility released'],
+        log: ['unsubscribe', 'dispose', 'visibility released'],
         timers: [],
         version: 3,
       },

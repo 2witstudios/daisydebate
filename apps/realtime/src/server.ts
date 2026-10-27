@@ -38,6 +38,9 @@ const liveResponse = () =>
  * `redis.command.failed` event (with `operation` naming the check) through
  * the same `eventSink` wired into `resources.logger` at composition.
  */
+/** A retained row older than this is a stall worth logging. */
+const BACKLOG_LOG_AGE_MS = 1_000;
+
 const readyResponse = async (resources: RealtimeServerResources) => {
   const report = await checkReadiness(resources);
   if (report.deliverySeqLagEstimate !== undefined)
@@ -45,6 +48,17 @@ const readyResponse = async (resources: RealtimeServerResources) => {
       'realtime.outbox.delivery_lag_estimated',
       { deliverySeqLagEstimate: report.deliverySeqLagEstimate },
       'Delivery lag estimated',
+    );
+  // Rows flowing normally clear within a second; only work that has waited
+  // longer is worth a line, so log volume follows stalls, not probe rate.
+  if (
+    report.deliveryBacklog !== undefined &&
+    report.deliveryBacklog.oldestAgeMs >= BACKLOG_LOG_AGE_MS
+  )
+    resources.logger.log(
+      'realtime.delivery.backlog',
+      { ...report.deliveryBacklog },
+      'Delivery backlog reported',
     );
   return Response.json(
     { status: report.ready ? 'ready' : 'unavailable' },

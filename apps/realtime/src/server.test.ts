@@ -210,6 +210,48 @@ describe('createRealtimeServer fetch', () => {
     });
   });
 
+  for (const [retained, oldestAgeMs] of [
+    [0, 0],
+    [3, 900],
+    [3, 1_000],
+  ] as const)
+    test(`logs the delivery backlog only once owed work has waited a second (${retained} retained, ${oldestAgeMs} ms)`, async () => {
+      const logged: string[] = [];
+      const recordingLogger: Logger = {
+        log: (event) => {
+          logged.push(event);
+        },
+        child: () => recordingLogger,
+      };
+      const server = createRealtimeServer({
+        resources: resources({
+          logger: recordingLogger,
+          outbox: {
+            cursor: () => ({ txid: '5', seq: 10n }),
+            highWaterMark: async () => ({ txid: '5', seq: 10n }),
+            backlog: () => ({
+              retained,
+              running: retained > 0 ? 1 : 0,
+              topics: retained > 0 ? 1 : 0,
+              oldestAgeMs,
+            }),
+          },
+        }),
+      });
+      await server.fetch(
+        new Request('http://localhost/health/ready'),
+        fakeServer(false),
+      );
+      assert({
+        given: `a readiness probe with ${retained} retained delivery rows, the oldest ${oldestAgeMs} ms old`,
+        should:
+          oldestAgeMs >= 1_000 ? 'log the backlog' : 'log no backlog line',
+        actual: logged.filter((event) => event === 'realtime.delivery.backlog')
+          .length,
+        expected: oldestAgeMs >= 1_000 ? 1 : 0,
+      });
+    });
+
   test('logs nothing for delivery lag when no outbox resource is wired', async () => {
     const events: string[] = [];
     const recordingLogger: Logger = {

@@ -14,8 +14,6 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 const migration = '20261027160753_frozen_transcript_guards';
 const scratch = scratchDatabase(url, 'frozenguardit');
-// Through the guard folder only, so a later folder never counts as its ledger row.
-const throughGuards = (folder: string) => folder <= migration;
 
 afterAll(() => scratch.drop());
 
@@ -58,6 +56,8 @@ test(
         return refused;
       };
 
+      // Up to this folder only: a later migration must not change its ledger.
+      const throughGuards = (folder: string) => folder <= migration;
       const refusal = await scratch.migrate(throughGuards).then(
         () => 'applied',
         (error: unknown) => {

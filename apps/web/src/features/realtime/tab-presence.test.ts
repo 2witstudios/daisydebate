@@ -81,7 +81,7 @@ const shellHarness = () => {
       const store = {
         reportActivity: () => {},
         connect: () => events.push('shell open'),
-        close: () => {
+        dispose: () => {
           events.push('shell closed');
           detachShell();
         },

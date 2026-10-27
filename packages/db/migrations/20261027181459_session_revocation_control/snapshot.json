@@ -1,10 +1,10 @@
 {
-  "version": "8",
-  "dialect": "postgres",
-  "id": "594f21cb-8f4d-41bc-8f4d-459c100c48e4",
+  "id": "50591bae-954b-47d4-bdad-39b7f6bb18d5",
   "prevIds": [
     "e73a17b5-526e-442a-bbcd-77e39f2b4b88"
   ],
+  "version": "8",
+  "dialect": "postgres",
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -8455,30 +8455,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "identifier",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": {
-            "name": "text_pattern_ops",
-            "default": false
-          }
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "verification_identifier_pattern_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "verification"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "expires_at",
           "isExpression": false,
           "asc": true,
@@ -12391,34 +12367,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "users_username_lower_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "users"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"username\" is null and \"deleted_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "users_provisional_created_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "users"

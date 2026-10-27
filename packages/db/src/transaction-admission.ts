@@ -2,9 +2,53 @@ import { createAppError } from '@daisy/errors';
 
 const CAPACITY_UNAVAILABLE = 'Transcript transaction capacity unavailable';
 const capacityRefusals = new WeakSet<Error>();
-/** Admission backpressure only: the pool had no writer reservation free; nothing ran. */
+/** Errors whose capacity refusal the database boundary already logged. */
+const reportedRefusals = new WeakSet<Error>();
+/**
+ * The member of `error`'s chain (itself or one of at most 16 native Error
+ * causes) that `marks` holds. Only own data-property causes are followed;
+ * hostile links and execution recovery detail objects fail closed to
+ * ordinary failure reporting.
+ */
+function causeChainMember(
+  marks: WeakSet<Error>,
+  error: unknown,
+): Error | undefined {
+  const seen = new WeakSet<Error>();
+  let current = error;
+  try {
+    for (let depth = 0; depth < 16 && current instanceof Error; depth += 1) {
+      if (marks.has(current)) return current;
+      if (seen.has(current)) return undefined;
+      seen.add(current);
+      current = Object.getOwnPropertyDescriptor(current, 'cause')?.value;
+    }
+  } catch {
+    // A proxy may refuse descriptor/prototype inspection; never hide its failure.
+    return undefined;
+  }
+  return undefined;
+}
+const causeChainHas = (marks: WeakSet<Error>, error: unknown) =>
+  causeChainMember(marks, error) !== undefined;
+/** Refused-unrun admission identity, through bounded native cause wrappers. */
 export const isTransactionCapacityRefusal = (error: unknown): boolean =>
-  error instanceof Error && capacityRefusals.has(error);
+  causeChainHas(capacityRefusals, error);
+/**
+ * Records that `db.capacity.refused` was emitted for this rejection. The
+ * refusal itself is marked, not the wrapper that carried it, so any other
+ * wrapper of the same refusal is recognised as already reported.
+ */
+export function markCapacityRefusalReported(error: unknown) {
+  const refusal = causeChainMember(capacityRefusals, error);
+  if (refusal) reportedRefusals.add(refusal);
+}
+/**
+ * A capacity refusal the database boundary already reported, so a caller
+ * further out suppresses its duplicate rather than logging it again.
+ */
+export const isReportedCapacityRefusal = (error: unknown): boolean =>
+  causeChainHas(reportedRefusals, error);
 /** The one admission refusal `isTransactionCapacityRefusal` recognises. */
 export function refuseCapacity() {
   const refusal = createAppError('INFRASTRUCTURE', CAPACITY_UNAVAILABLE);

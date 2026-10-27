@@ -20,7 +20,15 @@ import {
 } from './subscription-state';
 import { createSubscriptionReceiver } from './subscription-replay';
 import { createSubscriptionDelivery } from './subscription-delivery';
+import { createDeliveryScheduler } from './delivery-scheduler';
 export type { SocketPrincipal, RegistrySocket } from './subscription-state';
+
+/** At most 8 topics deliver at once; 64 rows per topic and 1,024 in all are retained. */
+const DELIVERY_BOUNDS = {
+  maxRunningTopics: 8,
+  maxPerTopic: 64,
+  maxRetained: 1024,
+} as const;
 
 /** Owns transport state only. Canonical authority and retained history are
  * injected public producer adapters; payloads never grant membership.
@@ -67,7 +75,6 @@ export function createSubscriptionRegistry({
   let cursor = OUTBOX_ORIGIN;
   let ring: readonly OutboxRow[] = [];
   let floor = OUTBOX_ORIGIN;
-  let pending = Promise.resolve();
   function detach(
     connection: Connection,
     topic: string,
@@ -111,18 +118,14 @@ export function createSubscriptionRegistry({
       payload: outboxPayloadSchema.parse(row.payload),
     };
   }
-  function resync(
-    connection: Connection,
-    request: { id: string; topic: string },
-    sub: Subscription,
-  ) {
-    detach(connection, request.topic, sub);
-    connection.topics.delete(request.topic);
+  function resync(connection: Connection, topic: string, sub: Subscription) {
+    detach(connection, topic, sub);
+    connection.topics.delete(topic);
     connection.socket.send({
       v: ENVELOPE_VERSION,
       type: 'resync_required',
-      id: request.id,
-      topic: request.topic,
+      id: sub.requestId,
+      topic,
     });
   }
   const delivery = createSubscriptionDelivery({
@@ -133,6 +136,18 @@ export function createSubscriptionRegistry({
     event,
     transport: { detach, current, nativeTopic, resync },
     remove,
+  });
+  const scheduler = createDeliveryScheduler({
+    ...DELIVERY_BOUNDS,
+    deliver: delivery.deliver,
+    // Rows this topic can no longer hold are not lost silently: every
+    // subscriber rereads (RT-2.3c-arch1), and resync fences late allows.
+    overflow(topic) {
+      for (const connection of connections) {
+        const sub = connection.topics.get(topic);
+        if (sub) resync(connection, topic, sub);
+      }
+    },
   });
   return {
     add(socket: RegistrySocket, principal: SocketPrincipal): Connection {
@@ -188,18 +203,24 @@ export function createSubscriptionRegistry({
       ring = all.slice(-ringLimit);
       const last = rows.at(-1);
       if (last) cursor = { txid: last.txid, seq: last.seq };
-      pending = pending
-        .catch(() => {})
-        .then(async () => {
-          for (const row of rows) await delivery.deliver(row);
-        });
+      // Only rows someone here is owed take delivery capacity: a late
+      // subscriber replays from the ring, and control rows were applied above.
+      const owed = delivery.observedTopics();
+      scheduler.enqueue(
+        rows.filter(
+          (row) =>
+            owed.has(row.topic) &&
+            isPayloadDeliverableOnTopic(row.topic, row.payload),
+        ),
+      );
     },
+    backlog: scheduler.backlog,
     seed(position: OutboxPosition) {
       cursor = position;
       floor = position;
     },
     async settled() {
-      await pending;
+      await scheduler.settled();
       await delivery.settledHints();
     },
   };

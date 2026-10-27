@@ -11,6 +11,7 @@ setupRitewayBun();
 const fakeStore = (status: ConnectionState['status']) => {
   const record = {
     closed: 0,
+    disposed: 0,
     resubscribed: [] as string[],
     topicListeners: new Map<string, Set<() => void>>(),
   };
@@ -26,6 +27,7 @@ const fakeStore = (status: ConnectionState['status']) => {
     },
     resubscribeTopic: (topic: string) => void record.resubscribed.push(topic),
     close: () => void (record.closed += 1),
+    dispose: () => void (record.disposed += 1),
   } as unknown as ConnectionStore;
   return { store, record };
 };
@@ -103,4 +105,32 @@ test('a sync joining an open shared socket behaves as on a fresh one', () => {
     },
   });
   stopRound();
+});
+
+test('a holder disposing releases only its share; the last release disposes the socket', () => {
+  const made = fakeStore('open');
+  const acquire = sharedConnections(() => made.store);
+  const room = acquire('wss://rt.example/ws');
+  const transcript = acquire('wss://rt.example/ws');
+  transcript.dispose();
+  transcript.dispose();
+  const afterOneDispose = { ...made.record };
+  room.dispose();
+  assert({
+    given:
+      'the live Round and its transcript sharing one socket, the transcript disposing twice, then the Round disposing',
+    should:
+      'leave the shared socket untouched while the Round holds it, then dispose it once (final: the entry is never reused)',
+    actual: {
+      afterOneDispose: {
+        closed: afterOneDispose.closed,
+        disposed: afterOneDispose.disposed,
+      },
+      final: { closed: made.record.closed, disposed: made.record.disposed },
+    },
+    expected: {
+      afterOneDispose: { closed: 0, disposed: 0 },
+      final: { closed: 0, disposed: 1 },
+    },
+  });
 });

@@ -19,7 +19,7 @@ export const SESSION_CLEANUP_FAILED_HEADER = 'x-daisy-session-cleanup-failed';
  * Auth runs it for the HTTP router and for `auth.api.*` alike
  * (`dispatchAuthEndpoint` is the one hook runner both go through).
  *
- * Best-effort, like `sessionRevokedOutboxPlugin`: a revoke failure must never
+ * Best-effort: a revoke failure must never
  * turn an already-verified email and already-issued session into a reported
  * failure for the person. It is logged as a registered event and flagged on
  * the response via a header instead, so the confirm page can still say the
