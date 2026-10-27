@@ -1,4 +1,4 @@
-import { lt } from 'drizzle-orm';
+import { inArray, lt, or } from 'drizzle-orm';
 import type { AdminDatabase } from './client';
 import {
   authAttempts,
@@ -24,11 +24,21 @@ export async function sweepExpired(
   const secretsBefore = new Date(at - 7 * day);
   const attemptsBefore = new Date(at - day);
   return db.transaction(async (tx) => {
-    // Challenges first: they reference their enrollment.
+    // Challenges first: they reference their enrollment, and one issued in
+    // an enrollment's last minutes expires after it, so it goes with it.
+    const sweptEnrollments = tx
+      .select({ id: operatorEnrollments.id })
+      .from(operatorEnrollments)
+      .where(lt(operatorEnrollments.expiresAt, secretsBefore));
     const removed = [
       await tx
         .delete(operatorChallenges)
-        .where(lt(operatorChallenges.expiresAt, secretsBefore))
+        .where(
+          or(
+            lt(operatorChallenges.expiresAt, secretsBefore),
+            inArray(operatorChallenges.enrollmentId, sweptEnrollments),
+          ),
+        )
         .returning({ id: operatorChallenges.id }),
       await tx
         .delete(operatorEnrollments)

@@ -7,6 +7,7 @@ import {
   operatorChallenges,
   operatorCredentials,
   operatorEnrollments,
+  operators,
   operatorSessions,
 } from '../src/db/schema';
 import {
@@ -51,5 +52,40 @@ test('the retention sweep', async () => {
       'drop attempts after a day and secrets 7 days past expiry, keeping the credential',
     actual: [before, early, late, await counts()],
     expected: [[2, 1, 1, 1, 1], 1, 4, [0, 0, 0, 0, 1]],
+  });
+});
+
+test('a challenge that outlives its enrollment', async () => {
+  const at = (iso: string) => new Date(iso);
+  await db.insert(operators).values({
+    id: 'op-late',
+    displayName: 'late',
+    role: 'owner',
+    createdAt: at('2026-10-01T00:00:00.000Z'),
+  });
+  await db.insert(operatorEnrollments).values({
+    id: 'en-late',
+    operatorId: 'op-late',
+    tokenHash: 'token-hash-late',
+    mode: 'initial',
+    createdAt: at('2026-10-01T00:00:00.000Z'),
+    expiresAt: at('2026-10-01T00:15:00.000Z'),
+  });
+  // Issued in the enrollment's last minute, so it expires after it.
+  await db.insert(operatorChallenges).values({
+    id: 'ch-late',
+    purpose: 'register',
+    enrollmentId: 'en-late',
+    challengeHash: 'challenge-hash-late',
+    createdAt: at('2026-10-01T00:14:30.000Z'),
+    expiresAt: at('2026-10-01T00:16:30.000Z'),
+  });
+  // The 7-day cutoff falls between the two expiries.
+  const swept = await sweepExpired(db, '2026-10-08T00:16:00.000Z');
+  assert({
+    given: 'a sweep whose cutoff falls between an enrollment and its challenge',
+    should: 'remove both rather than fail the whole sweep',
+    actual: [swept, (await counts()).slice(0, 2)],
+    expected: [2, [0, 0]],
   });
 });
