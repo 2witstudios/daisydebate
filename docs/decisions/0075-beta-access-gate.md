@@ -183,9 +183,11 @@ The rest of this record describes BETA-2.
   reader is left untouched and reaches v2 through that account wrapper.
   A statement a live instance prepared against either v1 function
   therefore stays valid across the migration. Every web and realtime
-  caller moves to v2 in the same release. A separate contract step, the
-  BETA-2C leaf, runs once no instance runs the old binary. It first
-  repoints the age reader's own fence call to v2, then drops v1.
+  caller moves to v2 in the same release. The contract step (BETA-2C,
+  migration `beta_access_fence_contract`) runs once no instance runs the
+  old binary. It first repoints the age reader's own fence calls to v2,
+  then drops both v1 functions, so only v2 remains. The predecessor
+  proof of the expand step (ISSUE-677) stops at the gate migration.
 - **One age validity rule.** `daisy_age_band` is the single SQL rule for
   a durable age record: a birth month present and not after the
   evaluation instant, a positive version, and a finite recorded time no

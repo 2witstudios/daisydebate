@@ -198,7 +198,7 @@ test('canonical account fence masks revoked and substituted membership before di
     await f.create();
     await withHeld(async (holder, pid) => {
       await holder.unsafe(
-        'select * from daisy_authorization_accounts(array[$1]::text[],null::text,true)',
+        'select * from daisy_authorization_accounts_v2(array[$1]::text[],null::text,true)',
         [f.guest.actorId],
       );
       const reading = f.operations.list(f.guest, { q: '', pageSize: 1 });

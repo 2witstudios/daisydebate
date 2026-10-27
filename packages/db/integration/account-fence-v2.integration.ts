@@ -1,6 +1,3 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { SQL } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withFixture } from './constraint-helpers';
@@ -10,78 +7,30 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-/** A migration folder's statements, as the migrator runs them. */
-const folderStatements = (suffix: string) => {
-  const root = join(import.meta.dir, '..', 'migrations');
-  const folder = readdirSync(root).find((name) => name.endsWith(suffix));
-  return readFileSync(join(root, folder!, 'migration.sql'), 'utf8')
-    .split('--> statement-breakpoint')
-    .map((statement) => statement.trim())
-    .filter(
-      (statement) =>
-        statement.length > 0 && !/^(--[^\n]*\n?)+$/.test(statement),
-    );
-};
-
-/** Every statement the gate and its follow-up re-install in place. */
-const reinstalledStatements = () =>
-  ['_beta_access_gate', '_age_band_null_birth_month']
-    .flatMap(folderStatements)
-    .map((statement) => statement.replace(/^(--[^\n]*\n)+/, ''))
-    .filter((statement) => statement.startsWith('CREATE OR REPLACE FUNCTION'));
-
-describe('the v2 account fence expands without breaking v1 callers (ADR 0075)', () => {
-  test('statements prepared against the v1 readers keep working after every in-place re-install', async () => {
+describe('the account fence after its contract step (ADR 0075, BETA-2C)', () => {
+  test('only v2 remains, and the age reader runs on it', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await createAuthorizationSubject(fixture);
-      // A live instance's runtime connection, its old statements prepared.
-      const live = new SQL(url, { max: 1 });
-      const installer = new SQL(url, { max: 1 });
-      try {
-        await live.unsafe('set role daisy_web');
-        const read = async () => {
-          const [account] =
-            await live`select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)`;
-          const [room] =
-            await live`select * from public.daisy_room_read_account(${actorId}::text, ${userId}::text)`;
-          const [age] =
-            await live`select * from public.daisy_authorization_age(${userId}, ${actorId}, 1, clock_timestamp())`;
-          return [account, room, age].map((row) => Object.keys(row ?? {}));
-        };
-        const before = await read();
-        // The release migrator re-installs on its own connection.
-        await installer.begin(async (tx) => {
-          for (const statement of reinstalledStatements())
-            await tx.unsafe(statement);
-        });
-        const v1 = ['userId', 'actorId', 'member', 'erased', 'revision'];
-        const age = [
-          'actorId',
-          'band',
-          'revision',
-          'accountRevision',
-          'validUntil',
-        ];
-        assert({
-          given:
-            'the v1 account, v1 Room and age reads prepared on a live runtime connection, then every in-place re-install applied',
-          should:
-            'keep each exact result shape on the same connection (ISSUE-677 holds the predecessor-database proof)',
-          actual: {
-            before,
-            after: await read(),
-            reinstalled: reinstalledStatements().length,
-          },
-          expected: {
-            before: [v1, v1, age],
-            after: [v1, v1, age],
-            reinstalled: 3,
-          },
-        });
-      } finally {
-        await live.close();
-        await installer.close();
-      }
+      const [installed] = await fixture.sql`select
+        to_regprocedure('public.daisy_authorization_accounts(text[],text,boolean)') is null as v1_accounts_gone,
+        to_regprocedure('public.daisy_room_read_account(text,text)') is null as v1_room_gone,
+        to_regprocedure('public.daisy_authorization_accounts_v2(text[],text,boolean)') is not null as v2_accounts,
+        to_regprocedure('public.daisy_room_read_account_v2(text,text)') is not null as v2_room`;
+      const [age] =
+        await fixture.sql`select band from public.daisy_authorization_age(${userId}, ${actorId}, (select version from users where id = ${userId}), clock_timestamp())`;
+      assert({
+        given: 'the migrated database after the contract step',
+        should:
+          'hold only the v2 fence functions, with the age reader reading through v2',
+        actual: { ...installed, band: age?.band ?? null },
+        expected: {
+          v1_accounts_gone: true,
+          v1_room_gone: true,
+          v2_accounts: true,
+          v2_room: true,
+          band: 'adult',
+        },
+      });
     });
   });
 
