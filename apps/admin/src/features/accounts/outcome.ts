@@ -1,9 +1,7 @@
 import type { BetaAccessCommandResult } from '@daisy/protocol';
 import type { AuditDetail } from '../../audit/chain';
-import type {
-  OperatorCall,
-  OperatorCommandRead,
-} from '../operator-client/client';
+import type { OperatorCommandState } from '@daisy/protocol/operator';
+import type { OperatorCall } from '../operator-client/client';
 
 /**
  * How one call's outcome is audited and shown (ADR 0077 amendment). Only a
@@ -19,7 +17,7 @@ export type AuditedOutcome = {
 };
 
 export const mailDetail = (
-  state: OperatorCommandRead['mailState'],
+  state: OperatorCommandState['mailState'],
 ): AuditDetail =>
   state === null
     ? 'mail_none'

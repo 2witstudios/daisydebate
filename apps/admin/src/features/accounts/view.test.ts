@@ -77,3 +77,27 @@ describe('the accounts screen', () => {
     });
   });
 });
+
+test('a keyset cursor round-trips unchanged', () => {
+  const cursor = Buffer.from(
+    JSON.stringify({
+      v: 1,
+      access: 'pending',
+      requestedAt: '2026-10-25T09:00:00.123456Z',
+      userId: 'p'.repeat(24),
+    }),
+  ).toString('base64url');
+  const href = accountsHref({ access: 'pending', cursor });
+  const back = accountsQuery(
+    Object.fromEntries(new URL(href, 'http://localhost:4800').searchParams),
+  ).cursor;
+  assert({
+    given: 'the next cursor of a page whose last requestedAt has microseconds',
+    should: 'come back from the link byte for byte, precision included',
+    actual: [
+      back === cursor,
+      JSON.parse(Buffer.from(back ?? '', 'base64url').toString()).requestedAt,
+    ],
+    expected: [true, '2026-10-25T09:00:00.123456Z'],
+  });
+});

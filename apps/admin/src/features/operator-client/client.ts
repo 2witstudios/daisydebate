@@ -6,6 +6,7 @@ import {
 import { betaAccessCommandResultSchema } from '@daisy/protocol';
 import {
   operatorAccountsPageSchema,
+  operatorCommandStateSchema,
   type betaAccessCommandSchema,
 } from '@daisy/protocol/operator';
 import { z } from 'zod';
@@ -45,15 +46,6 @@ export type OperatorCall<T> =
   | { readonly kind: 'ok'; readonly value: T }
   | { readonly kind: 'rejected'; readonly code: OperatorRefusal }
   | { readonly kind: 'unknown' };
-
-/** What the command route returns: the stored result and the mail's state. */
-const operatorCommandReadSchema = z.strictObject({
-  result: betaAccessCommandResultSchema,
-  mailState: z
-    .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
-    .nullable(),
-});
-export type OperatorCommandRead = z.infer<typeof operatorCommandReadSchema>;
 
 const errorBodySchema = z.strictObject({
   error: z.strictObject({ code: z.string() }),
@@ -194,7 +186,7 @@ export function createOperatorClient(deps: {
           path: `/operator/v1/commands/${commandId}`,
           query: [],
         },
-        operatorCommandReadSchema,
+        operatorCommandStateSchema,
       ),
   };
 }

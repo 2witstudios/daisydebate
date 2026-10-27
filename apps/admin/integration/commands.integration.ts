@@ -30,7 +30,7 @@ const pending = (): StubAccount => ({
   username: 'pending-player',
   accessState: 'pending',
   accessRevision: 1,
-  requestedAt: '2026-10-25T09:00:00.000Z',
+  requestedAt: '2026-10-25T09:00:00.123456Z',
   decidedAt: null,
 });
 

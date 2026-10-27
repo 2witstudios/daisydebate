@@ -906,6 +906,8 @@ OPERATOR_API_KEY_ID=k20261026
 OPERATOR_API_KEY=<same key as step 2>
 ADMIN_ATTEMPT_KEY=<openssl rand -base64 32>
 SECRETS
+#    OPERATOR_API_URL (web's 6PN listener, :8081) and OPERATOR_AUDIENCE are committed [env] in fly.admin.toml;
+#    the admin app refuses to start with only some of the four operator settings.
 fly tokens create deploy -a daisy-debate-staging-admin          # → GitHub secret FLY_ADMIN_API_TOKEN
 fly tokens create deploy -a daisy-debate-staging-admin-migrate  # → GitHub secret FLY_ADMIN_MIGRATE_API_TOKEN
 fly deploy -c fly.admin-migrate.toml --update-only              # release_command migrates; leaves no runtime machine

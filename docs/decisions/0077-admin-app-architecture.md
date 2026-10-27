@@ -2,7 +2,8 @@
 
 Status: accepted (BETA plan revision 3.1, owner-approved 2026-10-26;
 BETA-4). Amends [ADR 0019](0019-token-secret-ownership.md) for the admin
-app's own credentials (see the amendment below). Keeps
+app's own credentials (see the amendment below), and is itself amended by
+BETA-5 for the signing operator client. Keeps
 [ADR 0043](0043-no-admin-surface-in-participant-app.md) in force.
 
 ## Context
@@ -167,6 +168,53 @@ public keys and ids are identifiers, never secrets. ADR 0019's logging rule
 applies unchanged: no token, cookie, challenge, attestation or raw exception
 reaches a log, and the audit log's `detail` is a closed vocabulary that cannot
 carry one.
+
+## Amendment (BETA-5): the signing operator client
+
+The admin app reaches the participant app only through the signed internal
+operator API (ADR 0079), with this client:
+
+- **Configuration.** `OPERATOR_API_URL` and `OPERATOR_AUDIENCE` are committed
+  `[env]` in `fly.admin.toml`; `OPERATOR_API_KEY_ID` and `OPERATOR_API_KEY`
+  (base64url, at least 32 bytes) are Fly secrets. All four or none: with none,
+  the accounts screen says the API is unconfigured, and a partial set refuses
+  startup.
+- **Signing** (`apps/admin/src/features/operator-client`). Every request is
+  signed fresh by `@daisy/auth/operator-signature`: the injected clock's epoch
+  milliseconds and a 16-byte CSPRNG nonce, so a retry never reuses a nonce.
+  The admin edge hashes with Bun's hasher; a parity test holds it
+  byte-identical to the participant app's `node:crypto`.
+- **Responses.** Parsed strictly with the protocol schemas
+  (`operatorAccountsPageSchema`, `betaAccessCommandResultSchema`,
+  `operatorCommandStateSchema`). The six refusals the API makes before or
+  instead of a change (`VALIDATION`, `AUTHENTICATION`, `AUTHORIZATION`,
+  `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, each at its own status) are
+  definite. Anything else (`INFRASTRUCTURE`, `INTERNAL`, a code at the wrong
+  status, a malformed body, a network error or a 5 s timeout) is `unknown`,
+  never `failed`.
+- **Commands** (`apps/admin/src/features/accounts`). Approve and revoke
+  re-read the operator row and run `authorizeOperator` before anything is
+  signed. One transaction then mints the cuid2 `commandId`, opens
+  `pending_commands` and appends `command.intent`. The PUT carries the hash of
+  that intent row as `adminAuditHead`. `command.outcome` records `changed`,
+  `unchanged`, `rejected:<code>` or `unknown`, with the mail status as its
+  detail. A settled outcome closes the pending command by one conditional
+  UPDATE, so of two racing reconcilers exactly one records it.
+- **Reconciliation.** The accounts and audit pages, and their Reconcile forms,
+  read each open command back with `GET /operator/v1/commands/{id}` and append
+  `command.reconciled`. On `NOT_FOUND` (the PUT never arrived) the command is
+  resent under the same id and the same anchor with a fresh nonce; the
+  participant app's receipt makes any resend idempotent.
+- **Screens.** The accounts screen has Pending, Approved and Revoked tabs with
+  keyset paging. The `nextCursor` goes back unchanged, so the microsecond
+  `requestedAt` inside it survives. Approve and Revoke are plain POST forms
+  carrying `expectedRevision`. They redirect back with a closed notice, so a
+  `CONFLICT` re-renders the current state. The audit badge reads "Chain
+  consistent (seq 1–N); M anchors sent", where M counts the commands whose
+  result came back, so the participant app holds their anchors. The audit
+  page also lists the commands whose outcome is still unknown.
+- **Retention.** A settled `pending_commands` row is deleted 30 days after it
+  settled; an open one is never swept.
 
 ## Consequences
 
