@@ -246,6 +246,10 @@ export function createMediaWorkerClient(input: Dependencies) {
       aborted(signal, caller);
       throw unavailable();
     }
+    // An observed definite refusal remains authority even if a deadline
+    // expired as fetch resolved; do not turn it into retryable cancellation.
+    if (!response.ok && definiteStatus(response.status))
+      await refuse(response, signal, caller);
     aborted(signal, caller);
     if (!response.ok) await refuse(response, signal, caller);
     const raw = await readReply(response, signal, caller);

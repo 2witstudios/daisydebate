@@ -116,8 +116,11 @@ test('caller cancellation never becomes permission to reacquire history', async 
   });
 });
 
-test('a definite server refusal wins even if the history deadline also elapsed', async () => {
-  const native = createMediaWorkerClient({
+test('a definite server response wins when fetch completes as the history deadline expires', async () => {
+  const deadline = new AbortController();
+  let calls = 0,
+    attempts = 0;
+  const client = createMediaWorkerClient({
     scope: {
       roundId: 'r'.repeat(24),
       sessionId: 's'.repeat(24),
@@ -128,38 +131,30 @@ test('a definite server refusal wins even if the history deadline also elapsed',
       secret: Buffer.alloc(32, 7).toString('base64url'),
       now: () => 1000,
     }),
-    fetch: async () => new Response(null, { status: 403 }),
+    fetch: async () => {
+      calls++;
+      if (calls > 1) throw createAppError('INFRASTRUCTURE');
+      deadline.abort();
+      return new Response(null, { status: 403 });
+    },
     nowMs: () => 0,
     deadlineSignal: () => new AbortController().signal,
   });
-  const refusal: unknown = await native.read({ epoch: 1 }).then(
-    () => {
-      throw Error('expected actual refusal');
-    },
-    (error) => error,
-  );
-  const deadline = new AbortController();
-  let calls = 0;
-  const client: Pick<CaptureClient, 'read'> = {
-    read: async () => {
-      calls++;
-      deadline.abort();
-      throw refusal;
-    },
-  };
   await assertRejects({
     given:
-      'a real definite authorization refusal concurrent with the read deadline',
-    should: 'refuse without retrying or relaxing authority',
+      'the actual signed client observes 403 as its history acquisition deadline expires',
+    should:
+      'retain that definite refusal without retrying through caller-cancellation classification',
     actual: () =>
       readCaptureHistory(client, 1, new AbortController().signal, undefined, {
-        deadlineSignal: () => deadline.signal,
+        deadlineSignal: () =>
+          ++attempts === 1 ? deadline.signal : new AbortController().signal,
       }),
     code: 'AUTHORIZATION',
   });
   assert({
-    given: 'the definite refusal',
-    should: 'never issue a second request',
+    given: 'the observed definite response',
+    should: 'issue only one request',
     actual: calls,
     expected: 1,
   });
