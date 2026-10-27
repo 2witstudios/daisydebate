@@ -17,7 +17,6 @@ const compiled = resolveRoomConfiguration(
 );
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 export const rules = compiled.rules;
-export const roomName = fixedId('room');
 export const sessionId = fixedId('session');
 export const roundId = fixedId('round');
 export const seats = [
