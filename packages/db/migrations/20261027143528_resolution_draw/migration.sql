@@ -403,12 +403,18 @@ INSERT INTO "resolution_bank_entries" ("id", "text", "category", "difficulty", "
 CREATE FUNCTION refuse_room_draw_delete() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  IF TG_TABLE_NAME = 'room_resolution_draws'
-    AND NOT EXISTS (SELECT 1 FROM rooms WHERE id = OLD.room_id) THEN
+  IF NOT EXISTS (SELECT 1 FROM rooms WHERE id = OLD.room_id) THEN
     RETURN OLD;
   END IF;
-  IF TG_TABLE_NAME <> 'room_resolution_draws'
-    AND NOT EXISTS (SELECT 1 FROM room_resolution_draws WHERE id = OLD.draw_id) THEN
+  RAISE EXCEPTION 'A draw, its items and its strikes leave only with their Room'
+    USING ERRCODE = '23514', CONSTRAINT = 'room_resolution_draw_rows_kept';
+END;
+$$;
+--> statement-breakpoint
+CREATE FUNCTION refuse_draw_row_delete() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM room_resolution_draws WHERE id = OLD.draw_id) THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'A draw, its items and its strikes leave only with their Room'
@@ -420,7 +426,7 @@ CREATE TRIGGER room_resolution_draws_kept BEFORE DELETE ON room_resolution_draws
 FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();
 --> statement-breakpoint
 CREATE TRIGGER room_resolution_draw_items_kept BEFORE DELETE ON room_resolution_draw_items
-FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();
+FOR EACH ROW EXECUTE FUNCTION refuse_draw_row_delete();
 --> statement-breakpoint
 CREATE TRIGGER room_resolution_strikes_kept BEFORE DELETE ON room_resolution_strikes
-FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();
+FOR EACH ROW EXECUTE FUNCTION refuse_draw_row_delete();
