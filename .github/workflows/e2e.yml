@@ -230,6 +230,7 @@ jobs:
   # (http://localhost:4800) and its own database; Chromium only, through
   # the CDP virtual authenticator.
   admin:
+    needs: quick-check
     name: Admin E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 15
