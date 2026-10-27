@@ -7,6 +7,7 @@ import { roomReadOperations } from './room-read-operations';
 import { roomCreateOperations } from './room-create-operations';
 import { roomWriteOperations } from './room-write-operations';
 import { roomLifecycleOperations } from './room-lifecycle-operations';
+import { resolutionBankOperations } from './resolution-bank-operations';
 import type { roomCommandTransaction } from './room-command-transaction';
 /** One canonical durable Room command/projection adapter. */
 export const roomCommandOperations = (input: {
@@ -19,6 +20,7 @@ export const roomCommandOperations = (input: {
   ...roomReadOperations(input),
   ...roomAuthorizationRead(input),
   ...roomLifecycleOperations(input),
+  ...resolutionBankOperations(input),
 
   ...roomCreateOperations({
     transaction: input.commandTransaction,

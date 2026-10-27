@@ -14,13 +14,7 @@ import {
   unique,
   type PgColumn,
 } from 'drizzle-orm/pg-core';
-import {
-  createdAtColumn,
-  jsonbColumn,
-  jsonbIsObject,
-  oneOf,
-  timestampColumn,
-} from './columns';
+import { jsonbColumn, jsonbIsObject, oneOf, timestampColumn } from './columns';
 import { actors } from './actors';
 import { rooms } from './rooms';
 import { rounds } from './rounds';
@@ -34,7 +28,7 @@ const hex64 = (column: PgColumn) => sql`${column} ~ '^[0-9a-f]{64}$'`;
 export const resolutionBankRevisions = pgTable('resolution_bank_revisions', {
   revision: integer('revision').primaryKey(),
   note: text('note').notNull(),
-  publishedAt: createdAtColumn(),
+  publishedAt: timestampColumn('published_at').notNull().defaultNow(),
 });
 
 /**
