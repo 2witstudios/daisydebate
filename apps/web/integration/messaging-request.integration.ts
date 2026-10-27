@@ -194,7 +194,6 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
       [fixture.otherActorId, fixture.actorId, low, high, fixture.now],
     );
     const converged = await ask();
-    const spentOnConvergence = [...spends];
     await client.unsafe('delete from messaging_channels where id=$1', [
       fixture.channelId,
     ]);
@@ -215,13 +214,11 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
         'converge on the accepted DM, then spend the limiter for neither request and write no pair',
       actual: {
         converged,
-        spentOnConvergence,
         spends,
         pairs: pairs.n,
       },
       expected: {
         converged: { channelId: fixture.channelId, state: 'accepted' },
-        spentOnConvergence: [],
         spends: [],
         pairs: 0,
       },

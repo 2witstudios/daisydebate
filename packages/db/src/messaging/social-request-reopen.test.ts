@@ -47,10 +47,13 @@ test('a closed DM reopens the durable channel and invalidates current authority 
   const ledger = queries.find((entry) =>
     entry.query.startsWith('insert into messaging_social_commands'),
   );
+  const channelLock = queries.find((entry) =>
+    /"messaging_channels".*for update$/s.test(entry.query),
+  );
   assert({
     given: 'a closed active DM inside its budget',
     should:
-      'reuse its channel, clear decision time, replace introduction, advance authority exactly once, and ledger the request as unrelated (A1)',
+      'reuse its channel under its row lock, clear decision time, replace introduction, advance authority exactly once, and ledger the budget read’s unrelated fact',
     actual: [
       result,
       queries.some((entry) =>
@@ -63,8 +66,16 @@ test('a closed DM reopens the durable channel and invalidates current authority 
         )
         .map((entry) => entry.params.slice(0, 2)),
       ledger?.params.at(-1),
+      channelLock?.params[0],
     ],
-    expected: [{ channelId, state: 'pending' }, false, true, [[5, 3]], true],
+    expected: [
+      { channelId, state: 'pending' },
+      false,
+      true,
+      [[5, 3]],
+      true,
+      channelId,
+    ],
   });
 });
 for (const channel of [
