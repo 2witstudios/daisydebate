@@ -161,6 +161,48 @@ describe('Lobby', () => {
     });
   });
 
+  test('the sort rides in the filter form and every Lobby link', () => {
+    const html = render({
+      query: query({ status: 'open', mode: 'ranked', sort: 'longest-waiting' }),
+      nextCursor: id('f'),
+    });
+    assert({
+      given: 'the open tab, ranked, sorted longest waiting, with a next page',
+      should:
+        'select Longest waiting in a Sort select beside the mode, and keep the sort on the tabs, Clear and the next page',
+      actual: [
+        /<select name="sort" aria-label="Sort rooms"/.test(html),
+        /<option value="longest-waiting" selected="">Longest waiting<\/option>/.test(
+          html,
+        ),
+        html.includes('<option value="newest">Newest</option>'),
+        html.includes('<option value="closest'),
+        html.indexOf('name="mode"') < html.indexOf('name="sort"'),
+        html.includes(
+          'href="/lobby?status=live&amp;mode=ranked&amp;sort=longest-waiting"',
+        ),
+        html.includes('href="/lobby?status=open&amp;sort=longest-waiting"'),
+        html.includes(
+          `href="/lobby?status=open&amp;mode=ranked&amp;sort=longest-waiting&amp;cursor=${id('f')}"`,
+        ),
+      ],
+      expected: [true, true, true, false, true, true, true, true],
+    });
+  });
+
+  test('Newest, the default order, is the sort select’s starting choice', () => {
+    const html = render();
+    assert({
+      given: 'the Lobby with no sort in its URL',
+      should: 'show Newest chosen and count no filter for it',
+      actual: [
+        /<option value="newest" selected="">Newest<\/option>/.test(html),
+        html.includes('Clear'),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('the All tab adds no status to the search URL', () => {
     assert({
       given: 'the Lobby on its All tab',

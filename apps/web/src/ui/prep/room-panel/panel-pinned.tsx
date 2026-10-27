@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import type {
   PanelCard,
@@ -9,10 +10,8 @@ import { inertActions } from '../../../features/prep/actions';
 import { currentVersion } from '../../../features/prep/cards/card';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
-import { Icon } from '../../components/icon/icon';
 import { controlClass } from '../form-controls/form-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { SourceText } from '../source-text/source-text';
 
@@ -36,7 +35,7 @@ function CardList({
             className={`flex min-h-16 items-center gap-3 text-ink ${link}`}
           >
             <span className="inline-flex size-avatar-md shrink-0 items-center justify-center rounded-md bg-gold-soft text-gold">
-              <PrepIcon name="card" size={16} />
+              <Icon name="card" size={16} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-strong">{card.title}</span>
@@ -131,7 +130,7 @@ function ReadingCard({
           href={body.backHref}
           className="inline-flex items-center gap-1 text-sm font-strong"
         >
-          <PrepIcon name="arrowLeft" size={16} />
+          <Icon name="arrow-left" size={16} />
           Cards
         </Link>
         <Badge tone="neutral">Read only</Badge>
@@ -157,7 +156,7 @@ function ReadingCard({
           href={query.send ? body.cancelHref : body.sendHref}
           className={`${buttonClass('secondary')} ${link}`}
         >
-          <PrepIcon name="send" size={18} />
+          <Icon name="send" size={18} />
           Send to room
         </Link>
       </div>

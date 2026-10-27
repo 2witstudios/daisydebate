@@ -8,7 +8,7 @@ import {
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 const box =
   'flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised px-6 py-10 text-center';
@@ -18,7 +18,7 @@ const link = 'no-underline hover:no-underline';
 export function NoResults({ query }: { readonly query: LibraryQuery }) {
   return (
     <section className={box} aria-label="No results">
-      <PrepIcon name="search" size={28} className="text-ink-faint" />
+      <Icon name="search" size={28} className="text-ink-faint" />
       <h2 className="text-lg font-bold">{`No results for “${query.q}”`}</h2>
       {query.in === 'text' ? null : (
         <Link
@@ -58,7 +58,7 @@ export function FiltersHideEverything(props: {
               aria-label={`Remove ${chip.label}`}
               className="inline-flex size-8 items-center justify-center rounded-round text-ink-muted hover:text-ink"
             >
-              <PrepIcon name="x" size={14} />
+              <Icon name="x" size={14} />
             </Link>
           </li>
         ))}

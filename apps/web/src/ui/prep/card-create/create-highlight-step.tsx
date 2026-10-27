@@ -5,7 +5,7 @@ import {
   type MarkTool,
 } from '../../../features/prep/cards/card-create';
 import { buttonClass } from '../../components/button/button-class';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import { Icon, type IconName } from '../../components/icon/icon';
 import { SourceText } from '../source-text/source-text';
 
 const link = 'no-underline hover:no-underline';
@@ -13,7 +13,7 @@ const link = 'no-underline hover:no-underline';
 const tools: readonly {
   readonly id: MarkTool;
   readonly label: string;
-  readonly symbol: PrepIconName;
+  readonly symbol: IconName;
 }[] = [
   { id: 'read', label: 'Read aloud', symbol: 'pencil' },
   { id: 'keep', label: 'Keep, do not read', symbol: 'bookmark' },
@@ -45,7 +45,7 @@ export function CreateHighlightStep({
                   aria-current={query.tool === tool.id ? 'true' : undefined}
                   className={`${buttonClass(query.tool === tool.id ? 'primary' : 'secondary')} ${link}`}
                 >
-                  <PrepIcon name={tool.symbol} size={18} />
+                  <Icon name={tool.symbol} size={18} />
                   {tool.label}
                 </Link>
               </li>
@@ -74,7 +74,7 @@ export function CreateHighlightStep({
             className={`${buttonClass('primary')} ${link}`}
           >
             Next: cite and save
-            <PrepIcon name="arrowRight" size={18} />
+            <Icon name="arrowRight" size={18} />
           </Link>
         )}
       </div>

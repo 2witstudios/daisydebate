@@ -1,6 +1,6 @@
 import type { Visibility } from '../../../features/prep/library/library-item';
 import { Avatar } from '../../components/avatar/avatar';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 /** "Private" with a lock, or "Team" with the team named for assistive tech. */
 export function VisibilityMark({
@@ -11,7 +11,7 @@ export function VisibilityMark({
   if (visibility.kind === 'private')
     return (
       <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
-        <PrepIcon name="lock" size={14} />
+        <Icon name="lock" size={14} />
         Private
       </span>
     );

@@ -105,7 +105,7 @@ export function LiveRoundRoom({
             participantId: intent.participantId,
           },
         }
-      : leave;
+      : { ...leave, freed: intent.kind === 'freed' };
   return (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />

@@ -149,3 +149,16 @@ test('Lobby query URLs preserve the server sort and restart the cursor separatel
     ],
   });
 });
+
+test('Newest is the Lobby’s default order, so its URL never names it', () => {
+  const parsed = parseRoomDiscoveryQuery({ sort: 'newest' });
+  assert({
+    given: 'the sort select submitting Newest, then an unknown order',
+    should: 'read Newest as no sort, and refuse the unknown one',
+    actual: [
+      parsed.success ? [parsed.data.sort, lobbyHref(parsed.data)] : null,
+      parseRoomDiscoveryQuery({ sort: 'closest-to-full' }).success,
+    ],
+    expected: [[undefined, '/lobby'], false],
+  });
+});

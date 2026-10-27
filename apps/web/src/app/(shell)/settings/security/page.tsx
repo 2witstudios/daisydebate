@@ -16,7 +16,10 @@ export default async function AccountSecurityPage({
   return (
     <>
       <h1 className={prose.h1}>Account security</h1>
-      <SecurityPage changeEmail={changeEmailAction} />
+      <SecurityPage
+        changeEmail={changeEmailAction}
+        signOutFailed={(await searchParams).signOut === 'failed'}
+      />
     </>
   );
 }

@@ -11,6 +11,7 @@ export const eventRegistry = {
   'auth.rate_limit.unavailable': 'error',
   'auth.rate_limit.network_denied': 'warn',
   'auth.session.unavailable': 'error',
+  'auth.sign_out.failed': 'error',
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',

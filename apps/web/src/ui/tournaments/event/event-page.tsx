@@ -6,7 +6,7 @@ import {
   structureLabel,
 } from '../../../features/tournaments/labels';
 import { formatTime } from '../../../features/tournaments/dates';
-import { SampleButton } from '../inert-action/inert-action';
+import { SampleButton } from '../../components/sample-button/sample-button';
 import { LinkButton } from '../link-button/link-button';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';

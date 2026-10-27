@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import {
@@ -32,8 +33,7 @@ export default async function OnboardingUsernamePage({
     searchParams,
     usernameHref,
   );
-  if (identity.state === 'member' || identity.state === 'waitlisted')
-    redirect(destination);
+  if (claimedUsername(identity) !== null) redirect(destination);
   if (!(await requestHasRecordedAge())) redirect(onboardingHref(destination));
   return (
     <Onboarding
