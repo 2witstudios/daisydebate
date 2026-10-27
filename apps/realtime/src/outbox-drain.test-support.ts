@@ -1,4 +1,8 @@
-import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
+import {
+  OUTBOX_ORIGIN,
+  type OutboxPosition,
+  type OutboxRow,
+} from '@daisy/db/outbox';
 import type { Logger } from '@daisy/logger';
 import { createOutboxDrainLoop, type OutboxDrainLoop } from './outbox-drain';
 

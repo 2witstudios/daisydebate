@@ -1,4 +1,4 @@
-import type { OutboxPosition } from '@daisy/db';
+import type { OutboxPosition } from '@daisy/db/outbox';
 import { withTimeout } from '@daisy/observability';
 
 export type ReadinessResources = {
