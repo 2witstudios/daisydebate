@@ -200,13 +200,14 @@ DELETE FROM session WHERE id IN (
 ## Retention of abandoned sign-ups (ISSUE-660)
 
 A sign-up creates a provisional account (no username) before the age step.
-An account still without a username, an age or a Terms acceptance 24 hours
-after it was created is abandoned. That includes a browser held by an
-under-age refusal that signed up again. The hourly sweep deletes up to 20
-batches of 50 such accounts per run, with the policy in
+An account is abandoned when, 24 hours after it was created, it still has
+no username, age or Terms acceptance, and no session or sign-in link since
+then. That includes a browser held by an under-age refusal that signed up
+again. The hourly sweep deletes up to 20 batches of 50 such accounts per
+run, each in its own short transaction, with the policy in
 [privacy](privacy.md#abandoned-provisional-accounts). Each account's own
-sign-in and email-change links and delivery receipts go in the same
-transaction. Events use `operation: 'retention.provisional_user'`:
+sign-in and email-change links go in that transaction. Its delivery receipts
+stay for their 30 days, so a late bounce still suppresses the address. Events use `operation: 'retention.provisional_user'`:
 `retention.sweep.completed` (`deleted`, `batches`) and
 `retention.sweep.failed`.
 

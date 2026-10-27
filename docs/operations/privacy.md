@@ -206,10 +206,11 @@ inventory becomes the single index:
   `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
   path ever logs `ip_address`, `user_agent` or a token.
 - **Abandoned sign-ups** (ISSUE-660): a provisional account with no
-  username, age, Terms acceptance, actor, role grant or privacy job is
-  deleted 24 hours after it was created, with its own sign-in and
-  email-change links and delivery receipts, by the same retention sweep
-  (`retention.provisional_user`). See
+  username, age, Terms acceptance, actor, role grant, privacy job or
+  activity in the last 24 hours is deleted, with its own sign-in and
+  email-change links, by the same retention sweep
+  (`retention.provisional_user`). Its delivery receipts age out on their
+  own. See
   [Abandoned provisional accounts](#abandoned-provisional-accounts).
 - **Round transcripts and cached judgments** (DEC-101, DEC-89; ISSUE-498):
   `utterances` rows (transcript text and the capture body digest, both
@@ -314,16 +315,27 @@ current implementation status.
 
 ### Abandoned provisional accounts
 
-ISSUE-660(b), confirmed by the orchestrator on 2026-10-27: an account that
-has not claimed a username or recorded an age or Terms acceptance expires
-24 hours after creation. The existing startup/hourly retention sweep deletes
-up to 20 batches of 50 per run. An actor, a role grant, a privacy job or an
-erased-account history also protects a row. A backlog drains over later runs; 24 hours is
-the eligibility window, not a guarantee that deletion finishes at that instant.
+ISSUE-660(b), confirmed by the orchestrator on 2026-10-27, refined in the
+#474 review. A sign-up is abandoned when, 24 hours after it was created, it
+has none of these:
 
-Each batch locks candidates with `SKIP LOCKED` and rechecks protection in a
-fresh snapshot. Sessions, credentials and passkeys cascade with the account;
-its sign-in and email-change verifications and delivery receipts are removed
-in the same transaction. Suppressions and unrelated verification purposes
-remain. The age-refusal path shares the same mail cleanup. The sweep logs
-only its stable operation name, counts and success/failure.
+- a username, an age or a Terms acceptance;
+- an actor, a role grant, a privacy job or an erased-account history;
+- any activity since that cutoff: no session created or refreshed, and no
+  sign-in link sent to its email.
+
+The startup and hourly retention sweep deletes up to 20 batches of 50 per
+run. A backlog drains over later runs: 24 hours is the eligibility window,
+not a guarantee that deletion finishes at that instant.
+
+Candidates come from one unlocked read. Each account then goes in its own
+short transaction, so no transaction spans a batch (ADR 0032). That
+transaction locks the row with `SKIP LOCKED`, rechecks every protection in
+a fresh statement, and deletes the account's own sign-in and email-change
+links with it. Sessions, credentials and passkeys cascade.
+
+Delivery receipts (keyed recipient hashes) stay for their own 30 days, so a
+late bounce or complaint still suppresses the address. Suppressions and
+unrelated verification purposes also remain. Only the under-age deletion
+(WAIT-4.7, DEC-244) removes receipts at once. The sweep logs only its stable
+operation name, counts and success or failure.

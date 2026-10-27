@@ -20,11 +20,21 @@ export type ProvisionalMailCleanup = {
 const startsWithPurpose = (purpose: string) =>
   sql`starts_with(${verifications.identifier}, ${`${purpose}:`})`;
 
-/** Caller holds the user row lock and has freshly established provisional authority. */
-export async function clearProvisionalMail(
+/** The link purposes a provisional account's emailed links are stored under. */
+export type ProvisionalLinkPurposes = Pick<
+  ProvisionalMailCleanup,
+  'signInPurpose' | 'emailChangePurposes'
+>;
+
+/**
+ * Deletes the account's own emailed links: sign-in links to its email and
+ * email-change links naming its id. Caller holds the user row lock and has
+ * freshly established provisional authority.
+ */
+export async function clearProvisionalLinks(
   tx: Transaction,
   user: { readonly id: string; readonly email: string | null },
-  input: ProvisionalMailCleanup,
+  input: ProvisionalLinkPurposes,
 ): Promise<void> {
   await tx.delete(verifications).where(sql`case
     when ${startsWithPurpose(input.signInPurpose)}
@@ -32,6 +42,20 @@ export async function clearProvisionalMail(
     when ${input.emailChangePurposes.length === 0 ? sql`false` : sql.join(input.emailChangePurposes.map(startsWithPurpose), sql` or `)}
       then ${verifications.value}::jsonb ->> 'userId' = ${user.id}
     else false end`);
+}
+
+/**
+ * The under-age deletion's cleanup (WAIT-4.7, DEC-244: nothing kept): its
+ * links and its delivery receipts. The abandoned-account sweep clears links
+ * only, so a late bounce or complaint still finds its receipt and suppresses
+ * the address (ADR 0025).
+ */
+export async function clearProvisionalMail(
+  tx: Transaction,
+  user: { readonly id: string; readonly email: string | null },
+  input: ProvisionalMailCleanup,
+): Promise<void> {
+  await clearProvisionalLinks(tx, user, input);
   if (user.email !== null)
     await tx
       .delete(emailDeliveries)

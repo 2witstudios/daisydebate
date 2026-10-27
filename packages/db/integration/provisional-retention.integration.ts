@@ -41,7 +41,7 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
     await f.sql`insert into account_age(user_id,birth_month,recorded_at) values(${aged},'1980-01',${old})`;
     await f.sql`insert into account_terms(user_id,terms_version,accepted_at) values(${termed},'proof',${old})`;
     await f.actor(actor);
-    await f.sql`insert into session(id,token,user_id,expires_at) values(${createId()},${createId()},${expired},'2099-01-01')`;
+    await f.sql`insert into session(id,token,user_id,expires_at,created_at,updated_at) values(${createId()},${createId()},${expired},'2099-01-01',${old},${old})`;
     await f.sql`insert into account(id,account_id,provider_id,user_id) values(${createId()},${createId()},'proof',${expired})`;
     const rows = [
       ['sign-in', { email: `${expired}@example.test`.toUpperCase() }],
@@ -68,7 +68,7 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
       ['other', 'not JSON'],
     ] as const;
     for (let i = 0; i < rows.length; i++)
-      await f.sql`insert into verification(id,identifier,value,expires_at) values(${createId()},${`${rows[i]![0]}:${tag}:${i}`},${typeof rows[i]![1] === 'string' ? rows[i]![1] : JSON.stringify(rows[i]![1])},'2099-01-01')`;
+      await f.sql`insert into verification(id,identifier,value,expires_at,created_at) values(${createId()},${`${rows[i]![0]}:${tag}:${i}`},${typeof rows[i]![1] === 'string' ? rows[i]![1] : JSON.stringify(rows[i]![1])},'2099-01-01',${old})`;
     const hash = options.recipientHashOf(`${expired}@example.test`);
     await f.sql`insert into email_delivery(id,provider_message_id,recipient_hash,status,status_rank) values(${createId()},${tag},${hash},'sent',${emailDeliveryStatusRank('sent')})`;
     await f.sql`insert into email_suppression(recipient_hash,reason,provider_message_id) values(${hash},'bounce',${tag})`;
@@ -84,7 +84,7 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
         given:
           'expired, boundary-fresh, member, age, Terms and actor accounts with owned/unrelated mail',
         should:
-          'delete exactly the expired provisional, cascade credentials, scrub owned links/receipts, preserve suppressions and be idempotent',
+          'delete exactly the expired provisional, cascade credentials, scrub its owned links, keep its delivery receipts and suppressions, and be idempotent',
         actual: [
           deleted,
           repeat,
@@ -102,7 +102,7 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
           0,
           0,
           [`email-change-verify:${tag}:3`, `other:${tag}:4`],
-          0,
+          1,
           1,
         ],
       });
@@ -117,14 +117,14 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
   });
 });
 
-test('busy provisional rows skip the batch and a cleanup failure rolls back every delete', async () => {
+test('busy provisional rows skip the batch and a cleanup failure inside an account transaction keeps it whole', async () => {
   await withFixture(url, async (f) => {
     const database = createDatabase({ url, nextActorId: createId });
     const id = createId(),
       tag = createId(),
       email = `${id}@example.test`;
     await f.insert('users', { id, email, created_at: old });
-    await f.sql`insert into verification(id,identifier,value,expires_at) values(${createId()},${`sign-in:${tag}`},${JSON.stringify({ email })},'2099-01-01')`;
+    await f.sql`insert into verification(id,identifier,value,expires_at,created_at) values(${createId()},${`sign-in:${tag}`},${JSON.stringify({ email })},'2099-01-01',${old})`;
     try {
       const skipped = await f.sql.begin(async (tx) => {
         await tx`select id from users where id=${id} for update`;
@@ -133,9 +133,13 @@ test('busy provisional rows skip the batch and a cleanup failure rolls back ever
       await expect(
         database.purgeExpiredProvisionalUsers({
           ...options,
-          recipientHashOf: () => {
-            throw new Error('proof cleanup failure');
-          },
+          // Fails inside the account's own transaction, after the lock.
+          emailChangePurposes: {
+            length: 1,
+            map: () => {
+              throw new Error('proof cleanup failure');
+            },
+          } as unknown as string[],
         }),
       ).rejects.toThrow('proof cleanup failure');
       const kept = [
@@ -228,6 +232,42 @@ test('age refusal uses the same owner-scoped email-change cleanup', async () => 
     } finally {
       await database.close();
       await f.sql`delete from verification where identifier like ${`%:${tag}:%`}`;
+    }
+  });
+});
+
+test('a sign-up active since the cutoff is not abandoned (review on #474)', async () => {
+  await withFixture(url, async (f) => {
+    const database = createDatabase({ url, nextActorId: createId });
+    const [refreshed, linked] = [createId(), createId()];
+    const tag = createId();
+    for (const id of [refreshed, linked])
+      await f.insert('users', {
+        id,
+        email: `${id}@example.test`,
+        created_at: old,
+      });
+    // Signed up long ago, but its session was refreshed after the cutoff.
+    await f.sql`insert into session(id,token,user_id,expires_at,created_at,updated_at) values(${createId()},${createId()},${refreshed},'2099-01-01',${old},${before})`;
+    // Signed up long ago, but a sign-in link went to it after the cutoff.
+    await f.sql`insert into verification(id,identifier,value,expires_at,created_at) values(${createId()},${`sign-in:${tag}`},${JSON.stringify({ email: `${linked}@example.test` })},'2099-01-01',${before})`;
+    try {
+      const deleted = await database.purgeExpiredProvisionalUsers(options);
+      assert({
+        given:
+          'two old sign-ups, one with a session refreshed and one sent a sign-in link since the cutoff',
+        should: 'keep both, and the link with them',
+        actual: [
+          deleted,
+          await f.count('users', 'id', refreshed),
+          await f.count('users', 'id', linked),
+          await f.count('verification', 'identifier', `sign-in:${tag}`),
+        ],
+        expected: [0, 1, 1, 1],
+      });
+    } finally {
+      await database.close();
+      await f.sql`delete from verification where identifier=${`sign-in:${tag}`}`;
     }
   });
 });

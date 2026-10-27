@@ -6,44 +6,132 @@ const before = '2026-10-26T00:00:00.000Z';
 const options = {
   signInPurpose: 'sign-in',
   emailChangePurposes: ['email-change-approve', 'email-change-verify'],
-  recipientHashOf: (email: string) => `hash:${email}`,
 };
+const user = { id: 'u'.repeat(24), email: 'unit@example.test' };
 
-test('provisional retention bounds work and rechecks protected facts after locking', async () => {
-  const { database, queries } = createTestDatabase([
-    [{ id: 'u'.repeat(24), email: 'unit@example.test' }],
-    [],
-  ]);
+test('candidates come from one unlocked, bounded, oldest-first read of abandoned sign-ups', async () => {
+  const { database, queries } = createTestDatabase([[]]);
   const deleted = await database.purgeExpiredProvisionalUsers({
     before,
     limit: 2,
     ...options,
   });
-  const text = queries.map(({ query }) => query);
+  const [read] = queries;
   assert({
-    given: 'a candidate that records an age before the post-lock snapshot',
+    given: 'a cutoff, a batch limit and no candidates',
     should:
-      'lock a bounded oldest-first batch, recheck canonical protection and delete nothing',
+      'read once, without a lock, every protection including recent sessions and sign-in links, and delete nothing',
     actual: {
       deleted,
-      statements: text.length,
-      bounded: text[0]?.includes('skip locked') && text[0]?.includes('limit'),
-      recheck: [
-        'username',
+      statements: queries.length,
+      unlocked: !read?.query.includes('for update'),
+      bounded: /order by created_at, id limit \$\d+/.test(read?.query ?? ''),
+      protections: [
+        'username is null',
+        'deleted_at is null',
         'account_age',
         'account_terms',
         'actors',
         'role_grants',
         'privacy_jobs',
-      ].every((name) => text[1]?.includes(name)),
-      noDelete: text.every((query) => !query.trimStart().startsWith('delete')),
+        'from session',
+        'from verification',
+      ].filter((name) => !read?.query.includes(name)),
     },
     expected: {
       deleted: 0,
-      statements: 2,
+      statements: 1,
+      unlocked: true,
       bounded: true,
+      protections: [],
+    },
+  });
+});
+
+test('each candidate is locked skip-locked and rechecked in a fresh statement before anything goes', async () => {
+  const skipped = createTestDatabase([[{ id: user.id }], []]);
+  const protectedSince = createTestDatabase([
+    [{ id: user.id }],
+    [{ id: user.id }],
+    [],
+  ]);
+  const counts = [
+    await skipped.database.purgeExpiredProvisionalUsers({
+      before,
+      limit: 1,
+      ...options,
+    }),
+    await protectedSince.database.purgeExpiredProvisionalUsers({
+      before,
+      limit: 1,
+      ...options,
+    }),
+  ];
+  const texts = protectedSince.queries.map(({ query }) => query);
+  assert({
+    given:
+      'a candidate another writer holds, and one that recorded an age after it was read',
+    should:
+      'skip the held row, and for the other lock it, recheck every protection in a second statement and delete nothing',
+    actual: {
+      counts,
+      lockSkips: skipped.queries[1]?.query.includes('for update skip locked'),
+      recheck:
+        texts[2]?.includes('account_age') && texts[2]?.includes('from session'),
+      noDelete: [...skipped.queries, ...protectedSince.queries].every(
+        ({ query }) => !query.trimStart().startsWith('delete'),
+      ),
+    },
+    expected: {
+      counts: [0, 0],
+      lockSkips: true,
       recheck: true,
       noDelete: true,
+    },
+  });
+});
+
+test('an abandoned account loses its own links and the account, and keeps its delivery receipts', async () => {
+  const { database, queries } = createTestDatabase([
+    [{ id: user.id }],
+    [{ id: user.id }],
+    [user],
+    [],
+    [{ id: user.id }],
+  ]);
+  const deleted = await database.purgeExpiredProvisionalUsers({
+    before,
+    limit: 1,
+    ...options,
+  });
+  const links = queries[3]!;
+  assert({
+    given: 'an abandoned account with an email address',
+    should:
+      'clear its sign-in and injected email-change links, delete the account, never touch email_delivery, and count it',
+    actual: {
+      deleted,
+      statements: queries.length,
+      linkOwners: links.params,
+      purposesInjected: !links.query.includes('email-change-'),
+      receiptsKept: queries.every(
+        ({ query }) => !query.includes('email_delivery'),
+      ),
+      user: queries[4]?.params,
+    },
+    expected: {
+      deleted: 1,
+      statements: 5,
+      linkOwners: [
+        'sign-in:',
+        user.email,
+        'email-change-approve:',
+        'email-change-verify:',
+        user.id,
+      ],
+      purposesInjected: true,
+      receiptsKept: true,
+      user: [user.id],
     },
   });
 });
@@ -68,54 +156,5 @@ test('provisional retention refuses bad bounds without querying', async () => {
     should: 'refuse every request before database access',
     actual: [refused, queries.length],
     expected: [[true, true, true], 0],
-  });
-});
-
-test('eligible provisional cleanup uses exact mail owners and returns committed deletion counts', async () => {
-  const user = { id: 'u'.repeat(24), email: 'unit@example.test' };
-  const { database, queries } = createTestDatabase([
-    [user],
-    [user],
-    [],
-    [],
-    [{ id: user.id }],
-  ]);
-  const deleted = await database.purgeExpiredProvisionalUsers({
-    before,
-    limit: 1,
-    ...options,
-  });
-  const cleanup = queries[2]!;
-  assert({
-    given: 'an eligible locked provisional with an email address',
-    should:
-      'clean sign-in and both injected email-change subjects, remove only its keyed receipts and count the deleted user',
-    actual: {
-      deleted,
-      statements: queries.length,
-      selection: queries[0]?.params,
-      // The purposes arrive as parameters: the adapter holds no purpose names.
-      subjects:
-        !cleanup.query.includes('email-change-') &&
-        cleanup.query.includes("'userId'"),
-      owners: cleanup.params,
-      receipt: queries[3]?.params,
-      user: queries[4]?.params,
-    },
-    expected: {
-      deleted: 1,
-      statements: 5,
-      selection: [before, 1],
-      subjects: true,
-      owners: [
-        'sign-in:',
-        user.email,
-        'email-change-approve:',
-        'email-change-verify:',
-        user.id,
-      ],
-      receipt: [`hash:${user.email}`],
-      user: [user.id],
-    },
   });
 });
