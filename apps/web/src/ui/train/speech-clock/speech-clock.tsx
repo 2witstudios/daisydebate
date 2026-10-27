@@ -14,7 +14,7 @@ import {
   startClock,
   tick,
 } from '../../../features/train/speech-clock';
-import { formatCountdown } from '../../../features/clock-display/clock-display';
+import { formatCountdown } from '../../../lib/clock-display';
 import { renderSpeechClock } from './speech-clock.render';
 
 export type SpeechClockProps = {

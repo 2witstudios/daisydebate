@@ -1,7 +1,7 @@
 import {
   formatCountdown,
   formatSeconds,
-} from '../../clock-display/clock-display';
+} from '../../../lib/clock-display';
 
 export type DebateMark = 'aff' | 'neg' | 'extend' | 'dropped' | 'new';
 export const debateMarks: readonly DebateMark[] = [

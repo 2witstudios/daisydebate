@@ -1,4 +1,4 @@
-import { formatCountdown } from '../clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 import type { Side, SpeechSlot } from './documents/documents';
 import type { RoundPhase } from './layout';
 import type { TranscriptSegment } from './transcript';

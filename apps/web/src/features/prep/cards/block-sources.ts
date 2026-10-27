@@ -7,7 +7,7 @@ import {
 } from '../library/library-query';
 import { listLibrary } from '../library/list-library';
 import { readSeconds } from '../reading-time';
-import { formatSeconds } from '../../clock-display/clock-display';
+import { formatSeconds } from '../../../lib/clock-display';
 
 export type BlockSource = {
   readonly id: string;

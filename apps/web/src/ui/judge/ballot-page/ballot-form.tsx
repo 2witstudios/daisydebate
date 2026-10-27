@@ -19,7 +19,7 @@ import {
   type BallotDebaters,
 } from '../../../features/judge/ballot';
 import { formValues } from '../../../features/mock-form/form';
-import { formatCountdown } from '../../../features/clock-display/clock-display';
+import { formatCountdown } from '../../../lib/clock-display';
 import {
   ballotHeadingClass,
   ballotSectionClass,

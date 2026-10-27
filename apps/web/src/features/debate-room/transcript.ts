@@ -1,4 +1,4 @@
-import { formatSeconds } from '../clock-display/clock-display';
+import { formatSeconds } from '../../lib/clock-display';
 import type { SpeechSlot } from './documents/documents';
 
 /** The round's transcript is a file of the round, opened like a document. */

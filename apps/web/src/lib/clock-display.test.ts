@@ -48,3 +48,37 @@ describe('formatCountdown', () => {
     });
   });
 });
+
+describe('the four former m:ss formatters (ISSUE-768)', () => {
+  test('every screen reads the same at its boundaries', () => {
+    assert({
+      given:
+        "the debate room's and Train's countdowns (ms, part-seconds up, clamped) at their boundaries",
+      should: 'read exactly as their own formatters did',
+      actual: [-1, 0, 1, 999, 1000, 1001, 59_001, 300_000].map(formatCountdown),
+      expected: [
+        '0:00',
+        '0:00',
+        '0:01',
+        '0:01',
+        '0:01',
+        '0:02',
+        '1:00',
+        '5:00',
+      ],
+    });
+    assert({
+      given:
+        "judging windows and the transcript's elapsed times (seconds, floored, clamped) at their boundaries",
+      should: 'read exactly as the judge formatter did',
+      actual: [-0.5, 0, 1.999, 59.999, 60, 600].map(formatSeconds),
+      expected: ['0:00', '0:00', '0:01', '0:59', '1:00', '10:00'],
+    });
+    assert({
+      given: "prep's whole-second reading times at their boundaries",
+      should: 'read exactly as the prep formatter did',
+      actual: [0, 59, 60, 165, 3600].map(formatSeconds),
+      expected: ['0:00', '0:59', '1:00', '2:45', '60:00'],
+    });
+  });
+});

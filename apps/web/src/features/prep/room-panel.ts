@@ -10,7 +10,7 @@ import { getCard } from './cards/get-card';
 import { getCase, listCases } from './cases/get-case';
 import { caseChangedElsewhere, type Notice } from './notices';
 import { readSeconds } from './reading-time';
-import { formatSeconds } from '../clock-display/clock-display';
+import { formatSeconds } from '../../lib/clock-display';
 import {
   roomPanelHref,
   type PanelTab,

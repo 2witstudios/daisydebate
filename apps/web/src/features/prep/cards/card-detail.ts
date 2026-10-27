@@ -10,7 +10,7 @@ import {
   type Segment,
 } from './card';
 import { readSeconds } from '../reading-time';
-import { formatSeconds } from '../../clock-display/clock-display';
+import { formatSeconds } from '../../../lib/clock-display';
 
 const views = ['read', 'full', 'cite'] as const;
 type CardDetailTab = (typeof views)[number];

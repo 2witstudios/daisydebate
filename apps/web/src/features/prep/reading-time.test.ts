@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { budget, readSeconds, trimWords, wordCount } from './reading-time';
-import { formatSeconds } from '../clock-display/clock-display';
+import { formatSeconds } from '../../lib/clock-display';
 
 setupRitewayBun();
 

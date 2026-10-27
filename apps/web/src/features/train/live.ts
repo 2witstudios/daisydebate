@@ -5,7 +5,7 @@ import {
 } from '../../ui/mock/train-practice';
 import { motionText, type PracticeConfig } from './practice';
 import type { OpponentAdapter } from './opponent';
-import { formatCountdown } from '../clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 import { buildTurns, lengthLabel, turnAt, type Side, type Turn } from './turns';
 
 export type TurnRow = {

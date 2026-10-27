@@ -7,7 +7,7 @@ import {
   startClock,
   tick,
 } from './speech-clock';
-import { formatCountdown } from '../clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 
 setupRitewayBun();
 

@@ -7,7 +7,7 @@ import {
   wordCount,
   type Budget,
 } from '../reading-time';
-import { formatSeconds } from '../../clock-display/clock-display';
+import { formatSeconds } from '../../../lib/clock-display';
 import type { Brief, BriefCardRef, Contention } from './brief';
 
 /** A card the brief can quote: its claim, cite and read-aloud passage. */

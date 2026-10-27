@@ -2,7 +2,7 @@
 import type { RoundView } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import { useEffect, useState } from 'react';
-import { formatCountdown } from '../../../features/clock-display/clock-display';
+import { formatCountdown } from '../../../lib/clock-display';
 import {
   attendanceSettlesAtMs,
   ballotOpensInMs,

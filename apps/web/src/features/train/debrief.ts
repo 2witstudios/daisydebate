@@ -8,7 +8,7 @@ import { withDone, withPlanContext, type HubQuery } from './query';
 import { OWN_MOTION, type PracticeConfig } from './practice';
 import { opponents } from './practice';
 import { buildTurns, effectiveOpponent, type Side, type Turn } from './turns';
-import { formatCountdown } from '../clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 
 /** The debrief's URL state: how far the debate got and what was done here. */
 export type DebriefQuery = {

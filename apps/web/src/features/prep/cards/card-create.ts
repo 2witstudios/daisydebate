@@ -18,7 +18,7 @@ import {
   type Notice,
 } from '../notices';
 import { readSeconds, wordCount } from '../reading-time';
-import { formatSeconds } from '../../clock-display/clock-display';
+import { formatSeconds } from '../../../lib/clock-display';
 
 const steps = ['source', 'highlight', 'cite'] as const;
 const sources = ['paste', 'link', 'file'] as const;

@@ -14,7 +14,7 @@ import {
   clockUrgency,
   type ClockUrgency,
 } from '../../features/debate-room/clock';
-import { formatCountdown } from '../../features/clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 import {
   effectivePreset,
   layoutPresets,

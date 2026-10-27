@@ -1,6 +1,6 @@
 import type { Side, Visibility } from '../library/library-item';
 import { budget, readSeconds, type Budget } from '../reading-time';
-import { formatSeconds } from '../../clock-display/clock-display';
+import { formatSeconds } from '../../../lib/clock-display';
 
 /**
  * A block of a speech: a brief section, a card, or a private transition note.

@@ -3,7 +3,7 @@ import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
-import { formatCountdown } from '../../features/clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 import type { RoundRead } from '../../features/rooms/read-round';
 import {
   spectatorViewOf,

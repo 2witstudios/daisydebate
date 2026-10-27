@@ -1,4 +1,4 @@
-import { formatCountdown } from '../clock-display/clock-display';
+import { formatCountdown } from '../../lib/clock-display';
 import type { PracticeConfig, Opponent } from './practice';
 
 export type Side = 'aff' | 'neg';
