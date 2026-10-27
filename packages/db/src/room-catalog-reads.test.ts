@@ -4,13 +4,14 @@ import {
   caller,
   room,
   accountFact,
+  accountRow,
 } from './room-command-operations.test-support';
 import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
 
 test('Room catalog joins only current public definitions to active presets', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database } = createTestDatabase([
     [account],
     [[room.formatId, 'Foundation', 1, foundationDefinition]],
@@ -30,7 +31,7 @@ test('Room catalog joins only current public definitions to active presets', asy
   });
 });
 test('Room create-receipt read preserve collection and command authority', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const receipt = createTestDatabase([[], [account], [account], []]);
   const absent = await receipt.database.readRoomCreateReceipt({
     caller,
@@ -47,7 +48,7 @@ test('Room create-receipt read preserve collection and command authority', async
   });
 });
 test('Room bot catalog includes current actor eligibility facts', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const availableBotId = 'c6a4e2f8h1j3k5m7n9p2r4t6';
   const unavailableBotId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([

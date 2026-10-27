@@ -5,7 +5,7 @@ import type { AuthServer } from '../features/auth/server';
 /** The slice of the composed auth server a session read needs. */
 export type SessionReader = Pick<
   AuthServer,
-  'instance' | 'clock' | 'logger' | 'getActorByUserId'
+  'instance' | 'clock' | 'logger' | 'getActorByUserId' | 'getParticipationByUserId'
 >;
 
 /**
@@ -44,6 +44,7 @@ export async function resolveSession(
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
     readActor: auth.getActorByUserId,
+    readParticipation: auth.getParticipationByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
     readSession: async (header) => {
@@ -71,6 +72,8 @@ export async function resolveSession(
       'Session store unavailable; request refused',
     );
   const signedIn =
-    identity.state === 'provisional' || identity.state === 'member';
+    identity.state === 'provisional' ||
+    identity.state === 'waitlisted' ||
+    identity.state === 'member';
   return { identity, sessionExpiresAt: signedIn ? expiresAt : null };
 }

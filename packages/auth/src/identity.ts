@@ -1,4 +1,7 @@
+import type { BetaAccessState } from '@daisy/protocol';
 import type { Principal } from './index';
+import { ageAdmitted, participantAccess } from './authorization';
+import type { AgeBand } from './age-band';
 
 /** Facts about a durable session, verified by the injected reader. */
 export type VerifiedSession = {
@@ -20,8 +23,9 @@ const anonymous = { kind: 'anonymous' } as const;
 
 /**
  * Who is asking, and how far through onboarding: anonymous visitors, verified
- * accounts still choosing a username (`provisional`, no actor), and
- * accounts with a public identity (`member`).
+ * accounts still choosing a username (`provisional`, no actor), accounts
+ * with a public identity still waiting for beta access (`waitlisted`,
+ * pending or revoked, ADR 0075), and approved accounts (`member`).
  */
 type AnonymousPrincipal = Extract<Principal, { kind: 'anonymous' }>;
 type UserPrincipal = Extract<Principal, { kind: 'user' }>;
@@ -31,6 +35,16 @@ export type Identity =
   /** The session store could not be read: fail closed, but not as signed out. */
   | { readonly state: 'unavailable'; readonly principal: AnonymousPrincipal }
   | { readonly state: 'provisional'; readonly principal: UserPrincipal }
+  | {
+      readonly state: 'waitlisted';
+      readonly username: string;
+      /**
+       * Why it waits: `pending` approval, `revoked` access, or
+       * `age-required` (no durable age record at the floor yet).
+       */
+      readonly reason: 'pending' | 'revoked' | 'age-required';
+      readonly principal: UserPrincipal;
+    }
   | {
       readonly state: 'member';
       readonly username: string;
@@ -52,6 +66,7 @@ export async function resolveIdentity({
   cookie,
   readSession,
   readActor,
+  readParticipation,
   now,
 }: {
   readonly cookie: string | null;
@@ -59,6 +74,11 @@ export async function resolveIdentity({
   readonly readActor: (
     userId: string,
   ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
+  /** The account's beta access state and age band from the canonical account fact (ADR 0075). */
+  readonly readParticipation: (userId: string) => Promise<{
+    readonly betaState: BetaAccessState | null;
+    readonly ageBand: AgeBand | null;
+  }>;
   readonly now: () => string;
 }): Promise<Identity> {
   if (!cookie) return ANONYMOUS;
@@ -73,12 +93,13 @@ export async function resolveIdentity({
   if (!Number.isFinite(instant)) return UNAVAILABLE;
   const expires = Date.parse(found.expiresAt);
   if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
-  return identityFromSession(found, readActor);
+  return identityFromSession(found, readActor, readParticipation);
 }
 
 async function identityFromSession(
   found: VerifiedSession,
   readActor: Parameters<typeof resolveIdentity>[0]['readActor'],
+  readParticipation: Parameters<typeof resolveIdentity>[0]['readParticipation'],
 ): Promise<Identity> {
   // The reader is an adapter boundary: only a non-empty string username
   // makes a member, whatever else the lookup returned.
@@ -98,11 +119,18 @@ async function identityFromSession(
       !actor.id
     )
       return UNAVAILABLE;
-    return {
-      state: 'member',
-      username,
-      principal: { kind: 'user', userId, actorId: actor.id },
-    };
+    const principal = { kind: 'user', userId, actorId: actor.id } as const;
+    const { betaState, ageBand } = await readParticipation(userId);
+    if (participantAccess({ beta: betaState && { state: betaState }, ageBand }))
+      return { state: 'member', username, principal };
+    // No beta row or no age record is never access: the account waits.
+    const reason =
+      betaState === 'revoked'
+        ? 'revoked'
+        : ageAdmitted(ageBand)
+          ? 'pending'
+          : 'age-required';
+    return { state: 'waitlisted', username, reason, principal };
   } catch {
     return UNAVAILABLE;
   }

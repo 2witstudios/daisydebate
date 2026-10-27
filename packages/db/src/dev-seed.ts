@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
+import { accountBetaAccess } from './schema/beta-access';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
@@ -108,6 +109,18 @@ export async function applyDevSeed({
             target: actors.id,
             set: { kind: sql`excluded.kind`, userId: sql`excluded.user_id` },
           });
+        // Seeded people are beta members (ADR 0075): dev and demo sign-in
+        // reaches the app, never the waiting page.
+        await tx
+          .insert(accountBetaAccess)
+          .values({
+            userId: person.userId,
+            state: 'approved',
+            requestedAt: sql`now()`,
+            decidedAt: sql`now()`,
+            provenance: 'signup',
+          })
+          .onConflictDoNothing();
       }
       await tx
         .insert(rounds)

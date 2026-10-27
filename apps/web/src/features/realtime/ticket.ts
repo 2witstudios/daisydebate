@@ -71,10 +71,9 @@ export function createTicketHandler(dependencies: TicketDependencies) {
       async () => {
         requireSameOrigin(request, dependencies.origin());
         const identity = requireSignedIn(await dependencies.identify(request));
-        // Signed in, but has not finished onboarding (no username yet):
+        // Signed in, but no username yet or no beta access (ADR 0075):
         // authenticated, not authorized, same as every other permission gate.
-        if (identity.state === 'provisional')
-          throw createAppError('AUTHORIZATION');
+        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
         const socketUrl = dependencies.websocketEndpoint();
         if (socketUrl === null) throw createAppError('INFRASTRUCTURE');
         const { userId } = identity.principal;

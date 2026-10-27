@@ -124,6 +124,15 @@ The rest of this record describes BETA-2.
     capability.
   - Three safety exits do not need it: `room.leave`, `channel.leave` and
     `social.block`.
+- **Age admission (ISSUE-664).** Participant access is beta approval
+  _and_ a durable age record whose band, computed now, meets
+  `ACCOUNT_AGE_FLOOR` (16 in the beta, DEC-106; 13 after). The account
+  fence reports that band (never birth data). A missing record is no
+  access: the account waits as `age-required`, and the beta page sends
+  it to the age step. The operator command refuses to approve such an
+  account. Age eligibility is a participant admission rule, so every
+  feature behind participant access (coaching among them) inherits it
+  and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
 - **What a pending account sees.**

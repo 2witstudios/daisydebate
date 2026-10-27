@@ -1,4 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, openPage, test } from './support/fixtures';
 import {
   emailedLink,
@@ -78,6 +79,9 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
 
   const mine = uniqueName('ada');
   await claimUsername(page, mine.toUpperCase());
+  // The account waits on the beta list until an operator approves it
+  // (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
 
   // Declining the passkey offer (real enrollment is covered separately in
   // passkey-lifecycle.e2e.ts, with a virtual authenticator configured).

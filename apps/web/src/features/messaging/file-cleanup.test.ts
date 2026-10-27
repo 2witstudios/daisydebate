@@ -9,7 +9,13 @@ const ids = ['actor', 'user', 'channel', 'file'].map((part) =>
 );
 const scope = { actorId: ids[0]!, userId: ids[1]!, channelId: ids[2]! };
 const token = { fileId: ids[3]!, generation: 3 };
-const account = { ...scope, member: true, erased: false, revision: 4 };
+const account = {
+  ...scope,
+  member: true,
+  erased: false,
+  revision: 4,
+  beta: { state: 'approved' as const, revision: 1 }, ageBand: 'adult' as const,
+};
 const fact: PendingFileAuthorizationFact = {
   kind: 'pending_file',
   fileId: token.fileId,

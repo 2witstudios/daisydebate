@@ -46,7 +46,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
   });
   const account = createAccountFlows(app);
   const signed = await account.signUp();
-  const claimed = await account.claim(signed.cookie, {
+  const claimed = await account.claimMember(signed.cookie, {
     username: uniqueName(),
   });
   if (claimed.status !== 201)

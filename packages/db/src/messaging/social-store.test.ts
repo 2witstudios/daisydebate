@@ -14,10 +14,12 @@ const accounts = [
     actorId: low,
     userId: 'v'.repeat(24),
     member: true,
+    betaState: 'approved',
+    betaRevision: 1, ageBand: 'adult',
     erased: false,
     revision: 2,
   },
-  { actorId: high, userId, member: true, erased: false, revision: 3 },
+  { actorId: high, userId, member: true, erased: false, revision: 3, betaState: 'approved', betaRevision: 1, ageBand: 'adult' },
 ];
 const input = { actorId: high, userId, memberActorIds: [high, low] };
 test('absent-DM block preserves direct counterpart binding and owns only its directional bit after sorted fences', async () => {

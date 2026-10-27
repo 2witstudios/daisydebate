@@ -29,7 +29,38 @@ const member: Identity = {
   principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
 };
 
+const waitlisted: Identity = {
+  state: 'waitlisted',
+  username: 'ada',
+  reason: 'pending',
+  principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
+};
+
 describe('decideAccess', () => {
+  test('a waitlisted account waits on /beta for participant pages but keeps its account pages (ADR 0075)', () => {
+    assert({
+      given: 'a pending account requesting /play and /settings',
+      should:
+        'send /play to the beta page carrying the path, and allow /settings',
+      actual: [
+        decideAccess({
+          identity: waitlisted,
+          path: '/play?x=1',
+          requirement: 'participant',
+        }),
+        decideAccess({
+          identity: waitlisted,
+          path: '/settings',
+          requirement: 'account',
+        }),
+      ],
+      expected: [
+        { kind: 'redirect', to: '/beta?next=%2Fplay%3Fx%3D1' },
+        { kind: 'allow' },
+      ],
+    });
+  });
+
   test('an anonymous visitor is sent to sign-in carrying the local path', () => {
     assert({
       given: 'an anonymous request for /lobby',

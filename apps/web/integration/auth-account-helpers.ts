@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { approveBetaAccess } from '@daisy/db/testing';
 import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, withSql, type TestApp } from './fixtures';
@@ -87,20 +88,48 @@ export function createAccountFlows(testApp?: TestApp) {
       }),
     );
 
+  /**
+   * The claim, then the operator's approval (ADR 0075): for suites that need
+   * a member rather than an account waiting on the beta list.
+   */
+  const claimMember = async (cookie: string, body: unknown) => {
+    const response = await claim(cookie, body);
+    if (response.status === 201) {
+      const userId = identityUserId(await identifyAs(cookie));
+      if (userId) await withSql((sql) => approveBetaAccess(sql, userId));
+    }
+    return response;
+  };
+
   const sessionAs = (cookie: string) =>
     resolveSession(
       app.auth(),
       new Headers({ cookie, [CLIENT_IP_HEADER]: newClient() }),
     );
 
-  return { flows, identifyAs, sessionAs, signUp, claim };
+  return { flows, identifyAs, sessionAs, signUp, claim, claimMember };
 }
 
 /** The user id behind a signed-in identity, or null for anyone else. */
 export const identityUserId = (identity: Identity): string | null =>
-  identity.state === 'member' || identity.state === 'provisional'
+  identity.state === 'member' ||
+  identity.state === 'waitlisted' ||
+  identity.state === 'provisional'
     ? identity.principal.userId
     : null;
+
+/**
+ * Approves the account behind `email` for the beta (ADR 0075), as an
+ * operator would, so a suite that needs a member gets one after its claim.
+ */
+export const approveByEmail = (email: string) =>
+  withSql(async (sql) => {
+    const [row] = (await sql`SELECT id FROM users WHERE email = ${email}`) as {
+      id: string;
+    }[];
+    if (!row) throw new Error('No account for that address');
+    await approveBetaAccess(sql, row.id);
+  });
 
 export const uniqueName = () => `u${createId().slice(0, 14)}`;
 

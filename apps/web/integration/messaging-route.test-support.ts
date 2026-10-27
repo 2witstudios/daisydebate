@@ -18,7 +18,7 @@ export async function messagingRouteActors(
     first = await accounts.signUp(),
     second = await accounts.signUp();
   for (const account of [first, second])
-    await accounts.claim(account.cookie, { username: uniqueName() });
+    await accounts.claimMember(account.cookie, { username: uniqueName() });
   const principals = await Promise.all(
     [first, second].map(async (account) => {
       const identity = await accounts.identifyAs(account.cookie);

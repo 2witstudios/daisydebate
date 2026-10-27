@@ -29,6 +29,7 @@ const input = {
       userId: actorId,
       actorId,
       member: true,
+      beta: { state: 'approved' as const, revision: 1 }, ageBand: 'adult' as const,
       erased: false,
       revision: 3,
     },

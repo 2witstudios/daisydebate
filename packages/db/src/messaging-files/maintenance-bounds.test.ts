@@ -66,6 +66,8 @@ test('a crowded channel expires only the globally selected reservation batch', a
   ].map((binding) => ({
     ...binding,
     member: true,
+    betaState: 'approved',
+    betaRevision: 1, ageBand: 'adult',
     erased: false,
     revision: 1,
   }));

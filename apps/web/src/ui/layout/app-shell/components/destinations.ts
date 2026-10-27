@@ -92,7 +92,13 @@ export const profileHref = (username: string): string => `/profile/${username}`;
 /** The way in for anyone who is not yet a member. */
 export const wayIn = (
   account: Exclude<ShellAccount, { readonly state: 'member' }>,
-): { readonly href: string; readonly label: string } =>
-  account.state === 'anonymous'
-    ? { href: '/sign-in', label: 'Sign in' }
-    : { href: '/onboarding/username', label: 'Finish sign-up' };
+): { readonly href: string; readonly label: string } => {
+  switch (account.state) {
+    case 'anonymous':
+      return { href: '/sign-in', label: 'Sign in' };
+    case 'provisional':
+      return { href: '/onboarding/username', label: 'Finish sign-up' };
+    case 'waitlisted':
+      return { href: '/beta', label: 'Beta list' };
+  }
+};

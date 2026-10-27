@@ -22,3 +22,27 @@ export async function removeUnowedBetaDigests(sql: SQL): Promise<void> {
           and b.requested_at >= m.window_start
           and b.requested_at < m.window_start + interval '10 minutes')`;
 }
+
+/**
+ * Test-only (ADR 0075): approves an account that claimed a username, as an
+ * operator would, and gives it an adult age record if it has none, so
+ * fixtures that need a participant get one. Idempotent; the
+ * audit records it as a migration-style test principal. Never call this
+ * from production code: approval belongs to the signed operator API.
+ */
+export async function approveBetaAccess(
+  sql: SQL,
+  userId: string,
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`insert into account_beta_access (user_id, state, revision, requested_at, decided_at, provenance)
+      values (${userId}, 'approved', 1, now(), now(), 'signup')
+      on conflict (user_id) do update set state = 'approved', revision = account_beta_access.revision + 1,
+        decided_at = now()
+      where account_beta_access.state <> 'approved'`;
+    // Participant access also needs a durable age record at the floor (16+).
+    await tx`insert into account_age (user_id, birth_month, version, recorded_at)
+      values (${userId}, '2000-01', 1, now()) on conflict (user_id) do nothing`;
+    await tx`update users set version = version + 1 where id = ${userId}`;
+  });
+}

@@ -1,3 +1,4 @@
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, test } from './support/fixtures';
 import {
   confirmSignIn,
@@ -87,10 +88,12 @@ test('a new claim hides the last refusal while it is pending', async ({
 test('a new member walks onboarding with JavaScript and the answers stay saved', async ({
   page,
 }) => {
-  await signUpProvisional(page.request);
+  const { email } = await signUpProvisional(page.request);
   await page.goto('/onboarding/username?next=%2Flobby');
   await effectsRan(page);
   await claimUsername(page, uniqueName('walker'));
+  // Approved by an operator (ADR 0075), so the finished member reaches /lobby.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   await walkOnboarding(page);
 

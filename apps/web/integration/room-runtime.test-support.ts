@@ -58,6 +58,9 @@ async function fixture(
       actorId = createId();
     await sql`insert into users (id,username,email_verified) values (${userId},${`u-${userId}`},true)`;
     await sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
+    // Room callers are approved beta members (ADR 0075); removing the user cascades.
+    await sql`insert into account_beta_access (user_id,state,requested_at,decided_at,provenance) values (${userId},'approved',now(),now(),'signup')`;
+    await sql`insert into account_age (user_id,birth_month,version,recorded_at) values (${userId},'2000-01',1,now())`;
     const c = { userId, actorId };
     callers.push(c);
     return c;

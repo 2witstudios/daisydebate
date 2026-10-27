@@ -60,6 +60,11 @@ export async function createMessagingTestFixture(client: SQL) {
       "insert into actors(id,kind,user_id) values($1,'human',$2),($3,'human',$4)",
       [actorId, userId, otherActorId, otherUserId],
     );
+    // Both members are approved for the beta (ADR 0075); deleting the users cascades.
+    await client.unsafe(
+      "insert into account_beta_access(user_id,state,requested_at,decided_at,provenance) values($1,'approved',now(),now(),'signup'),($2,'approved',now(),now(),'signup')",
+      [userId, otherUserId],
+    );
     await client.unsafe(
       "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
       [userId, otherUserId, now],

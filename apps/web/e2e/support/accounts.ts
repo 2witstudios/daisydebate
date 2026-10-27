@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 import { hydrated } from './hydration';
 import { enrollFromSettings, signInWithPasskey } from './webauthn';
+import { approveBetaAccounts } from './beta-access';
 
 /**
  * Real accounts for the browser suite. Every step goes through the production
@@ -86,8 +87,18 @@ export async function signUpProvisional(request: APIRequestContext) {
   return { email };
 }
 
-/** Signs the context's browser in as a new member with a claimed username. */
+/**
+ * Signs the context's browser in as a new member with a claimed username,
+ * approved for the beta (ADR 0075) as an operator would.
+ */
 export async function signUpMember(request: APIRequestContext) {
+  const { email, username } = await signUpWaitlisted(request);
+  await approveBetaAccounts(email);
+  return { email, username };
+}
+
+/** A new account with a claimed username, still waiting on the beta list. */
+export async function signUpWaitlisted(request: APIRequestContext) {
   const { email } = await signUpProvisional(request);
   const username = uniqueName('member');
   const claimed = await request.post('/api/account/username', {

@@ -114,7 +114,14 @@ test('Room reader reloads tombstone after waiting for the exclusive writer', asy
         should:
           'wait without upgrading locks and load the committed tombstone rather than pre-wait membership',
         actual: await reader,
-        expected: { ...caller, member: false, erased: true, revision: 2 },
+        expected: {
+          ...caller,
+          member: false,
+          erased: true,
+          revision: 2,
+          beta: { state: 'approved', revision: 1 },
+          ageBand: null,
+        },
       });
     } finally {
       release();

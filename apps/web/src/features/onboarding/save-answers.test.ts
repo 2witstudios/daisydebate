@@ -79,6 +79,24 @@ describe('POST /api/account/onboarding gates', () => {
     });
   });
 
+  test('a waitlisted account onboards while it waits for beta access (ADR 0075)', async () => {
+    const { handler, saved } = handlerWith({
+      identity: {
+        state: 'waitlisted',
+        username: 'ada',
+        reason: 'pending',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const response = await handler(post(about));
+    assert({
+      given: 'a pending account saving an onboarding answer',
+      should: 'accept it and store it against the session account',
+      actual: [response.status < 400, saved.length],
+      expected: [true, 1],
+    });
+  });
+
   test('another origin is refused', async () => {
     const { handler, saved } = handlerWith();
     assert({

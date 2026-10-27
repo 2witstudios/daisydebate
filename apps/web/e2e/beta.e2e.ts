@@ -1,0 +1,30 @@
+import { expect, test } from './support/fixtures';
+import { signUpWaitlisted } from './support/accounts';
+import { approveBetaAccounts } from './support/beta-access';
+
+/**
+ * ADR 0075: a new account finishes sign-up, then waits on the beta list.
+ * Participant pages send it to /beta; its own settings stay open; an
+ * operator's approval lets it in on the very next request.
+ */
+test('a waitlisted account waits on /beta until it is approved', async ({
+  page,
+}) => {
+  const { email, username } = await signUpWaitlisted(page.request);
+
+  await page.goto('/play');
+  await expect(page).toHaveURL(/\/beta\?next=%2Fplay$/);
+  await expect(
+    page.getByRole('heading', { name: `You're on the list, @${username}` }),
+  ).toBeVisible();
+
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/beta\?next=%2F$/);
+
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/settings$/);
+
+  await approveBetaAccounts(email);
+  await page.goto('/beta?next=%2Fplay');
+  await expect(page).toHaveURL(/\/play$/);
+});

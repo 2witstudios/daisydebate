@@ -13,11 +13,31 @@ const principal = {
   actorId: 'a'.repeat(24),
   sessionId: 's'.repeat(24),
 };
-const account = { ...principal, member: true, erased: false, revision: 2 };
+const account = {
+  ...principal,
+  member: true,
+  erased: false,
+  revision: 2,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
+};
+/** The checked fact the session reader returns for that row. */
+const accountFact = {
+  ...principal,
+  member: true,
+  erased: false,
+  revision: 2,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
+};
 const peer = {
   userId: 'v'.repeat(24),
   actorId: 'b'.repeat(24),
   member: true,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
   erased: false,
   revision: 3,
 };
@@ -91,7 +111,7 @@ for (const mode of [
       database: {
         readAuthorizationSession: async () => ({
           ...principal,
-          account,
+          account: accountFact,
           expiresAt: expiry,
         }),
         messagingChannelAuthority: async (

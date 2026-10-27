@@ -14,8 +14,17 @@ const account = {
   userId: caller.userId,
   actorId: caller.actorId,
   member: true,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
   erased: false,
   revision: 3,
+};
+const { betaState: _state, betaRevision: _revision, ...base } = account;
+const accountFact = {
+  ...base,
+  beta: { state: 'approved', revision: 1 },
+  ageBand: 'adult',
 };
 const memberRow = [userId, actorId, 'debater-a', at];
 
@@ -82,7 +91,7 @@ describe('readMemberProfile', () => {
         profile,
       },
       expected: {
-        asked: [[actorId, account]],
+        asked: [[actorId, accountFact]],
         // Not read only: the account fence takes a FOR SHARE lock.
         snapshot: 'set transaction isolation level repeatable read',
         fenced: true,

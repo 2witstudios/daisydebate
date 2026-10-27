@@ -14,9 +14,13 @@ const account = {
   userId: scope.userId,
   actorId: scope.actorId,
   member: true,
+  betaState: 'approved',
+  betaRevision: 1, ageBand: 'adult',
   erased: false,
   revision: 2,
 };
+const { betaState: _state, betaRevision: _revision, ...base } = account;
+const accountFact = { ...base, beta: { state: 'approved', revision: 1 }, ageBand: 'adult' };
 test('clear projects only an existing locked own row and deletes it after the canonical account fence', async () => {
   const { client, queries } = fakeSql([
     [account],
@@ -55,7 +59,7 @@ test('clear projects only an existing locked own row and deletes it after the ca
         [
           scope,
           {
-            accounts: [account],
+            accounts: [accountFact],
             fact: {
               kind: 'channel_preference',
               actorId: scope.actorId,

@@ -36,14 +36,16 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
 };
 
 /**
- * The signed-in member's own onboarding answers, read once for this
- * server-component render; null for anyone who is not a member. The id is
- * the session's, never one the request names.
+ * The signed-in account's own onboarding answers, read once for this
+ * server-component render; null for anyone without a claimed username.
+ * Waitlisted accounts onboard too (ADR 0075). The id is the session's,
+ * never one the request names.
  */
 export const requestOnboardingAnswers = cache(
   async (): Promise<OnboardingAnswers | null> => {
     const identity = await requestIdentity();
-    if (identity.state !== 'member') return null;
+    if (identity.state !== 'member' && identity.state !== 'waitlisted')
+      return null;
     return processApp().database.readOnboarding(identity.principal.userId);
   },
 );

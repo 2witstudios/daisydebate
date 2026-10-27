@@ -31,7 +31,7 @@ export function createRoomHttpFixture() {
     });
   const member = async () => {
     const signed = await account.signUp();
-    const response = await account.claim(signed.cookie, {
+    const response = await account.claimMember(signed.cookie, {
       username: uniqueName(),
     });
     if (response.status !== 201)

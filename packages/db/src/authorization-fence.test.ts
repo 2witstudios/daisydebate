@@ -12,8 +12,17 @@ test('both account loaders use the canonical minimal function with distinct sele
     userId: 'a'.repeat(24),
     actorId: 'b'.repeat(24),
     member: true,
+    betaState: 'approved',
+    betaRevision: 1,
+    ageBand: 'adult',
     erased: false,
     revision: 1,
+  };
+  const { betaState: _state, betaRevision: _revision, ...base } = account;
+  const fact = {
+    ...base,
+    beta: { state: 'approved', revision: 1 },
+    ageBand: 'adult',
   };
   const queries: { sql: string; params: unknown[] }[] = [];
   const dialect = new PgDialect();
@@ -47,7 +56,7 @@ test('both account loaders use the canonical minimal function with distinct sele
       fenced: true,
       read: true,
       params: [[account.actorId], [account.userId]],
-      facts: [account, account],
+      facts: [fact, fact],
     },
   });
 });

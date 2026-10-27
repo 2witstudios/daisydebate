@@ -10,7 +10,7 @@ import { decideAccess, requirementFor } from '../src/features/access/decision';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const { signUp, flows, identifyAs, claim } = createAccountFlows();
+const { signUp, flows, identifyAs, claimMember } = createAccountFlows();
 const { origin, routes, withLoggedEvents } = flows.testApp;
 const { signInAgain, authRoute, newClient } = flows;
 const sessionsRoute = routes.sessions;
@@ -219,7 +219,7 @@ describe('POST /api/account/sessions/revoke from another session', () => {
   test("the revoked cookie's next get-session and /lobby access check are refused once the revoke answers (ISSUE-174)", async () => {
     const { cookie, other, otherId } = await twoSessions();
     // A member, as in the browser journey: /lobby then allows the session.
-    await claim(cookie, { username: uniqueName() });
+    await claimMember(cookie, { username: uniqueName() });
     // The two reads the browser check makes with the revoked session's own
     // cookie: the mounted get-session route without the cookie cache, and
     // the durable identity read behind /lobby's server-side guard.

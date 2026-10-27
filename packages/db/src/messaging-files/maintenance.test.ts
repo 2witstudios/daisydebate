@@ -126,6 +126,8 @@ test('expired reservations fence all discovered owners and reread after account/
     actorId: binding.actorId,
     userId: binding.userId,
     member: true,
+    betaState: 'approved',
+    betaRevision: 1, ageBand: 'adult',
     erased: false,
     revision: 1,
   }));

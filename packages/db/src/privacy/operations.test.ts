@@ -35,6 +35,8 @@ function messagingExportDatabase(
             userId: subject.userId,
             actorId: subject.actorId,
             member: true,
+            betaState: 'approved',
+            betaRevision: 1, ageBand: 'adult',
             erased: false,
             revision: 1,
           },

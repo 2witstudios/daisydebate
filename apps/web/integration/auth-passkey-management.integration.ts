@@ -165,7 +165,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
   test('losing every passkey, recovering by email, dropping the lost credential, revoking other sessions and enrolling a replacement preserves identity and debate history', async () => {
     const { email, cookie: originalCookie } = await signUp();
     const username = uniqueName();
-    await flows.account.claim(originalCookie, { username });
+    await flows.account.claimMember(originalCookie, { username });
     const enrolledLost = await flows.enrollPasskey(originalCookie, {
       name: 'Lost device',
     });
