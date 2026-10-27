@@ -156,6 +156,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         consent: null,
         freeze: true,
         spendsAiRound: false,
+        seatsBotDebater: false,
         publishDefinition: false,
         members: [state.hostActorId],
       },

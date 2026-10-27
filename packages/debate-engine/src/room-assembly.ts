@@ -99,6 +99,7 @@ export function executeRoomCommand(
     consent: consentEffect,
     freeze,
     spendsAiRound,
+    seatsBotDebater,
     publishDefinition,
   } = outcome.mutation;
   if (edit)
@@ -119,6 +120,7 @@ export function executeRoomCommand(
       consent: consentEffect,
       freeze,
       spendsAiRound,
+      seatsBotDebater,
       publishDefinition,
       members: activeRoomMembers(next),
     },

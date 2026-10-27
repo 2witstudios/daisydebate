@@ -75,8 +75,12 @@ export function admissionRefusal(
 ): (typeof botAdmissionRefusals)[number] | null {
   if (limit === null) return 'not-eligible';
   if (facts.spent >= limit) return 'allowance';
-  return facts.busy >= busyCap ? 'capacity' : null;
+  return capacityRefusal(facts.busy, busyCap);
 }
+
+/** Global live bot-debater capacity, the only check a ranked bot Round takes. */
+export const capacityRefusal = (busy: number, busyCap: number) =>
+  busy >= busyCap ? ('capacity' as const) : null;
 
 /** DEC-183: the allowance period is the exact UTC calendar month holding `now`. */
 export function utcMonth(now: Date) {

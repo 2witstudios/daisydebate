@@ -204,9 +204,12 @@ async function reserveBotFreeze(
   admission: RoundBotAdmission | undefined,
 ) {
   const state = mutation.state;
-  // The pure engine decides whether this cast spends an AI round (DEC-186).
-  if (!mutation.freeze || !mutation.spendsAiRound) return;
+  // The pure engine decides whether this cast takes a bot-debater capacity
+  // slot and whether it also spends an AI round (DEC-186, ADR 0058).
+  if (!mutation.freeze || !mutation.seatsBotDebater) return;
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
-  await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  if (mutation.spendsAiRound)
+    await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  else await admission.admitCapacityLocked(tx, roundId);
 }

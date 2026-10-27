@@ -220,8 +220,10 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   judges still rule by the ordinary deadline, and AI seats on such a Round
   record no ruling; once every human judge has ruled decisively the Round
   completes without waiting out the deadline.
-- **AI practice capacity is held only while a practice plays (DEC-211).** Only
-  scheduled and active status consumes global capacity. A Round gives its slot
+- **Bot-debater capacity is held only while the Round plays (DEC-211).** Only
+  a scheduled or active Round seating a bot debater, ranked or not, consumes
+  global capacity; it is counted from seats, never from allowance
+  reservations (ISSUE-773). A Round gives its slot
   back when it reaches a terminal state through the shared terminal projection
   path (attendance adjudication, the ballot deadline, forfeit or abandonment);
   there is no time-based reclamation, and a Round whose bot worker is lost still

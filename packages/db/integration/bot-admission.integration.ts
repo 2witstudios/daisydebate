@@ -9,6 +9,7 @@ import {
   betaAllowance,
   testBotAdmission,
 } from './bot-admission.test-support';
+import { createBotSeat } from './bot-seat.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -143,6 +144,7 @@ test('actual global capacity fails closed', async () => {
     const actorId = await admissionSponsor(fixture, [firstRound]);
     const otherActor = await admissionSponsor(fixture, [secondRound]);
     const admission = testBotAdmission(run, 1);
+    await createBotSeat(fixture, firstRound, 'negative');
     await admission.reserve({ actorId, roundId: firstRound });
     await assertRejects({
       given:
@@ -169,6 +171,43 @@ test('actual global capacity fails closed', async () => {
         }
       }),
       expected: true,
+    });
+  });
+});
+
+test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', async () => {
+  await withBoundedRound(async (fixture, run, firstRound) => {
+    const judged = await fixture.round();
+    const finished = await fixture.round();
+    const unseated = await fixture.round();
+    const refused = await fixture.round();
+    const actorId = await admissionSponsor(fixture, [firstRound, refused]);
+    await createBotSeat(fixture, judged, 'judge');
+    await createBotSeat(fixture, finished, 'negative');
+    await fixture.sql`update rounds set status='completed',started_at=${new Date('2026-10-22T10:00:00.000Z')},completed_at=${new Date('2026-10-22T10:01:00.000Z')},current_stage=null,outcome=null where id=${finished}`;
+    const admission = testBotAdmission(run, 1);
+    const admitted = await admission.reserve({ actorId, roundId: firstRound });
+    assert({
+      given:
+        'a cap of 1, a live Round whose only bot judges and a completed bot-debater Round',
+      should: 'admit: an AI judge and a finished Round take no slot',
+      actual: admitted.roundId,
+      expected: firstRound,
+    });
+    await createBotSeat(fixture, unseated, 'affirmative');
+    await assertRejects({
+      given:
+        'a live bot-debater Round holding no reservation, as ranked play leaves it, at a cap of 1',
+      should: 'refuse the next AI Round for capacity',
+      actual: () => admission.reserve({ actorId, roundId: refused }),
+      code: 'CONFLICT',
+    });
+    const status = await admission.readStatus(actorId);
+    assert({
+      given: 'that live bot-debater Round and one spent AI Round',
+      should: 'refuse for capacity while the allowance still has room',
+      actual: [status.refusal, status.remaining],
+      expected: ['capacity', 19],
     });
   });
 });
