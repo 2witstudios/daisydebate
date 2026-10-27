@@ -561,6 +561,24 @@ no work, so the pool and real users outside that network are unaffected.
    raise the limit in `MAGIC_LINK_NETWORK_RULES` and ADR 0025, keeping one
    network far below the pool edge.
 
+## Public profile read budget
+
+The server-rendered `/profile/[username]` path calls `readProfile` in
+process, so API route limits do not protect it. Before its profile queries,
+the feature consumes the shared Redis limiter: 60 reads per 60 seconds per
+ingress-stamped client hash and 600 per 60 seconds globally. Names and
+history cursors share these budgets. An absent stamped identity shares the
+`unknown` client bucket. The global ceiling also bounds distributed reads.
+Limiter denial refuses the render with `RATE_LIMIT`; an outage or malformed
+answer fails closed with `INFRASTRUCTURE` before profile PostgreSQL access.
+These are server-render errors under the existing error boundary, not a new
+wire endpoint. Request-session resolution retains its own existing behavior.
+
+Keys pass through the existing SHA3-256 rate-limiter adapter, contain no
+username or cursor, and expire with the 60-second window. The client hash
+is the existing ingress-generated keyed pseudonym (never the raw address),
+private and used only for abuse control. No new telemetry is emitted.
+
 ## Configuring global sign-up mail capacity
 
 `AUTH_SIGN_UP_MAIL_CEILINGS` is optional deployment JSON. Absence preserves

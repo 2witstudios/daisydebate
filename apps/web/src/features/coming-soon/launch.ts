@@ -19,6 +19,16 @@ export const launched: LaunchConfig = {
   prep: false,
 };
 
+/** A member's own places that wait on a real backend, like the destinations. */
+export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
+
+/**
+ * Which of a member's own places are open. Notifications read sample data
+ * until stored notifications ship (ISSUE-634); flip it then, and the rail
+ * and the phone's More sheet list it again.
+ */
+export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
+
 /** The live route of a destination. */
 export const liveHref = (slug: DestinationSlug): string => `/${slug}`;
 

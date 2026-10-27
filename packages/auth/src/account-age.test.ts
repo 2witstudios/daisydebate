@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { accountAgeFact } from './account-age';
+import { accountAgeFact, admitsOptionalAnswers } from './account-age';
 setupRitewayBun();
 const source = {
   birthMonth: '2010-10',
@@ -10,6 +10,8 @@ const account = {
   userId: 'u',
   actorId: 'a',
   member: true,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
   erased: false,
   revision: 3,
 };
@@ -56,6 +58,36 @@ describe('account age facts', () => {
           }).state,
         ),
       expected: Array(5).fill('unknown'),
+    });
+  });
+});
+
+describe('admitsOptionalAnswers', () => {
+  const now = '2026-10-15T00:00:00.000Z';
+  const known = (band: 'under-13' | '13-15' | '16-17' | 'adult') => ({
+    state: 'known' as const,
+    actorId: 'a',
+    band,
+    revision: 2,
+    accountRevision: 3,
+    validUntil: '2026-11-01T00:00:00.000Z',
+  });
+  test('only a current, known age of 16 or over admits optional answers', () => {
+    assert({
+      given:
+        'adult, 16-17, 13-15, under-13, unknown, another actor’s fact, and an expired fact',
+      should: 'admit only the current 16+ facts bound to this actor',
+      actual: [
+        admitsOptionalAnswers(known('adult'), 'a', now),
+        admitsOptionalAnswers(known('16-17'), 'a', now),
+        admitsOptionalAnswers(known('13-15'), 'a', now),
+        admitsOptionalAnswers(known('under-13'), 'a', now),
+        admitsOptionalAnswers({ state: 'unknown' }, 'a', now),
+        admitsOptionalAnswers(known('adult'), 'b', now),
+        admitsOptionalAnswers(known('adult'), 'a', '2026-11-01T00:00:00.000Z'),
+        admitsOptionalAnswers(known('adult'), 'a', 'not a time'),
+      ],
+      expected: [true, true, false, false, false, false, false, false],
     });
   });
 });

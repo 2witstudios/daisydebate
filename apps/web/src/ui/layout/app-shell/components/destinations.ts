@@ -1,5 +1,9 @@
 import type { DestinationSlug } from '../../../../features/coming-soon/destinations';
-import { launched } from '../../../../features/coming-soon/launch';
+import {
+  launched,
+  launchedPlaces,
+  type PlaceLaunchConfig,
+} from '../../../../features/coming-soon/launch';
 import type { IconName } from '../../../components/icon/icon';
 import type { ShellAccount } from '../account';
 
@@ -82,6 +86,20 @@ export const memberDestinations = {
   friends: { href: '/friends', icon: 'users', label: 'Friends' },
 } as const satisfies Readonly<Record<string, Destination>>;
 
+const notifications = {
+  href: '/notifications',
+  icon: 'bell',
+  label: 'Notifications',
+} as const satisfies Destination;
+
+/**
+ * Notifications, once its launch flag is set; until then the nav leaves it
+ * out rather than linking a page of sample data.
+ */
+export const notificationsDestination = (
+  config: PlaceLaunchConfig = launchedPlaces,
+): typeof notifications | null => (config.notifications ? notifications : null);
+
 /** The accessible name of the Friends link, with the count in it. */
 export const friendsLabel = (online: number): string =>
   `Friends, ${online} online`;
@@ -92,7 +110,13 @@ export const profileHref = (username: string): string => `/profile/${username}`;
 /** The way in for anyone who is not yet a member. */
 export const wayIn = (
   account: Exclude<ShellAccount, { readonly state: 'member' }>,
-): { readonly href: string; readonly label: string } =>
-  account.state === 'anonymous'
-    ? { href: '/sign-in', label: 'Sign in' }
-    : { href: '/onboarding/username', label: 'Finish sign-up' };
+): { readonly href: string; readonly label: string } => {
+  switch (account.state) {
+    case 'anonymous':
+      return { href: '/sign-in', label: 'Sign in' };
+    case 'provisional':
+      return { href: '/onboarding/username', label: 'Finish sign-up' };
+    case 'waitlisted':
+      return { href: '/beta', label: 'Beta list' };
+  }
+};

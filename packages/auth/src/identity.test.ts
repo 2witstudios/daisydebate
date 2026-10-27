@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { BetaAccessState } from '@daisy/protocol';
 import { resolveIdentity, type VerifiedSession } from './identity';
 
 setupRitewayBun();
@@ -13,11 +14,17 @@ const session = (
   expiresAt: '2026-01-02T00:00:00.000Z',
   ...overrides,
 });
-const resolveWith = (found: VerifiedSession | null, cookie = 'c=1') =>
+const resolveWith = (
+  found: VerifiedSession | null,
+  cookie = 'c=1',
+  beta: BetaAccessState | null = 'approved',
+  ageBand: 'adult' | '16-17' | null = 'adult',
+) =>
   resolveIdentity({
     cookie,
     readSession: async () => found,
     readActor: async (userId) => ({ id: 'actor1', userId }),
+    readParticipation: async () => ({ betaState: beta, ageBand }),
     now,
   });
 
@@ -36,6 +43,58 @@ describe('resolveIdentity', () => {
           actorId: 'actor1',
         },
       },
+    });
+  });
+
+  test('a claimed account without approved beta access is waitlisted (ADR 0075)', async () => {
+    const waitlisted = (reason: string) => ({
+      state: 'waitlisted',
+      username: 'ada',
+      reason,
+      principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+    });
+    assert({
+      given:
+        'pending, revoked and missing beta access, approval or pending without an age record, and an approved 16-17 account',
+      should:
+        'wait with its reason until it is approved with an age record at the 16+ floor',
+      actual: [
+        await resolveWith(session(), 'c=1', 'pending'),
+        await resolveWith(session(), 'c=1', 'revoked'),
+        await resolveWith(session(), 'c=1', null),
+        await resolveWith(session(), 'c=1', 'approved', null),
+        await resolveWith(session(), 'c=1', 'pending', null),
+        await resolveWith(session(), 'c=1', 'approved', '16-17'),
+      ],
+      expected: [
+        waitlisted('pending'),
+        waitlisted('revoked'),
+        waitlisted('pending'),
+        waitlisted('age-required'),
+        waitlisted('age-required'),
+        {
+          state: 'member',
+          username: 'ada',
+          principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+        },
+      ],
+    });
+  });
+
+  test('an unreadable beta access state fails closed', async () => {
+    assert({
+      given: 'a beta access store that throws',
+      should: 'resolve unavailable, never a member',
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async (userId) => ({ id: 'actor1', userId }),
+        readParticipation: async () => {
+          throw new Error('database down');
+        },
+        now,
+      }),
+      expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
 
@@ -59,6 +118,10 @@ describe('resolveIdentity', () => {
         cookie: 'c=1',
         readSession: async () => session(),
         readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
+        }),
         now,
       }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
@@ -83,6 +146,10 @@ describe('resolveIdentity', () => {
     let looked = false;
     const result = await resolveIdentity({
       readActor: async (userId) => ({ id: 'actor1', userId }),
+      readParticipation: async () => ({
+        betaState: 'approved',
+        ageBand: 'adult',
+      }),
       cookie: null,
       readSession: async () => {
         looked = true;
@@ -101,6 +168,10 @@ describe('resolveIdentity', () => {
   test('a failing lookup resolves unavailable with no permissions, never a guess', async () => {
     const result = await resolveIdentity({
       readActor: async (userId) => ({ id: 'actor1', userId }),
+      readParticipation: async () => ({
+        betaState: 'approved',
+        ageBand: 'adult',
+      }),
       cookie: 'c=1',
       readSession: async () => {
         throw new Error('database down');
@@ -140,6 +211,10 @@ describe('resolveIdentity', () => {
         readActor: async () => {
           throw new Error('private store failure');
         },
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
+        }),
         now,
       }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },

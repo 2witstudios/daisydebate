@@ -1,0 +1,108 @@
+name: TypeScript native comparison
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/typecheck-benchmark.yml'
+      - 'scripts/typecheck-benchmark*'
+permissions:
+  contents: read
+concurrency:
+  group: typecheck-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  compare:
+    name: TypeScript compiler comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      PUBLIC_APP_URL: https://ci.example.invalid
+      APP_VERSION: benchmark
+      GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile
+      # Isolated spike dependency, never changes the workspace's compiler/API.
+      - name: Install the pinned preview outside the workspace
+        run: |
+          mkdir -p "$RUNNER_TEMP/tsgo"
+          cd "$RUNNER_TEMP/tsgo"
+          printf '{"name":"tsgo-spike","private":true}\n' > package.json
+          bun add --exact @typescript/native-preview@7.0.0-dev.20260707.2
+      - name: Record toolchain and machine
+        run: |
+          mkdir -p "$RUNNER_TEMP/typecheck-results"
+          { git rev-parse HEAD; uname -a; lscpu; bun --version; node --version; node_modules/.bin/tsc --version; node_modules/.bin/tsgo --version; "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo" --version; } > "$RUNNER_TEMP/typecheck-results/environment.txt"
+      - name: Generate Next route types with the retained toolchain
+        working-directory: apps/web
+        run: bunx --no-install next typegen
+      - name: Generate the admin app's Next route types
+        working-directory: apps/admin
+        run: bunx --no-install next typegen
+      - name: Measure every workspace config and negative controls
+        run: bun scripts/typecheck-benchmark.ts "$RUNNER_TEMP/typecheck-results" "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo"
+      - name: Prove the retained TypeScript API supports typed ESLint
+        run: |
+          bun --eval '
+          import { ESLint } from "eslint";
+          import tseslint from "typescript-eslint";
+          import ts from "typescript";
+          import { rm } from "node:fs/promises";
+          const file = "apps/web/src/__typed_benchmark.ts";
+          const source = "Promise.resolve(1);\n";
+          await Bun.write(file, source);
+          try {
+            const lint = new ESLint({ overrideConfigFile: true, overrideConfig: [{
+              files: ["**/*.ts"], languageOptions: { parser: tseslint.parser, parserOptions: { project: "apps/web/tsconfig.json", tsconfigRootDir: process.cwd() } },
+              plugins: { "@typescript-eslint": tseslint.plugin }, rules: { "@typescript-eslint/no-floating-promises": "error" }
+            }] });
+            const results = await lint.lintFiles([file]);
+            const messages = results.flatMap(r => r.messages);
+            if (ts.version !== "6.0.3" || messages.length !== 1 || messages[0].ruleId !== "@typescript-eslint/no-floating-promises") throw new Error("Retained compiler API control failed");
+            console.log("TypeScript", ts.version, "typed ESLint negative control PASS", messages[0].ruleId);
+          } finally { await rm(file); }
+          '
+      - name: Prove the retained Next editor plugin rejects server-only misuse
+        working-directory: apps/web
+        run: |
+          bun --eval '
+          import ts from "typescript";
+          import { createTSPlugin } from "next/dist/server/typescript";
+          import { resolve } from "node:path";
+          import { rm } from "node:fs/promises";
+          const file = resolve("src/app/__benchmark/page.ts");
+          await Bun.write(file, "import { useState } from \"react\"; export default function Page() { return null; }\n");
+          try {
+            const options = { strict: true, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, types: [], skipLibCheck: true };
+            const host = { ...ts.sys, useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames, getScriptFileNames: () => [file], getScriptVersion: () => "1", getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath, getScriptSnapshot: path => { const text = ts.sys.readFile(path); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); } };
+            const languageService = ts.createLanguageService(host);
+            const plugin = createTSPlugin({ typescript: ts }).create({ languageService, languageServiceHost: host, config: { name: "next" }, project: { getCurrentDirectory: process.cwd, projectService: { logger: { info() {} } } } });
+            const errors = plugin.getSemanticDiagnostics(file);
+            if (!errors.some(d => d.code === 71001 && String(d.messageText).includes("useState"))) throw new Error("Next plugin negative control failed");
+            console.log("Next editor plugin with TS", ts.version, "negative control PASS");
+            languageService.dispose();
+          } finally { await rm(resolve("src/app/__benchmark"), { recursive: true }); }
+          '
+      - name: Measure the actual uncached Turbo typecheck graph
+        shell: bash
+        run: |
+          /usr/bin/time -f '%e\t%M\t%x' -o "$RUNNER_TEMP/typecheck-results/turbo.time" bun run typecheck --force 2>&1 | tee "$RUNNER_TEMP/typecheck-results/turbo.log"
+          printf '\nActual Turbo graph: elapsed seconds, maximum child RSS KiB, exit status\n' >> "$RUNNER_TEMP/typecheck-results/summary.md"
+          cat "$RUNNER_TEMP/typecheck-results/turbo.time" >> "$RUNNER_TEMP/typecheck-results/summary.md"
+      - name: Publish comparison summary
+        if: always()
+        run: cat "$RUNNER_TEMP/typecheck-results/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: typecheck-comparison
+          path: ${{ runner.temp }}/typecheck-results
+          retention-days: 30
+          if-no-files-found: error

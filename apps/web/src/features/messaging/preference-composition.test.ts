@@ -20,6 +20,8 @@ const principal: AuthorizationPrincipal = {
 const account: AccountAuthorizationFact = {
   ...input,
   member: true,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
   erased: false,
   revision: 2,
 };

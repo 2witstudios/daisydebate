@@ -4,14 +4,8 @@ import './zod-jitless';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import { systemClock, systemId } from '@daisy/clock';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/rooms/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
@@ -29,21 +23,7 @@ import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
-
-const nowMs = () => Date.parse(systemClock.now());
-
-/**
- * The browser's clock, read once a second: the clock edge of the live room.
- * It starts from the server's render instant so hydration matches.
- */
-function useSecond(renderedAtMs: number): number {
-  const [now, setNow] = useState(renderedAtMs);
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(nowMs()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return now;
-}
+import { useSecond } from './use-second';
 
 /**
  * The mounted round room: the position derived each second from the

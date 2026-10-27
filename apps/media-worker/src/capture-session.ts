@@ -24,7 +24,8 @@ import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
-import { atStage, tagCaptureFailure } from './capture-exit';
+import { atStage } from './capture-exit';
+import { maintainCaptureLease } from './capture-lease';
 import { issueCaptureToken } from './capture-token';
 type Dependencies = {
   readonly roundId: string;
@@ -44,6 +45,46 @@ export async function runCaptureSession(
 ) {
   const stop = new AbortController(),
     signal = AbortSignal.any([caller, stop.signal]);
+  const lease = await atStage('lease', input.client.lease(15000, signal));
+  const outcome = createSessionOutcome({ caller, stop, client: input.client });
+  const renewalStop = new AbortController();
+  const renewing = maintainCaptureLease({
+    epoch: lease.epoch,
+    signal: renewalStop.signal,
+    lease: (ttl, heartbeat) => input.client.lease(ttl, heartbeat),
+    nowMs: input.nowMs,
+    waitUntilMs: input.waitUntilMs,
+  }).catch((error) => {
+    if (!renewalStop.signal.aborted) {
+      outcome.record('renewal', error);
+      stop.abort();
+    }
+  });
+  try {
+    return await captureSession(
+      input,
+      caller,
+      stop,
+      signal,
+      lease.epoch,
+      outcome,
+    );
+  } catch (error) {
+    throw outcome.failure() ?? error;
+  } finally {
+    renewalStop.abort();
+    await renewing;
+  }
+}
+
+async function captureSession(
+  input: Dependencies,
+  caller: AbortSignal,
+  stop: AbortController,
+  signal: AbortSignal,
+  epoch: number,
+  outcome: ReturnType<typeof createSessionOutcome>,
+) {
   const stats = {
     stagedFrames: 0,
     droppedFrames: 0,
@@ -55,13 +96,10 @@ export async function runCaptureSession(
   const dropped = (n: number) => {
     stats.droppedFrames += n;
   };
-  const lease = await atStage('lease', input.client.lease(15000, signal)),
-    epoch = lease.epoch;
   let current = await atStage(
-      'history',
-      readCaptureHistory(input.client, epoch, signal),
-    ),
-    nextRenewal = input.nowMs() + 5000;
+    'history',
+    readCaptureHistory(input.client, epoch, signal),
+  );
   const token = await issueCaptureToken(input.client, epoch, signal);
   const staging = createCaptureStaging({
     current: () => current,
@@ -107,7 +145,6 @@ export async function runCaptureSession(
       },
     }),
   );
-  const outcome = createSessionOutcome({ caller, stop, client: input.client });
   outcome.watch(capture.closed);
   // The consumer outlives the batch loop on a graceful stop, to drain (VIDEO-4.1-r12).
   const halt = new AbortController();
@@ -151,18 +188,6 @@ export async function runCaptureSession(
   try {
     while (!signal.aborted) {
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
-      if (input.nowMs() >= nextRenewal) {
-        const renewed = await atStage(
-          'renewal',
-          input.client.lease(15000, signal),
-        );
-        if (renewed.epoch !== epoch)
-          throw tagCaptureFailure(
-            'renewal',
-            createAppError('CONFLICT', 'Capture epoch changed'),
-          );
-        nextRenewal = input.nowMs() + 5000;
-      }
       current = await atStage(
         'refresh',
         readCaptureHistory(input.client, epoch, signal),

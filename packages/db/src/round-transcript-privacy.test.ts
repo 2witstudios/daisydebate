@@ -1,6 +1,6 @@
 import { getTableColumns } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { validatePrivacyAdoption } from './privacy/declarations';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
 import { roundTranscriptPrivacyAdopter } from './round-transcript-privacy';
 import { roundFeedback } from './schema/round-feedback';
 import { roundJudgingJobs } from './schema/round-judging-jobs';

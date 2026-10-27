@@ -13,7 +13,7 @@ import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<
   Identity,
-  { state: 'provisional' | 'member' }
+  { state: 'provisional' | 'waitlisted' | 'member' }
 >;
 
 /**

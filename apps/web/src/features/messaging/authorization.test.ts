@@ -11,11 +11,21 @@ const channelId = 'c'.repeat(24);
 const userId = 'u'.repeat(24);
 const now = '2026-10-09T18:00:00.000Z';
 const socialAccounts = [
-  { userId, actorId, member: true, erased: false, revision: 1 },
+  {
+    userId,
+    actorId,
+    member: true,
+    erased: false,
+    revision: 1,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
+  },
   {
     userId: 'v'.repeat(24),
     actorId: otherId,
     member: true,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
     erased: false,
     revision: 1,
   },
@@ -66,7 +76,15 @@ const input: AuthorizationInput = {
   context: {
     now,
     socialAccounts,
-    account: { userId, actorId, member: true, erased: false, revision: 1 },
+    account: {
+      userId,
+      actorId,
+      member: true,
+      erased: false,
+      revision: 1,
+      beta: { state: 'approved' as const, revision: 1 },
+      ageBand: 'adult' as const,
+    },
     socialReading: policy,
     socialPosting: policy,
   },

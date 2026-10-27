@@ -29,19 +29,26 @@ export function channelReactionFrame(
 ) {
   const schemas = createMessagingReactionSchemas(policy);
   let changeVersion = initialVersion;
+  /**
+   * A removal is a withdrawal (ADR 0075): it answers with the remover's own
+   * footprint only, never the aggregates, so it reads nobody else's
+   * reactions and needs no read authority.
+   */
   const result = async (
     command: Pick<MessagingReactionCommand, 'messageId'>,
     replayed: boolean,
     available: boolean,
+    withdrawal = false,
   ) => {
-    const rows = available
-      ? await tx.execute(sql`
+    const rows =
+      available && !withdrawal
+        ? await tx.execute(sql`
       select reaction, count(*)::text as count, bool_or(actor_id=${scope.actorId}) as own
       from messaging_reactions where channel_id=${scope.channelId} and message_id=${command.messageId}
       group by reaction order by reaction
     `)
-      : [];
-    await authorize('read');
+        : [];
+    if (!withdrawal) await authorize('read');
     const parsed = schemas.result.safeParse({
       version: 1,
       channelId: scope.channelId,
@@ -84,7 +91,7 @@ export function channelReactionFrame(
       );
       if (receipt) {
         requireReceipt(receipt, command, payloadDigest);
-        return result(command, true, available);
+        return result(command, true, available, !command.active);
       }
       if (!command.active && !own) throw createAppError('NOT_FOUND');
       await authorize(command.active ? 'add' : 'remove', own ?? undefined);
@@ -114,7 +121,7 @@ export function channelReactionFrame(
           },
         });
       if (command.active) await authorize('add');
-      return result(command, false, available);
+      return result(command, false, available, !command.active);
     },
   };
 }
@@ -205,7 +212,9 @@ async function readReactionState(
   command: MessagingReactionCommand,
   authorize: Guard,
 ) {
-  await authorize(command.active ? 'add' : 'read');
+  // A removal discovers nothing before its own association: the removal
+  // check itself needs that association, and a non-member never has one.
+  if (command.active) await authorize('add');
   const [message] = await tx.execute(sql`
     select id, channel_id as "channelId", text is not null and removed_at is null as available
     from messaging_messages where id=${command.messageId} and channel_id=${scope.channelId} for update

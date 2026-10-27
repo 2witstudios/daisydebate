@@ -153,7 +153,7 @@ describe('confirm destinations never return to sign-in, auth or api routes (ISSU
       },
       expected: {
         callbackURL: '/lobby',
-        newUserCallbackURL: '/onboarding/username',
+        newUserCallbackURL: '/onboarding/age',
       },
     });
   });

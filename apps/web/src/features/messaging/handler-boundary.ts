@@ -52,6 +52,12 @@ export function messagingActorHandlerPort(
   };
 }
 /** Message and social handlers use the same injected participant boundary. */
+/** An identity whose principal the evaluator decides for: members and the waitlisted. */
+export const evaluatedIdentity = (
+  identity: Identity,
+): identity is Extract<Identity, { state: 'member' | 'waitlisted' }> =>
+  identity.state === 'member' || identity.state === 'waitlisted';
+
 export function runMessagingHandler(
   boundary: Boundary,
   request: Request,
@@ -71,7 +77,9 @@ export function runMessagingHandler(
     if (input.readOnly) requireSameOriginRead(request, boundary.origin());
     else requireSameOrigin(request, boundary.origin());
     const identity = requireSignedIn(await boundary.identify(request));
-    if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
+    // A waitlisted account reaches the evaluator, the sole decision: it
+    // keeps only its withdrawals there (ADR 0075).
+    if (!evaluatedIdentity(identity)) throw createAppError('AUTHORIZATION');
     const value = await input.operation(
       await input.readInput(),
       identity.principal,

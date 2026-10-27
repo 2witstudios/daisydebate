@@ -11,25 +11,54 @@ const coaching = {
 };
 const claim = { token: 't', attempt: 1, model: 'judge-model', round, frozen };
 
-const harness = (answer: string, claimed: typeof claim | null = claim) => {
+const harness = (
+  answer: string,
+  claimed: typeof claim | null = claim,
+  betaGrantsPremium = true,
+) => {
   const calls: unknown[] = [];
   const operations = createRoundCoachingOperations({
+    betaGrantsPremium,
     store: {
       claimRoundFeedbackJob: async (roundId, decide) => {
-        calls.push([
-          'claim',
-          roundId,
+        const decision =
           // The policy decides on facts the store reads under its lock.
-          decide({
-            status: 'completed',
-            completedAt: '2026-10-26T12:00:00.000Z',
-            frozen: true,
-            lines: 1,
-            aiBallots: [],
-            pass: null,
-          }),
-        ]);
-        return claimed as never;
+          decide(
+            {
+              status: 'completed',
+              completedAt: '2026-10-26T12:00:00.000Z',
+              frozen: true,
+              lines: 1,
+              aiBallots: [],
+              pass: null,
+            },
+            {
+              round: {
+                kind: 'round',
+                roundId: 'round',
+                createdByActorId: 'actor',
+                status: 'completed',
+                visibility: 'public',
+                revision: 1,
+                participants: [
+                  { actorId: 'actor', role: 'affirmative', slot: 0 },
+                ],
+              },
+              accounts: [
+                {
+                  userId: 'user',
+                  actorId: 'actor',
+                  member: true,
+                  erased: false,
+                  revision: 1,
+                  beta: { state: 'approved', revision: 1 },
+                  ageBand: 'adult',
+                },
+              ],
+            },
+          );
+        calls.push(['claim', roundId, decision]);
+        return (decision === 'claim' ? claimed : null) as never;
       },
       recordRoundFeedbackUsage: async (...args) => {
         calls.push(['usage', ...args]);
@@ -109,5 +138,16 @@ test('a cancelled claim buys nothing', async () => {
     should: 'claim nothing and make no provider call',
     actual: calls,
     expected: [],
+  });
+});
+
+test('a round without coaching premium never spends a provider call', async () => {
+  const { calls, operations } = harness(JSON.stringify(coaching), claim, false);
+  await operations.coach('round', new AbortController().signal);
+  assert({
+    given: 'approved beta facts with the premium grant disabled',
+    should: 'skip the claim and make no paid call',
+    actual: calls,
+    expected: [['claim', 'round', 'skip']],
   });
 });

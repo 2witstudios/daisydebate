@@ -24,7 +24,9 @@ const flows = await createPasskeyFlows();
 const { signUp, identifyAs } = flows.account;
 
 const userIdOf = (identity: Identity): string =>
-  identity.state === 'member' || identity.state === 'provisional'
+  identity.state === 'member' ||
+  identity.state === 'waitlisted' ||
+  identity.state === 'provisional'
     ? identity.principal.userId
     : (() => {
         throw new Error('expected an authenticated identity');

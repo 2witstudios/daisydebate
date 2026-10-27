@@ -9,6 +9,7 @@ import { createSubscriptionRegistry } from './registry';
 import type { SocketPrincipal } from './registry';
 import { createAdmission } from './admission';
 import { isAppError } from '@daisy/errors';
+import { liveParticipantSession } from './participant-session';
 import { boundedAuthorityCheck } from './authority-check';
 import type { IntervalTimers } from './outbox-drain';
 
@@ -90,10 +91,8 @@ export function createRealtimeDelivery({
         sessionId: binding.sessionId,
         now: resources.clock.now(),
       });
-      if (
-        !session ||
-        Date.parse(session.expiresAt) <= Date.parse(resources.clock.now())
-      )
+      // ADR 0075: a ticket redeems only for a participant (approved, 16+).
+      if (!session || !liveParticipantSession(session, resources.clock.now()))
         return null;
       return {
         actorId: session.actorId,

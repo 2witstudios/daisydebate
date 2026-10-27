@@ -6,7 +6,10 @@ import {
   loadAuthorizationAccount,
 } from '../src/authorization';
 import { withFixture, sqlStateOf } from './constraint-helpers';
-import { createAuthorizationSubject } from './authorization.test-support';
+import {
+  createAuthorizationSubject,
+  subjectFact,
+} from './authorization.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 test('realtime uses minimal account facts and the erasure fence without raw profile or update privileges', async () => {
@@ -23,9 +26,7 @@ test('realtime uses minimal account facts and the erasure fence without raw prof
         given: 'a read-only realtime role with a shadowing temp table',
         should: 'return only the true current minimal account projection',
         actual: facts,
-        expected: [
-          { userId, actorId, member: true, erased: false, revision: 1 },
-        ],
+        expected: [subjectFact({ userId, actorId })],
       });
       assert({
         given: 'a concurrent erasure writer after realtime fences the account',
@@ -81,7 +82,10 @@ test('realtime uses minimal account facts and the erasure fence without raw prof
         given: 'erasure committed before the fresh role read',
         should: 'return current tombstone state without membership',
         actual: await loadAuthorizationAccount(drizzle({ client }), userId),
-        expected: { userId, actorId, member: false, erased: true, revision: 2 },
+        expected: subjectFact(
+          { userId, actorId },
+          { member: false, erased: true, revision: 2, ageBand: null },
+        ),
       });
     });
   });

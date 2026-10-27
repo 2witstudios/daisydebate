@@ -19,6 +19,7 @@ import {
   type BallotDebaters,
 } from '../../../features/judge/ballot';
 import { formValues } from '../../../features/mock-form/form';
+import { formatClock } from '../../../features/debate-room/clock';
 import {
   ballotHeadingClass,
   ballotSectionClass,
@@ -37,6 +38,7 @@ const textareaClass =
 const checkClass = 'size-5 shrink-0 accent-accent';
 /** The refusal takes focus once it renders, so a keyboard user lands on it. */
 const REFUSAL_ID = 'ballot-refusal';
+const OPENS_ID = 'ballot-opens-in';
 
 const readSide = (value: string | undefined): Side | null =>
   debateSides.find((side) => side === value) ?? null;
@@ -71,12 +73,15 @@ export function BallotFields({
   error,
   pending,
   errorId = REFUSAL_ID,
+  opensInMs = null,
 }: {
   readonly debaters: BallotDebaters;
   readonly values: Readonly<Record<string, string>>;
   readonly error: string | undefined;
   readonly pending: boolean;
   readonly errorId?: string;
+  /** While attendance settles, Submit waits, but only with script: a native post always submits. */
+  readonly opensInMs?: number | null;
 }) {
   const live = useSyncExternalStore(
     noSubscription,
@@ -193,27 +198,56 @@ export function BallotFields({
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <button
-          type="submit"
-          disabled={pending}
-          className={buttonClass('primary')}
-        >
-          {pending ? 'Submitting…' : 'Submit ballot'}
-        </button>
-        {live ? (
-          <p className="text-base text-ink-muted">
-            {winner === null ? (
-              'No winner picked'
-            ) : (
-              <>
-                Your vote:{' '}
-                <span className="font-strong text-ink">{`${debaters[winner].name} wins`}</span>
-              </>
-            )}
-          </p>
-        ) : null}
-      </div>
+      <SubmitRow
+        pending={pending}
+        live={live}
+        opensInMs={opensInMs}
+        vote={winner === null ? null : debaters[winner].name}
+      />
+    </div>
+  );
+}
+
+/** Submit, the wait while attendance settles (script only), and the vote read-out. */
+function SubmitRow({
+  pending,
+  live,
+  opensInMs,
+  vote,
+}: {
+  readonly pending: boolean;
+  readonly live: boolean;
+  readonly opensInMs: number | null;
+  readonly vote: string | null;
+}) {
+  const waiting = live && opensInMs !== null;
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <button
+        type="submit"
+        disabled={pending || waiting}
+        aria-describedby={waiting ? OPENS_ID : undefined}
+        className={buttonClass('primary')}
+      >
+        {pending ? 'Submitting…' : 'Submit ballot'}
+      </button>
+      {waiting ? (
+        <p id={OPENS_ID} className="text-base text-ink-muted">
+          {`Opens in ${formatClock(opensInMs)}`}
+        </p>
+      ) : null}
+      {live ? (
+        <p className="text-base text-ink-muted">
+          {vote === null ? (
+            'No winner picked'
+          ) : (
+            <>
+              Your vote:{' '}
+              <span className="font-strong text-ink">{`${vote} wins`}</span>
+            </>
+          )}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { admitParticipants } from '@daisy/db/testing';
 import { createHash, randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
@@ -38,6 +39,8 @@ export async function socketAuthorityFixture(
   try {
     await client`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
     await client`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
+    // An admitted participant (ADR 0075); deleting the user cascades.
+    await admitParticipants(client, [userId]);
     await client`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${randomBytes(32).toString('base64url')},'2026-10-09T01:00:00Z')`;
     runtime = await serveRealtime({
       resources,

@@ -166,14 +166,24 @@ describe('debate room document routes', () => {
         principal: { kind: 'user', userId: 'user1', actorId: null },
       },
     });
+    const waitlisted = handlersWith({
+      identity: {
+        state: 'waitlisted',
+        username: 'ada',
+        reason: 'pending',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
     const list = { roundId: DEBATE };
     assert({
-      given: 'a foreign origin, no session, a provisional user and bad bodies',
+      given:
+        'a foreign origin, no session, a provisional user, a waitlisted user and bad bodies',
       should: 'refuse each before any operation runs',
       actual: [
         (await handlers.list.POST(post(list, 'https://evil.test'))).status,
         (await anonymous.handlers.list.POST(post(list))).status,
         (await provisional.handlers.list.POST(post(list))).status,
+        (await waitlisted.handlers.list.POST(post(list))).status,
         (await handlers.list.POST(post({ roundId: 'not-a-cuid' }))).status,
         (
           await handlers.create.POST(
@@ -185,9 +195,9 @@ describe('debate room document routes', () => {
             post({ id: DOC, html: '<p></p>', expectedRevision: 0 }),
           )
         ).status,
-        calls.length,
+        calls.length + waitlisted.calls.length,
       ],
-      expected: [403, 401, 403, 400, 400, 400, 0],
+      expected: [403, 401, 403, 403, 400, 400, 400, 0],
     });
   });
 });

@@ -115,6 +115,10 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
-export { removeUnowedBetaDigests } from './beta-access-testing';
+export {
+  admitParticipants,
+  approveBetaAccess,
+  removeUnowedBetaDigests,
+} from './beta-access-testing';
 export { refuseCapacity } from './transaction-admission';
 export { refuseFinalSpeech } from './bot-generation-rules';

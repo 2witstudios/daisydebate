@@ -81,3 +81,19 @@ original callback cadence and full historical window containment. No retry,
 clock extrapolation, attendance change or provider cleanup is implicit in this
 client. The real HTTP/PostgreSQL/LiveKit integration proves the signed client
 seam; native capture, STT and worker lifecycle acceptance remain separate.
+
+## Recoverable token admission (ISSUE-663)
+
+A signed capture token request first verifies its exact live Round/session/worker
+lease and epoch for recovery. Unsafe session state or an unsettled vendor write
+must not prevent that worker reaching its own reconcile hold. A stale worker,
+expired lease, frozen admission or terminal Round is still refused. The recovery
+witness grants no token and cannot transfer lease authority.
+
+Immediately before minting, the broker verifies the lease again for token
+admission, including the safe session and settled vendor state. Unresolved
+admission answers as retryable infrastructure unavailability; no token is issued.
+An ended session or permanently closed admission uses the existing named
+`capture-closed` refusal on the token route too, so the supervisor does not
+restart a finished capture. This restores the existing recovery hold's purpose
+without weakening credential minting or creating a missing vendor room.

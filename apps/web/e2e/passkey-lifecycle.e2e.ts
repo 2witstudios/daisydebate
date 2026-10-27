@@ -10,9 +10,12 @@ import {
   confirmSignIn,
   passkeySignInAfterSignOut,
   requestSignInLink,
+  answerAgeStep,
+  reachOnboardingFromRanked,
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, openPage, test } from './support/fixtures';
 import { skipOnboarding } from './support/forms';
 import { effectsRan, hydrated } from './support/hydration';
@@ -83,9 +86,12 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
 
   await page.getByLabel('Username').fill(uniqueName('ada'));
   await page.getByRole('button', { name: 'Continue' }).click();
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await savePasskeyOffer(page);
   await skipOnboarding(page, /\/lobby$/);
 
@@ -129,16 +135,12 @@ test('completing onboarding and saving a passkey from a protected page other tha
 }) => {
   await withoutPasskeyAutofill(page);
   await addVirtualAuthenticator(page);
-  await page.goto('/ranked');
-  await expect(page).toHaveURL(/\/sign-in\?next=(\/|%2F)ranked$/);
-
-  const email = freshEmail();
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  const email = await reachOnboardingFromRanked(page, request);
 
   await page.getByLabel('Username').fill(uniqueName('destined'));
   await page.getByRole('button', { name: 'Continue' }).click();
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await savePasskeyOffer(page);
   await skipOnboarding(page, /\/ranked$/);
 });

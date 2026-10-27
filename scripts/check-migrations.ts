@@ -12,6 +12,15 @@ import { isIsoDate, reviewDateStatus, utcToday } from './review-date';
  */
 
 const migrationsDir = 'packages/db/migrations';
+/**
+ * Every migration folder the guard covers: the participant database's and
+ * the admin app's own (ADR 0077). Each is checked on its own, with the same
+ * drizzle-kit 1.0 layout and history rules.
+ */
+export const migrationFolders = [
+  migrationsDir,
+  'apps/admin/src/db/migrations',
+] as const;
 const root = resolve(import.meta.dir, '..');
 const tagPattern = /^\d{14}_[a-z0-9_]+$/;
 /** drizzle-kit 1.0's `prevIds` entry for the first migration. */
@@ -71,14 +80,17 @@ export const parseBaseRef = (argv: readonly string[]): string =>
   argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'origin/main';
 
 /** Parses `git ls-tree -r <ref> -- packages/db/migrations` output. */
-export function parseLsTree(output: string): readonly TreeFile[] {
+export function parseLsTree(
+  output: string,
+  dir: string = migrationsDir,
+): readonly TreeFile[] {
   return output
     .split('\n')
     .filter(Boolean)
     .map((line) => {
       const [meta = '', path = ''] = line.split('\t');
       const blob = meta.split(' ')[2] ?? '';
-      return { path: path.slice(`${migrationsDir}/`.length), blob };
+      return { path: path.slice(`${dir}/`.length), blob };
     });
 }
 
@@ -88,7 +100,10 @@ export function parseLsTree(output: string): readonly TreeFile[] {
  * (the drizzle-kit 0.x `meta/` journal included), a snapshot with no SQL
  * beside it, and SQL with no snapshot for the next `generate` to diff.
  */
-export function readMigrations(files: readonly TreeFile[]): {
+export function readMigrations(
+  files: readonly TreeFile[],
+  dir: string = migrationsDir,
+): {
   readonly migrations: readonly Migration[];
   readonly problems: readonly MigrationProblem[];
 } {
@@ -105,7 +120,7 @@ export function readMigrations(files: readonly TreeFile[]): {
     if (!tagPattern.test(tag) || kind === undefined || rest.length > 0) {
       problems.push({
         code: 'STRAY_FILE',
-        detail: `${migrationsDir}/${path} is not <timestamp>_<name>/migration.sql or snapshot.json; the migrator never reads it`,
+        detail: `${dir}/${path} is not <timestamp>_<name>/migration.sql or snapshot.json; the migrator never reads it`,
       });
       continue;
     }
@@ -118,12 +133,12 @@ export function readMigrations(files: readonly TreeFile[]): {
     if (sql === undefined)
       problems.push({
         code: 'ORPHAN_SNAPSHOT',
-        detail: `${migrationsDir}/${tag}/snapshot.json has no migration.sql beside it`,
+        detail: `${dir}/${tag}/snapshot.json has no migration.sql beside it`,
       });
     else if (snapshot === undefined)
       problems.push({
         code: 'MISSING_SNAPSHOT',
-        detail: `${migrationsDir}/${tag}/migration.sql has no snapshot.json beside it`,
+        detail: `${dir}/${tag}/migration.sql has no snapshot.json beside it`,
       });
     else migrations.push({ tag, sql, snapshot });
   }
@@ -257,14 +272,15 @@ export function evaluateMigrations(options: {
   readonly baselines: readonly SanctionedBaseline[];
   /** UTC calendar day (YYYY-MM-DD), injected by the caller. */
   readonly today: string;
+  readonly dir?: string;
 }): {
   readonly problems: readonly MigrationProblem[];
   readonly sanctioned: boolean;
   readonly baseCount: number;
   readonly headCount: number;
 } {
-  const base = readMigrations(options.baseFiles);
-  const head = readMigrations(options.headFiles);
+  const base = readMigrations(options.baseFiles, options.dir);
+  const head = readMigrations(options.headFiles, options.dir);
   const own = [...head.problems, ...findChainProblems(options.headLinks)];
   const fingerprint = migrationsFingerprint(options.baseFiles);
   const sanctions = options.baselines
@@ -332,8 +348,8 @@ async function git(args: readonly string[]): Promise<string> {
   }
 }
 
-const treeAt = async (ref: string) =>
-  parseLsTree(await git(['ls-tree', '-r', ref, '--', migrationsDir]));
+const treeAt = async (ref: string, dir: string) =>
+  parseLsTree(await git(['ls-tree', '-r', ref, '--', dir]), dir);
 
 export const readSanctionedBaselines = async (): Promise<
   readonly SanctionedBaseline[]
@@ -354,12 +370,13 @@ export const readSanctionedBaselines = async (): Promise<
 export async function runMigrationCheck(
   baseRef = parseBaseRef(process.argv),
   today = utcToday(),
+  dir: string = migrationsDir,
 ): Promise<MigrationCheckReport> {
   const mergeBase = (await git(['merge-base', 'HEAD', baseRef])).trim();
-  const baseFiles = await treeAt(mergeBase);
-  const headFiles = await treeAt('HEAD');
+  const baseFiles = await treeAt(mergeBase, dir);
+  const headFiles = await treeAt('HEAD', dir);
   const headLinks = await Promise.all(
-    readMigrations(headFiles).migrations.map(async ({ tag, snapshot }) =>
+    readMigrations(headFiles, dir).migrations.map(async ({ tag, snapshot }) =>
       parseSnapshotLink(tag, await git(['cat-file', '-p', snapshot])),
     ),
   );
@@ -369,6 +386,7 @@ export async function runMigrationCheck(
     headLinks,
     baselines: await readSanctionedBaselines(),
     today,
+    dir,
   });
   return {
     ok: result.problems.length === 0,
@@ -382,11 +400,16 @@ export async function runMigrationCheck(
 
 if (import.meta.main) {
   try {
-    const report = await runMigrationCheck();
-    process.stdout.write(
-      formatMigrationCheckReport(report, process.argv.includes('--json')),
-    );
-    process.exitCode = report.ok ? 0 : 1;
+    let ok = true;
+    for (const dir of migrationFolders) {
+      const report = await runMigrationCheck(undefined, undefined, dir);
+      process.stdout.write(`${dir}\n`);
+      process.stdout.write(
+        formatMigrationCheckReport(report, process.argv.includes('--json')),
+      );
+      ok &&= report.ok;
+    }
+    process.exitCode = ok ? 0 : 1;
   } catch (error) {
     process.stderr.write(
       `${error instanceof Error ? error.message : 'Migration check failed'}\n`,

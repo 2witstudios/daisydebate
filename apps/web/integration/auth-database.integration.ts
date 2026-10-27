@@ -199,7 +199,7 @@ const redeemAndAssertSession = async (
       // A brand-new account redirects to onboarding, not the plain
       // callbackURL (Better Auth's magic-link plugin picks
       // newUserCallbackURL for a first-time sign-in).
-      location: '/onboarding/username',
+      location: '/onboarding/age',
       email,
       emailVerified: true,
       cuid2Id: true,

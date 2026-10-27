@@ -1,3 +1,4 @@
+import { env } from './server-env.test-support';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authEnv, webhookSecret } from './auth-env.test-support';
@@ -13,13 +14,6 @@ const failureOf = (read: () => unknown) => {
   } catch (error) {
     return String(error);
   }
-};
-
-const env = {
-  NODE_ENV: 'development',
-  DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
-  REDIS_URL: 'redis://localhost:6379',
-  PUBLIC_APP_URL: 'http://localhost:3000',
 };
 
 describe('configuration', () => {
