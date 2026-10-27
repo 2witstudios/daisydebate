@@ -44,7 +44,9 @@ const parseObject = (line: string): Record<string, unknown> | null => {
   if (line.length > MAX_LINE) return null;
   try {
     const parsed: unknown = JSON.parse(line);
-    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    return parsed !== null &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : null;
   } catch {
@@ -52,7 +54,12 @@ const parseObject = (line: string): Record<string, unknown> | null => {
   }
 };
 
-const validBase = ({ time, service, appVersion, gitCommit }: Record<string, unknown>) =>
+const validBase = ({
+  time,
+  service,
+  appVersion,
+  gitCommit,
+}: Record<string, unknown>) =>
   Number.isSafeInteger(time) &&
   (time as number) >= 0 &&
   [service, appVersion, gitCommit].every(baseValue);
