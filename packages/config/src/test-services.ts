@@ -112,3 +112,40 @@ export function requireAdminTestDatabase(
     );
   return env.TEST_ADMIN_DATABASE_URL as string;
 }
+
+export type TestClickHouse = {
+  readonly url: string;
+  readonly shipperPassword: string;
+  readonly readerPassword: string;
+};
+const testClickHouseSchema = z.object({
+  // The shared local or CI store on loopback only (ADR 0084): a suite can
+  // never write rows into a deployed log store.
+  TEST_CLICKHOUSE_URL: z
+    .string()
+    .regex(
+      /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+$/,
+      'must be loopback',
+    ),
+  TEST_CLICKHOUSE_SHIPPER_PASSWORD: z.string().min(1),
+  TEST_CLICKHOUSE_READER_PASSWORD: z.string().min(1),
+});
+/**
+ * The log-store suites call this beside `requireTestServices`: the shared
+ * stack's ClickHouse and its two role passwords. A missing or non-loopback
+ * store throws, naming fields only; a suite never skips.
+ */
+export function requireTestClickHouse(
+  env: Record<string, string | undefined>,
+): TestClickHouse {
+  const result = testClickHouseSchema.safeParse(env);
+  if (!result.success)
+    throw new Error(
+      `Log store suites require the test ClickHouse: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
+    );
+  return {
+    url: result.data.TEST_CLICKHOUSE_URL,
+    shipperPassword: result.data.TEST_CLICKHOUSE_SHIPPER_PASSWORD,
+    readerPassword: result.data.TEST_CLICKHOUSE_READER_PASSWORD,
+  };
+}

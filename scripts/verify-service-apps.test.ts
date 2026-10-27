@@ -274,7 +274,14 @@ describe('the admin apps (ADR 0077)', () => {
     const migrate =
       '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
     const others = SERVICE_APPS.filter(({ file }) => !file.includes('admin'))
-      .map((app) => step(app.file, app.token))
+      .map((app) =>
+        app.private
+          ? step(app.file, app.token).replace(
+              '--local-only',
+              '--local-only --no-public-ips',
+            )
+          : step(app.file, app.token),
+      )
       .join('');
     const admin = step('fly.admin.toml', 'FLY_ADMIN_API_TOKEN').replace(
       '--local-only',

@@ -7,6 +7,7 @@ export const operatorActions = [
   'accounts.read',
   'account.beta_access.update',
   'audit.read',
+  'security.read',
 ] as const;
 export type OperatorAction = (typeof operatorActions)[number];
 

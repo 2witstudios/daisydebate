@@ -1,0 +1,23 @@
+{
+  "name": "@daisy/log-shipper",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test src",
+    "test:integration": "bun ../../scripts/test-integration.ts",
+    "start": "bun src/start.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client-web": "1.24.0",
+    "@daisy/clock": "workspace:*",
+    "@daisy/logger": "workspace:*",
+    "@nats-io/transport-node": "3.4.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@daisy/config": "workspace:*",
+    "riteway": "9.3.0"
+  }
+}
