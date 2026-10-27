@@ -89,6 +89,7 @@ test('the first subscription acknowledgment closes the server-seed gap', async (
   edges.emit({
     v: ENVELOPE_VERSION,
     type: 'subscribed',
+    id: 'transcript-subscribe',
     topic: buildDebateTopic(round.id),
     position: '1:99',
   });
