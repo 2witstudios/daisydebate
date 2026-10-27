@@ -18,7 +18,11 @@ export {
 } from './realtime-endpoint';
 export { readRealtimeTransportConfig } from './realtime-transport';
 
-export { requireTestServices, requireTestSlotServices } from './test-services';
+export {
+  requireAdminTestDatabase,
+  requireTestServices,
+  requireTestSlotServices,
+} from './test-services';
 export {
   expectedTestRedisDatabase,
   testRedisDatabase,

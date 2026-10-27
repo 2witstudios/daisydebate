@@ -6,11 +6,8 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
-import type {
-  PrivacyExport,
-  PrivacyFieldDeclaration,
-  PrivacySubject,
-} from './contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import type { PrivacyExport, PrivacySubject } from './contracts';
 import { corePrivacyFields } from './core-declarations';
 import {
   planPrivacyErasure,

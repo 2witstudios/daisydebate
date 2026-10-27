@@ -4,7 +4,7 @@ import type { PrivacyAdopter, PrivacySubject } from './contracts';
 import {
   validatePrivacyAdoption,
   type PrivacyExpectedColumns,
-} from './declarations';
+} from '@daisy/protocol/privacy';
 
 export const privacyVendors = [
   'sentry',
