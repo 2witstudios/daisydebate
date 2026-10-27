@@ -29,24 +29,48 @@ export async function rejectionOf(actual: () => unknown): Promise<Rejection> {
   }
 }
 
-/** Asserts that `actual` throws or rejects with an app error of `code`. */
+/**
+ * Asserts that `actual` throws or rejects with an app error of `code`, and,
+ * when named, of exactly `message` (for a refusal a caller maps by message).
+ */
 export async function assertRejects({
   given,
   should,
   actual,
   code,
   invariantId,
+  message,
 }: {
   readonly given: string;
   readonly should: string;
   readonly actual: () => unknown;
   readonly code: ErrorCode;
   readonly invariantId?: string;
+  readonly message?: string;
 }): Promise<void> {
+  let thrown: unknown;
+  const rejection = await rejectionOf(async () => {
+    try {
+      await actual();
+    } catch (error) {
+      thrown = error;
+      throw error;
+    }
+  });
   assert({
     given,
     should,
-    actual: await rejectionOf(actual),
-    expected: invariantId === undefined ? { code } : { code, invariantId },
+    actual:
+      message === undefined
+        ? rejection
+        : {
+            ...rejection,
+            message: isAppError(thrown) ? thrown.message : undefined,
+          },
+    expected: {
+      code,
+      ...(invariantId === undefined ? {} : { invariantId }),
+      ...(message === undefined ? {} : { message }),
+    },
   });
 }

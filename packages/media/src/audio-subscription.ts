@@ -9,6 +9,7 @@ import {
   type Track,
   type TrackPublication,
   type RemoteParticipant,
+  type RemoteTrackPublication,
 } from '@livekit/rtc-node';
 import {
   AudioFrameProcessor,
@@ -156,6 +157,30 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       }
     })();
   };
+  /**
+   * Only admitted identities' microphones are subscribed: no camera or other
+   * track ever reaches this process (autoSubscribe is off).
+   */
+  const wanted = (
+    publication: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ) =>
+    publication.source === TrackSource.SOURCE_MICROPHONE &&
+    allowed.has(participant.identity);
+  const published = (
+    publication: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ) => {
+    if (!closing && wanted(publication, participant) && !publication.subscribed)
+      publication.setSubscribed(true);
+  };
+  const subscribeWanted = () => {
+    for (const participant of room.remoteParticipants.values())
+      for (const publication of participant.trackPublications.values()) {
+        const want = wanted(publication, participant);
+        if (want !== publication.subscribed) publication.setSubscribed(want);
+      }
+  };
   const unpublished = (track: Track) => {
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
   };
@@ -174,6 +199,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
         ),
     );
   };
+  room.on(RoomEvent.TrackPublished, published);
   room.on(RoomEvent.TrackSubscribed, start);
   room.on(RoomEvent.TrackUnsubscribed, unpublished);
   room.on(RoomEvent.Disconnected, disconnected);
@@ -185,9 +211,10 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   };
   try {
     await room.connect(input.url, input.token, {
-      autoSubscribe: true,
+      autoSubscribe: false,
       dynacast: false,
     });
+    subscribeWanted();
     scan();
   } catch {
     closing = true;
@@ -205,6 +232,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
           .filter((stream) => !allowed.has(stream.identity))
           .map((stream) => stream.stop('closed')),
       );
+      subscribeWanted();
       scan();
     },
     close() {
@@ -214,6 +242,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
         await Promise.all(
           [...streams.values()].map((stream) => stream.stop('closed')),
         );
+        room.off(RoomEvent.TrackPublished, published);
         room.off(RoomEvent.TrackSubscribed, start);
         room.off(RoomEvent.TrackUnsubscribed, unpublished);
         room.off(RoomEvent.Disconnected, disconnected);

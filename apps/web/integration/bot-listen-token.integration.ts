@@ -22,6 +22,9 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
     const media = createRoundMediaOperations(mediaDependencies(f));
     const listen = await media.botListenToken(claim.scope, claim.token);
     const grant = videoGrant(listen.token);
+    const again = videoGrant(
+      (await media.botListenToken(claim.scope, claim.token)).token,
+    );
     const [session] =
       await f.sql`select id, room_name from media_sessions where round_id=${roundId}`;
     const bound =
@@ -29,7 +32,7 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
     assert({
       given: 'a live bot claim asking to hear its media session',
       should:
-        'sign a hidden, subscribe-only grant for that one room, under an identity no seat is bound to',
+        'sign a hidden, subscribe-only grant for that one room, under one stable identity no seat is bound to',
       actual: {
         room: grant.video.room,
         canSubscribe: grant.video.canSubscribe,
@@ -39,6 +42,7 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
         unbound: !bound.some(
           (row: { identity: string }) => row.identity === grant.sub,
         ),
+        stable: again.sub === grant.sub,
       },
       expected: {
         room: session!.room_name,
@@ -47,6 +51,7 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
         canPublishData: false,
         hidden: true,
         unbound: true,
+        stable: true,
       },
     });
     await assertRejects({

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createFrameClock } from './frame-clock';
+import { createFrameClock, createTrackClocks } from './frame-clock';
 setupRitewayBun();
 const calibration = {
   sentAtMs: 0,
@@ -127,5 +127,38 @@ test('a sequence reset on the same track starts a new run (ISSUE-466-r7)', () =>
       'never join the old run: leave at least a 10 ms gap, and the clock-measured gap after a pause',
     actual: [gapAfterReset(0) >= 10, gapAfterReset(500) >= 490],
     expected: [true, true],
+  });
+});
+
+test('track clocks keep one clock per track and drop a closed one', () => {
+  const at = (serverNowMs: number) => ({
+    sentAtMs: 999,
+    receivedAtMs: 1000,
+    serverNowMs,
+    precisionMs: 1,
+  });
+  const frame = (sequence: number) => ({
+    trackId: 'a',
+    sequence,
+    beforeMs: 1000 + sequence * 10,
+    afterMs: 1001 + sequence * 10,
+  });
+  const nextStart = (closeBetween: boolean) => {
+    const clocks = createTrackClocks();
+    const first = clocks.observe(frame(0), at(2_000_000))!;
+    if (closeBetween) clocks.close('a');
+    const next = clocks.observe(frame(1), at(2_005_000))!;
+    return {
+      step: next.nominalStartMs - first.nominalStartMs,
+      whole: Number.isInteger(next.beforeMs) && Number.isInteger(next.afterMs),
+    };
+  };
+  assert({
+    given:
+      "a track's next frame under a calibration 5 s later, with its clock kept and with its track closed in between",
+    should:
+      'continue the run exactly 10 ms on while kept, and start a fresh clock on the new calibration once closed',
+    actual: [nextStart(false), nextStart(true).step > 4000],
+    expected: [{ step: 10, whole: true }, true],
   });
 });

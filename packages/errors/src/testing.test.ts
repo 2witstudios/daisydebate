@@ -135,3 +135,48 @@ describe('assertRejects', () => {
     ).rejects.toThrow('debate.phase.completed.terminal');
   });
 });
+
+describe('assertRejects with a message', () => {
+  test('passes only on the named code and message together', async () => {
+    await assertRejects({
+      given: 'an app error with the expected code and message',
+      should: 'pass',
+      actual: async () => {
+        throw createAppError('CONFLICT', 'bots-busy');
+      },
+      code: 'CONFLICT',
+      message: 'bots-busy',
+    });
+    const fails = async (actual: () => unknown) => {
+      try {
+        await assertRejects({
+          given: 'a mismatch',
+          should: 'fail',
+          actual,
+          code: 'CONFLICT',
+          message: 'bots-busy',
+        });
+        return false;
+      } catch {
+        return true;
+      }
+    };
+    assert({
+      given:
+        'the right code with another message, another code with the right message, and a stray error with the right message',
+      should: 'fail every one',
+      actual: [
+        await fails(async () => {
+          throw createAppError('CONFLICT', 'Bot admission refused: allowance');
+        }),
+        await fails(async () => {
+          throw createAppError('INFRASTRUCTURE', 'bots-busy');
+        }),
+        await fails(async () => {
+          throw new Error('bots-busy');
+        }),
+      ],
+      expected: [true, true, true],
+    });
+  });
+});

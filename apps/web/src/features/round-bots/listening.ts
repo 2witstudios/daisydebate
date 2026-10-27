@@ -1,5 +1,6 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { createFrameClock } from '@daisy/media/observation';
+import { isAppError } from '@daisy/errors';
+import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createBotAudioActivity } from './activity';
 
@@ -7,15 +8,21 @@ type Subscription = Awaited<ReturnType<typeof createAudioSubscription>>;
 type Frame = Parameters<
   Parameters<typeof createAudioSubscription>[0]['onFrame']
 >[0];
-type Calibration = Parameters<typeof createFrameClock>[0];
+/** The listener's own calibration always states its precision. */
+type Calibration = Parameters<
+  ReturnType<typeof createTrackClocks>['refresh']
+>[0] & { readonly precisionMs: number };
 type Observer = Parameters<typeof createBotAudioActivity>[0];
 
 /** Stale peer audio reads as unknown, never as silence. */
 const STALE_AFTER_MS = 250;
 /** How often the listener re-reads PostgreSQL time to calibrate its clocks. */
 const CALIBRATE_EVERY_MS = 1000;
-/** A dropped connection is rejoined after this pause, and no sooner. */
-const REJOIN_AFTER_MS = 1000;
+/** A calibration whose round trip is longer than this cannot map frames. */
+const MAX_CALIBRATION_RTT_MS = 100;
+/** A dropped connection is rejoined after a pause that doubles to a ceiling. */
+const REJOIN_FIRST_MS = 1000;
+const REJOIN_MAX_MS = 30000;
 
 /** The listen grant: a hidden, subscribe-only identity in the claim's media session, and its peers. */
 type ListenGrant = {
@@ -27,18 +34,23 @@ type ListenGrant = {
   }[];
 };
 
+/** A refusal that says the claim's own admission is over, so no rejoin can succeed. */
+const definite = (error: unknown) =>
+  isAppError(error) &&
+  (error.code === 'CONFLICT' || error.code === 'AUTHORIZATION');
+
 /**
  * The bot seat's own hearing in cross-examination (ISSUE-764). It joins the
  * media session with its own listen-only identity (`listenToken`: hidden,
- * subscribes, never publishes, admitted only for this live claim), and
- * feeds each peer's frames to the bot's turn-taking in memory, timed on its
- * own calibration against PostgreSQL time. No capture worker, relay or
- * Redis key is in the path, so neither a capture refusal nor a full capture
- * fleet deafens the bot. It lives exactly as long as the claim: `close`
- * ends it, and a Round end or a revoked seat, which rotates or deletes the
- * vendor room, drops it and the claim's own admission refuses a rejoin.
- * Media grants decide who may publish, so only a seat holding the floor is
- * heard at all.
+ * subscribes to microphones only, never publishes, admitted only for this
+ * live claim), and feeds each peer's frames to the bot's turn-taking in
+ * memory, timed on its own calibration against PostgreSQL time. No capture
+ * worker, relay or Redis key is in the path, so neither a capture refusal nor
+ * a full capture fleet deafens the bot. It lives exactly as long as the
+ * claim: `close` ends it, and a Round end or a revoked seat, which rotates or
+ * deletes the vendor room, drops it; the claim's own admission then refuses
+ * the rejoin, and it stops trying. Media grants decide who may publish, so
+ * only a seat holding the floor is heard at all.
  */
 export function createBotListening(
   input: {
@@ -53,7 +65,7 @@ export function createBotListening(
     ) => Promise<ListenGrant>;
     /**
      * The session's current seat bindings: a read, never a signed grant, so
-     * a peer whose media binds after the join is heard (ISSUE-764).
+     * a peer whose media binds after the join is heard.
      */
     readonly readPeers: (
       scope: BotPublicationScope,
@@ -74,14 +86,18 @@ export function createBotListening(
   });
   const peers = new Set(input.claim.peerParticipantIds);
   const seats = new Map<string, string>();
-  const clocks = new Map<string, ReturnType<typeof createFrameClock>>();
+  const clocks = createTrackClocks();
   let calibration: Calibration | null = null;
   let calibratedAt = -Infinity;
   let subscription: Subscription | null = null;
   let joining: Promise<void> | null = null;
   let rejoinAt = -Infinity;
+  let rejoinPauseMs = REJOIN_FIRST_MS;
+  /** The claim's admission refused for good: it never rejoins. */
+  let refused = false;
   let peersReadAt = -Infinity;
   let closed = false;
+
   /** Seats for the claim's peers in `bound`; true when the set changed. */
   const bindPeers = (bound: ListenGrant['peers']) => {
     const before = [...seats.keys()].join();
@@ -101,21 +117,20 @@ export function createBotListening(
       await current.setIdentities([...seats.keys()]);
   };
 
-  /** The server instant now, mapped through the latest calibration. */
-  const serverNowMs = (at: number, current: Calibration) =>
-    current.serverNowMs + (at - current.receivedAtMs);
+  /**
+   * The latest server instant `at` can be: the server read happened no
+   * earlier than the request was sent, so this bound is never below true
+   * server time, and a live peer's newest frame never looks "from the
+   * future" to expiry.
+   */
+  const serverNowUpperMs = (at: number, current: Calibration) =>
+    current.serverNowMs + (at - current.sentAtMs) + current.precisionMs;
 
   const hear = (frame: Frame) => {
     const seat = seats.get(frame.identity);
     if (closed || !calibration || !seat) return;
-    let clock = clocks.get(frame.trackId);
-    if (!clock) {
-      clock = createFrameClock(calibration);
-      clocks.set(frame.trackId, clock);
-    }
-    const window = clock.observe(frame);
+    const window = clocks.observe(frame, calibration);
     if (!window) return;
-    const after = Math.ceil(window.afterMs);
     observer.observe({
       roundId: scope.roundId,
       roundParticipantId: seat,
@@ -125,15 +140,22 @@ export function createBotListening(
       beforeMs: frame.beforeMs,
       afterMs: frame.afterMs,
       serverWindow: {
-        before: new Date(Math.floor(window.beforeMs)).toISOString(),
-        after: new Date(after).toISOString(),
+        before: new Date(window.beforeMs).toISOString(),
+        after: new Date(window.afterMs).toISOString(),
       },
       receivedAt: new Date(
-        Math.max(after, serverNowMs(input.monotonicNowMs(), calibration)),
+        Math.max(
+          window.afterMs,
+          serverNowUpperMs(input.monotonicNowMs(), calibration),
+        ),
       ).toISOString(),
     });
   };
 
+  const scheduleRejoin = () => {
+    rejoinAt = input.monotonicNowMs() + rejoinPauseMs;
+    rejoinPauseMs = Math.min(rejoinPauseMs * 2, REJOIN_MAX_MS);
+  };
   const join = async () => {
     const grant = await input.listenToken(scope, input.claim.token);
     bindPeers(grant.peers);
@@ -146,7 +168,7 @@ export function createBotListening(
       onFrame: hear,
       onTrackStarted: () => undefined,
       onTrackClosed: (track) => {
-        clocks.delete(track.trackId);
+        clocks.close(track.trackId);
         const seat = seats.get(track.identity);
         if (seat)
           observer.unknown({
@@ -161,32 +183,43 @@ export function createBotListening(
       return;
     }
     subscription = opened;
-    void opened.closed.then(() => {
+    rejoinPauseMs = REJOIN_FIRST_MS;
+    // Dropped (a rotated or deleted room, a lost connection), cleanly or
+    // with a failed cleanup: no frame arrives, so the next polls expire every
+    // peer to unknown until a rejoin hears it again.
+    const dropped = () => {
       if (subscription !== opened) return;
-      // Dropped (a rotated or deleted room, a lost connection): no frame
-      // arrives, so the next polls expire every peer to unknown until a
-      // rejoin hears it again.
       subscription = null;
       clocks.clear();
-      rejoinAt = input.monotonicNowMs() + REJOIN_AFTER_MS;
-    });
+      scheduleRejoin();
+    };
+    void opened.closed.then(dropped, dropped);
   };
   const ensureJoined = () => {
-    if (closed || subscription || joining) return;
+    if (closed || refused || subscription || joining) return;
     if (input.monotonicNowMs() < rejoinAt) return;
     joining = join()
-      .catch(() => {
-        rejoinAt = input.monotonicNowMs() + REJOIN_AFTER_MS;
+      .catch((error: unknown) => {
+        // The claim's admission is over (Round ended, seat revoked, claim
+        // taken over): stop, rather than re-admit every second.
+        if (definite(error)) refused = true;
+        else scheduleRejoin();
       })
       .finally(() => {
         joining = null;
       });
   };
   const calibrate = async () => {
+    if (
+      calibration &&
+      input.monotonicNowMs() - calibratedAt < CALIBRATE_EVERY_MS
+    )
+      return;
     const sentAtMs = input.monotonicNowMs();
-    if (sentAtMs - calibratedAt < CALIBRATE_EVERY_MS && calibration) return;
     const server = Date.parse(await input.databaseNow());
     const receivedAtMs = input.monotonicNowMs();
+    // A slow read keeps the previous calibration; the next poll retries.
+    if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS) return;
     calibration = {
       sentAtMs,
       receivedAtMs,
@@ -194,7 +227,7 @@ export function createBotListening(
       precisionMs: 1,
     };
     calibratedAt = receivedAtMs;
-    for (const clock of clocks.values()) clock.refresh(calibration);
+    clocks.refresh(calibration);
   };
 
   return {
@@ -202,7 +235,7 @@ export function createBotListening(
     start: () => {
       ensureJoined();
     },
-    /** Each seat poll: rejoin after a drop, recalibrate, and age out stale peers. */
+    /** Each seat poll: rejoin after a drop, recalibrate, widen to late peers, and age out stale ones. */
     async poll() {
       if (closed) return;
       ensureJoined();
@@ -211,7 +244,7 @@ export function createBotListening(
       if (calibration)
         observer.expire(
           new Date(
-            serverNowMs(input.monotonicNowMs(), calibration),
+            serverNowUpperMs(input.monotonicNowMs(), calibration),
           ).toISOString(),
         );
     },

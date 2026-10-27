@@ -1,4 +1,4 @@
-import { createFrameClock } from '@daisy/media/observation';
+import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import type { cutCaptureClips } from '@daisy/media/clips';
 import {
@@ -28,7 +28,7 @@ export function createCaptureStaging(input: {
   readonly dropped: (count: number) => void;
   readonly retained: () => void;
 }) {
-  const clocks = new Map<string, ReturnType<typeof createFrameClock>>();
+  const clocks = createTrackClocks();
   // Frames refused for crossing a grant edge: the edge evidence observedWindow reads.
   const edges = new Map<string, FrameWindow[]>();
   const rememberEdge = (trackId: string, frame: FrameWindow) => {
@@ -49,16 +49,9 @@ export function createCaptureStaging(input: {
       (p) => p.identity === raw.identity,
     );
     if (!peer || !current.state.segment) return null;
-    let clock = clocks.get(raw.trackId);
-    if (!clock) {
-      clock = createFrameClock(current.calibration);
-      clocks.set(raw.trackId, clock);
-    }
-    const window = clock.observe(raw);
+    const window = clocks.observe(raw, current.calibration);
     if (!window) return null;
-    const beforeMs = Math.floor(window.beforeMs),
-      afterMs = Math.ceil(window.afterMs),
-      nominalStartMs = window.nominalStartMs;
+    const { beforeMs, afterMs, nominalStartMs } = window;
     if (
       !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
     ) {
@@ -97,10 +90,10 @@ export function createCaptureStaging(input: {
       return frame;
     },
     refresh(calibration: Snapshot['calibration']) {
-      for (const clock of clocks.values()) clock.refresh(calibration);
+      clocks.refresh(calibration);
     },
     closeTrack(trackId: string) {
-      clocks.delete(trackId);
+      clocks.close(trackId);
       edges.delete(trackId);
     },
     /** Edge-straddling frames the batch saw against fresher history. */

@@ -11,6 +11,7 @@ import {
   projectMedia,
   seatGrants,
 } from './projection';
+import { listenIdentity } from './listen-identity';
 import { createMediaReconcileRun } from './reconcile-run';
 import type {
   Store,
@@ -100,10 +101,12 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   };
   /**
    * `listen` (ISSUE-764) signs the bot seat's own listen-only identity: a
-   * fresh hidden identity that subscribes and cannot publish or send data,
-   * bound to no seat, so reconciliation never grants it a floor. It is
-   * admitted exactly as the bot's publication is: its live claim and
-   * speaking window, under this session's reconcile hold.
+   * hidden identity that subscribes and cannot publish or send data, bound
+   * to no seat, so reconciliation never grants it a floor. It is derived
+   * from the seat's binding, so a takeover's or a rejoin's listener evicts
+   * any earlier connection under it (LiveKit admits one connection per
+   * identity). It is admitted exactly as the bot's publication is: its live
+   * claim and speaking window, under this session's reconcile hold.
    */
   const admit = async (
     roundId: string,
@@ -128,7 +131,9 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         throw createAppError('CONFLICT', 'Round media admission is closed');
       const grants = seatGrants(context, context.participantId, input.nextId);
       const identity =
-        mode === 'listen' ? input.nextId() : context.binding.identity;
+        mode === 'listen'
+          ? listenIdentity(context.binding.identity)
+          : context.binding.identity;
       const token = await input.media.joinToken(
         mode === 'listen'
           ? {

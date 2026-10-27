@@ -282,18 +282,23 @@ refusal nor a full capture fleet deafens a bot Round.
   (`round-bots/listening.ts`) asks the media broker for a listen grant
   (`botListenToken`). That grant is admitted exactly as the bot's publication
   is: its live claim and speaking window, under the session's reconcile hold.
-  It signs a fresh identity bound to no seat: hidden, subscribe-only, with
+  It signs an identity bound to no seat: hidden, subscribe-only, with
   `canPublish` and `canPublishData` false, for that one room. Reconciliation
-  never grants it a floor.
+  never grants it a floor. The identity is derived from the seat's own
+  (`round-media/listen-identity.ts`), so a takeover's or a rejoin's listener
+  evicts any earlier connection under it, including a wedged one.
 - **Lifetime.** The listener joins with the seat and ends with it, after the
-  publication. A dropped connection rejoins after 1 s with a fresh grant. A
-  Round end or a revoked seat rotates or deletes the vendor room, which drops
-  it, and the claim's admission then refuses the rejoin.
-- **Hearing.** It subscribes only its peers' identities, from the admission's
-  peer list. Media grants decide who may publish, so only a seat holding the
+  publication. A dropped connection (or a failed cleanup) rejoins with a
+  fresh grant after a pause that starts at 1 s and doubles to 30 s. A Round
+  end or a revoked seat rotates or deletes the vendor room, which drops it;
+  the claim's admission then refuses the rejoin with `CONFLICT` or
+  `AUTHORIZATION`, and the listener stops asking.
+- **Hearing.** It subscribes only its peers' microphones, from the
+  admission's peer list, re-reading the bindings for a peer that binds later. Media grants decide who may publish, so only a seat holding the
   floor is heard at all. It times each frame with the neutral frame clock
-  (`@daisy/media/observation` `createFrameClock`), calibrated against
-  PostgreSQL time about once a second, and feeds the bot's turn-taking
+  (`@daisy/media/observation` `createTrackClocks`), calibrated against
+  PostgreSQL time about once a second; a read whose round trip exceeds
+  100 ms is discarded and retried, and feeds the bot's turn-taking
   (`round-bots/activity.ts`) in memory. Stale, missing or dropped audio is
   unknown, never silence.
 - **No storage.** PCM stays in that process's memory, frame by frame.
