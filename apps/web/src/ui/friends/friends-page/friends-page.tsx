@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { FriendList } from '@daisy/protocol';
-import type { FriendFormState } from '../../../features/messaging/friends/forms';
+import type {
+  FriendFormState,
+  PresenceFormState,
+} from '../../../features/messaging/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import type { FormAction } from '../../form-action/form-action';
 import { profileHref } from '../../layout/app-shell/components/destinations';
-import { AddFriendForm, FriendButtonForm } from '../friend-forms';
+import { AddFriendForm, FriendButtonForm, PresenceForm } from '../friend-forms';
 import { friendsLede, presenceLabel } from '../friends';
 
 type Action = FormAction<FriendFormState>;
@@ -71,12 +74,14 @@ export function FriendsPage({
   friendAction,
   challengeAction,
   message,
+  presenceAction,
 }: {
   readonly list: FriendList | null;
   readonly friendAction: Action;
   readonly challengeAction: Action;
   /** The Message control for one friend; each carries its own request. */
   readonly message: (username: string) => ReactNode;
+  readonly presenceAction: FormAction<PresenceFormState>;
 }) {
   return (
     <ReadingPage>
@@ -160,6 +165,11 @@ export function FriendsPage({
               </PersonRow>
             ))}
           </ul>
+        </Section>
+      ) : null}
+      {list ? (
+        <Section id="friends-status" title="Your status">
+          <PresenceForm action={presenceAction} hidden={list.hidden} />
         </Section>
       ) : null}
       <Section id="friends-add" title="Add a friend">

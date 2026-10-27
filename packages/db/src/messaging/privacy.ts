@@ -161,6 +161,9 @@ async function eraseAssociations(
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   );
   await tx.execute(
+    sql`delete from messaging_presence_settings where actor_id=${actorId}`,
+  );
+  await tx.execute(
     sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   );
   await tx.execute(
@@ -254,6 +257,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
         ),
       );
+      const presenceSettings = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_presence_settings where actor_id=${actorId}`,
+        ),
+      );
       const commands = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
@@ -289,6 +297,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
           messaging_friendships: friendships,
+          messaging_presence_settings: presenceSettings,
           messaging_social_commands: commands,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
