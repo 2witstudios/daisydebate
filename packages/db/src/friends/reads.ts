@@ -9,6 +9,7 @@ import { friendships } from '../schema/friends';
 import { presenceSettings } from '../schema/presence';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import { roomIsOpen } from '../room-open';
 
 export type FriendshipRow = {
   readonly otherActorId: string;
@@ -78,10 +79,10 @@ export async function listFriendChallenges(
     throw createAppError('VALIDATION');
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const rows = (await tx.execute(sql`
-      select c.room_id as "roomId", u.username, r.title,
+      select c.room_id as "roomId", u.username, rooms.title,
         c.created_at as "challengedAt"
       from friend_challenges c
-      join rooms r on r.id = c.room_id and r.status in ('assembling', 'ready')
+      join rooms on rooms.id = c.room_id and ${roomIsOpen()}
       join friendships f
         on f.low_actor_id = least(c.challenger_actor_id, c.challenged_actor_id)
         and f.high_actor_id = greatest(c.challenger_actor_id, c.challenged_actor_id)

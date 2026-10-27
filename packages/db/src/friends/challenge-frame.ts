@@ -6,6 +6,7 @@ import { friendChallenges } from '../schema/friends';
 import { type contactPairs } from '../schema/contacts';
 import type { ContactInput } from '../contacts/fence';
 import type { FriendFrame } from './contracts';
+import { openRoomHostedBy, roomIsOpen } from '../room-open';
 
 type ContactPair = Pick<
   typeof contactPairs.$inferSelect,
@@ -64,27 +65,26 @@ export function challengeFrame(
       requireRoom(roomId);
       // The pair's challenges to rooms no longer open are spent; drop them.
       await tx.execute(sql`
-        delete from friend_challenges c using rooms r
-        where r.id = c.room_id and r.status not in ('assembling', 'ready')
+        delete from friend_challenges c using rooms
+        where rooms.id = c.room_id and not (${roomIsOpen()})
           and ((c.challenger_actor_id = ${input.actorId} and c.challenged_actor_id = ${otherOf()})
             or (c.challenger_actor_id = ${otherOf()} and c.challenged_actor_id = ${input.actorId}))`);
       const recorded = await tx.execute(sql`
         insert into friend_challenges
           (room_id, challenger_actor_id, challenged_actor_id, created_at)
-        select r.id, ${input.actorId}, ${otherOf()}, ${new Date(now)}
-        from rooms r
-        where r.id = ${roomId} and r.host_actor_id = ${input.actorId}
-          and r.status in ('assembling', 'ready')
+        select rooms.id, ${input.actorId}, ${otherOf()}, ${new Date(now)}
+        from rooms
+        where ${openRoomHostedBy(roomId, input.actorId)}
         on conflict (room_id) do nothing
         returning room_id`);
       if (recorded.length === 1) return { recorded: true };
       // A room already challenging this same friend is recorded (a repeat
       // Challenge); one challenging someone else is not (ISSUE-700).
       const same = await tx.execute(sql`
-        select 1 from friend_challenges c join rooms r on r.id = c.room_id
-        where c.room_id = ${roomId} and c.challenger_actor_id = ${input.actorId}
+        select 1 from friend_challenges c join rooms on rooms.id = c.room_id
+        where c.challenger_actor_id = ${input.actorId}
           and c.challenged_actor_id = ${otherOf()}
-          and r.host_actor_id = ${input.actorId} and r.status in ('assembling', 'ready')`);
+          and ${openRoomHostedBy(roomId, input.actorId)}`);
       return { recorded: same.length === 1 };
     },
     async declineChallenge({ roomId }) {

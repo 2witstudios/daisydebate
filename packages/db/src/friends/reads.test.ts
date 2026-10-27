@@ -113,10 +113,13 @@ test('listFriendChallenges reads only open rooms from unblocked friends', async 
   assert({
     given: 'one waiting challenge',
     should:
-      'name the challenger and room, and filter on room status, accepted friendship and no block',
+      'name the challenger and room, and filter on the Rooms open predicate (S7), accepted friendship and no block',
     actual: [
       rows,
-      read.includes("r.status in ('assembling', 'ready')"),
+      read.includes('"rooms"."status" in') &&
+        ['assembling', 'ready'].every((status) =>
+          queries.at(-1)?.params.includes(status),
+        ),
       read.includes("f.state = 'accepted'"),
       read.includes('not p.low_blocks_high'),
     ],
