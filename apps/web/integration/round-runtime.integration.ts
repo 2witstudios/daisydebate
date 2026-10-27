@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
+  launchRuntimeRound,
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
@@ -176,3 +177,43 @@ for (const revoke of ['lease', 'run'] as const)
       { botBusyCap: 4 },
     );
   });
+
+test('a late start refuses before maintenance and leaves all durable state unchanged', async () => {
+  await withRoomRuntime(async (f) => {
+    const room = await f.assemble();
+    const { roundId, operations } = await launchRuntimeRound(f, room);
+    await f.sql`update rounds set created_at = clock_timestamp() - interval '16 minutes' where id = ${roundId}`;
+    const before = await f.store.getRound(roundId);
+    const commandId = createId();
+    await assertRejects({
+      given:
+        'a scheduled Round past its start horizon with no maintenance sweep',
+      should: 'refuse a host start under the same durable horizon rule',
+      actual: () =>
+        operations.command(
+          { kind: 'human', actorId: f.host.actorId },
+          roundId,
+          {
+            version: 1,
+            commandId,
+            expectedVersion: before!.version,
+            command: { type: 'start' },
+          },
+        ),
+      code: 'CONFLICT',
+    });
+    const commands =
+      await f.sql`select command_id from round_commands where command_id = ${commandId}`;
+    assert({
+      given: 'the refused late start',
+      should:
+        'leave runtime, segments, command receipts and Room membership unchanged',
+      actual: [
+        await f.store.getRound(roundId),
+        commands.length,
+        (await f.operations.activeRoom(f.host))?.id,
+      ],
+      expected: [before, 0, room.id],
+    });
+  });
+});
