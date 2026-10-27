@@ -182,6 +182,6 @@ export async function runBetaAccessCommand(
        request_digest, result, admin_audit_head)
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
       'account.beta_access.update', ${input.targetUserId},
-      ${input.requestDigest}, ${JSON.stringify(result)}::jsonb, ${input.adminAuditHead})`);
+      ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${input.adminAuditHead})`);
   return { kind: 'applied', result };
 }
