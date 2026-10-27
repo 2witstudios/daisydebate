@@ -16,6 +16,19 @@ export type AuthorizationPrincipal =
       readonly kind: 'user';
       readonly userId: string;
       readonly actorId: string | null;
+    }
+  /**
+   * ADR 0079: the admin app's service, authenticated by a signed request.
+   * Its capabilities come from server configuration for the verified key,
+   * never from the request; `operatorRef` is the service's attestation of
+   * which operator it already authorized.
+   */
+  | {
+      readonly kind: 'operator_service';
+      readonly serviceId: string;
+      readonly keyId: string;
+      readonly operatorRef: string;
+      readonly capabilities: readonly AuthorizationCapability[];
     };
 export type { AuthorizationCapability } from '@daisy/protocol/authorization';
 export type AccountAuthorizationFact = {
@@ -245,6 +258,9 @@ export type AuthorizationInput = {
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
     | { readonly kind: 'room_collection' }
+    /** ADR 0079: the operator's account listing, and one target account (its fact is `context.account`). */
+    | { readonly kind: 'account_collection' }
+    | { readonly kind: 'account' }
     | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;

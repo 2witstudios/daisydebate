@@ -52,7 +52,7 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
                 title={entry.title}
                 ballot={entry.ballot}
                 debaters={ballotDebaters(view)}
-                feedbackTitle={`Feedback for you from the ${entry.author.toLowerCase()}`}
+                feedbackTitle={entry.feedbackTitle}
               />
               <StoredBallotScores
                 title={`${entry.title} scores`}

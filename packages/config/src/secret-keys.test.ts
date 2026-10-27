@@ -20,6 +20,7 @@ describe('secret configuration keys', () => {
         'MEDIA_WORKER_SECRET',
         'MIGRATION_DATABASE_URL',
         'OPENROUTER_API_KEY',
+        'OPERATOR_API_KEYS',
         'OPS_PROBE_TOKEN',
         'RECIPIENT_HASH_SECRET',
         'REDIS_URL',

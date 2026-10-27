@@ -7,6 +7,7 @@ import { users } from '../schema/users';
 import {
   messagingContactPairs,
   messagingFriendships,
+  messagingPresenceSettings,
 } from '../schema/messaging-social';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -17,6 +18,8 @@ export type MessagingFriendshipRow = {
   readonly state: 'pending' | 'accepted';
   readonly requesterActorId: string;
   readonly requestedAt: string;
+  /** Whether the counterpart hides their online status from friends. */
+  readonly otherHidden: boolean;
 };
 
 /** The bound on one member's listed pairs: friends, then pending requests. */
@@ -25,6 +28,15 @@ const FRIENDSHIP_LIST_MAX = 500;
 type FriendshipListScope = {
   readonly userId: string;
   readonly actorId: string;
+};
+
+/** Refuses a scope that is not two well-formed ids before any query. */
+const requireScope = (scope: FriendshipListScope) => {
+  if (
+    !idSchema.safeParse(scope.userId).success ||
+    !idSchema.safeParse(scope.actorId).success
+  )
+    throw createAppError('VALIDATION');
 };
 
 /**
@@ -38,14 +50,47 @@ export async function listMessagingFriendships(
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly MessagingFriendshipRow[]> {
-  if (
-    !idSchema.safeParse(scope.userId).success ||
-    !idSchema.safeParse(scope.actorId).success
-  )
-    throw createAppError('VALIDATION');
+  requireScope(scope);
   return readOwnCollection(database, scope, authorize, (tx) =>
     readRows(tx, scope.actorId),
   );
+}
+
+/** Whether the member hides their online status; no row means visible. */
+export function readPresenceHidden(
+  database: BunSQLDatabase,
+  scope: FriendshipListScope,
+  authorize: OwnCollectionFence<FriendshipListScope>,
+): Promise<boolean> {
+  requireScope(scope);
+  return readOwnCollection(database, scope, authorize, async (tx) => {
+    const [row] = await tx
+      .select({ hidden: messagingPresenceSettings.hidden })
+      .from(messagingPresenceSettings)
+      .where(eq(messagingPresenceSettings.actorId, scope.actorId));
+    return row?.hidden ?? false;
+  });
+}
+
+/** Sets the member's own choice, after `authorize` on their locked account. */
+export function writePresenceHidden(
+  database: BunSQLDatabase,
+  scope: FriendshipListScope,
+  input: { readonly hidden: boolean; readonly now: string },
+  authorize: OwnCollectionFence<FriendshipListScope>,
+): Promise<boolean> {
+  requireScope(scope);
+  return readOwnCollection(database, scope, authorize, async (tx) => {
+    const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
+    await tx
+      .insert(messagingPresenceSettings)
+      .values({ actorId: scope.actorId, ...values })
+      .onConflictDoUpdate({
+        target: messagingPresenceSettings.actorId,
+        set: values,
+      });
+    return input.hidden;
+  });
 }
 
 /** The database's friendship reads, instrumented like its other operations. */
@@ -64,6 +109,22 @@ export const friendshipReadOperations = ({
     instrumented(eventSink, 'listMessagingFriendships', () =>
       listMessagingFriendships(database, scope, authorize),
     ),
+  /** The member's own presence visibility (ADR 0072). */
+  readPresenceHidden: (
+    scope: FriendshipListScope,
+    authorize: OwnCollectionFence<FriendshipListScope>,
+  ) =>
+    instrumented(eventSink, 'readPresenceHidden', () =>
+      readPresenceHidden(database, scope, authorize),
+    ),
+  writePresenceHidden: (
+    scope: FriendshipListScope,
+    input: { readonly hidden: boolean; readonly now: string },
+    authorize: OwnCollectionFence<FriendshipListScope>,
+  ) =>
+    instrumented(eventSink, 'writePresenceHidden', () =>
+      writePresenceHidden(database, scope, input, authorize),
+    ),
 });
 
 async function readRows(
@@ -75,6 +136,7 @@ async function readRows(
     .select({
       otherActorId: other,
       username: users.username,
+      otherHidden: sql<boolean>`coalesce(${messagingPresenceSettings.hidden}, false)`,
       state: messagingFriendships.state,
       requesterActorId: messagingFriendships.requesterActorId,
       requestedAt: messagingFriendships.requestedAt,
@@ -88,6 +150,10 @@ async function readRows(
       ),
     )
     .innerJoin(actors, eq(actors.id, other))
+    .leftJoin(
+      messagingPresenceSettings,
+      eq(messagingPresenceSettings.actorId, other),
+    )
     .innerJoin(users, eq(users.id, actors.userId))
     .where(
       and(
@@ -112,5 +178,6 @@ async function readRows(
     state: row.state as 'pending' | 'accepted',
     requesterActorId: row.requesterActorId,
     requestedAt: row.requestedAt.toISOString(),
+    otherHidden: row.otherHidden === true,
   }));
 }

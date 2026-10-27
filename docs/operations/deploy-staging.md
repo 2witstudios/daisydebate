@@ -216,6 +216,23 @@ listens on 6PN (`/proc/net/tcp6`). A request carrying a forged
 listens on IPv6 too, such a request is still keyed by its own `fdaa:` peer,
 not by the header.
 
+**The operator listener (ADR 0079).** Once the `OPERATOR_API_KEYS`
+secret is set, this machine also listens on its own 6PN address
+(`fly-local-6pn`, resolved at start and refused unless it is in
+`fdaa::/16`), port 8081, for the signed operator API only. It is not in
+`[[services]]`, so fly-proxy never routes to it and it has no public
+address; any org machine or WireGuard peer can reach it, so it treats
+network position as reachability only. Every request must carry a valid
+`DAISY-OPERATOR-V1` signature for the configured audience, an unused nonce
+(Redis `SET NX`, refused while Redis is down) and a capability the
+admin service holds; forwarded headers are never read. Without the
+secret the listener does not start (`operator.listener.disabled`). Key
+rotation: add the new `kid` to `OPERATOR_API_KEYS`, switch the admin
+app's `OPERATOR_API_KEY_ID`/`OPERATOR_API_KEY`, then remove the old
+`kid`; emergency revocation is removing the `kid` (the secret change
+restarts the app). This listener and the admin apps joining the 6PN need
+the BETA-H owner sign-off below.
+
 **Pre-condition: owner sign-off before another app joins the org.** Every
 app created in the `daisy-debate` org puts its machines on this 6PN. While
 this trust configuration stands, no app beyond the three this runbook
@@ -226,7 +243,11 @@ with `bun decision:record`, confirmed by the owner, and linked from this
 section. Recorded sign-offs: DEC-229 (2026-10-24, ISSUE-528) admits
 `daisy-debate-staging-realtime` and `daisy-debate-staging-media-worker` to
 this 6PN; DEC-230 revises it to admit `daisy-debate-staging-livekit` too,
-because native clients inside Fly reach its media only over 6PN. This is a security-behavior change, so it is the owner's call, not
+because native clients inside Fly reach its media only over 6PN; DEC-250
+(2026-10-27, BETA-H; recorded on the owner's behalf under the orchestrator's
+autonomy rule and pending the owner's confirmation) admits `daisy-debate-staging-admin` and
+`daisy-debate-staging-admin-migrate` and the web app's operator listener on
+its 6PN address `:8081` (section 12). This is a security-behavior change, so it is the owner's call, not
 a Builder's or an operator's. The sign-off must say whether the new app's
 machines may reach this one over 6PN, or whether it goes in a custom
 private network (`fly apps create --network`) instead.
@@ -854,48 +875,76 @@ skips both admin steps: each runs only when its token
 deploy also waits for the migrator's. Once both exist, every merge deploys the
 migrator (`--update-only`) and then the admin app (`--no-public-ips`).
 
-These are human-only steps (BETA-H). The operator generates role passwords
-and keys locally; they are never pasted into chat, PageSpace or commits.
+Provisioned on staging 2026-10-27 (BETA-H) under DEC-250, the 6PN sign-off
+of step 0, which the orchestrator recorded on the owner's behalf; it stays
+open until the owner confirms or overrules it, and an overrule removes both
+admin apps. To recreate them, the operator runs the steps below in one shell
+session, because steps 1 and 2 share the generated passwords (in a new shell
+they are empty, and the resulting URLs would still look valid). Role
+passwords and keys are generated in the shell and piped straight into psql
+and `fly secrets import`, never printed or pasted into chat, PageSpace or
+commits.
 
 ```sh
-# 0. Owner sign-off (bun decision:record, confirmed by the owner):
+# 0. Owner sign-off (bun decision:record, confirmed by the owner; on staging
+#    DEC-250, recorded on the owner's behalf and pending confirmation):
 #    - admit daisy-debate-staging-admin and daisy-debate-staging-admin-migrate to the default 6PN;
 #    - allow web to listen on its resolved 6PN address :8081, for the signed operator API only.
 
-# 1. Admin database and roles on the existing cluster (documented ssh + psql pattern)
-fly ssh console -a daisy-debate-staging-db -C "psql -U postgres -c \"CREATE ROLE daisy_admin_owner LOGIN PASSWORD '<gen1>'\""
-fly ssh console -a daisy-debate-staging-db -C "psql -U postgres -c \"CREATE ROLE daisy_admin_app LOGIN PASSWORD '<gen2>'\""
-fly ssh console -a daisy-debate-staging-db -C "psql -U postgres -c 'CREATE DATABASE daisy_admin OWNER daisy_admin_owner'"
-fly ssh console -a daisy-debate-staging-db -C "psql -U postgres -c 'REVOKE CONNECT ON DATABASE daisy_admin FROM PUBLIC; GRANT CONNECT ON DATABASE daisy_admin TO daisy_admin_owner, daisy_admin_app'"
-#    Verify: connecting as daisy_admin_app to the participant database fails.
+# 1. Admin database and roles on the existing cluster, over SSH to the
+#    Postgres machine as superuser `postgres` with the machine's own
+#    $OPERATOR_PASSWORD, as in the provisioning block above.
+#    Passwords are generated in the shell and piped, never printed; psql's
+#    output is discarded because an error line would echo the statement.
+gen() { bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))'; }
+OWN_PW="$(gen)"; APP_PW="$(gen)"
+printf "CREATE ROLE daisy_admin_owner LOGIN PASSWORD '%s';\nCREATE ROLE daisy_admin_app LOGIN PASSWORD '%s';\nCREATE DATABASE daisy_admin OWNER daisy_admin_owner;\nREVOKE CONNECT, TEMPORARY ON DATABASE daisy_admin FROM PUBLIC;\nGRANT CONNECT ON DATABASE daisy_admin TO daisy_admin_owner, daisy_admin_app;\n" "$OWN_PW" "$APP_PW" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"' >/dev/null 2>&1 \
+  && echo created
+#    Verify from the catalog: every row must be false.
+echo "SELECT r, d, has_database_privilege(r, d, 'CONNECT') FROM (VALUES ('daisy_admin_app','daisy_debate_staging'), ('daisy_admin_owner','daisy_debate_staging'), ('daisy_web','daisy_admin'), ('daisy_realtime','daisy_admin'), ('daisy_media_worker','daisy_admin')) v(r, d);" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"'
 #    The admin baseline migration grants daisy_admin_app its table privileges (audit: INSERT/SELECT only).
 
-# 2. Web: operator key, service scope and owner notification address (staged; applied with the next deploy)
-fly secrets import --stage -a daisy-debate-staging <<'SECRETS'
-OPERATOR_API_KEYS=k20261026:<openssl rand -base64 32 | tr '+/' '-_' | tr -d '='>
-BETA_NOTIFY_EMAIL=<owner address>
-SECRETS
-#    OPERATOR_SERVICES (kid → daisy-admin scope) and OPERATOR_AUDIENCE=daisy-web:staging are committed [env] in fly.toml.
-
-# 3. Admin apps
+# 2. Admin apps and their database secrets (staged; applied by the first deploy)
 fly apps create daisy-debate-staging-admin --org daisy-debate
 fly apps create daisy-debate-staging-admin-migrate --org daisy-debate
-fly secrets import --stage -a daisy-debate-staging-admin-migrate <<'SECRETS'
-ADMIN_MIGRATION_DATABASE_URL=postgres://daisy_admin_owner:<gen1>@daisy-debate-staging-db.flycast:5432/daisy_admin?sslmode=disable
-SECRETS
-fly secrets import --stage -a daisy-debate-staging-admin <<'SECRETS'
-ADMIN_DATABASE_URL=postgres://daisy_admin_app:<gen2>@daisy-debate-staging-db.flycast:5432/daisy_admin?sslmode=disable
-OPERATOR_API_KEY_ID=k20261026
-OPERATOR_API_KEY=<same key as step 2>
-ADMIN_ATTEMPT_KEY=<openssl rand -base64 32>
-SECRETS
-fly tokens create deploy -a daisy-debate-staging-admin          # → GitHub secret FLY_ADMIN_API_TOKEN
-fly tokens create deploy -a daisy-debate-staging-admin-migrate  # → GitHub secret FLY_ADMIN_MIGRATE_API_TOKEN
-fly deploy -c fly.admin-migrate.toml --update-only              # release_command migrates; leaves no runtime machine
-fly deploy -c fly.admin.toml --no-public-ips
-fly ips list -a daisy-debate-staging-admin                      # must show no public address
+DB=daisy-debate-staging-db.flycast:5432/daisy_admin?sslmode=disable
+printf 'ADMIN_MIGRATION_DATABASE_URL=postgres://daisy_admin_owner:%s@%s\n' "$OWN_PW" "$DB" \
+  | fly secrets import --stage -a daisy-debate-staging-admin-migrate
+ATT="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"))')"
+printf 'ADMIN_DATABASE_URL=postgres://daisy_admin_app:%s@%s\nADMIN_ATTEMPT_KEY=%s\n' "$APP_PW" "$DB" "$ATT" \
+  | fly secrets import --stage -a daisy-debate-staging-admin
+unset OWN_PW APP_PW ATT
 
-# 4. Owner enrollment and access
+# 3. One operator key into both apps, one shell variable piped to each app,
+#    never printed. Web
+#    reads OPERATOR_API_KEYS (kid:key); the admin app needs OPERATOR_API_KEY_ID
+#    and OPERATOR_API_KEY together, because it refuses a partial set of its
+#    four operator settings. OPERATOR_AUDIENCE and OPERATOR_LISTEN_HOST are
+#    committed [env] in fly.toml; OPERATOR_API_URL and OPERATOR_AUDIENCE in fly.admin.toml.
+KID=k$(date -u +%Y%m%d)
+KEY="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"))')"
+printf 'OPERATOR_API_KEYS=%s:%s\n' "$KID" "$KEY" | fly secrets import --stage -a daisy-debate-staging
+printf 'OPERATOR_API_KEY_ID=%s\nOPERATOR_API_KEY=%s\n' "$KID" "$KEY" | fly secrets import --stage -a daisy-debate-staging-admin
+unset KEY
+#    Each app applies its staged key on its next deploy: the admin app's
+#    first deploy below, and web's next deploy-staging run, which starts the
+#    operator listener. Until web deploys, the accounts screen cannot reach it.
+#    BETA_NOTIFY_EMAIL (the owner digest address) is optional and set the same way.
+
+# 4. Deploy tokens, then the first deploys (CI deploys both on every merge after this)
+for app in admin-migrate admin; do
+  fly tokens create deploy -a daisy-debate-staging-$app --name github-deploy-staging -x 87600h \
+    | gh secret set "FLY_$(echo $app | tr a-z- A-Z_)_API_TOKEN"
+done
+fly deploy -c fly.admin-migrate.toml --remote-only --update-only  # release_command migrates; leaves no runtime machine
+fly deploy -c fly.admin.toml --remote-only --ha=false --no-public-ips
+fly ips list -a daisy-debate-staging-admin                        # must show no public address
+
+# 5. Owner enrollment and access
 fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner"
 fly proxy 4800:8080 -a daisy-debate-staging-admin               # then open the printed http://localhost:4800/enroll#… URL
 ```

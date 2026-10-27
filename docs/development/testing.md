@@ -328,10 +328,10 @@ Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
 
 ### Visual parity
 
-`apps/web/e2e/visual.e2e.ts` is a stable core of 13 full-page baselines in
+`apps/web/e2e/visual.e2e.ts` is a stable core of 16 full-page baselines in
 `apps/web/e2e/visual-baselines/` (ADR 0073): the signed-out dashboard (the
-app shell frame) and settings, and the AUTH-4.7 sign-in and email-change
-confirm pages. A surface keeps a baseline only when it rarely changes on
+app shell frame) and settings, the WAIT-4.6 age step, and the AUTH-4.7
+sign-in and email-change confirm pages. A surface keeps a baseline only when it rarely changes on
 purpose and a purely visual regression there would matter; surfaces under
 active design have none. Baselines are Linux-only: fonts render
 differently elsewhere. CI runs on Linux natively. On any other host the
@@ -520,7 +520,10 @@ original 17 initially runnable jobs to 4 (5 including the standalone branch-push
 quick check): two quick checks, audit and migrations. All 15 existing expensive
 jobs wait for quick success. Passing PRs still fan out; this reduces initial
 fanout, not peak concurrency across distinct passing PRs. Existing per-PR
-cancellation groups are unchanged. CI gate requires quick and every full job.
+cancellation remains scoped to superseded runs of the same PR. Main,
+merge-group and manual runs use unique per-run groups and never cancel each
+other; a new merge cannot prevent the previous main candidate from finishing.
+CI gate requires quick and every full job.
 Always-running terminal checks require both the quick prerequisite and actual
 suite success; skipped or cancelled browser jobs cannot pass a required check.
 The existing full CI matrix and aggregate gate remain required.

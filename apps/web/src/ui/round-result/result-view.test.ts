@@ -31,6 +31,19 @@ describe('resultBallots()', () => {
       ],
     });
   });
+  test('the feedback heading names the judge as a reader says it', () => {
+    assert({
+      given: 'a human ballot and an AI ballot',
+      should: 'say "the human judge" and keep "AI" in capitals',
+      actual: resultBallots(completed).map(
+        ({ feedbackTitle }) => feedbackTitle,
+      ),
+      expected: [
+        'Feedback for you from the human judge',
+        'Feedback for you from the AI judge',
+      ],
+    });
+  });
   test('an unfinished Round', () => {
     assert({
       given: 'a Round still in progress',

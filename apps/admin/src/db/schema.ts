@@ -27,6 +27,7 @@ const inList = (column: string, values: readonly string[]) =>
 export const operatorRoles = ['owner', 'operator'] as const;
 export const enrollmentModes = ['initial', 'additional', 'replace'] as const;
 export const challengePurposes = ['register', 'authenticate'] as const;
+export const desiredAccessStates = ['approved', 'revoked'] as const;
 export const auditKinds = [
   'enrollment.issued',
   'operator.enrolled',
@@ -35,6 +36,9 @@ export const auditKinds = [
   'access.denied',
   'credential.revoked',
   'session.revoked',
+  'command.intent',
+  'command.outcome',
+  'command.reconciled',
 ] as const;
 
 /** Closed detail vocabulary: never free text, never a credential. */
@@ -57,6 +61,13 @@ export const auditDetails = [
   'replaced',
   'role',
   'approval_missing',
+  'approved',
+  'revoked',
+  'mail_none',
+  'mail_queued',
+  'mail_sent',
+  'mail_failed',
+  'mail_cancelled',
 ] as const;
 export const operators = pgTable(
   'operators',
@@ -209,6 +220,37 @@ export const auditEvents = pgTable(
     ),
     check('audit_events_seq_positive', sql`${table.seq} >= 1`),
     uniqueIndex('audit_events_id_unique').on(table.id),
+  ],
+);
+
+/**
+ * A beta access command between its intent and its known outcome (ADR 0077
+ * amendment): the `command_id` is minted before the first send and kept
+ * across every retry, so a lost response reconciles by that id.
+ */
+export const pendingCommands = pgTable(
+  'pending_commands',
+  {
+    commandId: text('command_id').primaryKey(),
+    operatorId: operatorRef(),
+    targetUserId: text('target_user_id').notNull(),
+    desiredState: text('desired_state').notNull(),
+    expectedRevision: integer('expected_revision').notNull(),
+    createdAt: at('created_at').notNull(),
+    resolvedAt: at('resolved_at'),
+  },
+  (table) => [
+    check(
+      'pending_commands_desired_state_check',
+      inList('desired_state', desiredAccessStates),
+    ),
+    check(
+      'pending_commands_expected_revision_positive',
+      sql`${table.expectedRevision} >= 1`,
+    ),
+    index('pending_commands_open_idx')
+      .on(table.createdAt)
+      .where(sql`${table.resolvedAt} is null`),
   ],
 );
 

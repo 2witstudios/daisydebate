@@ -88,6 +88,15 @@ const tables: Readonly<Record<string, Table>> = {
       none: ['seq', 'kind', 'outcome', 'detail', 'at', 'prev_hash', 'hash'],
     },
   },
+  pending_commands: {
+    purpose: 'Retry identity of an operator command until its outcome is known',
+    retention: '30 days after resolution',
+    erasure: 'delete',
+    columns: {
+      identifier: ['command_id', 'operator_id', 'target_user_id'],
+      none: ['desired_state', 'expected_revision', 'created_at', 'resolved_at'],
+    },
+  },
   chain_checkpoints: {
     purpose: 'Where the retained audit chain starts after pruning',
     retention: auditRetention,

@@ -6,6 +6,7 @@ import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
 import type { WorkerTimers } from '../features/round-bots/worker-timers';
+import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -56,6 +57,8 @@ const { server, started } = startProductionServer({
   host,
 });
 await started;
+// ADR 0079: the private operator listener, only when keys are configured.
+const operatorApi = await startOperatorApi(app);
 const mediaRuntime = [
   app.config.LIVEKIT_URL,
   app.config.LIVEKIT_PUBLIC_URL,
@@ -164,6 +167,7 @@ async function shutdown() {
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
   const betaMailStopped = betaMail.stop();
+  const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
@@ -192,6 +196,7 @@ async function shutdown() {
       await Promise.all([
         retentionStopped,
         betaMailStopped,
+        operatorApiStopped,
         filesStopped,
         availabilityStopped,
         workersStopped,

@@ -163,6 +163,23 @@ export const adminSurfaceIssue = (relativePath: string): string | null => {
 };
 
 /**
+ * ADR 0079: the signed operator API serves only the private listener. No
+ * Next route, page or action under `apps/web/src/app` may import it, so
+ * the participant app never grows a route into operator authority.
+ */
+export const operatorApiIssue = (
+  specifier: string,
+  importer: string,
+): string | null =>
+  importer.startsWith('apps/web/src/app/') &&
+  specifier.startsWith('.') &&
+  posix
+    .normalize(posix.join(posix.dirname(importer), specifier))
+    .startsWith('apps/web/src/features/operator-api')
+    ? `operator API imported from a Next route ${specifier} (ADR 0079)`
+    : null;
+
+/**
  * ISSUE-275: the repository's own `scripts/` holds the runner and tooling
  * (the whole-database Redis sweep among them); no workspace file, test or
  * product, may import from it, however the relative path is spelled (a

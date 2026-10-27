@@ -32,7 +32,6 @@ export async function proveLobbyDiscovery(browser: Browser) {
       expect(response.status()).toBe(201);
       views.push(roomViewSchema.parse((await response.json()).view));
     }
-    views.sort((a, b) => (a.id < b.id ? -1 : 1));
     native = await browser.newContext({
       baseURL: origin,
       ignoreHTTPSErrors: true,
@@ -45,9 +44,21 @@ export async function proveLobbyDiscovery(browser: Browser) {
     );
     const rooms = page.getByRole('region', { name: 'Available rooms' });
     const listed = (title: string) => rooms.getByText(title, { exact: true });
-    for (const [index, view] of views.entries()) {
-      await expect(listed(view.title)).toBeVisible();
+    const visited = new Set<string>();
+    let firstTitle = '';
+    let previousTitle = '';
+    for (let index = 0; index < views.length; index++) {
+      if (previousTitle) await expect(listed(previousTitle)).toHaveCount(0);
       await expect(rooms.getByRole('listitem')).toHaveCount(1);
+      const matching = [];
+      for (const view of views)
+        if (await listed(view.title).isVisible()) matching.push(view);
+      expect(matching).toHaveLength(1);
+      const view = matching[0]!;
+      expect(visited.has(view.id)).toBe(false);
+      visited.add(view.id);
+      firstTitle ||= view.title;
+      previousTitle = view.title;
       if (index < views.length - 1) {
         const href = await page
           .getByRole('link', { name: 'Next page', exact: true })
@@ -56,13 +67,15 @@ export async function proveLobbyDiscovery(browser: Browser) {
         await page
           .getByRole('link', { name: 'Next page', exact: true })
           .click();
+        await expect(page).toHaveURL(new URL(href!, origin).href);
       } else
         await expect(
           page.getByRole('link', { name: 'Next page', exact: true }),
         ).toHaveCount(0);
     }
+    expect([...visited].sort()).toEqual(views.map((view) => view.id).sort());
     await page.getByRole('link', { name: 'First page', exact: true }).click();
-    await expect(listed(views[0]!.title)).toBeVisible();
+    await expect(listed(firstTitle)).toBeVisible();
     await page.getByLabel('Search rooms').fill(`  ${views[2]!.title}  `);
     await page.getByRole('button', { name: 'Apply', exact: true }).click();
     expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);

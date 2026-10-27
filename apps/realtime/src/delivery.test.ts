@@ -49,6 +49,16 @@ test('ticket admission refuses session expiry crossed during the durable await',
     userId: 'c'.repeat(24),
     sessionId: 'b'.repeat(24),
     expiresAt: instant,
+    // An admitted participant (ADR 0075), so only the expiry can refuse.
+    account: {
+      userId: 'c'.repeat(24),
+      actorId: 'a'.repeat(24),
+      member: true,
+      erased: false,
+      revision: 1,
+      beta: { state: 'approved', revision: 1 },
+      ageBand: 'adult',
+    },
   });
   assert({
     given: 'a durable session lookup resolving at its expiry',

@@ -4,6 +4,7 @@ import { RedisClient } from 'bun';
 import { createRoomReadinessOperations } from './room-readiness';
 import { createPresenceOperations } from './presence';
 import { createTicketOperations } from './ticket';
+import { createOperatorNonceOperations } from './operator-nonce';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
@@ -209,6 +210,7 @@ export function createRedis({
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),
+    ...createOperatorNonceOperations({ client, namespace, reportFailure }),
     close() {
       client.close();
     },

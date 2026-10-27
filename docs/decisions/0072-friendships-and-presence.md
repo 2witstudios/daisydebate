@@ -82,8 +82,13 @@ fence (accounts, then the pair, then a channel).
 
 - The mock `onlineUsers`, `onlineCount` and the Friends page's Watch action
   are deleted; the rail and tab-bar badge read `GET /api/friends/online`.
-- A presence visibility preference (hide my status) is not built; until it
-  is, accepted friends always see each other's presence.
+- A member may hide their online status (`messaging_presence_settings`,
+  set from `/friends` through `social.presence.update` on their own
+  collection). Hidden, every friend sees them offline and no friend's badge
+  counts them; their leases are never read for a friend list, and nothing
+  tells a friend they chose to hide. The members-online aggregate still
+  counts them, since it names no one. The row is personal/private, deleted
+  on subject erasure and exported to its member.
 - `messaging_friendships` is personal/private, deleted on subject erasure
   and exported to either member, on the same pending lawful-basis and
   retention decisions as `messaging_contact_pairs`.

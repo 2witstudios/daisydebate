@@ -9,6 +9,7 @@ import {
   operatorEnrollments,
   operators,
   operatorSessions,
+  pendingCommands,
 } from '../src/db/schema';
 import {
   address,
@@ -87,5 +88,41 @@ test('a challenge that outlives its enrollment', async () => {
     should: 'remove both rather than fail the whole sweep',
     actual: [swept, (await counts()).slice(0, 2)],
     expected: [2, [0, 0]],
+  });
+});
+
+test('settled commands', async () => {
+  const at = (iso: string) => new Date(iso);
+  await db.insert(operators).values({
+    id: 'op-commands',
+    displayName: 'owner',
+    role: 'owner',
+    createdAt: at('2026-09-01T00:00:00.000Z'),
+  });
+  const command = (commandId: string, resolvedAt: string | null) => ({
+    commandId,
+    operatorId: 'op-commands',
+    targetUserId: 'p'.repeat(24),
+    desiredState: 'approved',
+    expectedRevision: 1,
+    createdAt: at('2026-09-01T00:00:00.000Z'),
+    resolvedAt: resolvedAt === null ? null : at(resolvedAt),
+  });
+  await db
+    .insert(pendingCommands)
+    .values([
+      command('settled-long-ago', '2026-09-01T00:01:00.000Z'),
+      command('settled-recently', '2026-10-20T00:00:00.000Z'),
+      command('still-open', null),
+    ]);
+  const swept = await sweepExpired(db, '2026-10-26T12:00:00.000Z');
+  const left = (await db.select().from(pendingCommands))
+    .map(({ commandId }) => commandId)
+    .sort();
+  assert({
+    given: 'commands settled 55 and 6 days ago, and one still open',
+    should: 'delete only the one settled more than 30 days ago',
+    actual: [swept, left],
+    expected: [1, ['settled-recently', 'still-open']],
   });
 });
