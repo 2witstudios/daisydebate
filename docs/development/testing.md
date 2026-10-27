@@ -328,10 +328,10 @@ Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
 
 ### Visual parity
 
-`apps/web/e2e/visual.e2e.ts` is a stable core of 13 full-page baselines in
+`apps/web/e2e/visual.e2e.ts` is a stable core of 16 full-page baselines in
 `apps/web/e2e/visual-baselines/` (ADR 0073): the signed-out dashboard (the
-app shell frame) and settings, and the AUTH-4.7 sign-in and email-change
-confirm pages. A surface keeps a baseline only when it rarely changes on
+app shell frame) and settings, the WAIT-4.6 age step, and the AUTH-4.7
+sign-in and email-change confirm pages. A surface keeps a baseline only when it rarely changes on
 purpose and a purely visual regression there would matter; surfaces under
 active design have none. Baselines are Linux-only: fonts render
 differently elsewhere. CI runs on Linux natively. On any other host the

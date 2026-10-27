@@ -8,6 +8,7 @@ setupRitewayBun();
 
 const at = '2026-10-26T18:00:00.000Z';
 const action = async () => ({ username: '' });
+const presenceAction = async () => ({});
 const noop = () => {};
 const router = {
   bfcacheId: 'test',
@@ -29,6 +30,7 @@ const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
         challengeAction: action,
         message: (username: string) =>
           h('button', { type: 'submit' }, `Message @${username}`),
+        presenceAction,
       }),
     ),
   );
@@ -37,6 +39,7 @@ describe('FriendsPage', () => {
   test('friends online first, with requests both ways and what you can do', () => {
     const html = render({
       version: 1,
+      hidden: false,
       friends: [
         { username: 'ada', presence: 'online' },
         { username: 'cat', presence: 'offline' },
@@ -82,19 +85,22 @@ describe('FriendsPage', () => {
   test('a member with no friends sees how to add one', () => {
     const html = render({
       version: 1,
+      hidden: true,
       friends: [],
       incoming: [],
       outgoing: [],
     });
     assert({
       given: 'an empty list',
-      should: 'invite adding a friend by username with a native form',
+      should:
+        'invite adding a friend by username with a native form, and offer showing a hidden status',
       actual: [
         html.includes('Add a friend by username'),
         html.includes('name="username"'),
         html.includes('>Your friends</h2>'),
+        html.includes('Show my online status'),
       ],
-      expected: [true, true, false],
+      expected: [true, true, false, true],
     });
   });
 

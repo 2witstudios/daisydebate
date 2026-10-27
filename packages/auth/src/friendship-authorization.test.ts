@@ -105,3 +105,19 @@ test('a member reads only their own friend collection', () => {
     expected: false,
   });
 });
+
+test('a member updates only their own presence setting', () => {
+  const update = (actorId: string, erased = false) =>
+    authorize({
+      principal: { kind: 'user', userId: 'a', actorId: 'a' },
+      capability: 'social.presence.update',
+      resource: { kind: 'messaging_collection', actorId },
+      context: { account: { ...adultAccount('a').account, erased } },
+    }).allow;
+  assert({
+    given: 'their own setting, another actor’s, and their own when erased',
+    should: 'allow only the current member’s own',
+    actual: [update('a'), update('b'), update('a', true)],
+    expected: [true, false, false],
+  });
+});

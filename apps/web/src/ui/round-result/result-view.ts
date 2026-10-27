@@ -14,6 +14,8 @@ export type ResultBallot = {
   readonly title: string;
   /** Who decided, by kind only: a judge's identity never reaches the page. */
   readonly author: string;
+  /** The heading over this ballot's feedback for the reader. */
+  readonly feedbackTitle: string;
   readonly voided: boolean;
   readonly ballot: Ballot;
 };
@@ -38,12 +40,17 @@ export type TranscriptSection = {
 const author = (entry: Released) =>
   entry.judge === 'ai' ? 'AI judge' : 'Human judge';
 
+/** "AI" keeps its capitals mid-sentence; "human" does not need one. */
+const judgeInSentence = (entry: Released) =>
+  entry.judge === 'ai' ? 'AI judge' : 'human judge';
+
 /** The released ballots in order, each titled and labelled with its kind of judge. */
 export function resultBallots(view: RoundBallotRead): readonly ResultBallot[] {
   if (view.round.status !== 'completed') return [];
   return view.ballots.map((entry, index) => ({
     title: `Ballot ${index + 1} · ${author(entry)}`,
     author: author(entry),
+    feedbackTitle: `Feedback for you from the ${judgeInSentence(entry)}`,
     voided: entry.status === 'voided',
     ballot: entry.ballot,
   }));

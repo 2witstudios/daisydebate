@@ -9,6 +9,7 @@ const at = '2026-10-26T18:00:00.000Z';
 const friendsOf = (friends: readonly string[]) => async () =>
   Response.json({
     version: 1,
+    hidden: false,
     friends: friends.map((username) => ({ username, presence: 'online' })),
     incoming: [],
     outgoing: [{ username: 'eve', requestedAt: at }],
