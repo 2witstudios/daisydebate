@@ -12,8 +12,8 @@ const links: LeaveLinks = {
   leaveHref: '/lobby',
 };
 
-const FREED =
-  'The debate is over, so leaving forfeits nothing. Your result arrives once the judging is done.';
+// Every Round, judged or not: a zero-judge Round has no judging to wait for.
+const FREED = 'The debate is over, so leaving forfeits nothing.';
 
 test('a debater leaving while the ballot is pending is told they are freed (ISSUE-590)', () => {
   const freed = renderToString(
@@ -24,13 +24,14 @@ test('a debater leaving while the ballot is pending is told they are freed (ISSU
     given:
       'the Leave confirm for a debater whose Round awaits its ballot, and for anyone else',
     should:
-      'say leaving forfeits nothing and the result follows, with a plain leave link, only for that debater',
+      'say leaving forfeits nothing, promise no judging, and offer a plain leave link, only for that debater',
     actual: [
       freed.includes(FREED),
       freed.includes('href="/lobby"'),
       freed.includes('forfeits the round'),
+      /judging/i.test(freed),
       plain.includes(FREED),
     ],
-    expected: [true, true, false, false],
+    expected: [true, true, false, false, false],
   });
 });

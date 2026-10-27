@@ -129,8 +129,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
           </p>
         ) : links.freed ? (
           <p className="text-sm text-ink-muted">
-            The debate is over, so leaving forfeits nothing. Your result arrives
-            once the judging is done.
+            The debate is over, so leaving forfeits nothing.
           </p>
         ) : null}
         <div className="flex justify-end gap-2">
