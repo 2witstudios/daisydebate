@@ -25,10 +25,11 @@ test('reaction store extends ordered authority discovery with scoped metadata on
   assert({
     given: 'actual Drizzle authority/channel mapping and a current summary',
     should:
-      'lock accounts before the canonical pair/channel fence, pass current facts and retain the exact transaction for both reading checks',
+      'share-fence accounts before the canonical pair/channel fence, pass current facts and retain the exact transaction for both reading checks',
     actual: [
-      f.queries[1]?.query.includes('daisy_authorization_accounts'),
-      f.queries[2]?.query.includes('daisy_messaging_channel_fence'),
+      // A summary read takes the shared fences (MSG-2.1-arch1).
+      f.queries[1]?.query.includes('daisy_authorization_read_accounts_v2('),
+      f.queries[2]?.query.includes('daisy_messaging_channel_read_fence('),
       calls,
       transactions[0] === transactions[1],
       result,
@@ -75,7 +76,8 @@ test('reaction store invokes current operation fence before protected message, r
   });
   assert({
     given: 'the current fence refusal',
-    should: 'perform only discovery/account/pair/channel/counter reads',
+    should:
+      'perform only discovery/account/pair/channel/counter reads, under the exclusive fence a change takes',
     actual: [
       f.queries.length,
       f.queries.some(
@@ -84,7 +86,10 @@ test('reaction store invokes current operation fence before protected message, r
           query.query.includes('messaging_receipts') ||
           query.query.includes('messaging_reactions'),
       ),
+      f.queries.some((query) =>
+        query.query.includes('daisy_messaging_channel_fence('),
+      ),
     ],
-    expected: [5, false],
+    expected: [5, false, true],
   });
 });
