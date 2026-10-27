@@ -5,7 +5,11 @@ import { origin } from './accounts';
 import { watchCspViolations } from './csp';
 import { expect, test as base, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import { prepareRoomAs, readyUp } from './room-launch-flow';
+import {
+  prepareRoomAs,
+  readyUp,
+  startRoundInBrowser,
+} from './room-launch-flow';
 import { settledLaunchAuth } from './room-launch-settled';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 
@@ -68,11 +72,7 @@ export const test = base.extend<{
       }
       await page.reload();
       await readyUp(page);
-      await page
-        .getByRole('button', { name: 'Start round', exact: true })
-        .click();
-      await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
-      const roundId = new URL(page.url()).pathname.split('/').at(-2)!;
+      const roundId = await startRoundInBrowser(page);
       launched = roundId;
       const created = await page.request.post(`${documentsPath}create`, {
         headers: { origin },

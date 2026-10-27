@@ -114,9 +114,9 @@ export const rating = (
   );
 
 /**
- * A named format. There is no `ranked_eligible` flag to set: ratedness is
- * constructed from a sanctioned preset (ADR 0058 §4), so a fixture that needs a
- * ranked round calls `preset` against the format this returns.
+ * A named format. A ranked round is constructed from a sanctioned preset
+ * (ADR 0058 §4), so a fixture that needs one calls `preset` against the
+ * format this returns; ranked eligibility belongs to the preset, not here.
  */
 export const formatNamed = async (fixture: Fixture, name: string) => {
   const id = await fixture.format();

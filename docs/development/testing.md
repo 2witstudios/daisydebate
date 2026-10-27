@@ -562,7 +562,7 @@ cascades into browser reds.
   without installing anything. It fails safe: a PR skips the native suite
   only when every changed file is documentation (`docs/` or any `.md`) or
   sits in a known area the suite does not exercise:
-  - agent process files (`.claude/`, `.opencode/`, `policy/agent-pipeline/`);
+  - agent process files (`.claude/`, `.opencode/`);
   - the admin app;
   - theme, dashboard and the beta gate screens.
 

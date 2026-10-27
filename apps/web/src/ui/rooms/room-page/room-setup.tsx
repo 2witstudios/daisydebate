@@ -7,12 +7,14 @@ import {
   type MouseEvent,
   type RefObject,
 } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { Icon } from '../../components/icon/icon';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblySettingsForm } from './assembly-settings-form';
+import { FormatChoice } from './format-choice';
 import { formatLine, ROOM_SETUP_ID } from './room-labels';
 import { dismissal, modalSheet } from './room-setup-modal';
 
@@ -82,19 +84,26 @@ function useSheetFocus(roomHref: string) {
 
 /**
  * The host's one place to set up the room: who can join and the
- * resolution, then the round, simple first with the full rules one
- * disclosure away. Both forms keep their native posts.
+ * resolution, then the round: its format (Daisy's standards or Custom)
+ * and settings, simple first with the full rules one disclosure away. Both forms keep their native posts.
  */
 export function RoomSetup({
   view,
+  choices,
   commandIds,
+  formatIds,
   detailsAction,
   settingsAction,
+  commandAction,
 }: {
   readonly view: RoomView;
+  /** The picker's catalog: Daisy's standards and league templates (FMT-3). */
+  readonly choices: readonly RoomCatalogChoice[];
   readonly commandIds: { readonly details: string; readonly settings: string };
+  readonly formatIds: RoomCommandIds['format'];
   readonly detailsAction: FormAction<RoomFormState>;
   readonly settingsAction: FormAction<RoomFormState>;
+  readonly commandAction: FormAction<RoomFormState>;
 }) {
   const roomHref = `/rooms/${view.id}`;
   const { sheet, heading, key, close, saved } = useSheetFocus(roomHref);
@@ -168,14 +177,24 @@ export function RoomSetup({
             >
               The round
             </h3>
-            <p className="text-sm">
-              <span className="font-strong">
-                {formatLine(view)} · {competition[view.competitionType]}
-              </span>
-              <span className="block text-ink-muted">
-                The format and rating are set when the room is created.
-              </span>
-            </p>
+            {view.competitionType === 'ranked' ? (
+              <p className="text-sm">
+                <span className="font-strong">
+                  {view.format.name} · {formatLine(view)} ·{' '}
+                  {competition[view.competitionType]}
+                </span>
+                <span className="block text-ink-muted">
+                  Ranked rooms run their format unchanged.
+                </span>
+              </p>
+            ) : (
+              <FormatChoice
+                view={view}
+                choices={choices}
+                ids={formatIds}
+                action={commandAction}
+              />
+            )}
             <AssemblySettingsForm
               view={view}
               commandId={commandIds.settings}

@@ -4,6 +4,7 @@ import { speechName } from '../../../features/debate-room/vocabulary';
 import { seatLabel } from './assembly-controls';
 import {
   formatLine,
+  formatTitle,
   ROOM_SETUP_HREF,
   settingRows,
   speechGrow,
@@ -54,7 +55,9 @@ export function RoomSettings({ view }: { readonly view: RoomView }) {
           </a>
         ) : null}
       </div>
-      <p className="font-strong">{formatLine(view)}</p>
+      <p className="font-strong">
+        {formatTitle(view.format)} · {formatLine(view)}
+      </p>
       <SpeechBar view={view} />
       <details className="text-sm">
         <summary className="flex min-h-room-target cursor-pointer items-center font-strong">

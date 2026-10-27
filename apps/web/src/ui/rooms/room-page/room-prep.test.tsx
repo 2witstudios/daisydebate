@@ -32,26 +32,79 @@ test('preparation shows its saved length, then its live state', () => {
       render(assemblySnapshot).includes('5:21 for both sides'),
       render(running).includes('1:01 left'),
       render(running).includes('value="finish-prep"'),
-      render(running).includes('value="start-prep"'),
+      render(running).includes('value="start-pre-round"'),
     ],
     expected: [true, true, true, false],
+  });
+  assert({
+    given: 'running prep counted down against a fractional client clock',
+    should: 'read whole seconds, rounded up',
+    actual: render({
+      ...running,
+      prep: { ...running.prep, remainingMs: 1_195_408.299_999_999_8 },
+    }).includes('19:56 left'),
+    expected: true,
   });
 });
 
 test('the host starts preparation through a native versioned command', () => {
   const html = render({
     ...assemblySnapshot,
-    capabilities: { ...assemblySnapshot.capabilities, canStartPrep: true },
+    capabilities: { ...assemblySnapshot.capabilities, canStartPreRound: true },
   });
   assert({
     given: 'a host permitted to start preparation',
-    should: 'post start-prep with the room version and command identity',
+    should: 'post start-pre-round with the room version and command identity',
     actual: [
-      html.includes('value="start-prep"'),
+      html.includes('value="start-pre-round"'),
       html.includes('name="expectedVersion" value="3"'),
       html.includes('value="start-id"'),
       html.includes(`href="${destinationHref('prep')}"`),
     ],
     expected: [true, true, true, true],
+  });
+});
+
+test('a strike with no prep reads its own stage, then hands off to the start (PR #472 review)', () => {
+  const strike = {
+    ...assemblySnapshot,
+    topic: null,
+    config: {
+      ...assemblySnapshot.config,
+      preRoundPrep: { enabled: false as const },
+      resolutionDraw: {
+        enabled: true as const,
+        drawSize: 3,
+        strikeWindowMs: 60_000,
+        firstStriker: 'negative' as const,
+        source: { kind: 'bank' as const, categories: ['policy' as const] },
+      },
+    },
+  };
+  const draw = (revealedAt: string | null) => ({
+    visibility: 'progress' as const,
+    drawSize: 3,
+    strikes: [],
+    turn: null,
+    revealedAt,
+  });
+  assert({
+    given: 'a no-prep strike before its start, while striking, and revealed',
+    should:
+      'say what comes next at each stage, ending with the start of the round',
+    actual: [
+      render(strike).includes(
+        'Once everyone is Ready, draw the resolutions and strike to one',
+      ),
+      render({ ...strike, resolutionDraw: draw(null) }).includes(
+        'The debaters are striking',
+      ),
+      render({
+        ...strike,
+        topic: 'Chosen',
+        resolutionDraw: draw('2026-10-12T00:01:00.000Z'),
+      }).includes('Resolution chosen · start the round when the room is ready'),
+    ],
+    expected: [true, true, true],
   });
 });

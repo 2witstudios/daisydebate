@@ -254,6 +254,7 @@ describe('format definition', () => {
         ...oneOnOne.configurable,
         inRoundPrep: null,
         preRoundPrep: null,
+        resolutionDraw: null,
         interaction: {
           crossExModes: ['ordered'],
           interruptions: null,

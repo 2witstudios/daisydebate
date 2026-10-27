@@ -17,6 +17,7 @@ import {
 import { appendOutboxEvent } from './outbox';
 
 import { actors } from './schema/actors';
+import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { botProfiles } from './schema/bot-profiles';
 import { roomCommands } from './schema/room-commands';
@@ -25,6 +26,7 @@ import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
+import { loadRoomDraw } from './room-draw-persistence';
 
 export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -119,13 +121,35 @@ export const publishDefinition = async (
     createdByActorId: hostActorId,
   });
 };
-export const roomState = async (
+/** The Room's state and its draw seed (hex), for settlement; never delivered. */
+export const roomFacts = async (
+  tx: Tx,
+  row: typeof rooms.$inferSelect,
+): Promise<{
+  readonly state: RoomAssemblyState;
+  readonly drawSeed: string | null;
+}> => {
+  const state = await hydrateRoom(tx, row);
+  const draw = await loadRoomDraw(tx, row.id);
+  return {
+    state: { ...state, resolutionDraw: draw?.state ?? null },
+    drawSeed: draw?.seed ?? null,
+  };
+};
+
+const hydrateRoom = async (
   tx: Tx,
   row: typeof rooms.$inferSelect,
 ): Promise<RoomAssemblyState> => {
   const [revision] = await tx
-    .select({ definition: formatRevisions.definition })
+    .select({
+      definition: formatRevisions.definition,
+      name: formats.name,
+      role: formats.catalogRole,
+      leagues: formats.leagues,
+    })
     .from(formatRevisions)
+    .innerJoin(formats, eq(formats.id, formatRevisions.formatId))
     .where(
       and(
         eq(formatRevisions.formatId, row.formatId),
@@ -133,6 +157,7 @@ export const roomState = async (
       ),
     );
   if (!revision) throw createAppError('INVARIANT');
+  const basis = await basisSource(tx, row);
   const seats = await tx
     .select()
     .from(roomParticipants)
@@ -169,6 +194,12 @@ export const roomState = async (
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
+    catalogFormat: {
+      name: revision.name,
+      role: revision.role,
+      leagues: revision.leagues,
+    },
+    basis,
     competitionType: row.competitionType,
     definition: revision.definition,
     config: row.config,
@@ -177,6 +208,7 @@ export const roomState = async (
     participants,
     prepStartedAt: row.prepStartedAt?.toISOString() ?? null,
     prepRemainingMs: row.prepRemainingMs,
+    resolutionDraw: null,
     roundRef: round ?? null,
   };
 };

@@ -14,8 +14,8 @@ import {
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
-  retryStaleProjection,
 } from './rating-decisions';
+import { retryStale } from './retry-stale';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
@@ -213,9 +213,14 @@ export async function rateCompletedRound(
   database: BunSQLDatabase,
   input: RateDebateInput,
 ): Promise<RateDebateResult> {
-  return retryStaleProjection(
+  return retryStale(
     () => database.transaction((tx) => rateOnce(tx, input)),
     (error) => error instanceof StaleProjection,
     ATTEMPTS,
+    () =>
+      createAppError(
+        'CONFLICT',
+        'Ratings kept changing while this round was rated',
+      ),
   );
 }

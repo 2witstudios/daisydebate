@@ -1,9 +1,35 @@
 import { z } from 'zod';
 import { debateRoleSchema, debateSideSchema } from './primitives';
+import {
+  drawSources,
+  MAX_DRAW_SIZE,
+  MAX_STRIKE_WINDOW_MS,
+  MIN_DRAW_SIZE,
+  MIN_STRIKE_WINDOW_MS,
+} from './resolution-draw';
+
+/** The longest prep before a round: two hours, so its end is always a real date. */
+export const MAX_PRE_ROUND_PREP_MS = 7_200_000;
 
 /** Provisional resource budget: bounds expanded seat records and per-seat command work,
  * independent of any league roster policy. Judges consume the same budget. */
 export const MAX_FORMAT_SEATS = 256;
+/**
+ * The most segments a format or its resolved rules admit (DEC-131): real
+ * formats use 6-12, and a finite bound keeps every Room and Round body
+ * provably small, as MAX_FORMAT_SEATS does for seats.
+ */
+export const MAX_FORMAT_SEGMENTS = 64;
+
+/** A permitted set drawn from a vocabulary: non-empty, no repeats, so never longer than it. */
+const optionSet = <T extends z.ZodType>(option: T, vocabulary: number) =>
+  z
+    .array(option)
+    .min(1)
+    .max(vocabulary)
+    .refine((values) => new Set(values).size === values.length, {
+      message: 'Options must not repeat',
+    });
 export const formatSeatsSchema = z
   .record(debateRoleSchema, z.int().min(0).max(MAX_FORMAT_SEATS))
   .superRefine((seats, ctx) => {
@@ -109,7 +135,7 @@ const formatDefinitionShape = z.strictObject({
   version: z.literal(1),
   /** Exhaustive over the role vocabulary: every role declares its seats. */
   seats: formatSeatsSchema,
-  segments: z.array(segmentSchema).min(1),
+  segments: z.array(segmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
   configurable: z.strictObject({
     timing: z.strictObject({
       /** Per-segment bounds; keys must correspond exactly to segments. */
@@ -120,31 +146,81 @@ const formatDefinitionShape = z.strictObject({
     inRoundPrep: z
       .strictObject({
         budgetMsPerSide: boundSchema,
-        spendableBefore: z.array(segmentTypeSchema).min(1),
+        spendableBefore: optionSet(segmentTypeSchema, segmentTypes.length),
         /** Segment key the budget dies at; null = the whole round. */
         expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
       })
       .nullable(),
     /** Room-only: the pre-round product flow, executed before any Round. */
     preRoundPrep: z.strictObject({ durationMs: boundSchema }).nullable(),
+    /** Room-only: the pre-round resolution draw and strike (FMT-7). */
+    resolutionDraw: z
+      .strictObject({
+        drawSize: boundSchema,
+        strikeWindowMs: boundSchema,
+        firstStrikers: optionSet(debateSideSchema, 2),
+        sources: optionSet(z.enum(drawSources), drawSources.length),
+      })
+      .nullable(),
     interaction: z.strictObject({
-      crossExModes: z.array(crossExModeSchema).min(1),
+      crossExModes: optionSet(crossExModeSchema, crossExModes.length),
       interruptions: z
         .strictObject({
-          modes: z.array(interruptionModeSchema).min(1),
+          modes: optionSet(interruptionModeSchema, interruptionModes.length),
           minRemainingMs: boundSchema,
         })
         .nullable(),
       yield: z
         .strictObject({
           /** e.g. [true] = must yield; [true, false] = the room may choose. */
-          enabledChoices: z.array(z.boolean()).min(1),
-          returnsTimeChoices: z.array(z.boolean()).min(1),
+          enabledChoices: optionSet(z.boolean(), 2),
+          returnsTimeChoices: optionSet(z.boolean(), 2),
         })
         .nullable(),
     }),
   }),
 });
+
+/** Room-only bounds every due instant depends on: draw size, strike window, prep. */
+function validateRoomOnlyBounds(
+  definition: z.infer<typeof formatDefinitionShape>,
+  ctx: z.RefinementCtx,
+) {
+  const { resolutionDraw: draw, preRoundPrep } = definition.configurable;
+  const outside = (
+    bound: { readonly min: number; readonly max: number },
+    min: number,
+    max: number,
+  ) => bound.min < min || bound.max > max;
+  for (const [field, bound, min, max, message] of [
+    [
+      'drawSize',
+      draw?.drawSize,
+      MIN_DRAW_SIZE,
+      MAX_DRAW_SIZE,
+      'A draw holds 2 to 20 resolutions',
+    ],
+    [
+      'strikeWindowMs',
+      draw?.strikeWindowMs,
+      MIN_STRIKE_WINDOW_MS,
+      MAX_STRIKE_WINDOW_MS,
+      'A strike window is ten seconds to ten minutes',
+    ],
+  ] as const)
+    if (bound && outside(bound, min, max))
+      ctx.addIssue({
+        code: 'custom',
+        message,
+        path: ['configurable', 'resolutionDraw', field],
+      });
+  if (preRoundPrep && preRoundPrep.durationMs.max > MAX_PRE_ROUND_PREP_MS)
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Prep before the round is at most two hours',
+      path: ['configurable', 'preRoundPrep', 'durationMs'],
+    });
+}
 
 function validateSegmentReferences(
   definition: z.infer<typeof formatDefinitionShape>,
@@ -185,6 +261,7 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
       });
     validateSpeakingOpportunities(definition, ctx);
     validateSegmentReferences(definition, ctx);
+    validateRoomOnlyBounds(definition, ctx);
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,
     );
@@ -219,11 +296,11 @@ export const roundRulesSchema = z
   .strictObject({
     version: z.literal(2),
     seats: formatSeatsSchema,
-    segments: z.array(rulesSegmentSchema).min(1),
+    segments: z.array(rulesSegmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
     inRoundPrep: z
       .strictObject({
         budgetMsPerSide: z.int().min(0),
-        spendableBefore: z.array(segmentTypeSchema).min(1),
+        spendableBefore: optionSet(segmentTypeSchema, segmentTypes.length),
         expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
       })
       .nullable(),

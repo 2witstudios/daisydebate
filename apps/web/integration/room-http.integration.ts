@@ -4,11 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   isNamedSeat,
   roomViewSchema,
-  roomCatalogChoiceSchema,
   roundViewSchema,
   buildDebateTopic,
 } from '@daisy/protocol';
 import { createRoomHttpFixture } from './room-http.test-support';
+import { foundationSelection } from './foundation-selection.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { withSql } from './fixtures';
 requireTestServices(process.env);
@@ -20,27 +20,12 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     outsider = await member();
   let roomId: string | null = null;
   try {
-    const catalogResponse = await routes.rooms.catalog(
-      new Request(`${f.origin}/api/rooms/catalog`, { headers: headers(host) }),
-    );
-    const catalog = (await catalogResponse.json()).choices.map(
-      (choice: unknown) => roomCatalogChoiceSchema.parse(choice),
-    );
-    const choice = catalog.find(
-      (c: { formatId: string }) => c.formatId === 'foundation',
-    )!;
     const createBody = (visibility: string) => ({
       commandId: createId(),
       title: 'Authenticated Launch',
       topic: 'Cities should fund transit',
       visibility,
-      selection: {
-        kind: 'catalog',
-        formatId: choice.formatId,
-        formatVersion: choice.formatVersion,
-        competitionType: 'casual',
-        config: choice.defaultConfig,
-      },
+      selection: foundationSelection,
     });
     const privateRequest = await routes.rooms.create(
       f.jsonPost('/api/rooms', createBody('private'), { cookie: host }),
@@ -203,7 +188,15 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         await sql`delete from room_commands where room_id=${roomId}`;
         await sql`delete from room_participants where room_id=${roomId}`;
         await sql`delete from outbox where topic=${`room:${roomId}`}`;
+        // The custom selection published a private format the host owns.
+        const [room] = await sql<{ format_id: string }[]>`
+          select format_id from rooms where id=${roomId}
+        `;
         await sql`delete from rooms where id=${roomId}`;
+        if (room) {
+          await sql`delete from formats where id=${room.format_id}`;
+          await sql`delete from format_revisions where format_id=${room.format_id}`;
+        }
       });
   }
 });

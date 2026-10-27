@@ -17,9 +17,9 @@ product intent; agents own routine execution
    drive and the inherited work itself, and then writes one plan with a task
    list in `Plans/<slice>`. Before writing it, the builder reads:
    - the repository (AGENTS.md, the relevant docs and ADRs);
-   - the drive (`Product intent/Product map`, the capability intents and
-     their "Constraints other features must respect now" sections, the
-     `Issues` buckets touching the slice);
+   - the drive (Product → Project Status, the `Product intent` area pages
+     with their Score, "What 100% means" and "Constraints other features must
+     respect now" sections, and the `Issues` buckets touching the slice);
    - the inherited PRs and branches.
 
    Every task is a `Given X, should Y` criterion with a code. The builder
@@ -34,9 +34,11 @@ product intent; agents own routine execution
    the body lists the codes and links the plan. The builder commits and
    pushes often, and splits off an earlier PR only when a piece must ship
    first.
-5. **Ralph loop.** The builder runs the owner's Ralph loop on its PR,
-   verbatim from PageSpace `p4xbp1iwavowuruqpi5fguf7`, until it emits
-   `PR_READY`. That requires:
+5. **PR loop.** The builder runs its harness's PR loop on its PR, verbatim
+   from Resources › Universal prompts in PageSpace, until it emits
+   `PR_READY`: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude
+   Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode.
+   That requires:
    - zero unresolved threads;
    - three consecutive clean scans;
    - green required checks and no conflicts;
@@ -122,9 +124,9 @@ an expensive command while its known blocking condition is unchanged.
 
 ## Maintained distribution
 
-The repository's `.claude/skills/` and `policy/agent-pipeline/` are the
-reviewable sources for this workflow. `bun pipeline:sync` checks the
-installed shared skills and the named Daisy Library pages, and `--apply`
-updates them with concurrent content checks and readback. The point guard's
-personal copies of the task, handoff, pr and review skills
-(`2witstudios/pointguard`) carry the same text as the repository copies.
+The repository's `.claude/skills/` are the reviewable sources for this
+workflow. Nothing syncs repository files to the drive: PageSpace pages,
+including the PR loops in Resources › Universal prompts, are edited in
+PageSpace. The point guard's personal copies of the task, handoff, pr and
+review skills (`2witstudios/pointguard`) carry the same text as the
+repository copies.

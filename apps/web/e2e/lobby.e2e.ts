@@ -27,7 +27,7 @@ test.describe('authenticated Room lobby', () => {
       await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
       const item = roomRows(page).filter({ hasText: title });
       await expect(item).toHaveCount(1);
-      await expect(item).toContainText(created.topic);
+      await expect(item).toContainText(created.topic ?? '');
       await expect(item.getByRole('link')).toHaveAttribute(
         'href',
         `/rooms/${created.id}`,

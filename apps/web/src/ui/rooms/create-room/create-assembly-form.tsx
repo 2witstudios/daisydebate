@@ -50,7 +50,6 @@ export function CreateAssemblyFields({
         <textarea
           id="assembly-topic"
           name="topic"
-          required
           aria-describedby="assembly-topic-hint"
           defaultValue={state.values.topic ?? ''}
           className={controlClass}
@@ -58,6 +57,8 @@ export function CreateAssemblyFields({
       </FormField>
       <p id="assembly-topic-hint" className="-mt-3 text-xs text-ink-muted">
         One statement: the Affirmative argues for it, the Negative against it.
+        Leave it empty for a format that strikes its resolution, such as
+        Freestyle or IPDA.
       </p>
       <FormatTemplatePicker
         key={state.values.selection ?? 'initial'}

@@ -7,6 +7,7 @@ import type {
 } from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
+import { decideFormatSelection } from './format-selection';
 
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
@@ -30,6 +31,12 @@ export const updateConfig = (
   if (!resolved.ok) return refuse('illegal-config');
   if (room.participants.some((p) => p.slot >= resolved.rules.seats[p.role]))
     return refuse('seat-unavailable');
+  const topic = nextTopic(
+    room,
+    resolved.roomPlan.resolutionDraw.enabled,
+    command.topic,
+  );
+  if (topic === undefined) return refuse('illegal-config');
   publishDefinition = command.type === 'update-format';
   next = {
     ...room,
@@ -39,12 +46,79 @@ export const updateConfig = (
     executionPlan: resolved.roomPlan,
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
+    topic,
     prepStartedAt: null,
     prepRemainingMs: resolved.roomPlan.preRoundPrep.enabled
       ? resolved.roomPlan.preRoundPrep.durationMs
       : null,
   };
   return acceptedRoomMutation(next, { publishDefinition });
+};
+/**
+ * Choose a catalog format, or go back to the room's pinned basis (FMT-1).
+ * The one selection policy decides from the facts the adapter loaded; the
+ * room then runs that definition at that preset's config and records the
+ * basis. The topic follows the draw state (`selectedTopic`).
+ */
+export const selectFormat = (
+  room: RoomAssemblyState,
+  _actorId: string,
+  command: Extract<RoomCommand, { type: 'select-format' }>,
+  _consent: RoomConsent,
+  edges: Edges,
+): RoomMutationOutcome => {
+  if (room.competitionType === 'ranked') return refuse('illegal-config');
+  const decision = decideFormatSelection(
+    {
+      intent: command.intent,
+      formatId: command.formatId,
+      formatVersion: command.formatVersion,
+      presetVersion: command.presetVersion,
+      basis: room.basis,
+    },
+    edges.formatFacts ?? null,
+  );
+  if (!decision.ok) return refuse(decision.refusal);
+  const { rules, roomPlan } = decision.resolved;
+  if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
+    return refuse('seat-unavailable');
+  const topic = selectedTopic(
+    room,
+    roomPlan.resolutionDraw.enabled,
+    command.topic,
+  );
+  if (topic === undefined) return refuse('illegal-config');
+  // The policy refuses role-null facts for `choose`; a reset to a retired
+  // basis keeps its pinned provenance but is no longer a standard.
+  const facts = edges.formatFacts!;
+  return acceptedRoomMutation({
+    ...room,
+    formatId: command.formatId,
+    formatVersion: command.formatVersion,
+    catalogFormat: {
+      name: facts.format.name,
+      role: facts.format.role,
+      leagues: facts.format.leagues,
+    },
+    basis: {
+      formatId: facts.format.id,
+      presetVersion: facts.preset.version,
+      formatVersion: facts.preset.formatVersion,
+      name: facts.format.name,
+      role: facts.format.role ?? 'template',
+      definition: decision.definition,
+      config: decision.config,
+    },
+    definition: decision.definition,
+    config: decision.config,
+    rules,
+    executionPlan: roomPlan,
+    topic,
+    prepStartedAt: null,
+    prepRemainingMs: roomPlan.preRoundPrep.enabled
+      ? roomPlan.preRoundPrep.durationMs
+      : null,
+  });
 };
 export const updateDetails = (
   room: RoomAssemblyState,
@@ -53,14 +127,46 @@ export const updateDetails = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-  next = {
+  const draw = room.executionPlan.resolutionDraw.enabled;
+  if (draw === (command.topic !== undefined)) return refuse('illegal-config');
+  return acceptedRoomMutation({
     ...room,
     title: command.title,
-    topic: command.topic,
+    topic: command.topic ?? null,
     visibility: command.visibility,
-  };
-  return acceptedRoomMutation(next);
+  });
+};
+
+/**
+ * The topic after a config change, or undefined when the command breaks the
+ * rule: turning a draw on carries `topic: null`, turning it off carries the
+ * replacement text, and keeping the draw state carries no topic.
+ */
+const nextTopic = (
+  room: RoomAssemblyState,
+  drawAfter: boolean,
+  topic: string | null | undefined,
+): string | null | undefined => {
+  const drawBefore = room.executionPlan.resolutionDraw.enabled;
+  if (drawBefore === drawAfter)
+    return topic === undefined ? room.topic : undefined;
+  if (drawAfter) return topic === null ? null : undefined;
+  return typeof topic === 'string' ? topic : undefined;
+};
+/**
+ * The topic after choosing a format, or undefined when the command breaks
+ * the rule. Choosing is itself the act, so only leaving a draw carries
+ * text: entering a draw clears the topic, and every other choice keeps it.
+ */
+const selectedTopic = (
+  room: RoomAssemblyState,
+  drawAfter: boolean,
+  topic: string | undefined,
+): string | null | undefined => {
+  const leavingDraw = room.executionPlan.resolutionDraw.enabled && !drawAfter;
+  if (leavingDraw !== (topic !== undefined)) return undefined;
+  if (leavingDraw) return topic;
+  return drawAfter ? null : room.topic;
 };
 const seatAdmission = (
   room: RoomAssemblyState,
@@ -117,6 +223,14 @@ export const claimSeat = (
   };
   return acceptedRoomMutation(next);
 };
+/** Removes one seat: the pure core of leaving, removal and erasure. */
+export const removeSeat = (
+  room: RoomAssemblyState,
+  participantId: string,
+): RoomAssemblyState => ({
+  ...room,
+  participants: room.participants.filter((p) => p.id !== participantId),
+});
 export const leaveSeat = (
   room: RoomAssemblyState,
   actorId: string,
@@ -124,19 +238,13 @@ export const leaveSeat = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-
   const held = room.participants.find((p) =>
     command.type === 'leave-seat'
       ? p.actorId === actorId
       : p.id === command.participantId,
   );
   if (!held) return refuse('not-seated');
-  next = {
-    ...room,
-    participants: room.participants.filter((p) => p.id !== held.id),
-  };
-  return acceptedRoomMutation(next);
+  return acceptedRoomMutation(removeSeat(room, held.id));
 };
 
 const unjoinedHuman = (

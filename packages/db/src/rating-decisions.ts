@@ -1,4 +1,4 @@
-import { createAppError, createInvariantError } from '@daisy/errors';
+import { createInvariantError } from '@daisy/errors';
 import type { RatingPlan } from '@daisy/protocol';
 import type { RateDebateResult } from './rating-facts';
 
@@ -73,23 +73,3 @@ export const ratedResult = (plan: RatingPlan): RateDebateResult => ({
     after,
   })),
 });
-
-/** Retries only a projection that moved under a concurrent write, then refuses. */
-export async function retryStaleProjection<T>(
-  attempt: () => Promise<T>,
-  isStale: (error: unknown) => boolean,
-  attempts: number,
-): Promise<T> {
-  for (let tried = 1; ; tried += 1) {
-    try {
-      return await attempt();
-    } catch (error) {
-      if (!isStale(error)) throw error;
-      if (tried >= attempts)
-        throw createAppError(
-          'CONFLICT',
-          'Ratings kept changing while this round was rated',
-        );
-    }
-  }
-}

@@ -17,8 +17,10 @@ planning-only request stays planning-only.
 3. **Build one PR.** Build the whole slice on one branch, carrying inherited
    commits into it, and open one PR with [/pr](../pr/SKILL.md). Hand it to review
    with [/handoff](../handoff/SKILL.md).
-4. **Converge.** Run the owner's Ralph loop (PageSpace `p4xbp1iwavowuruqpi5fguf7`,
-   verbatim) until it emits `PR_READY`. Its iterations consume the `/review`,
+4. **Converge.** Run your harness's PR loop verbatim until it emits `PR_READY`:
+   PR Loop (Ralph Loop), PageSpace `cvslieavdwwkbz8l551hhhsz`, for Claude Code;
+   PR Loop (Goal), `asdc6hmpbeyu9ujlqrnes1oc`, for Codex and opencode (both in
+   Resources › Universal prompts). Its iterations consume the `/review`,
    `/code-review` and architecture comments.
 5. **Close.** After the flow sweep merges, post `SLICE DONE` or your next plan on
    the channel.

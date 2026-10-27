@@ -1,8 +1,6 @@
-import { humanRoundSelection } from './human-round-selection';
+import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
-  roomCatalogChoiceSchema,
-  type RoomCatalogChoice,
   roomViewSchema,
   roundViewSchema,
   type RoomView,
@@ -90,17 +88,9 @@ type Selection = ReturnType<typeof humanRoundSelection>;
 /** A public Room from the actual catalog foundation, shaped by `select`. */
 export async function createFoundationRoom(
   host: Member,
-  select: (choice: RoomCatalogChoice) => Selection,
+  select: (choice: typeof foundationChoice) => Selection,
 ) {
-  const catalog = await host.context.request.get('/api/rooms/catalog');
-  expect(catalog.status()).toBe(200);
-  const choices = (await catalog.json()).choices.map((choice: unknown) =>
-    roomCatalogChoiceSchema.parse(choice),
-  );
-  const choice = choices.find(
-    (item: { formatId: string }) => item.formatId === 'foundation',
-  );
-  if (!choice) throw new Error('Actual foundation format missing');
+  const choice = foundationChoice;
   const created = await host.context.request.post('/api/rooms', {
     headers: { origin },
     data: {

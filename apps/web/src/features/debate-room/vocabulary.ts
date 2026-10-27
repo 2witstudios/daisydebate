@@ -58,6 +58,55 @@ export function yieldLabel(
     : 'On — unused time is dropped';
 }
 
+/** A draw Room's resolution before its reveal, wherever a topic is shown. */
+export const drawnTopicLabel = 'Chosen by strike before the round';
+
+export const resolutionCategoryLabel: Readonly<
+  Record<'policy' | 'value' | 'fact', string>
+> = { policy: 'Policy', value: 'Value', fact: 'Fact' };
+
+/** "Policy, Value and Fact": an English list of the drawn categories. */
+const listOf = (words: readonly string[]) =>
+  words.length > 1
+    ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+    : (words[0] ?? '');
+
+/** A strike's settings in one line, from its public frozen shape. */
+export function strikeSummary(
+  draw: Extract<RoomView['config']['resolutionDraw'], { enabled: true }>,
+): string {
+  const source =
+    draw.source.kind === 'bank'
+      ? `Daisy’s ${listOf(draw.source.categories.map((c) => resolutionCategoryLabel[c]))} resolutions`
+      : 'the host’s list';
+  const first = draw.firstStriker === 'negative' ? 'Negative' : 'Affirmative';
+  return `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`;
+}
+
+/**
+ * Who struck a drawn resolution, from the viewer's seat: you, your teammate
+ * on a two-person side, or the other side by name.
+ */
+export function strikeLabel(
+  strike: {
+    readonly kind: 'debater' | 'timeout' | 'automatic';
+    readonly side: 'affirmative' | 'negative';
+    readonly byViewer: boolean;
+  },
+  viewerSide: 'affirmative' | 'negative' | null,
+  sideName: (side: 'affirmative' | 'negative') => string,
+): string {
+  const ourSide = strike.side === viewerSide;
+  if (strike.kind === 'timeout')
+    return ourSide
+      ? 'Daisy struck this for you · time ran out'
+      : `Daisy struck this for ${sideName(strike.side)} · time ran out`;
+  if (strike.byViewer) return 'You struck this';
+  return ourSide
+    ? 'Your teammate struck this'
+    : `${sideName(strike.side)} struck this`;
+}
+
 const FIVE_MINUTES = 300_000;
 
 /** "about 30 min": speeches, their countdowns and both sides' prep, to five minutes. */
@@ -125,3 +174,11 @@ export function ruleRows(rules: {
     ['Ending a speech early', yieldLabel(rules.yielding)],
   ];
 }
+
+/** The league browser's groups (FMT-3). */
+export const formatFamilyLabel = {
+  policy: 'Policy',
+  value: 'Value',
+  parli: 'Parli',
+  other: 'Other formats',
+} as const;

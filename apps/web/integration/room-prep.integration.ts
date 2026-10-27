@@ -15,11 +15,13 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
       configurable: {
         ...view.definition.configurable,
         preRoundPrep: { durationMs: { min: 0, max: 60_000 } },
+        resolutionDraw: null,
       },
     };
     const config = {
       ...view.config,
       preRoundPrep: { enabled: true as const, durationMs: 60_000 },
+      resolutionDraw: { enabled: false },
     };
     view = (
       await f.command(f.host, view, {
@@ -32,7 +34,7 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
     await withRoomOutboxFailure(f.sql, view.id, async () => {
       let rolledBack = false;
       try {
-        await f.command(f.host, view, { type: 'start-prep' });
+        await f.command(f.host, view, { type: 'start-pre-round' });
       } catch {
         rolledBack = true;
       }
@@ -43,7 +45,7 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
         expected: [true, beforeStart],
       });
     });
-    const started = await f.command(f.host, view, { type: 'start-prep' });
+    const started = await f.command(f.host, view, { type: 'start-pre-round' });
     const anchor = started.view.prep.startedAt;
     const [persisted] =
       await f.sql`select prep_started_at, version from rooms where id=${view.id}`;
@@ -55,7 +57,7 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
       code: 'CONFLICT',
     });
     const replay = await f.operations.command(f.host, view.id, {
-      type: 'start-prep',
+      type: 'start-pre-round',
       commandId: started.receipt.commandId,
       expectedVersion: view.version,
     });

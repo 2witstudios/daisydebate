@@ -51,20 +51,20 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 
 ## Work intake
 
-Start in the drive's `Start here` page. Before planning a slice, read:
+Start in the drive's Product → `Project Status`. Before planning a slice,
+read:
 
-- `Product intent/Product map`;
-- the applicable capability intents and their "Constraints other features
-  must respect now" sections;
+- the applicable `Product intent` area pages: Score, "What 100% means" and
+  "Constraints other features must respect now";
 - the affected-capability links (Rooms/realtime to Spectating, Formats to
   Judging, Messaging to Privacy).
 
 Link these sources from the slice plan. Future intent constrains current
 work without creating a future task tree. Design work extends the existing
-shipped UI and canvases in `Designs`.
+shipped UI and canvases in `Resources/Designs`.
 
-Completed or superseded task history lives in `Archive/Work history`, which
-remains a TASK_LIST so task identity survives moves. A merged PR's tasks
+Obsolete pages go to the PageSpace trash, which is restorable; there is no
+Archive folder. Moves keep task identity. A merged PR's tasks
 reach Done when its latest review verdict approves; otherwise they wait in
 Merged for the board keeper ([reviews](reviews.md)).
 

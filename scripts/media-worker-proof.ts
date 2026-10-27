@@ -14,10 +14,8 @@ import {
 } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
-import {
-  createBotActivityRelay,
-  createBotHeardRelay,
-} from '../apps/web/src/features/round-bots/activity-relay';
+import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
+import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/heard-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
@@ -130,7 +128,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     authentication: () => authentication,
     capture: () => capture,
     token: (scope, principal) => broker.captureToken(scope, principal),
-    heard: createBotHeardRelay({
+    heard: createCaptureHeardRelay({
       readCapture: (value) => capture.readMediaCaptureState(value),
       readLease: (value) => capture.readCurrentCaptureLease(value),
       write: f.redis.writeCaptureHeard,

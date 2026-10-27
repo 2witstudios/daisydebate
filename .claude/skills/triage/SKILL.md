@@ -19,7 +19,7 @@ Fix remaining in-scope findings with tests, or delegate to a native PurePoint
 child that commits to this PR branch. Never ask several helpers to mutate the
 same branch at once. Reply to every comment with what changed, what was
 clarified, or why no change is needed. File each out-of-scope finding as an
-`ISSUE-n` in the drive's Issues list and link it in the reply.
+`ISSUE-n` in one of the drive's Issues buckets and link it in the reply.
 
 Keep criteria intact. Escalate a product, architecture or scope question to the
 point guard on the channel and continue all other work. Never fabricate a PASS

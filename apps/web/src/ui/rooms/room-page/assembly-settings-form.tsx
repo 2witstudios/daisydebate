@@ -12,6 +12,7 @@ import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
+import { DrawFields } from './assembly-draw-fields';
 import { seatLabel } from './assembly-controls';
 import { speechName } from '../../../features/debate-room/vocabulary';
 import { openOnInvalid } from './room-setup-modal';
@@ -92,6 +93,7 @@ export function AssemblySettingsFields({
             required
           />
           <InteractionFields view={view} state={state} disabled={disabled} />
+          <DrawFields view={view} state={state} disabled={disabled} />
         </div>
       </details>
       <AssemblyEditFeedback state={state} roomId={view.id} />

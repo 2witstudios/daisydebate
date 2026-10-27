@@ -1,5 +1,10 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { RoomListEntry, RoomView } from '@daisy/protocol';
+import {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  type RoomListEntry,
+  type RoomView,
+} from '@daisy/protocol';
 import type { RoomTemplate } from './read-catalog';
 
 /** Explicit legal-choice fixture, never a production template or default. */
@@ -7,6 +12,13 @@ export const unequalTemplate = {
   formatId: 'test-unequal-template',
   formatVersion: 7,
   label: 'Unequal team template',
+  role: 'template',
+  family: 'other',
+  leagues: ['Test League'],
+  searchTerms: 'unequal test',
+  sortOrder: 99,
+  rulesEdition: 'Test rules',
+  sourceUrl: 'https://example.test/rules',
   definition: {
     version: 1,
     seats: { affirmative: 2, negative: 3, judge: 1 },
@@ -37,6 +49,7 @@ export const unequalTemplate = {
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: { durationMs: { min: 60000, max: 600000 } },
+      resolutionDraw: null,
       inRoundPrep: {
         budgetMsPerSide: { min: 0, max: 900000 },
         spendableBefore: ['speech'],
@@ -52,20 +65,26 @@ export const unequalTemplate = {
       },
     },
   },
-  presets: [],
-  defaultConfig: {
-    preRoundPrep: { enabled: true, durationMs: 321000 },
-    inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
-    speechTiming: { countdownMs: 444, segmentDurationOverrides: { N3: 98765 } },
-    crossExamination: { crossExMode: 'free' },
-    interruptions: { mode: 'disabled', minRemainingMs: 1234 },
-    yielding: { allowed: false, returnsTime: true },
+  preset: {
+    version: 5,
+    config: {
+      preRoundPrep: { enabled: true, durationMs: 321000 },
+      resolutionDraw: { enabled: false },
+      inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
+      speechTiming: {
+        countdownMs: 444,
+        segmentDurationOverrides: { N3: 98765 },
+      },
+      crossExamination: { crossExMode: 'free' },
+      interruptions: { mode: 'disabled', minRemainingMs: 1234 },
+      yielding: { allowed: false, returnsTime: true },
+    },
   },
 } satisfies RoomTemplate;
 
 const compiled = resolveRoomConfiguration(
   unequalTemplate.definition,
-  unequalTemplate.defaultConfig,
+  unequalTemplate.preset.config,
 );
 if (!compiled.ok) throw new Error('Room consumer fixture must compile');
 export const assemblySnapshot = {
@@ -82,10 +101,29 @@ export const assemblySnapshot = {
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,
   presetVersion: null,
+  format: {
+    name: unequalTemplate.label,
+    role: 'template',
+    leagues: unequalTemplate.leagues,
+    basis: {
+      formatId: unequalTemplate.formatId,
+      name: unequalTemplate.label,
+      formatVersion: unequalTemplate.formatVersion,
+      presetVersion: unequalTemplate.preset.version,
+      strikes: false,
+    },
+    standing: {
+      kind: 'custom',
+      basis: { formatId: unequalTemplate.formatId, role: 'template' },
+      changes: [],
+    },
+  },
   competitionType: 'casual',
   definition: unequalTemplate.definition,
-  config: unequalTemplate.defaultConfig,
-  executionPlan: compiled.roomPlan,
+  config: freezeRoomConfig(unequalTemplate.preset.config),
+  executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
+  authoredDrawSource: null,
+  resolutionDraw: null,
   rules: compiled.rules,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },
@@ -95,7 +133,8 @@ export const assemblySnapshot = {
     canEdit: true,
     canClaimSeat: true,
     canReady: false,
-    canStartPrep: false,
+    canStartPreRound: false,
+    canStrike: false,
     canFinishPrep: false,
     canStart: false,
   },

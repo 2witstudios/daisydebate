@@ -31,6 +31,12 @@ async function refusalOf(response: Response): Promise<Created> {
   );
   if (body.success && body.data.refusal === 'active-room')
     return { kind: 'active-room', href: body.data.activeRoom?.href ?? null };
+  // The format and the resolution disagree, or the catalog moved on.
+  if (
+    body.success &&
+    ['illegal-config', 'format-unavailable'].includes(body.data.refusal)
+  )
+    return { kind: 'refused', reason: 'settings' };
   return { kind: 'refused', reason: 'replayed' };
 }
 const createdSchema = z.object({
@@ -52,7 +58,8 @@ export async function createAssembly(
   const parsed = roomCreateSchema.safeParse({
     commandId: field(form, 'commandId'),
     title: field(form, 'title'),
-    topic: field(form, 'topic'),
+    // Empty for a format that strikes its resolution: the reveal names it.
+    topic: field(form, 'topic').trim() || null,
     visibility: field(form, 'visibility'),
     selection,
   });

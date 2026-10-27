@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { crossExModeSchema, interruptionModeSchema } from './format';
+import {
+  crossExModeSchema,
+  interruptionModeSchema,
+  MAX_PRE_ROUND_PREP_MS,
+} from './format';
+import {
+  freezeResolutionDraw,
+  frozenResolutionDrawSchema,
+  roomResolutionDrawSchema,
+} from './resolution-draw';
 
 /**
  * "Available and declined" has exactly one spelling per level (ADR 0058):
@@ -11,7 +20,10 @@ const declinedSchema = z.strictObject({ enabled: z.literal(false) });
 
 const preRoundPrepSchema = z.discriminatedUnion('enabled', [
   declinedSchema,
-  z.strictObject({ enabled: z.literal(true), durationMs: z.int().positive() }),
+  z.strictObject({
+    enabled: z.literal(true),
+    durationMs: z.int().positive().max(MAX_PRE_ROUND_PREP_MS),
+  }),
 ]);
 
 const inRoundPrepSchema = z.discriminatedUnion('enabled', [
@@ -29,7 +41,7 @@ const inRoundPrepSchema = z.discriminatedUnion('enabled', [
  * free-form config at all, its every value coming from the sanctioned
  * preset, which stores exactly this shape.
  */
-export const roomConfigSchema = z.strictObject({
+const roomConfigFields = {
   preRoundPrep: preRoundPrepSchema,
   inRoundPrep: inRoundPrepSchema,
   speechTiming: z.strictObject({
@@ -49,17 +61,52 @@ export const roomConfigSchema = z.strictObject({
   yielding: z
     .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
     .nullable(),
+};
+export const roomConfigSchema = z.strictObject({
+  ...roomConfigFields,
+  resolutionDraw: roomResolutionDrawSchema,
 });
 export type RoomConfig = z.infer<typeof roomConfigSchema>;
 
 /**
- * What the Room executes before competition (ADR 0058): pre-round prep
- * alone. Readiness flow and document access are real settings, but their
- * source fields are not declared yet, so they do not ride here — adding
- * them is a separate decision that adds their fields to the definition,
- * the config and this plan together.
+ * The viewer-independent config every delivery and `rounds.room_config_snapshot`
+ * use: a host-written resolution list appears only as its length.
+ */
+export const frozenRoomConfigSchema = z.strictObject({
+  ...roomConfigFields,
+  resolutionDraw: frozenResolutionDrawSchema,
+});
+export type FrozenRoomConfig = z.infer<typeof frozenRoomConfigSchema>;
+
+/**
+ * What the Room executes before competition (ADR 0058): the resolution
+ * draw and pre-round prep. Readiness flow and document access are real
+ * settings, but their source fields are not declared yet, so they do not
+ * ride here — adding them is a separate decision that adds their fields to
+ * the definition, the config and this plan together.
  */
 export const roomExecutionPlanSchema = z.strictObject({
   preRoundPrep: preRoundPrepSchema,
+  resolutionDraw: roomResolutionDrawSchema,
 });
 export type RoomExecutionPlan = z.infer<typeof roomExecutionPlanSchema>;
+
+export const frozenRoomExecutionPlanSchema = z.strictObject({
+  preRoundPrep: preRoundPrepSchema,
+  resolutionDraw: frozenResolutionDrawSchema,
+});
+export type FrozenRoomExecutionPlan = z.infer<
+  typeof frozenRoomExecutionPlanSchema
+>;
+
+/** The one projection from the internal config to its public shape. */
+export const freezeRoomConfig = (config: RoomConfig): FrozenRoomConfig => ({
+  ...config,
+  resolutionDraw: freezeResolutionDraw(config.resolutionDraw),
+});
+export const freezeRoomExecutionPlan = (
+  plan: RoomExecutionPlan,
+): FrozenRoomExecutionPlan => ({
+  ...plan,
+  resolutionDraw: freezeResolutionDraw(plan.resolutionDraw),
+});

@@ -38,7 +38,9 @@ export const capabilityOf = (command: RoomCommand): AuthorizationCapability =>
       ? 'room.ready'
       : command.type === 'leave-seat'
         ? 'room.leave'
-        : 'room.manage';
+        : command.type === 'strike-resolution'
+          ? 'room.strike'
+          : 'room.manage';
 const canonical = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value !== null && typeof value === 'object')
