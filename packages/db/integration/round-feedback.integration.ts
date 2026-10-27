@@ -26,7 +26,7 @@ async function completedRound(fixture: Fixture, roundId: string) {
   const end = new Date(clock!.now.getTime() - 60_000);
   const start = new Date(end.getTime() - 1000);
   await fixture.sql.unsafe(
-    "update rounds set status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4 where id=$1",
+    "update rounds set visibility='public',status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4 where id=$1",
     [roundId, start, end, new Date(end.getTime() + 120000)],
   );
   const aff = await fixture.seat(roundId, 'affirmative');
@@ -108,8 +108,10 @@ const erased = {
 test('a completed Round is coached once from its freeze, under one lease at a time', async () =>
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     const before = {
-      listed: (await jobs.scan(64, dayAgo())).includes(roundId),
-      recent: (await jobs.scan(64, new Date().toISOString())).includes(roundId),
+      listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
+      recent: (
+        await jobs.scan(64, new Date().toISOString(), () => true)
+      ).includes(roundId),
       facts: await facts(),
     };
     const first = await jobs.claim(roundId, claim);
@@ -148,7 +150,7 @@ test('a completed Round is coached once from its freeze, under one lease at a ti
         },
         row,
         after: {
-          listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+          listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
           retaken: await jobs.claim(roundId, claim),
           pass: (await facts()).pass?.feedback,
         },
@@ -179,9 +181,9 @@ test('a lapsed lease is listed again and the decision retakes or ends it', async
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     await jobs.claim(roundId, claim);
     await lapse(fixture, roundId);
-    const listed = (await jobs.scan(64, new Date().toISOString())).includes(
-      roundId,
-    );
+    const listed = (
+      await jobs.scan(64, new Date().toISOString(), () => true)
+    ).includes(roundId);
     const second = await jobs.claim(roundId, claim);
     await lapse(fixture, roundId);
     const ended = await jobs.claim(roundId, () => 'fail');
@@ -215,7 +217,7 @@ test('a Round without a frozen transcript is never a candidate', async () =>
       given: 'a completed Round with lines but no freeze',
       should: 'not list it, and report it unfrozen',
       actual: {
-        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
         frozen: (await facts()).frozen,
       },
       expected: { listed: false, frozen: false },
@@ -235,7 +237,7 @@ test('erasing a debater clears their Round’s coaching for good', async () =>
         'drop the coaching text and leave the job failed, so it is never listed or bought again',
       actual: {
         pass: (await facts()).pass,
-        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
         retaken: await jobs.claim(roundId, claim),
       },
       expected: {
@@ -253,7 +255,7 @@ test('a frozen Round with no lines is never a candidate', async () =>
       given: 'a completed, frozen Round with no transcript lines',
       should: 'not hold a scan batch place, and report no lines',
       actual: {
-        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
         lines: (await facts()).lines,
       },
       expected: { listed: false, lines: 0 },
@@ -268,7 +270,7 @@ test('erasing a debater before coaching or during it ends coaching for good', as
       should: 'leave a failed row with no text, never listed or claimed',
       actual: {
         pass: (await facts()).pass,
-        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        listed: (await jobs.scan(64, dayAgo(), () => true)).includes(roundId),
         claimed: await jobs.claim(roundId, claim),
       },
       expected: { pass: erased, listed: false, claimed: null },

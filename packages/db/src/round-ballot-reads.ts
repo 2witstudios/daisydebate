@@ -90,11 +90,23 @@ export const roundBallotReads = ({
     readonly roundId: string;
     readonly caller: Caller;
     readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorizeCoaching: (
+      round: LaunchedRound,
+      account: Account,
+    ) => boolean;
   }): Promise<RoundBallotRecord> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      const round = await readAuthorizedRound(tx, input);
+      let currentAccount: Account = null;
+      const round = await readAuthorizedRound(tx, {
+        ...input,
+        authorize: (candidate, account) => {
+          currentAccount = account;
+          return input.authorize(candidate, account);
+        },
+      });
+      const coachingAllowed = input.authorizeCoaching(round, currentAccount);
       const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
       const rows = await tx
         .select()
@@ -133,7 +145,7 @@ export const roundBallotReads = ({
         }),
         // The coaching feature decides the debater's coaching from these facts.
         coaching:
-          viewerSide && completed
+          coachingAllowed && viewerSide && completed
             ? {
                 side: viewerSide,
                 facts: await readRoundCoachingFacts(tx, input.roundId),
