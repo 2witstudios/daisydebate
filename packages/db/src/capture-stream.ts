@@ -1,3 +1,4 @@
+import { captureRoomInterrupted } from './capture-room-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
@@ -134,6 +135,7 @@ export async function sealCapturedStream(
       ),
     );
   const state = sealState({
+    interrupted: await captureRoomInterrupted(tx, input.sessionId, segment),
     epoch: input.epoch,
     observations,
     chunks,

@@ -1,12 +1,18 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
+import { createId } from '@paralleldrive/cuid2';
 import { historicalCapture } from './media-capture.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-for (const mode of ['old-observation', 'old-chunk', 'current-silence']) {
+for (const mode of [
+  'old-observation',
+  'old-chunk',
+  'room-deletion',
+  'current-silence',
+]) {
   test(`capture recovery preserves uncertainty: ${mode}`, async () => {
     await withBoundedRound(async (fixture, transaction, roundId) => {
       const f = await historicalCapture(fixture, transaction, roundId);
@@ -22,9 +28,21 @@ for (const mode of ['old-observation', 'old-chunk', 'current-silence']) {
         let epoch = (
           await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 })
         ).epoch;
+        if (mode === 'room-deletion') {
+          await fixture.insert('media_vendor_mutations', {
+            id: createId(),
+            session_id: f.lease.sessionId,
+            epoch: 1,
+            kind: 'delete',
+            payload: {},
+            dispatched_at: new Date(f.start.getTime() + 10),
+            settled_at: new Date(f.start.getTime() + 20),
+            outcome: 'succeeded',
+          });
+        }
         if (mode === 'old-chunk')
           await f.store.appendCapturedTranscript(f.clip);
-        else await observe(epoch);
+        else if (mode !== 'room-deletion') await observe(epoch);
         if (mode !== 'current-silence') {
           // A process can die after observing audio but before queued STT returns.
           await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
@@ -32,11 +50,31 @@ for (const mode of ['old-observation', 'old-chunk', 'current-silence']) {
             await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 })
           ).epoch;
           if (mode === 'old-chunk') await observe(epoch);
+          if (mode === 'room-deletion') {
+            await observe(epoch);
+            await f.store.appendCapturedTranscript({
+              ...f.clip,
+              epoch,
+              text: 'New room text after rotation',
+            });
+          }
+        }
+        if (mode === 'room-deletion') {
+          const rows =
+            await fixture.sql`select text,capture_worker_epoch from utterances where segment_id=${f.stream.segmentId}`;
+          assert({
+            given: 'rotation with no old utterance',
+            should: 'persist resumed text without a fabricated old-epoch chunk',
+            actual: rows.map((row) => [row.text, row.capture_worker_epoch]),
+            expected: [['New room text after rotation', epoch]],
+          });
         }
         const seal = await f.store.sealCapturedStream({
           ...f.stream,
           epoch,
-          expectedChunkCount: mode === 'old-chunk' ? 1 : 0,
+          expectedChunkCount: ['old-chunk', 'room-deletion'].includes(mode)
+            ? 1
+            : 0,
         });
         assert({
           given:
