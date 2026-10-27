@@ -2,7 +2,7 @@
 
 Status: accepted (owner decision, 2026-10-27).
 
-Supersedes the review-evidence rules of [ADR 0064](0064-greenfield-feature-integration-and-review-evidence.md)
+Supersedes the review-evidence, documentation-only classification and review-record rules of [ADR 0064](0064-greenfield-feature-integration-and-review-evidence.md)
 and the main-acceptance, review-record and receiving-branch rules of
 [ADR 0065](0065-branch-autonomy-and-main-acceptance.md). Amends
 [ADR 0013](0013-knip-dead-code-gate.md) and [ADR 0026](0026-duplication-gate.md).

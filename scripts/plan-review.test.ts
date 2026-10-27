@@ -109,7 +109,7 @@ describe('adrIndex', () => {
       expected: [
         files.length,
         'Bun as the only runtime and package manager',
-        ['0022', '0064', '0065'],
+        ['0022', '0065'],
       ],
     });
   });

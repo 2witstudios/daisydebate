@@ -1,6 +1,6 @@
 # 0064: Greenfield feature integration and review evidence
 
-Status: superseded by [ADR 0083](0083-lean-gates-and-slice-process.md) (2026-10-27): reviews are async PR comments and no review-record status exists.
+Status: proposed. Its review-evidence, documentation-only classification and review-record rules are superseded by [ADR 0083](0083-lean-gates-and-slice-process.md) (2026-10-27): reviews are async PR comments and no review-record status exists. The RT lease and authorization-generation text remains pending owner confirmation.
 
 Builds on [ADR 0060](0060-persistent-authorized-messaging-channels.md).
 Source: [policy and producer reconciliation candidate](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/k55wkk05wod2w1oswgasijhu) and
