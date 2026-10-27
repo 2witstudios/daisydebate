@@ -34,9 +34,14 @@ function worker(input: unknown): Promise<unknown> {
       'bun',
       [fileURLToPath(new URL('./messaging-data-worker.ts', import.meta.url))],
       { timeout: 20000, maxBuffer: 16384 },
-      (error, stdout) => {
+      (error, stdout, stderr) => {
+        // The worker writes only a sanitized one-line cause (no URL, input or stack).
         if (error)
-          return reject(new Error('Messaging browser data worker refused'));
+          return reject(
+            new Error(
+              `Messaging browser data worker refused: ${stderr.slice(0, 240) || 'no cause'}`,
+            ),
+          );
         try {
           resolve(JSON.parse(stdout));
         } catch {
