@@ -117,6 +117,12 @@ export {
   type Topic,
   type Want,
 } from './onboarding';
+export {
+  betaAccessProvenances,
+  betaAccessCommandResultSchema,
+  betaAccessStates,
+  operatorConsoleOrigin,
+} from './beta-access';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';
 export {
@@ -204,7 +210,11 @@ export { serverMessageSchema, type ServerMessage } from './realtime-server';
 
 export { createMessagingFileSchemas } from './messaging/files';
 
-export { createMessagingInboxSchemas } from './messaging/inbox';
+export {
+  createMessagingInboxSchemas,
+  messagingInboxPreviewMax,
+  messagingInboxTitleMax,
+} from './messaging/inbox';
 
 export {
   messagingGroupInvitationResultSchema,

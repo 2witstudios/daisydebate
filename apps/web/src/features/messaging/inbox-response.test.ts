@@ -5,7 +5,16 @@ setupRitewayBun();
 test('inbox transport requires explicit bounds and refuses private or unbounded entries', async () => {
   const result = {
     version: 1 as const,
-    entries: [{ channelId: 'c'.repeat(24), kind: 'incoming_request' as const }],
+    entries: [
+      {
+        channelId: 'c'.repeat(24),
+        kind: 'incoming_request' as const,
+        title: 'kelvin',
+        preview: { text: 'Practice tonight?', fromSelf: false },
+        activityAt: '2026-10-26T18:00:00.000Z',
+        unread: true,
+      },
+    ],
     nextAfter: null,
   };
   const read = (body: unknown) =>
@@ -20,7 +29,10 @@ test('inbox transport requires explicit bounds and refuses private or unbounded 
   });
   for (const body of [
     { ...result, entries: [...result.entries, ...result.entries] },
-    { ...result, entries: [{ ...result.entries[0], introduction: 'private' }] },
+    {
+      ...result,
+      entries: [{ ...result.entries[0], memberActorIds: ['a'.repeat(24)] }],
+    },
   ])
     await assertRejects({
       given: 'an oversized page or undeclared content',

@@ -5,12 +5,16 @@ import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
-import { readConversationResponse } from '../../../../features/messaging/conversation';
+import {
+  readConversationResponse,
+  readThroughSequence,
+} from '../../../../features/messaging/conversation';
 import { Button } from '../../../../ui/components/button/button';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
+import { MarkConversationRead } from '../../../../ui/messaging/mark-read';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { sendMessageAction } from './actions';
@@ -32,12 +36,19 @@ export default async function ConversationPage({
   );
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
+  const readThrough =
+    conversation === null
+      ? null
+      : readThroughSequence(conversation.history, {
+          searching: searchQuery !== undefined,
+          paging: typeof query.before === 'string',
+        });
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
         title="Conversation"
         lede="Private messages"
-        actions={<Link href="/lobby">Back to lobby</Link>}
+        actions={<Link href="/messages">Back to messages</Link>}
       />
       <Link href={`/messages/${id.data}/preferences`}>
         Conversation preferences
@@ -56,6 +67,9 @@ export default async function ConversationPage({
             maxUnits={conversation.bounds.messageUnits}
             searchQuery={searchQuery ?? null}
           />
+          {readThrough === null ? null : (
+            <MarkConversationRead channelId={id.data} sequence={readThrough} />
+          )}
           <ConversationLive
             channelId={id.data}
             socketUrl={conversation.socketUrl}
