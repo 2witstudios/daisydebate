@@ -101,6 +101,7 @@ export function projectRoom(
       basis: basis && {
         formatId: basis.formatId,
         name: basis.name,
+        formatVersion: basis.formatVersion,
         presetVersion: basis.presetVersion,
       },
       standing: formatStanding({

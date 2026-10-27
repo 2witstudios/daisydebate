@@ -21,6 +21,7 @@ const render = (refused: boolean) => {
         actorId: 'v'.repeat(24),
         viewerLabel: 'Viewer',
         bots: [],
+        choices: [],
         socketUrl: null,
         refused,
         commandAction: async () => ({ values: {} }),

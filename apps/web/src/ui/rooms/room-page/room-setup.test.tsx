@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  assemblySnapshot,
+  unequalTemplate,
+} from '../../../features/rooms/assembly.test-support';
 import { WithAppRouter } from '../../test-support/app-router';
 import { savedAnswer } from './assembly-edit-form';
 import { RoomSetup, sheetOpen } from './room-setup';
@@ -11,9 +14,16 @@ const html = renderToStaticMarkup(
   <WithAppRouter>
     <RoomSetup
       view={assemblySnapshot}
+      choices={[unequalTemplate]}
       commandIds={{ details: 'details-id', settings: 'settings-id' }}
+      formatIds={{
+        choose: 'choose-id',
+        reset: 'reset-id',
+        template: 'template-id',
+      }}
       detailsAction={action}
       settingsAction={action}
+      commandAction={action}
     />
   </WithAppRouter>,
 );
@@ -40,16 +50,17 @@ test('both forms keep their native posts, basics first and the rules closed', ()
   assert({
     given: 'an unrefused room',
     should:
-      'hold the room details and round settings forms, with the rules disclosure closed',
+      'hold the room details, format and round settings forms, with the rules disclosure closed',
     actual: [
       html.includes('aria-label="Room details"'),
       html.includes('aria-label="Round settings"'),
       html.includes('value="details-id"'),
       html.includes('value="settings-id"'),
       /<details[^>]*\sopen/.test(html),
+      html.includes('value="choose-id"'),
       html.includes('The format and rating are set when the room is created.'),
     ],
-    expected: [true, true, true, true, false, true],
+    expected: [true, true, true, true, false, true, false],
   });
 });
 

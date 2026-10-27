@@ -53,6 +53,7 @@ export default async function RoomRoute({
         actorId={identity.principal.actorId}
         viewerLabel={identity.username}
         bots={catalog.bots}
+        choices={catalog.choices}
         socketUrl={result.socketUrl}
         refused={(await searchParams).notice === 'command-refused'}
         commandAction={roomCommandAction.bind(null, id)}

@@ -17,6 +17,7 @@ const ids = (tag: string): RoomCommandIds => ({
   prep: { start: `${tag}ps`, finish: `${tag}pf` },
   settings: `${tag}x`,
   seats: [],
+  format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
 });
 const view = (
   changeVersion: number,

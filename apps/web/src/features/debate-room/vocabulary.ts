@@ -125,3 +125,11 @@ export function ruleRows(rules: {
     ['Ending a speech early', yieldLabel(rules.yielding)],
   ];
 }
+
+/** The league browser's groups (FMT-3). */
+export const formatFamilyLabel = {
+  policy: 'Policy',
+  value: 'Value',
+  parli: 'Parli',
+  other: 'Other formats',
+} as const;

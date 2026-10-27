@@ -4,7 +4,11 @@ import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
-import type { RoomCastChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCastChoice,
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol';
 import { systemScheduler } from '../../../features/realtime/browser-adapters';
 import { browserSyncEdges } from '../../../features/resource-sync/browser';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
@@ -35,6 +39,8 @@ type Props = {
   readonly actorId: string;
   readonly viewerLabel: string;
   readonly bots: readonly RoomCastChoice[];
+  /** The picker's catalog for Room setup (FMT-3). */
+  readonly choices: readonly RoomCatalogChoice[];
   /** The realtime endpoint, or null when realtime is not configured. */
   readonly socketUrl: string | null;
   /** A native post was refused and returned here with the notice. */
@@ -96,9 +102,12 @@ export function RoomLive(props: Props) {
       {view.capabilities.canEdit ? (
         <RoomSetup
           view={view}
+          choices={props.choices}
           commandIds={{ details: ids.header.details, settings: ids.settings }}
+          formatIds={ids.format}
           detailsAction={props.detailsAction}
           settingsAction={props.settingsAction}
+          commandAction={props.commandAction}
         />
       ) : null}
       <RoomResolution view={view} />

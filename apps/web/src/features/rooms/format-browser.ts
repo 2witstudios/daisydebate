@@ -1,8 +1,11 @@
+import type { RoomCatalogChoice } from '@daisy/protocol';
+import { roundLength, shapeLabel } from '../debate-room/vocabulary';
+
 type Family = 'policy' | 'value' | 'parli' | 'other';
 
 type CatalogEntry = {
   readonly formatId: string;
-  readonly name: string;
+  readonly label: string;
   readonly role: 'standard' | 'template';
   readonly family: Family | null;
   readonly leagues: readonly string[];
@@ -24,7 +27,7 @@ export function standardOptions<T extends CatalogEntry>(
 
 const matches = (entry: CatalogEntry, words: readonly string[]) => {
   const haystack =
-    `${entry.name} ${entry.leagues.join(' ')} ${entry.searchTerms}`.toLowerCase();
+    `${entry.label} ${entry.leagues.join(' ')} ${entry.searchTerms}`.toLowerCase();
   return words.every((word) => haystack.includes(word));
 };
 
@@ -51,4 +54,22 @@ export function browseTemplates<T extends CatalogEntry>(
       templates: templates.filter((entry) => entry.family === group),
     }))
     .filter((group) => group.templates.length > 0);
+}
+
+/** Each speech's duration at the choice's canonical preset. */
+export const presetSpeechMs = (choice: RoomCatalogChoice) =>
+  choice.definition.segments.map(
+    (segment) =>
+      choice.preset.config.speechTiming.segmentDurationOverrides[segment.key] ??
+      segment.defaultDurationMs,
+  );
+
+/** "1v1 · about 34 min": a catalog choice at its canonical preset. */
+export function choiceSummary(choice: RoomCatalogChoice): string {
+  const { inRoundPrep, speechTiming } = choice.preset.config;
+  return `${shapeLabel(choice.definition.seats)} · ${roundLength({
+    speechesMs: presetSpeechMs(choice),
+    countdownMs: speechTiming.countdownMs,
+    prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
+  })}`;
 }

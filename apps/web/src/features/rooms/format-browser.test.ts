@@ -5,13 +5,13 @@ setupRitewayBun();
 
 const entry = (
   formatId: string,
-  name: string,
+  label: string,
   role: 'standard' | 'template',
   family: 'policy' | 'value' | 'parli' | 'other' | null,
   leagues: readonly string[],
   searchTerms: string,
   sortOrder: number,
-) => ({ formatId, name, role, family, leagues, searchTerms, sortOrder });
+) => ({ formatId, label, role, family, leagues, searchTerms, sortOrder });
 
 const catalog = [
   entry(

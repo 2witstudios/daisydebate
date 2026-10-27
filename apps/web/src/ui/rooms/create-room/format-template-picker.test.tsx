@@ -134,3 +134,35 @@ test('the changing selected preview is hidden before hydration', () => {
     expected: true,
   });
 });
+
+test('a new room starts on Value, with standards before league rules (FMT-3)', () => {
+  const standard = (formatId: string, label: string, sortOrder: number) => ({
+    ...unequalTemplate,
+    formatId,
+    label,
+    role: 'standard' as const,
+    family: null,
+    sortOrder,
+  });
+  const html = renderToStaticMarkup(
+    <FormatTemplatePicker
+      choices={[
+        unequalTemplate,
+        standard('value', 'Value', 2),
+        standard('policy', 'Policy', 1),
+      ]}
+    />,
+  );
+  const selected = html.match(/<option[^>]*selected=""[^>]*>/)?.[0];
+  assert({
+    given: 'a catalog with Policy, Value and a league template',
+    should: 'select Value and group Daisy standards ahead of the league rules',
+    actual: [
+      selected?.includes('&quot;formatId&quot;:&quot;value&quot;'),
+      html.indexOf('label="Daisy standards"') <
+        html.indexOf('label="League rules · Other formats"'),
+      html.indexOf('Policy (') < html.indexOf('Value ('),
+    ],
+    expected: [true, true, true],
+  });
+});

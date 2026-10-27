@@ -27,8 +27,22 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (typeof raw[key] !== 'string') return null;
     raw[key] = JSON.parse(raw[key]);
   }
+  if ('format' in raw) {
+    // One radio or select names a whole catalog tuple (FMT-3).
+    if (typeof raw.format !== 'string') return null;
+    const tuple = formatTupleSchema.safeParse(JSON.parse(raw.format));
+    if (!tuple.success) return null;
+    const { format: _format, ...rest } = raw;
+    return { ...rest, ...tuple.data };
+  }
   return raw;
 }
+
+const formatTupleSchema = z.strictObject({
+  formatId: z.string().min(1),
+  formatVersion: z.int().positive(),
+  presetVersion: z.int().positive(),
+});
 
 const responseSchema = z.object({ view: roomViewSchema });
 export async function submitAssembly(

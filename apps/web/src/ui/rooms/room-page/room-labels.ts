@@ -96,6 +96,14 @@ export function formatLine(
   })}`;
 }
 
+/** "Value", "Custom, based on NSDA Policy (CX)" or "Custom": what the room runs (FMT-4). */
+export function formatTitle(format: RoomView['format']): string {
+  if (format.standing.kind === 'standard') return format.name;
+  return format.standing.basis
+    ? `Custom, based on ${format.basis?.name ?? format.name}`
+    : 'Custom';
+}
+
 const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'version-conflict': 'the latest room changes',
   'host-required': 'the host',

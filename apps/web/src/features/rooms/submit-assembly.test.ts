@@ -76,3 +76,58 @@ test('invalid intents refuse before transport and a version conflict is never re
     ],
   });
 });
+
+test('a native format choice posts its catalog tuple as select-format (FMT-3)', async () => {
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    type: 'select-format',
+    intent: 'choose',
+    commandId: 's'.repeat(24),
+    expectedVersion: '3',
+    format: JSON.stringify({
+      formatId: 'policy',
+      formatVersion: 1,
+      presetVersion: 2,
+    }),
+  }))
+    form.set(key, value);
+  let sent: unknown;
+  await submitAssembly(
+    async (_path, init) => {
+      sent = JSON.parse(String(init.body));
+      return Response.json({ view: assemblySnapshot, receipt: {} });
+    },
+    assemblySnapshot.id,
+    form,
+  );
+  assert({
+    given: 'a format radio whose value names one catalog tuple',
+    should: 'spread the tuple into the command, never post the raw field',
+    actual: sent,
+    expected: {
+      type: 'select-format',
+      intent: 'choose',
+      commandId: 's'.repeat(24),
+      expectedVersion: 3,
+      formatId: 'policy',
+      formatVersion: 1,
+      presetVersion: 2,
+    },
+  });
+  const forged = new FormData();
+  for (const [key, value] of form) forged.set(key, value);
+  forged.set('format', JSON.stringify({ formatId: 'policy', type: 'close' }));
+  const refused = await submitAssembly(
+    async () => {
+      throw new Error('must not send');
+    },
+    assemblySnapshot.id,
+    forged,
+  );
+  assert({
+    given: 'a format value carrying anything but the tuple',
+    should: 'refuse it before transport',
+    actual: refused,
+    expected: { kind: 'invalid' },
+  });
+});

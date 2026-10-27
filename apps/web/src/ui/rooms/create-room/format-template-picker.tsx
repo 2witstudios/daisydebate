@@ -7,10 +7,15 @@ import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import {
-  roundLength,
-  shapeLabel,
+  formatFamilyLabel,
   speechName,
 } from '../../../features/debate-room/vocabulary';
+import {
+  browseTemplates,
+  choiceSummary,
+  presetSpeechMs,
+  standardOptions,
+} from '../../../features/rooms/format-browser';
 
 const subscribeNever = () => () => undefined;
 
@@ -24,27 +29,14 @@ function selectionValue(choice: RoomTemplate) {
   });
 }
 
-const speechMs = (choice: RoomTemplate) =>
-  choice.definition.segments.map(
-    (segment) =>
-      choice.preset.config.speechTiming.segmentDurationOverrides[segment.key] ??
-      segment.defaultDurationMs,
-  );
-
 /** "One-on-one (1v1) · about 30 min", derived from the template's own config. */
 function templateLine(choice: RoomTemplate) {
-  const { inRoundPrep, speechTiming } = choice.preset.config;
-  return `${choice.label} (${shapeLabel(choice.definition.seats)}) · ${roundLength(
-    {
-      speechesMs: speechMs(choice),
-      countdownMs: speechTiming.countdownMs,
-      prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
-    },
-  )}`;
+  const [shape, length] = choiceSummary(choice).split(' · ');
+  return `${choice.label} (${shape}) · ${length}`;
 }
 
 function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
-  const durations = speechMs(choice);
+  const durations = presetSpeechMs(choice);
   const judges = choice.definition.seats.judge;
   return (
     <div className="flex flex-col gap-3">
@@ -76,8 +68,12 @@ export function FormatTemplatePicker({
   readonly choices: readonly RoomTemplate[];
   readonly defaultValue?: string | undefined;
 }) {
-  const initial =
-    defaultValue ?? (choices[0] ? selectionValue(choices[0]) : '');
+  // A new room starts on Value, Daisy's default standard (FMT-3).
+  const first =
+    choices.find((choice) => choice.formatId === 'value') ??
+    standardOptions(choices)[0] ??
+    choices[0];
+  const initial = defaultValue ?? (first ? selectionValue(first) : '');
   const [value, setValue] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const interactive = useSyncExternalStore(
@@ -103,14 +99,31 @@ export function FormatTemplatePicker({
           {!selected ? (
             <option value="">Choose an available format</option>
           ) : null}
-          {choices.map((choice) => (
-            <option
-              key={`${choice.formatId}:${choice.formatVersion}`}
-              value={selectionValue(choice)}
-            >
-              {templateLine(choice)}
-            </option>
-          ))}
+          {[
+            { label: 'Daisy standards', options: standardOptions(choices) },
+            ...(['policy', 'value', 'parli', 'other'] as const).map(
+              (family) => ({
+                label: `League rules · ${formatFamilyLabel[family]}`,
+                options: browseTemplates(choices, {
+                  family,
+                  query: '',
+                }).flatMap((group) => group.templates),
+              }),
+            ),
+          ]
+            .filter((group) => group.options.length > 0)
+            .map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((choice) => (
+                  <option
+                    key={`${choice.formatId}:${choice.formatVersion}`}
+                    value={selectionValue(choice)}
+                  >
+                    {templateLine(choice)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
         </select>
       </FormField>
       {selected ? (

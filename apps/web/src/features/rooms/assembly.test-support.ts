@@ -101,6 +101,7 @@ export const assemblySnapshot = {
     basis: {
       formatId: unequalTemplate.formatId,
       name: unequalTemplate.label,
+      formatVersion: unequalTemplate.formatVersion,
       presetVersion: unequalTemplate.preset.version,
     },
     standing: {

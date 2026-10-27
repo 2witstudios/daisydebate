@@ -188,7 +188,12 @@ describe('projectRoom format (FMT-1)', () => {
           name: 'Value',
           role: 'standard',
           leagues: [],
-          basis: { formatId: 'value', name: 'Value', presetVersion: 3 },
+          basis: {
+            formatId: 'value',
+            name: 'Value',
+            formatVersion: base.formatVersion,
+            presetVersion: 3,
+          },
           standing: { kind: 'standard', formatId: 'value' },
         },
         leaked: [],

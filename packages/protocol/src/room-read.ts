@@ -87,6 +87,7 @@ export const roomViewSchema = z.strictObject({
       .strictObject({
         formatId: z.string().min(1),
         name: z.string().min(1),
+        formatVersion: version,
         presetVersion: version,
       })
       .nullable(),

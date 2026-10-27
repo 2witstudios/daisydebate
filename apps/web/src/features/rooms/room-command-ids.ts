@@ -21,6 +21,12 @@ export type RoomCommandIds = {
     readonly remove: string;
     readonly ai: string;
   }[];
+  /** Choosing a standard, Back to the basis, and starting from a league template (FMT-3). */
+  readonly format: {
+    readonly choose: string;
+    readonly reset: string;
+    readonly template: string;
+  };
 };
 
 /**
@@ -47,5 +53,6 @@ export function roomCommandIds(
     remove: nextId(),
     ai: nextId(),
   }));
-  return { header, readiness, prep, settings, seats };
+  const format = { choose: nextId(), reset: nextId(), template: nextId() };
+  return { header, readiness, prep, settings, seats, format };
 }
