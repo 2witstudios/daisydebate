@@ -23,7 +23,6 @@ function stubSdk(
     readonly captureGates?: readonly (Promise<void> | undefined)[];
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
-    /** The unpublish waits for this gate, in flight across a terminal stop. */
     readonly unpublishGate?: Promise<void>;
   } = {},
 ) {
@@ -248,7 +247,6 @@ test('a terminal stop ends the microphone whose warm capture is still in flight'
   const { transport } = createBrowserMediaTransport(events, stub.sdk);
   const settled = transport.apply(publish(['camera']));
   await settle();
-  // The warm capture is pending while the terminal stop lands.
   transport.stopTracks();
   warmGate.resolve();
   await settle();
@@ -273,7 +271,6 @@ test('a terminal stop ends the kept microphone whose unpublish is still in fligh
   await transport.apply(publish(['camera', 'microphone']));
   const retiring = transport.apply(publish(['camera']));
   await settle();
-  // retire is keeping the microphone warm while its unpublish is in flight.
   transport.stopTracks();
   unpublishGate.resolve();
   await settle();
