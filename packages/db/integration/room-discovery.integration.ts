@@ -40,7 +40,7 @@ test('discovery work is independent of historical Room and Round volume', async 
         id,
         title: token,
         topic: token,
-        status: i < 2 ? 'assembling' : i === 5 ? 'abandoned' : 'started',
+        status: i < 2 ? 'assembling' : i === 5 ? 'closed' : 'started',
         created_at: new Date('2026-01-01'),
       });
       if (i >= 2 && i < 5)
@@ -65,7 +65,7 @@ test('discovery work is independent of historical Room and Round volume', async 
       await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
         select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,'started' from unnest(${array}::text[]) x`;
       await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility,completed_at)
-        select 'r'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'abandoned',${validConfig}::jsonb,'public',statement_timestamp() from unnest(${array}::text[]) x`;
+        select 'r'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'closed',${validConfig}::jsonb,'public',statement_timestamp() from unnest(${array}::text[]) x`;
     };
     try {
       await addHistory(`{${historyIds.slice(0, 1000).join(',')}}`);

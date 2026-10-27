@@ -113,7 +113,7 @@ describe('room lobby labels', () => {
       actual: [
         roomStatus(oneOnOne),
         roomStatus({ ...assemblySnapshot, status: 'started' }),
-        roomStatus({ ...assemblySnapshot, status: 'abandoned' }),
+        roomStatus({ ...assemblySnapshot, status: 'closed' }),
       ],
       expected: ['Setting up · 0 of 3 seats filled', 'In progress', 'Closed'],
     });

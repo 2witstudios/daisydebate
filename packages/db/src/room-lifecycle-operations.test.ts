@@ -169,7 +169,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
     maintain: (state) => ({
       ok: true,
       mutation: {
-        state: { ...state, status: 'abandoned', changeVersion: 2 },
+        state: { ...state, status: 'closed', changeVersion: 2 },
         consent: null,
         freeze: false,
         spendsAiRound: false,

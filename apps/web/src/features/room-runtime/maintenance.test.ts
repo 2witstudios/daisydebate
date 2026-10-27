@@ -66,7 +66,7 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
     actual: [inert, calls.slice(inert.length)],
     expected: [
       ['candidates:null', 'idle:kept', 'busy:kept'],
-      ['candidates:600000', 'idle:abandoned', 'busy:kept'],
+      ['candidates:600000', 'idle:closed', 'busy:kept'],
     ],
   });
 });

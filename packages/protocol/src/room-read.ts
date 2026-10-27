@@ -97,7 +97,7 @@ export const roomViewSchema = z.strictObject({
         .refine((allowance) => allowance.remaining <= allowance.limit),
     ])
     .nullable(),
-  status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
+  status: z.enum(['assembling', 'ready', 'started', 'closed']),
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),

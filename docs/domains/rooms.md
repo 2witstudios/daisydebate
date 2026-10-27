@@ -70,10 +70,12 @@ membership. Every terminal state frees its members:
 
 - **Close.** Only the host's explicit Close closes an open Room. Hosting is
   independent of seating: a host who leaves their seat (or never took one)
-  still hosts, and stays a member, through the live Round.
+  still hosts, and stays a member, through the live Round. A closed Room's
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
-  sweep (its own worker, apart from Round maintenance) closes an open Room with no accepted command (or running pre-round prep) for that
-  long, by database time.
+  sweep (its own worker, apart from Round maintenance) closes an open Room
+  with no accepted command (or running pre-round prep) for that long, by
+  database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
   Round forfeits it, which ends the Round.
 - **The debate ends**: the last speech ends, or the Round completes, is

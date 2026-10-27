@@ -292,6 +292,6 @@ test('a host close abandons the room and prevents further commands', () => {
     given: 'the host closing an open assembled Room',
     should: 'abandon it and refuse every later command',
     actual: [closed.ok && closed.mutation.state.status, afterClose],
-    expected: ['abandoned', { ok: false, refusal: 'room-closed' }],
+    expected: ['closed', { ok: false, refusal: 'room-closed' }],
   });
 });
