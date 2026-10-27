@@ -1,4 +1,4 @@
-import { systemId } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -25,6 +25,7 @@ export default async function BallotRoute({
       view={result.view}
       commandId={systemId.next()}
       action={submitBallotAction.bind(null, debateId)}
+      renderedAtMs={Date.parse(systemClock.now())}
     />
   );
 }

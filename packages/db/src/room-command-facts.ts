@@ -60,7 +60,7 @@ export const sharedAccount = async (
   )
     throw createAppError('VALIDATION');
   const rows = await tx.execute(
-    sql`select * from public.daisy_room_read_account(${caller.actorId}::text, ${caller.userId}::text)`,
+    sql`select * from public.daisy_room_read_account_v2(${caller.actorId}::text, ${caller.userId}::text)`,
   );
   return authorizationAccountFact(
     (rows as unknown as Parameters<typeof authorizationAccountFact>[0][])[0] ??

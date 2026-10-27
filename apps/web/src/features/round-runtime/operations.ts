@@ -1,5 +1,6 @@
 import { bindRoundCommandPrincipal } from '@daisy/auth';
-import { createRoundRuntime } from '@daisy/debate-engine';
+import { createRoundRuntime, decideStartHorizon } from '@daisy/debate-engine';
+import { ROUND_START_HORIZON_MS } from '../round-finalization/maintenance';
 import type { Database } from '@daisy/db';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -66,6 +67,16 @@ export function createRoundRuntimeOperations(input: {
             nextSegmentId: input.nextSegmentId,
           });
           try {
+            if (
+              envelope.command.type === 'start' &&
+              decideStartHorizon({
+                status: context.round.status,
+                launchedAtMs: Date.parse(context.round.launchedAt),
+                horizonMs: ROUND_START_HORIZON_MS,
+                nowMs: Date.parse(context.now),
+              }) === 'abandon'
+            )
+              throw createAppError('CONFLICT', 'Start horizon has passed');
             return runtime.execute({
               command: { type: envelope.command.type },
               actorId: bound.actorId,

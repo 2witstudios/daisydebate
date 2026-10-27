@@ -5,6 +5,7 @@ import { assemblySnapshot } from '../../../features/rooms/assembly.test-support'
 import { byText, findElements } from '../../test-support/find-elements';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomInvite } from './room-invite';
+import { ROOM_SETUP_HOME } from './room-setup-modal';
 
 setupRitewayBun();
 const action = async () => ({ values: {} });
@@ -123,6 +124,18 @@ test('a host keeps Leave seat apart from Close room, and a seatless host is labe
       seatlessHost.includes('Leave seat'),
     ],
     expected: [true, true, true, false, true, false],
+  });
+});
+
+test('the header Room setup link is where focus falls back when the sheet closes', () => {
+  const html = renderToStaticMarkup(
+    header(assemblySnapshot, assemblySnapshot.hostActorId!),
+  );
+  assert({
+    given: 'the host’s assembling room',
+    should: 'mark the header Room setup link as the focus fallback',
+    actual: new RegExp(`<a href="#room-setup" ${ROOM_SETUP_HOME}=`).test(html),
+    expected: true,
   });
 });
 

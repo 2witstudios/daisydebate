@@ -54,12 +54,22 @@ membership. Every terminal state frees its members:
 ## Playing
 
 The host's `start` command activates the Round; only the host may start it.
+At or past the start horizon, the command refuses atomically, even before
+maintenance sweeps the scheduled Round; maintenance then abandons it.
 From then on, the runtime moves through the rules' segments and prep under the
 database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to
 the scheduled speaker, whose segment continues (DEC-203). Humans, bots and
 services all act through the one shared command operation; people reach it
 through the Round command route.
+
+The Round's room page sends each member to their own view: a debater to the
+live room, the assigned judge to the judge view, and a seatless host to the
+spectator view, a read-only projection of the Round (who holds the floor, the
+clock and the speech order) with no controls and no media. The spectator
+view is the seed of spectating: `SpectatorAudience` names why a viewer
+watches, today only `host`, and later audiences join that union without a
+second view. Everyone else gets the Round's public page.
 
 Media is a scoped LiveKit session. The capture worker turns the published
 audio of every debater, human or bot, into the transcript; bot speech enters
@@ -120,6 +130,11 @@ and when the tab becomes visible. Doorbells carry no delivery guarantee, so
 the driver also polls: every 30 seconds while realtime is connected, and every
 5 seconds without a connection or while stale. A hydrated command adopts the
 server's answer instead of navigating.
+
+Room persistence has one command path: `createRoomCommand` and
+`executeRoomCommand` atomically persist the engine's member set with every
+accepted Room mutation. Seating, prep and Launch all use that path; there is
+no separate low-level seat or freeze writer.
 
 ## Lobby discovery ordering
 

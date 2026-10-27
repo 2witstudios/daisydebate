@@ -9,6 +9,7 @@ import {
 } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { createMessagingPrivacyAdopter } from './privacy';
+import { admitParticipants } from '../beta-access-testing';
 
 /** Isolated integration data only; never collection or production policy authority. */
 export async function createMessagingTestFixture(client: SQL) {
@@ -60,10 +61,8 @@ export async function createMessagingTestFixture(client: SQL) {
       "insert into actors(id,kind,user_id) values($1,'human',$2),($3,'human',$4)",
       [actorId, userId, otherActorId, otherUserId],
     );
-    await client.unsafe(
-      "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
-      [userId, otherUserId, now],
-    );
+    // Both are admitted participants (ADR 0075); deleting the users cascades.
+    await admitParticipants(client, [userId, otherUserId], now);
     await seedMessagingTestDm(client, {
       actorId,
       otherActorId,

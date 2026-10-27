@@ -153,7 +153,7 @@ describe('RegisterPage', () => {
         closed.includes('href="/tournaments/frost-cup/bracket"'),
         none.includes('Create a debater profile first'),
         none.includes(
-          'href="/onboarding/username?next=%2Ftournaments%2Fenter%2Fautumn-open"',
+          'href="/onboarding/age?next=%2Ftournaments%2Fenter%2Fautumn-open"',
         ),
         band.includes('Registration steps'),
       ],

@@ -8,7 +8,10 @@ import {
   judge,
   aff,
   neg,
+  ran,
+  rules,
 } from '../../debate-room/live-round.test-support';
+import { attendanceSettlesAtMs } from '../../../features/round-ballots/settling';
 import { sampleJudgeBallot } from '../../mock/judge';
 setupRitewayBun();
 await mockNextRouter();
@@ -59,6 +62,7 @@ const render = (state: 'waiting' | 'open' | 'submitted') =>
             : input,
       commandId: 'c'.repeat(24),
       action: async () => ({ values: {} }),
+      renderedAtMs: 0,
     }),
   );
 const count = (html: string, pattern: RegExp) =>
@@ -146,6 +150,51 @@ describe('persisted BallotPage', () => {
         html.includes('Round outcome:'),
       ],
       expected: [true, true, false, true, false],
+    });
+  });
+});
+
+describe('a ballot opened before attendance settles', () => {
+  const round = {
+    ...ran(rules.length, true),
+    participants: input.round.participants,
+  };
+  const settles = attendanceSettlesAtMs(round)!;
+  const at = (renderedAtMs: number) =>
+    renderToString(
+      h(BallotPage, {
+        view: { ...input, round },
+        commandId: 'c'.repeat(24),
+        action: async () => ({ values: {} }),
+        renderedAtMs,
+      }),
+    );
+
+  test('12 seconds before it settles', () => {
+    const html = at(settles - 12_000);
+    assert({
+      given: 'the frozen transcript 12 seconds before attendance settles',
+      should:
+        'say when submitting opens and that entries are kept, above the full ballot whose Submit still posts without script',
+      actual: [
+        html.includes('Submitting opens in about 12 seconds.'),
+        html.includes(
+          `until ${new Date(settles).toISOString().slice(11, 19)} UTC`,
+        ),
+        html.includes('nothing you enter is lost'),
+        count(html, /type="range"/g),
+        /<button type="submit"[^>]*\sdisabled=""/.test(html),
+      ],
+      expected: [true, true, true, 20, false],
+    });
+  });
+
+  test('once it has settled', () => {
+    assert({
+      given: 'the same ballot rendered after attendance settles',
+      should: 'show no waiting notice',
+      actual: at(settles + 1_000).includes('Submitting opens'),
+      expected: false,
     });
   });
 });

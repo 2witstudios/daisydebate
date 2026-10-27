@@ -1,3 +1,4 @@
+import type { Participation } from '@daisy/auth';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
@@ -269,6 +270,8 @@ export type AuthServer = {
   readonly getActorByUserId: (
     userId: string,
   ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
+  /** The account's beta state and age band (ADR 0075), from the canonical account fact. */
+  readonly getParticipationByUserId: (userId: string) => Promise<Participation>;
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
   readonly limiter: AuthRateLimiter;
@@ -289,6 +292,7 @@ export function createAuthServer<
   Database extends BetterAuthOptions['database'],
 >(dependencies: {
   readonly getActorByUserId: AuthServer['getActorByUserId'];
+  readonly getParticipationByUserId: AuthServer['getParticipationByUserId'];
   /** Validated by the composition root (`readAuthConfig`). */
   readonly config: AuthConfig;
   readonly database: Database;
@@ -339,6 +343,7 @@ export function createAuthServer<
   });
   return {
     getActorByUserId: dependencies.getActorByUserId,
+    getParticipationByUserId: dependencies.getParticipationByUserId,
     config,
     instance: composeBetterAuth({
       config,

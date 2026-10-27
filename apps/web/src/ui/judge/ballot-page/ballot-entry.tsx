@@ -16,6 +16,8 @@ type EntryProps = {
   readonly pending: boolean;
   readonly commandId: string;
   readonly debaters: BallotDebaters;
+  /** How long until submitting can succeed; null when nothing is left to wait for. */
+  readonly opensInMs: number | null;
 };
 export function BallotEntry(props: EntryProps) {
   switch (props.display) {
@@ -105,6 +107,7 @@ function OpenBallot({
   debaters,
   answer,
   fieldsRevision,
+  opensInMs,
 }: EntryProps) {
   if (!view.own || !view.freeze) throw createAppError('INVARIANT');
   return (
@@ -131,6 +134,7 @@ function OpenBallot({
           error={answer.error}
           errorId={roundBallotErrorId}
           pending={pending}
+          opensInMs={opensInMs}
         />
       </fieldset>
     </form>

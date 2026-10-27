@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
 import { matchesRoute } from '../components/nav-item/nav-item';
 import { MediaPageLink } from '../round-media/media-page-link';
@@ -26,14 +28,25 @@ export const showsActiveRoomBar = (
  * A slim bar above every other shell page while the viewer is in a Room, so
  * wherever they wander there is one way back.
  */
-export function ActiveRoomBar({ room }: { readonly room: ActiveRoomSummary }) {
+export function ActiveRoomBar({
+  room: seed,
+}: {
+  readonly room: ActiveRoomSummary | null;
+}) {
   const pathname = usePathname();
-  if (!showsActiveRoomBar(pathname, room)) return null;
+  const [room, setRoom] = useState(seed);
+  useEffect(() => {
+    if (pathname === null) return;
+    const controller = new AbortController();
+    void refreshActiveRoom(fetch, controller.signal, setRoom);
+    return () => controller.abort();
+  }, [pathname, seed]);
+  if (!room || !showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink
       href={room.href}
       aria-label={`Return to room: ${room.title}, ${activeRoomPhaseLabel(room.phase)}`}
-      className="flex items-center gap-3 border-b border-border bg-hue-sky-soft px-6 py-2 text-sm text-ink no-underline hover:no-underline max-narrow:px-4"
+      className="flex items-center gap-3 border-b border-border bg-hue-teal-soft px-6 py-2 text-sm text-ink no-underline hover:no-underline max-narrow:px-4"
     >
       <span className={activeRoomDotClass(room.phase)} aria-hidden="true" />
       <span className="min-w-0 truncate">

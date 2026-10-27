@@ -12,6 +12,7 @@ import { startRoundJudgingService } from '../features/round-judging/service';
 import { createRoundCoachingOperations } from '../features/round-coaching/operations';
 import { startRoundCoachingService } from '../features/round-coaching/service';
 import { coachingPolicy } from '../features/round-coaching/policy';
+import { canGenerateCoaching } from '../features/round-coaching/authorization';
 
 /** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
 export function startRoundWorkers(input: {
@@ -33,9 +34,11 @@ export function startRoundWorkers(input: {
     store: app.database,
     nextId: () => app.ids.next(),
     voice: app.aiVoice,
-    withProvider,
+    // The service reserves before claiming and holds admission through retries.
+    withProvider: (_signal, work) => work(),
   });
   const judging = startRoundJudgingService({
+    reserveCapacity: () => withProvider.reserve('judging'),
     store: app.database,
     execute: (claim, signal) =>
       operations.executeClaim(
@@ -55,11 +58,12 @@ export function startRoundWorkers(input: {
       'Judging work remains recoverable',
     ),
   });
-  // ADR 0071: coaching shares the judge model and the provider capacity.
+  // Coaching shares the model and total budget, with reserved competitive capacity.
   const coaching = createRoundCoachingOperations({
+    betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
     store: app.database,
     voice: app.aiVoice,
-    withProvider,
+    withProvider: (signal, work) => withProvider(signal, work, 'coaching'),
     now: () => app.clock.now(),
   });
   const coach = startRoundCoachingService({
@@ -69,6 +73,7 @@ export function startRoundWorkers(input: {
         new Date(
           Date.parse(app.clock.now()) - coachingPolicy.windowMs,
         ).toISOString(),
+        (access) => canGenerateCoaching(access, app.config.PREMIUM_BETA_GRANT),
       ),
     coach: (roundId, signal) =>
       coaching.coach(

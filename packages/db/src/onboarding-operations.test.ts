@@ -4,6 +4,15 @@ import { createTestDatabase } from './index.test-support';
 setupRitewayBun();
 
 const at = new Date('2026-10-05T12:00:00.000Z');
+const actorId = 'a'.repeat(24);
+const admitted = {
+  userId: 'user-1',
+  actorId,
+  now: at.toISOString(),
+  admits: () => true,
+};
+/** The account fence's row read; empty, so only the policy decides. */
+const fence: never[] = [];
 
 /** Which tables a run of queries wrote, in order, by statement kind. */
 const writes = (queries: readonly { query: string }[]) =>
@@ -64,22 +73,28 @@ describe('readOnboarding', () => {
 
 describe('saveOnboardingStep', () => {
   test('each step writes only its own tables', async () => {
-    const about = createTestDatabase([[], [], []]);
-    await about.database.saveOnboardingStep('user-1', {
-      step: 'about',
-      wants: ['judge'],
-      club: 'starting',
+    const about = createTestDatabase([fence, [], [], []]);
+    await about.database.saveOnboardingStep({
+      ...admitted,
+      answers: {
+        step: 'about',
+        wants: ['judge'],
+        club: 'starting',
+      },
     });
-    const emptyTopics = createTestDatabase([[], []]);
-    await emptyTopics.database.saveOnboardingStep('user-1', {
-      step: 'topics',
-      topics: [],
+    const emptyTopics = createTestDatabase([fence, [], []]);
+    await emptyTopics.database.saveOnboardingStep({
+      ...admitted,
+      answers: { step: 'topics', topics: [] },
     });
-    const experience = createTestDatabase([[]]);
-    await experience.database.saveOnboardingStep('user-1', {
-      step: 'experience',
-      experience: 'circuit',
-      formats: ['teams'],
+    const experience = createTestDatabase([fence, []]);
+    await experience.database.saveOnboardingStep({
+      ...admitted,
+      answers: {
+        step: 'experience',
+        experience: 'circuit',
+        formats: ['teams'],
+      },
     });
     assert({
       given: 'an about step, an empty topics step and an experience step',
@@ -99,6 +114,38 @@ describe('saveOnboardingStep', () => {
         ['insert into member_onboarding', 'delete from member_topics'],
         ['insert into member_onboarding'],
       ],
+    });
+  });
+});
+
+describe('saveOnboardingStep without an admitted age', () => {
+  test('refuses before any write', async () => {
+    const { database, queries } = createTestDatabase([fence, [], [], []]);
+    const seen: unknown[] = [];
+    const refusal = await database
+      .saveOnboardingStep({
+        ...admitted,
+        admits: (fact) => {
+          seen.push(fact);
+          return false;
+        },
+        answers: { step: 'about', wants: ['judge'], club: 'starting' },
+      })
+      .then(
+        () => null,
+        (error: { code?: string }) => error.code,
+      );
+    assert({
+      given: 'an about step whose account fence finds no member',
+      should:
+        'take the fence, hand the policy an unknown fact, refuse and write nothing',
+      actual: [
+        queries[0]?.query.includes('daisy_authorization_accounts'),
+        seen,
+        refusal,
+        writes(queries),
+      ],
+      expected: [true, [{ state: 'unknown' }], 'AUTHORIZATION', []],
     });
   });
 });

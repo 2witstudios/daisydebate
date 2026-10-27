@@ -53,6 +53,7 @@ export const createTestAuthServer = (
 ) =>
   createAuthServer({
     getActorByUserId: async () => null,
+    getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
     config: readAuthConfig(authTestEnv),
     database,
     emailSender: {

@@ -9,6 +9,7 @@ import type { ShellAccount } from '../../account';
 import {
   memberDestinations,
   moreDestination,
+  notificationsDestination,
   primaryDestinations,
   profileHref,
   wayIn,
@@ -28,11 +29,17 @@ function AccountItems({ account }: { readonly account: ShellAccount }) {
       </li>
     );
   }
+  const notifications = notificationsDestination();
   return (
     <>
       <li>
         <NavItem {...memberDestinations.messages} />
       </li>
+      {notifications ? (
+        <li>
+          <NavItem {...notifications} />
+        </li>
+      ) : null}
       <li>
         <FriendsLink />
       </li>
@@ -53,7 +60,7 @@ function AccountItems({ account }: { readonly account: ShellAccount }) {
 /**
  * The one navigation rail on every shell page, beside the page: the logo,
  * the launched destinations and More at the top, a member's messages,
- * friends and profile (or a visitor's way in) at the foot.
+ * notifications (once launched), friends and profile (or a visitor's way in) at the foot.
  * Icons only; each link carries its name as screen-reader text and a
  * tooltip. Its column runs the page's full height; its content is pinned to
  * the viewport only where the viewport can hold all of it. Gives way to the

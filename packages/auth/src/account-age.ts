@@ -1,4 +1,5 @@
 import { ageBand, type AgeBand } from './age-band';
+import { ageAdmitted } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization';
 export type AccountAgeSource = {
   readonly birthMonth: string;
@@ -71,5 +72,27 @@ function validSource(source: AccountAgeSource, instant: Date) {
     Number.isFinite(instant.getTime()) &&
     Number.isFinite(recorded) &&
     recorded <= instant.getTime()
+  );
+}
+
+/**
+ * Whether a canonical age fact lets this actor give optional onboarding
+ * answers now: known, bound to the same actor, at the account floor by
+ * the one participant age rule (`ageAdmitted`, ACCOUNT_AGE_FLOOR: 16 in
+ * the beta, DEC-106), and still current (it expires at the next UTC
+ * month). Anything else refuses; no client-supplied age is ever an input.
+ */
+export function admitsOptionalAnswers(
+  fact: AccountAgeFact,
+  actorId: string,
+  now: string,
+): boolean {
+  const instant = Date.parse(now);
+  return (
+    fact.state === 'known' &&
+    fact.actorId === actorId &&
+    ageAdmitted(fact.band) &&
+    Number.isFinite(instant) &&
+    instant < Date.parse(fact.validUntil)
   );
 }

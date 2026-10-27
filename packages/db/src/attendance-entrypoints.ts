@@ -16,11 +16,19 @@ export function attendanceEntrypoints(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
-  const transaction: AttendanceTransaction = (work, attempt) =>
-    input.run((tx, _signal, metadata) => work(tx, metadata), {
-      executionMs: attendanceTimingPolicy.transactionSliceMs,
-      ...(attempt ? { lifecycle: checkInAttemptLifecycle(attempt) } : {}),
-    });
+  const transaction: AttendanceTransaction = (work, attempt) => {
+    const lifecycle = attempt ? checkInAttemptLifecycle(attempt) : undefined;
+    return input.run(
+      (tx, _signal, metadata) => {
+        lifecycle?.requireRound();
+        return work(tx, metadata);
+      },
+      {
+        executionMs: attendanceTimingPolicy.transactionSliceMs,
+        ...(lifecycle ? { lifecycle } : {}),
+      },
+    );
+  };
   return {
     ...createAttendanceOperations({
       transaction,

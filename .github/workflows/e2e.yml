@@ -226,6 +226,87 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # ADR 0077: the admin app's operator journey on its own canonical origin
+  # (http://localhost:4800) and its own database; Chromium only, through
+  # the CDP virtual authenticator.
+  admin:
+    needs: quick-check
+    name: Admin E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: daisy_admin_e2e
+          POSTGRES_USER: daisy
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daisy -d daisy_admin_e2e"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the admin app
+        run: bun run --cwd apps/admin build
+
+      - name: Resolve the Playwright version and cache month
+        id: playwright
+        run: |
+          echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium and OS packages
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 8
+        run: sh scripts/ci-browsers.sh chromium
+
+      - name: Save Playwright Chromium and OS packages
+        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+
+      # The webServer migrates this database, empties it and provisions the
+      # DML-only login the server runs as (apps/admin/e2e/support/prepare.ts).
+      - name: Run the admin journey
+        run: bun run --cwd apps/admin test:e2e
+        env:
+          CI: true
+          E2E_ADMIN_DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_admin_e2e
+
   room-launch:
     needs: quick-check
     name: Isolated Room Launch browser suite

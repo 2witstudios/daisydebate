@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { WithAppRouter } from '../../test-support/app-router';
 import { savedAnswer } from './assembly-edit-form';
-import { RoomSetup, sheetOpen } from './room-setup';
+import { RoomSetup, sheetOpen, finishSetupSave } from './room-setup';
 
 setupRitewayBun();
 const action = async () => ({ values: {} });
@@ -84,5 +84,24 @@ test('an accepted save closes the sheet, as the native redirect does', () => {
       }),
     ],
     expected: [false, true, false, false],
+  });
+});
+
+test('an accepted sibling save leaves setup even when another form holds a refusal', () => {
+  const outcomes = [false, true].map((canClose) => {
+    let navigated = false;
+    finishSetupSave(
+      () => canClose,
+      () => {
+        navigated = true;
+      },
+    );
+    return navigated;
+  });
+  assert({
+    given: 'an accepted save with and without a stale sibling refusal',
+    should: 'navigate to clear a stale refusal, otherwise close in place',
+    actual: outcomes,
+    expected: [true, false],
   });
 });

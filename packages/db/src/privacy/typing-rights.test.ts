@@ -9,7 +9,15 @@ import { messagingTypingSchemas } from '@daisy/protocol';
 import { deliverPrivacyJob } from './vendor-jobs';
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
-const account = { ...subject, member: true, erased: false, revision: 2 };
+const account = {
+  ...subject,
+  member: true,
+  erased: false,
+  revision: 2,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
+};
 const lease = {
   version: 1 as const,
   channelId: 'c'.repeat(24),

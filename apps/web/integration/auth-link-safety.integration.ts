@@ -125,7 +125,7 @@ describe('AUTH-3.2 / AUTH-3.5 origin and destination safety', () => {
       given: 'a confirm POST whose destinations are external',
       should: 'sign in but land on a safe local default',
       actual: external.headers.get('location'),
-      expected: '/onboarding/username',
+      expected: '/onboarding/age',
     });
   });
 });

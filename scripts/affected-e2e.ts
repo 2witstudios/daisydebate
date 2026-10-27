@@ -34,6 +34,13 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'auth-routes.e2e.ts': auth,
   'csp-confirm.e2e.ts': auth,
   'passkey-autofill.e2e.ts': auth,
+  // ADR 0075: the beta gate's wait and approval journey.
+  'beta.e2e.ts': [
+    ...auth,
+    'apps/web/src/ui/beta/',
+    'apps/web/src/features/access/',
+    'apps/web/src/app/(bare)/beta/',
+  ],
   'theme.e2e.ts': theme,
   'visual.e2e.ts': [...theme, ...auth],
   'device-checks.e2e.ts': [...room, ...media],

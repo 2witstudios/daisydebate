@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { clearOwnMessagingPreference } from './preference-clear';
+import { factOfRow } from '../room-command-operations.test-support';
 setupRitewayBun();
 const scope = {
   userId: 'u'.repeat(24),
@@ -14,9 +15,13 @@ const account = {
   userId: scope.userId,
   actorId: scope.actorId,
   member: true,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
   erased: false,
   revision: 2,
 };
+const accountFact = factOfRow(account);
 test('clear projects only an existing locked own row and deletes it after the canonical account fence', async () => {
   const { client, queries } = fakeSql([
     [account],
@@ -55,7 +60,7 @@ test('clear projects only an existing locked own row and deletes it after the ca
         [
           scope,
           {
-            accounts: [account],
+            accounts: [accountFact],
             fact: {
               kind: 'channel_preference',
               actorId: scope.actorId,

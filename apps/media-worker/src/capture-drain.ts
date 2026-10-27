@@ -66,7 +66,7 @@ export async function closeCaptureSession(input: {
 /**
  * Only the caller's own abort (SIGTERM: a deploy or restart) drains. A
  * capture-closed refusal, a lost lease or any failure has already stopped the
- * session. The lease, renewed every 5 s for 15 s, outlives the drain.
+ * session. Its independent lease heartbeat continues through the drain.
  */
 export const gracefulStop = (
   caller: AbortSignal,

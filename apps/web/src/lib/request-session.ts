@@ -1,8 +1,10 @@
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
+import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -35,15 +37,49 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
 };
 
 /**
- * The signed-in member's own onboarding answers, read once for this
- * server-component render; null for anyone who is not a member. The id is
- * the session's, never one the request names.
+ * The signed-in account's own onboarding answers, read once for this
+ * server-component render; null for anyone without a claimed username.
+ * Waitlisted accounts onboard too (ADR 0075). The id is the session's,
+ * never one the request names.
  */
 export const requestOnboardingAnswers = cache(
   async (): Promise<OnboardingAnswers | null> => {
     const identity = await requestIdentity();
-    if (identity.state !== 'member') return null;
+    if (identity.state !== 'member' && identity.state !== 'waitlisted')
+      return null;
     return processApp().database.readOnboarding(identity.principal.userId);
+  },
+);
+
+/** Whether this render's account without a username has answered the age step. */
+export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'provisional') return false;
+  return processApp().database.hasRecordedAge(identity.principal.userId);
+});
+
+/**
+ * Whether this render's member may be asked the optional onboarding
+ * questions: their canonical age fact admits it (16 or over, ISSUE-645).
+ * False for anyone else; a waitlisted account onboards before approval. A page only skips the questions on it; every
+ * answer's write decides again under the account fence.
+ */
+export const requestOptionalAnswersAdmitted = cache(
+  async (): Promise<boolean> => {
+    const identity = await requestIdentity();
+    // A waitlisted account onboards before approval (ADR 0075).
+    if (
+      (identity.state !== 'member' && identity.state !== 'waitlisted') ||
+      identity.principal.actorId === null
+    )
+      return false;
+    const app = processApp();
+    return app.database.optionalAnswersAdmitted({
+      userId: identity.principal.userId,
+      actorId: identity.principal.actorId,
+      now: app.clock.now(),
+      admits: admitsOptionalAnswers,
+    });
   },
 );
 
@@ -51,14 +87,19 @@ export const requestOnboardingAnswers = cache(
  * A member's profile as this render's viewer may see it, read in the server
  * render so a link followed from another site renders instead of meeting an
  * API's cross-site read check. The profile feature owns the read and its
- * authorization; this process entry only hands it the app's database.
+ * authorization and budgets; this process entry supplies the trusted client hash
+ * and the shared Redis limiter as well as the app's database.
  */
 export const requestMemberProfile = async (
   username: string,
   query: MatchHistoryQuery,
 ): Promise<MemberProfile | null> =>
-  readProfile(processApp().database, {
-    identity: await requestIdentity(),
-    username,
-    query,
-  });
+  readProfile(
+    { store: processApp().database, limiter: processApp().auth().limiter },
+    {
+      clientId: (await headers()).get(CLIENT_ID_HASH_HEADER),
+      identity: await requestIdentity(),
+      username,
+      query,
+    },
+  );

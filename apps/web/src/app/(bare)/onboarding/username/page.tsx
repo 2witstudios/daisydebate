@@ -4,10 +4,12 @@ import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import {
   onboardingHref,
   signInHref,
+  usernameHref,
   type SearchParams,
 } from '../../../../features/access/decision';
 import { Onboarding } from '../../../../ui/auth/onboarding/onboarding';
 import { claimUsernameAction } from './actions';
+import { requestHasRecordedAge } from '../../../../lib/request-session';
 
 export const metadata: Metadata = {
   title: 'Choose a username',
@@ -15,8 +17,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Username onboarding. Anonymous visitors sign in first and return here; a
- * finished account goes straight on. Signing in again after an interrupted
+ * Username onboarding, after the age step. Anonymous visitors sign in first
+ * and return here; an account that has not answered its age goes back to
+ * that step; a finished account goes straight on. Signing in again after an interrupted
  * signup lands here too, because the participant guard sends provisional
  * accounts to this page.
  */
@@ -27,9 +30,11 @@ export default async function OnboardingUsernamePage({
 }) {
   const { destination, identity } = await readOnboardingEntry(
     searchParams,
-    onboardingHref,
+    usernameHref,
   );
-  if (identity.state === 'member') redirect(destination);
+  if (identity.state === 'member' || identity.state === 'waitlisted')
+    redirect(destination);
+  if (!(await requestHasRecordedAge())) redirect(onboardingHref(destination));
   return (
     <Onboarding
       claim={claimUsernameAction.bind(null, destination)}
