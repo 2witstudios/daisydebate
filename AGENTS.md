@@ -42,20 +42,15 @@ approval. A planning-only request stays planning-only. The full process is
    brief is a mission (outcome, owning intent pages and ADRs, inherited PRs
    and branches, autonomy rules), not research.
 2. **Discovery and plan, intent first.** The builder does its own discovery,
-   then writes one plan with a task list in `Plans/<slice>` and posts it on
-   the PageSpace Delivery channel. The plan starts from intent, not from the
-   existing code, in this order: Intent; Concepts and names; Ideal design
-   (written before studying the current implementation); Current state and
-   divergence; Refactors first; Build. The template is in
-   [the task skill](.claude/skills/task/SKILL.md).
-3. **One confirmation, after a dialogue.** Planning is a dialogue: the builder
-   posts intent and design questions on Delivery as they arise ("is X the
-   same concept as Y?", "the code does Z, the ideal is W: refactor?"), and
-   the point guard answers and challenges ("is this the best way, or just the
-   existing way?"). The architecture reviewer and the point guard confirm or
-   redirect once the Ideal design and Divergence sections have been
-   discussed. Nothing else needs approval; later product,
-   architecture or scope questions go to the point guard on the Delivery channel.
+   then writes one plan with a task list in `Plans/<slice>`, starting from
+   intent rather than the existing code, and posts it on the PageSpace
+   Delivery channel. The plan's sections live in [the task skill](.claude/skills/task/SKILL.md).
+3. **One confirmation, after a dialogue.** Planning is a dialogue on
+   Delivery (the task skill says how). The architecture reviewer and the
+   point guard confirm or redirect once the ideal design and its divergence
+   from the current code have been discussed. Nothing else needs approval;
+   later product, architecture or scope questions go to the point guard on
+   the Delivery channel.
 4. **One PR.** The builder builds the whole slice on one branch, as one PR
    naming every task code. It splits off an earlier PR only when a piece
    must ship first.

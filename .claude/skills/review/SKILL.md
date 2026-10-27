@@ -27,7 +27,7 @@ Read the slice plan the PR links. Extract every "Given X, should Y" criterion in
 Check privacy and telemetry: every new log field, column, payload kind, topic field and analytics event is classified; no personal, sensitive or secret value reaches a log, an error report or analytics.
 Look for redundancies, dead code, forgotten files and incomplete moves or deletions. Simplicity is removing the obvious and adding the meaningful.
 Judge against intent and the ideal design, not only the existing code: does the design serve the stated intent, and is it the best way or just consistent with what exists? Consistent-with-flawed-code is not a pass.
-Check concept boundaries (AGENTS.md "Design constraints"): do the names and the organization match the product's concepts, with no feature borrowing another's types, statuses, pools, modules or prompts? Concept coupling is a BLOCKER, never a minor: two concepts merged to save a call, a table or a pool; a feature built on a structure that does not match its concept instead of refactoring it first; or "coaching"/"coach" used for anything but human coaches (the AI post-round report is Round analysis).
+Check concept boundaries against the repository's architecture rules (Daisy: AGENTS.md "Architecture rules"): do the names and the organization match the product's concepts? A breach of those rules (concept coupling) is a BLOCKER, never a minor.
 }
 
 Constraints {

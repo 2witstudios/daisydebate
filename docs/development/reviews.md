@@ -31,11 +31,8 @@ loop asks for one; no reviewer has to re-review every push.
 
 Every review, of a plan or a PR, judges against the stated intent and the
 ideal design, not only against the existing code: consistent-with-flawed-code
-is not a pass. It also checks concept boundaries (AGENTS.md "Design
-constraints"). Concept coupling is a **blocker**, never a minor. That covers
-two concepts merged to save a call, a table or a pool; a feature built on a
-structure that does not match its concept instead of refactoring it first;
-and "coaching" or "coach" used for anything but human coaches.
+is not a pass. A breach of the [architecture rules](../../AGENTS.md#architecture-rules)
+(concept coupling) is a **blocker**, never a minor.
 
 ## The `/review` comment
 
