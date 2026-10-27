@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { deleteNamespace } from '@daisy/redis/namespaces';
+import { removeUnowedBetaDigests } from '@daisy/db/testing';
 import {
   createBoundedTestClient,
   openTestRedis,
@@ -376,6 +377,9 @@ const removeAccounts = (
     )}::text[])`;
     await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
     await sql`DELETE FROM users WHERE id IN (${owned})`;
+    // A claim owes its window an owner digest (ADR 0075); it goes once
+    // nobody pending is left in that window.
+    await removeUnowedBetaDigests(sql);
     await sql`DELETE FROM verification USING unnest(${sql.array([...(markers ?? emails)], 'text')}::text[]) AS fixture(marker) WHERE strpos(verification.value, fixture.marker) > 0`;
   });
 

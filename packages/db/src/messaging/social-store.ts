@@ -8,6 +8,7 @@ import {
   messagingSocialCommands,
 } from '../schema/messaging-social';
 import { contactBlockWriter } from './social-block';
+import { friendshipFrame } from './social-friendship';
 import { dmRequestFrame } from './social-request';
 import type {
   MessagingSocialAuthorizationFence,
@@ -72,6 +73,7 @@ export function createMessagingSocialStore({
         return work({
           contacts,
           ...dmRequestFrame(tx, input, rows, refresh),
+          ...friendshipFrame(tx, input, rows, refresh),
           blocking:
             rows.length === 1
               ? rows[0]!.lowActorId === input.actorId

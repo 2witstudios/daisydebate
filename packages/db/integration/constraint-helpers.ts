@@ -7,6 +7,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
+import { removeUnowedBetaDigests } from '../src/beta-access-testing';
 import { buildDebateTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
@@ -256,6 +257,8 @@ export class Fixture {
     for (const [table, key] of purgeOrder) {
       await this.deleteWhere(table, key, this.tracked.get(table));
     }
+    // Claims made here owe their window an owner digest (ADR 0075).
+    await removeUnowedBetaDigests(this.sql);
   }
 
   private async deleteWhere(
@@ -348,3 +351,16 @@ export const columnNames = async (fixture: Fixture, table: string) =>
       [table],
     )) as Array<{ column_name: string }>
   ).map((row) => row.column_name);
+
+/** A database over its own pool for one test, always closed afterwards. */
+export const withDatabase = async <T>(
+  url: string,
+  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
+): Promise<T> => {
+  const database = createDatabase({ url, nextActorId: createId });
+  try {
+    return await run(database);
+  } finally {
+    await database.close();
+  }
+};

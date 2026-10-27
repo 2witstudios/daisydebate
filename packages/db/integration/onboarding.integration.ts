@@ -1,23 +1,16 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { withFixture } from './constraint-helpers';
-import { createDatabase } from '../src';
+import { withFixture, withDatabase } from './constraint-helpers';
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
 setupRitewayBun();
 
-const withDatabase = async <T>(
-  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
-) => {
-  const database = createDatabase({ url, nextActorId: createId });
-  try {
-    return await run(database);
-  } finally {
-    await database.close();
-  }
-};
+/** This suite's database, over its own pool for each test. */
+const db: <T>(run: Parameters<typeof withDatabase<T>>[1]) => Promise<T> = (
+  run,
+) => withDatabase(url, run);
 
 describe('onboarding answers (ONB-1.4)', () => {
   test('a member with nothing stored', async () => {
@@ -26,9 +19,7 @@ describe('onboarding answers (ONB-1.4)', () => {
       assert({
         given: 'a member who has answered nothing',
         should: 'read back empty answers',
-        actual: await withDatabase((database) =>
-          database.readOnboarding(userId),
-        ),
+        actual: await db((database) => database.readOnboarding(userId)),
         expected: {
           wants: [],
           club: null,
@@ -44,7 +35,7 @@ describe('onboarding answers (ONB-1.4)', () => {
   test('each step replaces only its own answers', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
-      const answers = await withDatabase(async (database) => {
+      const answers = await db(async (database) => {
         await database.saveOnboardingStep(userId, {
           step: 'about',
           wants: ['debate', 'watch'],
@@ -87,7 +78,7 @@ describe('onboarding answers (ONB-1.4)', () => {
       const userId = await fixture.user();
       const first = new Date('2026-10-05T12:00:00.000Z');
       const later = new Date('2026-10-06T12:00:00.000Z');
-      const completedAt = await withDatabase(async (database) => {
+      const completedAt = await db(async (database) => {
         await database.completeOnboarding(userId, first);
         await database.completeOnboarding(userId, later);
         return (await database.readOnboarding(userId)).completedAt;
@@ -104,7 +95,7 @@ describe('onboarding answers (ONB-1.4)', () => {
   test('a value off the vocabulary leaves the step unchanged', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
-      const answers = await withDatabase(async (database) => {
+      const answers = await db(async (database) => {
         await database.saveOnboardingStep(userId, {
           step: 'topics',
           topics: ['law'],
@@ -133,7 +124,7 @@ describe('onboarding answers (ONB-1.4)', () => {
         'insert into users (id, username) values ($1, $2)',
         [userId, `u-${userId}`],
       );
-      await withDatabase(async (database) => {
+      await db(async (database) => {
         await database.saveOnboardingStep(userId, {
           step: 'about',
           wants: ['coach'],
