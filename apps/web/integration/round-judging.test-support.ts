@@ -96,7 +96,7 @@ export async function playOut(
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
 /** The judged Room with a stored bot judge assigned and both debaters ready again. */
-export async function readyBotJudgedRoom(
+async function readyBotJudgedRoom(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
 ) {
   const judge = await f.bot();
