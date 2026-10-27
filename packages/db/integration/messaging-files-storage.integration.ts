@@ -35,7 +35,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
   // Mandatory schema/function prerequisites before any fixture is created.
   try {
     await client.unsafe(
-      'select public.daisy_authorization_accounts(null::text[],null::text,false) limit 0',
+      'select public.daisy_authorization_accounts_v2(null::text[],null::text,false) limit 0',
     );
     await client.unsafe(
       'select object_key from messaging_file_deletion_intents limit 0',

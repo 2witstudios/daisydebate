@@ -17,12 +17,12 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid authorization age selector';
   END IF;
   -- Reuse the sole canonical account fence before reading the private age source.
-  PERFORM 1 FROM public.daisy_authorization_accounts(ARRAY[requested_actor_id], NULL::text, true);
+  PERFORM 1 FROM public.daisy_authorization_accounts_v2(ARRAY[requested_actor_id], NULL::text, true);
   RETURN QUERY
     SELECT requested_actor_id, banded.band,
       age_source.version, account.revision,
       (pg_catalog.date_trunc('month', checked_at AT TIME ZONE 'UTC') + INTERVAL '1 month') AT TIME ZONE 'UTC'
-    FROM public.daisy_authorization_accounts(NULL::text[], requested_user_id, false) AS account
+    FROM public.daisy_authorization_accounts_v2(NULL::text[], requested_user_id, false) AS account
     JOIN public.account_age AS age_source ON age_source.user_id = account."userId"
     -- ADR 0075: the shared validity and classification rule (daisy_age_band).
     CROSS JOIN LATERAL (SELECT public.daisy_age_band(age_source.birth_month,

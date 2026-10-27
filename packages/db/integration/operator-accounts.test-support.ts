@@ -73,6 +73,7 @@ export const command = (
     .replace(/[^0-9a-f]/g, 'a'),
   adminAuditHead: 'a'.repeat(64),
   nextId: createId,
+  live: () => true,
   authorize: () => true,
   decide: decide(desired, expectedRevision),
   ...overrides,

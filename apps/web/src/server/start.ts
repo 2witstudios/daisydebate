@@ -10,6 +10,7 @@ import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
+import { noopErrorReporter } from '@daisy/observability';
 import {
   drainWithDeadline,
   installShutdownSignals,
@@ -58,7 +59,9 @@ const { server, started } = startProductionServer({
 });
 await started;
 // ADR 0079: the private operator listener, only when keys are configured.
-const operatorApi = await startOperatorApi(app);
+// Its unexpected failures go to the error reporter: none is wired yet, so
+// this stays noop until the ADR 0037 adapter lands here.
+const operatorApi = await startOperatorApi(app, noopErrorReporter);
 const mediaRuntime = [
   app.config.LIVEKIT_URL,
   app.config.LIVEKIT_PUBLIC_URL,

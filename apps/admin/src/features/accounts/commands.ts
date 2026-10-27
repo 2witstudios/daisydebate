@@ -1,5 +1,4 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { BetaAccessCommandResult } from '@daisy/protocol';
 import { appendAudit } from '../../audit/store';
 import type { AuditEvent } from '../../audit/chain';
 import { findOperator } from '../../auth/store';
@@ -10,13 +9,16 @@ import {
   type OperatorFact,
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
-import type { OperatorCall, OperatorClient } from '../operator-client/client';
+import { operatorLimits } from '@daisy/protocol/operator';
+import type { OperatorClient } from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
 import {
   intentAnchor,
+  markSigned,
   openCommands,
   openPendingCommand,
   resolvePendingCommand,
+  type OpenCommand,
   type PendingCommand,
 } from './store';
 
@@ -58,11 +60,14 @@ async function currentFact(
   );
 }
 
-/** Authorizes a mutation now; a denial is audited and nothing is sent. */
-async function mayUpdate(
+/**
+ * Whether the operator row read now may mutate: the refusal detail, or null
+ * when allowed. Nothing is audited here.
+ */
+async function refusalOf(
   deps: CommandDeps,
   operatorId: string,
-): Promise<boolean> {
+): Promise<ReturnType<typeof deniedDetail> | null> {
   const operator = await currentFact(deps, operatorId);
   const decision = operator
     ? authorizeOperator({
@@ -71,7 +76,19 @@ async function mayUpdate(
         policy: currentApprovalPolicy,
       })
     : ({ allowed: false, reason: 'disabled' } as const);
-  if (decision.allowed) return true;
+  return decision.allowed ? null : deniedDetail(decision.reason);
+}
+
+/**
+ * Authorizes the acting operator's own mutation now; a denial is audited,
+ * and the caller signs nothing. Returns the refusal detail, or null.
+ */
+async function updateRefusal(
+  deps: CommandDeps,
+  operatorId: string,
+): Promise<ReturnType<typeof deniedDetail> | null> {
+  const refused = await refusalOf(deps, operatorId);
+  if (refused === null) return null;
   await record(
     deps,
     {
@@ -80,27 +97,33 @@ async function mayUpdate(
       commandId: null,
       targetUserId: null,
       outcome: null,
-      detail: deniedDetail(decision.reason),
+      detail: refused,
     },
     deps.clock.now(),
   );
-  return false;
+  return refused;
 }
 
-/** Audits the outcome; a settled one closes the command exactly once. */
+const mayUpdate = async (deps: CommandDeps, operatorId: string) =>
+  (await updateRefusal(deps, operatorId)) === null;
+
+/**
+ * Audits the outcome; a settled one closes the command exactly once. True
+ * when this caller recorded it, false when a racing reconciler already had.
+ */
 async function recordOutcome(
   deps: CommandDeps,
   command: PendingCommand,
   kind: 'command.outcome' | 'command.reconciled',
   audited: ReturnType<typeof auditedOutcome>,
-): Promise<void> {
+): Promise<boolean> {
   const now = deps.clock.now();
-  await deps.db.transaction(async (tx) => {
+  return deps.db.transaction(async (tx) => {
     if (
       audited.settled &&
       !(await resolvePendingCommand(tx, command.commandId, now))
     )
-      return;
+      return false;
     await appendAudit(tx, {
       id: deps.ids.next(),
       kind,
@@ -111,17 +134,29 @@ async function recordOutcome(
       detail: audited.detail,
       at: now,
     });
+    return true;
   });
 }
 
-const send = (deps: CommandDeps, command: PendingCommand, anchor: string) =>
-  deps.client.setBetaAccess(command.operatorId, command.targetUserId, {
-    v: 1,
-    commandId: command.commandId,
-    state: command.desiredState,
-    expectedRevision: command.expectedRevision,
-    adminAuditHead: anchor,
-  });
+/** Sends the PUT signed at `signedAt`, which the caller has already recorded. */
+const send = (
+  deps: CommandDeps,
+  command: PendingCommand,
+  anchor: string,
+  signedAt: string,
+) =>
+  deps.client.setBetaAccess(
+    command.operatorId,
+    command.targetUserId,
+    {
+      v: 1,
+      commandId: command.commandId,
+      state: command.desiredState,
+      expectedRevision: command.expectedRevision,
+      adminAuditHead: anchor,
+    },
+    signedAt,
+  );
 
 export async function submitBetaAccess(
   deps: CommandDeps,
@@ -143,39 +178,104 @@ export async function submitBetaAccess(
       at: now,
     });
   });
-  const call = await send(deps, command, intent.hash);
+  const call = await send(deps, command, intent.hash, now);
   await recordOutcome(deps, command, 'command.outcome', auditedOutcome(call));
   return commandView(call);
 }
 
-/** One open command: read it back, or resend it when it never arrived. */
+/** What reconciling one command did: whether this caller settled it. */
+type Reconciled =
+  | { readonly kind: 'settled'; readonly recorded: boolean }
+  | { readonly kind: 'open' }
+  | { readonly kind: 'unreachable' };
+
+const settledBy = (recorded: boolean): Reconciled => ({
+  kind: 'settled',
+  recorded,
+});
+
+/**
+ * How long after its latest signing a NOT_FOUND read-back may still hide a
+ * PUT that will commit (ISSUE-708, ADR 0077). The participant admits a
+ * timestamp up to skew ahead of its own clock and commits only while its
+ * clock is within skew of it, so in this clock the last commit starts by
+ * signing + 2 × skew, and finishes within the participant's command bound.
+ */
+export const ABANDON_AFTER_MS =
+  2 * operatorLimits.skewMs + operatorLimits.commandBoundMs;
+
+/**
+ * A command the participant has not seen: resend it under its own operator
+ * only if that operator may still update. Otherwise sign nothing; once the
+ * original PUT can no longer be valid, close it as abandoned, which is then
+ * true, since it was never applied. Until then it stays open.
+ */
+async function resendOrAbandon(
+  deps: CommandDeps,
+  command: OpenCommand,
+): Promise<Reconciled> {
+  // Another owner's reconcile re-reads the original operator; that operator
+  // did not act, so no access.denied row is written under it. A close as
+  // abandoned records the reason itself.
+  const refused = await refusalOf(deps, command.operatorId);
+  const inFlight =
+    Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
+    ABANDON_AFTER_MS;
+  if (refused !== null && inFlight) return { kind: 'open' };
+  if (refused !== null)
+    return settledBy(
+      await recordOutcome(deps, command, 'command.reconciled', {
+        outcome: 'abandoned',
+        detail: refused,
+        settled: true,
+      }),
+    );
+  const anchor = await intentAnchor(deps.db, command.commandId);
+  if (anchor === null) return { kind: 'open' };
+  const signedAt = deps.clock.now();
+  await markSigned(deps.db, command.commandId, signedAt);
+  const audited = auditedOutcome(await send(deps, command, anchor, signedAt));
+  const recorded = await recordOutcome(
+    deps,
+    command,
+    'command.outcome',
+    audited,
+  );
+  return audited.settled ? settledBy(recorded) : { kind: 'unreachable' };
+}
+
+/**
+ * One open command: read it back as the viewer, who was authorized now,
+ * or resend it when it never arrived. An unreadable participant is
+ * unreachable, so the caller stops the batch.
+ */
 async function reconcileOne(
   deps: CommandDeps,
-  command: PendingCommand,
-): Promise<OperatorCall<BetaAccessCommandResult> | null> {
-  const read = await deps.client.readCommand(
-    command.operatorId,
-    command.commandId,
-  );
-  if (read.kind === 'ok') {
-    await recordOutcome(deps, command, 'command.reconciled', {
-      outcome: read.value.result.outcome,
-      detail: mailDetail(read.value.mailState),
-      settled: true,
-    });
-    return { kind: 'ok', value: read.value.result };
-  }
-  if (read.kind !== 'rejected' || read.code !== 'NOT_FOUND') return null;
-  const anchor = await intentAnchor(deps.db, command.commandId);
-  if (anchor === null) return null;
-  const call = await send(deps, command, anchor);
-  await recordOutcome(deps, command, 'command.outcome', auditedOutcome(call));
-  return call;
+  command: OpenCommand,
+  viewerId: string,
+): Promise<Reconciled> {
+  const read = await deps.client.readCommand(viewerId, command.commandId);
+  if (read.kind === 'ok')
+    return settledBy(
+      await recordOutcome(deps, command, 'command.reconciled', {
+        outcome: read.value.result.outcome,
+        detail: mailDetail(read.value.mailState),
+        settled: true,
+      }),
+    );
+  if (read.kind === 'unknown') return { kind: 'unreachable' };
+  return read.code === 'NOT_FOUND'
+    ? resendOrAbandon(deps, command)
+    : { kind: 'open' };
 }
 
 export const RECONCILE_BATCH = 20;
 
-/** Settles what it can of the open commands; returns how many stay open. */
+/**
+ * Settles what it can of the open commands. `settled` counts what this
+ * caller recorded; `open` excludes every command now closed, including one
+ * a racing reconciler closed first.
+ */
 export async function reconcileOpenCommands(
   deps: CommandDeps,
   viewerId: string,
@@ -184,9 +284,14 @@ export async function reconcileOpenCommands(
   if (open.length === 0 || !(await mayUpdate(deps, viewerId)))
     return { settled: 0, open: open.length };
   let settled = 0;
+  let closed = 0;
   for (const command of open) {
-    const call = await reconcileOne(deps, command);
-    if (call && auditedOutcome(call).settled) settled += 1;
+    const reconciled = await reconcileOne(deps, command, viewerId);
+    // An unreachable participant would time out every remaining call.
+    if (reconciled.kind === 'unreachable') break;
+    if (reconciled.kind !== 'settled') continue;
+    closed += 1;
+    if (reconciled.recorded) settled += 1;
   }
-  return { settled, open: open.length - settled };
+  return { settled, open: open.length - closed };
 }

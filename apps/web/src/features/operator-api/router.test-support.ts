@@ -1,8 +1,9 @@
 import { signOperatorRequest } from '@daisy/auth/operator-signature';
+import { noopErrorReporter } from '@daisy/observability';
 import { createOperatorApi, type OperatorApiDependencies } from './router';
 import { nodeOperatorCrypto } from './node-crypto';
 
-const now = 1_793_000_000_000;
+export const now = 1_793_000_000_000;
 export const target = 'u'.repeat(24);
 export const keyOf = (fill: number) => new Uint8Array(32).fill(fill);
 export const account = {
@@ -53,6 +54,7 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
     },
     nextId: () => 'i'.repeat(24),
     logger: { log: () => {} },
+    reporter: noopErrorReporter,
     ...overrides,
   });
   return { handle, calls };
