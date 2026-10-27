@@ -161,6 +161,27 @@ export class Fixture {
     return id;
   }
 
+  /** A tracked assembling Room, with the same resolved foundation as Round fixtures. */
+  async room(hostActorId: string, formatId: string, overrides: Row = {}) {
+    const id = createId();
+    await this.insert('rooms', {
+      id,
+      host_actor_id: hostActorId,
+      title: 'Fixture Room',
+      topic: 'Fixture topic',
+      visibility: 'public',
+      format_id: formatId,
+      format_version: 1,
+      competition_type: 'casual',
+      config: validConfig,
+      execution_plan: {},
+      rules_snapshot: validRules,
+      status: 'assembling',
+      ...overrides,
+    });
+    return typeof overrides.id === 'string' ? overrides.id : id;
+  }
+
   /**
    * A sanctioned ranked preset for a format. A ranked round is constructed
    * from one (ADR 0058 §4), so the `rounds_preset_provenance_fk` and the

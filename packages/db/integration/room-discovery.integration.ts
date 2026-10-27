@@ -35,18 +35,10 @@ test('discovery uses partial ordered indexes independently of historical Room an
       (_, i) => `d${String(i).padStart(23, '0')}`,
     );
     for (const [i, id] of ids.entries()) {
-      await f.insert('rooms', {
+      await f.room(caller.actorId, formatId, {
         id,
-        host_actor_id: caller.actorId,
         title: token,
         topic: token,
-        visibility: 'public',
-        format_id: formatId,
-        format_version: 1,
-        competition_type: 'casual',
-        config: validConfig,
-        execution_plan: {},
-        rules_snapshot: validRules,
         status: i < 2 ? 'assembling' : i === 5 ? 'abandoned' : 'started',
         created_at: new Date('2026-01-01'),
       });

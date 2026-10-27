@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { discoverRooms } from '../src/room-discovery';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { validConfig, validRules } from './round-fixtures';
+import { validConfig } from './round-fixtures';
 import { integrationSuite } from './suite.test-support';
 
 requireTestServices(process.env);
@@ -21,19 +21,10 @@ for (const sort of ['longest-waiting', 'newest'] as const)
       const ids = Array.from({ length: 5 }, () => createId()).sort();
       const add = async (index: number, microsecond: number) => {
         const id = ids[index]!;
-        await f.insert('rooms', {
+        await f.room(caller.actorId, formatId, {
           id,
-          host_actor_id: caller.actorId,
           title: token,
           topic: token,
-          visibility: 'public',
-          format_id: formatId,
-          format_version: 1,
-          competition_type: 'casual',
-          config: validConfig,
-          execution_plan: {},
-          rules_snapshot: validRules,
-          status: 'assembling',
         });
         const at = `2026-01-01T00:00:00.00000${microsecond}Z`;
         await f.sql`update rooms set created_at=${at}::timestamptz where id=${id}`;
