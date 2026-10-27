@@ -1,5 +1,5 @@
 /** Where /beta shows that signing out did not happen. */
-export const SIGN_OUT_FAILED_HREF = '/beta?signOut=failed';
+const SIGN_OUT_FAILED_HREF = '/beta?signOut=failed';
 
 const seeOther = (location: string) =>
   new Response(null, { status: 303, headers: { location } });
