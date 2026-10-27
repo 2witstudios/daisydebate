@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261027140144_frozen_transcript_guards';
+const migration = '20261027145002_frozen_transcript_guards';
 const scratch = scratchDatabase(url, 'frozenguardit');
 
 afterAll(() => scratch.drop());
