@@ -155,6 +155,13 @@ The rest of this record describes BETA-2.
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
+- **Round commands decide inside the fence (DEC-249).** The commanding
+  human's own access facts reach the evaluator with the Round authority,
+  read after any lock wait, so a revoke that commits after the edge's
+  identity read still refuses the command. A human without access keeps
+  `forfeit`, which is how a participant leaves a live Round. Start,
+  preparation, speech, yield, interrupt and judge ballots are refused.
+  Seats stay membership-only.
   The same holds in a channel: one member losing admission never closes
   reading for the others.
 - **What a pending account sees.**
