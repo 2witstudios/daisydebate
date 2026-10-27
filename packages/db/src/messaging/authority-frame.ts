@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   lockAuthorizationActors,
+  readAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
@@ -32,13 +33,36 @@ const actorIdsOf = (
     ]),
   ].sort();
 
+const castChanges = new WeakSet<Error>();
+/** The channel's cast moved between discovery and the fences; a read restarts. */
+export const isCastChange = (error: unknown) =>
+  error instanceof Error && castChanges.has(error);
+function castChanged() {
+  const error = createAppError('CONFLICT');
+  castChanges.add(error);
+  return error;
+}
+/** Writers fence exclusively; readers share, so peer readers never wait on each other. */
+type FenceMode = 'exclusive' | 'shared';
+const fences = {
+  exclusive: {
+    accounts: lockAuthorizationActors,
+    channel: sql`public.daisy_messaging_channel_fence`,
+  },
+  shared: {
+    accounts: readAuthorizationActors,
+    channel: sql`public.daisy_messaging_channel_read_fence`,
+  },
+} as const;
+
 async function lockChannel(
   tx: AuthorizationTransaction,
   channelId: string,
   authority: MessagingChannelFact['authority'],
+  mode: FenceMode,
 ) {
   const pair = authority.kind === 'dm' ? authority : null;
-  const rows = await tx.execute(sql`select public.daisy_messaging_channel_fence(
+  const rows = await tx.execute(sql`select ${fences[mode].channel}(
     ${channelId}::text, ${pair?.lowActorId ?? null}::text, ${pair?.highActorId ?? null}::text
   ) as locked`);
   return rows[0]?.locked === true;
@@ -54,15 +78,36 @@ function validateScope(input: Scope, additional: readonly string[]) {
     if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
 }
 
+type Extension = {
+  readonly additionalActors: readonly string[];
+  readonly beforeChannel: (frame: AuthorityFrame) => Promise<void>;
+};
 /** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
-export async function withLockedMessagingAuthority<T>(
+export const withLockedMessagingAuthority = <T>(
   tx: AuthorizationTransaction,
   input: Scope,
   work: (frame: AuthorityFrame) => Promise<T>,
-  extension?: {
-    readonly additionalActors: readonly string[];
-    readonly beforeChannel: (frame: AuthorityFrame) => Promise<void>;
-  },
+  extension?: Extension,
+): Promise<T> => fencedAuthority(tx, input, work, 'exclusive', extension);
+/**
+ * The same authority under shared fences, for reads (MSG-2.1-arch1): same
+ * lock order, so a reader never inverts a writer's graph. A cast that moved
+ * between discovery and the fences is CONFLICT; the owning transaction
+ * restarts the whole read.
+ */
+export const withSharedMessagingAuthority = <T>(
+  tx: AuthorizationTransaction,
+  input: Scope,
+  work: (frame: AuthorityFrame) => Promise<T>,
+  extension?: Extension,
+): Promise<T> => fencedAuthority(tx, input, work, 'shared', extension);
+
+async function fencedAuthority<T>(
+  tx: AuthorizationTransaction,
+  input: Scope,
+  work: (frame: AuthorityFrame) => Promise<T>,
+  mode: FenceMode,
+  extension?: Extension,
 ): Promise<T> {
   const additional = extension?.additionalActors ?? [];
   validateScope(input, additional);
@@ -73,12 +118,12 @@ export async function withLockedMessagingAuthority<T>(
   );
   if (!discovered) throw createAppError('NOT_FOUND');
   const actors = actorIdsOf(discovered, input.actorId, additional);
-  const accounts = await lockAuthorizationActors(tx, actors, {
+  const accounts = await fences[mode].accounts(tx, actors, {
     maxActors: 65535,
   });
   if (extension)
     await extension.beforeChannel({ tx, fact: discovered, accounts });
-  if (!(await lockChannel(tx, input.channelId, discovered.authority)))
+  if (!(await lockChannel(tx, input.channelId, discovered.authority, mode)))
     throw createAppError('NOT_FOUND');
   const fact = await readMessagingChannelFact(
     tx,
@@ -90,7 +135,7 @@ export async function withLockedMessagingAuthority<T>(
     JSON.stringify(actorIdsOf(discovered, input.actorId)) !==
     JSON.stringify(actorIdsOf(fact, input.actorId))
   )
-    throw createAppError('CONFLICT');
+    throw castChanged();
   return work({ tx, fact, accounts });
 }
 /** Public database factory binds its pool; the consumer evaluates policy in this same tx. */
