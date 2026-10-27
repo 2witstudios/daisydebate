@@ -109,9 +109,8 @@ test('judging and round analysis each read their own policy and model', async ()
 
 test('an absent policy leaves only its own store absent', async () => {
   const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
-  const { ROUND_ANALYSIS_POLICY: _analysis, ...withoutAnalysis } = env;
   const options = roundWorkerDatabaseOptions(
-    readServerConfig(withoutAnalysis),
+    readServerConfig({ ...env, ROUND_ANALYSIS_POLICY: undefined }),
     () => 'x'.repeat(43),
   );
   assert({

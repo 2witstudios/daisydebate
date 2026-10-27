@@ -34,7 +34,7 @@ describe('PracticeLive', () => {
     const html = render(1);
     assert({
       given: 'your first turn',
-      should: 'show the heading, the timer, coach prompts and the turns',
+      should: 'show the heading, the timer, practice prompts and the turns',
       actual: [
         html.match(/<h1/g)?.length,
         html.includes('Turn 1: Aff speech'),
@@ -43,7 +43,7 @@ describe('PracticeLive', () => {
         html.includes('5:00'),
         html.includes('You are speaking'),
         html.includes('Listening to you'),
-        html.includes('Coach prompts'),
+        html.includes('Practice prompts'),
         html.includes('State your claim in one sentence'),
         html.includes('Prep time left'),
         html.includes('You are Aff'),
@@ -107,16 +107,16 @@ describe('PracticeLive', () => {
     });
   });
 
-  test('coaching off leaves no prompts and no hint link', () => {
+  test('prompts off leaves no prompts and no hint link', () => {
     const html = render(
       1,
       {},
-      { ...defaultConfig, coach: false, hints: false },
+      { ...defaultConfig, prompts: false, hints: false },
     );
     assert({
-      given: 'coach prompts and hints off',
+      given: 'practice prompts and hints off',
       should: 'show neither',
-      actual: [html.includes('Coach prompts'), html.includes('>Hint<')],
+      actual: [html.includes('Practice prompts'), html.includes('>Hint<')],
       expected: [false, false],
     });
   });

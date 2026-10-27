@@ -38,7 +38,14 @@ export async function proveHumanBotJourney(browser: Browser) {
     const bots = (await catalog.json()).bots
       .map((bot: unknown) => roomCastChoiceSchema.parse(bot))
       .filter((bot: { eligible: boolean }) => bot.eligible);
-    expect(bots.length).toBeGreaterThanOrEqual(2);
+    // A bot debater takes a side and the AI judge the judge seat (ISSUE-750).
+    const debater = bots.find(
+      (bot: { seatRole: string }) => bot.seatRole === 'debater',
+    );
+    const aiJudge = bots.find(
+      (bot: { seatRole: string }) => bot.seatRole === 'judge',
+    );
+    expect([Boolean(debater), Boolean(aiJudge)]).toEqual([true, true]);
     let room = await createFoundationRoom(host, (choice) => {
       const selection = humanRoundSelection(choice, 1);
       return {
@@ -54,12 +61,12 @@ export async function proveHumanBotJourney(browser: Browser) {
     });
     room = await claimSeat(host, room, { role: 'affirmative', slot: 0 });
     room = await assignSeat(host, room, {
-      actorId: bots[0]!.actorId,
+      actorId: debater!.actorId,
       role: 'negative',
       slot: 0,
     });
     room = await assignSeat(host, room, {
-      actorId: bots[1]!.actorId,
+      actorId: aiJudge!.actorId,
       role: 'judge',
       slot: 0,
     });

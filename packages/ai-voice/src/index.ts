@@ -10,11 +10,7 @@ export {
   type OpenRouter,
 } from './openrouter';
 export { roundJudgeMessages } from './round-judge';
-export {
-  parseRoundAnalysis,
-  roundAnalysisMessages,
-  type RoundAnalysisHistory,
-} from './round-analysis';
+export { parseRoundAnalysis, roundAnalysisMessages } from './round-analysis';
 export type { TranscriptEvidenceInput } from './transcript-evidence';
 export { roundDebaterMessages } from './round-debater';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';

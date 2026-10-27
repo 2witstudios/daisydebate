@@ -211,7 +211,14 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     const bots = catalog.bots
       .map((bot: unknown) => roomCastChoiceSchema.parse(bot))
       .filter((bot: { eligible: boolean }) => bot.eligible);
-    expect(bots.length).toBeGreaterThanOrEqual(2);
+    // A bot debater takes a side and the AI judge the judge seat (ISSUE-750).
+    const debater = bots.find(
+      (bot: { seatRole: string }) => bot.seatRole === 'debater',
+    );
+    const aiJudge = bots.find(
+      (bot: { seatRole: string }) => bot.seatRole === 'judge',
+    );
+    expect([Boolean(debater), Boolean(aiJudge)]).toEqual([true, true]);
     const created = await host.context.request.post('/api/rooms', {
       headers: { origin },
       data: {
@@ -245,12 +252,12 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     });
     view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
     view = await assignSeat(host, view, {
-      actorId: bots[0]!.actorId,
+      actorId: debater!.actorId,
       role: 'negative',
       slot: 0,
     });
     view = await assignSeat(host, view, {
-      actorId: bots[1]!.actorId,
+      actorId: aiJudge!.actorId,
       role: 'judge',
       slot: 0,
     });

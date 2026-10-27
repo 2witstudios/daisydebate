@@ -287,17 +287,11 @@ export type {
   RoundJudgeAssignment,
 } from './round-ballot-read';
 export { entitlementKinds, entitlementSources } from './entitlements';
-export type {
-  EntitlementGrant,
-  EntitlementKind,
-  EntitlementSource,
-} from './entitlements';
+export type { EntitlementGrant } from './entitlements';
 export {
   roundAnalysisLimits,
-  roundAnalysisLineSchema,
   roundAnalysisReportSchema,
   roundAnalysisSkills,
-  roundAnalysisSkillsSchema,
   roundAnalysisVersion,
   roundAnalysisViewSchema,
 } from './round-analysis';

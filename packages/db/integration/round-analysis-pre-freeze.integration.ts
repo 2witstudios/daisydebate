@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { erasePrivacySubject } from '../src/privacy';
 import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
+import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { withCompletedRound } from './round-analysis.test-support';
 import { bindings } from './privacy.test-support';
 
@@ -59,17 +60,22 @@ test('canonical erasure during an active Round prevents any round analysis after
         const [state] = await fixture.sql`select r.status,
           exists(select 1 from round_transcript_freezes f where f.round_id=r.id) as frozen
           from rounds r join round_participants p on p.round_id=r.id where p.id=${aff.id}`;
-        const adopter = roundAnalysisPrivacyAdopter;
-        const expectedColumns = Object.fromEntries(
-          [...new Set(adopter.fields.map((field) => field.table))].map(
-            (table) => [
-              table,
-              adopter.fields
-                .filter((field) => field.table === table)
-                .map((field) => field.column),
-            ],
-          ),
-        );
+        // Erasure runs every adopter: the transcript's and round analysis's own.
+        const adopters = [
+          roundTranscriptPrivacyAdopter,
+          roundAnalysisPrivacyAdopter,
+        ];
+        const expectedColumns = (adopter: (typeof adopters)[number]) =>
+          Object.fromEntries(
+            [...new Set(adopter.fields.map((field) => field.table))].map(
+              (table) => [
+                table,
+                adopter.fields
+                  .filter((field) => field.table === table)
+                  .map((field) => field.column),
+              ],
+            ),
+          );
         await erasePrivacySubject(
           drizzle({ client }),
           {
@@ -79,10 +85,12 @@ test('canonical erasure during an active Round prevents any round analysis after
             jobIds: [],
           },
           {
-            requiredAdopters: [
-              { id: adopter.id, phase: adopter.phase, expectedColumns },
-            ],
-            adopters: [adopter],
+            requiredAdopters: adopters.map((adopter) => ({
+              id: adopter.id,
+              phase: adopter.phase,
+              expectedColumns: expectedColumns(adopter),
+            })),
+            adopters,
           },
           bindings,
         );

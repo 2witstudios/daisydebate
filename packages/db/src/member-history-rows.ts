@@ -4,10 +4,11 @@ import {
   type DebateRole,
   type RatedOutcome,
 } from '@daisy/protocol';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
+import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { roundAttendanceAdjudications } from './schema/round-attendance';
 import { roundCommands } from './schema/round-commands';
 import { roundParticipants } from './schema/round-participants';
@@ -86,12 +87,15 @@ export async function historyRows(
       role: roundParticipants.role,
       kind: actors.kind,
       username: users.username,
-      botName: botProfiles.name,
+      botName: sql<
+        string | null
+      >`coalesce(${botProfiles.name}, ${aiJudgeProfiles.name})`,
     })
     .from(roundParticipants)
     .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
     .leftJoin(users, and(eq(users.id, actors.userId), debating))
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
+    .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(inArray(roundParticipants.roundId, ids))
     .orderBy(roundParticipants.role, roundParticipants.slot);
   const forfeited = await forfeitedRounds(tx, ids);

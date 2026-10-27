@@ -4,10 +4,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   betaAccessPrivacyAdopter,
   betaAccessPrivacyExpectedColumns,
-  erasePrivacySubject,
-  exportPrivacySubject,
 } from '../src/privacy';
-import { bindings, now, withPrivacySubject } from './privacy.test-support';
+import { exportThenErase, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -41,16 +39,10 @@ test('erasure removes beta state and owed mail; export carries the beta fields',
        values ($1, 'beta-approved', $2, $3, now())`,
       [createId(), userId, `beta-approved:${createId()}`],
     );
-    const exported = await exportPrivacySubject(
+    const exported = await exportThenErase(
       database,
       { userId, actorId },
       adoption,
-    );
-    await erasePrivacySubject(
-      database,
-      { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
-      adoption,
-      bindings,
     );
     const count = async (table: string, column: string) =>
       (

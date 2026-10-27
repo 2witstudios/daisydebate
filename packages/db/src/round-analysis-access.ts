@@ -26,13 +26,8 @@ const accessRow = z.object({
 
 /** One debater seat of a Round: the Round's authorization facts and the seat's account. */
 export type RoundAnalysisAccess = {
-  readonly round: {
+  readonly round: Omit<z.infer<typeof accessRow>, 'participants'> & {
     readonly kind: 'round';
-    readonly roundId: string;
-    readonly createdByActorId: string | null;
-    readonly visibility: 'public' | 'unlisted' | 'private';
-    readonly status: string;
-    readonly revision: number;
     readonly participants: readonly {
       readonly actorId: string;
       readonly role: string;

@@ -77,15 +77,21 @@ function SeatActions({
                 {member.label}
               </option>
             ))}
-            {props.bots.map((bot) => (
-              <option
-                key={bot.actorId}
-                value={bot.actorId}
-                disabled={!bot.eligible}
-              >
-                {bot.label} · AI{!bot.eligible ? ' · unavailable' : ''}
-              </option>
-            ))}
+            {props.bots
+              .filter(
+                (bot) =>
+                  bot.seatRole ===
+                  (seat.role === 'judge' ? 'judge' : 'debater'),
+              )
+              .map((bot) => (
+                <option
+                  key={bot.actorId}
+                  value={bot.actorId}
+                  disabled={!bot.eligible}
+                >
+                  {bot.label} · AI{!bot.eligible ? ' · unavailable' : ''}
+                </option>
+              ))}
           </select>
           <button type="submit" className={buttonClass('secondary')}>
             Assign

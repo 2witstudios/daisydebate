@@ -189,10 +189,12 @@ export const roomCatalogChoiceSchema = z.strictObject({
   definition: formatDefinitionSchema,
   preset: z.strictObject({ version, config: roomConfigSchema }),
 });
+/** An AI actor a host may seat: a bot debater for a side, or the AI judge for the judge seat (ISSUE-750). */
 export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,
   label: z.string(),
   kind: z.literal('bot'),
+  seatRole: z.enum(['debater', 'judge']),
   eligible: z.boolean(),
 });
 export type RoomView = z.infer<typeof roomViewSchema>;

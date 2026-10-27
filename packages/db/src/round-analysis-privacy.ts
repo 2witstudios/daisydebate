@@ -1,37 +1,23 @@
 import { sql } from 'drizzle-orm';
-import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import type { PrivacyAdopter } from './privacy/contracts';
+import {
+  identifierField as id,
+  personalField,
+  plainField as none,
+  secretField,
+  type FieldShape,
+} from './privacy/field-shapes';
 
-type Field = Pick<
-  PrivacyFieldDeclaration,
-  'column' | 'category' | 'visibility' | 'exportable'
->;
-const id = (column: string): Field => ({
-  column,
-  category: 'identifier',
-  exportable: false,
-});
-const none = (column: string): Field => ({
-  column,
-  category: 'none',
-  exportable: false,
-});
-
-const fields: readonly Field[] = [
+const fields: readonly FieldShape[] = [
   id('round_participant_id'),
   id('round_id'),
   none('freeze_revision'),
   none('status'),
   none('attempts'),
-  { column: 'lease_token_digest', category: 'secret', exportable: false },
+  secretField('lease_token_digest'),
   none('lease_expires_at'),
   none('model'),
-  {
-    column: 'report',
-    category: 'personal',
-    visibility: 'private',
-    exportable: false,
-  },
+  personalField('report'),
   none('input_tokens'),
   none('output_tokens'),
   none('completed_at'),

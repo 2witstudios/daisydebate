@@ -33,7 +33,7 @@ export const roundAnalysisLimits = {
 const text = z.string().trim().min(1).max(roundAnalysisLimits.item);
 
 /** A transcript line by its played position: segment sequence, then line sequence. */
-export const roundAnalysisLineSchema = z.strictObject({
+const roundAnalysisLineSchema = z.strictObject({
   segment: z.int().nonnegative(),
   sequence: z.int().nonnegative(),
 });
@@ -41,7 +41,7 @@ export type RoundAnalysisLine = z.infer<typeof roundAnalysisLineSchema>;
 
 const skillScore = z.int().min(1).max(5);
 
-export const roundAnalysisSkillsSchema = z.strictObject(
+const roundAnalysisSkillsSchema = z.strictObject(
   Object.fromEntries(
     roundAnalysisSkills.map((skill) => [
       skill,

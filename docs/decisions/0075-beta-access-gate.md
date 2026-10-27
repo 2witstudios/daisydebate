@@ -157,7 +157,7 @@ The rest of this record describes BETA-2.
   access: the account waits as `age-required`, and the beta page sends
   it to the age step. The operator command refuses to approve such an
   account. Age eligibility is a participant admission rule, so every
-  feature behind participant access (coaching among them) inherits it
+  feature behind participant access (round analysis among them) inherits it
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.

@@ -37,7 +37,7 @@ const useHydrated = (): boolean =>
 /**
  * The turn timer, the one piece of Train state a URL cannot hold. It counts
  * down once hydrated; without script it shows the full length and the speech
- * is still run by the coach prompts and the End speech link.
+ * is still run by the practice prompts and the End speech link.
  */
 export function SpeechClock({ seconds, actions, endHref }: SpeechClockProps) {
   const [state, setState] = useState(() => startClock(seconds));

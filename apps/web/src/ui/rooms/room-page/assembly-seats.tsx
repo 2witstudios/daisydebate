@@ -58,7 +58,9 @@ function OpenSeatActions({
 }) {
   const { view } = props;
   const position = { role: seat.role, slot: String(seat.slot) };
-  const aiJudge = props.bots.find((bot) => bot.eligible);
+  const aiJudge = props.bots.find(
+    (bot) => bot.seatRole === 'judge' && bot.eligible,
+  );
   return (
     <div className="flex flex-wrap items-start justify-end gap-2">
       {view.capabilities.canClaimSeat ? (

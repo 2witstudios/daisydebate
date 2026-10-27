@@ -1,30 +1,11 @@
 import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
-
-type Field = Pick<
-  PrivacyFieldDeclaration,
-  'column' | 'category' | 'visibility' | 'exportable'
->;
-const id = (column: string): Field => ({
-  column,
-  category: 'identifier',
-  exportable: false,
-});
-const none = (column: string): Field => ({
-  column,
-  category: 'none',
-  exportable: false,
-});
-const personal = (column: string, exportable = false): Field => ({
-  column,
-  category: 'personal',
-  visibility: 'private',
-  exportable,
-});
-const secret = (column: string): Field => ({
-  column,
-  category: 'secret',
-  exportable: false,
-});
+import {
+  identifierField as id,
+  personalField as personal,
+  plainField as none,
+  secretField as secret,
+  type FieldShape as Field,
+} from './privacy/field-shapes';
 
 /** DEC-245: draw data lives with the Room or Round it serves. */
 const retention = {

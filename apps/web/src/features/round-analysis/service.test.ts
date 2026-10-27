@@ -22,7 +22,7 @@ const seat = (roundParticipantId: string) => ({
   roundParticipantId,
 });
 
-test('each scan starts at most `parallel` coaching calls and none twice', async () => {
+test('each scan starts at most `parallel` analysis calls and none twice', async () => {
   const started: string[] = [];
   const release: (() => void)[] = [];
   const { tick, timers } = manualTimers();

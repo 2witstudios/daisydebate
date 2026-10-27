@@ -200,10 +200,17 @@ export async function prepareRoomAs(
     (bot: ReturnType<typeof roomCastChoiceSchema.parse>) => bot.eligible,
   );
   expect(eligible.length).toBeGreaterThanOrEqual(2);
+  // Each seat takes an AI actor of its own kind: bot debaters for sides, the AI judge for the judge seat (ISSUE-750).
+  const ofRole = (seat: (typeof seats)[number]) =>
+    eligible.filter(
+      (bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
+        bot.seatRole === (seatRole[seat] === 'judge' ? 'judge' : 'debater'),
+    );
   await page.getByText('Manage seats', { exact: true }).click();
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
+    const actor = ofRole(seat)[index % ofRole(seat).length]!;
     const select = page.getByLabel(`Assign ${seat}`, { exact: true });
-    await select.selectOption(eligible[index]!.actorId);
+    await select.selectOption(actor.actorId);
     await select
       .locator('..')
       .getByRole('button', { name: 'Assign', exact: true })
@@ -215,7 +222,7 @@ export async function prepareRoomAs(
           .filter(isNamedSeat)
           .some(
             (participant) =>
-              participant.actorId === eligible[index]!.actorId &&
+              participant.actorId === actor.actorId &&
               participant.role === seatRole[seat] &&
               participant.slot === 0,
           ),

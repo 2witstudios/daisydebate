@@ -23,14 +23,14 @@ describe('parsePracticeConfig', () => {
 
   test('valid values', () => {
     assert({
-      given: 'a neg solo practice with custom rules and coaching off',
+      given: 'a neg solo practice with custom rules and prompts off',
       should: 'read every choice',
       actual: parsePracticeConfig({
         side: 'neg',
         motion: '3',
         own: '  Zoos should close.  ',
         opp: 'solo',
-        coach: 'off',
+        prompts: 'off',
         hints: 'on',
         speech: '7',
         prep: '0',
@@ -41,7 +41,7 @@ describe('parsePracticeConfig', () => {
         motion: 3,
         own: 'Zoos should close.',
         opponent: 'solo',
-        coach: false,
+        prompts: false,
         hints: true,
         rules: { speechMinutes: 7, prepMinutes: 0, seats: 'solo' },
       },
@@ -56,7 +56,7 @@ describe('parsePracticeConfig', () => {
         side: 'both',
         motion: '9',
         opp: 'robot',
-        coach: 'maybe',
+        prompts: 'maybe',
         speech: 'abc',
         prep: '-1',
         seats: 'many',
@@ -86,9 +86,9 @@ describe('parsePracticeConfig', () => {
 
   test('the last of a repeated parameter wins', () => {
     assert({
-      given: 'coach=off then coach=on, as a hidden default then a choice',
+      given: 'prompts=off then prompts=on, as a hidden default then a choice',
       should: 'use the later value',
-      actual: parsePracticeConfig({ coach: ['off', 'on'] }).coach,
+      actual: parsePracticeConfig({ prompts: ['off', 'on'] }).prompts,
       expected: true,
     });
   });
@@ -119,7 +119,7 @@ describe('configParams and practiceHref', () => {
       motion: 3,
       own: 'Zoos should close.',
       opponent: 'both',
-      coach: false,
+      prompts: false,
     } as const;
     assert({
       given: 'a config written to a URL',
@@ -168,7 +168,7 @@ describe('summary', () => {
         'Random',
         'Cities should fund public transit before roads.',
         'You, on both sides',
-        'Coach prompts on, hints off',
+        'Practice prompts on, hints off',
         'Standard rules',
       ],
     });

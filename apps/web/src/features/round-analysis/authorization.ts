@@ -8,7 +8,7 @@ import type { RoundAnalysisAccess } from '@daisy/db/rounds';
 import type { EntitlementGrant } from '@daisy/protocol';
 
 /** Whether this account may read or generate a round analysis of its own seat in this Round. */
-export function canAnalyse(
+function canAnalyse(
   account: AccountAuthorizationFact | null,
   grants: readonly EntitlementGrant[],
   round: RoundAuthorizationFact,

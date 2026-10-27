@@ -79,9 +79,9 @@ function Report({
         <h3 id="analysis-skills" className={headingClass}>
           Skills
         </h3>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        <dl className="flex flex-col gap-2">
           {panel.skills.map((skill) => (
-            <div key={skill.name} className="contents">
+            <div key={skill.name} className="flex flex-col">
               <dt className="font-strong">
                 {skill.name}{' '}
                 <span className="text-ink-muted">{skill.score}/5</span>

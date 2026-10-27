@@ -1,8 +1,8 @@
 import type { SpeechView } from '../../../features/train/live';
 import { TrainCard } from '../card/train-card';
 
-/** Coach prompts and, when opened, the hint; absent when coaching is off. */
-export function CoachCard({
+/** Practice prompts and, when opened, the hint; absent when prompts are off. */
+export function PromptCard({
   view,
   hintOpen,
 }: {
@@ -17,7 +17,7 @@ export function CoachCard({
       </TrainCard>
     );
   return (
-    <TrainCard title="Coach prompts">
+    <TrainCard title="Practice prompts">
       <ul className="flex flex-col gap-2">
         {view.prompts.map((prompt) => (
           <li key={prompt} className="flex gap-3 text-base text-ink">

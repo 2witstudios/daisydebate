@@ -99,7 +99,7 @@ export async function playOut(
 async function readyBotJudgedRoom(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
 ) {
-  const judge = await f.bot();
+  const judge = await f.aiJudge();
   let room = await assembleJudgedRoom(f);
   room = (
     await f.command(f.host, room, {

@@ -21,7 +21,7 @@ for (const revoked of [false, true])
       try {
         for (const actorId of bots) {
           await f.sql`insert into actors(id,kind) values(${actorId},'bot')`;
-          await f.sql`insert into bot_profiles(actor_id,name,persona,voice) values(${actorId},'Finalizer judge fixture','Test','aura-2-thalia-en')`;
+          await f.sql`insert into ai_judge_profiles(actor_id,name) values(${actorId},'Finalizer judge fixture')`;
         }
         let room = await assembleJudgedRoom(f, 2);
         roomId = room.id;
@@ -41,7 +41,7 @@ for (const revoked of [false, true])
         ({ roundId } = await startRuntimeRound(f, room));
         const round = (await f.store.getRound(roundId))!;
         if (revoked)
-          await f.sql`delete from bot_profiles where actor_id=${bots[1]!}`;
+          await f.sql`delete from ai_judge_profiles where actor_id=${bots[1]!}`;
         await playOut(f, roundId, true);
         const result = await finalizeAsWeb(f, roundId);
         await finalizeAsWeb(f, roundId);
@@ -91,7 +91,7 @@ for (const revoked of [false, true])
           await f.sql`delete from rooms where id=${roomId}`;
         }
         for (const actorId of bots) {
-          await f.sql`delete from bot_profiles where actor_id=${actorId}`;
+          await f.sql`delete from ai_judge_profiles where actor_id=${actorId}`;
           await f.sql`delete from actors where id=${actorId}`;
         }
       }
