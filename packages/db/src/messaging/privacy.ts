@@ -161,6 +161,9 @@ async function eraseAssociations(
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   );
   await tx.execute(
+    sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
+  );
+  await tx.execute(
     sql`delete from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   );
   for (const { channelId } of authorityChannels) {
@@ -246,6 +249,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         if (row.request_sender_actor_id === actorId) return row;
         return omitPrivateColumns(row, ['introduction']);
       });
+      const friendships = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
+        ),
+      );
       const commands = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
@@ -280,6 +288,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_reactions: reactions,
           messaging_contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
+          messaging_friendships: friendships,
           messaging_social_commands: commands,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,

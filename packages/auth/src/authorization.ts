@@ -8,7 +8,7 @@ import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
 import { requestChannelDecision } from './authorization-request';
 import { pendingFileCleanupAllowed } from './authorization-file';
-import { contactSafetyAllowed } from './authorization-contact';
+import { contactPairAllowed } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
@@ -64,6 +64,7 @@ function validResourceKind(
     'channel.reaction.remove': 'channel_reaction',
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
+    'social.friend.list': 'messaging_collection',
     'member.history.read': 'member_history',
     'channel.file.cleanup': 'pending_file',
   } as const;
@@ -71,7 +72,8 @@ function validResourceKind(
   if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
-  if (capability === 'social.block') return resource.kind === 'contact_pair';
+  if (capability === 'social.block' || capability.startsWith('social.friend.'))
+    return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(
       capability,
@@ -228,7 +230,9 @@ function resolveMemberResource(
     case 'pending_file':
       return decision(pendingFileCleanupAllowed(actorId, resource));
     case 'contact_pair':
-      return decision(contactSafetyAllowed(actorId, resource, context));
+      return decision(
+        contactPairAllowed(actorId, capability, resource, context),
+      );
     case 'social_creation':
       return decision(
         socialCreationAllowed(actorId, capability, resource, context),

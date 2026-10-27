@@ -1,74 +1,38 @@
-import type { PresenceStatus } from '@daisy/protocol';
+import type {
+  FriendList,
+  FriendPresence,
+  FriendRelation,
+  PresenceStatus,
+} from '@daisy/protocol';
 
-type OnlineUser = {
-  readonly name: string;
-  readonly presence: PresenceStatus;
-};
+/** Your own status on the rail: a member looking at a page is online. */
+export const viewerStatus: PresenceStatus = 'online';
 
-export type FriendStatus = Exclude<PresenceStatus, 'offline'>;
-
-type FriendAction = { readonly label: string; readonly href: string };
-
-type Friend = {
-  readonly name: string;
-  readonly status: FriendStatus;
-  readonly profileHref: string;
-  /** What you can do with them right now, if anything. */
-  readonly action: FriendAction | null;
-};
-
-export type FriendGroup = {
-  readonly status: FriendStatus;
-  readonly label: string;
-  readonly people: readonly Friend[];
-};
-
-/** Your own status, as the pill reads it. Sample until presence is real. */
-export const viewerStatus: FriendStatus = 'online';
-
-const statusLabel: Readonly<Record<FriendStatus, string>> = {
+export const presenceLabel: Readonly<Record<FriendPresence, string>> = {
   online: 'Online',
-  'in-debate': 'In a debate',
   away: 'Away',
+  offline: 'Offline',
 };
 
-const groupOrder: readonly FriendStatus[] = ['in-debate', 'online', 'away'];
+/** How many friends are around: online or away, not offline. */
+export const friendsAround = (friends: FriendList['friends']): number =>
+  friends.filter((friend) => friend.presence !== 'offline').length;
 
-const handleOf = (name: string): string =>
-  name.toLowerCase().trim().replace(/\s+/g, '-');
+/** The Friends page's lede: who is around, or how to start. */
+export function friendsLede(list: Pick<FriendList, 'friends'>): string {
+  if (list.friends.length === 0)
+    return 'Add a friend by username to see when they are online.';
+  const around = friendsAround(list.friends);
+  return `${around} of ${list.friends.length} online`;
+}
 
-const actionFor = (status: FriendStatus): FriendAction | null =>
-  status === 'in-debate'
-    ? { label: 'Watch', href: '/watch' }
-    : status === 'online'
-      ? { label: 'Challenge', href: '/play/room' }
-      : null;
-
-/** How many are around right now: online or in a debate, not away. */
-export const onlineNow = (users: readonly OnlineUser[]): number =>
-  users.filter(
-    (user) => user.presence !== 'away' && user.presence !== 'offline',
-  ).length;
-
-/**
- * The Friends list: people who are around, grouped by what they are doing
- * (debating first, then online, then away). Offline people are not shown.
- */
-export function friendGroups(
-  users: readonly OnlineUser[],
-): readonly FriendGroup[] {
-  return groupOrder
-    .map((status) => ({
-      status,
-      label: statusLabel[status],
-      people: users
-        .filter((user) => user.presence === status)
-        .map((user) => ({
-          name: user.name,
-          status,
-          profileHref: `/profile/${handleOf(user.name)}`,
-          action: actionFor(status),
-        })),
-    }))
-    .filter((group) => group.people.length > 0);
+/** The viewer's relation to `username`, read from their own list. */
+export function relationTo(list: FriendList, username: string): FriendRelation {
+  const name = username.toLowerCase();
+  const named = (entry: { readonly username: string }) =>
+    entry.username.toLowerCase() === name;
+  if (list.friends.some(named)) return 'friends';
+  if (list.incoming.some(named)) return 'incoming';
+  if (list.outgoing.some(named)) return 'outgoing';
+  return 'none';
 }
