@@ -55,6 +55,10 @@ export type MessagingSocialFrame = {
     readonly channelId: string;
     readonly state: string;
   } | null>;
+  /**
+   * Call after `screenDmRequest` answered null: an existing pending or
+   * accepted DM refuses CONFLICT here instead of converging.
+   */
   readonly commitDmRequest: (input: {
     readonly requestId: string;
     readonly channelId: string;

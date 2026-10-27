@@ -194,58 +194,60 @@ test('committing an existing DM without the screen is refused (DEC-251)', async 
     expected: ['select'],
   });
 });
-test('the screen answers null for a new request and refuses a decline-blocked one', async () => {
-  const outcomes: unknown[] = [];
-  for (const blocked of [false, true]) {
-    const { client, queries } = fakeSql([[], [{ blocked }]]);
-    const outcome = await dmRequestFrame(
-      drizzle({ client }),
-      input,
-      [pair],
-      async () => {},
-    )
-      .screenDmRequest(now)
-      .then(
-        (value) => value,
-        (error: { code?: string }) => error.code,
-      );
-    outcomes.push([
-      outcome,
-      queries.some((entry) =>
-        entry.query.includes('messaging_social_declines'),
-      ),
-    ]);
-  }
-  assert({
-    given: 'no DM yet, first unblocked and then blocked by the peer’s declines',
-    should:
-      'read the decline block both times, answering null to commit and then refusing as a block',
-    actual: outcomes,
-    expected: [
-      [null, true],
-      ['AUTHORIZATION', true],
-    ],
-  });
-});
-test('a reopened request to a declined DM partner checks declines and the budget again', async () => {
-  const { client, queries } = fakeSql([
-    [request('declined', new Date(now))],
-    budget({ unrelated: false, hourly: 5, daily: 19 }),
-  ]);
+/** The screen over no DM yet, the peer's declines blocking or not. */
+const screenWithoutDm = (blocked: boolean) => {
+  const { client, queries } = fakeSql([[], [{ blocked }]]);
   const frame = dmRequestFrame(
     drizzle({ client }),
     input,
     [pair],
     async () => {},
   );
-  await frame.commitDmRequest(command).catch(() => undefined);
+  const readDeclines = () =>
+    queries.some((entry) => entry.query.includes('messaging_social_declines'));
+  return { screen: () => frame.screenDmRequest(now), readDeclines };
+};
+test('the screen answers null for a new request, having read the decline block', async () => {
+  const { screen, readDeclines } = screenWithoutDm(false);
   assert({
-    given: 'a declined DM asked again inside the day budget',
-    should: 'read the decline block and the budget facts again',
-    actual: queries.some((entry) =>
-      entry.query.includes('from messaging_social_declines'),
-    ),
+    given: 'no DM yet and no decline block',
+    should: 'answer null to commit, after reading the decline block',
+    actual: [await screen(), readDeclines()],
+    expected: [null, true],
+  });
+});
+test('the screen refuses a decline-blocked new request as a block', async () => {
+  const { screen, readDeclines } = screenWithoutDm(true);
+  await assertRejects({
+    given: 'no DM yet and the peer’s declines blocking the requester',
+    should: 'refuse it as a block is refused',
+    actual: screen,
+    code: 'AUTHORIZATION',
+  });
+  assert({
+    given: 'the refused screen',
+    should: 'have read the decline block',
+    actual: readDeclines(),
     expected: true,
+  });
+});
+test('a reopened request to a declined DM partner spends the unrelated hour (A1)', async () => {
+  const { client } = fakeSql([
+    [request('declined', new Date(now))],
+    budget({ unrelated: true, hourly: 5, daily: 19 }),
+  ]);
+  await assertRejects({
+    given:
+      'a declined DM, which relates nobody, asked again with the unrelated hour spent',
+    should: 'refuse it as rate limited',
+    actual: () =>
+      dmRequestFrame(
+        drizzle({ client }),
+        input,
+        [pair],
+        async () => {},
+      ).commitDmRequest(command),
+    code: 'RATE_LIMIT',
   });
 });
 test('malformed time or limits never query the budget', async () => {
