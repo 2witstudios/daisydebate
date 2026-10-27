@@ -2,11 +2,9 @@
 
 import { cookies, headers } from 'next/headers';
 import {
-  onboardingHref,
-  usernameHref,
-} from '../../../../features/access/decision';
-import {
+  ageAnswerHref,
   initialAgeForm,
+  readAgeAnswer,
   readAgeForm,
   type AgeFormState,
 } from '../../../../features/account/age-form';
@@ -21,18 +19,12 @@ import { processRoute } from '../../../../server/process-app';
 
 const ageRoute = processRoute((routes) => routes.age.POST);
 
-const refusalOf = async (response: Response) => {
-  const body: unknown = await response.json().catch(() => null);
-  const refusal = (body as { error?: { refusal?: unknown } } | null)?.error
-    ?.refusal;
-  return refusal === 'under-13' || refusal === 'below-floor' ? refusal : null;
-};
-
 /**
  * The age form's POST, as a server action: it works before hydration and
  * without JavaScript. It runs POST /api/account/age in process with this
  * request's headers, so every gate of that route applies and the server
- * alone bands the answer. Accepted (now or by an earlier answer), it moves on to the username step; an
+ * alone bands the answer. Accepted (now or by an earlier answer, see
+ * readAgeAnswer), it moves on to the username step; an
  * age below the floor carries the route's day-long hold to the browser and
  * returns to the age step, which then shows the refusal.
  */
@@ -55,14 +47,9 @@ export async function ageStepAction(
       body: JSON.stringify(read.body),
     },
   );
-  // 409: this account answered already and that first answer stands.
-  if (response.ok || response.status === 409)
-    return {
-      ...initialAgeForm,
-      ...moveOn(incoming, usernameHref(destination)),
-    };
-  const refusal = response.status === 403 ? await refusalOf(response) : null;
-  if (refusal === null)
+  const answer = await readAgeAnswer(response);
+  const href = ageAnswerHref(answer, destination);
+  if (href === null)
     return {
       month: String(read.body.month),
       year: String(read.body.year),
@@ -70,9 +57,11 @@ export async function ageStepAction(
       missing: [],
       unavailable: true,
     };
-  (await cookies()).set(AGE_HOLD_COOKIE, refusal, AGE_HOLD_COOKIE_OPTIONS);
-  return {
-    ...initialAgeForm,
-    ...moveOn(incoming, onboardingHref(destination)),
-  };
+  if (answer.kind === 'refused')
+    (await cookies()).set(
+      AGE_HOLD_COOKIE,
+      answer.refusal,
+      AGE_HOLD_COOKIE_OPTIONS,
+    );
+  return { ...initialAgeForm, ...moveOn(incoming, href) };
 }

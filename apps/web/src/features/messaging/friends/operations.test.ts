@@ -224,6 +224,14 @@ test('readFriendList', async () => {
       row(d, 'dan', 'pending', d),
       row('f'.repeat(24), 'eve', 'pending', me),
     ],
+    challenges: async () => [
+      {
+        roomId: 'r'.repeat(24),
+        username: 'zed',
+        title: '@zed vs @me',
+        challengedAt: now,
+      },
+    ],
     hidden: async () => true,
     presence: async (ids) => {
       asked.push(ids);
@@ -249,6 +257,14 @@ test('readFriendList', async () => {
       ],
       incoming: [{ username: 'dan', requestedAt: now }],
       outgoing: [{ username: 'eve', requestedAt: now }],
+      challenges: [
+        {
+          username: 'zed',
+          roomId: 'r'.repeat(24),
+          title: '@zed vs @me',
+          challengedAt: now,
+        },
+      ],
     },
   });
   assert({

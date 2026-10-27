@@ -26,6 +26,15 @@ type MessagingFriendshipPair = {
   readonly requesterActorId: string;
 };
 export type MessagingSocialFrame = {
+  /** Records a challenge to the pair's other member for a room the caller hosts. */
+  readonly commitChallenge: (input: {
+    readonly roomId: string;
+    readonly now: string;
+  }) => Promise<{ readonly recorded: boolean }>;
+  /** Declines the pair's other member's challenge to the caller. */
+  readonly declineChallenge: (input: {
+    readonly roomId: string;
+  }) => Promise<void>;
   readonly readFriendship: () => Promise<{
     readonly otherActorId: string;
     readonly pair: MessagingFriendshipPair | null;
