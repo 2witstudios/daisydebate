@@ -305,3 +305,19 @@ and the PostHog adapter and consent banner (PRIV-6) are separate leaves of
 the privacy and telemetry epic, tracked on the epic's PageSpace plan page.
 This document describes the rules those leaves implement, not their
 current implementation status.
+
+### Abandoned provisional accounts
+
+ISSUE-660(b), confirmed by the orchestrator on 2026-10-27: an account that
+has not claimed a username or recorded an age or Terms acceptance expires
+24 hours after creation. The existing startup/hourly retention sweep deletes
+up to 20 batches of 50 per run. An actor, a role grant, a privacy job or an
+erased-account history also protects a row. A backlog drains over later runs; 24 hours is
+the eligibility window, not a guarantee that deletion finishes at that instant.
+
+Each batch locks candidates with `SKIP LOCKED` and rechecks protection in a
+fresh snapshot. Sessions, credentials and passkeys cascade with the account;
+its sign-in and email-change verifications and delivery receipts are removed
+in the same transaction. Suppressions and unrelated verification purposes
+remain. The age-refusal path shares the same mail cleanup. The sweep logs
+only its stable operation name, counts and success/failure.
