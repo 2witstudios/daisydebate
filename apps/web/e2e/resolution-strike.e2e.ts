@@ -230,7 +230,8 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     });
     expect(created.status()).toBe(201);
     let view = roomViewSchema.parse((await created.json()).view);
-    // The shortest window Freestyle allows, so the time-out takes 15 s.
+    // A 15 s strike window, so the time-out takes 15 s, and 20 s of prep:
+    // prep can't be cut short, only acknowledged once it runs out.
     view = await command(host.context.request, view, {
       type: 'update-config',
       config: {
@@ -239,6 +240,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
           ...freestyle.preset.config.resolutionDraw,
           strikeWindowMs: 15_000,
         },
+        preRoundPrep: { enabled: true, durationMs: 20_000 },
       },
     });
     view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
@@ -291,7 +293,10 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     // Prep started at the reveal and is already counting down.
     await expect(page.getByText(/^\d+:\d{2} left$/)).toBeVisible();
 
-    await page.getByRole('button', { name: 'End prep', exact: true }).click();
+    // When prep runs out the page rereads and offers its acknowledgment.
+    await page
+      .getByRole('button', { name: 'End prep', exact: true })
+      .click({ timeout: 30_000 });
     const roundId = await startRoundInBrowser(page);
     const round = await readBallotRound(host.context.request, roundId);
     expect(round.topic).toBe(survivor);
