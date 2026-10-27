@@ -30,7 +30,6 @@ if (import.meta.main) {
     const operation = createRoundMaintenanceOperations({
       startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
-      idleTimeoutMs: null,
       store: database,
       instanceId,
       ids: { next: createId },

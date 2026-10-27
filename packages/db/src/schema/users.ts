@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  index,
   pgTable,
   text,
   uniqueIndex,
@@ -38,6 +39,11 @@ export const users = pgTable(
     uniqueIndex('users_username_lower_unique').on(
       sql`lower(${table.username})`,
     ),
+    // ISSUE-716: the abandoned-sign-up sweep reads live provisional
+    // accounts oldest first (retention.provisional_user).
+    index('users_provisional_created_idx')
+      .on(table.createdAt, table.id)
+      .where(sql`${table.username} is null and ${table.deletedAt} is null`),
     check(
       'users_tombstone_scrubbed',
       sql`${table.deletedAt} is null or (${table.email} is null and ${table.username} is null and ${table.image} is null and ${table.name} = '')`,

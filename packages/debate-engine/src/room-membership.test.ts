@@ -59,7 +59,7 @@ describe('one active Room per user', () => {
       given: 'a closed Room and a launched Room whose Round completed or ended',
       should: 'hold no member',
       actual: [
-        activeRoomMembers({ ...state(), status: 'abandoned' }),
+        activeRoomMembers({ ...state(), status: 'closed' }),
         activeRoomMembers(withRound('completed')),
         activeRoomMembers(withRound('abandoned')),
       ],
@@ -146,12 +146,12 @@ describe('leaving a seat', () => {
     );
     assert({
       given: 'the host closing an open Room',
-      should: 'abandon it and free every member',
+      should: 'close it and free every member',
       actual: closed.ok && [
         closed.mutation.state.status,
         closed.mutation.members,
       ],
-      expected: ['abandoned', []],
+      expected: ['closed', []],
     });
   });
 });
@@ -245,7 +245,7 @@ describe('my active Room', () => {
         'a closed Room, a finished Round, a Round awaiting ballots and an unseated non-host',
       should: 'read no active room',
       actual: [
-        projectActiveRoom({ ...facts, status: 'abandoned' }, 'host'),
+        projectActiveRoom({ ...facts, status: 'closed' }, 'host'),
         projectActiveRoom(
           {
             ...facts,

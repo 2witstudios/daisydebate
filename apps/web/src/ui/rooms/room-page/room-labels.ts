@@ -191,13 +191,3 @@ export function settingRows(
     }),
   ];
 }
-
-/** "Maya Okafor" → "MO": an avatar's two initials. */
-export function initials(label: string): string {
-  return label
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.slice(0, 1).toLocaleUpperCase())
-    .join('');
-}

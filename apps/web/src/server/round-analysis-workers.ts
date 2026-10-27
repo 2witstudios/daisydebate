@@ -7,7 +7,7 @@ import { startRoundAnalysisService } from '../features/round-analysis/service';
 import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 /**
  * Round analysis's own worker and lifecycle (DEC-247): its own policy, its

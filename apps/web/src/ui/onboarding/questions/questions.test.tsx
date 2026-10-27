@@ -147,3 +147,25 @@ describe('TopicsStep', () => {
     });
   });
 });
+
+describe('a step opened to change one answer (ISSUE-324)', () => {
+  test('saves and goes back, with no onboarding progress', () => {
+    const editing = [AboutStep, ExperienceStep, TopicsStep].map((step) =>
+      render(step, {}, { editing: true }),
+    );
+    const onboarding = render(AboutStep);
+    assert({
+      given:
+        'the about, experience and topics steps opened from Settings, and the about step during onboarding',
+      should:
+        'label the submit Save and show no step count when editing, and keep Next with "4 of 6" during onboarding',
+      actual: [
+        editing.map(
+          (html) => html.includes('>Save<') && !/\d of \d/.test(html),
+        ),
+        onboarding.includes('>Next<') && /\d of \d/.test(onboarding),
+      ],
+      expected: [[true, true, true], true],
+    });
+  });
+});

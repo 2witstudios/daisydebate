@@ -6,7 +6,12 @@ import {
   parseSettingsQuery,
 } from '../../../features/settings/preferences';
 import { requireAccess } from '../../../lib/access';
-import { requestIdentity } from '../../../lib/request-session';
+import {
+  requestIdentity,
+  requestOnboardingAnswers,
+  requestOptionalAnswersAdmitted,
+} from '../../../lib/request-session';
+import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
 import {
   saveNotificationsAction,
@@ -23,6 +28,12 @@ export default async function SettingsRoute({
 }) {
   await requireAccess('/settings', searchParams);
   const identity = await requestIdentity();
+  // ISSUE-324: optional answers only where they are asked (16+, ISSUE-645).
+  const [admitted, ownAnswers] = await Promise.all([
+    requestOptionalAnswersAdmitted(),
+    requestOnboardingAnswers(),
+  ]);
+  const answers = admitted ? ownAnswers : null;
   return (
     <SettingsPage
       username={claimedUsername(identity)}
@@ -31,6 +42,11 @@ export default async function SettingsRoute({
       profileAction={saveProfileAction}
       notificationsAction={saveNotificationsAction}
       privacyAction={savePrivacyAction}
+      onboarding={
+        answers === null
+          ? null
+          : { answers, editHrefs: answerEditHrefs('/settings', true) }
+      }
     />
   );
 }

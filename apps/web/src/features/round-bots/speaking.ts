@@ -8,7 +8,7 @@ import { createBotGeneration } from './generation';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
-import type { WorkerTimers } from '../../server/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
 
 type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
 const ACTIVITY_POLL_MS = 50;

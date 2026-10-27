@@ -5,7 +5,7 @@ import { startRoundJudgingService } from '../features/round-judging/service';
 import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 /** AI judging's own worker (ISSUE-749), drawing on the competitive provider budget. */
 export function startRoundJudgingWorkers(input: {

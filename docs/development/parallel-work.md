@@ -71,7 +71,7 @@ Merged for the board keeper ([reviews](reviews.md)).
 ## Shared surfaces
 
 Slices rarely collide. When they do, the collision resolves at merge:
-whoever merges second rebases or regenerates, and the Ralph loop's conflict
+whoever merges second rebases or regenerates, and the PR loop's conflict
 step does that work.
 
 - **Migrations.** First ready, first merged. Applied migrations are
@@ -108,7 +108,7 @@ step does that work.
 
 ## Reviewing and merging
 
-Reviews are asynchronous PR comments that the builder's Ralph loop consumes
+Reviews are asynchronous PR comments that the builder's PR loop consumes
 ([reviews](reviews.md)). The builder spawns `/review` and `/code-review`
 into its own worktree and asks the architecture reviewer for a pass. No
 review is a required status.

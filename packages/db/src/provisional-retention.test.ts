@@ -122,11 +122,16 @@ test('an abandoned account loses its own links and the account, and keeps its de
     expected: {
       deleted: 1,
       statements: 5,
+      // Every purpose is first an indexed identifier prefix outside the
+      // CASE (ISSUE-716), then the CASE's own owner tests.
       linkOwners: [
-        'sign-in:',
+        'sign-in:%',
+        'email-change-approve:%',
+        'email-change-verify:%',
+        'sign-in:%',
         user.email,
-        'email-change-approve:',
-        'email-change-verify:',
+        'email-change-approve:%',
+        'email-change-verify:%',
         user.id,
       ],
       purposesInjected: true,

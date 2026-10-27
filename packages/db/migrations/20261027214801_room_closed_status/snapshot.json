@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "bbefb422-558c-4709-ae4f-ffe764c02e7d",
+  "id": "bb7e0bb3-7d99-4533-a9d5-3bd60b2da396",
   "prevIds": [
-    "1e35c580-3fc8-414c-b841-853ee68f8640"
+    "63122863-42ca-4cd4-bfa9-b17813bccc93"
   ],
   "ddl": [
     {
@@ -27,12 +27,6 @@
     {
       "isRlsEnabled": false,
       "name": "agent_runs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "ai_judge_profiles",
       "entityType": "tables",
       "schema": "public"
     },
@@ -117,12 +111,6 @@
     {
       "isRlsEnabled": false,
       "name": "email_suppression",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "account_entitlement_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -404,12 +392,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "round_analyses",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "round_attendance_adjudications",
       "entityType": "tables",
       "schema": "public"
@@ -441,6 +423,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_commands",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_feedback",
       "entityType": "tables",
       "schema": "public"
     },
@@ -864,32 +852,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_judge_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_judge_profiles"
     },
     {
       "type": "text",
@@ -2307,58 +2269,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "email_suppression"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "entitlement",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
     },
     {
       "type": "text",
@@ -6632,175 +6542,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_participant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "freeze_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "attempts",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lease_token_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lease_expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "model",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "report",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "input_tokens",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "output_tokens",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "completed_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "segment_id",
       "entityType": "columns",
       "schema": "public",
@@ -7377,6 +7118,162 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "freeze_revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feedback",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "input_tokens",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "output_tokens",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_feedback"
     },
     {
       "type": "text",
@@ -9358,6 +9255,30 @@
       "method": "btree",
       "concurrently": false,
       "name": "verification_identifier_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "verification"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "identifier",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": {
+            "name": "text_pattern_ops",
+            "default": false
+          }
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "verification_identifier_pattern_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "verification"
@@ -11753,83 +11674,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "freeze_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_analyses_freeze_revision_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "status",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lease_expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_analyses_lease_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_analyses_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "command_id",
           "isExpression": false,
           "asc": true,
@@ -12399,6 +12243,83 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "freeze_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_feedback_freeze_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "lease_expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_feedback_lease_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_feedback_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_feedback"
     },
     {
       "nameExplicit": true,
@@ -13482,6 +13403,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"username\" is null and \"deleted_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "users_provisional_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "users"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "segment_id",
           "isExpression": false,
           "asc": true,
@@ -13734,23 +13683,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "ai_judge_profiles_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ai_judge_profiles"
     },
     {
       "nameExplicit": false,
@@ -14010,23 +13942,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_document_refs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "account_entitlement_grants_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
     },
     {
       "nameExplicit": true,
@@ -15516,59 +15431,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "round_analyses_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_participant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_participants",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_analyses_round_participant_id_round_participants_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "freeze_revision"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_transcript_freezes",
-      "columnsTo": [
-        "round_id",
-        "revision"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_analyses_freeze_revision_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
       "name": "round_attendance_adjudications_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -15865,6 +15727,42 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_feedback_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "freeze_revision"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_transcript_freezes",
+      "columnsTo": [
+        "round_id",
+        "revision"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_feedback_freeze_revision_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_feedback"
     },
     {
       "nameExplicit": true,
@@ -16355,18 +16253,6 @@
     },
     {
       "columns": [
-        "user_id",
-        "entitlement",
-        "source"
-      ],
-      "nameExplicit": true,
-      "name": "account_entitlement_grants_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "columns": [
         "format_id",
         "version"
       ],
@@ -16639,16 +16525,6 @@
       "name": "agent_runs_pkey",
       "schema": "public",
       "table": "agent_runs",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "ai_judge_profiles_pkey",
-      "schema": "public",
-      "table": "ai_judge_profiles",
       "entityType": "pks"
     },
     {
@@ -17063,16 +16939,6 @@
     },
     {
       "columns": [
-        "round_participant_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_analyses_pkey",
-      "schema": "public",
-      "table": "round_analyses",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "segment_id"
       ],
       "nameExplicit": false,
@@ -17119,6 +16985,16 @@
       "name": "round_commands_pkey",
       "schema": "public",
       "table": "round_commands",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_feedback_pkey",
+      "schema": "public",
+      "table": "round_feedback",
       "entityType": "pks"
     },
     {
@@ -17662,20 +17538,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "email_suppression"
-    },
-    {
-      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds')",
-      "name": "account_entitlement_grants_entitlement_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "value": "\"source\" in ('beta')",
-      "name": "account_entitlement_grants_source_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
     },
     {
       "value": "\"version\" > 0",
@@ -18616,7 +18478,7 @@
       "table": "rooms"
     },
     {
-      "value": "\"status\" in ('assembling', 'ready', 'started', 'abandoned')",
+      "value": "\"status\" in ('assembling', 'ready', 'started', 'closed')",
       "name": "rooms_status_check",
       "entityType": "checks",
       "schema": "public",
@@ -18663,41 +18525,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
-    },
-    {
-      "value": "jsonb_typeof(\"report\") = 'object'",
-      "name": "round_analyses_report_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "value": "\"status\" in ('leased', 'succeeded', 'failed')",
-      "name": "round_analyses_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "value": "\"attempts\" > 0 and \"input_tokens\" >= 0 and \"output_tokens\" >= 0",
-      "name": "round_analyses_attempts_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "value": "(\"status\" = 'leased' and \"lease_token_digest\" ~ '^[0-9a-f]{64}$' and \"lease_expires_at\" is not null) or (\"status\" <> 'leased' and \"lease_token_digest\" is null and \"lease_expires_at\" is null)",
-      "name": "round_analyses_lease_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "value": "(\"status\" = 'succeeded') = (\"report\" is not null) and (\"status\" = 'leased') = (\"completed_at\" is null)",
-      "name": "round_analyses_result_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_analyses"
     },
     {
       "value": "\"decision\" in ('attended', 'none', 'forfeit', 'abandoned')",
@@ -18810,6 +18637,41 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "value": "jsonb_typeof(\"feedback\") = 'object'",
+      "name": "round_feedback_feedback_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "value": "\"status\" in ('leased', 'succeeded', 'failed')",
+      "name": "round_feedback_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "value": "\"attempts\" > 0 and \"input_tokens\" >= 0 and \"output_tokens\" >= 0",
+      "name": "round_feedback_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "value": "(\"status\" = 'leased' and \"lease_token_digest\" ~ '^[0-9a-f]{64}$' and \"lease_expires_at\" is not null) or (\"status\" <> 'leased' and \"lease_token_digest\" is null and \"lease_expires_at\" is null)",
+      "name": "round_feedback_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_feedback"
+    },
+    {
+      "value": "(\"status\" = 'succeeded') = (\"feedback\" is not null) and (\"status\" = 'leased') = (\"completed_at\" is null)",
+      "name": "round_feedback_result_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_feedback"
     },
     {
       "value": "jsonb_typeof(\"pending_ballot\") = 'object'",
@@ -19155,7 +19017,7 @@
       "table": "usage_reservations"
     },
     {
-      "value": "\"kind\" in ('ai_round')",
+      "value": "\"kind\" in ('ai_practice')",
       "name": "usage_reservations_kind_check",
       "entityType": "checks",
       "schema": "public",

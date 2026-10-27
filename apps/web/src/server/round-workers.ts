@@ -4,7 +4,7 @@ import { createProviderBudget } from './provider-budget';
 import { startRoundAnalysisWorkers } from './round-analysis-workers';
 import { startRoundBotWorkers } from './round-bot-workers';
 import { startRoundJudgingWorkers } from './round-judging-workers';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 type Started = {
   readonly started: Promise<unknown>;

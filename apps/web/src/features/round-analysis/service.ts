@@ -1,6 +1,6 @@
 import { isAppError } from '@daisy/errors';
 import type { RoundAnalysisSeat } from '@daisy/db/rounds';
-import type { WorkerTimers } from '../../server/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
 
 /**
  * The round analysis worker: each scan lists debater seats that need an

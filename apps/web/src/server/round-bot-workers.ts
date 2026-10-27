@@ -8,7 +8,7 @@ import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 /** Bot debaters' own workers: seat control and live speech on the competitive provider budget. */
 export function startRoundBotWorkers(input: {

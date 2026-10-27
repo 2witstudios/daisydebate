@@ -43,6 +43,7 @@ export const eventRegistry = {
   'round.control.failed': 'error',
   'round.speaking.failed': 'error',
   'round.maintenance.failed': 'error',
+  'room.maintenance.failed': 'error',
   'round.media.recovery_failed': 'error',
   'media.discovery.failed': 'error',
   'media.capture.failed': 'error',
