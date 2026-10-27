@@ -75,7 +75,7 @@ const tables: readonly {
     table: 'room_resolution_draw_inputs',
     purpose:
       "Replay a draw: host-written lines and the seated players' recent resolutions",
-    fields: [id('draw_id'), personal('inputs')],
+    fields: [id('draw_id'), secret('inputs')],
   },
   {
     table: 'room_resolution_draw_items',
@@ -119,7 +119,7 @@ const tables: readonly {
   {
     table: 'round_draw_private_inputs',
     purpose: "Let operators replay a Round's draw while its inputs exist",
-    fields: [id('round_id'), personal('inputs')],
+    fields: [id('round_id'), secret('inputs')],
   },
 ];
 

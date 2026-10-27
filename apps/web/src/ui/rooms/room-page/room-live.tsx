@@ -16,8 +16,8 @@ import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import {
-  prepDeadline,
   presentedView,
+  roomDeadline,
   seedRoomSync,
 } from '../../../features/rooms/room-sync';
 import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
@@ -29,6 +29,7 @@ import { RoomSetup } from './room-setup';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
+import { RoomStrike } from './room-strike';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -88,7 +89,7 @@ export function RoomLive(props: Props) {
     () => driver && { accepted: driver.accepted, signal: driver.signal },
     [driver],
   );
-  const now = useNow(prepDeadline(sync) !== null, sync.readAt);
+  const now = useNow(roomDeadline(sync) !== null, sync.readAt);
   const view = useMemo(() => presentedView(sync, now), [sync, now]);
   const { ids } = sync.value;
   return (
@@ -110,6 +111,13 @@ export function RoomLive(props: Props) {
           commandAction={props.commandAction}
         />
       ) : null}
+      <RoomStrike
+        view={view}
+        actorId={props.actorId}
+        now={now}
+        action={props.commandAction}
+        strikeIds={ids.strikes}
+      />
       <RoomResolution view={view} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.refused ? (
@@ -132,8 +140,9 @@ export function RoomLive(props: Props) {
           </>
         }
         prep={
-          view.definition.configurable.preRoundPrep &&
-          view.config.preRoundPrep.enabled ? (
+          view.config.resolutionDraw.enabled ||
+          (view.definition.configurable.preRoundPrep &&
+            view.config.preRoundPrep.enabled) ? (
             <RoomPrep
               view={view}
               action={props.commandAction}

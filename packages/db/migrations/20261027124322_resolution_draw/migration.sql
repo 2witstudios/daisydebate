@@ -100,6 +100,13 @@ CREATE TABLE "round_resolution_draw_texts" (
 ALTER TABLE "rooms" ADD COLUMN "last_command_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "resolution_evidence" jsonb;--> statement-breakpoint
 ALTER TABLE "rooms" ALTER COLUMN "topic" DROP NOT NULL;--> statement-breakpoint
+CREATE INDEX "resolution_bank_entries_added_idx" ON "resolution_bank_entries" ("added_in_revision");--> statement-breakpoint
+CREATE INDEX "resolution_bank_entries_retired_idx" ON "resolution_bank_entries" ("retired_in_revision");--> statement-breakpoint
+CREATE INDEX "room_resolution_draw_items_kind_idx" ON "room_resolution_draw_items" ("draw_id","source_kind");--> statement-breakpoint
+CREATE INDEX "room_resolution_draw_items_size_idx" ON "room_resolution_draw_items" ("draw_id","draw_size");--> statement-breakpoint
+CREATE INDEX "room_resolution_draw_items_bank_entry_idx" ON "room_resolution_draw_items" ("bank_entry_id");--> statement-breakpoint
+CREATE INDEX "room_resolution_strikes_size_idx" ON "room_resolution_strikes" ("draw_id","draw_size");--> statement-breakpoint
+CREATE INDEX "room_resolution_strikes_actor_idx" ON "room_resolution_strikes" ("actor_id");--> statement-breakpoint
 ALTER TABLE "resolution_bank_entries" ADD CONSTRAINT "resolution_bank_entries_FGAsRWRioc6o_fkey" FOREIGN KEY ("added_in_revision") REFERENCES "resolution_bank_revisions"("revision") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "resolution_bank_entries" ADD CONSTRAINT "resolution_bank_entries_GRt3VnDWx9mF_fkey" FOREIGN KEY ("retired_in_revision") REFERENCES "resolution_bank_revisions"("revision") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "room_resolution_draw_inputs" ADD CONSTRAINT "room_resolution_draw_inputs_x41u1vBnqo45_fkey" FOREIGN KEY ("draw_id") REFERENCES "room_resolution_draws"("id") ON DELETE CASCADE;--> statement-breakpoint

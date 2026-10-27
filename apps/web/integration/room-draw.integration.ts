@@ -2,6 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { drawRoomOverrides, strikeStanding } from './room-draw.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 requireTestServices(process.env);
@@ -12,38 +13,9 @@ const lines = [1, 2, 3, 4, 5].map((n) => `${SENTINEL} ${n}`);
 
 test('a host-list draw strikes to one resolution, freezes evidence onto the Round and never shows a text to a spectator first', async () => {
   await withRoomRuntime(async (f) => {
-    const foundation = await f.foundation();
-    const definition = {
-      ...foundation.definition,
-      configurable: {
-        ...foundation.definition.configurable,
-        resolutionDraw: {
-          drawSize: { min: 3, max: 7 },
-          strikeWindowMs: { min: 15_000, max: 180_000 },
-          firstStrikers: ['negative' as const, 'affirmative' as const],
-          sources: ['bank' as const, 'host' as const],
-        },
-      },
-    };
-    const config = {
-      ...foundation.preset.config,
-      resolutionDraw: {
-        enabled: true as const,
-        drawSize: 5,
-        strikeWindowMs: 180_000,
-        firstStriker: 'negative' as const,
-        source: { kind: 'host' as const, resolutions: lines },
-      },
-    };
-    let view = await f.assemble({
-      topic: null,
-      selection: {
-        kind: 'custom',
-        definition,
-        competitionType: 'casual',
-        config,
-      },
-    });
+    let view = await f.assemble(
+      await drawRoomOverrides(f, { kind: 'host', resolutions: lines }),
+    );
     const spectatorJson = async () =>
       JSON.stringify(await f.operations.view(f.outsider, view.id));
     assert({
@@ -79,6 +51,17 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
       ],
       expected: [5, 1, 'debater', 'progress', false, false],
     });
+    const lobby = await f.operations.list(f.outsider, {
+      q: view.title,
+      pageSize: 20,
+    });
+    const row = lobby.rooms.find((room) => room.id === view.id);
+    assert({
+      given: 'the Lobby during the strike',
+      should: 'list the draw Room with no topic and no drawn or listed line',
+      actual: [row?.topic, JSON.stringify(lobby).includes(SENTINEL)],
+      expected: [null, false],
+    });
 
     await assertRejects({
       given: 'the Affirmative striking before the Negative',
@@ -94,18 +77,8 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
     const strikers = [f.guest, f.host, f.guest, f.host];
     let current: RoomView = drawn;
     for (const [ordinal, who] of strikers.entries()) {
-      const draw = current.resolutionDraw;
-      if (draw?.visibility !== 'debater') throw new Error('Debater view');
-      const standing = draw.items.find(
-        (item) => !draw.strikes.some((s) => s.position === item.position),
-      )!;
-      current = (
-        await f.command(who, current, {
-          type: 'strike-resolution',
-          ordinal,
-          position: standing.position,
-        })
-      ).view;
+      const struck = await strikeStanding(f, current, who, ordinal);
+      current = struck.view;
       if (ordinal === 0)
         await assertRejects({
           given: 'a stale form for the strike just made',
@@ -114,7 +87,7 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
             f.command(f.guest, current, {
               type: 'strike-resolution',
               ordinal: 0,
-              position: standing.position,
+              position: struck.position,
             }),
           code: 'CONFLICT',
         });

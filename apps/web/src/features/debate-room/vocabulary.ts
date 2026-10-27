@@ -61,6 +61,27 @@ export function yieldLabel(
 /** A draw Room's resolution before its reveal, wherever a topic is shown. */
 export const drawnTopicLabel = 'Chosen by strike before the round';
 
+export const resolutionCategoryLabel: Readonly<
+  Record<'policy' | 'value' | 'fact', string>
+> = { policy: 'Policy', value: 'Value', fact: 'Fact' };
+
+/** Who struck a drawn resolution, from the viewer's side of the table. */
+export function strikeLabel(
+  strike: {
+    readonly kind: 'debater' | 'timeout' | 'automatic';
+    readonly side: 'affirmative' | 'negative';
+  },
+  viewerSide: 'affirmative' | 'negative' | null,
+  sideName: (side: 'affirmative' | 'negative') => string,
+): string {
+  const mine = strike.side === viewerSide;
+  if (strike.kind === 'timeout')
+    return mine
+      ? 'Daisy struck this for you · time ran out'
+      : `Daisy struck this for ${sideName(strike.side)} · time ran out`;
+  return mine ? 'You struck this' : `${sideName(strike.side)} struck this`;
+}
+
 const FIVE_MINUTES = 300_000;
 
 /** "about 30 min": speeches, their countdowns and both sides' prep, to five minutes. */

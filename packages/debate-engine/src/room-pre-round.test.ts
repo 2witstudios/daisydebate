@@ -169,6 +169,56 @@ describe('start-pre-round', () => {
     });
   });
 
+  test('a bank draw takes only English entries of the chosen categories', () => {
+    const room = drawRoom({ kind: 'bank', categories: ['value', 'policy'] });
+    const entry = (
+      id: string,
+      category: 'policy' | 'value' | 'fact',
+      locale = 'en',
+    ) => ({ id, text: `${SENTINEL} ${id}`, category, locale });
+    const bank = {
+      revision: 3,
+      entries: [
+        ...['v1', 'v2', 'v3'].map((id) => entry(id, 'value')),
+        ...['p1', 'p2', 'p3'].map((id) => entry(id, 'policy')),
+        entry('f1', 'fact'),
+        entry('v4', 'value', 'fr'),
+      ],
+    };
+    const outcome = executeRoomCommand(
+      room,
+      'host',
+      command('start-pre-round', {}, room),
+      consent,
+      { ...edges, drawStart: { ...drawStart, bank } },
+    );
+    const inputs = outcome.ok ? outcome.mutation.drawSecrets?.inputs : null;
+    assert({
+      given:
+        'a value-and-policy bank draw over a mixed-locale, three-category bank',
+      should:
+        'draw five from the six English value and policy entries and record the bank selection',
+      actual: outcome.ok && [
+        [...(inputs?.candidateIds ?? [])].sort(),
+        outcome.mutation.state.resolutionDraw!.items.every(
+          (item) => item.category !== 'fact',
+        ),
+        inputs?.sourceInput,
+      ],
+      expected: [
+        ['p1', 'p2', 'p3', 'v1', 'v2', 'v3'],
+        true,
+        {
+          kind: 'bank',
+          revision: 3,
+          categories: ['policy', 'value'],
+          locale: 'en',
+          difficulties: ['advanced', 'intro', 'standard'],
+        },
+      ],
+    });
+  });
+
   test('a Room with neither a draw nor prep keeps its setup open until Launch', () => {
     const room = state();
     const edited = executeRoomCommand(

@@ -20,7 +20,13 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (form.getAll(key).length !== 1) return null;
     raw[key] = value;
   }
-  for (const key of ['expectedVersion', 'expectedConsentVersion', 'slot'])
+  for (const key of [
+    'expectedVersion',
+    'expectedConsentVersion',
+    'slot',
+    'ordinal',
+    'position',
+  ])
     if (key in raw) raw[key] = Number(raw[key]);
   for (const key of ['config', 'definition']) {
     if (!(key in raw)) continue;

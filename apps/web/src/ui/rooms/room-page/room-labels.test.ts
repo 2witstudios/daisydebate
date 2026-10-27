@@ -257,6 +257,46 @@ describe('room lobby labels', () => {
       ],
     });
   });
+
+  test('a resolution strike leads the summary', () => {
+    const draw = (
+      source:
+        | { kind: 'bank'; categories: ('policy' | 'value' | 'fact')[] }
+        | { kind: 'host'; count: number },
+    ) =>
+      settingRows({
+        ...assemblySnapshot,
+        config: {
+          ...assemblySnapshot.config,
+          resolutionDraw: {
+            enabled: true,
+            drawSize: 5,
+            strikeWindowMs: 60_000,
+            firstStriker: 'negative',
+            source,
+          },
+        },
+      })[0];
+    assert({
+      given: 'a five-resolution strike from the bank, then from the host list',
+      should:
+        'name the draw, its source, who strikes first and the strike time',
+      actual: [
+        draw({ kind: 'bank', categories: ['policy', 'value'] }),
+        draw({ kind: 'host', count: 5 }),
+      ],
+      expected: [
+        [
+          'Resolution strike',
+          '5 from Daisy’s Policy and Value resolutions · Negative strikes first · 1:00 per strike',
+        ],
+        [
+          'Resolution strike',
+          '5 from the host’s list · Negative strikes first · 1:00 per strike',
+        ],
+      ],
+    });
+  });
 });
 
 test('avatar initials take the first two words', () => {

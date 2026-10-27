@@ -90,7 +90,7 @@ export const close = (
 };
 
 /** The pure core of closing a Room: the host's command and erasure share it. */
-const closeRoom = (room: RoomAssemblyState): RoomAssemblyState => ({
+export const closeRoom = (room: RoomAssemblyState): RoomAssemblyState => ({
   ...room,
   status: 'abandoned',
 });

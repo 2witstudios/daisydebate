@@ -212,3 +212,68 @@ test('the receipt labels the resolution and never shows a raw setting value', ()
     expected: [true, true, false, true],
   });
 });
+
+test('an ended draw Round shows how its resolution was chosen, with erased lines as removed', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...scheduled,
+        status: 'completed',
+        resolutionAudit: {
+          manifest: {
+            version: 1,
+            algorithm: 'daisy-draw-v1',
+            roomId: 'r'.repeat(24),
+            drawId: 'd'.repeat(24),
+            source: { kind: 'host', count: 3 },
+            drawSize: 3,
+            firstStriker: 'negative',
+            strikeWindowMs: 60_000,
+            controllers: { affirmative: 'human', negative: 'human' },
+            inputCommitment: 'b'.repeat(64),
+          },
+          manifestDigest: 'c'.repeat(64),
+          commitment: 'e'.repeat(64),
+          items: [
+            { position: 0, text: 'Kept line', category: null },
+            { position: 1, text: null, category: null },
+            { position: 2, text: '<Frozen topic>', category: null },
+          ],
+          strikes: [
+            {
+              ordinal: 0,
+              side: 'negative',
+              kind: 'timeout',
+              position: 1,
+              at: '2026-10-12T00:01:00.000Z',
+            },
+            {
+              ordinal: 1,
+              side: 'affirmative',
+              kind: 'debater',
+              position: 0,
+              at: '2026-10-12T00:01:30.000Z',
+            },
+          ],
+          survivorPosition: 2,
+          revealedAt: '2026-10-12T00:01:30.000Z',
+          inputsErased: true,
+        },
+      }}
+    />,
+  );
+  assert({
+    given: 'a finished Round whose first struck line was erased',
+    should:
+      'list both strikes in order, the erased one as removed, and the commitment',
+    actual: [
+      html.includes('How the resolution was chosen'),
+      html.includes(
+        'Negative ran out of time; Daisy struck “A removed resolution”',
+      ),
+      html.includes('Affirmative struck “Kept line”'),
+      html.includes('e'.repeat(64)),
+    ],
+    expected: [true, true, true, true],
+  });
+});

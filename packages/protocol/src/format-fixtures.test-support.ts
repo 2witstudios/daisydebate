@@ -254,3 +254,13 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   countdownMs: 0,
   interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 });
+
+/** Draw bounds a draw-capable format fixture declares (FMT-7). */
+export const drawCapableBounds: NonNullable<
+  FormatDefinition['configurable']['resolutionDraw']
+> = {
+  drawSize: { min: 3, max: 7 },
+  strikeWindowMs: { min: 15_000, max: 180_000 },
+  firstStrikers: ['negative', 'affirmative'],
+  sources: ['bank', 'host'],
+};

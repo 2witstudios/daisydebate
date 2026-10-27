@@ -217,6 +217,25 @@ describe('projection', () => {
     });
   });
 
+  test('struck positions reach debaters only', () => {
+    const struck = strike(room, 'other', 0, 3);
+    const after = struck.ok ? struck.mutation.state : room;
+    assert({
+      given: 'the Negative struck position 3',
+      should: 'show the position to debaters and only the turn to a spectator',
+      actual: [
+        projectRoom(after, 'other', consent, edges.now, SEED).resolutionDraw
+          ?.strikes,
+        projectRoom(after, 'watcher', consent, edges.now, SEED).resolutionDraw
+          ?.strikes,
+      ],
+      expected: [
+        [{ ordinal: 0, side: 'negative', kind: 'debater', position: 3 }],
+        [{ ordinal: 0, side: 'negative', kind: 'debater' }],
+      ],
+    });
+  });
+
   test('the list author sees their own list while assembling', () => {
     const setup = drawRoom();
     assert({

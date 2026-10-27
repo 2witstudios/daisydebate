@@ -1,9 +1,11 @@
 import { isNamedSeat, type RoomRefusal, type RoomView } from '@daisy/protocol';
 import {
+  resolutionCategoryLabel,
   roundLength,
   ruleRows,
   shapeLabel,
 } from '../../../features/debate-room/vocabulary';
+import { clockDuration } from '../../../features/rooms/duration-input';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
@@ -163,22 +165,49 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
 }
 
 /** The saved configuration as label/value rows, in the room's vocabulary. */
+/** "Policy, Value and Fact": an English list of the drawn categories. */
+const listOf = (words: readonly string[]) =>
+  words.length > 1
+    ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
+    : (words[0] ?? '');
+
+/** How a draw Room chooses its resolution, in one line; none without a draw. */
+function strikeRows(
+  draw: RoomView['config']['resolutionDraw'],
+): readonly (readonly [string, string])[] {
+  if (!draw.enabled) return [];
+  const source =
+    draw.source.kind === 'bank'
+      ? `Daisy’s ${listOf(draw.source.categories.map((c) => resolutionCategoryLabel[c]))} resolutions`
+      : 'the host’s list';
+  const first = draw.firstStriker === 'negative' ? 'Negative' : 'Affirmative';
+  return [
+    [
+      'Resolution strike',
+      `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`,
+    ],
+  ];
+}
+
 export function settingRows(
   view: Pick<RoomView, 'config'>,
 ): readonly (readonly [string, string])[] {
   const { config } = view;
-  return ruleRows({
-    preRoundPrepMs: config.preRoundPrep.enabled
-      ? config.preRoundPrep.durationMs
-      : null,
-    prepPerSideMs: config.inRoundPrep.enabled
-      ? config.inRoundPrep.budgetMsPerSide
-      : null,
-    countdownMs: config.speechTiming.countdownMs,
-    crossExMode: config.crossExamination.crossExMode,
-    interruptions: config.interruptions,
-    yielding: config.yielding,
-  });
+  return [
+    ...strikeRows(config.resolutionDraw),
+    ...ruleRows({
+      preRoundPrepMs: config.preRoundPrep.enabled
+        ? config.preRoundPrep.durationMs
+        : null,
+      prepPerSideMs: config.inRoundPrep.enabled
+        ? config.inRoundPrep.budgetMsPerSide
+        : null,
+      countdownMs: config.speechTiming.countdownMs,
+      crossExMode: config.crossExamination.crossExMode,
+      interruptions: config.interruptions,
+      yielding: config.yielding,
+    }),
+  ];
 }
 
 /** "Maya Okafor" → "MO": an avatar's two initials. */
