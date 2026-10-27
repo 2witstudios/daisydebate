@@ -1,3 +1,4 @@
+import { nativeSpecArguments } from './affected-projects';
 import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 import { admitLaunchCheckout } from './room-launch-admission';
 import { resolve } from 'node:path';
@@ -10,6 +11,11 @@ export async function runLaunchProof() {
   const checkout = resolve(import.meta.dir, '../../../..');
   const slot = requireLaunchSlot(checkout, process.env);
   await admitLaunchCheckout(checkout, slot.database);
+  const config = await import('./room-launch-config');
+  const selected = nativeSpecArguments(
+    process.env.DAISY_ROOM_LAUNCH_SPECS,
+    config.default.testMatch,
+  );
   const node = process.env.ROOM_LAUNCH_NODE ?? 'node';
   if (!Bun.spawnSync([node, '--version']).stdout.toString().startsWith('v24.'))
     throw new Error('Launch proof requires the Node 24 browser driver');
@@ -48,6 +54,7 @@ export async function runLaunchProof() {
         'test',
         '--config',
         'e2e/support/room-launch-config.ts',
+        ...selected,
         ...Bun.argv.slice(2),
       ],
       browserDriverOptions(checkout, env),

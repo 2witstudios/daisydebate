@@ -4,6 +4,10 @@ export {
   messagingPrivacyExpectedColumns,
 } from './messaging-declarations';
 export {
+  betaAccessPrivacyAdopter,
+  betaAccessPrivacyExpectedColumns,
+} from './beta-access-declarations';
+export {
   erasePrivacySubject,
   exportPrivacySubject,
   type PrivacyVerificationBinding,

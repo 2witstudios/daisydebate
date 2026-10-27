@@ -46,6 +46,36 @@ export async function lockAuthorizationActors(
     ),
   );
 }
+/** The caller's decision over one actor's freshly locked account. */
+export type OwnCollectionFence<S> = (input: {
+  readonly tx: AuthorizationTransaction;
+  readonly scope: S;
+  readonly account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
+}) => Promise<void>;
+
+/**
+ * One actor's read of their own collection: lock their account, let the
+ * caller's decision run on it, then read in the same transaction.
+ */
+export function readOwnCollection<
+  S extends { readonly actorId: string },
+  T,
+  Tx extends AuthorizationTransaction,
+>(
+  database: { transaction: <R>(work: (tx: Tx) => Promise<R>) => Promise<R> },
+  scope: S,
+  authorize: OwnCollectionFence<S>,
+  read: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return database.transaction(async (tx) => {
+    const [account] = await lockAuthorizationActors(tx, [scope.actorId], {
+      maxActors: 1,
+    });
+    await authorize({ tx, scope, account: account ?? null });
+    return read(tx);
+  });
+}
+
 /** Read-only requests get fresh rows without keeping a cross-request cache. */
 export async function loadAuthorizationAccount(
   tx: AuthorizationTransaction,
