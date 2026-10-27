@@ -2,6 +2,14 @@ import { createRedis } from './index';
 
 type RecordedCommand = { command: string; args: string[] };
 
+/** `SET`, honouring `NX`: false when `NX` finds the key already present. */
+function fakeSet(values: Map<string, string>, args: string[]) {
+  const key = args[0] ?? '';
+  if (args.includes('NX') && values.has(key)) return false;
+  values.set(key, args[1] ?? '');
+  return true;
+}
+
 /**
  * Stands in for the Redis wire protocol only: records issued commands and
  * returns scripted values, so the adapter's namespacing, TTL and failure
@@ -23,11 +31,7 @@ function fakeRedis(values: Map<string, string> = new Map()) {
     },
     async send(command: string, args: string[]) {
       commands.push({ command, args });
-      if (command === 'SET') {
-        // `NX` stores only when the key is absent, answering null otherwise.
-        if (args.includes('NX') && values.has(args[0] ?? '')) return null;
-        values.set(args[0] ?? '', args[1] ?? '');
-      }
+      if (command === 'SET' && !fakeSet(values, args)) return null;
       if (command === 'EVAL') return scriptedEval;
       if (command === 'SCRIPT' && args[0] === 'LOAD') {
         shaCounter += 1;

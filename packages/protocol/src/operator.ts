@@ -91,7 +91,8 @@ const operatorAccountSchema = z.strictObject({
   decidedAt: z.iso.datetime().nullable(),
 });
 
-const operatorAccountsPageSchema = z.strictObject({
+/** A page the API returns; the router parses its own output against it. */
+export const operatorAccountsPageSchema = z.strictObject({
   items: z.array(operatorAccountSchema).max(100),
   nextCursor: z.string().max(256).nullable(),
 });

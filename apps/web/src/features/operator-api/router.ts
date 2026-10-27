@@ -12,10 +12,12 @@ import {
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,
   operatorAccountsCursorSchema,
+  operatorAccountsPageSchema,
   operatorAccountsQuerySchema,
   operatorLimits,
   type OperatorAccountsPage,
@@ -56,43 +58,6 @@ export type OperatorApiDependencies = {
   readonly logger: Pick<Logger, 'log'>;
 };
 
-const statusOf: Partial<Record<ErrorCode, number>> = {
-  VALIDATION: 400,
-  AUTHENTICATION: 401,
-  AUTHORIZATION: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  PAYLOAD_TOO_LARGE: 413,
-  INVARIANT: 422,
-  INFRASTRUCTURE: 503,
-};
-
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': 'no-store',
-    },
-  });
-
-/** Every refusal is a fixed code; nothing internal ever leaves. */
-const refusal = (code: ErrorCode) =>
-  json(statusOf[code] ?? 500, {
-    error: { code: statusOf[code] ? code : 'INTERNAL' },
-  });
-
-/** Reads at most the body limit, refusing anything longer before buffering it. */
-async function boundedBody(request: Request): Promise<Uint8Array> {
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > operatorLimits.bodyBytes)
-    throw createAppError('PAYLOAD_TOO_LARGE');
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.byteLength > operatorLimits.bodyBytes)
-    throw createAppError('PAYLOAD_TOO_LARGE');
-  return bytes;
-}
-
 const cursorOf = (value: string | undefined) => {
   if (value === undefined) return null;
   try {
@@ -126,13 +91,8 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
     const url = new URL(request.url);
     const route = matchOperatorRoute(request.method, url.pathname);
     if (!route) return refusal('NOT_FOUND');
-    if (request.headers.has('content-encoding'))
-      return refuse('encoding', 'VALIDATION');
-    if (
-      request.method === 'PUT' &&
-      request.headers.get('content-type') !== 'application/json'
-    )
-      return refuse('content-type', 'VALIDATION');
+    const malformed = transportRefusal(request);
+    if (malformed) return refuse(malformed, 'VALIDATION');
     let body: Uint8Array;
     try {
       body = await boundedBody(request);
@@ -151,19 +111,8 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       crypto: deps.crypto,
     });
     if (!verified.ok) return refuse(verified.reason, 'AUTHENTICATION');
-    try {
-      if (
-        !(await deps.admitNonce({
-          serviceId: operatorService.serviceId,
-          keyId: verified.keyId,
-          nonce: verified.nonce,
-          ttlSeconds: operatorLimits.nonceTtlSeconds,
-        }))
-      )
-        return refuse('replay', 'AUTHENTICATION');
-    } catch {
-      return refuse('nonce-store', 'INFRASTRUCTURE');
-    }
+    const replay = await nonceRefusal(deps, verified);
+    if (replay) return refuse(replay.cause, replay.code);
     const principal: AuthorizationPrincipal = {
       kind: 'operator_service',
       serviceId: operatorService.serviceId,
@@ -172,22 +121,47 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       capabilities: operatorService.capabilities,
     };
     try {
-      switch (route.route) {
-        case 'listAccounts':
-          return json(200, await listAccounts(deps, principal, url));
-        case 'setBetaAccess':
-          return json(
-            200,
-            await setBetaAccess(deps, principal, route.id!, body),
-          );
-        case 'readCommand':
-          return json(200, await readCommand(deps, principal, route.id!));
-      }
+      return json(200, await dispatch(deps, principal, route, url, body));
     } catch (error) {
       const code = isAppError(error) ? error.code : 'INTERNAL';
       return refuse('handler', code);
     }
   };
+}
+
+/** Admits the nonce once; a replay or an unreachable nonce store refuses. */
+async function nonceRefusal(
+  deps: OperatorApiDependencies,
+  verified: { readonly keyId: string; readonly nonce: string },
+): Promise<{ cause: string; code: ErrorCode } | null> {
+  try {
+    const fresh = await deps.admitNonce({
+      serviceId: operatorService.serviceId,
+      keyId: verified.keyId,
+      nonce: verified.nonce,
+      ttlSeconds: operatorLimits.nonceTtlSeconds,
+    });
+    return fresh ? null : { cause: 'replay', code: 'AUTHENTICATION' };
+  } catch {
+    return { cause: 'nonce-store', code: 'INFRASTRUCTURE' };
+  }
+}
+
+function dispatch(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  route: NonNullable<ReturnType<typeof matchOperatorRoute>>,
+  url: URL,
+  body: Uint8Array,
+): Promise<unknown> {
+  switch (route.route) {
+    case 'listAccounts':
+      return listAccounts(deps, principal, url);
+    case 'setBetaAccess':
+      return setBetaAccess(deps, principal, route.id!, body);
+    case 'readCommand':
+      return readCommand(deps, principal, route.id!);
+  }
 }
 
 function requireCapability(
@@ -228,7 +202,7 @@ async function listAccounts(
   });
   const items = rows.slice(0, query.data.limit);
   const last = items.at(-1);
-  return {
+  return operatorAccountsPageSchema.parse({
     items,
     nextCursor:
       rows.length > query.data.limit && last
@@ -239,7 +213,7 @@ async function listAccounts(
             userId: last.userId,
           })
         : null,
-  };
+  });
 }
 
 /**

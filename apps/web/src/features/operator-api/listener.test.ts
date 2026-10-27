@@ -39,6 +39,8 @@ describe('the operator listener binding (ADR 0079)', () => {
     for (const address of ['::', '0.0.0.0', '2001:db8::1'])
       await expect(
         resolveOperatorAddress('fly-local-6pn', async () => address),
-      ).rejects.toThrow('fly-local-6pn did not resolve to a private 6PN address');
+      ).rejects.toThrow(
+        'fly-local-6pn did not resolve to a private 6PN address',
+      );
   });
 });

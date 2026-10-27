@@ -137,6 +137,28 @@ const sameSecret = (crypto: OperatorCrypto, left: string, right: string) =>
 
 const allowedHeaders = new Set<string>(Object.values(operatorHeaders));
 
+type HeaderPairs = readonly (readonly [string, string])[];
+
+/** The body and header size caps of ADR 0079. */
+const withinBounds = (headers: HeaderPairs, body: Uint8Array) =>
+  body.byteLength <= operatorLimits.bodyBytes &&
+  headers.reduce(
+    (total, [name, value]) => total + name.length + value.length + 4,
+    0,
+  ) <= operatorLimits.headerBytes;
+
+/** The `daisy-` headers by lower-case name; null on an unknown or repeated one. */
+function daisyHeaders(headers: HeaderPairs): Map<string, string> | null {
+  const seen = new Map<string, string>();
+  for (const [rawName, value] of headers) {
+    const name = rawName.toLowerCase();
+    if (!name.startsWith('daisy-')) continue;
+    if (!allowedHeaders.has(name) || seen.has(name)) return null;
+    seen.set(name, value);
+  }
+  return seen;
+}
+
 /**
  * Verifies one request in the fixed order of ADR 0079: route, bounds,
  * grammar, key, signature, then clock skew. Nothing is admitted here;
@@ -155,23 +177,10 @@ export function verifyOperatorRequest(input: {
 }): OperatorVerification {
   if (!matchOperatorRoute(input.method, input.path))
     return { ok: false, reason: 'route' };
-  const headerBytes = input.headers.reduce(
-    (total, [name, value]) => total + name.length + value.length + 4,
-    0,
-  );
-  if (
-    input.body.byteLength > operatorLimits.bodyBytes ||
-    headerBytes > operatorLimits.headerBytes
-  )
+  if (!withinBounds(input.headers, input.body))
     return { ok: false, reason: 'bounds' };
-  const seen = new Map<string, string>();
-  for (const [rawName, value] of input.headers) {
-    const name = rawName.toLowerCase();
-    if (!name.startsWith('daisy-')) continue;
-    if (!allowedHeaders.has(name) || seen.has(name))
-      return { ok: false, reason: 'grammar' };
-    seen.set(name, value);
-  }
+  const seen = daisyHeaders(input.headers);
+  if (seen === null) return { ok: false, reason: 'grammar' };
   const header = (name: string) => seen.get(name) ?? '';
   const parts: OperatorRequestParts = {
     audience: input.audience,
@@ -202,6 +211,15 @@ export function verifyOperatorRequest(input: {
   };
 }
 
+const wellFormedKeyEntry = (
+  keyId: string,
+  secret: string,
+  extra: readonly string[],
+) =>
+  extra.length === 0 &&
+  operatorKeyIdSchema.safeParse(keyId).success &&
+  /^[A-Za-z0-9_-]+$/.test(secret);
+
 /**
  * `OPERATOR_API_KEYS`: comma-separated `kid:base64url` pairs, at most two,
  * each at least 32 bytes. A malformed or duplicate entry refuses the whole
@@ -216,15 +234,8 @@ export function parseOperatorKeys(
     throw new Error('OPERATOR_API_KEYS needs one or two keys');
   const keys = new Map<string, Uint8Array>();
   for (const entry of entries) {
-    const [keyId, secret, extra] = entry.split(':');
-    if (
-      extra !== undefined ||
-      !keyId ||
-      !secret ||
-      !operatorKeyIdSchema.safeParse(keyId).success ||
-      !/^[A-Za-z0-9_-]+$/.test(secret) ||
-      keys.has(keyId)
-    )
+    const [keyId = '', secret = '', ...extra] = entry.split(':');
+    if (!wellFormedKeyEntry(keyId, secret, extra) || keys.has(keyId))
       throw new Error('OPERATOR_API_KEYS entry is malformed');
     const bytes = decodeBase64url(secret);
     if (bytes.byteLength < 32)

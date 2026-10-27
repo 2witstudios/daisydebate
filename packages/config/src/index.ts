@@ -8,6 +8,7 @@ import { realtimePublicUrlSchema } from './realtime-endpoint';
 import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 import { secret, secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
+import { operatorFields, refineOperatorConfig } from './operator-config';
 export {
   readMediaWorkerConfig,
   type MediaWorkerConfig,
@@ -112,28 +113,7 @@ const serverFields = {
    * digests are cancelled as unconfigured.
    */
   BETA_NOTIFY_EMAIL: z.email().optional(),
-  /**
-   * ADR 0079: the signed operator API's keys (`kid:base64url`, one or two).
-   * Absent, the private operator listener does not start.
-   */
-  OPERATOR_API_KEYS: secret(z.string().min(1)).optional(),
-  /** The audience every operator signature is bound to; required with keys. */
-  OPERATOR_AUDIENCE: z
-    .enum(['daisy-web:staging', 'daisy-web:production', 'daisy-web:local'])
-    .optional(),
-  /**
-   * Where the operator listener binds: `fly-local-6pn` (resolved to this
-   * machine's private address) or a loopback literal in development and
-   * tests. Never a wildcard.
-   */
-  OPERATOR_LISTEN_HOST: z
-    .union([
-      z.literal('fly-local-6pn'),
-      z.literal('127.0.0.1'),
-      z.literal('::1'),
-    ])
-    .optional(),
-  OPERATOR_PORT: z.coerce.number().int().min(1).max(65535).default(8081),
+  ...operatorFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
   LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
@@ -147,16 +127,7 @@ const serverFields = {
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
-    if (
-      config.OPERATOR_API_KEYS !== undefined &&
-      (config.OPERATOR_AUDIENCE === undefined ||
-        config.OPERATOR_LISTEN_HOST === undefined)
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['OPERATOR_API_KEYS'],
-        message: 'Operator keys need an audience and a listen host',
-      });
+    refineOperatorConfig(config, ctx);
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);
@@ -168,15 +139,6 @@ const serverConfigSchema = z
         code: 'custom',
         path: ['REALTIME_PUBLIC_URL'],
         message: 'Production requires WSS',
-      });
-    if (
-      config.OPERATOR_API_KEYS !== undefined &&
-      config.OPERATOR_LISTEN_HOST !== 'fly-local-6pn'
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['OPERATOR_LISTEN_HOST'],
-        message: 'Production binds the operator API to the private network',
       });
     if (config.FOUNDATION_PROOF_ENABLED)
       ctx.addIssue({

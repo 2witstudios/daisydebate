@@ -1,4 +1,6 @@
 import { admitsCapability } from './participant-access';
+import { validResourceKind } from './authorization-resource-kind';
+import { operatorDecision, operatorResource } from './authorization-operator';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
@@ -56,45 +58,6 @@ const allow: AuthorizationDecision = { allow: true };
 
 const positiveRevision = (value: number) =>
   Number.isSafeInteger(value) && value > 0;
-function validResourceKind(
-  capability: AuthorizationCapability,
-  resource: AuthorizationInput['resource'],
-) {
-  const specialized = {
-    'channel.group.result': 'group_command_result',
-    'channel.group.invite': 'group_invitation_creation',
-    'channel.reaction.remove': 'channel_reaction',
-    'channel.preferences.clear': 'channel_preference',
-    'channel.inbox.read': 'messaging_collection',
-    'social.friend.list': 'messaging_collection',
-    'member.history.read': 'member_history',
-    'channel.file.cleanup': 'pending_file',
-  } as const;
-  const kind = specialized[capability as keyof typeof specialized];
-  if (capability === 'account.collection.read')
-    return resource.kind === 'account_collection';
-  if (capability === 'account.beta_access.update')
-    return resource.kind === 'account';
-  if (kind) return resource.kind === kind;
-  if (capability.startsWith('channel.invitation.'))
-    return resource.kind === 'group_invitation';
-  if (capability === 'social.block' || capability.startsWith('social.friend.'))
-    return resource.kind === 'contact_pair';
-  if (
-    ['social.request.create', 'channel.create.private_group'].includes(
-      capability,
-    )
-  )
-    return resource.kind === 'social_creation';
-  if (capability.startsWith('foundation.'))
-    return resource.kind === 'foundation';
-  if (capability === 'round.read') return resource.kind === 'round';
-  if (['room.create', 'room.list'].includes(capability))
-    return resource.kind === 'room_collection';
-  return (
-    resource.kind === (capability.startsWith('room.') ? 'room' : 'channel')
-  );
-}
 type UserPrincipal = Extract<AuthorizationPrincipal, { kind: 'user' }>;
 function boundMember(
   principal: UserPrincipal,
@@ -173,6 +136,28 @@ function channelDecision(
     return allow;
   return channelMutation(capability, resource, context);
 }
+/**
+ * Requests a service principal answers, or that address operator
+ * resources (ADR 0079); null routes the request to the member decision.
+ */
+function serviceRoute(
+  principal: AuthorizationPrincipal,
+  capability: AuthorizationCapability,
+  resource: AuthorizationInput['resource'],
+  context: AuthorizationInput['context'],
+): AuthorizationDecision | null {
+  if (principal.kind === 'operator_service' || operatorResource(resource))
+    return operatorDecision(principal, capability, context);
+  return principal.kind === 'service'
+    ? serviceDecision(principal, capability, resource)
+    : null;
+}
+const nonMemberResource = (
+  resource: AuthorizationInput['resource'],
+): resource is Extract<
+  AuthorizationInput['resource'],
+  { kind: 'foundation' | 'account' | 'account_collection' }
+> => resource.kind === 'foundation' || operatorResource(resource);
 function serviceDecision(
   principal: Extract<AuthorizationPrincipal, { kind: 'service' }>,
   capability: AuthorizationCapability,
@@ -183,32 +168,6 @@ function serviceDecision(
     principal.capabilities.includes(capability)
     ? allow
     : deny('missing-capability');
-}
-/** ADR 0079: capabilities only the operator service may hold. */
-const operatorCapabilities: readonly AuthorizationCapability[] = [
-  'account.collection.read',
-  'account.beta_access.update',
-];
-/**
- * The operator service holds exactly its configured capabilities and
- * nothing else; nobody else holds them. A beta access change also needs a
- * live target that has a beta row (a claimed username).
- */
-function operatorDecision(
-  principal: AuthorizationPrincipal,
-  capability: AuthorizationCapability,
-  context: AuthorizationInput['context'],
-): AuthorizationDecision {
-  if (
-    principal.kind !== 'operator_service' ||
-    !operatorCapabilities.includes(capability) ||
-    !principal.capabilities.includes(capability)
-  )
-    return deny('missing-capability');
-  if (capability === 'account.collection.read') return allow;
-  return context.account !== null && context.account.beta !== null
-    ? allow
-    : deny('denied');
 }
 /** The sole pure decision. Load under producer locks and reevaluate after waits. */
 export function authorize({
@@ -223,14 +182,9 @@ export function authorize({
   )
     return deny('denied');
   if (context.account?.erased) return deny('account-erased');
-  if (
-    principal.kind === 'operator_service' ||
-    operatorCapabilities.includes(capability)
-  )
-    return operatorDecision(principal, capability, context);
-  if (principal.kind === 'service')
-    return serviceDecision(principal, capability, resource);
-  if (resource.kind === 'foundation') return deny('missing-capability');
+  const serviceRouted = serviceRoute(principal, capability, resource, context);
+  if (serviceRouted) return serviceRouted;
+  if (nonMemberResource(resource)) return deny('missing-capability');
   if (principal.kind !== 'user') return deny('unauthenticated');
   if (!admittedMember(principal, capability, context.account))
     return deny('missing-capability');
@@ -256,7 +210,14 @@ function resolveMemberResource(
   capability: AuthorizationCapability,
   resource: Exclude<
     AuthorizationInput['resource'],
-    { kind: 'foundation' | 'channel_reaction' | 'member_history' }
+    {
+      kind:
+        | 'foundation'
+        | 'account'
+        | 'account_collection'
+        | 'channel_reaction'
+        | 'member_history';
+    }
   >,
   context: AuthorizationInput['context'],
 ):
@@ -291,10 +252,6 @@ function resolveMemberResource(
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;
-    // Operator resources never reach a member decision (ADR 0079).
-    case 'account_collection':
-    case 'account':
-      return deny('missing-capability');
     default:
       return resource;
   }
@@ -302,7 +259,10 @@ function resolveMemberResource(
 function memberDecision(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
+  resource: Exclude<
+    AuthorizationInput['resource'],
+    { kind: 'foundation' | 'account' | 'account_collection' }
+  >,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   // A member's private history is theirs alone (ISSUE-600).
