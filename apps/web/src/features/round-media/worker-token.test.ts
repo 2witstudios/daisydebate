@@ -281,7 +281,7 @@ test('a session marked unsafe with no unsettled vendor write never mints on the 
   });
 });
 
-test("a live session whose human seat is no longer eligible never mints on the fast path", async () => {
+test('a live session whose human seat is no longer eligible never mints on the fast path', async () => {
   const world = createMediaWorld();
   await createRoundMediaOperations(world.input).session(
     world.roundId,
