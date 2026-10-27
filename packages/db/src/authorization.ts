@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -11,13 +11,7 @@ export type AuthorizationTransaction = Pick<
   BunSQLDatabase,
   'execute' | 'insert'
 >;
-/**
- * All account/contact/channel mutations acquire this fence first. SQL locks in
- * user-id order, independent of actor input order. Re-read after downstream lock
- * waits; a revision is an invalidation hint, not permission or a cache lease.
- */
-export async function lockAuthorizationActors(
-  tx: AuthorizationTransaction,
+function requireActorSelector(
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
 ) {
@@ -31,14 +25,22 @@ export async function lockAuthorizationActors(
     actorIds.some((id) => !idSchema.safeParse(id).success)
   )
     throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
-    select * from public.daisy_authorization_accounts_v2(
-      array[${sql.join(
+}
+async function accountFacts(
+  tx: AuthorizationTransaction,
+  actorIds: readonly string[],
+  limits: { readonly maxActors: number },
+  producer: (ids: SQL) => SQL,
+) {
+  requireActorSelector(actorIds, limits);
+  const rows = await tx.execute(
+    producer(
+      sql`array[${sql.join(
         actorIds.map((id) => sql`${id}`),
         sql`, `,
-      )}]::text[], null::text, true
-    )
-  `);
+      )}]::text[]`,
+    ),
+  );
   const current = rows as unknown as AuthorizationAccountRow[];
   return actorIds.map((actorId) =>
     authorizationAccountFact(
@@ -46,6 +48,41 @@ export async function lockAuthorizationActors(
     ),
   );
 }
+/**
+ * All account/contact/channel mutations acquire this fence first. SQL locks in
+ * user-id order, independent of actor input order. Re-read after downstream lock
+ * waits; a revision is an invalidation hint, not permission or a cache lease.
+ */
+export const lockAuthorizationActors = (
+  tx: AuthorizationTransaction,
+  actorIds: readonly string[],
+  limits: { readonly maxActors: number },
+) =>
+  accountFacts(
+    tx,
+    actorIds,
+    limits,
+    (ids) =>
+      sql`select * from public.daisy_authorization_accounts_v2(${ids}, null::text, true)`,
+  );
+/**
+ * Readers take the same facts under a shared fence (MSG-2.1-arch1): readers
+ * never wait on each other, and any account writer still waits for them and
+ * they for it. Same user-id order, so mixing with the exclusive fence later in
+ * one transaction never inverts the lock graph.
+ */
+export const readAuthorizationActors = (
+  tx: AuthorizationTransaction,
+  actorIds: readonly string[],
+  limits: { readonly maxActors: number },
+) =>
+  accountFacts(
+    tx,
+    actorIds,
+    limits,
+    (ids) =>
+      sql`select * from public.daisy_authorization_read_accounts_v2(${ids})`,
+  );
 /** The caller's decision over one actor's freshly locked account. */
 export type OwnCollectionFence<S> = (input: {
   readonly tx: AuthorizationTransaction;
