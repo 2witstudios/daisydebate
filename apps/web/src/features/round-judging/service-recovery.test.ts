@@ -4,7 +4,7 @@ import { startRoundJudgingService } from './service';
 import {
   failureLog,
   manualTimers,
-} from '../round-bots/worker-timers.test-support';
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 /** One discoverable judging job with injected renewal, execution and verification. */

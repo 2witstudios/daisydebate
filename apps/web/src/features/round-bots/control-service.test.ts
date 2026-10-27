@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
-import { failureLog, manualTimers } from './worker-timers.test-support';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 const ownedClaim = (target: {

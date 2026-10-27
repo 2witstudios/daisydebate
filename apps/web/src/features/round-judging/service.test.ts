@@ -5,7 +5,7 @@ import { startRoundJudgingService } from './service';
 import {
   failureLog,
   manualTimers,
-} from '../round-bots/worker-timers.test-support';
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 test('judging renewal and discovery do not wait for a provider operation', async () => {
   const tasks = new Map<number, () => Promise<void>>();
