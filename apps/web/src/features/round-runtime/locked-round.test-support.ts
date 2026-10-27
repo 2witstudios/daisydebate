@@ -37,6 +37,8 @@ export const lockedRound: LockedRoundCommandContext = {
   },
   authority: {
     roundId: launched.id,
+    // An admitted participant (ADR 0075).
+    principalAccess: { beta: 'approved', ageBand: 'adult' },
     hostActorId: caller.actorId,
     participants: [seat, ...others.map((p) => ({ ...p, label: 'Member' }))].map(
       (p) => ({ ...p, kind: 'human' as const, eligible: true }),

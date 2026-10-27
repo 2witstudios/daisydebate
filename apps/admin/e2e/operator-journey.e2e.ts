@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 /**
- * The owner's first visit (BETA-4): the bootstrap CLI mints a link, a
- * virtual authenticator with user verification creates the passkey, the
- * same passkey signs in, and the audit page shows the chain it wrote.
+ * The owner's first visit (BETA-4, BETA-5): the bootstrap CLI mints a link,
+ * a virtual authenticator with user verification creates the passkey, the
+ * same passkey signs in, approves a pending account through the operator
+ * API stand-in (which verifies every signature with the real verifier), and
+ * the audit page shows the chain it wrote and the anchor it sent.
  */
 const enrollCli = new URL('../src/scripts/operator-enroll.ts', import.meta.url);
 const enrollmentUrl = (): string => {
@@ -30,7 +32,7 @@ function serverEnv() {
   };
 }
 
-test('enroll a passkey from the CLI link, then sign in with it', async ({
+test('enroll a passkey, sign in, and approve a pending account', async ({
   page,
   context,
 }) => {
@@ -71,11 +73,28 @@ test('enroll a passkey from the CLI link, then sign in with it', async ({
     path: '/',
   });
 
+  const pending = page.getByRole('row', { name: /pending-player/ });
+  await expect(pending).toContainText('2026-10-25T09:00:00.123456Z');
+  await page.getByRole('button', { name: 'Approve pending-player' }).click();
+  await expect(page.getByTestId('command-notice')).toHaveText(
+    'Done. Approval email queued.',
+  );
+  await expect(page.getByText('No pending accounts.')).toBeVisible();
+  await page.getByRole('link', { name: 'Approved' }).click();
+  await expect(
+    page
+      .getByRole('row', { name: /pending-player/ })
+      .getByRole('cell', { name: '2', exact: true }),
+  ).toBeVisible();
+
   await page.getByRole('link', { name: 'Audit' }).click();
   await expect(page.getByTestId('chain-badge')).toHaveText(
-    'Chain consistent (seq 1–3)',
+    'Chain consistent (seq 1–5); 1 anchor sent',
   );
-  await expect(page.locator('tbody tr').first()).toContainText('auth.success');
+  await expect(page.locator('tbody tr').first()).toContainText(
+    'command.outcome',
+  );
+  await expect(page.locator('tbody tr').first()).toContainText('changed');
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/sign-in$/);

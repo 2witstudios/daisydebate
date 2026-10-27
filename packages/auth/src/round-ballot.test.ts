@@ -7,6 +7,8 @@ import { bindRoundBallotPrincipal } from './round-ballot';
 setupRitewayBun();
 const authority: RoundBallotAuthority = {
   roundId: 'round',
+  // An admitted participant (ADR 0075).
+  principalAccess: { beta: 'approved', ageBand: 'adult' },
   participants: [
     {
       id: 'human',
@@ -105,6 +107,22 @@ test('revoked eligibility, ended runs and nonjudging purposes refuse closed', ()
           ...p,
           eligible: false,
         })),
+      },
+    }).ok,
+    expected: false,
+  });
+});
+
+test('a judge without participant access cannot cast a ballot (ADR 0075)', () => {
+  assert({
+    given: 'the assigned human judge after a beta revoke',
+    should: 'refuse the ballot: judging is participation, never a withdrawal',
+    actual: bindRoundBallotPrincipal({
+      principal: { kind: 'human', actorId: 'person' },
+      judgeParticipantId: 'human',
+      authority: {
+        ...authority,
+        principalAccess: { beta: 'revoked', ageBand: 'adult' },
       },
     }).ok,
     expected: false,

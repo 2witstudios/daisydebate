@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { readAdminConfig, readAdminMigrationUrl } from './config';
+import {
+  readAdminConfig,
+  readAdminMigrationUrl,
+  readOperatorClientConfig,
+} from './config';
 
 setupRitewayBun();
 const valid = {
@@ -73,5 +77,50 @@ test('readAdminMigrationUrl', () => {
       }
     })(),
     expected: 'Invalid admin configuration: ADMIN_MIGRATION_DATABASE_URL',
+  });
+});
+
+test('readOperatorClientConfig', () => {
+  const operator = {
+    OPERATOR_API_URL: 'http://daisy-debate-staging.internal:8081',
+    OPERATOR_API_KEY_ID: 'admin1',
+    OPERATOR_API_KEY: Buffer.from(new Uint8Array(32).fill(9)).toString(
+      'base64url',
+    ),
+    OPERATOR_AUDIENCE: 'daisy-web:staging',
+  };
+  const outcome = (env: Record<string, string>) => {
+    try {
+      const config = readOperatorClientConfig(env);
+      return config && { ...config, key: config.key.byteLength };
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+  const withoutKey: Record<string, string> = { ...operator };
+  delete withoutKey.OPERATOR_API_KEY;
+  assert({
+    given: 'none, all four, three of four, and a key shorter than 32 bytes',
+    should:
+      'stay unconfigured, decode the client config, or refuse naming fields and never values',
+    actual: [
+      outcome({}),
+      outcome(operator),
+      outcome(withoutKey),
+      outcome({ ...operator, OPERATOR_API_KEY: 'c2hvcnQ' }),
+      outcome({ ...operator, OPERATOR_AUDIENCE: 'daisy-web:elsewhere' }),
+    ],
+    expected: [
+      null,
+      {
+        baseUrl: operator.OPERATOR_API_URL,
+        keyId: 'admin1',
+        key: 32,
+        audience: 'daisy-web:staging',
+      },
+      'Invalid admin configuration: OPERATOR_API_KEY',
+      'Invalid admin configuration: OPERATOR_API_KEY',
+      'Invalid admin configuration: OPERATOR_AUDIENCE',
+    ],
   });
 });

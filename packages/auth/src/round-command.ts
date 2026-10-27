@@ -5,7 +5,11 @@ import type {
   RoundRefusal,
 } from '@daisy/protocol';
 
-import { bindOwnedRoundSeat, runScopeMatches } from './round-principal';
+import {
+  bindOwnedRoundSeat,
+  roundPrincipalAdmitted,
+  runScopeMatches,
+} from './round-principal';
 /** Fresh locked facts bind a human session or scoped AgentRun to exactly its seat. */
 export function bindRoundCommandPrincipal(input: {
   readonly principal: RoundCommandPrincipal;
@@ -19,7 +23,10 @@ export function bindRoundCommandPrincipal(input: {
     }
   | { readonly ok: false; readonly refusal: RoundRefusal } {
   const { principal, command, authority } = input;
-  if (principal.kind === 'agent' && !runScopeMatches(principal, authority))
+  if (
+    (principal.kind === 'agent' && !runScopeMatches(principal, authority)) ||
+    !roundPrincipalAdmitted(principal, authority.principalAccess, command.type)
+  )
     return { ok: false, refusal: 'not-authorized' };
   if (command.type === 'start') {
     if (

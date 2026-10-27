@@ -1,4 +1,9 @@
+import {
+  operatorAudienceSchema,
+  operatorKeyIdSchema,
+} from '@daisy/protocol/operator';
 import { z } from 'zod';
+import type { OperatorClientConfig } from './features/operator-client/client';
 
 /**
  * The admin app's environment, validated once at the process edge. Errors
@@ -53,4 +58,44 @@ export function readAdminMigrationUrl(
       'Invalid admin configuration: ADMIN_MIGRATION_DATABASE_URL',
     );
   return parsed.data;
+}
+
+const operatorKeys = [
+  'OPERATOR_API_URL',
+  'OPERATOR_API_KEY_ID',
+  'OPERATOR_API_KEY',
+  'OPERATOR_AUDIENCE',
+] as const;
+
+const operatorClientSchema = z.object({
+  OPERATOR_API_URL: z.url({ protocol: /^https?$/ }),
+  OPERATOR_API_KEY_ID: operatorKeyIdSchema,
+  // base64url of at least 32 bytes (ADR 0079); a Fly secret, never in [env].
+  OPERATOR_API_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .refine((value) => Buffer.from(value, 'base64url').byteLength >= 32),
+  OPERATOR_AUDIENCE: operatorAudienceSchema,
+});
+
+/**
+ * The signing client's settings (ADR 0079), all four or none: none leaves
+ * the accounts screen unconfigured, and a partial set refuses startup
+ * rather than half-loading.
+ */
+export function readOperatorClientConfig(
+  env: Readonly<Record<string, string | undefined>>,
+): OperatorClientConfig | null {
+  if (operatorKeys.every((name) => env[name] === undefined)) return null;
+  const parsed = operatorClientSchema.safeParse(env);
+  if (!parsed.success)
+    throw new Error(
+      `Invalid admin configuration: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
+    );
+  return {
+    baseUrl: parsed.data.OPERATOR_API_URL,
+    keyId: parsed.data.OPERATOR_API_KEY_ID,
+    key: new Uint8Array(Buffer.from(parsed.data.OPERATOR_API_KEY, 'base64url')),
+    audience: parsed.data.OPERATOR_AUDIENCE,
+  };
 }

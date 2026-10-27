@@ -143,8 +143,9 @@ RUN NODE_ENV=production bun run --cwd apps/admin build \
   && rm -rf apps/admin/.next/cache
 
 # ---- admin-source: non-root, the production dependencies and only the
-# packages the admin app imports. No participant database, Redis or auth
-# package source ships in an admin image.
+# packages the admin app imports. No participant database or Redis source
+# ships in an admin image, and of @daisy/auth only the operator signer
+# (ADR 0079), which imports nothing but @daisy/protocol.
 FROM base AS admin-source
 ARG APP_VERSION=development
 ARG GIT_COMMIT=unknown
@@ -154,6 +155,7 @@ ENV NODE_ENV=production
 RUN groupadd --system --gid 1001 daisy \
   && useradd --system --uid 1001 --gid daisy --home-dir /app --shell /usr/sbin/nologin daisy
 COPY --from=prod-deps --chown=daisy:daisy /app /app
+COPY --chown=daisy:daisy packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
 COPY --chown=daisy:daisy packages/clock/src packages/clock/src
 COPY --chown=daisy:daisy packages/logger/src packages/logger/src
 COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src

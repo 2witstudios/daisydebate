@@ -4,6 +4,7 @@ import {
   allowedWorkspaceDependencies,
   deepImportIssue,
   forbiddenDependencyIssue,
+  operatorApiIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
@@ -271,6 +272,31 @@ describe('admin workspace edges (ADR 0077)', () => {
         allowedWorkspaceDependencies,
       ),
       expected: null,
+    });
+  });
+});
+
+describe('operatorApiIssue (ADR 0079)', () => {
+  test('a Next route may not import the private operator API', () => {
+    assert({
+      given:
+        'a page importing the operator router, the server composing it, and a page importing another feature',
+      should: 'flag only the page that reaches into the operator API',
+      actual: [
+        operatorApiIssue(
+          '../../features/operator-api/router',
+          'apps/web/src/app/(shell)/page.tsx',
+        ) !== null,
+        operatorApiIssue(
+          '../features/operator-api/router',
+          'apps/web/src/server/operator-api.ts',
+        ),
+        operatorApiIssue(
+          '../../features/access/decision',
+          'apps/web/src/app/(shell)/page.tsx',
+        ),
+      ],
+      expected: [true, null, null],
     });
   });
 });

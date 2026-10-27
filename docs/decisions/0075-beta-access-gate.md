@@ -155,6 +155,13 @@ The rest of this record describes BETA-2.
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
+- **Round commands decide inside the fence (DEC-249).** The commanding
+  human's own access facts reach the evaluator with the Round authority,
+  read after any lock wait, so a revoke that commits after the edge's
+  identity read still refuses the command. A human without access keeps
+  `forfeit`, which is how a participant leaves a live Round. Start,
+  preparation, speech, yield, interrupt and judge ballots are refused.
+  Seats stay membership-only.
   The same holds in a channel: one member losing admission never closes
   reading for the others.
 - **What a pending account sees.**
@@ -171,16 +178,18 @@ The rest of this record describes BETA-2.
   subscription admission and delivery re-check the fact.
 - **Expand and contract (rolling-safe).** The fence's new result shape
   ships as versioned producers, `daisy_authorization_accounts_v2` and
-  `daisy_room_read_account_v2`. The v1 functions keep their exact
-  five-column result, rewritten in place to compute from v2, so a
-  statement a live instance prepared against v1 stays valid across the
-  migration. Every web and realtime caller moves to v2 in the same
-  release. A separate contract step drops v1 once no instance runs the
-  old binary: the BETA-2C leaf. It also repoints the age reader's own
-  fence call to v2.
+  `daisy_room_read_account_v2`. The v1 account function keeps its exact
+  five-column result, rewritten in place to compute from v2. The v1 Room
+  reader is left untouched and reaches v2 through that account wrapper.
+  A statement a live instance prepared against either v1 function
+  therefore stays valid across the migration. Every web and realtime
+  caller moves to v2 in the same release. A separate contract step, the
+  BETA-2C leaf, runs once no instance runs the old binary. It first
+  repoints the age reader's own fence call to v2, then drops v1.
 - **One age validity rule.** `daisy_age_band` is the single SQL rule for
-  a durable age record: positive version, finite recorded time no later
-  than the evaluation instant, and a birth month not after it. Both the
+  a durable age record: a birth month present and not after the
+  evaluation instant, a positive version, and a finite recorded time no
+  later than that instant. Any missing input means no record (ISSUE-676). Both the
   fence's band and the age reader use it. The fence classifies at
   `clock_timestamp()`, sampled after its lock waits.
 - **What the band is.** `ageBand` is an account authorization fact for

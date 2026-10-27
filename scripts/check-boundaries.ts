@@ -11,6 +11,7 @@ import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
   deepImportIssue,
+  operatorApiIssue,
   runnerOnlyIssue,
   testSupportIssue,
   forbiddenDependencyIssue,
@@ -94,6 +95,8 @@ for (const workspace of workspaces) {
     const check = (specifier: string) => {
       const runnerOnly = runnerOnlyIssue(specifier, relative(root, file));
       if (runnerOnly) issues.push(`${relative(root, file)}: ${runnerOnly}`);
+      const operatorApi = operatorApiIssue(specifier, relative(root, file));
+      if (operatorApi) issues.push(`${relative(root, file)}: ${operatorApi}`);
       const testSupport = testSupportIssue(specifier, relative(root, file));
       if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
       if (specifier.startsWith('.')) {

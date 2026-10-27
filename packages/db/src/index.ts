@@ -30,6 +30,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
+import { operatorAccountOperations } from './operator-accounts';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
@@ -157,6 +158,7 @@ export function createDatabase({
     ...emailDeliveryOperations({ database, eventSink }),
     ...mailIntentOperations({ database, eventSink }),
     ...betaAccessOperations({ database, eventSink }),
+    ...operatorAccountOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     ...messagingOperations(database),
     ...friendshipReadOperations({ database, eventSink }),

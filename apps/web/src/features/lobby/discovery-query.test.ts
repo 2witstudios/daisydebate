@@ -129,3 +129,23 @@ describe('isFiltered', () => {
     });
   });
 });
+
+test('Lobby query URLs preserve the server sort and restart the cursor separately', () => {
+  const parsed = parseRoomDiscoveryQuery({ sort: 'longest-waiting', cursor });
+  assert({
+    given: 'a waiting-longest URL with a keyset cursor',
+    should: 'carry the sort to the backend and subsequent page URLs',
+    actual: parsed.success
+      ? [
+          parsed.data.sort,
+          lobbyHref(parsed.data, cursor),
+          lobbyHref(parsed.data),
+        ]
+      : null,
+    expected: [
+      'longest-waiting',
+      `/lobby?sort=longest-waiting&cursor=${cursor}`,
+      '/lobby?sort=longest-waiting',
+    ],
+  });
+});

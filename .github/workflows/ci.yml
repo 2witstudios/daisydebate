@@ -11,8 +11,8 @@ permissions:
   # bun policy lists open PRs to catch ADR and migration number clashes.
   pull-requests: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 # Actions are pinned to full commit SHAs with the version as a trailing
 # comment; Dependabot proposes the bumps (ADR 0040, `bun policy` enforces).
 # Turbo restores content-addressed task results; service tests remain uncached.

@@ -5,6 +5,7 @@ const authorizationCapabilities = [
   'social.friend.request',
   'social.friend.end',
   'social.friend.list',
+  'social.presence.update',
   'social.request.create',
   'channel.create.private_group',
   'foundation.create',
@@ -46,6 +47,9 @@ const authorizationCapabilities = [
   'channel.request.result',
   'channel.request.decide',
   'channel.request.cancel',
+  // ADR 0079: the operator service's closed capabilities, never a user's.
+  'account.collection.read',
+  'account.beta_access.update',
 ] as const;
 export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<

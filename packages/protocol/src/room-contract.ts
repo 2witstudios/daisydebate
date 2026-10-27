@@ -194,6 +194,8 @@ export const roomListDefaultPageSize = 20;
 /** Provisional discovery resource-work settings; these are not Room capacity. */
 export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
+  /** Immutable creation-time order; the Room id breaks timestamp ties. */
+  sort: z.enum(['longest-waiting', 'newest']).optional(),
   pageSize: z.int().min(1).max(50).default(roomListDefaultPageSize),
   q: z.string().trim().max(100).default(''),
   /**
@@ -205,7 +207,7 @@ export const roomListQuerySchema = z.strictObject({
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
 });
-/** Active discovery deliberately omits cast, format/configuration and consent. */
+/** Active discovery carries the catalog label, not cast, full rules/configuration or consent. */
 const roomListEntrySchema = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
@@ -221,7 +223,7 @@ const roomListEntrySchema = z.strictObject({
   roundRef: z
     .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })
     .nullable(),
-  /** The catalog format's name, or "Custom format". */
+  /** The joined catalog format's stored name. */
   formatLabel: z.string().min(1),
   /** Seats filled, of every seat the Room's rules declare. */
   seatsTaken: z.int().nonnegative(),

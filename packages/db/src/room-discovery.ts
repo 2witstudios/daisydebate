@@ -66,6 +66,23 @@ const search = (q: string) =>
 /** The driver returns a timestamp, or JSON's string for one, as a canonical ISO instant. */
 const isoOrNull = (value: Date | string | null) =>
   value === null ? null : new Date(value).toISOString();
+/** Immutable across launch: the cursor's Room remains the timestamp witness. */
+const pageOrder = (
+  sort: RoomListQuery['sort'],
+  cursor: string | undefined,
+  caller: Caller,
+) => {
+  const direction = sort === 'longest-waiting' ? sql`asc` : sql`desc`;
+  return {
+    direction,
+    after:
+      cursor === undefined
+        ? sql`true`
+        : sql`(r.created_at, r.id collate "C") ${sort === 'longest-waiting' ? sql`>` : sql`<`}
+      (select r.created_at, r.id collate "C" from rooms r
+        where r.id=${cursor} and ${visible(caller)})`,
+  };
+};
 /** Bound candidates before locks; a race may shorten a page, never trigger replenishment. */
 export async function discoverRooms(
   tx: Tx,
@@ -77,22 +94,22 @@ export async function discoverRooms(
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
-  const { cursor, pageSize, q, status, mode } = parsed.data;
+  const { cursor, pageSize, q, status, mode, sort } = parsed.data;
   const { assembly, launched } = statusScope(status);
-  const after = cursor ?? '';
+  const order = pageOrder(sort, cursor, caller);
   let account = await sharedAccount(tx, caller);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const candidates = (await tx.execute(sql`
   select id from (
-    (select r.id from rooms r ${joins}
-      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and r.id collate "C">${after} and ${visible(caller)} and ${search(q)}
-      order by r.id collate "C" limit ${pageSize + 1})
+    (select r.id,r.created_at from rooms r ${joins}
+      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${order.after} and ${visible(caller)} and ${search(q)}
+      order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
-    (select r.id from rounds d join rooms r on r.id=d.room_id ${joins}
+    (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
       where ${launched} and ${modeMatches(mode)} and d.status in ('scheduled','active') and d.room_id is not null and r.status='started'
-        and d.room_id collate "C">${after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q)}
-      order by d.room_id collate "C" limit ${pageSize + 1})
-  ) candidates order by id collate "C" limit ${pageSize + 1}
+        and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q)}
+      order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
+  ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
  `)) as unknown as { id: string }[];
   const ids = candidates.slice(0, pageSize).map((r) => r.id);
   const more = candidates.length > pageSize;
@@ -128,7 +145,7 @@ export async function discoverRooms(
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q)}
    and ${modeMatches(mode)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('scheduled','active') and ${roundVisible(caller)}))
-  order by r.id collate "C"
+  order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
     waitingSince: Date | string | null;
     live: {

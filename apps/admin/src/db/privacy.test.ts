@@ -21,6 +21,6 @@ test('admin privacy declarations match the admin schema', () => {
       Object.keys(expected).length,
       validatePrivacyAdoption(expected, adminPrivacyFields),
     ],
-    expected: [8, { problems: [], activationHeld: true }],
+    expected: [9, { problems: [], activationHeld: true }],
   });
 });

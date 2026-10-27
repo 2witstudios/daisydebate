@@ -232,7 +232,9 @@ test('masked page-plus-one races preserve accessible continuation and bounded re
     const views = [
       (await f.create({ title })).view,
       (await f.create({ title }, f.guest)).view,
-    ].sort((a, b) => (a.id < b.id ? -1 : 1));
+    ].sort((a, b) => (a.id > b.id ? -1 : 1));
+    // Pin a tie so the privacy race targets the newest-order id tiebreaker.
+    await f.sql`update rooms set created_at='2026-01-01T00:00:00Z' where title=${title}`;
     await withHeld(async (holder, pid) => {
       const { reading } = await waitOnRoom(f, holder, pid, views[0]!.id, title);
       await holder`update rooms set visibility='private' where id=${views[1]!.id}`;
