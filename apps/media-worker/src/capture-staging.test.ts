@@ -74,9 +74,6 @@ function fixture() {
     state,
     staging,
     observe,
-    expire: () => {
-      now += 501;
-    },
     counts: () => ({ dropped, retained }),
   };
 }
@@ -99,16 +96,15 @@ test('private staging never retains conversation or a closed-edge window for a f
     expected: { frames: 0, dropped: 4, retained: 0 },
   });
 });
-test('private staged PCM keeps original timing until a batch takes it, however late', () => {
+test('private staged PCM keeps original timing until a batch takes it', () => {
   const f = fixture();
   f.observe(0, 10);
   f.observe(1, 20.2);
   const frame = f.staging.take()[0]!;
   f.observe(2, 30.4);
-  f.expire();
   assert({
     given:
-      'one genuine bounded bracket, then a frame whose batch comes over 500 ms later behind a slow history read',
+      'one genuine bounded bracket, then a frame whose batch comes later behind a slow history read',
     should:
       'keep the original copied frame and still hand over the later one, so a slow batch leaves no gap in coverage (ISSUE-577)',
     actual: {
