@@ -4,10 +4,12 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
 import {
+  challengeCommandResultSchema,
   friendCommandResultSchema,
   presenceSettingResultSchema,
 } from '@daisy/protocol';
 import {
+  challengeDeclinedNotice,
   friendDoneNotice,
   friendFormUnavailable,
   friendRefusalNotice,
@@ -17,6 +19,7 @@ import {
   presenceNotice,
   type FriendFormState,
   type PresenceFormState,
+  type FriendIntent,
 } from '../../../features/friends/forms';
 import { challengeFriend } from '../../../features/friends/challenge';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
@@ -62,18 +65,18 @@ export async function friendAction(
         username: kept.username,
         notice: friendRefusalNotice(intent, response.status),
       };
-    const result = friendCommandResultSchema.safeParse(await response.json());
-    if (!result.success) return kept;
+    const reply: unknown = await response.json();
+    const notice =
+      intent === 'decline-challenge'
+        ? challengeDoneNotice(challengeCommandResultSchema.safeParse(reply))
+        : friendDoneNoticeOf(
+            intent,
+            friendCommandResultSchema.safeParse(reply),
+          );
+    if (notice === null) return kept;
     revalidatePath('/friends');
     revalidatePath('/profile/[username]', 'page');
-    return {
-      username: '',
-      notice: friendDoneNotice(
-        intent,
-        result.data.username,
-        result.data.relation,
-      ),
-    };
+    return { username: '', notice };
   } catch {
     return kept;
   }
@@ -139,4 +142,23 @@ export async function presenceAction(
   } catch {
     return presenceFormUnavailable();
   }
+}
+
+/** The notice for a declined challenge, or null when its reply is not one. */
+function challengeDoneNotice(
+  result: ReturnType<typeof challengeCommandResultSchema.safeParse>,
+): string | null {
+  return result.success && result.data.challenge === 'declined'
+    ? challengeDeclinedNotice(result.data.username)
+    : null;
+}
+
+/** The notice for a friendship change, or null when its reply is not one. */
+function friendDoneNoticeOf(
+  intent: Exclude<FriendIntent, 'decline-challenge'>,
+  result: ReturnType<typeof friendCommandResultSchema.safeParse>,
+): string | null {
+  return result.success
+    ? friendDoneNotice(intent, result.data.username, result.data.relation)
+    : null;
 }

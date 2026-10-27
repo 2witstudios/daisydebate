@@ -26,6 +26,11 @@ export function contactAuthorizationFence({
         readonly capability: 'social.friend.request' | 'social.friend.end';
       }
     | {
+        readonly kind: 'challenge';
+        readonly capability:
+          'social.challenge.send' | 'social.challenge.decline';
+      }
+    | {
         readonly kind: 'dm' | 'private_group';
         readonly policy: SocialCreationPolicy;
       };
@@ -40,7 +45,11 @@ export function contactAuthorizationFence({
     const account =
       facts.accounts.find((row) => row?.actorId === input.actorId) ?? null;
     const contacts: readonly ContactAuthorizationFact[] = facts.contacts;
-    if (operation.kind === 'block' || operation.kind === 'friend') {
+    if (
+      operation.kind === 'block' ||
+      operation.kind === 'friend' ||
+      operation.kind === 'challenge'
+    ) {
       if (contacts.length !== 1) throw createAppError('VALIDATION');
       const resource: ContactPairAuthorizationFact = {
         ...contacts[0]!,

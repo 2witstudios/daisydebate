@@ -29,7 +29,11 @@ const harness = (identity: unknown = member) => {
     },
     challenge: async (_principal, command, input) => {
       calls.push([command, input.username, input.roomId]);
-      return { username: input.username, relation: 'friends' };
+      return {
+        username: input.username,
+        roomId: input.roomId,
+        challenge: command === 'challenge' ? 'sent' : 'declined',
+      } as const;
     },
     presence: async (_principal, hidden) => {
       calls.push(['presence', hidden]);

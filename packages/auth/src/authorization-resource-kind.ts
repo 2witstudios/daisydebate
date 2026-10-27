@@ -25,7 +25,11 @@ export function validResourceKind(
   if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
-  if (capability === 'social.block' || capability.startsWith('social.friend.'))
+  if (
+    capability === 'social.block' ||
+    capability.startsWith('social.friend.') ||
+    capability.startsWith('social.challenge.')
+  )
     return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(

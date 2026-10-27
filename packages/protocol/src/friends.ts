@@ -44,6 +44,17 @@ export const friendCommandResultSchema = z.strictObject({
 });
 export type FriendCommandResult = z.infer<typeof friendCommandResultSchema>;
 
+/** A challenge sent to a friend, or one the caller declined (ADR 0072). */
+export const challengeCommandResultSchema = z.strictObject({
+  version: z.literal(1),
+  username: z.string(),
+  roomId: idSchema,
+  challenge: z.enum(['sent', 'declined']),
+});
+export type ChallengeCommandResult = z.infer<
+  typeof challengeCommandResultSchema
+>;
+
 export const presenceSettingResultSchema = z.strictObject({
   version: z.literal(1),
   hidden: z.boolean(),

@@ -4,7 +4,11 @@ import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 import { createFriendHandlers } from './handlers';
-import { changeChallenge } from './challenge-operations';
+import {
+  challengeRateLimit,
+  changeChallenge,
+  type ChallengeOperationDependencies,
+} from './challenge-operations';
 import { setPresenceHidden } from '../presence/setting';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
@@ -87,6 +91,29 @@ const friendPorts = (
     ),
 });
 
+/** A challenge's ports: its own limiter bucket and capability fence. */
+const challengePorts = (
+  app: App,
+  principal: AuthorizationPrincipal,
+): ChallengeOperationDependencies => ({
+  clock: app.clock,
+  limit: (actorId) =>
+    consumeOrThrow(
+      app.auth().limiter,
+      challengeRateLimit.key(actorId),
+      challengeRateLimit.rule,
+    ),
+  lookup: (name) => app.database.lookupHumanActorByUsername(name),
+  store: (capability) =>
+    app.database.friendStore(
+      contactAuthorizationFence({
+        principal,
+        clock: app.clock,
+        operation: { kind: 'challenge', capability },
+      }),
+    ),
+});
+
 export function composeFriendRoutes(app: App) {
   const list = composeFriendList(app);
   return createFriendHandlers({
@@ -99,7 +126,12 @@ export function composeFriendRoutes(app: App) {
         friendPorts(app, principal),
       ),
     challenge: (principal, command, input) =>
-      changeChallenge(principal, command, input, friendPorts(app, principal)),
+      changeChallenge(
+        principal,
+        command,
+        input,
+        challengePorts(app, principal),
+      ),
     presence: (principal, hidden) =>
       setPresenceHidden(principal, hidden, {
         clock: app.clock,

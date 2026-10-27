@@ -3,7 +3,7 @@ import { friendTestPorts } from './friend-ports.test-support';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import type { FriendStore } from '@daisy/db/friends';
-import { changeChallenge } from './challenge-operations';
+import { challengeRateLimit, changeChallenge } from './challenge-operations';
 import type { FriendshipPair } from './friendship';
 
 setupRitewayBun();
@@ -65,7 +65,8 @@ test('a challenge to a friend records the room for them', async () => {
   const run = harness();
   assert({
     given: 'an accepted friend and a room the caller hosts',
-    should: 'fence with the request capability and record the challenge',
+    should:
+      'fence with the challenge send capability, record the challenge and answer a challenge result',
     actual: [
       await changeChallenge(
         principal,
@@ -77,8 +78,8 @@ test('a challenge to a friend records the room for them', async () => {
       run.writes,
     ],
     expected: [
-      { username: 'bea', relation: 'friends' },
-      ['social.friend.request'],
+      { username: 'bea', roomId: room, challenge: 'sent' },
+      ['social.challenge.send'],
       [['challenge', { roomId: room, now }]],
     ],
   });
@@ -150,8 +151,17 @@ test('declining is open to the challenged member, friend or not', async () => {
   );
   assert({
     given: 'a decline after the friendship ended',
-    should: 'fence with the end capability and decline the room',
+    should: 'fence with the challenge decline capability and decline the room',
     actual: [run.capabilities, run.writes],
-    expected: [['social.friend.end'], [['decline', { roomId: room }]]],
+    expected: [['social.challenge.decline'], [['decline', { roomId: room }]]],
+  });
+});
+
+test('a challenge spends its own rate-limit bucket, not the friend-change budget (S3)', () => {
+  assert({
+    given: 'the challenge limiter for one member',
+    should: 'key its own friend-challenges bucket at 30 a minute',
+    actual: [challengeRateLimit.key(me), challengeRateLimit.rule],
+    expected: [`friend-challenges:${me}`, { windowSeconds: 60, max: 30 }],
   });
 });

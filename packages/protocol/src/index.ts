@@ -312,6 +312,7 @@ export {
 } from './member-profile';
 
 export {
+  challengeCommandResultSchema,
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
@@ -320,6 +321,7 @@ export {
   presenceSettingResultSchema,
 } from './friends';
 export type {
+  ChallengeCommandResult,
   FriendCommandResult,
   FriendList,
   FriendPresence,

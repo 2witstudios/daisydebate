@@ -11,7 +11,11 @@ const pair = {
   revision: 1,
 };
 const input = (
-  capability: 'social.friend.request' | 'social.friend.end',
+  capability:
+    | 'social.friend.request'
+    | 'social.friend.end'
+    | 'social.challenge.send'
+    | 'social.challenge.decline',
   overrides: { blocked?: boolean; peerMember?: boolean } = {},
 ) => ({
   principal: { kind: 'user' as const, userId: 'a', actorId: 'a' },
@@ -68,6 +72,32 @@ test('friendship authority over the contact pair', () => {
       }).allow,
     ],
     expected: [false, false],
+  });
+});
+
+test('challenge authority over the contact pair, on its own capabilities (S2)', () => {
+  const outsider = (
+    capability: 'social.challenge.send' | 'social.challenge.decline',
+  ) => ({
+    ...input(capability),
+    principal: { kind: 'user' as const, userId: 'c', actorId: 'c' },
+    context: { account: adultAccount('c').account },
+  });
+  assert({
+    given:
+      'two current members, then a block, then a lapsed peer, then an outsider',
+    should:
+      'allow sending only between current unblocked members, keep declining open across a block, and refuse an outsider both',
+    actual: [
+      authorize(input('social.challenge.send')).allow,
+      authorize(input('social.challenge.decline')).allow,
+      authorize(input('social.challenge.send', { blocked: true })).allow,
+      authorize(input('social.challenge.decline', { blocked: true })).allow,
+      authorize(input('social.challenge.send', { peerMember: false })).allow,
+      authorize(outsider('social.challenge.send')).allow,
+      authorize(outsider('social.challenge.decline')).allow,
+    ],
+    expected: [true, true, false, true, false, false, false],
   });
 });
 

@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
+  challengeDeclinedNotice,
   friendDoneNotice,
   friendFormUnavailable,
   friendRefusalNotice,
@@ -153,7 +154,7 @@ test('declining a challenge', async () => {
         parsed.username,
         parsed.roomId,
       );
-      return [path, body, friendDoneNotice(parsed.intent, 'ada', 'friends')];
+      return [path, body, challengeDeclinedNotice('ada')];
     })(),
     expected: [
       '/api/friends/challenges/decline',

@@ -85,7 +85,28 @@ function friendshipAllowed(
   );
 }
 
-/** The one contact-pair decision: a block's safety rule, or friendship's. */
+/**
+ * A friend challenge (ADR 0072) rides the pair fence on its own terms:
+ * declining is a safety exit, open even across a block; sending needs both
+ * accounts current members and no block either way. The accepted
+ * friendship and the open room are checked under the same lock.
+ */
+function challengeAllowed(
+  actorId: string,
+  capability: string,
+  pair: ContactAuthorizationFact,
+  context: AuthorizationInput['context'],
+): boolean {
+  if (!contactSafetyAllowed(actorId, pair, context)) return false;
+  if (capability === 'social.challenge.decline') return true;
+  return (
+    capability === 'social.challenge.send' &&
+    !pair.blocked &&
+    (context.contactAccounts ?? []).every((account) => account.member)
+  );
+}
+
+/** The one contact-pair decision: a block's safety rule, a challenge's, or friendship's. */
 export const contactPairAllowed = (
   actorId: string,
   capability: string,
@@ -94,4 +115,6 @@ export const contactPairAllowed = (
 ): boolean =>
   capability === 'social.block'
     ? contactSafetyAllowed(actorId, pair, context)
-    : friendshipAllowed(actorId, capability, pair, context);
+    : capability.startsWith('social.challenge.')
+      ? challengeAllowed(actorId, capability, pair, context)
+      : friendshipAllowed(actorId, capability, pair, context);

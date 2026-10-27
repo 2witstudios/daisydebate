@@ -1,11 +1,32 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type { Clock } from '@daisy/clock';
+import type { FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
+import type { ChallengeCommandResult } from '@daisy/protocol';
 
 import { mayChallenge } from './friendship';
-import type { FriendOperationDependencies } from './operations';
 import { requireMemberActor } from '../access/actor';
 
 type ChallengeCommand = 'challenge' | 'decline';
+export type ChallengeCapability =
+  'social.challenge.send' | 'social.challenge.decline';
+
+/**
+ * A challenge's own rate limit (S3): sending or declining spends this
+ * bucket, never the friend-change budget (`friends:<actorId>`).
+ */
+export const challengeRateLimit = {
+  key: (actorId: string) => `friend-challenges:${actorId}`,
+  rule: { windowSeconds: 60, max: 30 },
+} as const;
+
+/** A challenge's own ports: its rate limit, lookup and fenced friend store. */
+export type ChallengeOperationDependencies = {
+  readonly clock: Clock;
+  readonly limit: (actorId: string) => Promise<void>;
+  readonly lookup: (username: string) => Promise<string | null>;
+  readonly store: (capability: ChallengeCapability) => FriendStore;
+};
 
 /**
  * Delivers a challenge to a friend, or declines one (ADR 0072), under the
@@ -18,18 +39,20 @@ export async function changeChallenge(
   principal: AuthorizationPrincipal,
   command: ChallengeCommand,
   input: { readonly username: string; readonly roomId: string },
-  dependencies: FriendOperationDependencies,
-): Promise<{ readonly username: string; readonly relation: 'friends' }> {
+  dependencies: ChallengeOperationDependencies,
+): Promise<Omit<ChallengeCommandResult, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   const otherActorId = await dependencies.lookup(input.username);
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');
-  // A challenge is offered on the same terms as a friend request (no block
-  // either way, both accounts current); the accepted friendship is checked
-  // below under the same lock. Split the capability if those terms diverge.
-  const capability =
-    command === 'challenge' ? 'social.friend.request' : 'social.friend.end';
+  // A challenge is authorized by its own capabilities (no block either way
+  // and both accounts current to send; declining is always open); the
+  // accepted friendship is checked below under the same lock.
+  const capability: ChallengeCapability =
+    command === 'challenge'
+      ? 'social.challenge.send'
+      : 'social.challenge.decline';
   try {
     await dependencies
       .store(capability)
@@ -52,5 +75,9 @@ export async function changeChallenge(
       throw createAppError('NOT_FOUND');
     throw error;
   }
-  return { username: input.username, relation: 'friends' };
+  return {
+    username: input.username,
+    roomId: input.roomId,
+    challenge: command === 'challenge' ? 'sent' : 'declined',
+  };
 }

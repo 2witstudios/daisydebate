@@ -2,11 +2,13 @@ import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import {
+  challengeCommandResultSchema,
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
   onlineCountsSchema,
   presenceSettingResultSchema,
+  type ChallengeCommandResult,
   type FriendCommandResult,
   type FriendList,
   type OnlineCounts,
@@ -39,7 +41,7 @@ export function createFriendHandlers(dependencies: {
     principal: AuthorizationPrincipal,
     command: 'challenge' | 'decline',
     input: { readonly username: string; readonly roomId: string },
-  ) => Promise<Omit<FriendCommandResult, 'version'>>;
+  ) => Promise<Omit<ChallengeCommandResult, 'version'>>;
   readonly presence: (
     principal: AuthorizationPrincipal,
     hidden: boolean,
@@ -89,7 +91,7 @@ export function createFriendHandlers(dependencies: {
             : friendCommandSchemas.declineChallenge,
           input,
         );
-        return friendCommandResultSchema.parse({
+        return challengeCommandResultSchema.parse({
           version: 1,
           ...(await dependencies.challenge(principal, command, {
             username,

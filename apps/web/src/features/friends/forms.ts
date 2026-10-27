@@ -77,13 +77,15 @@ export const friendFormUnavailable = (form: FormData): FriendFormState => ({
 });
 
 /** The confirmation for a change that went through. */
+/** What a member reads after declining a friend's challenge. */
+export const challengeDeclinedNotice = (username: string) =>
+  `Declined @${username}'s challenge.`;
+
 export function friendDoneNotice(
-  intent: FriendIntent,
+  intent: Exclude<FriendIntent, 'decline-challenge'>,
   username: string,
   relation: FriendRelation,
 ): string {
-  if (intent === 'decline-challenge')
-    return `Declined @${username}'s challenge.`;
   if (relation === 'friends') return `You and @${username} are now friends.`;
   switch (intent) {
     case 'request':
