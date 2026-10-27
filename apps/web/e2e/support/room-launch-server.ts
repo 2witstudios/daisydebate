@@ -102,6 +102,14 @@ const realtime = createLaunchProcess({
     REALTIME_PORT: String(slot.port + 3),
     REALTIME_HOST: '127.0.0.1',
     REALTIME_ALLOWED_ORIGINS: origin,
+    // Every simulated member in the suite connects from this one loopback
+    // address, so the per-address caps (20 sockets, 60 upgrades a minute)
+    // would refuse later tests' handshakes with 429 while earlier pages'
+    // retries refill the window. Per-member and unauthenticated caps keep
+    // their production values; only the shared-address bound reflects that
+    // many members sit behind it.
+    REALTIME_MAX_IP_CONNECTIONS: '10000',
+    REALTIME_MAX_IP_UPGRADES: '10000',
     // Tickets the web processes issue must be redeemable by this realtime process.
     REDIS_NAMESPACE: slot.namespace,
   },
