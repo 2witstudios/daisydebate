@@ -15,6 +15,7 @@ export type RoundReceiptView = Pick<
   | 'outcome'
   | 'unjudgedRuling'
 > & {
+  readonly resolutionAudit?: RoundView['resolutionAudit'];
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
   readonly rules: Pick<
     RoundView['rules'],
@@ -139,6 +140,9 @@ export function RoundReceipt({
           ))}
         </ul>
       </section>
+      {round.resolutionAudit ? (
+        <DrawAudit audit={round.resolutionAudit} />
+      ) : null}
       <section
         aria-label="Frozen settings"
         className="rounded-xl bg-surface p-6 shadow-1"
@@ -168,5 +172,44 @@ export function RoundReceipt({
         </ol>
       </section>
     </main>
+  );
+}
+
+const strikeWho: Readonly<Record<'debater' | 'timeout' | 'automatic', string>> =
+  {
+    debater: 'struck',
+    timeout: 'ran out of time; Daisy struck',
+    automatic: 'struck',
+  };
+
+/** How the resolution was chosen, once the Round has ended (ADR 0076). */
+function DrawAudit({
+  audit,
+}: {
+  readonly audit: NonNullable<RoundView['resolutionAudit']>;
+}) {
+  const text = (position: number) =>
+    audit.items.find((item) => item.position === position)?.text ??
+    'A removed resolution';
+  return (
+    <section
+      aria-labelledby="receipt-draw"
+      className="rounded-xl bg-surface p-6 shadow-1"
+    >
+      <h2 id="receipt-draw" className="font-strong">
+        How the resolution was chosen
+      </h2>
+      <ol className="text-sm">
+        {audit.strikes.map((strike) => (
+          <li key={strike.ordinal}>
+            {strike.side === 'negative' ? 'Negative' : 'Affirmative'}{' '}
+            {strikeWho[strike.kind]} “{text(strike.position)}”
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs wrap-anywhere text-ink-muted">
+        Draw commitment {audit.commitment}
+      </p>
+    </section>
   );
 }
