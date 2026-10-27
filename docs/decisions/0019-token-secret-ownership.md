@@ -1,7 +1,8 @@
 # 0019: token and secret ownership
 
 Status: accepted. Amended by [ADR 0048](0048-authorization-core.md): the
-loggable field `denyReason` (see the amendment at the end).
+loggable field `denyReason` (see the amendment at the end), and by
+[ADR 0076](0076-admin-app-architecture.md): the admin app's own credentials.
 
 Better Auth owns its session, verification, and credential token persistence
 through its adapter. Daisy application code owns only application secrets and
@@ -97,3 +98,12 @@ decision denied and is logged with the operation, never with the resource's
 contents. It is not in the table above yet: `loggableFields` and the table
 are one change under the drift guard, so AZC-1.2 adds the field to both
 together.
+
+## Amendment (2026-10-26): admin app credentials
+
+[ADR 0076](0076-admin-app-architecture.md) scopes the Better Auth ownership
+above to the participant app. The admin app owns its own enrollment and
+session tokens, WebAuthn challenges and operator passkeys, outside Better
+Auth, in its own database: 32 OS CSPRNG bytes, base64url, stored and compared
+only as SHA3-256 digests. Nothing else in this record changes; no admin token,
+cookie or challenge is ever logged.
