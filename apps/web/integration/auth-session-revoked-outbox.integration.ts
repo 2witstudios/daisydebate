@@ -129,12 +129,19 @@ for (const route of routes) {
       const keptWhileBlocked = await Promise.all(
         targets.map(({ sessionToken }) => sessionExists(admin, sessionToken)),
       );
+      // One lookup per token: Bun's unsafe() does not bind a JS array as a
+      // PostgreSQL array parameter.
       const targetIds: string[] = (
-        await admin.unsafe(
-          'select id from session where token = any($1) order by id',
-          [targets.map(({ sessionToken }) => sessionToken)],
+        await Promise.all(
+          targets.map(async ({ sessionToken }) => {
+            const [row] = await admin.unsafe(
+              'select id from session where token = $1',
+              [sessionToken],
+            );
+            return (row as { id: string }).id;
+          }),
         )
-      ).map(({ id }: { id: string }) => id);
+      ).sort();
       const status = (
         await postRoute(auth, route, first.cookie, second.sessionToken)
       ).status;
