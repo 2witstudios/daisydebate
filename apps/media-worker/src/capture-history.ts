@@ -96,12 +96,15 @@ export async function readCaptureHistory(
       options.deadlineSignal?.() ??
       AbortSignal.timeout(CAPTURE_HISTORY_READ_MS);
     try {
-      return await readSnapshot(
+      const snapshot = await readSnapshot(
         client,
         epoch,
         AbortSignal.any([signal, deadline]),
         segmentId,
       );
+      signal.throwIfAborted();
+      if (deadline.aborted) continue;
+      return snapshot;
     } catch (error) {
       // Keep the live subscription/staging only for our own acquisition timeout.
       // A caller abort or server refusal still ends capture immediately.
