@@ -188,9 +188,12 @@ function DrawAudit({
 }: {
   readonly audit: NonNullable<RoundView['resolutionAudit']>;
 }) {
+  // A spectator of a host list reads whose line it was; an erased one reads as removed.
   const text = (position: number) =>
     audit.items.find((item) => item.position === position)?.text ??
-    'A removed resolution';
+    (audit.textsWithheld
+      ? 'A line from the host’s list'
+      : 'A removed resolution');
   return (
     <section
       aria-labelledby="receipt-draw"

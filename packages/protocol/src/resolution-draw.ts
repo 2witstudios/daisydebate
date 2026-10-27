@@ -345,5 +345,11 @@ export const resolutionAuditSchema = z.strictObject({
   ...settledOutcome,
   /** True once an erasure deleted the private inputs: no replay remains. */
   inputsErased: z.boolean(),
+  /**
+   * True when struck host-written lines are withheld from this reader: only
+   * the Round's own people read them; positions and the commitment still
+   * verify (orchestrator decision, ADR 0076 §7).
+   */
+  textsWithheld: z.boolean(),
 });
 export type ResolutionAudit = z.infer<typeof resolutionAuditSchema>;

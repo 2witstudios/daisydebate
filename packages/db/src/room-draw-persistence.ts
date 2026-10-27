@@ -223,5 +223,6 @@ export const roundResolutionAudit = async (
     survivorPosition: evidence.survivorPosition,
     revealedAt: evidence.revealedAt,
     inputsErased: !inputs,
+    textsWithheld: false,
   };
 };
