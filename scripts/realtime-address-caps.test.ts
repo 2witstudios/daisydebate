@@ -1,8 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 const root = new URL('..', import.meta.url).pathname;
-const harness = 'apps/web/e2e/support/room-launch-server.ts';
-test('the per-address realtime caps are raised only by the browser launch harness', async () => {
+const harness = 'apps/web/e2e/support/realtime-config-support.ts';
+test('the per-address realtime caps are raised only by the realtime browser suite launch config', async () => {
   const listed = Bun.spawnSync(['git', 'ls-files'], { cwd: root });
   const files = listed.stdout
     .toString()
