@@ -4,8 +4,8 @@ import { useState, type ReactNode } from 'react';
 import {
   clubChoices,
   experienceChoices,
-  formatChoices,
-  topicChoices,
+  formatPreferenceChoices,
+  interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
@@ -209,7 +209,7 @@ export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
         <fieldset className="m-0 border-0 p-0">
           <legend className={legend}>Formats</legend>
           <div className="flex flex-wrap gap-3">
-            {formatChoices.map((format) => (
+            {formatPreferenceChoices.map((format) => (
               <Choice
                 key={format}
                 type="checkbox"
@@ -249,7 +249,7 @@ export function TopicsStep({ answers, ...rest }: QuestionStepProps) {
         aria-labelledby="onboarding-title"
         className="flex flex-wrap gap-3"
       >
-        {topicChoices.map((topic) => (
+        {interestCategoryChoices.map((topic) => (
           <Choice
             key={topic}
             type="checkbox"

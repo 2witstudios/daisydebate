@@ -1,8 +1,8 @@
 import type {
   clubChoices,
   experienceChoices,
-  formatChoices,
-  topicChoices,
+  formatPreferenceChoices,
+  interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
 
@@ -27,11 +27,17 @@ export const experienceLabels: Record<
   circuit: 'Competed on a circuit',
   veteran: 'Coached or judged for years',
 };
-export const formatLabels: Record<(typeof formatChoices)[number], string> = {
+export const formatLabels: Record<
+  (typeof formatPreferenceChoices)[number],
+  string
+> = {
   'one-on-one': 'One-on-one',
   teams: 'Teams',
 };
-export const topicLabels: Record<(typeof topicChoices)[number], string> = {
+export const topicLabels: Record<
+  (typeof interestCategoryChoices)[number],
+  string
+> = {
   politics: 'Politics',
   economics: 'Economics',
   philosophy: 'Philosophy',

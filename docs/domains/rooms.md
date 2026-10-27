@@ -20,6 +20,19 @@ UI copy may say "match"; the stored noun is the Round. "Lobby" is the public
 browsing surface of open Rooms. A LiveKit room is a media session
 (`media_sessions`), never a Daisy Room.
 
+"Topic" has three distinct meanings, and the code keeps them apart (ISSUE-404):
+
+- **A Room's or Round's `topic`** is the proposition being debated. The
+  Formats slice owns renaming it to "resolution" on the contracts.
+- **An onboarding interest category** (`InterestCategory`,
+  `interestCategoryChoices`) is a subject a member says they like debating.
+  Its partner, the format the member prefers, is `FormatPreference`, never a
+  Round's `FormatDefinition`.
+- **A realtime topic** is a routing address for doorbells, never debate
+  content.
+
+No shared "Topic" entity spans them.
+
 ## Assembly and Launch
 
 A host creates a Room from the catalog or a custom definition. Members take

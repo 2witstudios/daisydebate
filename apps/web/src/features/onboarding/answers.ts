@@ -1,13 +1,13 @@
 import {
   clubChoices,
   experienceChoices,
-  formatChoices,
-  topicChoices,
+  formatPreferenceChoices,
+  interestCategoryChoices,
   wantChoices,
   type Club,
   type Experience,
-  type Format,
-  type Topic,
+  type FormatPreference,
+  type InterestCategory,
   type Want,
 } from '@daisy/protocol';
 
@@ -17,9 +17,9 @@ type AboutAnswers = {
 };
 type ExperienceAnswers = {
   readonly experience: Experience | null;
-  readonly formats: readonly Format[];
+  readonly formats: readonly FormatPreference[];
 };
-type TopicsAnswers = { readonly topics: readonly Topic[] };
+type TopicsAnswers = { readonly topics: readonly InterestCategory[] };
 
 /** One questionnaire step's answers, as a member posts them. */
 type StepAnswers =
@@ -100,10 +100,10 @@ function read(
       return {
         step,
         experience: one(experienceChoices, input.experience),
-        formats: many(formatChoices, input.formats),
+        formats: many(formatPreferenceChoices, input.formats),
       };
     case 'topics':
-      return { step, topics: many(topicChoices, input.topics) };
+      return { step, topics: many(interestCategoryChoices, input.topics) };
   }
 }
 

@@ -108,13 +108,13 @@ export type {
 export {
   clubChoices,
   experienceChoices,
-  formatChoices,
-  topicChoices,
+  formatPreferenceChoices,
+  interestCategoryChoices,
   wantChoices,
   type Club,
   type Experience,
-  type Format,
-  type Topic,
+  type FormatPreference,
+  type InterestCategory,
   type Want,
 } from './onboarding';
 export {

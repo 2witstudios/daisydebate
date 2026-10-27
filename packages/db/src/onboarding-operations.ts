@@ -1,6 +1,12 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { asc, eq, sql } from 'drizzle-orm';
-import type { Club, Experience, Format, Topic, Want } from '@daisy/protocol';
+import type {
+  Club,
+  Experience,
+  FormatPreference,
+  InterestCategory,
+  Want,
+} from '@daisy/protocol';
 import {
   memberInterests,
   memberOnboarding,
@@ -25,17 +31,17 @@ export type OnboardingStepWrite =
   | {
       readonly step: 'experience';
       readonly experience: Experience | null;
-      readonly formats: readonly Format[];
+      readonly formats: readonly FormatPreference[];
     }
-  | { readonly step: 'topics'; readonly topics: readonly Topic[] };
+  | { readonly step: 'topics'; readonly topics: readonly InterestCategory[] };
 
 /** A member's stored answers; `completedAt` is a UTC ISO string. */
 type OnboardingRecord = {
   readonly wants: readonly Want[];
   readonly club: Club | null;
   readonly experience: Experience | null;
-  readonly formats: readonly Format[];
-  readonly topics: readonly Topic[];
+  readonly formats: readonly FormatPreference[];
+  readonly topics: readonly InterestCategory[];
   readonly completedAt: string | null;
 };
 
@@ -52,7 +58,7 @@ const noRow = {
 const rowAnswers = (row: OnboardingRow) => ({
   club: row.club as Club | null,
   experience: row.experience as Experience | null,
-  formats: row.formats as Format[],
+  formats: row.formats as FormatPreference[],
   completedAt: row.completedAt === null ? null : row.completedAt.toISOString(),
 });
 
@@ -64,7 +70,7 @@ const toRecord = (
 ): OnboardingRecord => ({
   ...(row === undefined ? noRow : rowAnswers(row)),
   wants: wants.map(({ value }) => value as Want),
-  topics: topics.map(({ value }) => value as Topic),
+  topics: topics.map(({ value }) => value as InterestCategory),
 });
 
 const touched = {
