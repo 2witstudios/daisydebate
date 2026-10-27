@@ -23,6 +23,12 @@ import { boundedFanout } from './bounded-fanout';
 
 /** Recipients of one row authorized concurrently (RT-2.3c-arch1). */
 const RECIPIENTS_IN_FLIGHT = 32;
+/**
+ * Authorizations one row may take while newer bells keep fencing them. A
+ * hot topic fences every pending allow, so a row is retried rather than
+ * resynced; the per-topic queue (64 rows) bounds how many bells can land.
+ */
+const FENCED_ATTEMPTS = 64;
 
 export function createSubscriptionDelivery({
   connections,
@@ -207,11 +213,18 @@ export function createSubscriptionDelivery({
 
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
-    if (!sub?.attached) return;
+    if (!sub || sub.initializing) return;
+    // A detached stream has a gap: a row on it rechecks authority now, so
+    // an elapsed lease resyncs at once rather than at the next pass, and an
+    // outage stays detached (RT-2.5c-arch1).
+    if (!sub.attached) {
+      await revalidateTopic(connection, row.topic, sub);
+      return;
+    }
     let outcome: Awaited<ReturnType<typeof refresh>> = 'superseded';
     // A newer bell or a concurrent revalidation can fence this attempt, even
-    // after its allow arrived: authorize the row once more rather than drop it.
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    // after its allow arrived: authorize the row again rather than drop it.
+    for (let attempt = 0; attempt < FENCED_ATTEMPTS; attempt += 1) {
       outcome = await refresh(connection, row.topic, sub);
       if (!ownsSubscription(connection, row.topic, sub)) return;
       if (
@@ -227,12 +240,7 @@ export function createSubscriptionDelivery({
     if (outcome === 'denied') terminate(connection, row.topic, sub);
     // The event cannot be authorized now: the subscriber re-reads and asks
     // again rather than missing it silently (ISSUE-445-r2).
-    else
-      transport.resync(
-        connection,
-        { id: sub.requestId, topic: row.topic },
-        sub,
-      );
+    else transport.resync(connection, row.topic, sub);
   }
   async function revalidateTopic(
     connection: Connection,
@@ -252,7 +260,7 @@ export function createSubscriptionDelivery({
     // An allow that expired in flight left the stream detached: reread now,
     // as the row path does, rather than stay silently stale until next pass.
     if (outcome === 'stale') {
-      transport.resync(connection, { id: sub.requestId, topic }, sub);
+      transport.resync(connection, topic, sub);
       return;
     }
     if (outcome !== 'allowed') return;
@@ -260,8 +268,7 @@ export function createSubscriptionDelivery({
     // A detached stream may have missed rows while it was suspended: it is
     // never reattached in place. The subscriber rereads its snapshot and
     // subscribes again, so recovery needs no later mutation (RT-2.5c-arch1).
-    if (!sub.attached)
-      transport.resync(connection, { id: sub.requestId, topic }, sub);
+    if (!sub.attached) transport.resync(connection, topic, sub);
   }
   async function revalidateConnection(
     connection: Connection,
@@ -299,17 +306,17 @@ export function createSubscriptionDelivery({
       for (const row of rows) invalidateRow(row);
     },
     /**
-     * One row to its local recipients, at most `RECIPIENTS_IN_FLIGHT`
+     * One deliverable row (the registry filters the rest before enqueueing)
+     * to its local recipients, at most `RECIPIENTS_IN_FLIGHT`
      * authorizations at a time, so a topic with many viewers drains at
      * roughly that multiple of one authorization's latency. The scheduler
      * keeps one row per topic in flight, so each subscription still sees
      * its rows in order.
      */
     async deliver(row: OutboxRow) {
-      if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) return;
       await boundedFanout(
-        [...connections].filter(
-          (connection) => connection.topics.get(row.topic)?.attached,
+        [...connections].filter((connection) =>
+          connection.topics.has(row.topic),
         ),
         RECIPIENTS_IN_FLIGHT,
         (connection) => deliverTo(connection, row),

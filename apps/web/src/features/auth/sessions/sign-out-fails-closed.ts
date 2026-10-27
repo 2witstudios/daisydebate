@@ -11,7 +11,14 @@ import { createAuthMiddleware } from 'better-auth/api';
  * On success the endpoint finds no session and only clears the cookie. The
  * delete's `session.revoked` control is the database trigger's, in the same
  * transaction (ADR 0032). A global `hooks.before` runs for the HTTP router
- * and `auth.api.signOut` alike.
+ * and `auth.api.signOut` alike, after Better Auth's origin check.
+ *
+ * Two consequences, both on the safe side. A request whose body the endpoint
+ * then rejects (400) has still ended its session: the cookie it keeps names
+ * no session, and a retry clears it. And the endpoint can no longer find the
+ * session for RP-initiated provider logout (`createEndSessionURL`). No social
+ * or OIDC provider is configured; adding one must read the session here
+ * before deleting it.
  */
 export const signOutFailsClosedPlugin: BetterAuthPlugin = {
   id: 'daisy-sign-out-fails-closed',

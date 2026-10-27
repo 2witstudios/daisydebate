@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instrumented, refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
 import { createRecordingLogger } from '../../server/test-loggers.test-support';
-import { reportAuthFailure } from './failure-report';
+import { betterAuthLogger, reportAuthFailure } from './failure-report';
 
 setupRitewayBun();
 
@@ -71,5 +71,53 @@ test('any other failure is a crash report', () => {
     should: 'log request.unhandled',
     actual: events(recorded),
     expected: ['request.unhandled'],
+  });
+});
+
+test('a refusal Better Auth logs and swallows is reported once, and not again if rethrown', async () => {
+  const { logger, recorded } = createRecordingLogger();
+  const refusal = refuseCapacity();
+  betterAuthLogger(logger).log(
+    'error',
+    'Failed to read session from database',
+    refusal,
+  );
+  const swallowed = events(recorded);
+  reportAuthFailure(
+    logger,
+    new Error('rethrown', { cause: refusal }),
+    'better-auth',
+    'Authentication request failed',
+  );
+  assert({
+    given:
+      'a capacity refusal Better Auth catches and logs, then the same refusal reaching the handler',
+    should:
+      'report it when Better Auth logs it, and leave exactly one db.capacity.refused and no crash report in all',
+    actual: { swallowed, total: events(recorded) },
+    expected: {
+      swallowed: ['db.capacity.refused'],
+      total: ['db.capacity.refused'],
+    },
+  });
+});
+
+test('Better Auth failures that are not refusals report severity only', () => {
+  const { logger, recorded } = createRecordingLogger();
+  const auth = betterAuthLogger(logger);
+  auth.log('info', 'routine');
+  auth.log('warn', 'select * from session where token = $1', new Error('x'));
+  assert({
+    given: 'an info line and a warning carrying driver detail',
+    should:
+      'drop the info line and report the warning as request.unhandled without its message',
+    actual: recorded,
+    expected: [
+      {
+        event: 'request.unhandled',
+        fields: { source: 'better-auth', sourceLevel: 'warn' },
+        message: 'Authentication library reported a failure',
+      },
+    ],
   });
 });

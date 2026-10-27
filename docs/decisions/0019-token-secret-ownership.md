@@ -115,7 +115,8 @@ cookie or challenge is ever logged.
 ## Amendment (2026-10-27): delivery backlog counts
 
 Bounded realtime delivery (RT-2.3c-arch1) reports what an instance still owes
-its subscribers on each readiness probe as `realtime.delivery.backlog`. It
+its subscribers as `realtime.delivery.backlog`, on a readiness probe that
+finds a retained row at least one second old. It
 adds four fields of kind **count**, each with privacy category `none`:
 `retained` (rows waiting or running), `running` (rows whose delivery has
 started), `topics` (topics holding retained rows) and `oldestAgeMs` (the

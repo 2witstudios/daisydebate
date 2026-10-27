@@ -75,3 +75,65 @@ test('a row whose authorization a revalidation fenced is authorized again, not d
     expected: ['subscribed', 'event'],
   });
 });
+
+test('rows that keep arriving during every authorization are delivered in order, not resynced', async () => {
+  const pending: ((decision: {
+    revision: string;
+    validUntil: number;
+  }) => void)[] = [];
+  let waiting!: () => void;
+  let started = new Promise<void>((done) => {
+    waiting = done;
+  });
+  let checks = 0;
+  const { registry, connection, sent } = fixture({
+    authorize: async () => {
+      checks += 1;
+      if (checks === 1) return { revision: '1', validUntil: 60_000 };
+      return new Promise((done) => {
+        pending.push(done);
+        waiting();
+      });
+    },
+  });
+  const allow = { revision: '1', validUntil: 60_000 };
+  // The next pending authorization, or none once the registry went idle.
+  const nextAuthorization = async () => {
+    const idle = await Promise.race([
+      started.then(() => false),
+      registry.settled().then(() => true),
+    ]);
+    if (idle && pending.length === 0) return undefined;
+    started = new Promise<void>((done) => {
+      waiting = done;
+    });
+    return pending.shift();
+  };
+  await registry.subscribe(connection, { id: 'request', topic });
+  registry.sink([row(1)]);
+  for (let id = 2; id <= 6; id += 1) {
+    const resolve = await nextAuthorization();
+    // A newer row's bell lands while this authorization is pending.
+    registry.sink([row(id)]);
+    resolve?.(allow);
+  }
+  for (let resolve = await nextAuthorization(); resolve;) {
+    resolve(allow);
+    resolve = await nextAuthorization();
+  }
+  assert({
+    given:
+      'a hot topic whose next row is sunk during each pending authorization',
+    should:
+      'authorize each fenced row again and publish all six in order, never resyncing',
+    actual: sent.map((frame) =>
+      frame.type === 'event'
+        ? `event:${(frame.payload as { entityVersion: number }).entityVersion}`
+        : frame.type,
+    ),
+    expected: [
+      'subscribed',
+      ...[1, 2, 3, 4, 5, 6].map((seq) => `event:${seq}`),
+    ],
+  });
+});

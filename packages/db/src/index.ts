@@ -20,6 +20,7 @@ import { createBoundedTransaction } from './bounded-transaction';
 export {
   isReportedCapacityRefusal,
   isTransactionCapacityRefusal,
+  markCapacityRefusalReported,
 } from './transaction-admission';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
