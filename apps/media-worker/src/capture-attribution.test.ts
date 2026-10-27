@@ -75,7 +75,7 @@ function harness(
     readonly read?: (request: {
       epoch: number;
       segmentId?: string;
-    }) => { state: typeof state; calibration: typeof calibration } | 'closed';
+    }) => Awaited<ReturnType<CaptureClient['read']>> | 'closed';
     /** Runs with the room's frame emitter once the subscription is set up. */
     readonly onSubscribe?: (
       emit: (frame: {
@@ -160,7 +160,7 @@ function harness(
           },
         };
       }) as never,
-      consume: (async ({ signal }) => {
+      consume: async ({ signal }) => {
         if (options.consumerFails === undefined)
           return new Promise<void>((resolve) =>
             signal.addEventListener('abort', () => resolve()),
@@ -169,7 +169,7 @@ function harness(
           setTimeout(resolve, options.consumerFails),
         );
         throw createAppError('INFRASTRUCTURE', 'append outlasted its retries');
-      }) as never,
+      },
     },
     new AbortController().signal,
   ).then(
@@ -240,10 +240,11 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
   const snapshot = (
     segmentId: string,
     serverNow: string,
-  ): { state: typeof state; calibration: typeof calibration } => ({
+  ): Awaited<ReturnType<CaptureClient['read']>> => ({
     calibration,
     state: {
       roundId: ROUND,
+      sessionId: ids('s'),
       version: 1,
       serverNow,
       status: 'active',
@@ -280,7 +281,7 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
   const stale = snapshot(segment, new Date(10000).toISOString());
   // The loop's own reads: the segment still live at setup, then superseded
   // with three settle windows passing, then the capture closed for good.
-  const loopAnswers: Array<ReturnType<typeof stale> | 'closed'> = [
+  const loopAnswers: (Awaited<ReturnType<CaptureClient['read']>> | 'closed')[] = [
     snapshot(segment, new Date(10001).toISOString()),
     snapshot(next, new Date(10050).toISOString()),
     snapshot(next, new Date(11500).toISOString()),
