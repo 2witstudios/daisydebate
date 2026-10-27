@@ -3,7 +3,7 @@ import type {
   RateDebateInput,
   RateDebateResult,
   RatingDecision,
-} from '@daisy/db';
+} from '@daisy/db/ratings';
 import { planRating, ratingEligibility } from '@daisy/debate-engine';
 
 /** The engine's rating rules in the shape the adapter asks for (ADR 0055). */

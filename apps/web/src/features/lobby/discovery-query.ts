@@ -1,14 +1,12 @@
 import {
   competitionTypes,
+  roomListDefaultPageSize,
   roomListQuerySchema,
   roomListStatuses,
   type RoomListQuery,
   type RoomListStatus,
 } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
-
-/** The listing's own page size when the URL names none. */
-export const defaultPageSize = 20;
 
 /** A status tab: every status, or one the listing narrows to. */
 export type LobbyStatus = 'all' | RoomListStatus;
@@ -57,7 +55,7 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
 export function lobbyHref(query: RoomListQuery, cursor?: string): string {
   const params = new URLSearchParams();
   if (query.q !== '') params.set('q', query.q);
-  if (query.pageSize !== defaultPageSize)
+  if (query.pageSize !== roomListDefaultPageSize)
     params.set('pageSize', String(query.pageSize));
   if (query.status) params.set('status', query.status);
   if (query.mode) params.set('mode', query.mode);

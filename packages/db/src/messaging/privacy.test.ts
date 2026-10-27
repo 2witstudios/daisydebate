@@ -39,6 +39,16 @@ test('subject export removes other-direction private state and serializes dates/
       { request_sender_actor_id: actorId, introduction: 'Own intro' },
       { request_sender_actor_id: peerId, introduction: 'Other intro' },
     ],
+    [
+      {
+        low_actor_id: actorId,
+        high_actor_id: peerId,
+        requester_actor_id: peerId,
+        state: 'accepted',
+        requested_at: date,
+        accepted_at: date,
+      },
+    ],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
     [
@@ -78,6 +88,7 @@ test('subject export removes other-direction private state and serializes dates/
       result.messaging_messages,
       result.messaging_contact_pairs,
       result.messaging_dm_pairs,
+      result.messaging_friendships,
       result.messaging_group_invitations,
       result.messaging_files,
     ],
@@ -101,6 +112,16 @@ test('subject export removes other-direction private state and serializes dates/
       [
         { request_sender_actor_id: actorId, introduction: 'Own intro' },
         { request_sender_actor_id: peerId },
+      ],
+      [
+        {
+          low_actor_id: actorId,
+          high_actor_id: peerId,
+          requester_actor_id: peerId,
+          state: 'accepted',
+          requested_at: now,
+          accepted_at: now,
+        },
       ],
       [
         {
@@ -151,6 +172,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [{ channelId }],
+    [],
     [],
     [],
     [],
@@ -212,8 +234,14 @@ test('erasure fences every subject channel before file cleanup and publishes fin
       queries[1]?.query.includes('order by id for update'),
       queries[fileIntent + 1]?.query.includes('delete from messaging_files'),
       receiptDelete?.params,
+      queries.findIndex((query) =>
+        query.query.includes('delete from messaging_friendships'),
+      ) <
+        queries.findIndex((query) =>
+          query.query.includes('delete from messaging_contact_pairs'),
+        ),
     ],
-    expected: [true, true, true, [actorId]],
+    expected: [true, true, true, [actorId], true],
   });
 });
 test('exhausted erase version refuses before association or file deletion', async () => {
