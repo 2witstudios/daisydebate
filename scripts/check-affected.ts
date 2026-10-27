@@ -204,10 +204,7 @@ export function planGates(
     args: ['bun', 'scripts/check-boundaries.ts'],
   });
   gates.push({ name: 'styling', args: ['bun', 'scripts/check-styling.ts'] });
-  // Repo-wide by nature and ~0.05s: a clone is only visible against the whole
-  // tree, so the tripwire runs on every push (ADR 0026).
-  gates.push({ name: 'knip', args: ['bun', 'run', 'knip'] });
-  gates.push({ name: 'duplication', args: ['bun', 'run', 'duplication'] });
+  // knip and duplication are reports, not quick-check gates (ADR 0083).
   if (plan.runRootScriptsTests)
     gates.push({ name: 'root script tests', args: ['bun', 'test', 'scripts'] });
   if (plan.runEslintConfigTest)
@@ -242,7 +239,7 @@ function formatAffectedReport(
   return [
     `Daisy check:affected — ${changedFiles.length} changed file${changedFiles.length === 1 ? '' : 's'}`,
     ...results.map(({ name, ok }) => `${ok ? 'PASS' : 'FAIL'} ${name}`),
-    'bun check is the main acceptance gate; this inner loop skips metrics and build.',
+    'bun check is the full blocking gate; this inner loop skips policy, invariants and build.',
     '',
   ].join('\n');
 }

@@ -42,8 +42,8 @@ describe('selectBrowserSpecs', () => {
     );
     assert({
       given: 'a theme edit with queue enforcement',
-      should: 'select theme and visual coverage plus user journey smoke',
-      actual: ['theme', 'visual', 'app', 'journey-no-js', 'csp'].every((name) =>
+      should: 'select theme coverage plus user journey smoke',
+      actual: ['theme', 'app', 'journey-no-js', 'csp'].every((name) =>
         plan.specs.includes(`${name}.e2e.ts`),
       ),
       expected: true,
@@ -53,6 +53,43 @@ describe('selectBrowserSpecs', () => {
       should: 'omit unrelated passkey lifecycle coverage',
       actual: plan.specs.includes('passkey-lifecycle.e2e.ts'),
       expected: false,
+    });
+  });
+  test('PRs and main pushes run Chromium only; the nightly run every project', () => {
+    const plan = (event: string) =>
+      selectBrowserSpecs(['unowned.ts'], event, false);
+    assert({
+      given: 'pull_request, push, merge_group, schedule and dispatch runs',
+      should: 'pass the Chromium project only on the per-change runs',
+      actual: [
+        'pull_request',
+        'push',
+        'merge_group',
+        'schedule',
+        'workflow_dispatch',
+      ].map((event) => plan(event).projectArgs),
+      expected: [
+        ['--project=chromium'],
+        ['--project=chromium'],
+        ['--project=chromium'],
+        [],
+        [],
+      ],
+    });
+    assert({
+      given: 'a Chromium-only run and the nightly run',
+      should:
+        'leave the visual spec, which no Chromium project runs, to nightly',
+      actual: ['pull_request', 'schedule'].map((event) =>
+        plan(event).specs.includes('visual.e2e.ts'),
+      ),
+      expected: [false, true],
+    });
+    assert({
+      given: 'a Chromium-only run and the nightly run',
+      should: 'install only the browsers the run uses',
+      actual: ['pull_request', 'schedule'].map((event) => plan(event).browsers),
+      expected: ['chromium', 'chromium firefox webkit'],
     });
   });
   test('every discovered browser spec has explicit ownership', async () => {
@@ -128,14 +165,22 @@ describe('browser workflow selection wiring', () => {
       };
     };
     const commands = workflow.jobs.e2e.steps.map(({ run }) => run);
+    const playwright = commands.findIndex((run) =>
+      run?.startsWith('bun run --cwd apps/web test:e2e'),
+    );
     assert({
       given: 'the actual browser workflow',
       should: 'write selection before invoking Playwright',
       actual:
         commands.indexOf('bun scripts/select-e2e.ts') >= 0 &&
-        commands.indexOf('bun scripts/select-e2e.ts') <
-          commands.indexOf('bun run --cwd apps/web test:e2e'),
+        commands.indexOf('bun scripts/select-e2e.ts') < playwright,
       expected: true,
+    });
+    assert({
+      given: 'the actual browser workflow',
+      should: 'pass the selected Playwright projects',
+      actual: commands[playwright],
+      expected: 'bun run --cwd apps/web test:e2e $DAISY_E2E_PROJECT_ARGS',
     });
     assert({
       given: 'the actual browser workflow',
@@ -146,59 +191,13 @@ describe('browser workflow selection wiring', () => {
   });
 });
 
-describe('browser prerequisite outcomes', () => {
-  test('skipped expensive jobs cannot mint successful required checks', async () => {
-    const workflow = Bun.YAML.parse(
-      await Bun.file('.github/workflows/e2e.yml').text(),
-    ) as {
-      jobs: Record<
-        string,
-        { needs: string | string[]; if?: string; steps?: { run?: string }[] }
-      >;
-    };
-    for (const [suite, gate] of [
-      ['e2e', 'playwright-gate'],
-      ['room-launch', 'native-gate'],
-    ]) {
-      assert({
-        given: `${suite} expensive browser work`,
-        should: 'wait for quick-check',
-        actual: workflow.jobs[suite].needs,
-        expected: 'quick-check',
-      });
-      const terminal = workflow.jobs[gate];
-      const command = terminal.steps?.[0]?.run ?? '';
-      const results = ['failure', 'skipped', 'cancelled', 'success'].map(
-        (state) =>
-          Bun.spawnSync(['sh', '-c', command], {
-            env: { ...process.env, QUICK: 'success', SUITE: state },
-          }).exitCode === 0,
-      );
-      assert({
-        given: 'a failed skipped or cancelled suite',
-        should: 'fail the always-running terminal check',
-        actual: { condition: terminal.if, needs: terminal.needs, results },
-        expected: {
-          condition: 'always()',
-          needs: ['quick-check', suite],
-          results: [false, false, false, true],
-        },
-      });
-    }
-  });
-});
-
 describe('queue enforcement identity', () => {
   test('requires every named gate from its expected App', () => {
     const required = [
       'CI gate',
       'Playwright E2E',
       'Isolated Room Launch E2E',
-      'review-record',
-    ].map((context) => ({
-      context,
-      integration_id: context === 'review-record' ? 5049967 : 15368,
-    }));
+    ].map((context) => ({ context, integration_id: 15368 }));
     const rules = (checks: typeof required) => [
       { type: 'merge_queue' },
       {

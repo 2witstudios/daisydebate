@@ -1,126 +1,91 @@
 ---
 name: task
-description: Plan, sequence and track an owner-authorized delivery, including provisional branch dependencies and independently reviewed main acceptance.
+description: >
+  Plan a semantic slice (or an epic) after your own discovery: one plan with a task list in the
+  repo's PageSpace drive (Plans/<slice>), posted for one confirmation, then built as one PR.
+  Use when asked to plan a slice or epic, break work into board tasks, sync progress, replan, or
+  check the board against the plan, or when the user says "/task", "/task sync", "/task replan",
+  "/task validate".
+compatibility: Requires the pagespace CLI with an active key, gh, and pu for the channel. In a repository with bun board:*, bun decision:record or bun adr:next (Daisy) it uses them.
 ---
 
-# Task workflow
+# 🗺️ task
 
-Read AGENTS.md and the relevant product/architecture documents. A request to
-implement an outcome authorizes planning, tasking, spawning and execution toward
-that outcome; do not request another approval for routine steps. A planning-only
-request produces a plan and discussion, not implementation. Human-only actions
-and changes to product intent still go to the owner. Use the repository's agent
-pipeline when present.
+Act as the builder who owns a semantic slice end to end. The process is:
+**semantic slice → your discovery and plan → one confirmation → one PR → Ralph loop → async reviews.**
+This skill covers the planning half; `/pr` and `/handoff` cover the rest.
 
-Record work in the project's PageSpace drive. Missing board plumbing does not
-revoke a direct instruction: continue independent branch work, record the
-administrative gap and reconcile it before handoff. Never invent IDs or copy
-credentials. Existing criteria remain intact; refinements to execution do not
-silently shrink the requested outcome. Agent-created follow-ups remain part of
-the original deliverable.
+Constraints {
+AGENTS.md governs. Read it first for the drive id, the board, the channel and the task-code prefixes in use. No drive declared => keep the plan in the PR description and say so.
+Discovery is yours. A mission brief names the outcome, the owning intent pages and ADRs, and the PRs and branches you inherit; it never contains research, so do the research yourself.
+One plan, one confirmation. Post the plan link on the pu channel; the architecture reviewer and the point guard confirm or redirect. Never wait for another approval after that, and never wait on the owner: product, architecture or scope questions go to the point guard on the channel.
+One PR per slice. A task is a provable outcome, not a PR: there is no file-count, line-count or one-PR-per-task rule. Split off an earlier PR only when a piece must ship first.
+A decision you make on someone's behalf is recorded (`bun decision:record` when present, otherwise the plan's Decisions list). Never bury one as "please confirm".
+Never edit the criteria of a task someone else delegated to you; take a change to whoever owns it.
+Never invent a page id; verify with `pagespace pages read-details <id>`.
+Never put secrets, tokens or .env material in a page or message.
+}
 
-## Plan and manifest
+## Process
 
-Resume an existing plan; do not duplicate it. Read relevant Issues and accepted
-ADRs. Record owner direction and provisional decisions. Maintain a manifest:
+### 1 — Discover
 
-| Leaf | Outcome / criteria | Owner | Build inputs | Accepts after | Active shared writer | Page ID |
-| ---- | ------------------ | ----- | ------------ | ------------- | -------------------- | ------- |
+discover() {
 
-Build inputs are implementations or facts needed for the next proof, not global
-completion statuses. An actual producer at a pinned unmerged SHA can satisfy
-availability: record source SHA, contract, source owner, integration SHA and gaps.
-A stub or branch name does not prove producer availability. Proposed policy can
-be explored in an isolated branch without becoming accepted product authority.
-Unavailable producers block dependent integration proof, not independent work.
+1. Read AGENTS.md, the docs and ADRs your slice touches, and the code itself.
+2. Read the drive: `Start here`, `Product intent/Product map`, the capability intents for your slice and their "Constraints other features must respect now" sections, the affected-capability links, and every `Issues` bucket for items touching your slice.
+3. Read every PR and branch you inherit: what each one carries, its head SHA, its open review threads, and whether its CI is green.
+4. Resume rather than duplicate: search the drive for an existing plan or epic for this slice (`pagespace search text "<slice>" --drive <id>`).
+   }
 
-Accepts after records prerequisites for completion/main, including composed
-contract proof and human activation gates. Neither integration nor cherry-pick
-marks a producer globally Done. Default-branch presence, separate producer review
-and global Done are not branch build prerequisites.
+### 2 — Plan
 
-Derive a dependency order from actual build inputs: reject unknown task codes and
-cycles; topologically sort, with manifest order breaking ties. Mark acceptance
-obligations separately. Coordinate live concurrent writers of the same file or
-resource; migration generation is serialized. Do not serialize every reader of a
-package or every independent route merely because the concept is shared. Stages
-are useful planning views, not barriers to independent progress. No task dates.
+plan() {
 
-## Independent plan review
+1. Create `Plans/<slice>` if missing, then one DOCUMENT `Plan — <slice>`. Sections, in order:
+   - Outcome: what is true when the slice merges.
+   - Sources: the intent pages, ADRs, mission prompt and inherited PRs (page mentions; GitHub URLs for PRs).
+   - Discovery findings: the facts that shape the design.
+   - Design: what changes, where, and why; migrations and ADRs (numbers from `bun adr:next`, announced on the channel when you claim one).
+   - Task list: one line per task, `<CODE> — Given X, should Y`. Reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix. Human-only tasks are marked `(human, <who>)`.
+   - Verification: local targeted checks, what CI proves, and any staging proof.
+   - Decisions and open questions.
+2. Board: one leaf per task code under the slice's epic (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code.
+3. Post one channel message: `pu channel send "<branch> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
+4. Start building at once on anything the open questions do not touch. The confirmation arrives on the channel; apply any redirect to the plan and keep going.
+   }
 
-For consequential or complex changes, request a read-only plan review using the
-repository command or an independent reviewer. Review missing inputs, actual
-writer conflicts, security/product boundaries and proof coverage. Unmerged inputs
-are provisional risks to reconcile, not automatic rejection. Apply findings and
-continue within existing authorization; do not introduce a reviewed-plan approval
-relay when implementation was already requested. A planning-only request stops
-at the reviewed plan as requested.
+### 3 — Build and deliver
 
-## Task administration
+deliver() {
 
-Create an epic/phase/leaf structure proportional to the work, with Given/should
-criteria and Related pages linking plan, prompts and reviews. Size leaves by a
-coherent provable result; no mandatory file-count, line-count or one-PR-per-leaf
-rule. One composed PR may deliver several leaves.
+1. Build the whole slice on one branch; commit and push often. Carry inherited commits into your branch (merge or cherry-pick), and close each inherited PR in favour of yours once your branch carries its content.
+2. Open the one PR with `/pr` and hand it to review with `/handoff`.
+3. Run the owner's Ralph loop on the PR, verbatim from the page the repository names (Daisy: PageSpace `p4xbp1iwavowuruqpi5fguf7`), until it emits PR_READY.
+4. Keep the plan current as the durable delivery record: remaining work, decisions, and anything a successor needs after a context handoff.
+   }
 
-Claim available work and keep status accurate. Ready means the agent can make
-useful progress in its branch, not that every acceptance prerequisite is Done.
-Do not mark human-only leaves Ready for agent execution. Agents may create and
-claim in-scope leaves and review tasks without parent reauthorization. Preserve
-other delegated criteria; owner steering can supersede them explicitly, with the
-change recorded. Status beyond Ready belongs to the executing agent and review
-workflow; Done needs independent acceptance evidence.
+### sync — keep the board honest
 
-Keep task bodies for criteria and navigation; keep the objective, dependency
-SHAs, provisional choices, remaining work and check obligations in the plan or
-delivery record. Record each failed/deferred check with candidate, reason,
-responsible agent, remaining proof and discharge point. Continue work that does
-not depend on the missing evidence. Run focused proofs now and full applicable
-checks on the composed candidate before main acceptance. Do not repeat expensive
-checks while their known blocking inputs are unchanged.
+sync() {
+Read the plan and the board. Set each task you are building to In Progress, and move the delivered tasks to In Review when the PR opens. Never set Done: the merge automation moves a merged PR's tasks to Done when its latest review verdict approves (Daisy: `scripts/merge-followup.ts`), and to Merged otherwise. File every finding outside the slice as an `ISSUE-n` in the drive's Issues list in the same session.
+}
 
-## Continue, review and deliver
+### replan — change without drift
 
-Builders may spawn their own independent reviewers through native PurePoint,
-fix findings, request delta review and continue without owner relays or pass
-limits. Code-writing children get their own worktrees; reviewers stay read-only.
-Use stable commit snapshots; freeze a mutable worktree only while a reviewer is
-actually using it. Branch feedback records cannot substitute for main approval.
+replan() {
+Edit the plan's Design and Task list first, then the board. New tasks take new codes or suffixes (`AUTH-7.5a`); never renumber. A changed product outcome or a scope cut goes to the point guard on the channel; execution changes need no approval.
+}
 
-Update the plan/manifest when execution changes. Replan independently within the
-authorized outcome; bring scope cuts, conflicting product choices and protected
-actions to the owner. Send meaningful milestones, final delivery, genuine blockers
-or writer conflicts directly to the spawning parent; no routine acknowledgment
-loop. At handoff link exact candidate, truthful tests, open obligations and
-independent reviews. Main acceptance discharges all applicable proof obligations;
-production activation retains human gates.
+### validate — board versus plan
 
-Commands: `/task <outcome>` plans/tasks within authorization; `/task sync` records
-progress and available work; `/task replan` updates the execution manifest;
-`/task validate` checks graph, IDs, ownership, criteria and proof obligations.
+validate() {
+Report PASS or FAIL for each: every task in the plan has exactly one leaf with that code; no leaf under the slice lacks a plan line (list those as drift and fold them in); the PR title or body names every code it delivers; human-only tasks carry no agent assignee.
+}
 
-## Receiving branch authority
-
-Within owner-authorized work, owners, point guards, root/main-level agents and
-worktree agents may merge producers into their own allocated unprotected
-non-main receiving branch. Root agents use an isolated receiving checkout, never
-the parent-main checkout. Coordinate actual writers/resources; ordinary merges
-and conflict resolution are allowed, never another agent's checkout/branch,
-force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
-and live branch protection/rulesets before acting; main, default and protected
-release targets retain acceptance/human protections, other protected targets
-follow their policy, and unknown protection facts refuse integration. Before PR
-merge automation, re-read live repository/base/head and verify the candidate
-and intended delivery target: the allocated receiving branch for producer
-integration, or the repository's resolved default branch for main acceptance.
-Compare the live base with that selected target; refuse mismatches or changed
-targets.
-
-Non-main integration needs no global Done, separate producer approval, green
-whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,
-record failed/deferred checks honestly, and preserve security/tests. One
-short-lived integration branch and umbrella PR may compose children before they
-are main-ready. Integration grants neither Done nor main acceptance. Autonomous
-agents never merge directly into main/default/protected release targets; request
-main auto-merge only under the live required review-record ruleset and applicable
-checks, otherwise report ready for owner merge. Production retains human gates.
+Commands {
+🗺️ /task <slice | mission page> - discover, write the plan and task list, post it, and start building
+🔄 /task sync <slice> - align board statuses with the branch and the PR
+✏️ /task replan <slice> - change the plan and board together
+✅ /task validate <slice> - check the board against the plan
+}
