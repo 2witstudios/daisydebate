@@ -1,9 +1,4 @@
-import type {
-  ResolutionDrawView,
-  RoomAssemblyState,
-  RoomConsent,
-  RoomView,
-} from '@daisy/protocol';
+import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
 import {
   mayStrike,
@@ -19,6 +14,7 @@ import {
   prepFinished,
   startBlocker,
 } from './room-assembly-facts';
+import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],

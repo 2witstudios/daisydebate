@@ -1,5 +1,6 @@
-import type { DrawBankSnapshot, RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol';
 import { revealed, turnOf } from './resolution-draw';
+import type { DrawBankSnapshot } from '@daisy/protocol/resolution-draw';
 
 export const prepFinished = (room: RoomAssemblyState, now: string) =>
   !room.executionPlan.preRoundPrep.enabled ||

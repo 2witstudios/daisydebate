@@ -142,7 +142,7 @@ export const claimSeat = (
   return acceptedRoomMutation(next);
 };
 /** Removes one seat: the pure core of leaving, removal and erasure. */
-export const removeSeat = (
+const removeSeat = (
   room: RoomAssemblyState,
   participantId: string,
 ): RoomAssemblyState => ({

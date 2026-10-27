@@ -7,7 +7,7 @@ import { debateSideSchema, idSchema } from './primitives';
  * turns and one survivor are contract assumptions, not modes.
  */
 export const resolutionCategories = ['policy', 'value', 'fact'] as const;
-export const resolutionCategorySchema = z.enum(resolutionCategories);
+const resolutionCategorySchema = z.enum(resolutionCategories);
 export type ResolutionCategory = (typeof resolutionCategories)[number];
 
 export const drawSources = ['bank', 'host'] as const;
@@ -105,9 +105,9 @@ export const freezeResolutionDraw = (
             : { kind: 'host', count: draw.source.resolutions.length },
       };
 
-export const strikeKinds = ['debater', 'timeout', 'automatic'] as const;
-export const strikeKindSchema = z.enum(strikeKinds);
-export const sideControllers = ['human', 'automatic'] as const;
+const strikeKinds = ['debater', 'timeout', 'automatic'] as const;
+const strikeKindSchema = z.enum(strikeKinds);
+const sideControllers = ['human', 'automatic'] as const;
 const sideControllersSchema = z.strictObject({
   affirmative: z.enum(sideControllers),
   negative: z.enum(sideControllers),
@@ -246,13 +246,6 @@ export type ResolutionDrawState = {
   readonly strikes: readonly ResolutionStrike[];
 };
 
-/** A candidate the adapter loaded for a draw. */
-export type ResolutionCandidate = {
-  readonly id: string;
-  readonly text: string;
-  readonly category: ResolutionCategory | null;
-};
-
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The canonical source a draw read: the bank's filters, or the host's list. */
@@ -279,6 +272,17 @@ export const drawPrivateInputsSchema = z.strictObject({
 });
 export type DrawPrivateInputs = z.infer<typeof drawPrivateInputsSchema>;
 
+/** How a settled draw ended: every strike with its instant, and the survivor. */
+const settledOutcome = {
+  strikes: z
+    .array(
+      publicStrikeSchema.extend({ position: z.int().min(0), at: timestamp }),
+    )
+    .readonly(),
+  survivorPosition: z.int().min(0),
+  revealedAt: timestamp,
+};
+
 /**
  * The proof metadata frozen onto a Round at Launch: no text, no seed and no
  * private input, so it never needs rewriting when content is erased.
@@ -298,13 +302,7 @@ export const resolutionDrawEvidenceSchema = z.strictObject({
       }),
     )
     .readonly(),
-  strikes: z
-    .array(
-      publicStrikeSchema.extend({ position: z.int().min(0), at: timestamp }),
-    )
-    .readonly(),
-  survivorPosition: z.int().min(0),
-  revealedAt: timestamp,
+  ...settledOutcome,
 });
 export type ResolutionDrawEvidence = z.infer<
   typeof resolutionDrawEvidenceSchema
@@ -327,13 +325,7 @@ export const resolutionAuditSchema = z.strictObject({
       }),
     )
     .readonly(),
-  strikes: z
-    .array(
-      publicStrikeSchema.extend({ position: z.int().min(0), at: timestamp }),
-    )
-    .readonly(),
-  survivorPosition: z.int().min(0),
-  revealedAt: timestamp,
+  ...settledOutcome,
   /** True once an erasure deleted the private inputs: no replay remains. */
   inputsErased: z.boolean(),
 });

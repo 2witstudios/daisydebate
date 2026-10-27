@@ -120,11 +120,6 @@ export const publishDefinition = async (
     createdByActorId: hostActorId,
   });
 };
-export const roomState = async (
-  tx: Tx,
-  row: typeof rooms.$inferSelect,
-): Promise<RoomAssemblyState> => (await roomFacts(tx, row)).state;
-
 /** The Room's state and its draw seed (hex), for settlement; never delivered. */
 export const roomFacts = async (
   tx: Tx,

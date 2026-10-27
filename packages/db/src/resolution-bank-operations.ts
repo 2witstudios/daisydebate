@@ -1,12 +1,12 @@
 import { and, inArray, isNull, max, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { ResolutionCategory } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   resolutionBankEntries,
   resolutionBankRevisions,
 } from './schema/resolution-draws';
+import type { ResolutionCategory } from '@daisy/protocol/resolution-draw';
 
 type NewEntry = {
   readonly id: string;

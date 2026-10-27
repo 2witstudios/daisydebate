@@ -1,5 +1,5 @@
 import { and, desc, eq, gt, isNull, lte, max, or } from 'drizzle-orm';
-import type { DrawBankSnapshot, RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol';
 import {
   resolutionBankEntries,
   resolutionBankRevisions,
@@ -7,6 +7,7 @@ import {
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import type { Tx } from './room-command-facts';
+import type { DrawBankSnapshot } from '@daisy/protocol/resolution-draw';
 
 /** Rounds per seated human whose chosen bank entries a new draw excludes. */
 const RECENT_ROUNDS = 20;

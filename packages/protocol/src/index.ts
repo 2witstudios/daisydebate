@@ -33,26 +33,6 @@ export {
   roomConfigSchema,
   roomExecutionPlanSchema,
 } from './room';
-export type { FrozenRoomConfig } from './room';
-export {
-  drawPrivateInputsSchema,
-  resolutionCategories,
-  resolutionDrawEvidenceSchema,
-  resolutionDrawManifestSchema,
-} from './resolution-draw';
-export type {
-  DrawBankSnapshot,
-  DrawPrivateInputs,
-  ResolutionCategory,
-  ResolutionAudit,
-  ResolutionDrawEvidence,
-  ResolutionDrawItem,
-  ResolutionDrawManifest,
-  ResolutionDrawState,
-  ResolutionDrawView,
-  ResolutionStrike,
-  SideControllers,
-} from './resolution-draw';
 export {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_COVERAGE_TOLERANCE,

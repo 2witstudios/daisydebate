@@ -6,7 +6,6 @@ import {
   ratingLadders,
   roundRulesSchema,
   frozenRoomConfigSchema,
-  resolutionDrawEvidenceSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -41,6 +40,7 @@ import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
+import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
 /** The ladder a Round rates on, as `rounds_rated_ladder_check` requires: Ranked, or none. */
 export const roundLadder = (

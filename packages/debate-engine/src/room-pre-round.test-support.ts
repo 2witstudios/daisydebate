@@ -6,7 +6,7 @@ import { bytesOf } from './draw-random';
 export const SEED = '01'.repeat(32);
 export const SALT = '02'.repeat(32);
 export const SENTINEL = 'SENTINEL-RESOLUTION';
-export const hostList = [1, 2, 3, 4, 5].map((n) => `${SENTINEL}-${n}`);
+const hostList = [1, 2, 3, 4, 5].map((n) => `${SENTINEL}-${n}`);
 
 export const drawConfig = {
   enabled: true as const,
@@ -53,7 +53,6 @@ export const drawStart = {
   bank: null,
   exclusions: [],
 };
-export const seed = SEED;
 export const seedBytes = bytesOf(SEED);
 export const at = (seconds: number) =>
   new Date(Date.parse(edges.now) + seconds * 1000).toISOString();
@@ -93,5 +92,5 @@ export const strike = (
     actorId,
     command('strike-resolution', { ordinal, position }, room),
     consent,
-    { ...edges, now, drawSeed: seed },
+    { ...edges, now, drawSeed: SEED },
   );

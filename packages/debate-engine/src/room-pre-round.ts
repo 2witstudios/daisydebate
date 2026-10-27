@@ -1,5 +1,4 @@
 import type {
-  ResolutionDrawManifest,
   RoomAssemblyState,
   RoomCommand,
   RoomConsent,
@@ -32,6 +31,7 @@ import {
   sideControllers,
   standingPositions,
 } from './resolution-draw';
+import type { ResolutionDrawManifest } from '@daisy/protocol/resolution-draw';
 
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,

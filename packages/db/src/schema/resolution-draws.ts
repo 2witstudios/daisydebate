@@ -1,8 +1,3 @@
-import {
-  drawPrivateInputsSchema,
-  resolutionCategories,
-  resolutionDrawManifestSchema,
-} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -18,6 +13,11 @@ import { jsonbColumn, jsonbIsObject, oneOf, timestampColumn } from './columns';
 import { actors } from './actors';
 import { rooms } from './rooms';
 import { rounds } from './rounds';
+import {
+  drawPrivateInputsSchema,
+  resolutionCategories,
+  resolutionDrawManifestSchema,
+} from '@daisy/protocol/resolution-draw';
 
 const hex64 = (column: PgColumn) => sql`${column} ~ '^[0-9a-f]{64}$'`;
 

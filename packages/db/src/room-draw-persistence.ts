@@ -1,10 +1,4 @@
 import { asc, eq } from 'drizzle-orm';
-import type {
-  DrawPrivateInputs,
-  ResolutionAudit,
-  ResolutionDrawEvidence,
-  ResolutionDrawState,
-} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   roomResolutionDrawInputs,
@@ -16,6 +10,12 @@ import {
   roundResolutionDrawTexts,
 } from './schema/resolution-draws';
 import type { Tx } from './room-command-facts';
+import type {
+  DrawPrivateInputs,
+  ResolutionAudit,
+  ResolutionDrawEvidence,
+  ResolutionDrawState,
+} from '@daisy/protocol/resolution-draw';
 
 /** The Room's draw as the engine reads it, plus its secret seed (hex). */
 export const loadRoomDraw = async (

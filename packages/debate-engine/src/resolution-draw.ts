@@ -1,21 +1,20 @@
-import type {
-  DebateSide,
-  ResolutionCategory,
-  ResolutionDrawItem,
-  ResolutionDrawState,
-  ResolutionStrike,
-  RoomAssemblyState,
-  SideControllers,
-} from '@daisy/protocol';
+import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
 import {
   automaticChoice,
   bytesOf,
   canonicalOrder,
   shuffle,
 } from './draw-random';
+import type {
+  ResolutionCategory,
+  ResolutionDrawItem,
+  ResolutionDrawState,
+  ResolutionStrike,
+  SideControllers,
+} from '@daisy/protocol/resolution-draw';
 
 /** An automatic side strikes this long after its turn opens. */
-export const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
+const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
 
 type Candidate = {
   readonly id: string;
@@ -133,7 +132,7 @@ export const survivorOf = (draw: ResolutionDrawState) => {
  * time-out strikes the lowest standing position; an automatic side's
  * choice comes from the seed.
  */
-export function settleDraw(
+function settleDraw(
   draw: ResolutionDrawState,
   seed: Uint8Array | null,
   now: string,

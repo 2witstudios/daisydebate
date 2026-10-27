@@ -8,7 +8,7 @@ import {
   SENTINEL,
   drawConfig,
   drawRoom,
-  seed,
+  SEED,
   at,
   begin,
   strike,
@@ -103,7 +103,7 @@ describe('strikes', () => {
 
   test('time-outs strike the lowest standing position at their due instant', () => {
     const room = started();
-    const settled = settleRoom(room, seed, at(125));
+    const settled = settleRoom(room, SEED, at(125));
     assert({
       given: 'two full windows passing with no strike',
       should:
@@ -121,7 +121,7 @@ describe('strikes', () => {
     assert({
       given: 'settling again at the same instant',
       should: 'add nothing',
-      actual: settleRoom(settled, seed, at(125)),
+      actual: settleRoom(settled, SEED, at(125)),
       expected: settled,
     });
   });
@@ -145,7 +145,7 @@ describe('strikes', () => {
       ),
     };
     const room = begin(withBot).state;
-    const settled = settleRoom(room, seed, at(3));
+    const settled = settleRoom(room, SEED, at(3));
     assert({
       given: 'a bot Negative and three seconds',
       should: 'record one automatic strike and open the human turn',
@@ -176,7 +176,7 @@ describe('strikes', () => {
           visibility: 'public',
         },
         consent,
-        { ...edges, drawSeed: seed },
+        { ...edges, drawSeed: SEED },
       ),
       expected: { ok: false, refusal: 'prep-running' },
     });
@@ -186,10 +186,10 @@ describe('strikes', () => {
 describe('projection', () => {
   const room = begin().state;
   const json = (viewer: string) =>
-    JSON.stringify(projectRoom(room, viewer, consent, edges.now, seed));
+    JSON.stringify(projectRoom(room, viewer, consent, edges.now, SEED));
 
   test('only debaters see drawn texts', () => {
-    const spectator = projectRoom(room, 'watcher', consent, edges.now, seed);
+    const spectator = projectRoom(room, 'watcher', consent, edges.now, SEED);
     assert({
       given: 'a spectator during the strike',
       should: 'see progress only, with no drawn or listed text anywhere',
@@ -208,9 +208,9 @@ describe('projection', () => {
       given: 'the Negative debater',
       should: 'see all five texts and may strike',
       actual: [
-        projectRoom(room, 'other', consent, edges.now, seed).resolutionDraw
+        projectRoom(room, 'other', consent, edges.now, SEED).resolutionDraw
           ?.visibility,
-        projectRoom(room, 'other', consent, edges.now, seed).capabilities
+        projectRoom(room, 'other', consent, edges.now, SEED).capabilities
           .canStrike,
       ],
       expected: ['debater', true],
