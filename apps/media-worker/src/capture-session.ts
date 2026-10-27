@@ -1,7 +1,5 @@
-import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { createCaptureSubscription } from '@daisy/media/capture';
-import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -22,7 +20,7 @@ import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
-import { createSessionOutcome } from './capture-outcome';
+import { captureSessionClosed, createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
 import { atStage } from './capture-exit';
 import { maintainCaptureLease } from './capture-lease';
@@ -296,16 +294,7 @@ async function captureSession(
     }
   }
   const failure = await outcome.settle(epoch);
-  // The server closed the capture for good: a normal end, not a failure.
-  if (failure && isCaptureClosedRefusal(failure))
-    return { ...stats, closed: true };
-  if (failure)
-    throw createAppError(
-      'INFRASTRUCTURE',
-      'Capture session ended before safe completion',
-      failure,
-    );
-  return { ...stats, closed: false };
+  return { ...stats, closed: captureSessionClosed(failure) };
 }
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));
