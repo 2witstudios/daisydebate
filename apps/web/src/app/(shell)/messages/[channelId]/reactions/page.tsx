@@ -32,19 +32,24 @@ export default async function MessageReactionsPage({
       {current === null ? (
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
-        <ConversationLive
-          channelId={channelId}
-          socketUrl={current.socketUrl}
-          snapshotId={systemId.next()}
-        >
-          <ul aria-label="Current reactions">
-            {current.result.reactions.map((item) => (
-              <li key={item.reaction}>
-                {item.reaction} · {item.count}
-                {item.own ? ' · You reacted' : ''}
-              </li>
-            ))}
-          </ul>
+        <>
+          <ConversationLive
+            channelId={channelId}
+            socketUrl={current.socketUrl}
+            snapshotId={systemId.next()}
+          >
+            <ul aria-label="Current reactions">
+              {current.result.reactions.map((item) => (
+                <li key={item.reaction}>
+                  {item.reaction} · {item.count}
+                  {item.own ? ' · You reacted' : ''}
+                </li>
+              ))}
+            </ul>
+          </ConversationLive>
+          {/* Outside the live snapshot and keyed by intent: a refresh that
+              leaves the reader's own reaction unchanged keeps each form, its
+              request and its notice; a toggle starts a fresh request. */}
           {[
             ...new Set([
               ...current.policy.choices,
@@ -53,22 +58,20 @@ export default async function MessageReactionsPage({
                 .map((item) => item.reaction),
             ]),
           ].map((reaction) => {
-            const requestId = systemId.next();
+            const active = !current.result.reactions.some(
+              (item) => item.reaction === reaction && item.own,
+            );
             return (
               <ReactionForm
-                key={requestId}
+                key={`${reaction}:${active}`}
                 action={changeReactionAction.bind(null, channelId, messageId)}
-                requestId={requestId}
+                requestId={systemId.next()}
                 reaction={reaction}
-                active={
-                  !current.result.reactions.some(
-                    (item) => item.reaction === reaction && item.own,
-                  )
-                }
+                active={active}
               />
             );
           })}
-        </ConversationLive>
+        </>
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
