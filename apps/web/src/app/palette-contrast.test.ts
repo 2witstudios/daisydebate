@@ -165,6 +165,13 @@ const declaredPairs: readonly Pair[] = [
   ...on(['--accent', '--online', '--live'], ['--hue-teal-soft'], UI).map(
     (pair) => ({ ...pair, base: '--background' }),
   ),
+  // The ballot's "Submitting opens in…" notice on the page: page ink and
+  // the large sky countdown on the sky tint.
+  ...on(['--text', '--text-muted'], ['--hue-sky-soft'], TEXT).map((pair) => ({
+    ...pair,
+    base: '--background',
+  })),
+  { fg: '--hue-sky', bg: '--hue-sky-soft', base: '--background', min: UI },
   // The fill bar: the accent fill against its track.
   { fg: '--accent', bg: '--border-strong', min: UI },
   // The stage is forest in both schemes and carries its own ink.
