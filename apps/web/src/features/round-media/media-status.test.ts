@@ -13,10 +13,13 @@ test('the media bar names a missing checked device and offers Retry while stayin
     ],
     ['a missing device at capture', mediaStatus('device-missing', [])],
     ['connecting', mediaStatus('connecting', [])],
+    ['unavailable', mediaStatus('unavailable', [])],
+    ['blocked devices', mediaStatus('device-blocked', [])],
+    ['an ended call', mediaStatus('ended', [])],
   ] as const;
   assert({
     given:
-      'a live call with none, one or both checked devices gone, a failed capture and a connecting call',
+      'every connection state, and a live call with none, one or both checked devices gone',
     should:
       'name exactly the missing kinds in agreeing grammar, and offer Retry only when there is something to retry',
     actual: cases.map(([given, status]) => [
@@ -42,6 +45,17 @@ test('the media bar names a missing checked device and offers Retry while stayin
         true,
       ],
       ['connecting', 'Connecting camera and sound…', false],
+      [
+        'unavailable',
+        'Camera and sound are unavailable. Retry to reconnect.',
+        true,
+      ],
+      [
+        'blocked devices',
+        'Camera or microphone access is blocked. Check your browser permissions, then retry.',
+        true,
+      ],
+      ['an ended call', 'The call has ended.', false],
     ],
   });
 });
