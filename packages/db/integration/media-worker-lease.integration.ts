@@ -39,7 +39,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
         given: 'no capture lease',
         should: 'refuse token scope verification',
         code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
       const claimed = await store.claimMediaWorkerLease({
         roundId,
@@ -47,7 +47,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
         workerId: scope.workerId,
         leaseMs: 15000,
       });
-      const verified = await store.verifyMediaWorkerLease(scope);
+      const verified = await store.verifyMediaWorkerLease(scope, 'mint');
       const { serverNow, ...verifiedScope } = verified;
       assert({
         given: 'the fresh post-lock PostgreSQL calibration stamp',
@@ -64,21 +64,31 @@ test('internal capture token admission requires a fresh exact lease and safe non
         expected: { ...scope, expiresAt: claimed.expiresAt },
       });
       for (const change of [{ workerId: createId() }, { epoch: 2 }])
-        await assertRejects({
-          given: 'a stale worker epoch or foreign session',
-          should: 'refuse token scope',
-          code: 'CONFLICT',
-          actual: () => store.verifyMediaWorkerLease({ ...scope, ...change }),
-        });
+        for (const purpose of ['recover', 'mint'] as const)
+          await assertRejects({
+            given: 'a stale worker epoch or foreign session',
+            should: 'refuse token scope',
+            code: 'CONFLICT',
+            actual: () =>
+              store.verifyMediaWorkerLease({ ...scope, ...change }, purpose),
+          });
       await fixture.sql.unsafe(
         'update media_sessions set unsafe_at=clock_timestamp() where id=$1',
         [scope.sessionId],
       );
       await assertRejects({
         given: 'an unsafe session',
-        should: 'refuse capture token admission',
-        code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        should:
+          'refuse token minting retryably while allowing exact leased recovery',
+        code: 'INFRASTRUCTURE',
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
+      });
+      assert({
+        given: 'unsafe vendor state with an exact unexpired lease',
+        should:
+          'verify only worker authority for recovery without granting token minting',
+        actual: (await store.verifyMediaWorkerLease(scope, 'recover')).epoch,
+        expected: scope.epoch,
       });
       await fixture.sql.unsafe(
         'update media_sessions set unsafe_at=null where id=$1',
@@ -94,9 +104,9 @@ test('internal capture token admission requires a fresh exact lease and safe non
       });
       await assertRejects({
         given: 'an unresolved vendor operation despite no unsafe timestamp',
-        should: 'refuse capture token admission',
-        code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        should: 'refuse token minting retryably',
+        code: 'INFRASTRUCTURE',
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
       await fixture.sql.unsafe(
         "update media_vendor_mutations set settled_at=clock_timestamp(),outcome='failed' where id=$1",
@@ -110,7 +120,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
         given: 'an ended session',
         should: 'refuse capture token admission',
         code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
       await fixture.sql.unsafe(
         'update media_sessions set ended_at=null,deletion_requested_at=clock_timestamp() where id=$1',
@@ -118,9 +128,10 @@ test('internal capture token admission requires a fresh exact lease and safe non
       );
       await assertRejects({
         given: 'a session with a deletion request',
-        should: 'refuse capture token admission (CAP-E.1-r6)',
-        code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        should:
+          'refuse capture token minting retryably until recovery completes (CAP-E.1-r6)',
+        code: 'INFRASTRUCTURE',
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
       await fixture.sql.unsafe(
         'update media_sessions set deletion_requested_at=null where id=$1',
@@ -134,7 +145,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
         given: 'an expired lease',
         should: 'refuse capture token admission',
         code: 'CONFLICT',
-        actual: () => store.verifyMediaWorkerLease(scope),
+        actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
       const fresh = await store.claimMediaWorkerLease({
         roundId,
@@ -151,7 +162,10 @@ test('internal capture token admission requires a fresh exact lease and safe non
         should: 'refuse new capture token admission',
         code: 'CONFLICT',
         actual: () =>
-          store.verifyMediaWorkerLease({ ...scope, epoch: fresh.epoch }),
+          store.verifyMediaWorkerLease(
+            { ...scope, epoch: fresh.epoch },
+            'mint',
+          ),
       });
     } finally {
       await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
