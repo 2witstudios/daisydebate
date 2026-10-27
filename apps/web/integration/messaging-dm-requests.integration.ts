@@ -79,18 +79,18 @@ test('real DM recipient accept opens history/post and binds closed retry through
       actual: send,
       code: 'AUTHORIZATION',
     });
-    const preview = await dmStore(recipient).withChannel(
-      { ...recipient, channelId: fixture.channelId },
-      (frame) => frame.readRequest(),
-    );
+    const preview = await dmStore(recipient).readRequest({
+      ...recipient,
+      channelId: fixture.channelId,
+    });
     await assertRejects({
       given: 'the request sender using the recipient preview grant',
       should: 'conceal the pending introduction route',
       actual: () =>
-        dmStore(sender).withChannel(
-          { ...sender, channelId: fixture.channelId },
-          (frame) => frame.readRequest(),
-        ),
+        dmStore(sender).readRequest({
+          ...sender,
+          channelId: fixture.channelId,
+        }),
       code: 'NOT_FOUND',
     });
     const result = await decideMessagingDm(command, recipient, dependencies);

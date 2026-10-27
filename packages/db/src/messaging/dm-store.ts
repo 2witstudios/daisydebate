@@ -6,7 +6,7 @@ import {
   messagingDmPairs,
   messagingSocialCommands,
 } from '../schema/messaging-social';
-import { withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingChannel } from './channel-frame';
 import { readMessagingChannelFact } from './social';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import type {
@@ -32,6 +32,18 @@ export function createMessagingDmStore({
   readonly authorize: MessagingDmFence;
 }): MessagingDmStore {
   return {
+    readRequest: (scope) =>
+      readMessagingChannel(database, scope, async ({ tx, accounts }) => {
+        const fact = await readMessagingChannelFact(
+          tx,
+          scope.channelId,
+          scope.actorId,
+        );
+        if (!fact || fact.authority.kind !== 'dm')
+          throw createAppError('NOT_FOUND');
+        await authorize('read')(tx, scope, { fact, accounts });
+        return readRequestRow(tx, scope.channelId);
+      }),
     withChannel: (scope, work) =>
       withMessagingChannel(
         database,
@@ -62,16 +74,6 @@ export function createMessagingDmStore({
             return fact;
           };
           return work({
-            async readRequest() {
-              await fresh('read');
-              const row = await currentRequest();
-              return {
-                channelId: row.channelId,
-                senderActorId: row.requestSenderActorId,
-                introduction: row.introduction,
-                requestedAt: row.requestedAt.toISOString(),
-              };
-            },
             async readDecisionState(command) {
               validateDecision(command);
               const fact = await currentFact();
@@ -149,6 +151,23 @@ export function createMessagingDmStore({
           });
         },
       ),
+  };
+}
+/** The pending request's preview: sender, introduction and time, never more. */
+async function readRequestRow(
+  tx: Pick<BunSQLDatabase, 'select'>,
+  channelId: string,
+) {
+  const [row] = await tx
+    .select()
+    .from(messagingDmPairs)
+    .where(eq(messagingDmPairs.channelId, channelId));
+  if (!row) throw createAppError('NOT_FOUND');
+  return {
+    channelId: row.channelId,
+    senderActorId: row.requestSenderActorId,
+    introduction: row.introduction,
+    requestedAt: row.requestedAt.toISOString(),
   };
 }
 function validateDecision(command: DecisionCommand) {

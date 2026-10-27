@@ -10,7 +10,7 @@ import {
   type SpeechSlot,
   type TemplateContext,
 } from './documents';
-import { escapeHtml } from '../../documents/html';
+import { escapeHtml } from '../../../lib/escape-html';
 
 setupRitewayBun();
 

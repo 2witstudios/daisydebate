@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../documents/html';
+import { escapeHtml } from '../../../lib/escape-html';
 import { sideLabel } from '../library/library-item';
 import {
   budget,

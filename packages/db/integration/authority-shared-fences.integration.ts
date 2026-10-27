@@ -1,5 +1,9 @@
 import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { createMessagingStore } from '../src/messaging';
+import { createMessagingTestFixture } from '../src/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sqlStateOf, withFixture } from './constraint-helpers';
 
@@ -89,5 +93,114 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
         expected: ['accepted', 'accepted'],
       });
     });
+  });
+
+  test('two readers of one DM channel pass the pair and channel fences together; writers and readers wait for each other', async () => {
+    const client = new SQL(url);
+    const f = await createMessagingTestFixture(client);
+    try {
+      const readChannel = (sql: SQL) =>
+        sql`select public.daisy_messaging_channel_read_fence(${f.channelId}, ${f.low}, ${f.high}) as fenced`;
+      const lockChannel = (sql: SQL) =>
+        sql`select public.daisy_messaging_channel_fence(${f.channelId}, ${f.low}, ${f.high}) as fenced`;
+      const [{ fenced }] = await readChannel(client);
+      assert({
+        given:
+          'a DM channel whose pair and channel row one reader holds shared',
+        should:
+          'admit a second reader at once, make the exclusive writer wait, and make a reader wait behind a held writer',
+        actual: {
+          fenced,
+          reader: await whileHeld(readChannel, readChannel),
+          writer: await whileHeld(readChannel, lockChannel),
+          readerBehindWriter: await whileHeld(lockChannel, readChannel),
+          // A swapped pair is not a selector the fence accepts.
+          swappedPair: await sqlStateOf(
+            () =>
+              client`select public.daisy_messaging_channel_read_fence(${f.channelId}, ${f.high}, ${f.low})`,
+          ),
+        },
+        expected: {
+          fenced: true,
+          reader: 'accepted',
+          writer: '55P03',
+          readerBehindWriter: '55P03',
+          swappedPair: '22023',
+        },
+      });
+    } finally {
+      await f.cleanup();
+      await client.close();
+    }
+  });
+
+  test('private group readers share the channel row; a writer waits for them', async () => {
+    const client = new SQL(url);
+    const channelId = createId();
+    try {
+      await client.unsafe(
+        "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
+        [channelId],
+      );
+      const readGroup = (sql: SQL) =>
+        sql`select public.daisy_messaging_channel_read_fence(${channelId}, null, null) as fenced`;
+      const lockGroup = (sql: SQL) =>
+        sql`select public.daisy_messaging_channel_fence(${channelId}, null, null) as fenced`;
+      const [{ fenced }] = await readGroup(client);
+      assert({
+        given: 'a private group channel held by one shared reader',
+        should: 'admit a second reader and make the exclusive writer wait',
+        actual: {
+          fenced,
+          reader: await whileHeld(readGroup, readGroup),
+          writer: await whileHeld(readGroup, lockGroup),
+        },
+        expected: { fenced: true, reader: 'accepted', writer: '55P03' },
+      });
+    } finally {
+      await client.unsafe('delete from messaging_channels where id=$1', [
+        channelId,
+      ]);
+      await client.close();
+    }
+  });
+
+  test('a store history read runs end to end under the shared fences', async () => {
+    const client = new SQL(url);
+    const f = await createMessagingTestFixture(client);
+    const messageId = createId();
+    try {
+      await client.unsafe(
+        'update messaging_channels set message_sequence=1,change_version=1 where id=$1',
+        [f.channelId],
+      );
+      await client.unsafe(
+        'insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,1,1,$4,$5)',
+        [messageId, f.channelId, f.actorId, 'Shared read', f.now],
+      );
+      const store = createMessagingStore({
+        database: drizzle({ client }),
+        authorize: async () => {},
+      });
+      const scope = {
+        channelId: f.channelId,
+        userId: f.userId,
+        actorId: f.actorId,
+      };
+      const pages = await Promise.all(
+        [0, 1].map(() =>
+          store.readChannel(scope, (frame) => frame.history({ limit: 10 })),
+        ),
+      );
+      assert({
+        given: 'two concurrent history reads of one DM through readChannel',
+        should: 'both answer the message from real Postgres',
+        actual: pages.map((page) => page.messages.map((row) => row.id)),
+        expected: [[messageId], [messageId]],
+      });
+    } finally {
+      await f.cleanup();
+      await client.close();
+    }
   });
 });

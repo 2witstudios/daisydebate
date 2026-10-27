@@ -117,8 +117,10 @@ rows in the same order `FOR SHARE`, through
 `daisy_messaging_channel_read_fence`. Peer readers no longer serialize one
 another, and a reader still waits for a writer and a writer for its
 readers, so no reader sees a half-applied authority change. A reader that
-observes a cast change after its waits restarts once, bounded, rather than
-answering from the earlier cast. A transaction that already holds the
-exclusive fence and then reads takes a lock it already covers; locks are
+observes a cast change after its waits restarts, at most twice, then
+answers a retryable `INFRASTRUCTURE` rather than from the earlier cast. A
+transaction that already holds the exclusive fence and then reads takes a
+lock it already covers; a transaction that read shared never takes the
+exclusive fence afterwards, so locks are
 never upgraded. Order stays user rows, then the contact pair, then the
 channel row.

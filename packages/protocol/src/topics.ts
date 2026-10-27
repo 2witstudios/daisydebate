@@ -9,7 +9,7 @@ import { idSchema } from './primitives';
 const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
 
 /**
- * The one topic-family vocabulary: the five families realtime delivers on.
+ * The one topic-family vocabulary: the families realtime delivers on.
  * A family is a topic's first segment, plus its third when it has one
  * (`round:<id>:presence` is `round:presence`). Every other string is
  * refused by `parseTopic` at the trust boundary. The outbox storage rule

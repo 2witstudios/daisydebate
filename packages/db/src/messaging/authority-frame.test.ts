@@ -4,10 +4,13 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
+  castChanged,
   createMessagingChannelAuthority,
+  restartingRead,
   withLockedMessagingAuthority,
 } from './authority-frame';
 import { messagingAuthorityFixture } from './social.test-support';
+import { createAppError } from '@daisy/errors';
 setupRitewayBun();
 /** The statement order each scenario runs: a shared read restarts once on drift. */
 function expectedStatements(
@@ -225,5 +228,38 @@ test('a read whose cast keeps moving gives up after two restarts, never answerin
     should: 'run exactly the first transaction and two restarts',
     actual: transactions,
     expected: 3,
+  });
+});
+
+test('a read restarts on a cast change even when a layer wrapped it, and never on a plain CONFLICT', async () => {
+  const attempts = async (first: () => Error) => {
+    let transactions = 0;
+    const answer = await restartingRead(
+      {
+        transaction: async (work: (tx: never) => Promise<unknown>) => {
+          transactions += 1;
+          if (transactions === 1) throw first();
+          return work(undefined as never);
+        },
+      } as unknown as BunSQLDatabase,
+      async () => 'fresh',
+    ).catch((error: { code?: string }) => error.code);
+    return { answer, transactions };
+  };
+  assert({
+    given:
+      'a cast change wrapped as the cause of another error, then an unrelated CONFLICT',
+    should:
+      'restart the wrapped one and answer fresh, but surface the plain CONFLICT at once',
+    actual: [
+      await attempts(
+        () => new Error('driver wrapper', { cause: castChanged() }),
+      ),
+      await attempts(() => createAppError('CONFLICT')),
+    ],
+    expected: [
+      { answer: 'fresh', transactions: 2 },
+      { answer: 'CONFLICT', transactions: 1 },
+    ],
   });
 });

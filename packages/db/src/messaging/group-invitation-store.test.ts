@@ -221,6 +221,10 @@ for (const scenario of [
             ...(scenario === 'invalid-invitee'
               ? { inviteeActorId: 'invalid' }
               : {}),
+            // A writer refuses a moved inviter; a read restarts (below).
+            ...(scenario === 'changed-inviter'
+              ? { operation: 'decline' as const }
+              : {}),
           },
           async () => {
             throw new Error('must not enter');

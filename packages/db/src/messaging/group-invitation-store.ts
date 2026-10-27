@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import {
+  castChanged,
   restartingRead,
   withLockedMessagingAuthority,
   withSharedMessagingAuthority,
@@ -147,8 +148,10 @@ export function createMessagingGroupInvitationStore({
               if (frame.fact.authority.kind !== 'private_group')
                 throw createAppError('NOT_FOUND');
               const current = await readGroupInvitationRow(tx, scope);
+              // The inviter moved since discovery: the same race as a cast
+              // change, so a preview restarts instead of failing (409).
               if (current.invitedByActorId !== discovered.invitedByActorId)
-                throw createAppError('CONFLICT');
+                throw castChanged();
               const admitting =
                 scope.operation === 'accept' && current.state === 'pending';
               contacts = await lockGroupContacts(

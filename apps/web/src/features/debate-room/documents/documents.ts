@@ -1,5 +1,5 @@
 import { formatClock as formatSeconds } from '../../judge/clock';
-import { escapeHtml } from '../../documents/html';
+import { escapeHtml } from '../../../lib/escape-html';
 import { formatClock } from '../clock';
 
 export type Side = 'aff' | 'neg';
@@ -40,8 +40,6 @@ export type TemplateContext = {
   /** The speech the round has reached; plans start after it. */
   readonly currentIndex?: number;
 };
-
-/** Text for an HTML document, with markup characters escaped. */
 
 const paragraph = (value = '') => `<p>${escapeHtml(value)}</p>`;
 const heading = (level: 1 | 2, value: string) =>

@@ -103,11 +103,7 @@ const availability = startRoundAvailability({
 const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
+  timers: workerTimers,
 });
 const roundWorkers = startRoundWorkers({
   app,

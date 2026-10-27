@@ -34,10 +34,21 @@ const actorIdsOf = (
   ].sort();
 
 const castChanges = new WeakSet<Error>();
-/** The channel's cast moved between discovery and the fences; a read restarts. */
-const isCastChange = (error: unknown) =>
-  error instanceof Error && castChanges.has(error);
-function castChanged() {
+/**
+ * The channel's cast moved between discovery and the fences; a read restarts.
+ * Recognised through up to 8 native `cause` links, so a layer that wraps the
+ * signal (a driver transaction, an `AppError` with `cause`) still restarts.
+ */
+const isCastChange = (error: unknown) => {
+  let current = error;
+  for (let depth = 0; depth < 8 && current instanceof Error; depth += 1) {
+    if (castChanges.has(current)) return true;
+    current = Object.getOwnPropertyDescriptor(current, 'cause')?.value;
+  }
+  return false;
+};
+/** A writer sees it as a plain CONFLICT; a read restarts on it. */
+export function castChanged() {
   const error = createAppError('CONFLICT');
   castChanges.add(error);
   return error;

@@ -25,11 +25,14 @@ test('reaction store extends ordered authority discovery with scoped metadata on
   assert({
     given: 'actual Drizzle authority/channel mapping and a current summary',
     should:
-      'share-fence accounts before the canonical pair/channel fence, pass current facts and retain the exact transaction for both reading checks',
+      'share-fence accounts before the canonical pair/channel fence, take no row lock, pass current facts and retain the exact transaction for both reading checks',
     actual: [
       // A summary read takes the shared fences (MSG-2.1-arch1).
       f.queries[1]?.query.includes('daisy_authorization_read_accounts_v2('),
       f.queries[2]?.query.includes('daisy_messaging_channel_read_fence('),
+      // The shared channel fence already excludes every reaction and message
+      // writer, so the summary read takes no row lock of its own.
+      f.queries.some(({ query }) => /for update/i.test(query)),
       calls,
       transactions[0] === transactions[1],
       result,
@@ -37,6 +40,7 @@ test('reaction store extends ordered authority discovery with scoped metadata on
     expected: [
       true,
       true,
+      false,
       Array(2).fill([f.scope, f.fact, 2, 'read']),
       true,
       {

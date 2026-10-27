@@ -1,7 +1,7 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { channelFileFrame, type FileStore } from '../messaging-files';
 import { scopeFileFrame } from './file-capability';
-import { withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingChannel } from './channel-frame';
 import type { MessagingAuthorizationFence } from './records';
 
 /** Files share the message transaction fence, never a nested transaction. */
@@ -15,8 +15,10 @@ export function createMessagingFileStore({
   ) => MessagingAuthorizationFence;
 }): FileStore {
   return {
+    // A read takes the shared fences (MSG-2.1-arch1); posting keeps the
+    // exclusive ones and the counter lock.
     withChannel: (input, capability, work) =>
-      withMessagingChannel(
+      (capability === 'read' ? readMessagingChannel : withMessagingChannel)(
         database,
         input,
         async ({ tx, channel, fact, accounts }) => {

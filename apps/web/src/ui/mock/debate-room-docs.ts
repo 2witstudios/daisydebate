@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../features/documents/html';
+import { escapeHtml } from '../../lib/escape-html';
 import {
   type FolderId,
   type TemplateId,

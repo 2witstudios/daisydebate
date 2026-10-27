@@ -68,8 +68,10 @@ export const lockAuthorizationActors = (
 /**
  * Readers take the same facts under a shared fence (MSG-2.1-arch1): readers
  * never wait on each other, and any account writer still waits for them and
- * they for it. Same user-id order, so mixing with the exclusive fence later in
- * one transaction never inverts the lock graph.
+ * they for it. Same user-id order. A transaction that took the exclusive
+ * fence may read under the shared one (a weaker lock it already holds); one
+ * that took the shared fence must never take the exclusive one afterwards:
+ * that is a lock upgrade, and two such transactions deadlock.
  */
 export const readAuthorizationActors = (
   tx: AuthorizationTransaction,
