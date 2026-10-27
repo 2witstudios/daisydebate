@@ -3,6 +3,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
@@ -13,6 +17,14 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
+
+/** The proof format as a custom selection: unjudged, two speeches, never listed in the picker. */
+export const foundationSelection = {
+  kind: 'custom',
+  definition: foundationDefinition,
+  config: foundationConfig,
+  competitionType: 'casual',
+} as const;
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
@@ -95,28 +107,24 @@ async function fixture(
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
-  /** The reference catalog choice every Room suite builds on. */
-  const foundation = async () =>
-    (await operations.catalog(host)).find((c) => c.formatId === 'foundation')!;
+  /**
+   * The architectural proof format every Room suite builds on. It is not in
+   * the picker's catalog (FMT-1), so suites create it as a custom format.
+   */
+  const foundation = async () => ({
+    definition: foundationDefinition,
+    preset: { config: foundationConfig },
+  });
   const create = async (
     overrides: Partial<RoomCreate> = {},
     who: typeof host = host,
   ) => {
-    const config = (await operations.catalog(host)).find(
-      (c) => c.formatId === 'foundation',
-    )!.defaultConfig;
     const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
       topic: 'Cities should make transit free',
       visibility: 'public',
-      selection: {
-        kind: 'catalog',
-        formatId: 'foundation',
-        formatVersion: 1,
-        competitionType: 'casual',
-        config,
-      },
+      selection: foundationSelection,
       ...overrides,
     });
     rooms.push(r.view.id);

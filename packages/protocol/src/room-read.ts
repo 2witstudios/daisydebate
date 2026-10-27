@@ -113,20 +113,24 @@ export const roomViewSchema = z.strictObject({
   startRefusal: roomRefusalSchema.nullable(),
   roundRef,
 });
+/**
+ * One format the picker offers (FMT-1): a Daisy standard or a league
+ * template at its current revision and canonical preset. Structure only
+ * (DEC-243): nothing here configures judging.
+ */
 export const roomCatalogChoiceSchema = z.strictObject({
   formatId: z.string().min(1),
   formatVersion: version,
   label: z.string(),
+  role: z.enum(['standard', 'template']),
+  family: z.enum(['policy', 'value', 'parli', 'other']).nullable(),
+  leagues: z.array(z.string()).readonly(),
+  searchTerms: z.string(),
+  sortOrder: z.int(),
+  rulesEdition: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
   definition: formatDefinitionSchema,
-  defaultConfig: roomConfigSchema,
-  presets: z
-    .array(
-      z.strictObject({
-        version,
-        config: roomConfigSchema,
-      }),
-    )
-    .readonly(),
+  preset: z.strictObject({ version, config: roomConfigSchema }),
 });
 export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,

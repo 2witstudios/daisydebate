@@ -4,6 +4,7 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
+import { foundationSelection } from './room-runtime.test-support';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 
 /** Real Room launch/commands/shared clock; no invented actual speech timeline. */
@@ -16,15 +17,10 @@ export const withAttendanceRound = (
   }) => Promise<void>,
 ) =>
   withRoomRuntime(async (f) => {
-    const config = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
-    )!.defaultConfig;
+    const config = foundationSelection.config;
     const room = await f.assemble({
       selection: {
-        kind: 'catalog',
-        formatId: 'foundation',
-        formatVersion: 1,
-        competitionType: 'casual',
+        ...foundationSelection,
         config: {
           ...config,
           preRoundPrep: { enabled: false },

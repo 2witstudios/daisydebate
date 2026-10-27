@@ -26,10 +26,11 @@ test('format browsing preserves native authoritative selection and unequal order
     given:
       'a stored unequal template and server-rendered picker before hydration',
     should:
-      'retain native canonical defaults and show its real seat counts and speech duration override',
+      'name the canonical preset (never a client config) and show its real seat counts and speech duration override',
     actual: [
       parsed.success,
       selection.formatVersion,
+      selection.presetVersion,
       selection.config,
       html.includes('name="selection"'),
       html.includes('(2v3)'),
@@ -41,7 +42,8 @@ test('format browsing preserves native authoritative selection and unequal order
     expected: [
       true,
       7,
-      unequalTemplate.defaultConfig,
+      unequalTemplate.preset.version,
+      undefined,
       true,
       true,
       true,
@@ -76,8 +78,8 @@ test('a retained refused selection previews its own exact defaults rather than t
     kind: 'catalog',
     formatId: alternative.formatId,
     formatVersion: alternative.formatVersion,
+    presetVersion: alternative.preset.version,
     competitionType: 'casual',
-    config: alternative.defaultConfig,
   });
   const html = renderToStaticMarkup(
     <FormatTemplatePicker

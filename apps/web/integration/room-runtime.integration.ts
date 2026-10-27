@@ -155,7 +155,7 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
 test('create replay survives catalog advancement and refuses a changed payload without writes', async () => {
   await withRoomRuntime(async (f) => {
     const choice = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
+      (c) => c.formatId === 'value',
     )!;
     const body = {
       commandId: createId(),
@@ -166,15 +166,29 @@ test('create replay survives catalog advancement and refuses a changed payload w
         kind: 'catalog' as const,
         formatId: choice.formatId,
         formatVersion: choice.formatVersion,
+        presetVersion: choice.preset.version,
         competitionType: 'casual' as const,
-        config: choice.defaultConfig,
       },
     };
     const first = await f.create(body);
     const before = await f.snapshot(first.view.id);
+    const next = choice.formatVersion + 1;
+    const nextPreset = choice.preset.version + 1;
+    // One publication: revision, pointer and preset commit together, as the
+    // current-preset trigger requires.
+    const publish = (to: number, presetFrom: number, presetTo: number) =>
+      f.sql.begin(async (tx) => {
+        await tx`update format_presets set superseded_at = now() where format_id = 'value' and version = ${presetFrom}`;
+        await tx`update formats set current_version = ${to} where id = 'value'`;
+        await tx`update format_presets set superseded_at = null where format_id = 'value' and version = ${presetTo} and format_version = ${to}`;
+      });
     try {
-      await f.sql`insert into format_revisions (format_id,version,definition) select format_id,2,definition from format_revisions where format_id='foundation' and version=1`;
-      await f.sql`update formats set current_version=2 where id='foundation'`;
+      await f.sql.begin(async (tx) => {
+        await tx`insert into format_revisions (format_id, version, definition) select format_id, ${next}, definition from format_revisions where format_id = 'value' and version = ${choice.formatVersion}`;
+        await tx`update format_presets set superseded_at = now() where format_id = 'value' and version = ${choice.preset.version}`;
+        await tx`insert into format_presets (format_id, version, format_version, config, ranked_eligible, approved_at) select format_id, ${nextPreset}, ${next}, config, ranked_eligible, now() from format_presets where format_id = 'value' and version = ${choice.preset.version}`;
+        await tx`update formats set current_version = ${next} where id = 'value'`;
+      });
       const retry = await f.operations.create(f.host, body);
       assert({
         given: 'an accepted create whose catalog has advanced',
@@ -185,7 +199,7 @@ test('create replay survives catalog advancement and refuses a changed payload w
           retry.view.formatVersion,
           await f.snapshot(first.view.id),
         ],
-        expected: [true, first.view.id, 1, before],
+        expected: [true, first.view.id, choice.formatVersion, before],
       });
       await assertRejects({
         given: 'the same command ID with different title',
@@ -194,6 +208,13 @@ test('create replay survives catalog advancement and refuses a changed payload w
           f.operations.create(f.host, { ...body, title: 'Changed' }),
         code: 'CONFLICT',
       });
+      await assertRejects({
+        given: 'a new command naming the superseded preset (a stale form)',
+        should: 'refuse it rather than substitute the current preset',
+        actual: () =>
+          f.operations.create(f.host, { ...body, commandId: createId() }),
+        code: 'VALIDATION',
+      });
       assert({
         given: 'a conflicted create retry',
         should: 'preserve all durable rows',
@@ -201,8 +222,9 @@ test('create replay survives catalog advancement and refuses a changed payload w
         expected: before,
       });
     } finally {
-      await f.sql`update formats set current_version=1 where id='foundation'`;
-      await f.sql`delete from format_revisions where format_id='foundation' and version=2`;
+      await publish(choice.formatVersion, nextPreset, choice.preset.version);
+      await f.sql`delete from format_presets where format_id = 'value' and version = ${nextPreset}`;
+      await f.sql`delete from format_revisions where format_id = 'value' and version = ${next}`;
     }
   });
 });

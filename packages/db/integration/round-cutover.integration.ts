@@ -106,6 +106,7 @@ test('a room waits for every seat and finishes durable pre-round prep before fre
               formatId,
               formatVersion: 1,
               presetVersion: null,
+              basis: null,
               competitionType: 'casual',
               config: { ...oneOnOneRoomConfig, preRoundPrep: prep },
               executionPlan: { preRoundPrep: prep },

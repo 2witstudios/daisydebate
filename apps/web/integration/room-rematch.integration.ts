@@ -6,27 +6,19 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
+import { foundationSelection } from './room-runtime.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('a fresh Room after an actual result preserves the original aggregate and requires a new cast', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const selection = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
-    )!;
     const body = {
       commandId: createId(),
       title: 'Fresh rematch',
       topic: 'Libraries should remain public',
       visibility: 'public' as const,
-      selection: {
-        kind: 'catalog' as const,
-        formatId: selection.formatId,
-        formatVersion: selection.formatVersion,
-        config: selection.defaultConfig,
-        competitionType: 'casual' as const,
-      },
+      selection: foundationSelection,
     };
     const { roundId, operations } = await startRuntimeRound(f, room);
     await assertRejects({

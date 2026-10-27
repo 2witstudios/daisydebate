@@ -34,6 +34,8 @@ export const persistRoomMutation = async (
       changeVersion: next.changeVersion,
       formatId: next.formatId,
       formatVersion: next.formatVersion,
+      basisFormatId: next.basis?.formatId ?? null,
+      basisPresetVersion: next.basis?.presetVersion ?? null,
       config: next.config,
       executionPlan: next.executionPlan,
       rulesSnapshot: next.rules,

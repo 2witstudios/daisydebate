@@ -42,6 +42,7 @@ export const state = (): RoomAssemblyState => ({
   formatId: 'format',
   formatVersion: 1,
   presetVersion: null,
+  basis: null,
   competitionType: 'casual',
   definition: {
     version: 1,

@@ -24,6 +24,11 @@ export type NewRoom = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
+  /** The catalog preset a casual room is based on (FMT-1); null for ranked and custom. */
+  readonly basis: {
+    readonly formatId: string;
+    readonly presetVersion: number;
+  } | null;
   readonly competitionType: CompetitionType;
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;
@@ -42,6 +47,8 @@ export const newRoomValues = (
   formatId: room.formatId,
   formatVersion: room.formatVersion,
   presetVersion: room.presetVersion,
+  basisFormatId: room.basis?.formatId ?? null,
+  basisPresetVersion: room.basis?.presetVersion ?? null,
   competitionType: room.competitionType,
   config: room.config,
   executionPlan: room.executionPlan,

@@ -41,9 +41,9 @@ test(
               },
             },
             config: {
-              ...choice.defaultConfig,
+              ...choice.preset.config,
               speechTiming: {
-                ...choice.defaultConfig.speechTiming,
+                ...choice.preset.config.speechTiming,
                 countdownMs: 10_000,
               },
             },

@@ -7,6 +7,13 @@ export const unequalTemplate = {
   formatId: 'test-unequal-template',
   formatVersion: 7,
   label: 'Unequal team template',
+  role: 'template',
+  family: 'other',
+  leagues: ['Test League'],
+  searchTerms: 'unequal test',
+  sortOrder: 99,
+  rulesEdition: 'Test rules',
+  sourceUrl: 'https://example.test/rules',
   definition: {
     version: 1,
     seats: { affirmative: 2, negative: 3, judge: 1 },
@@ -52,20 +59,25 @@ export const unequalTemplate = {
       },
     },
   },
-  presets: [],
-  defaultConfig: {
-    preRoundPrep: { enabled: true, durationMs: 321000 },
-    inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
-    speechTiming: { countdownMs: 444, segmentDurationOverrides: { N3: 98765 } },
-    crossExamination: { crossExMode: 'free' },
-    interruptions: { mode: 'disabled', minRemainingMs: 1234 },
-    yielding: { allowed: false, returnsTime: true },
+  preset: {
+    version: 5,
+    config: {
+      preRoundPrep: { enabled: true, durationMs: 321000 },
+      inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
+      speechTiming: {
+        countdownMs: 444,
+        segmentDurationOverrides: { N3: 98765 },
+      },
+      crossExamination: { crossExMode: 'free' },
+      interruptions: { mode: 'disabled', minRemainingMs: 1234 },
+      yielding: { allowed: false, returnsTime: true },
+    },
   },
 } satisfies RoomTemplate;
 
 const compiled = resolveRoomConfiguration(
   unequalTemplate.definition,
-  unequalTemplate.defaultConfig,
+  unequalTemplate.preset.config,
 );
 if (!compiled.ok) throw new Error('Room consumer fixture must compile');
 export const assemblySnapshot = {
@@ -84,7 +96,7 @@ export const assemblySnapshot = {
   presetVersion: null,
   competitionType: 'casual',
   definition: unequalTemplate.definition,
-  config: unequalTemplate.defaultConfig,
+  config: unequalTemplate.preset.config,
   executionPlan: compiled.roomPlan,
   rules: compiled.rules,
   participants: [],

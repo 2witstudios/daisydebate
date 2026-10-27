@@ -44,7 +44,7 @@ export async function proveFormatPicker(browser: Browser) {
     for (const [index, segment] of chosen.definition.segments.entries()) {
       await expect(ordered.nth(index)).toContainText(segment.label);
       const duration =
-        chosen.defaultConfig.speechTiming.segmentDurationOverrides[
+        chosen.preset.config.speechTiming.segmentDurationOverrides[
           segment.key
         ] ?? segment.defaultDurationMs;
       await expect(ordered.nth(index)).toContainText(clockText(duration));
@@ -63,7 +63,7 @@ export async function proveFormatPicker(browser: Browser) {
     expect(selected).toMatchObject({
       formatId: chosen.formatId,
       formatVersion: chosen.formatVersion,
-      config: chosen.defaultConfig,
+      presetVersion: chosen.preset.version,
     });
     await form
       .getByLabel('Room name', { exact: true })
@@ -80,7 +80,7 @@ export async function proveFormatPicker(browser: Browser) {
     expect(stored).toMatchObject({
       formatId: chosen.formatId,
       formatVersion: chosen.formatVersion,
-      config: chosen.defaultConfig,
+      config: chosen.preset.config,
     });
   } finally {
     await closeSettledLaunchContexts(accounts);

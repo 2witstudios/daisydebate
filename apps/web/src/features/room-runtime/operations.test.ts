@@ -2,7 +2,6 @@ import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
-import { oneOnOneRankedConfig } from '@daisy/db/reference-formats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {
@@ -13,6 +12,7 @@ import {
   launched,
   round,
   state,
+  valueFacts,
 } from './operations.test-support';
 
 setupRitewayBun();
@@ -31,16 +31,17 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
     actual: {
       catalog: choices.map((choice) => [
         choice.formatId,
-        choice.defaultConfig.speechTiming.countdownMs,
-        choice.presets.length,
+        choice.role,
+        choice.family,
+        choice.preset.version,
       ]),
       cast: cast.map(({ actorId, eligible }) => [actorId, eligible]),
       rooms: rooms.rooms.map(({ id, seated }) => [id, seated]),
     },
     expected: {
       catalog: [
-        ['one-on-one', 10_000, 1],
-        ['foundation', 0, 0],
+        ['value', 'standard', null, 1],
+        ['proof-template', 'template', 'other', 2],
       ],
       cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false]],
       rooms: [[state.id, true]],
@@ -106,10 +107,10 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     visibility: 'public',
     selection: {
       kind: 'catalog',
-      formatId: 'one-on-one',
+      formatId: 'value',
       formatVersion: 1,
+      presetVersion: 1,
       competitionType: 'casual',
-      config: oneOnOneRankedConfig,
     },
   };
   const first = makeOperations();
@@ -167,37 +168,62 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   });
 });
 
-test('catalog defaults select declared interaction choices without presets', async () => {
-  const definition = {
-    ...state.definition,
-    configurable: {
-      ...state.definition.configurable,
-      interaction: {
-        crossExModes: ['ordered' as const],
-        interruptions: {
-          modes: ['enabled' as const],
-          minRemainingMs: { min: 1234, max: 5678 },
-        },
-        yield: { enabledChoices: [true], returnsTimeChoices: [true] },
-      },
-    },
+test('Room creation decides catalog selections through the one policy (FMT-1)', async () => {
+  const create = (selection: RoomCreate['selection']) => {
+    const run = makeOperations();
+    return run.operations
+      .create(caller, {
+        commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
+        title: 'Policy room',
+        topic: 'Motion',
+        visibility: 'public',
+        selection,
+      })
+      .then(
+        () => run.createInput()?.room,
+        (error: unknown) => (error as { code?: string }).code,
+      );
   };
-  const { operations } = makeOperations({
-    listRoomCatalogSources: async () => [
-      { id: 'custom', name: 'Custom', version: 1, definition, presets: [] },
-    ],
+  const accepted = await create({
+    kind: 'catalog',
+    formatId: 'value',
+    formatVersion: 1,
+    presetVersion: 1,
+    competitionType: 'casual',
   });
-  const [choice] = await operations.catalog(caller);
   assert({
-    given: 'a format whose only choices enable interruptions and yielding',
-    should: 'suggest exactly those legal choices',
+    given: 'the current preset of a catalog standard',
+    should:
+      'create a casual room on the preset config with the selection as its basis and no ranked pin',
+    actual: typeof accepted === 'object' && {
+      basis: accepted.basis,
+      presetVersion: accepted.presetVersion,
+      config: accepted.config,
+    },
+    expected: {
+      basis: { formatId: 'value', presetVersion: 1 },
+      presetVersion: null,
+      config: valueFacts.preset.config,
+    },
+  });
+  assert({
+    given: 'a forged preset, and ranked play on an ineligible preset',
+    should: 'refuse both before any write',
     actual: [
-      choice?.defaultConfig.interruptions,
-      choice?.defaultConfig.yielding,
+      await create({
+        kind: 'catalog',
+        formatId: 'value',
+        formatVersion: 1,
+        presetVersion: 9,
+        competitionType: 'casual',
+      }),
+      await create({
+        kind: 'ranked',
+        formatId: 'value',
+        formatVersion: 1,
+        presetVersion: 1,
+      }),
     ],
-    expected: [
-      { mode: 'enabled', minRemainingMs: 1234 },
-      { allowed: true, returnsTime: true },
-    ],
+    expected: ['VALIDATION', 'VALIDATION'],
   });
 });

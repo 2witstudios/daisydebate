@@ -19,21 +19,21 @@ function selectionValue(choice: RoomTemplate) {
     kind: 'catalog',
     formatId: choice.formatId,
     formatVersion: choice.formatVersion,
+    presetVersion: choice.preset.version,
     competitionType: 'casual',
-    config: choice.defaultConfig,
   });
 }
 
 const speechMs = (choice: RoomTemplate) =>
   choice.definition.segments.map(
     (segment) =>
-      choice.defaultConfig.speechTiming.segmentDurationOverrides[segment.key] ??
+      choice.preset.config.speechTiming.segmentDurationOverrides[segment.key] ??
       segment.defaultDurationMs,
   );
 
 /** "One-on-one (1v1) · about 30 min", derived from the template's own config. */
 function templateLine(choice: RoomTemplate) {
-  const { inRoundPrep, speechTiming } = choice.defaultConfig;
+  const { inRoundPrep, speechTiming } = choice.preset.config;
   return `${choice.label} (${shapeLabel(choice.definition.seats)}) · ${roundLength(
     {
       speechesMs: speechMs(choice),

@@ -39,7 +39,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         formatId: choice.formatId,
         formatVersion: choice.formatVersion,
         competitionType: 'casual',
-        config: choice.defaultConfig,
+        config: choice.preset.config,
       },
     });
     const privateRequest = await routes.rooms.create(

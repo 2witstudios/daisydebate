@@ -22,7 +22,7 @@ const createThreeSeatRoom = async (f: Runtime): Promise<RoomView> => {
           ...choice.definition,
           seats: { affirmative: 1, negative: 1, judge: 1 },
         },
-        config: choice.defaultConfig,
+        config: choice.preset.config,
         competitionType: 'casual',
       },
     })

@@ -8,9 +8,11 @@ import {
   type RoundView,
 } from '@daisy/protocol';
 import {
+  foundationConfig,
   foundationDefinition,
   oneOnOneDefinition,
   oneOnOneRankedConfig,
+  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
@@ -47,6 +49,7 @@ export const state: RoomAssemblyState = {
   formatId: 'one-on-one',
   formatVersion: 1,
   presetVersion: null,
+  basis: null,
   competitionType: 'casual',
   definition: oneOnOneDefinition,
   config: oneOnOneRankedConfig,
@@ -70,29 +73,65 @@ export const state: RoomAssemblyState = {
   roundRef: null,
 };
 
+/** Catalog sources as the store lists them: role-bearing formats at their canonical presets. */
 const catalog = [
   {
-    id: 'one-on-one',
-    name: 'One-on-one',
+    id: 'value',
+    name: 'Value',
     version: 1,
+    role: 'standard' as const,
+    family: null,
+    leagues: [],
+    searchTerms: 'value daisy',
+    sortOrder: 2,
+    rulesEdition: null,
+    sourceUrl: null,
     definition: oneOnOneDefinition,
-    presets: [
-      {
-        version: 1,
-        formatId: 'one-on-one',
-        formatVersion: 1,
-        config: oneOnOneRankedConfig,
-      },
-    ],
+    preset: {
+      formatId: 'value',
+      version: 1,
+      formatVersion: 1,
+      config: oneOnOneRoomConfig,
+    },
   },
   {
-    id: 'foundation',
-    name: 'Foundation',
+    id: 'proof-template',
+    name: 'Proof template',
     version: 1,
+    role: 'template' as const,
+    family: 'other' as const,
+    leagues: ['Proof League'],
+    searchTerms: 'proof',
+    sortOrder: 30,
+    rulesEdition: 'Proof rules',
+    sourceUrl: 'https://example.test/rules',
     definition: foundationDefinition,
-    presets: [],
+    preset: {
+      formatId: 'proof-template',
+      version: 2,
+      formatVersion: 1,
+      config: foundationConfig,
+    },
   },
 ];
+
+/** The selection facts the store reports for the Value standard's current tuple. */
+export const valueFacts = {
+  format: {
+    id: 'value',
+    catalogOwned: true,
+    role: 'standard' as const,
+    currentVersion: 1,
+  },
+  definition: oneOnOneDefinition,
+  preset: {
+    version: 1,
+    formatVersion: 1,
+    config: oneOnOneRoomConfig,
+    rankedEligible: false,
+    current: true,
+  },
+};
 
 /** The stored Round its host reads; `round` is what a viewer receives. */
 export const launched: LaunchedRound = {
@@ -170,7 +209,16 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       ];
     },
     getFormatRevision: async () => null,
-    getCurrentPreset: async () => null,
+    getFormatSelectionFacts: async (tuple: {
+      readonly formatId: string;
+      readonly formatVersion: number;
+      readonly presetVersion: number;
+    }) =>
+      tuple.formatId === 'value' &&
+      tuple.formatVersion === 1 &&
+      tuple.presetVersion === 1
+        ? valueFacts
+        : null,
     readRoomCreateReceipt: async (input: {
       readonly caller: typeof caller;
       readonly commandId: string;

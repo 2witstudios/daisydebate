@@ -5,8 +5,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { currentFormatRevisions } from './format-operations';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -30,6 +29,7 @@ import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
 import { formats } from './schema/formats';
+import { formatRevisions } from './schema/format-revisions';
 
 import { formatPresets } from './schema/format-presets';
 
@@ -129,6 +129,12 @@ export const roomReadOperations = ({
       }),
     );
   },
+  /**
+   * The picker's catalog (FMT-1): every format with a catalog role, at its
+   * current revision and canonical (current) preset. A listed format with
+   * no current preset is corruption the publication trigger forbids, so the
+   * read refuses rather than inventing a config.
+   */
   async listRoomCatalogSources(
     caller: Caller,
     authorize: (account: Account) => boolean,
@@ -136,19 +142,50 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'listRoomCatalogSources', () =>
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
-        const rows = await currentFormatRevisions(tx).where(
-          isNull(formats.createdByActorId),
-        );
+        const rows = await tx
+          .select({
+            id: formats.id,
+            name: formats.name,
+            version: formats.currentVersion,
+            role: formats.catalogRole,
+            family: formats.family,
+            leagues: formats.leagues,
+            searchTerms: formats.searchTerms,
+            sortOrder: formats.sortOrder,
+            definition: formatRevisions.definition,
+            rulesEdition: formatRevisions.rulesEdition,
+            sourceUrl: formatRevisions.sourceUrl,
+          })
+          .from(formats)
+          .innerJoin(
+            formatRevisions,
+            and(
+              eq(formatRevisions.formatId, formats.id),
+              eq(formatRevisions.version, formats.currentVersion),
+            ),
+          )
+          .where(isNotNull(formats.catalogRole))
+          .orderBy(asc(formats.sortOrder), asc(formats.id));
         const presets = await tx
-          .select()
+          .select({
+            formatId: formatPresets.formatId,
+            version: formatPresets.version,
+            formatVersion: formatPresets.formatVersion,
+            config: formatPresets.config,
+          })
           .from(formatPresets)
           .where(isNull(formatPresets.supersededAt));
-        return rows.map((row) => ({
-          ...row,
-          presets: presets.filter(
+        return rows.map(({ role, ...row }) => {
+          const preset = presets.find(
             (p) => p.formatId === row.id && p.formatVersion === row.version,
-          ),
-        }));
+          );
+          if (!role || !preset)
+            throw createAppError(
+              'INVARIANT',
+              `Catalog format ${row.id} has no current preset`,
+            );
+          return { ...row, role, preset };
+        });
       }),
     );
   },

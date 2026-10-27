@@ -89,10 +89,10 @@ export async function withHumanJudgeHttpRound(
       (c: { formatId: string }) => c.formatId === 'one-on-one',
     );
     const config = {
-      ...choice.defaultConfig,
+      ...choice.preset.config,
       preRoundPrep: { enabled: false },
       speechTiming: {
-        ...choice.defaultConfig.speechTiming,
+        ...choice.preset.config.speechTiming,
         countdownMs: people.countdownMs ?? 0,
       },
     };

@@ -19,6 +19,7 @@ export const room = {
   formatId: 'c9a7d5f3h1j2k4m6n8p1r3t5',
   formatVersion: 1,
   presetVersion: null,
+  basis: null,
   competitionType: 'casual' as const,
   config: oneOnOneRoomConfig,
   executionPlan: { preRoundPrep: { enabled: false as const } },

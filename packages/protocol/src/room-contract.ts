@@ -35,12 +35,13 @@ const seat = { role: debateRoleSchema, slot: z.int().min(0) };
 
 /** Custom schedules are compiler inputs, persisted as immutable format revisions. */
 const roomSelectionSchema = z.discriminatedUnion('kind', [
+  /** A catalog format at its canonical preset; the server reads the config (FMT-1). */
   z.strictObject({
     kind: z.literal('catalog'),
     formatId: textSchema,
     formatVersion: versionSchema,
+    presetVersion: versionSchema,
     competitionType: z.literal('casual'),
-    config: roomConfigSchema,
   }),
   z.strictObject({
     kind: z.literal('ranked'),
@@ -150,6 +151,11 @@ export type RoomAssemblyState = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
+  /** The catalog preset a casual room is based on (FMT-1); null for ranked and custom rooms. */
+  readonly basis: {
+    readonly formatId: string;
+    readonly presetVersion: number;
+  } | null;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;

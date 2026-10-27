@@ -8,6 +8,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
+import { foundationSelection } from './room-runtime.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -222,19 +223,12 @@ test('a live Round holds its members until it ends; the end frees them for a rem
       },
     );
     const freed = await memberships(f, [f.host.actorId, f.guest.actorId]);
-    const selection = await f.foundation();
     const rematch = await f.operations.rematch(f.host, room.id, {
       commandId: createId(),
       title: 'Rematch',
       topic: 'Libraries should remain public',
       visibility: 'public',
-      selection: {
-        kind: 'catalog',
-        formatId: selection.formatId,
-        formatVersion: selection.formatVersion,
-        config: selection.defaultConfig,
-        competitionType: 'casual',
-      },
+      selection: foundationSelection,
     });
     try {
       assert({

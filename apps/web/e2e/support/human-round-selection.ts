@@ -1,7 +1,25 @@
-import type { RoomCatalogChoice } from '@daisy/protocol';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
+import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+
+type ProofChoice = {
+  readonly definition: FormatDefinition;
+  readonly preset: { readonly config: RoomConfig };
+};
+
+/**
+ * The two-speech proof format the browser journeys run. It is not in the
+ * picker's catalog (FMT-1), so journeys post it as a custom format.
+ */
+export const foundationChoice: ProofChoice = {
+  definition: foundationDefinition,
+  preset: { config: foundationConfig },
+};
 
 export const humanRoundSelection = (
-  choice: RoomCatalogChoice,
+  choice: ProofChoice,
   judgeSeats: 0 | 1 | 2,
 ) => ({
   kind: 'custom',
@@ -21,7 +39,7 @@ export const humanRoundSelection = (
     },
   },
   config: {
-    ...choice.defaultConfig,
+    ...choice.preset.config,
     preRoundPrep: { enabled: false },
     inRoundPrep: { enabled: false },
     speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
