@@ -175,7 +175,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const now = z.iso.datetime().parse(context.now);
       await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
-      // DEC-126 (ADR 0085): a DM survivor keeps only their own rows.
+      // DEC-126 (ADR 0086): a DM survivor keeps only their own rows.
       const dms = await survivingDms(tx, subject.actorId);
       // Every version advance comes first, so an exhausted one refuses
       // before anything is deleted.

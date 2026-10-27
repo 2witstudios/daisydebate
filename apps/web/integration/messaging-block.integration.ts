@@ -34,7 +34,7 @@ test('same-transaction participant safety controls require no age or posting pol
       blockMessagingContact(command, principal, dependencies),
     ]);
     const [durable] = await sql.unsafe(
-      `select revision::int,(select count(*)::int from messaging_social_commands where actor_id=$1) as receipts,(select count(*)::int from outbox where payload->>'channelId'=$2) as bells from contact_pairs where low_actor_id=$3 and high_actor_id=$4`,
+      `select revision::int,(select count(*)::int from contact_commands where actor_id=$1) as receipts,(select count(*)::int from outbox where payload->>'channelId'=$2) as bells from contact_pairs where low_actor_id=$3 and high_actor_id=$4`,
       [fixture.actorId, fixture.channelId, fixture.low, fixture.high],
     );
     assert({

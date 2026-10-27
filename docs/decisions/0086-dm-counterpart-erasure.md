@@ -1,4 +1,4 @@
-# 0085: Erasing one member of a DM
+# 0086: Erasing one member of a DM
 
 Status: accepted (privacy design reviewed by astra, APPROVE WITH MINORS,
 2026-10-27; ISSUE-644). Implements [DEC-126](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/nenxmi5cjoewx1degq1ysicz).

@@ -109,7 +109,7 @@ for (const [blockFirst, noDm] of [
         });
       }
       const [state] = await client.unsafe(
-        `select (select count(*)::int from contact_pairs where low_actor_id=$1 and high_actor_id=$2) as pairs,(select count(*)::int from messaging_social_commands where actor_id=$3) as commands`,
+        `select (select count(*)::int from contact_pairs where low_actor_id=$1 and high_actor_id=$2) as pairs,((select count(*) from messaging_social_commands where actor_id=$3)+(select count(*) from contact_commands where actor_id=$3))::int as commands`,
         [fixture.low, fixture.high, fixture.actorId],
       );
       assert({

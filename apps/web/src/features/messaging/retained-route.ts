@@ -28,7 +28,7 @@ const retainedFence =
     });
 
 /**
- * DEC-126 (ADR 0085): a survivor's view of DMs whose other member was
+ * DEC-126 (ADR 0086): a survivor's view of DMs whose other member was
  * erased, over HTTP only: their own messages and a way to delete them.
  * Anyone else, and any other channel, is refused as absent.
  */

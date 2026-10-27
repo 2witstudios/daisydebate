@@ -194,7 +194,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
         peerHasOwnFile: true,
       },
     });
-    // ADR 0085: the peer keeps the DM only while a live message of theirs
+    // ADR 0086: the peer keeps the DM only while a live message of theirs
     // remains in it, and keeps only files attached to it there.
     const peerMessageId = createId();
     const [counters] = await client.unsafe(

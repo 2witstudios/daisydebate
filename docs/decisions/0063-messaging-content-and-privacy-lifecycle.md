@@ -144,7 +144,7 @@ not proof that any implementation leaf is complete.
 
 ## Amendment (2026-10-27)
 
-For a direct message, [ADR 0085](0085-dm-counterpart-erasure.md) replaces
+For a direct message, [ADR 0086](0086-dm-counterpart-erasure.md) replaces
 the erased member's tombstones: their rows are deleted, survivor pointers
 and receipts are reduced first, and the survivor keeps only their own rows
 under a `retained` lifecycle. Private groups keep this ADR's tombstones
