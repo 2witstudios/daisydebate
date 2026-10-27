@@ -22,6 +22,7 @@ describe('selection manifest lifecycle', () => {
           env: {
             ...process.env,
             GITHUB_EVENT_NAME: 'merge_group',
+            RUNNER_TEMP: join(scratch, 'runner-temp'),
             GITHUB_ENV: '',
             GITHUB_STEP_SUMMARY: '',
           },
@@ -112,7 +113,7 @@ test('runner starts', () => {});`,
         expected: { code: 0, passed: 2, missing: [] },
       });
       const manifest = JSON.parse(
-        await readFile(join(scratch, '.turbo/e2e-selection.json'), 'utf8'),
+        await readFile(join(scratch, 'runner-temp/e2e-selection.json'), 'utf8'),
       );
       assert({
         given: 'Playwright clearing test-results',

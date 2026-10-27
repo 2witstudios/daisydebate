@@ -25,7 +25,9 @@ export function missingSelectedSpecs(
   return selected.filter((spec) => !found.has(spec));
 }
 if (import.meta.main) {
-  const selection = await Bun.file('.turbo/e2e-selection.json').json();
+  const selection = await Bun.file(
+    `${process.env.RUNNER_TEMP ?? '.turbo'}/e2e-selection.json`,
+  ).json();
   const native = Bun.argv[2] === 'room-launch';
   const report = await Bun.file(
     `apps/web/test-results/${native ? 'room-launch-' : ''}results.json`,
