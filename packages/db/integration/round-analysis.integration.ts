@@ -3,53 +3,20 @@ import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { createId } from '@paralleldrive/cuid2';
-import type { SQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
 import { randomBytes } from 'node:crypto';
-import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
 import {
+  claim,
   completedRound,
+  dayAgo,
+  listedSeats,
   withCompletedRound,
 } from './round-analysis.test-support';
 import type { Fixture } from './constraint-helpers';
 setupRitewayBun();
 requireTestServices(process.env);
 
-const dayAgo = () => new Date(Date.now() - 86_400_000).toISOString();
-const claim = () => 'claim' as const;
 const lapse = (fixture: Fixture, participantId: string) =>
   fixture.sql`update round_analyses set lease_expires_at=clock_timestamp() - interval '1 second' where round_participant_id=${participantId}`;
-const listedSeats = async (
-  jobs: {
-    scan: (
-      l: number,
-      s: string,
-      a: () => boolean,
-    ) => Promise<{ roundParticipantId: string }[]>;
-  },
-  since: string,
-) => (await jobs.scan(64, since, () => true)).map((s) => s.roundParticipantId);
-
-/** Erases one seated debater through the round analysis privacy adopter. */
-async function eraseDebater(client: SQL, actorId: string) {
-  const [user] =
-    (await client`select user_id from actors where id=${actorId}`) as {
-      user_id: string;
-    }[];
-  await drizzle({ client }).transaction((tx) =>
-    roundAnalysisPrivacyAdopter.erase(
-      tx,
-      { userId: user!.user_id, actorId },
-      { now: new Date().toISOString() },
-    ),
-  );
-}
-const erased = {
-  status: 'failed',
-  attempts: 1,
-  leaseExpiresAt: null,
-  report: null,
-} as const;
 
 test('each debater seat of a completed Round is analysed once from its freeze, under one lease at a time', async () =>
   withCompletedRound(async ({ fixture, aff, neg, seats, jobs, facts }) => {
@@ -222,7 +189,37 @@ test('a debater’s later analysis reads their own earlier skill scores, and onl
         ),
       ],
     });
-    await fixture.sql`delete from rounds where id=${laterRound}`;
+    if (!next) throw Error('Expected a claim');
+    await jobs.complete(
+      { roundId: laterRound, roundParticipantId: later.id },
+      next.token,
+      report,
+    );
+    // A Round that completed before both, analysed (or retried) only now.
+    const earlierRound = await fixture.round();
+    const { aff: earlier } = await completedRound(
+      fixture,
+      earlierRound,
+      true,
+      undefined,
+      aff.actorId,
+    );
+    await fixture.sql`update rounds set started_at=started_at - interval '1 day',
+      completed_at=completed_at - interval '1 day',
+      final_segment_ended_at=final_segment_ended_at - interval '1 day'
+      where id=${earlierRound}`;
+    const retried = await jobs.claim(
+      { roundId: earlierRound, roundParticipantId: earlier.id },
+      () => 'claim',
+    );
+    assert({
+      given:
+        'the same debater’s Round that completed before both analysed Rounds, analysed only afterwards',
+      should: 'read no history: later Rounds are never "earlier" scores',
+      actual: retried?.history,
+      expected: [],
+    });
+    await fixture.sql`delete from rounds where id in (${laterRound}, ${earlierRound})`;
   }));
 
 test('a lapsed lease is listed again and the decision retakes or ends it', async () =>
@@ -285,47 +282,5 @@ test('a frozen Round with no lines is never a candidate', async () =>
         lines: (await facts(aff)).lines,
       },
       expected: { listed: false, lines: 0 },
-    });
-  }));
-
-test('erasing a debater clears every analysis of their Round for good', async () =>
-  withCompletedRound(async ({ client, aff, neg, seats, jobs, facts }) => {
-    const first = await jobs.claim(seats.neg, claim);
-    if (!first) throw Error('Expected a claim');
-    await jobs.complete(seats.neg, first.token, report);
-    await eraseDebater(client, aff.actorId);
-    assert({
-      given:
-        'an analysed opponent seat whose Round’s other debater is erased within the window',
-      should:
-        'drop every report (each quotes both sides) and leave both seats failed, never listed or bought again',
-      actual: {
-        aff: (await facts(aff)).analysis,
-        neg: (await facts(neg)).analysis,
-        listed: (await listedSeats(jobs, dayAgo())).filter((id) =>
-          [aff.id, neg.id].includes(id),
-        ),
-        retaken: await jobs.claim(seats.neg, claim),
-      },
-      expected: { aff: erased, neg: erased, listed: [], retaken: null },
-    });
-  }));
-
-test('erasing a debater during an analysis refuses its report', async () =>
-  withCompletedRound(async ({ client, aff, seats, jobs, facts }) => {
-    const held = await jobs.claim(seats.aff, claim);
-    if (!held) throw Error('Expected a claim');
-    await eraseDebater(client, aff.actorId);
-    await assertRejects({
-      given: 'an analysis call still running when its debater is erased',
-      should: 'refuse its report with CONFLICT',
-      actual: () => jobs.complete(seats.aff, held.token, report),
-      code: 'CONFLICT',
-    });
-    assert({
-      given: 'the erased seat',
-      should: 'stay failed with no report',
-      actual: (await facts(aff)).analysis,
-      expected: erased,
     });
   }));

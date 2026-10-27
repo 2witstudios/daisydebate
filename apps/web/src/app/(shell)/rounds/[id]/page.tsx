@@ -12,7 +12,11 @@ import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
-import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
+import {
+  readPersistedRound,
+  readPersistedRoundAnalysis,
+  readPersistedTranscript,
+} from './actions';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };
@@ -21,11 +25,21 @@ async function completedBallots(round: RoundView, member: boolean) {
   const result = await readPersistedBallot(round.id);
   return result.kind === 'found' ? result.view : null;
 }
-/** Only a seated debater of a completed Round has a round analysis to read. */
+/**
+ * Only a seated debater of a completed Round has a round analysis to read.
+ * Its quotes come from the transcript read, never from the ballot read.
+ */
 async function ownAnalysis(round: RoundView, debater: boolean) {
   if (!debater || round.status !== 'completed') return null;
-  const result = await readPersistedRoundAnalysis(round.id);
-  return result.kind === 'found' ? result.view : null;
+  const [result, transcript] = await Promise.all([
+    readPersistedRoundAnalysis(round.id),
+    readPersistedTranscript(round.id),
+  ]);
+  if (result.kind !== 'found') return null;
+  return {
+    view: result.view,
+    lines: transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
+  };
 }
 export default async function RoundPage({
   params,
@@ -69,10 +83,7 @@ export default async function RoundPage({
       <RoundReceipt round={result.round}>
         {ballots ? <RoundResult view={ballots} /> : null}
         {analysis ? (
-          <RoundAnalysis
-            view={analysis}
-            lines={ballots ? transcriptLines(ballots) : []}
-          />
+          <RoundAnalysis view={analysis.view} lines={analysis.lines} />
         ) : null}
       </RoundReceipt>
       {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}

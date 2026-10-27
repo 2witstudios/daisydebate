@@ -56,8 +56,9 @@ const heldBy = (seat: RoundAnalysisSeat, token: string) =>
 const lapsedLease = sql`${roundAnalyses.leaseExpiresAt} <= clock_timestamp()`;
 
 /**
- * The same debater's earlier succeeded analyses, newest first: skill scores
- * only, for patterns. Only that debater's own seats in other Rounds are read.
+ * The same debater's analyses of Rounds that completed before this one,
+ * newest first: skill scores only, for patterns. Only that debater's own
+ * seats are read, and a retried earlier Round never sees a later one.
  */
 async function analysisHistory(
   tx: Parameters<Parameters<BoundedTransaction>[0]>[0],
@@ -71,14 +72,15 @@ async function analysisHistory(
       roundParticipants,
       eq(roundParticipants.id, roundAnalyses.roundParticipantId),
     )
+    .innerJoin(rounds, eq(rounds.id, roundAnalyses.roundId))
     .where(
       and(
         eq(roundParticipants.actorId, actorId),
         eq(roundAnalyses.status, 'succeeded'),
-        sql`${roundAnalyses.roundId} <> ${seat.roundId}`,
+        sql`${rounds.completedAt} < (select completed_at from rounds where id = ${seat.roundId})`,
       ),
     )
-    .orderBy(desc(roundAnalyses.completedAt))
+    .orderBy(desc(rounds.completedAt))
     .limit(roundAnalysisLimits.history);
   return rows.flatMap(({ report }) =>
     report

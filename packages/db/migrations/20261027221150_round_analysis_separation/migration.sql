@@ -37,7 +37,6 @@ CREATE TABLE "round_analyses" (
 -- Round analysis replaces the ADR 0071 coaching pass; its beta rows are not carried over (ADR 0023).
 DROP TABLE "round_feedback";--> statement-breakpoint
 CREATE INDEX "round_analyses_freeze_revision_idx" ON "round_analyses" ("round_id","freeze_revision");--> statement-breakpoint
-CREATE INDEX "round_analyses_participant_idx" ON "round_analyses" ("round_participant_id","completed_at");--> statement-breakpoint
 CREATE INDEX "round_analyses_lease_idx" ON "round_analyses" ("status","lease_expires_at");--> statement-breakpoint
 CREATE INDEX "round_analyses_created_idx" ON "round_analyses" ("created_at");--> statement-breakpoint
 ALTER TABLE "ai_judge_profiles" ADD CONSTRAINT "ai_judge_profiles_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint

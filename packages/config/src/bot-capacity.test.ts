@@ -62,6 +62,7 @@ test('bot workers require a complete explicit bounded resource policy', () => {
       readServerConfig({
         ...env,
         ROUND_BOT_WORKER_POLICY: JSON.stringify(policy),
+        COMPETITIVE_PROVIDER_CONCURRENCY: '2',
       }).ROUND_BOT_WORKER_POLICY,
     ],
     expected: [undefined, policy],
@@ -77,7 +78,11 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     JSON.stringify({ ...policy, inferredPremium: true }),
   ]) {
     expect(() =>
-      readServerConfig({ ...env, ROUND_BOT_WORKER_POLICY: value }),
+      readServerConfig({
+        ...env,
+        ROUND_BOT_WORKER_POLICY: value,
+        COMPETITIVE_PROVIDER_CONCURRENCY: '2',
+      }),
     ).toThrow('Invalid server configuration: ROUND_BOT_WORKER_POLICY');
   }
 });
@@ -111,8 +116,10 @@ test('AI judging and round analysis each have their own policy, and competitive 
         read({}).COMPETITIVE_PROVIDER_CONCURRENCY,
       ],
       [
-        read({ ROUND_JUDGING_POLICY: JSON.stringify(judging) })
-          .ROUND_JUDGING_POLICY,
+        read({
+          ROUND_JUDGING_POLICY: JSON.stringify(judging),
+          COMPETITIVE_PROVIDER_CONCURRENCY: '2',
+        }).ROUND_JUDGING_POLICY,
         read({ ROUND_ANALYSIS_POLICY: JSON.stringify(analysis) })
           .ROUND_ANALYSIS_POLICY,
         read({ COMPETITIVE_PROVIDER_CONCURRENCY: '2' })
@@ -134,7 +141,24 @@ test('AI judging and round analysis each have their own policy, and competitive 
     ],
     ['COMPETITIVE_PROVIDER_CONCURRENCY', '0'],
   ] as const)
-    expect(() => read({ [key]: value })).toThrow(
-      `Invalid server configuration: ${key}`,
-    );
+    expect(() =>
+      read({ COMPETITIVE_PROVIDER_CONCURRENCY: '2', [key]: value }),
+    ).toThrow(`Invalid server configuration: ${key}`);
+  for (const policy of ['ROUND_JUDGING_POLICY', 'ROUND_BOT_WORKER_POLICY'])
+    expect(() =>
+      read({
+        [policy]:
+          policy === 'ROUND_JUDGING_POLICY'
+            ? JSON.stringify(judging)
+            : JSON.stringify({
+                maxControllers: 4,
+                scanBatch: 8,
+                scanMs: 250,
+                leaseMs: 15000,
+                renewMs: 3000,
+                callTimeoutMs: 30000,
+                models: { speech: 'a', cross_ex: 'b', tts: 'c' },
+              }),
+      }),
+    ).toThrow('Invalid server configuration: COMPETITIVE_PROVIDER_CONCURRENCY');
 });

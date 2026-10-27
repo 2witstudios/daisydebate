@@ -21,6 +21,7 @@ import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
+import { aiSeatFits } from './seat-eligibility';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
@@ -187,6 +188,10 @@ const hydrateRoom = async (
       if (!actor) throw createAppError('INVARIANT');
       return {
         ...actor,
+        // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
+        eligible:
+          actor.eligible &&
+          (actor.kind === 'human' || aiSeatFits(actor.seatRole, seat.role)),
         id: seat.id,
         role: seat.role,
         slot: seat.slot,

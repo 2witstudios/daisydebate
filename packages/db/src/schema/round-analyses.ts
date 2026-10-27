@@ -83,10 +83,6 @@ export const roundAnalyses = pgTable(
       table.roundId,
       table.freezeRevision,
     ),
-    index('round_analyses_participant_idx').on(
-      table.roundParticipantId,
-      table.completedAt,
-    ),
     index('round_analyses_lease_idx').on(table.status, table.leaseExpiresAt),
     index('round_analyses_created_idx').on(table.createdAt),
   ],

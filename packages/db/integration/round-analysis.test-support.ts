@@ -107,3 +107,11 @@ export const withCompletedRound = (
       facts: (seat) => readRoundAnalysisFacts(drizzle({ client }), key(seat)),
     });
   });
+
+export const dayAgo = () => new Date(Date.now() - 86_400_000).toISOString();
+export const claim = () => 'claim' as const;
+/** The seats a scan lists from `since`, authorizing every candidate. */
+export const listedSeats = async (
+  jobs: ReturnType<typeof createRoundAnalysisJobs>,
+  since: string,
+) => (await jobs.scan(64, since, () => true)).map((s) => s.roundParticipantId);

@@ -24,7 +24,8 @@ test('round analysis declarations match every round_analyses column in their own
   });
   assert({
     given: 'the report',
-    should: 'be personal and private, deleted on erasure, never exported',
+    should:
+      'be personal and private, deleted on erasure, and exported to its own debater',
     actual: roundAnalysisPrivacyAdopter.fields
       .filter((field) => field.category === 'personal')
       .map(({ column, visibility, erasure, exportable }) => [
@@ -33,7 +34,7 @@ test('round analysis declarations match every round_analyses column in their own
         erasure,
         exportable,
       ]),
-    expected: [['report', 'private', 'delete', false]],
+    expected: [['report', 'private', 'delete', true]],
   });
   assert({
     given: 'the transcript adopter',

@@ -1,5 +1,5 @@
+import { aiCast } from './ai-cast';
 import type { Browser } from '@playwright/test';
-import { roomCastChoiceSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -35,17 +35,7 @@ export async function proveHumanBotJourney(browser: Browser) {
     const host = accounts.members[0]!;
     const catalog = await host.context.request.get('/api/rooms/catalog');
     expect(catalog.status()).toBe(200);
-    const bots = (await catalog.json()).bots
-      .map((bot: unknown) => roomCastChoiceSchema.parse(bot))
-      .filter((bot: { eligible: boolean }) => bot.eligible);
-    // A bot debater takes a side and the AI judge the judge seat (ISSUE-750).
-    const debater = bots.find(
-      (bot: { seatRole: string }) => bot.seatRole === 'debater',
-    );
-    const aiJudge = bots.find(
-      (bot: { seatRole: string }) => bot.seatRole === 'judge',
-    );
-    expect([Boolean(debater), Boolean(aiJudge)]).toEqual([true, true]);
+    const { debater, aiJudge } = aiCast(await catalog.json());
     let room = await createFoundationRoom(host, (choice) => {
       const selection = humanRoundSelection(choice, 1);
       return {
@@ -61,12 +51,12 @@ export async function proveHumanBotJourney(browser: Browser) {
     });
     room = await claimSeat(host, room, { role: 'affirmative', slot: 0 });
     room = await assignSeat(host, room, {
-      actorId: debater!.actorId,
+      actorId: debater.actorId,
       role: 'negative',
       slot: 0,
     });
     room = await assignSeat(host, room, {
-      actorId: aiJudge!.actorId,
+      actorId: aiJudge.actorId,
       role: 'judge',
       slot: 0,
     });

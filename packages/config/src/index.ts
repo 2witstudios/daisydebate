@@ -103,10 +103,35 @@ const serverFields = {
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
 };
+/**
+ * AI judging and bot debaters run only inside the competitive provider
+ * budget: a policy for either without the budget would boot, accept AI
+ * seats and then never judge or speak, so the configuration is refused.
+ */
+function requireCompetitiveBudget(
+  config: {
+    readonly COMPETITIVE_PROVIDER_CONCURRENCY?: number | undefined;
+    readonly ROUND_JUDGING_POLICY?: unknown;
+    readonly ROUND_BOT_WORKER_POLICY?: unknown;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (config.COMPETITIVE_PROVIDER_CONCURRENCY !== undefined) return;
+  if (
+    config.ROUND_JUDGING_POLICY !== undefined ||
+    config.ROUND_BOT_WORKER_POLICY !== undefined
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['COMPETITIVE_PROVIDER_CONCURRENCY'],
+      message: 'AI judging and bot workers need the competitive budget',
+    });
+}
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
     refineOperatorConfig(config, ctx);
+    requireCompetitiveBudget(config, ctx);
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);

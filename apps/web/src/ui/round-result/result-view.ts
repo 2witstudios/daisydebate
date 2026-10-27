@@ -65,11 +65,11 @@ export function transcriptSections(
 }
 
 /**
- * The frozen transcript's lines by played position with their speaker's
- * seat name, for any card on the page that cites a line.
+ * A transcript's lines by played position with their speaker's seat name,
+ * for any card on the page that cites a line.
  */
-export function transcriptLines(view: RoundBallotRead) {
-  return (view.transcript?.utterances ?? []).map((line) => ({
+export function transcriptLines(view: RoundTranscriptRead) {
+  return view.utterances.map((line) => ({
     segment: line.segmentSequence,
     sequence: line.sequence,
     speaker: speakerOf(view.round, line.roundParticipantId),

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "722602db-2216-4114-bd5e-ad6de568bb99",
+  "id": "bbefb422-558c-4709-ae4f-ffe764c02e7d",
   "prevIds": [
     "1e35c580-3fc8-414c-b841-853ee68f8640"
   ],
@@ -11773,34 +11773,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "round_analyses_freeze_revision_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_analyses"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "completed_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_analyses_participant_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "round_analyses"

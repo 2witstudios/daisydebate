@@ -13,6 +13,7 @@ const env = {
   REDIS_NAMESPACE: 'worker-config',
   PUBLIC_APP_URL: 'http://localhost:3000',
   LOG_LEVEL: 'silent',
+  COMPETITIVE_PROVIDER_CONCURRENCY: '2',
   ROUND_BOT_WORKER_POLICY: JSON.stringify({
     maxControllers: 4,
     scanBatch: 4,

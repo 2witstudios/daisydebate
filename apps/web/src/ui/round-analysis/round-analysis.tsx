@@ -29,8 +29,8 @@ function Report({
           How to get better
         </h3>
         <ol className="list-decimal pl-5">
-          {panel.improvements.map((item) => (
-            <li key={item}>{item}</li>
+          {panel.improvements.map((item, index) => (
+            <li key={index}>{item}</li>
           ))}
         </ol>
       </section>
@@ -42,8 +42,8 @@ function Report({
           <h3 id="analysis-moments" className={headingClass}>
             Key moments
           </h3>
-          {panel.keyMoments.map((moment) => (
-            <div key={moment.happened} className="flex flex-col gap-1">
+          {panel.keyMoments.map((moment, index) => (
+            <div key={index} className="flex flex-col gap-1">
               <Quote quote={moment.quote} />
               <p>{moment.happened}</p>
               <p className="text-ink-muted">{moment.mattered}</p>
@@ -63,8 +63,8 @@ function Report({
           <h3 id="analysis-missed" className={headingClass}>
             Missed opportunities
           </h3>
-          {panel.missedOpportunities.map((missed) => (
-            <div key={missed.argument} className="flex flex-col gap-1">
+          {panel.missedOpportunities.map((missed, index) => (
+            <div key={index} className="flex flex-col gap-1">
               <Quote quote={missed.quote} />
               <p>{missed.argument}</p>
               <p>
@@ -97,8 +97,8 @@ function Report({
             Across your rounds
           </h3>
           <ul className="list-disc pl-5">
-            {panel.patterns.map((pattern) => (
-              <li key={pattern}>{pattern}</li>
+            {panel.patterns.map((pattern, index) => (
+              <li key={index}>{pattern}</li>
             ))}
           </ul>
         </section>

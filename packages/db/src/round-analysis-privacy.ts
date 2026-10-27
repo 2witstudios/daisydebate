@@ -17,7 +17,7 @@ const fields: readonly FieldShape[] = [
   secretField('lease_token_digest'),
   none('lease_expires_at'),
   none('model'),
-  personalField('report'),
+  personalField('report', true),
   none('input_tokens'),
   none('output_tokens'),
   none('completed_at'),
@@ -29,7 +29,8 @@ const fields: readonly FieldShape[] = [
  * to that seat's debater, and quotes both sides' speech. Subject erasure
  * clears every analysis of a Round the subject sat in and leaves each human
  * debater seat failed with no report, so none is analysed again: a deleted
- * row would read as never analysed.
+ * row would read as never analysed. Export returns the subject's own
+ * seats' reports.
  */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
   id: 'round-analysis',
@@ -65,5 +66,17 @@ export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
         lease_token_digest=null,lease_expires_at=null,
         completed_at=coalesce(round_analyses.completed_at,clock_timestamp())`);
   },
-  export: async () => ({}),
+  // The subject's own seats' reports: each was written for them alone.
+  export: async (tx, subject) => {
+    const rows = (await tx.execute(sql`select f.round_id, f.report,
+        to_char(f.completed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as completed_at
+      from round_analyses f
+      join round_participants p on p.id = f.round_participant_id
+      where p.actor_id = ${subject.actorId} and f.status = 'succeeded'
+      order by f.completed_at, f.round_id`)) as unknown as Record<
+      string,
+      unknown
+    >[];
+    return { round_analyses: rows };
+  },
 };
