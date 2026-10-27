@@ -1,4 +1,3 @@
-import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -14,7 +13,8 @@ import { decideMessagingDm } from '../src/features/messaging/decide-request';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
 import { sendMessagingMessage } from '../src/features/messaging/send';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+import { contactPairFence } from '../src/features/contacts/authorization';
+import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -38,7 +38,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
     bounds,
     clock,
     limit: async () => {},
-    limits: dec251MessagingValues.socialRequests,
+    limits: dec251ContactsPolicy.requests,
   };
   const command = {
     version: 1,
@@ -111,11 +111,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
         clock,
         limit: async () => {},
         store: database.messagingSocialStore(
-          contactAuthorizationFence({
-            principal: sender,
-            clock,
-            operation: { kind: 'block' },
-          }),
+          contactPairFence({ principal: sender, capability: 'social.block' }),
         ),
       },
     );
@@ -190,7 +186,7 @@ for (const decision of ['decline', 'cancel'] as const) {
       bounds,
       clock,
       limit: async () => {},
-      limits: dec251MessagingValues.socialRequests,
+      limits: dec251ContactsPolicy.requests,
       store: composeMessagingDmStore({
         database,
         principal,

@@ -9,11 +9,11 @@ import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
-import { creationResource } from '../contacts/authorization';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
 } from './authorization-fence';
+import { creationResource } from './creation-authorization';
 export function composeMessagingGroupCreationStore(input: {
   readonly database: Database;
   readonly principal: AuthorizationPrincipal;

@@ -1,4 +1,3 @@
-import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import type { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,7 +9,8 @@ import {
 } from './messaging-fixture.test-support';
 import { changeFriendship } from '../src/features/friends/operations';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+import { contactPairFence } from '../src/features/contacts/authorization';
+import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
 export type Opened = Awaited<ReturnType<typeof openMessagingFixture>>;
 
@@ -26,17 +26,11 @@ export const friendChange =
     return changeFriendship(principal, command, username, {
       clock,
       ids: { next: createId },
-      limits: dec251MessagingValues.socialRequests,
+      limits: dec251ContactsPolicy.requests,
       limit: async () => {},
       lookup: (name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>
-        database.friendStore(
-          contactAuthorizationFence({
-            principal,
-            clock,
-            operation: { kind: 'friend', capability },
-          }),
-        ),
+        database.friendStore(contactPairFence({ principal, capability })),
     });
   };
 

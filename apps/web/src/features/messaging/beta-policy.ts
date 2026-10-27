@@ -18,12 +18,6 @@ export type MessagingBetaValues = {
     readonly distinctPerMessage: number;
   };
   readonly typing: Windows;
-  readonly socialRequests: {
-    readonly daily: number;
-    readonly unrelatedHourly: number;
-    readonly declinesToBlock: number;
-    readonly declineBlockMs: number;
-  };
   readonly fileUploadsDaily: number;
   /** Bytes per attachment; fixed by DEC-251, never overridden. */
   readonly fileBytes: number;
@@ -34,8 +28,6 @@ const freeze = <Value>(value: Value): Value => {
     for (const field of Object.values(value)) freeze(field);
   return Object.freeze(value);
 };
-
-const DAY_SECONDS = 86_400;
 
 /**
  * DEC-251, the beta messaging policy, as one frozen value: it composes the
@@ -55,12 +47,6 @@ export const dec251MessagingValues: MessagingBetaValues = freeze({
   },
   // One signal per 3 s; a signal expires after 6 s (typingTtlMs).
   typing: [{ max: 1, windowSeconds: 3 }],
-  socialRequests: {
-    daily: 20,
-    unrelatedHourly: 5,
-    declinesToBlock: 3,
-    declineBlockMs: 30 * DAY_SECONDS * 1_000,
-  },
   fileUploadsDaily: 20,
   fileBytes: 10_000_000,
 });
@@ -74,8 +60,6 @@ const refuse = (field: string): never => {
 
 const atMost = (field: string, floor: number, value: number | undefined) =>
   value === undefined ? floor : value <= floor ? value : refuse(field);
-const atLeast = (field: string, floor: number, value: number | undefined) =>
-  value === undefined ? floor : value >= floor ? value : refuse(field);
 
 /** The same window lengths, each allowing no more than the floor's. */
 const tighterWindows = (
@@ -103,7 +87,6 @@ export function tightenMessagingValues(
   override: MessagingPolicyOverride | undefined,
 ): MessagingBetaValues {
   if (override === undefined) return floor;
-  const requests = override.socialRequests ?? {};
   return freeze({
     editWindowMs: atMost(
       'editWindowMs',
@@ -125,28 +108,6 @@ export function tightenMessagingValues(
       ),
     },
     typing: tighterWindows('typing', floor.typing, override.typing),
-    socialRequests: {
-      daily: atMost(
-        'socialRequests.daily',
-        floor.socialRequests.daily,
-        requests.daily,
-      ),
-      unrelatedHourly: atMost(
-        'socialRequests.unrelatedHourly',
-        floor.socialRequests.unrelatedHourly,
-        requests.unrelatedHourly,
-      ),
-      declinesToBlock: atMost(
-        'socialRequests.declinesToBlock',
-        floor.socialRequests.declinesToBlock,
-        requests.declinesToBlock,
-      ),
-      declineBlockMs: atLeast(
-        'socialRequests.declineBlockMs',
-        floor.socialRequests.declineBlockMs,
-        requests.declineBlockMs,
-      ),
-    },
     fileUploadsDaily: atMost(
       'fileUploadsDaily',
       floor.fileUploadsDaily,
@@ -218,7 +179,6 @@ function composeBetaMessagingPolicy(
         batchActors: messagingBetaLimits.batchActors,
       },
       creation: betaDmPolicy,
-      requests: values.socialRequests,
       // Decisions and blocks share the per-account send ceiling.
       abuse: values.send,
     },
@@ -245,7 +205,6 @@ const valuesOf = (policy: MessagingRuntimePolicy): MessagingBetaValues => ({
     distinctPerMessage: policy.reactions.distinctPerMessage,
   },
   typing: policy.limits.typing,
-  socialRequests: policy.social.requests,
   fileUploadsDaily: policy.limits.fileUploadsDaily,
   fileBytes: policy.limits.fileBytes,
 });
@@ -278,7 +237,6 @@ export function tightenMessagingPolicy(
     },
     social: {
       ...policy.social,
-      requests: values.socialRequests,
       // Where social commands share the send ceiling (the beta policy),
       // a tighter send tightens them too; a policy with its own social
       // windows keeps them.

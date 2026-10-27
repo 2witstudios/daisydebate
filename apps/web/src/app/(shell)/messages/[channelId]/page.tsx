@@ -75,6 +75,14 @@ export default async function ConversationPage({
             maxUnits={conversation.bounds.messageUnits}
             searchQuery={searchQuery ?? null}
           />
+          {query.notice === markReadUnavailableNotice ? (
+            // Only a no-JS reader posts the native form, so only they see it.
+            <noscript>
+              <p role="status" className="text-ink-muted">
+                This conversation could not be marked read. Try again.
+              </p>
+            </noscript>
+          ) : null}
           {readThrough === null ? null : (
             <>
               <MarkConversationRead
@@ -82,11 +90,6 @@ export default async function ConversationPage({
                 sequence={readThrough}
               />
               <noscript>
-                {query.notice === markReadUnavailableNotice ? (
-                  <p role="status" className="text-ink-muted">
-                    This conversation could not be marked read. Try again.
-                  </p>
-                ) : null}
                 <form action={markReadAction.bind(null, id.data, readThrough)}>
                   <button type="submit" className="text-accent underline">
                     Mark as read

@@ -1,11 +1,11 @@
-import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { requestMessagingDm } from '../src/features/messaging/request';
-import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+import { messagingCreationFence } from '../src/features/messaging/creation-authorization';
+import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -21,10 +21,10 @@ const requestDeps = (
   clock,
   ids: { next: () => fixture.channelId },
   bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-  limits: dec251MessagingValues.socialRequests,
+  limits: dec251ContactsPolicy.requests,
   limit,
   store: db.messagingSocialStore(
-    contactAuthorizationFence({
+    messagingCreationFence({
       principal,
       clock,
       operation: {

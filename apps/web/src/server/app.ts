@@ -32,6 +32,10 @@ import {
   parseMessagingPolicyLimits,
 } from '../features/messaging/beta-limits';
 import { tightenMessagingPolicy } from '../features/messaging/beta-policy';
+import {
+  dec251ContactsPolicy,
+  tightenContactsPolicy,
+} from '../features/contacts/request-policy';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
@@ -184,6 +188,11 @@ export function createApp({
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
     messagingPolicy: policy,
+    /** DEC-251's social request budget; `CONTACTS_POLICY` may only tighten it. */
+    contactsPolicy: tightenContactsPolicy(
+      dec251ContactsPolicy,
+      config.CONTACTS_POLICY,
+    ),
     messagingFiles: messagingFiles
       ? parseMessagingFileLimits(messagingFiles, policy)
       : null,

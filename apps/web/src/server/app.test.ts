@@ -5,6 +5,7 @@ import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
 import { createRoutes } from './routes';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
+import { dec251ContactsPolicy } from '../features/contacts/request-policy';
 
 setupRitewayBun();
 
@@ -70,6 +71,31 @@ describe('createApp', () => {
         ).includes('MESSAGING_POLICY.editWindowMs would loosen DEC-251'),
       ],
       expected: [true, 60_000, true],
+    });
+    await Promise.all([shipped.close(), tightened.close()]);
+  });
+
+  test('runs the DEC-251 social request budget Contacts owns, tightened only by CONTACTS_POLICY', async () => {
+    const shipped = build(baseEnv);
+    const tightened = build({
+      ...baseEnv,
+      CONTACTS_POLICY: JSON.stringify({ requests: { daily: 10 } }),
+    });
+    assert({
+      given: 'no override, a tighter daily budget, then a looser one',
+      should:
+        'run the shipped Contacts policy, apply the tighter value, and refuse to boot on the looser',
+      actual: [
+        shipped.contactsPolicy === dec251ContactsPolicy,
+        tightened.contactsPolicy.requests.daily,
+        errorOf(() =>
+          build({
+            ...baseEnv,
+            CONTACTS_POLICY: JSON.stringify({ requests: { daily: 21 } }),
+          }),
+        ).includes('CONTACTS_POLICY.requests.daily would loosen DEC-251'),
+      ],
+      expected: [true, 10, true],
     });
     await Promise.all([shipped.close(), tightened.close()]);
   });

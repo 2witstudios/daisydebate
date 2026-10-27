@@ -2,134 +2,53 @@ import type {
   AuthorizationPrincipal,
   ContactAuthorizationFact,
   ContactPairAuthorizationFact,
-  SocialCreationFact,
-  SocialCreationPolicy,
 } from '@daisy/auth/authorization';
-import type { Clock } from '@daisy/clock';
 import type { ContactAuthorizationFence } from '@daisy/db/contacts';
 import { createAppError } from '@daisy/errors';
-import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 
-/** Policy is supplied by its authority; absent approval or group scope fails closed. */
-export function contactAuthorizationFence({
+/** The capabilities decided on one contact pair (ADR 0061, ADR 0072). */
+export type ContactPairCapability =
+  | 'social.block'
+  | 'social.friend.request'
+  | 'social.friend.end'
+  | 'social.challenge.send'
+  | 'social.challenge.decline';
+
+/**
+ * The fence for one command on one contact pair: the principal must be the
+ * acting member, and `capability` is decided on the locked pair and both
+ * locked accounts. Capabilities that create channels belong to Messaging.
+ */
+export function contactPairFence({
   principal,
-  clock,
-  operation,
+  capability,
 }: {
   readonly principal: AuthorizationPrincipal;
-  readonly clock: Clock;
-  readonly operation:
-    | { readonly kind: 'block' }
-    | {
-        readonly kind: 'friend';
-        readonly capability: 'social.friend.request' | 'social.friend.end';
-      }
-    | {
-        readonly kind: 'challenge';
-        readonly capability:
-          'social.challenge.send' | 'social.challenge.decline';
-      }
-    | {
-        readonly kind: 'dm' | 'private_group';
-        readonly policy: SocialCreationPolicy;
-      };
+  readonly capability: ContactPairCapability;
 }): ContactAuthorizationFence {
-  return async (tx, input, facts) => {
+  return async (_tx, input, facts) => {
     if (
       principal.kind !== 'user' ||
       principal.userId !== input.userId ||
       principal.actorId !== input.actorId
     )
       throw createAppError('AUTHORIZATION');
-    const account =
-      facts.accounts.find((row) => row?.actorId === input.actorId) ?? null;
     const contacts: readonly ContactAuthorizationFact[] = facts.contacts;
-    if (
-      operation.kind === 'block' ||
-      operation.kind === 'friend' ||
-      operation.kind === 'challenge'
-    ) {
-      if (contacts.length !== 1) throw createAppError('VALIDATION');
-      const resource: ContactPairAuthorizationFact = {
-        ...contacts[0]!,
-        kind: 'contact_pair',
-      };
-      requireAuthorization({
-        principal,
-        capability:
-          operation.kind === 'block' ? 'social.block' : operation.capability,
-        resource,
-        context: {
-          account,
-          contactAccounts: facts.accounts.filter((row) => row !== null),
-        },
-      });
-      return;
-    }
-    const now = clock.now();
-    const socialAccounts = await loadAccountPolicyFacts(
-      tx,
-      facts.accounts,
-      now,
-    );
-    const resource = creationResource(
-      operation,
-      input.actorId,
-      input.memberActorIds,
-      contacts,
-      input.policyRevision,
-    );
+    if (contacts.length !== 1) throw createAppError('VALIDATION');
+    const resource: ContactPairAuthorizationFact = {
+      ...contacts[0]!,
+      kind: 'contact_pair',
+    };
     requireAuthorization({
       principal,
-      capability:
-        operation.kind === 'dm'
-          ? 'channel.dm.request'
-          : 'channel.create.private_group',
+      capability,
       resource,
       context: {
-        account,
-        now,
-        socialAccounts,
-        socialCreationPolicy: operation.policy,
+        account:
+          facts.accounts.find((row) => row?.actorId === input.actorId) ?? null,
+        contactAccounts: facts.accounts.filter((row) => row !== null),
       },
     });
-  };
-}
-export function creationResource(
-  operation: {
-    readonly kind: 'dm' | 'private_group';
-    readonly policy: SocialCreationPolicy;
-  },
-  actorId: string,
-  members: readonly string[],
-  contacts: readonly ContactAuthorizationFact[],
-  policyRevision: number | undefined,
-): SocialCreationFact {
-  if (operation.policy.state !== 'approved')
-    throw createAppError('INFRASTRUCTURE');
-  if (policyRevision === undefined) throw createAppError('INFRASTRUCTURE');
-  const revision = policyRevision;
-  if (operation.kind === 'dm') {
-    if (members.length !== 2 || contacts.length !== 1)
-      throw createAppError('VALIDATION');
-    return {
-      kind: 'social_creation',
-      mode: 'dm',
-      initiatorActorId: actorId,
-      recipientActorId: members.find((id) => id !== actorId)!,
-      policyKey: 'social.dm',
-      policyRevision: revision,
-      contactPair: contacts[0]!,
-    };
-  }
-  return {
-    kind: 'social_creation',
-    mode: 'private_group',
-    initiatorActorId: actorId,
-    memberActorIds: members,
-    policyKey: 'social.private_group',
-    policyRevision: revision,
-    contactPairs: contacts,
   };
 }

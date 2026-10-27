@@ -21,7 +21,6 @@ test('MESSAGING_POLICY carries only explicit DEC-251 overrides', () => {
     editWindowMs: 60_000,
     send: [{ max: 5, windowSeconds: 10 }],
     reactions: { distinctPerMessage: 4 },
-    socialRequests: { daily: 10 },
   };
   assert({
     given: 'no override and then a partial one',
@@ -38,13 +37,14 @@ test('MESSAGING_POLICY carries only explicit DEC-251 overrides', () => {
 test('MESSAGING_POLICY refuses anything but positive integers in known fields', () => {
   assert({
     given:
-      'malformed JSON, an unknown key, a zero, a fraction and two windows of one length',
+      'malformed JSON, an unknown key, the social request budget Contacts owns, a zero, a fraction and two windows of one length',
     should: 'refuse each at boot, naming the variable or its field',
     actual: [
       failure('{'),
       failure(JSON.stringify({ channelSend: [] })),
+      failure(JSON.stringify({ socialRequests: { daily: 10 } })),
       failure(JSON.stringify({ editWindowMs: 0 })),
-      failure(JSON.stringify({ socialRequests: { daily: 1.5 } })),
+      failure(JSON.stringify({ fileUploadsDaily: 1.5 })),
       failure(
         JSON.stringify({
           send: [
@@ -57,8 +57,9 @@ test('MESSAGING_POLICY refuses anything but positive integers in known fields', 
     expected: [
       'MESSAGING_POLICY',
       'MESSAGING_POLICY',
+      'MESSAGING_POLICY',
       'MESSAGING_POLICY.editWindowMs',
-      'MESSAGING_POLICY.socialRequests.daily',
+      'MESSAGING_POLICY.fileUploadsDaily',
       'MESSAGING_POLICY.send',
     ].map((field) => `Invalid server configuration: ${field}`),
   });

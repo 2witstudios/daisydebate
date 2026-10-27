@@ -6,7 +6,6 @@ import {
 } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import type { SocialRequestLimits } from '@daisy/db';
 import { consumeWindowsOrThrow, type RateRule } from '../auth/abuse/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
@@ -24,8 +23,6 @@ export type MessagingSocialRuntimePolicy = {
     readonly maxMembers: number;
     readonly maxPendingInvitations: number;
   };
-  /** DEC-251 social request budgets, shared by DM and friend requests. */
-  readonly requests: SocialRequestLimits;
   /** Per-account ceiling on every social command. */
   readonly abuse: readonly RateRule[];
 };
@@ -63,7 +60,7 @@ export function composeMessagingSocialRoutes(app: App) {
           bounds: social.bounds,
           clock: app.clock,
           limit,
-          limits: social.requests,
+          limits: app.contactsPolicy.requests,
         }),
       status: (input, principal) => {
         const command = parseValidated(

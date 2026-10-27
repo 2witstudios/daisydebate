@@ -45,7 +45,6 @@ export const isolatedMessagingPolicy = (
     creation: messagingTestPosting,
     groupAdmission: messagingTestGroupPolicy,
     groupInvitationLimits: { maxMembers: 12, maxPendingInvitations: 10 },
-    requests: dec251MessagingValues.socialRequests,
     abuse: [{ max: 40, windowSeconds: 60 }],
   },
   ...overrides,

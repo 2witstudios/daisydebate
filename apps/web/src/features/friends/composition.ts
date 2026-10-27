@@ -20,7 +20,7 @@ import {
   type FriendReadDependencies,
 } from './operations';
 import { memberHttpBoundary } from '../../server/member-handler';
-import { contactAuthorizationFence } from '../contacts/authorization';
+import { contactPairFence } from '../contacts/authorization';
 
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
@@ -83,18 +83,12 @@ const friendPorts = (
 ): FriendOperationDependencies => ({
   clock: app.clock,
   ids: app.ids,
-  limits: app.messagingPolicy.social.requests,
+  limits: app.contactsPolicy.requests,
   limit: (actorId) =>
     consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
-    app.database.friendStore(
-      contactAuthorizationFence({
-        principal,
-        clock: app.clock,
-        operation: { kind: 'friend', capability },
-      }),
-    ),
+    app.database.friendStore(contactPairFence({ principal, capability })),
 });
 
 /** A challenge's ports: its own limiter bucket and capability fence. */
@@ -111,13 +105,7 @@ const challengePorts = (
     ),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
-    app.database.friendStore(
-      contactAuthorizationFence({
-        principal,
-        clock: app.clock,
-        operation: { kind: 'challenge', capability },
-      }),
-    ),
+    app.database.friendStore(contactPairFence({ principal, capability })),
 });
 
 export function composeFriendRoutes(app: App) {

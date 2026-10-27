@@ -33,7 +33,6 @@ test('the shipped beta policy is DEC-251, frozen, within DEC-124', () => {
       betaMessagingPolicy.typing.ttlMs,
       betaMessagingPolicy.limits.reactions,
       betaMessagingPolicy.reactions.distinctPerMessage,
-      betaMessagingPolicy.social.requests,
       betaMessagingPolicy.limits.fileUploadsDaily,
       parseMessagingPolicyLimits(betaMessagingPolicy) === betaMessagingPolicy,
       Object.isFrozen(dec251MessagingValues.send[0]),
@@ -50,12 +49,6 @@ test('the shipped beta policy is DEC-251, frozen, within DEC-124', () => {
       6_000,
       [{ max: 60, windowSeconds: 60 }],
       10,
-      {
-        daily: 20,
-        unrelatedHourly: 5,
-        declinesToBlock: 3,
-        declineBlockMs: 2_592_000_000,
-      },
       20,
       true,
       true,
@@ -121,7 +114,6 @@ test('a deployment override may only tighten DEC-251', async () => {
     editWindowMs: 60_000,
     send: tighterSend,
     reactions: { distinctPerMessage: 3 },
-    socialRequests: { daily: 10, declineBlockMs: 3_000_000_000 },
   });
   assert({
     given: 'no override, then tighter values',
@@ -132,7 +124,6 @@ test('a deployment override may only tighten DEC-251', async () => {
       tightened.editWindowMs,
       tightened.limits.actorSend.map((rule) => rule.max),
       tightened.reactions.distinctPerMessage,
-      tightened.social.requests,
       tightened.limits.read,
       tightened.social.abuse.map((rule) => rule.max),
     ],
@@ -141,12 +132,6 @@ test('a deployment override may only tighten DEC-251', async () => {
       60_000,
       [5, 30, 100],
       3,
-      {
-        daily: 10,
-        unrelatedHourly: 5,
-        declinesToBlock: 3,
-        declineBlockMs: 3_000_000_000,
-      },
       [{ max: 120, windowSeconds: 60 }],
       [5, 30, 100],
     ],
@@ -226,8 +211,6 @@ test('a deployment override may only tighten DEC-251', async () => {
     ],
     ['more distinct reactions', { reactions: { distinctPerMessage: 11 } }],
     ['a faster typing signal', { typing: [{ max: 2, windowSeconds: 3 }] }],
-    ['more daily requests', { socialRequests: { daily: 21 } }],
-    ['a shorter decline block', { socialRequests: { declineBlockMs: 1 } }],
     ['more uploads', { fileUploadsDaily: 21 }],
   ] satisfies [string, MessagingPolicyOverride][])
     await assertRejects({

@@ -32,14 +32,6 @@ export const messagingPolicyConfig = optionalJsonConfig(
       })
       .optional(),
     typing: windows.optional(),
-    socialRequests: z
-      .strictObject({
-        daily: positiveInteger.optional(),
-        unrelatedHourly: positiveInteger.optional(),
-        declinesToBlock: positiveInteger.optional(),
-        declineBlockMs: positiveInteger.optional(),
-      })
-      .optional(),
     fileUploadsDaily: positiveInteger.optional(),
   }),
 );

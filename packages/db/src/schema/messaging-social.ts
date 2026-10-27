@@ -182,10 +182,6 @@ export const messagingSocialCommands = pgTable(
     createdAt: timestampColumn('created_at').notNull(),
   },
   (table) => [
-    index('messaging_social_commands_actor_created_idx').on(
-      table.actorId,
-      table.createdAt,
-    ),
     index('messaging_social_commands_counterpart_actor_idx').on(
       table.counterpartActorId,
     ),

@@ -2,9 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
-import { dec251MessagingValues } from './beta-policy';
 import { requestMessagingDm } from './request';
 import { messagingSocialDigest } from './social-command-digest';
+import { dec251ContactsPolicy } from '../contacts/request-policy';
 
 setupRitewayBun();
 
@@ -68,7 +68,7 @@ const dependenciesOf = (
   clock: { now: () => '2026-10-27T12:00:00.000Z' },
   ids: { next: () => channelId },
   policyRevision: 1,
-  limits: dec251MessagingValues.socialRequests,
+  limits: dec251ContactsPolicy.requests,
   limit,
 });
 

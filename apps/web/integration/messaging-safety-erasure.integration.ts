@@ -6,7 +6,7 @@ import { requireTestServices } from '@daisy/config';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { contactAuthorizationFence } from '../src/features/contacts/authorization';
+import { contactPairFence } from '../src/features/contacts/authorization';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const gate = () => {
@@ -30,10 +30,9 @@ for (const [blockFirst, noDm] of [
     const entered = gate(),
       release = gate();
     let first = blockFirst;
-    const canonical = contactAuthorizationFence({
+    const canonical = contactPairFence({
       principal,
-      clock,
-      operation: { kind: 'block' },
+      capability: 'social.block',
     });
     const store = database.messagingSocialStore(async (tx, input, facts) => {
       await canonical(tx, input, facts);

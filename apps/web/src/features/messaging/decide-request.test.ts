@@ -1,10 +1,10 @@
-import { dec251MessagingValues } from './beta-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { decideMessagingDm } from './decide-request';
 import { messagingSocialDigest } from './social-command-digest';
+import { dec251ContactsPolicy } from '../contacts/request-policy';
 setupRitewayBun();
 const command = {
   version: 1,
@@ -56,7 +56,7 @@ const pendingDecision = () => {
     store,
     clock: { now: () => '2026-10-09T18:01:00.000Z' },
     bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    limits: dec251MessagingValues.socialRequests,
+    limits: dec251ContactsPolicy.requests,
     limit: async () => {
       world.calls.push('limit');
     },
