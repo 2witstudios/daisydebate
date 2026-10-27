@@ -131,7 +131,8 @@ export function createApp({
     const authConfig = readAuth();
     return createAuthServer({
       getActorByUserId: (userId) => database.getActorByUserId(userId),
-      getParticipationByUserId: (userId) => database.getParticipationByUserId(userId),
+      getParticipationByUserId: (userId) =>
+        database.getParticipationByUserId(userId),
       config: authConfig,
       database: database.authAdapter,
       emailSender: emailSender(authConfig),

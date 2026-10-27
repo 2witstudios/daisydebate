@@ -5,7 +5,11 @@ import type { AuthServer } from '../features/auth/server';
 /** The slice of the composed auth server a session read needs. */
 export type SessionReader = Pick<
   AuthServer,
-  'instance' | 'clock' | 'logger' | 'getActorByUserId' | 'getParticipationByUserId'
+  | 'instance'
+  | 'clock'
+  | 'logger'
+  | 'getActorByUserId'
+  | 'getParticipationByUserId'
 >;
 
 /**

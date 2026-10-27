@@ -14,7 +14,8 @@ const account = {
   member: true,
   erased: false,
   revision: 4,
-  beta: { state: 'approved' as const, revision: 1 }, ageBand: 'adult' as const,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
 };
 const fact: PendingFileAuthorizationFact = {
   kind: 'pending_file',
