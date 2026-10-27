@@ -15,6 +15,7 @@ import {
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
 import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
+import { createBotListenerHandlers } from '../apps/web/src/features/round-bots/listener-handlers';
 import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/heard-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
@@ -133,13 +134,26 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
       readLease: (value) => capture.readCurrentCaptureLease(value),
       write: f.redis.writeCaptureHeard,
     }),
+  });
+  // The bot listener is its own role on its own routes (ISSUE-764).
+  const listener = createBotListenerHandlers({
+    logger: deps.logger,
+    authentication: () => authentication,
+    listener: () => f.store,
     activity: createBotActivityRelay({
-      readCapture: (value) => capture.readMediaCaptureState(value),
-      readLease: (value) => capture.readCurrentCaptureLease(value),
+      readListener: (value) => f.store.readBotListenerState(value),
+      readLease: (value) => f.store.readCurrentBotListenerLease(value),
       write: f.redis.writeBotActivity,
     }),
   });
-  return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
+  return Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: (request) =>
+      new URL(request.url).pathname.split('/')[5] === 'bot-listener'
+        ? listener.handle(request)
+        : handlers.handle(request),
+  });
 }
 /**
  * Publishes 10 ms frames without a gap until stopped: the PCM first, then

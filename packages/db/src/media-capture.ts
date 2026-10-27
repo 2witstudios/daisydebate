@@ -34,7 +34,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     );
   },
   /**
-   * The one capture lease-validity predicate for activity relay: this worker's
+   * The one capture lease-validity predicate for capture's heard report: this worker's
    * epoch, an unexpired lease, a session not ended, unsafe or being deleted,
    * and its segment still open. Read without the Round lock; returns fresh
    * PostgreSQL time.

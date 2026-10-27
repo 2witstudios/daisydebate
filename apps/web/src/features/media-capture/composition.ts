@@ -1,8 +1,6 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
-import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { App } from '../../server/app';
-import { createBotActivityRelay } from '../round-bots/activity-relay';
+import { mediaWorkerAuthentication } from '../../server/media-worker-ingress';
 import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
 import { createCaptureHeardRelay } from './heard-relay';
@@ -15,8 +13,6 @@ type Capture = ReturnType<App['database']['createMediaCaptureOperations']>;
 /** Inert without configuration; the shared router mounts only this authenticated handler. */
 export function composeMediaCaptureRoutes(app: App) {
   let capture: Capture | undefined;
-  let authentication:
-    ReturnType<typeof createMediaWorkerAuthentication> | undefined;
   const media = createRoundMediaRuntime(app);
   const operations = () =>
     (capture ??= app.database.createMediaCaptureOperations({
@@ -38,21 +34,10 @@ export function composeMediaCaptureRoutes(app: App) {
   };
   return createMediaCaptureHandlers({
     logger: app.logger,
-    authentication: () => {
-      const secret = app.config.MEDIA_WORKER_SECRET;
-      if (!secret) throw createAppError('INFRASTRUCTURE');
-      return (authentication ??= createMediaWorkerAuthentication({
-        secret,
-        now: () => Date.parse(app.clock.now()),
-      }));
-    },
+    authentication: mediaWorkerAuthentication(app),
     capture: operations,
     token: (scope, principal) =>
       media.workerTokens().captureToken(scope, principal),
-    activity: createBotActivityRelay({
-      ...admission,
-      write: app.redis.writeBotActivity,
-    }),
     heard: createCaptureHeardRelay({
       ...admission,
       write: app.redis.writeCaptureHeard,

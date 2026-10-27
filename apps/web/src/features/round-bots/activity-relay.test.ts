@@ -26,11 +26,11 @@ const body = (segmentId = segment) => ({
   frames: [frame],
 });
 function harness() {
-  const calls = { capture: 0, lease: 0, writes: 0 };
+  const calls = { listener: 0, lease: 0, writes: 0 };
   let leaseCurrent = true;
   const relay = createBotActivityRelay({
-    readCapture: async () => {
-      calls.capture++;
+    readListener: async () => {
+      calls.listener++;
       return {
         serverNow: now,
         segment: { id: segment, endedAt: null },
@@ -42,7 +42,7 @@ function harness() {
     readLease: async () => {
       calls.lease++;
       if (!leaseCurrent)
-        throw createAppError('CONFLICT', 'Capture worker lease is stale');
+        throw createAppError('CONFLICT', 'Bot listener lease is stale');
       return { serverNow: now };
     },
     write: async () => {
@@ -72,11 +72,11 @@ test('a seat is admitted once per lease epoch and segment; later batches take no
   assert({
     given: 'three batches in one epoch and segment, then a new epoch',
     should:
-      'take one locked capture read per admission, and the same lease check on every batch',
+      'take one listener read per admission, and the same listener lease check on every batch',
     actual: [admitted, f.calls],
     expected: [
-      { capture: 1, lease: 3, writes: 3 },
-      { capture: 3, lease: 4, writes: 4 },
+      { listener: 1, lease: 3, writes: 3 },
+      { listener: 3, lease: 4, writes: 4 },
     ],
   });
   f.expire();

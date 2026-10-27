@@ -1,11 +1,32 @@
-import type { CaptureClient, CaptureState } from './capture-history';
-import type { StagedFrame } from './capture-staging';
+import type { BotListenerClient } from '@daisy/media/bot-listener';
 const MAX_FRAMES = 20;
 /** Under the feed's 250 ms staleness and its 50 ms poll; a batch spans 200 ms. */
 export const ACTIVITY_RELAY_INTERVAL_MS = 50;
 const iso = (ms: number) => new Date(ms).toISOString();
+
+/** One peer frame as the listener timed it: the seat, its segment, native brackets and server window. */
+export type ListenerFrame = {
+  readonly seat: string;
+  readonly segmentId: string;
+  readonly original: {
+    readonly sequence: number;
+    readonly beforeMs: number;
+    readonly afterMs: number;
+  };
+  readonly frame: {
+    readonly trackId: string;
+    readonly pcm: Int16Array;
+    readonly beforeMs: number;
+    readonly afterMs: number;
+  };
+};
+/** What the listener knows of the Round from its own read. */
+export type ListenerState = {
+  readonly segment: { readonly type: string } | null;
+  readonly participants: readonly { readonly kind: string }[];
+};
 /** Peer activity has a consumer only while a bot may speak in cross-examination. */
-export const activityWanted = (state: CaptureState) =>
+export const activityWanted = (state: ListenerState) =>
   state.segment?.type === 'cross_ex' &&
   state.participants.some((p) => p.kind === 'bot');
 /**
@@ -14,10 +35,10 @@ export const activityWanted = (state: CaptureState) =>
  * it already delivered, sees every frame while relays run faster than 200 ms.
  */
 export function createActivityRelay() {
-  const windows = new Map<string, StagedFrame[]>();
+  const windows = new Map<string, ListenerFrame[]>();
   const fresh = new Set<string>();
   return {
-    observe(frame: StagedFrame) {
+    observe(frame: ListenerFrame) {
       const held = windows.get(frame.seat) ?? [];
       // A window never spans segments: the batch names one phase.
       const window = held[0]?.segmentId === frame.segmentId ? held : [];
@@ -57,7 +78,7 @@ export function createActivityRelay() {
 }
 /** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */
 export async function relayActivity(
-  client: CaptureClient,
+  client: Pick<BotListenerClient, 'activity'>,
   epoch: number,
   batches: ReturnType<ReturnType<typeof createActivityRelay>['take']>,
   signal: AbortSignal,

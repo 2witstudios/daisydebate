@@ -4,7 +4,8 @@ import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
-import { handleOperation, parseValidated, readBytes } from '../../server/http';
+import { handleOperation, parseValidated } from '../../server/http';
+import { readSignedWorkerRequest } from '../../server/media-worker-ingress';
 import type { createMediaWorkerTokenBroker } from '../round-media/worker-token';
 
 type Authentication = ReturnType<typeof createMediaWorkerAuthentication>;
@@ -28,35 +29,18 @@ export function createMediaCaptureHandlers(input: {
   readonly authentication: () => Authentication;
   readonly capture: () => Capture;
   readonly token: Broker['captureToken'];
-  readonly activity: Relay;
-  /** Capture hears a bot seat's track (ISSUE-514-r2). */
+  /** Capture hears a bot seat's track (DEC-226, ISSUE-514-r2). */
   readonly heard: Relay;
 }) {
-  const relays = new Map([
-    ['activity', input.activity],
-    ['heard', input.heard],
-  ]);
+  const relays = new Map([['heard', input.heard]]);
   return {
     handle: (request: Request) =>
       handleOperation(input.logger, request, 'media.capture', async (id) => {
-        const bytes = await readBytes(request, 128 * 1024);
-        let body: string;
-        try {
-          body = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-        } catch {
-          throw createAppError('VALIDATION');
-        }
-        const url = new URL(request.url);
-        const principal = input.authentication().verify({
-          method: request.method,
-          path: `${url.pathname}${url.search}`,
-          body,
-          timestamp: request.headers.get('x-daisy-media-timestamp') ?? '',
-          signature: request.headers.get('x-daisy-media-signature') ?? '',
-        });
-        // Authentication parsed the exact signed JSON object and refused conflicting scope.
-        const payload = { ...JSON.parse(body), roundId: principal.roundId };
-        const operation = url.pathname.split('/').at(-1);
+        const { principal, payload, operation } = await readSignedWorkerRequest(
+          request,
+          input.authentication(),
+          'capture',
+        );
         try {
           if (operation === 'token')
             return Response.json(

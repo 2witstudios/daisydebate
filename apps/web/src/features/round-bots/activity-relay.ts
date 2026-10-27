@@ -3,40 +3,74 @@ import {
   botActivityBatchSchema,
   botActivityRelaySchema,
 } from '@daisy/protocol/bot-activity';
-import {
-  requireCurrentSeat,
-  type CaptureIdentity,
-  type CaptureRead,
-  type LeaseRead,
-} from '../media-capture/admission';
+
+/** The signed bot-listener identity under one listener lease epoch. */
+export type ListenerIdentity = {
+  readonly roundId: string;
+  readonly sessionId: string;
+  readonly workerId: string;
+  readonly epoch: number;
+};
+/** The listener's own read: the open segment and the non-judge seats. */
+type ListenerRead = {
+  readonly segment: {
+    readonly id: string;
+    readonly endedAt: string | null;
+  } | null;
+  readonly participants: readonly {
+    readonly roundParticipantId: string;
+    readonly identity: string | null;
+  }[];
+};
+type LeaseRead = (
+  identity: ListenerIdentity & { readonly segmentId: string },
+) => Promise<{ readonly serverNow: string }>;
+
+/** An actually bound seat and the current open segment. */
+function requireBoundSeat(
+  read: ListenerRead,
+  roundParticipantId: string,
+  segmentId: string,
+) {
+  if (
+    !read.participants.some(
+      (seat) =>
+        seat.roundParticipantId === roundParticipantId &&
+        seat.identity !== null,
+    )
+  )
+    throw createAppError('AUTHORIZATION');
+  if (read.segment?.id !== segmentId || read.segment.endedAt !== null)
+    throw createAppError('CONFLICT', 'Activity segment is not current');
+}
 
 const MAX_ADMISSIONS = 4096;
 /**
- * Owner hook for the signed capture ingress. A seat is admitted once per
- * capture lease epoch and segment, by the locked capture read: an actually
- * bound non-judge seat and the current open segment. Admission and every
- * later batch pass the same lease-validity check (`readLease`: epoch,
- * expiry, session end, unsafe or deletion, segment end), read without the
- * Round lock. The receipt is always fresh PostgreSQL time, never the worker
- * body. Redis carries no authority.
+ * Owner hook for the signed bot-listener ingress (ISSUE-764), admitted only
+ * by the listener's own lease, never by capture. A seat is admitted once per
+ * listener epoch and segment, by the listener read: an actually bound
+ * non-judge seat and the current open segment. Admission and every later
+ * batch pass the listener lease check (`readLease`: epoch, expiry, session
+ * end, unsafe or deletion, segment end). The receipt is always fresh
+ * PostgreSQL time, never the worker body. Redis carries no authority.
  */
 export function createBotActivityRelay(input: {
-  readonly readCapture: (identity: CaptureIdentity) => Promise<CaptureRead>;
+  readonly readListener: (identity: ListenerIdentity) => Promise<ListenerRead>;
   readonly readLease: LeaseRead;
   readonly write: (batch: unknown) => Promise<void>;
 }) {
   const admitted = new Set<string>();
   const admit = async (
-    identity: CaptureIdentity,
+    identity: ListenerIdentity,
     roundParticipantId: string,
     segmentId: string,
   ) =>
-    requireCurrentSeat(
-      await input.readCapture(identity),
+    requireBoundSeat(
+      await input.readListener(identity),
       roundParticipantId,
       segmentId,
     );
-  return async (identity: CaptureIdentity, body: unknown) => {
+  return async (identity: ListenerIdentity, body: unknown) => {
     const parsed = botActivityRelaySchema.safeParse(body);
     if (!parsed.success) throw createAppError('VALIDATION');
     const { roundParticipantId, segmentId, frames } = parsed.data;

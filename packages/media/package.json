@@ -11,6 +11,7 @@
     "./capture": "./src/native-capture.ts",
     "./clips": "./src/capture-clips.ts",
     "./worker": "./src/worker-client.ts",
+    "./bot-listener": "./src/bot-listener-client.ts",
     "./observation": "./src/capture-clock.ts"
   },
   "scripts": {

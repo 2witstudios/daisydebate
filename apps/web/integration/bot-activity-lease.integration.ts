@@ -1,16 +1,15 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  captureActivityRelay,
-  leasedCaptureSpeech,
+  leasedListenerSpeech,
+  listenerActivityRelay,
   withMediaRound,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-test('an expired lease or an ended, unsafe or deletion-requested session refuses relay on the admitted and the fresh path alike (CAP-E.1-r5, CAP-E.1-r7)', async () => {
+test('an expired listener lease or an ended, unsafe or deletion-requested session refuses relay on the admitted and the fresh path alike (CAP-E.1-r5, CAP-E.1-r7, ISSUE-764)', async () => {
   await withMediaRound(async (f) => {
-    const { scope, capture, identity, segmentId } =
-      await leasedCaptureSpeech(f);
+    const { scope, identity, segmentId } = await leasedListenerSpeech(f);
     const [{ id: host }] =
       await f.sql`select p.id from round_participants p where p.round_id=${f.roundId} and p.actor_id=${f.host.actorId}`;
     let sequence = 0;
@@ -38,7 +37,7 @@ test('an expired lease or an ended, unsafe or deletion-requested session refuses
       };
     };
     const outcomes: string[] = [];
-    const attempt = (relay: ReturnType<typeof captureActivityRelay>) =>
+    const attempt = (relay: ReturnType<typeof listenerActivityRelay>) =>
       batch().then((body) =>
         relay(identity, body).then(
           () => 'relayed',
@@ -47,8 +46,8 @@ test('an expired lease or an ended, unsafe or deletion-requested session refuses
       );
     for (const [close, reopen] of [
       [
-        f.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${scope.sessionId}`,
-        f.sql`update media_worker_leases set expires_at=clock_timestamp()+interval '15 seconds' where session_id=${scope.sessionId}`,
+        f.sql`update bot_listener_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${scope.sessionId}`,
+        f.sql`update bot_listener_leases set expires_at=clock_timestamp()+interval '15 seconds' where session_id=${scope.sessionId}`,
       ],
       [
         f.sql`update media_sessions set unsafe_at=clock_timestamp() where id=${scope.sessionId}`,
@@ -63,11 +62,11 @@ test('an expired lease or an ended, unsafe or deletion-requested session refuses
         f.sql`update media_sessions set deletion_requested_at=null where id=${scope.sessionId}`,
       ],
     ] as const) {
-      const admitted = captureActivityRelay(f, capture);
+      const admitted = listenerActivityRelay(f);
       outcomes.push(await attempt(admitted));
       await close;
       outcomes.push(await attempt(admitted));
-      outcomes.push(await attempt(captureActivityRelay(f, capture)));
+      outcomes.push(await attempt(listenerActivityRelay(f)));
       outcomes.push(await attempt(admitted));
       await reopen;
     }

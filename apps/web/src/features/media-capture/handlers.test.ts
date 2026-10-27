@@ -6,12 +6,18 @@ import { createMediaCaptureHandlers } from './handlers';
 setupRitewayBun();
 
 const id = (c: string) => c.repeat(24);
-const principal = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
+const principal = {
+  roundId: id('r'),
+  sessionId: id('s'),
+  workerId: id('w'),
+  role: 'capture',
+};
 const base = 'http://localhost/internal/media/capture';
 
 const fixture = (
   seal?: () => Promise<unknown>,
   token?: () => Promise<never>,
+  role = 'capture',
 ) => {
   const calls: [string, unknown][] = [];
   const record =
@@ -27,7 +33,7 @@ const fixture = (
         verify: (signed: { signature: string }) => {
           if (signed.signature !== 'valid')
             throw createAppError('AUTHORIZATION');
-          return principal;
+          return { ...principal, role };
         },
       }) as never,
     capture: () =>
@@ -43,9 +49,6 @@ const fixture = (
       calls.push(['token', scope]);
       return { token: 'media-token' };
     }) as never,
-    activity: async (identity, body) => {
-      calls.push(['activity', { identity, body }]);
-    },
     heard: async (identity, body) => {
       calls.push(['heard', { identity, body }]);
     },
@@ -111,29 +114,16 @@ test('a signed token request is validated against its strict scope', async () =>
   });
 });
 
-test('signed activity separates the validated worker scope from its body', async () => {
-  const f = fixture();
-  const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };
+test('capture refuses a principal signed as another worker role (ISSUE-764)', async () => {
+  const f = fixture(undefined, undefined, 'bot-listener');
   const response = await f.handlers.handle(
-    signed('activity', JSON.stringify({ ...scope, speaking: true })),
+    signed('lease', JSON.stringify({ sessionId: id('s'), workerId: id('w') })),
   );
   assert({
-    given: 'a signed activity report for the worker scope',
-    should:
-      'relay the body apart from the scope bound to the verified Round, answering null',
-    actual: [await response.json(), f.calls],
-    expected: [
-      null,
-      [
-        [
-          'activity',
-          {
-            identity: { ...scope, roundId: id('r') },
-            body: { speaking: true },
-          },
-        ],
-      ],
-    ],
+    given: 'a valid signature whose principal is the bot-listener role',
+    should: 'refuse it before any capture operation runs',
+    actual: [response.status, f.calls],
+    expected: [403, []],
   });
 });
 

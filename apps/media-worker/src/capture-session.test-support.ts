@@ -148,7 +148,6 @@ export function createCaptureSessionFixture(
       return {};
     },
     heard: async () => undefined,
-    activity: async () => undefined,
   } as unknown as CaptureClient;
   const done = runCaptureSession(
     {

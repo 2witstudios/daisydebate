@@ -2,6 +2,7 @@ import { botActivityBatchSchema } from '@daisy/protocol/bot-activity';
 import { idSchema } from '@daisy/protocol';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
+import { reportedOperation } from './reported-operation';
 const MAX_BYTES = 65536;
 function encodedWithinLimit(value: string) {
   if (new TextEncoder().encode(value).length > MAX_BYTES)
@@ -41,18 +42,7 @@ export function createBotActivityOperations(input: {
       throw new Error('Invalid bot activity scope');
     return redisKey(input.namespace, 'botactivity', roundId, participantId);
   };
-  const reported = async <T>(
-    operation: string,
-    work: () => Promise<T>,
-  ): Promise<T> => {
-    try {
-      await input.client.connect();
-      return await work();
-    } catch (error) {
-      input.reportFailure(operation);
-      throw error;
-    }
-  };
+  const reported = reportedOperation(input);
   const guarded = <T>(operation: string, work: () => Promise<T>) =>
     reported(operation, async () => {
       await requireMemoryOnly(input.client);

@@ -2,8 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ACTIVITY_RELAY_INTERVAL_MS,
   createActivityRelay,
-} from '../apps/media-worker/src/capture-activity';
-import type { StagedFrame } from '../apps/media-worker/src/capture-staging';
+  type ListenerFrame,
+} from '../apps/media-worker/src/bot-listener-relay';
 import { createBotActivityFeed } from '../apps/web/src/features/round-bots/activity-feed';
 setupRitewayBun();
 /**
@@ -15,15 +15,13 @@ const roundId = 'a'.repeat(24),
   peer = 'c'.repeat(24),
   T0 = 2_000_000;
 const iso = (ms: number) => new Date(T0 + ms).toISOString();
-const staged = (sequence: number): StagedFrame => ({
+const staged = (sequence: number): ListenerFrame => ({
   seat: peer,
   segmentId: 'g'.repeat(24),
-  observedAtMs: sequence * 10 + 10,
   original: { sequence, beforeMs: sequence * 10, afterMs: sequence * 10 + 10 },
   frame: {
     pcm: new Int16Array(160).fill(16000),
     trackId: 'peer-track',
-    nominalStartMs: T0 + sequence * 10,
     beforeMs: T0 + sequence * 10,
     afterMs: T0 + sequence * 10 + 10,
   },

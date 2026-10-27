@@ -1,20 +1,22 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { activityWanted, createActivityRelay } from './capture-activity';
-import type { CaptureState } from './capture-history';
-import type { StagedFrame } from './capture-staging';
+import {
+  activityWanted,
+  createActivityRelay,
+  type ListenerFrame,
+  type ListenerState,
+} from './bot-listener-relay';
 setupRitewayBun();
 const staged = (
   seat: string,
   sequence: number,
   segmentId = 'g'.repeat(24),
-): StagedFrame => ({
+): ListenerFrame => ({
   seat,
   segmentId,
   original: { sequence, beforeMs: sequence * 10, afterMs: sequence * 10 + 5 },
   frame: {
     pcm: new Int16Array(160).fill(sequence),
     trackId: `${seat[0]}-track`,
-    nominalStartMs: 1000 + sequence * 10,
     beforeMs: 999 + sequence * 10,
     afterMs: 1011 + sequence * 10,
   },
@@ -98,7 +100,7 @@ test('peer activity is relayed only while a bot may speak in cross-examination',
           kind: bot ? 'bot' : 'human',
         },
       ],
-    }) as unknown as CaptureState;
+    }) as unknown as ListenerState;
   assert({
     given:
       'cross-ex with a bot, cross-ex between humans, a bot speech and no segment',

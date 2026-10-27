@@ -27,6 +27,34 @@ const iso = (column: string) =>
   );
 const stale = () => createAppError('CONFLICT', 'Bot listener lease is stale');
 
+type CurrentLease = {
+  readonly workerId: string;
+  readonly epoch: number;
+  readonly live: boolean;
+};
+/** Another live worker holds it, or a renewal no longer matches this worker's live epoch. */
+function requireClaimable(
+  current: CurrentLease | undefined,
+  input: z.infer<typeof leaseRequestSchema>,
+) {
+  const mine = current?.workerId === input.workerId;
+  if (current?.live && !mine)
+    throw createAppError('CONFLICT', 'Bot listener lease is held');
+  const renewal = input.expectedEpoch !== undefined;
+  if (
+    renewal &&
+    !(current?.live && mine && current.epoch === input.expectedEpoch)
+  )
+    throw stale();
+}
+/** A first claim takes epoch 1, a live lease keeps its epoch, an expired one moves on. */
+function nextEpoch(current: CurrentLease | undefined) {
+  const next = !current ? 1 : current.live ? current.epoch : current.epoch + 1;
+  if (next > 2147483647)
+    throw createAppError('CONFLICT', 'Bot listener epoch exhausted');
+  return next;
+}
+
 /** The session must be this Round's, live, and its Round still playing. */
 async function requireLiveSession(
   tx: BoundedTransactionContext,
@@ -77,27 +105,9 @@ export const botListenerOperations = (transaction: BoundedTransaction) => ({
       const [current] = (await tx.execute(sql`select worker_id as "workerId",
         epoch, expires_at > clock_timestamp() as live
         from bot_listener_leases where session_id=${input.sessionId}
-        for update`)) as unknown as {
-        workerId: string;
-        epoch: number;
-        live: boolean;
-      }[];
-      if (current?.live && current.workerId !== input.workerId)
-        throw createAppError('CONFLICT', 'Bot listener lease is held');
-      if (
-        input.expectedEpoch !== undefined &&
-        (!current?.live ||
-          current.workerId !== input.workerId ||
-          current.epoch !== input.expectedEpoch)
-      )
-        throw stale();
-      const next = !current
-        ? 1
-        : current.live
-          ? current.epoch
-          : current.epoch + 1;
-      if (next > 2147483647)
-        throw createAppError('CONFLICT', 'Bot listener epoch exhausted');
+        for update`)) as unknown as CurrentLease[];
+      requireClaimable(current, input);
+      const next = nextEpoch(current);
       const [row] = (await tx.execute(sql`insert into bot_listener_leases
           (session_id, worker_id, epoch, expires_at)
         values (${input.sessionId}, ${input.workerId}, ${next},
@@ -165,4 +175,3 @@ export const botListenerOperations = (transaction: BoundedTransaction) => ({
     });
   },
 });
-export type BotListenerOperations = ReturnType<typeof botListenerOperations>;

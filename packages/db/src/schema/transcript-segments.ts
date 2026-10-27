@@ -10,9 +10,12 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
-import { mediaSessions } from './media-sessions';
 import { roundParticipants } from './round-participants';
 import { roundSegments } from './round-segments';
+import {
+  mediaWorkerLeaseColumns,
+  positiveEpochCheck,
+} from './media-worker-lease-columns';
 import { rounds } from './rounds';
 
 /** The committed transcript frontier advances only under the owning Round lock. */
@@ -133,15 +136,6 @@ export const transcriptObservations = pgTable(
 /** Rising epochs fence server capture. worker_id is an identifier, not a bearer. */
 export const mediaWorkerLeases = pgTable(
   'media_worker_leases',
-  {
-    sessionId: text('session_id')
-      .primaryKey()
-      .references(() => mediaSessions.id, { onDelete: 'cascade' }),
-    workerId: text('worker_id').notNull(),
-    epoch: integer('epoch').notNull(),
-    expiresAt: timestampColumn('expires_at').notNull(),
-  },
-  (table) => [
-    check('media_worker_leases_epoch_check', sql`${table.epoch} > 0`),
-  ],
+  mediaWorkerLeaseColumns(),
+  (table) => [positiveEpochCheck('media_worker_leases', table.epoch)],
 );

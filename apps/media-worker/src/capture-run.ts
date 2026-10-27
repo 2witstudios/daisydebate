@@ -9,10 +9,13 @@ import {
 import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
+import { createBotListenerClient } from '@daisy/media/bot-listener';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
+import { runBotListener } from './bot-listener';
+import { createPeerAudioTap } from './peer-audio';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
 import {
   CAPTURE_UNCAUGHT_EXIT,
@@ -71,17 +74,36 @@ export async function runCaptureProcess(input: {
     secret,
     now: Date.now,
   });
-  const client = createMediaWorkerClient({
+  const transport = {
     scope: { roundId, sessionId, workerId },
     url,
     authentication,
     fetch: input.fetch,
     nowMs: performance.now,
     deadlineSignal: () => AbortSignal.timeout(CAPTURE_CALL_DEADLINE_MS),
-  });
+  };
+  const client = createMediaWorkerClient(transport);
+  const waitUntilMs = async (due: number, signal: AbortSignal) => {
+    while (performance.now() < due && !signal.aborted)
+      await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
+  };
   const stop = new AbortController();
   process.on('SIGTERM', () => stop.abort());
   process.on('SIGINT', () => stop.abort());
+  // The one LiveKit subscription feeds a named read-only input that the bot
+  // listener, its own role with its own lease (ISSUE-764), reads; capture
+  // never relays for bots. The listener ends with capture and never fails it.
+  const audio = createPeerAudioTap();
+  const listenerStop = new AbortController();
+  const listening = runBotListener(
+    {
+      client: createBotListenerClient(transport),
+      audio,
+      nowMs: performance.now,
+      waitUntilMs,
+    },
+    AbortSignal.any([stop.signal, listenerStop.signal]),
+  ).catch(() => undefined);
   try {
     const ended = await runCaptureSession(
       {
@@ -93,13 +115,17 @@ export async function runCaptureProcess(input: {
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
-        subscribe: createCaptureSubscription,
+        subscribe: (options) =>
+          createCaptureSubscription({
+            ...options,
+            onFrame: (frame) => {
+              audio.publish(frame);
+              options.onFrame(frame);
+            },
+          }),
         consume: consumeCaptureClips,
         nowMs: performance.now,
-        waitUntilMs: async (due, signal) => {
-          while (performance.now() < due && !signal.aborted)
-            await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
-        },
+        waitUntilMs,
       },
       stop.signal,
     );
@@ -107,6 +133,8 @@ export async function runCaptureProcess(input: {
   } catch (error) {
     process.exitCode = startRefusalExit(error);
   } finally {
+    listenerStop.abort();
+    await listening;
     await disposeCaptureRuntime();
   }
 }

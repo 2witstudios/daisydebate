@@ -274,25 +274,35 @@ activity peers only and grant no authority over those seats.
 
 ## Activity relay owner hook
 
+Bot listening is its own media worker role (ISSUE-764), apart from capture: its
+own lease (`bot_listener_leases`), its own signed routes
+(`/api/internal/media/<round>/bot-listener/{lease,read,activity}`, refused to a
+capture principal and refused to it in turn) and its own read of the open
+segment, the non-judge seats and fresh server time.
+
 `createBotActivityRelay` (`round-bots/activity-relay.ts`) is the hook the signed
-capture ingress calls with the worker's capture identity and body. The body
+bot-listener ingress calls with the listener's identity and body. The body
 (`botActivityRelaySchema`) carries the speaker seat, the segment its frames
 belong to and the original frames only. It has no Round, receipt, bearer or
-service claim. The hook admits a seat once per capture lease epoch and
-segment, through the locked capture read: an actually bound non-judge seat and
-the current open segment. Admission and every later batch then pass the same
-lease-validity predicate, `readCurrentCaptureLease`: this worker's epoch, an
-unexpired lease, a session not ended, unsafe or being deleted, and an open
-segment, read without the Round lock. A refused check drops the admission. The
+service claim. The hook admits a seat once per listener lease epoch and
+segment, through the listener read: an actually bound non-judge seat and the
+current open segment. Admission and every later batch then pass the listener
+lease check, `readCurrentBotListenerLease`: this worker's epoch, an unexpired
+lease, a session not ended, unsafe or being deleted, and an open segment.
+Rotating the session's vendor room fences the listener lease with capture's. A refused check drops the admission. The
 hook attaches PostgreSQL time as `receivedAt` and writes the validated batch
 through the existing Redis
 adapter. Bounds later than PostgreSQL time are refused.
 
-The signed `activity` capture operation (`media-capture/handlers.ts`) splits the
-lease identity from the relay body and calls this hook. The media worker
-produces it (`apps/media-worker/src/capture-activity.ts`) only while a consumer
+The signed `activity` bot-listener operation (`round-bots/listener-handlers.ts`)
+splits the lease identity from the relay body and calls this hook. In the media
+worker, the bot listener (`apps/media-worker/src/bot-listener.ts`) runs beside
+capture in the session's process. It reads the one LiveKit subscription only
+through the named, read-only peer-audio input (`peer-audio.ts`), never
+capture's session or types, times frames on its own calibration, and ends with
+capture without ever failing it. It produces activity only while a consumer
 exists: the current segment is cross-examination and the Round has a bot seat.
-Otherwise no PCM leaves the worker. Each staged frame joins its seat's sliding
+Otherwise no PCM leaves the worker. Each timed frame joins its seat's sliding
 window of the newest twenty, with native sequence, brackets and calibrated
 server window. Every 50 ms the worker sends the window of each seat that has
 new frames. Because each batch repeats the window and the consumer skips frames

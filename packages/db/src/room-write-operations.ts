@@ -113,7 +113,7 @@ async function executeOnce(
   const { prepared, execute } = preparation;
   const botLocked = await lockBotFreeze(
     tx,
-    input.type === 'start-round' && input.seatsBotDebater(prepared),
+    botDebaterLaunch(input, prepared),
     botAdmission,
   );
   const initialSeats = await tx
@@ -254,6 +254,10 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
   );
   return { prepared, execute } as const;
 }
+
+/** A Launch whose prepared cast seats a bot debater. */
+const botDebaterLaunch = (input: CommandInput, prepared: RoomAssemblyState) =>
+  input.type === 'start-round' && input.seatsBotDebater(prepared);
 
 /**
  * Serializes bot-debater launches fleet-wide, so concurrent freezes cannot

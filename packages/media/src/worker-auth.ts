@@ -11,8 +11,25 @@ type SignedRequest = {
 };
 const unauthorized = () =>
   createAppError('AUTHORIZATION', 'Worker authentication refused');
+/**
+ * Each media worker role and the operations it alone owns: capture records
+ * the transcript; the bot listener relays peer activity to a bot debater
+ * (ISSUE-764). A role never reaches another role's routes.
+ */
+const roleOperations = {
+  capture: ['token', 'lease', 'read', 'append', 'observe', 'seal', 'heard'],
+  'bot-listener': ['lease', 'read', 'activity'],
+} as const;
+export type MediaWorkerRole = keyof typeof roleOperations;
+const servicePrefix: Record<MediaWorkerRole, string> = {
+  capture: 'media-capture',
+  'bot-listener': 'bot-listener',
+};
+const isRole = (value: string | undefined): value is MediaWorkerRole =>
+  value !== undefined && Object.hasOwn(roleOperations, value);
 const route = (path: string) => {
   const parts = path.split('/');
+  const role = parts[5];
   if (
     parts.length !== 7 ||
     parts[0] !== '' ||
@@ -20,20 +37,11 @@ const route = (path: string) => {
     parts[2] !== 'internal' ||
     parts[3] !== 'media' ||
     !idSchema.safeParse(parts[4]).success ||
-    parts[5] !== 'capture' ||
-    ![
-      'token',
-      'lease',
-      'read',
-      'append',
-      'observe',
-      'seal',
-      'activity',
-      'heard',
-    ].includes(parts[6]!)
+    !isRole(role) ||
+    !(roleOperations[role] as readonly string[]).includes(parts[6]!)
   )
     throw unauthorized();
-  return parts[4]!;
+  return { roundId: parts[4]!, role };
 };
 const message = (input: Omit<SignedRequest, 'signature'>) => {
   if (
@@ -46,7 +54,10 @@ const message = (input: Omit<SignedRequest, 'signature'>) => {
   return `${input.method}\n${input.path}\n${input.timestamp}\n${input.body}`;
 };
 
-function workerPrincipal(body: string, roundId: string) {
+function workerPrincipal(
+  body: string,
+  { roundId, role }: ReturnType<typeof route>,
+) {
   let payload: unknown;
   try {
     payload = JSON.parse(body);
@@ -65,7 +76,8 @@ function workerPrincipal(body: string, roundId: string) {
   )
     throw unauthorized();
   return {
-    serviceId: `media-capture:${worker.data}`,
+    serviceId: `${servicePrefix[role]}:${worker.data}`,
+    role,
     workerId: worker.data,
     roundId,
   };
@@ -125,8 +137,7 @@ export function createMediaWorkerAuthentication(input: {
       // Compare SHA3-256 digests of both signatures, never the raw HMACs.
       if (sha3(digest(request).toString('hex')) !== sha3(request.signature))
         throw unauthorized();
-      const roundId = route(request.path);
-      return workerPrincipal(request.body, roundId);
+      return workerPrincipal(request.body, route(request.path));
     },
   };
 }

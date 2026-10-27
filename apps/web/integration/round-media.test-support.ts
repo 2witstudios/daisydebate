@@ -177,32 +177,32 @@ export async function waitForMediaFact(fact: () => Promise<boolean>) {
   }
 }
 
-/** A worker lease claimed for the Round, then its first speech opened, as a capture worker sees it. */
-export async function leasedCaptureSpeech(
+/** The production activity relay over the fixture's listener operations and Redis (ISSUE-764). */
+export const listenerActivityRelay = (
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) =>
+  createBotActivityRelay({
+    readListener: (identity) => fixture.store.readBotListenerState(identity),
+    readLease: (identity) =>
+      fixture.store.readCurrentBotListenerLease(identity),
+    write: fixture.redis.writeBotActivity,
+  });
+
+/** A bot-listener lease claimed for the Round's media session, then its first speech opened. */
+export async function leasedListenerSpeech(
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) {
   const scope = await captureWorkerScope(fixture);
-  const capture = captureOperations(fixture);
-  const lease = await capture.claimMediaWorkerLease({
+  const lease = await fixture.store.claimBotListenerLease({
     ...scope,
     leaseMs: 15000,
   });
   const identity = { ...scope, epoch: lease.epoch };
   await startCaptureSpeech(fixture);
-  const segmentId = (await capture.readMediaCaptureState(identity)).segment!.id;
-  return { scope, capture, identity, segmentId };
+  const segmentId = (await fixture.store.readBotListenerState(identity))
+    .segment!.id;
+  return { scope, identity, segmentId };
 }
-
-/** The production activity relay over the fixture's capture operations and Redis. */
-export const captureActivityRelay = (
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-  capture: ReturnType<typeof captureOperations>,
-) =>
-  createBotActivityRelay({
-    readCapture: (identity) => capture.readMediaCaptureState(identity),
-    readLease: (identity) => capture.readCurrentCaptureLease(identity),
-    write: fixture.redis.writeBotActivity,
-  });
 export const captureHeardRelay = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
   capture: ReturnType<typeof captureOperations>,

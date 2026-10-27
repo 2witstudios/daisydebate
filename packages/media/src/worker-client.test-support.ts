@@ -1,11 +1,12 @@
 import { createMediaWorkerAuthentication } from './worker-auth';
 import { createMediaWorkerClient } from './worker-client';
-const scope = {
+/** The worker scope and signing every client test uses. */
+export const scope = {
   roundId: 'r'.repeat(24),
   sessionId: 's'.repeat(24),
   workerId: 'w'.repeat(24),
 };
-const authentication = createMediaWorkerAuthentication({
+export const authentication = createMediaWorkerAuthentication({
   secret: Buffer.alloc(32, 6).toString('base64url'),
   now: () => 1000,
 });

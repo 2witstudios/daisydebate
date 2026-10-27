@@ -142,8 +142,8 @@ retention or retention exception; the original PRIV-3/PRIV-4 holds remain.
 
 ### Bot activity relay declaration
 
-The capture worker relays live human microphone PCM to a cross-examination
-bot so it can hear barge-ins (`docs/architecture/round-bot-workers.md`,
+The bot listener, its own media worker role (ISSUE-764), relays live human
+microphone PCM to a cross-examination bot so it can hear barge-ins (`docs/architecture/round-bot-workers.md`,
 activity relay). It lives only in the Redis key
 `<namespace>:botactivity:<roundId>:<roundParticipantId>`
 (`packages/redis/src/bot-activity.ts`), and is never written to PostgreSQL.
