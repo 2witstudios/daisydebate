@@ -6,7 +6,7 @@ import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
-export type ActorRecord = {
+type ActorRecord = {
   readonly id: string;
   readonly userId: string | null;
 };

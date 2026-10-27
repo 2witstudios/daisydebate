@@ -7,14 +7,14 @@ import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
-export type FormatRevisionRecord = {
+type FormatRevisionRecord = {
   readonly id: string;
   readonly name: string;
   readonly version: number;
   readonly definition: FormatDefinition;
 };
 
-export type FormatPresetRecord = {
+type FormatPresetRecord = {
   readonly formatId: string;
   readonly version: number;
   readonly formatVersion: number;

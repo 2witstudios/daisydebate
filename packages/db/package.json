@@ -25,7 +25,14 @@
     "./bot-publication": "./src/bot-publication.ts",
     "./round-agent-runs": "./src/round-agent-runs.ts",
     "./frozen-transcript": "./src/frozen-transcript.ts",
-    "./media-worker": "./src/media-worker-database.ts"
+    "./media-worker": "./src/media-worker-database.ts",
+    "./ratings": "./src/ratings.ts",
+    "./rooms": "./src/rooms.ts",
+    "./rounds": "./src/rounds.ts",
+    "./documents": "./src/documents.ts",
+    "./profile": "./src/profile.ts",
+    "./outbox": "./src/outbox-api.ts",
+    "./attendance": "./src/attendance.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { OUTBOX_ORIGIN, type OutboxRow } from '@daisy/db';
+import { OUTBOX_ORIGIN, type OutboxRow } from '@daisy/db/outbox';
 import { createOutboxDrainLoop } from './outbox-drain';
 import {
   buildTestLoop,
