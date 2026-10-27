@@ -104,8 +104,9 @@ identity, secrets, deployment and data actions retain human sign-off.
 
 ## Design constraints
 
-These four architecture rules are blockers in every plan and review (owner,
-2026-10-27):
+### Architecture rules
+
+These four rules are blockers in every plan and review (owner, 2026-10-27):
 
 - **Never build on flawed architecture.** When a feature's structure (names,
   modules, types, tables, pools) does not match the product's concepts,
@@ -120,6 +121,8 @@ These four architecture rules are blockers in every plan and review (owner,
   AI judge's ballot feedback double as the "coaching" report.
 - **Words matter.** "Coaching" and "coach" are reserved for future human
   coaches. The AI post-round report is **Round analysis**.
+
+### Engineering constraints
 
 - Security practices follow Eric Elliott's guidance: zero trust at every
   boundary, pure functions everywhere, unguessable cuid2 identifiers
