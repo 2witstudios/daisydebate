@@ -9,7 +9,7 @@ import {
   tokenOf,
   withSql,
 } from './fixtures';
-import { uniqueName } from './auth-account-helpers';
+import { answerAdultAge, uniqueName } from './auth-account-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
@@ -77,7 +77,9 @@ const signUpOn = async (instance: 'a' | 'b') => {
   const token = await requestLink(email);
   const response = await redeemOn(instance, token);
   await testApp.recordAccountIds();
-  return { email, cookie: cookieHeader(response) };
+  const cookie = cookieHeader(response);
+  await answerAdultAge(routesOf(instance).age, testApp.jsonPost, cookie);
+  return { email, cookie };
 };
 
 const authRouteGet = (instance: 'a' | 'b', path: string, cookie?: string) =>

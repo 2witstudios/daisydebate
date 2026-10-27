@@ -47,6 +47,13 @@ export const requestOnboardingAnswers = cache(
   },
 );
 
+/** Whether this render's account without a username has answered the age step. */
+export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'provisional') return false;
+  return processApp().database.hasRecordedAge(identity.principal.userId);
+});
+
 /**
  * A member's profile as this render's viewer may see it, read in the server
  * render so a link followed from another site renders instead of meeting an

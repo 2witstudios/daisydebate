@@ -1,7 +1,11 @@
 import type { SQL } from 'bun';
 import { idSchema } from '@daisy/protocol';
 type BrowserAccount = { readonly userId: string; readonly username: string };
-/** Test-only: binds accounts created by actual HTTP signup before injecting isolated age inputs. */
+/**
+ * Test-only: binds accounts created by actual HTTP signup, then pins the
+ * age fact these suites read. Signup already answered the age step
+ * (WAIT-4.6), so the fact is overwritten rather than inserted.
+ */
 export async function seedMessagingBrowserAccounts(
   client: SQL,
   accounts: readonly BrowserAccount[],
@@ -21,7 +25,8 @@ export async function seedMessagingBrowserAccounts(
       if (!actorId.success)
         throw new Error('Messaging browser account ownership refused');
       result.push({ ...account, actorId: actorId.data });
-      await tx`insert into account_age(user_id,birth_month,version,recorded_at) values(${account.userId},'2000-01',1,${now}::timestamptz)`;
+      await tx`insert into account_age(user_id,birth_month,version,recorded_at) values(${account.userId},'2000-01',1,${now}::timestamptz)
+        on conflict (user_id) do update set birth_month=excluded.birth_month,version=excluded.version,recorded_at=excluded.recorded_at`;
     }
     return result;
   });
