@@ -299,7 +299,7 @@ export const messagingSocialCommands = pgTable(
      * requester when it was asked (no friendship and no DM), snapshotted so
      * a later pair row never refills the unrelated budget.
      */
-    unrelated: boolean('unrelated').notNull().default(false),
+    unrelated: boolean('unrelated').notNull(),
   },
   (table) => [
     index('messaging_social_commands_actor_created_idx').on(
@@ -352,6 +352,8 @@ export const messagingSocialDeclines = pgTable(
     declinedCount: bigint('declined_count', { mode: 'number' }).notNull(),
     lastDeclinedAt: timestampColumn('last_declined_at').notNull(),
     blockedUntil: timestampColumn('blocked_until'),
+    /** When the row stops counting or blocking; the retention sweep deletes it then. */
+    expiresAt: timestampColumn('expires_at').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.declinerActorId, table.requesterActorId] }),
@@ -361,6 +363,7 @@ export const messagingSocialDeclines = pgTable(
     ),
     index('messaging_social_declines_requester_idx').on(table.requesterActorId),
     index('messaging_social_declines_high_actor_idx').on(table.highActorId),
+    index('messaging_social_declines_expires_idx').on(table.expiresAt),
     foreignKey({
       columns: [table.lowActorId, table.highActorId],
       foreignColumns: [
@@ -374,7 +377,11 @@ export const messagingSocialDeclines = pgTable(
     ),
     check(
       'messaging_social_declines_count',
-      sql`${table.declinedCount} between 0 and 9007199254740991`,
+      sql`${table.declinedCount} between 0 and 3`,
+    ),
+    check(
+      'messaging_social_declines_expiry',
+      sql`${table.expiresAt} > ${table.lastDeclinedAt} and (${table.blockedUntil} is null or ${table.blockedUntil} <= ${table.expiresAt})`,
     ),
   ],
 );

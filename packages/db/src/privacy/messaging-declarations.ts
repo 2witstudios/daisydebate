@@ -127,6 +127,7 @@ const messagingColumns = {
       'declined_count',
       'last_declined_at',
       'blocked_until',
+      'expires_at',
     ],
     none: [],
   },
@@ -213,13 +214,27 @@ function privacyPurpose(
   }
   if (table === 'messaging_social_declines') {
     // DEC-251: counts 30 days, blocks 30 days; deleted on acceptance, with
-    // the pair, on erasure, or by the retention sweep once spent.
+    // the pair, on erasure, or by the retention sweep at its expires_at.
     return 'Social request decline block';
   }
   if (category === 'personal') {
     return 'Subject-directed private communication and social access';
   }
   return 'Messaging references and ordered durable state';
+}
+
+/** DEC-251 sets the decline window; every other table awaits its decision. */
+function privacyRetention(table: string) {
+  return table === 'messaging_social_declines'
+    ? {
+        status: 'approved' as const,
+        decision: 'dvkpb5wjay835m0xrgq1iz6v',
+        rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
+      }
+    : {
+        status: 'pending' as const,
+        decision: 'njiorsf64z4iqjm2dbfa3zuu',
+      };
 }
 
 function privacyErasure(
@@ -263,10 +278,7 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
           status: 'pending' as const,
           decision: 'jc0qcdvpkmqzrelpaesi3pah',
         },
-        retention: {
-          status: 'pending' as const,
-          decision: 'njiorsf64z4iqjm2dbfa3zuu',
-        },
+        retention: privacyRetention(table),
         erasure: privacyErasure(
           table,
           column,

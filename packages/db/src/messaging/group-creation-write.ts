@@ -62,6 +62,7 @@ export async function writeMessagingGroupCreation(
     actorId: scope.actorId,
     requestId: scope.requestId,
     kind: 'group.create',
+    unrelated: false,
     digest: command.digest,
     resultChannelId: command.channelId,
     createdAt: now,

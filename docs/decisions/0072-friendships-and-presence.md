@@ -44,11 +44,13 @@ fence (accounts, then the pair, then a channel).
    rows. _Amended 2026-10-27 (DEC-251, #479):_ a friend request is also a
    DEC-251 social request. It spends the same budgets as a DM request, which
    are counted from the append-only `messaging_social_commands` ledger: 20
-   per day, and 5 per hour to an account with no friendship or DM, judged
-   when asked. Three declines by one person, counted per direction in
+   per day, and 5 per hour to an account with no accepted friendship or
+   accepted DM, judged when asked; a pending or declined request relates
+   nobody. Three declines by one person, counted per direction in
    `messaging_social_declines`, block further requests to them for 30 days.
    The block is refused exactly as a block is, and acceptance clears both
-   directions.
+   directions. Each decline row expires 30 days after its last decline,
+   and the retention sweep deletes it then.
 5. **Friendship grants nothing else yet.** It does not open a DM channel,
    room membership or any competitive standing. When friendship starts a
    DM, messaging's own age and contact policy (ADR 0061) decides that, not

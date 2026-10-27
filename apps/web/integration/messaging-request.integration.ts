@@ -152,9 +152,10 @@ test('canonical prospective authorization creates one pending DM and enforces du
     );
     await assertRejects({
       given: 'a request replay after bilateral blocking',
-      should: 'reauthorize before revealing the stored request channel',
+      should:
+        'reauthorize before revealing the stored request channel, refusing as an unknown recipient is (DEC-251)',
       actual: () => requestMessagingDm(command, principal, deps),
-      code: 'AUTHORIZATION',
+      code: 'NOT_FOUND',
     });
   } finally {
     await fixture.cleanup();

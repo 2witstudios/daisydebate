@@ -90,6 +90,7 @@ export async function writeGroupIssuance(
     actorId: scope.actorId,
     requestId: scope.requestId,
     kind: 'group.invite',
+    unrelated: false,
     digest: command.digest,
     resultChannelId: scope.channelId,
     createdAt: now,

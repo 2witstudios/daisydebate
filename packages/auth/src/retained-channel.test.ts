@@ -1,18 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { authorizationCapabilitySchema } from '@daisy/protocol/authorization';
 import { authorize } from './authorization';
 import { input, resource } from './channel.test-support';
 
 setupRitewayBun();
 
 test('a retained DM refuses every channel capability (DEC-126)', () => {
-  const capabilities = [
-    'channel.read',
-    'channel.post',
-    'channel.message.remove',
-    'channel.preferences.read',
-    'channel.preferences.update',
-    'channel.leave',
-  ] as const;
+  // Every channel capability the protocol defines, so a new one is pinned too.
+  const capabilities = authorizationCapabilitySchema.options.filter(
+    (capability) => capability.startsWith('channel.'),
+  );
   const decide = (lifecycle: 'active' | 'retained') =>
     capabilities.map(
       (capability) =>
@@ -25,8 +22,12 @@ test('a retained DM refuses every channel capability (DEC-126)', () => {
   assert({
     given: 'the same fresh DM facts, active and then retained',
     should:
-      'allow reading the active one, and refuse every capability on the retained one',
-    actual: [decide('active')[0], decide('retained')],
-    expected: [true, capabilities.map(() => false)],
+      'allow reading the active one, and refuse every one of the protocol channel capabilities on the retained one',
+    actual: [
+      decide('active')[capabilities.indexOf('channel.read')],
+      decide('retained'),
+      capabilities.includes('channel.subscribe'),
+    ],
+    expected: [true, capabilities.map(() => false), true],
   });
 });

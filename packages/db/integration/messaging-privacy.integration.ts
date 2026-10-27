@@ -66,7 +66,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       [groupId, otherActorId, actorId, now],
     );
     await client.unsafe(
-      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'dm.request',$3,$4,$6),($5,$2,'dm.decide',$3,$4,$6),($5,$7,'group.create',$3,$8,$6)",
+      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at,unrelated) values($1,$2,'dm.request',$3,$4,$6,false),($5,$2,'dm.decide',$3,$4,$6,false),($5,$7,'group.create',$3,$8,$6,false)",
       [
         actorId,
         requestId,

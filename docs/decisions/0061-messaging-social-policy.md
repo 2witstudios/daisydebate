@@ -122,9 +122,13 @@ The beta's request bounds are DEC-251's, composed in
 10 new pairs per day, 20 pending and 7-day renewal cooldown:
 
 - 20 social requests (DM and friend) per account per rolling day;
-- 5 per rolling hour to accounts with no relation when asked;
+- 5 per rolling hour to accounts with no accepted friendship or accepted DM
+  when asked (a pending or declined request relates nobody);
 - three declines by one person block the requester's further requests to
-  them for 30 days, refused as a block is.
+  them for 30 days, refused as a block is. A DM request to an unknown
+  account, a blocked pair or a decline-blocked requester answers the same
+  `NOT_FOUND` before any budget is spent; each decline row expires 30 days
+  after its last decline, and the retention sweep deletes it then.
 
 All of these are counted durably from the `messaging_social_commands`
 ledger and `messaging_social_declines`, never from Redis. Posting stays

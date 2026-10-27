@@ -44,6 +44,7 @@ describe('retention targets', () => {
         purgeExpiredUtterances: record('utterances'),
         clearExpiredPendingBallots: record('pending_ballots'),
         purgeExpiredRoundFeedback: record('round_feedback'),
+        purgeExpiredSocialDeclines: record('social_declines'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -70,7 +71,7 @@ describe('retention targets', () => {
     assert({
       given: 'the production targets and a clock at 2026-09-20T12:00Z',
       should:
-        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, transcripts, pending judgments and AI coaching past 180 days, and sweep the Redis online set, each in its own bounded batches',
+        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, transcripts, pending judgments and AI coaching past 180 days, spent decline blocks at their own expiry, and sweep the Redis online set, each in its own bounded batches',
       actual: {
         targets: targets.map(({ name, batchSize, maxBatches }) => ({
           name,
@@ -113,6 +114,7 @@ describe('retention targets', () => {
           { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_feedback', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.presence_online',
             batchSize: 1000,
@@ -143,6 +145,7 @@ describe('retention targets', () => {
           utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           round_feedback: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
+          social_declines: [{ before: now, limit: 500 }],
         },
         sweeps: [1000],
       },
@@ -164,7 +167,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the fifteen database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the sixteen database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -189,11 +192,12 @@ describe('retention targets', () => {
           ['retention.utterances', false],
           ['retention.pending_ballots', false],
           ['retention.round_feedback', false],
+          ['retention.social_declines', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 15,
+        failed: 16,
       },
     });
   });

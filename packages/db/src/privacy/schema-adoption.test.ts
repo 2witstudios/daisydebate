@@ -162,8 +162,10 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
 test('canonical pending policies link their owning records', async () => {
   const { messagingPrivacyFields } = await import('./messaging-declarations');
   assert({
-    given: 'core and messaging declarations with unresolved legal policies',
-    should: 'link exact PRIV inventory and subject-rights policy owners',
+    given:
+      'core and messaging declarations with unresolved legal policies, and the decline table DEC-251 sets',
+    should:
+      'link exact PRIV inventory and subject-rights policy owners, and DEC-251 for decline retention',
     actual: [
       ...new Set(
         [...corePrivacyFields, ...messagingPrivacyFields].map(
@@ -174,6 +176,7 @@ test('canonical pending policies link their owning records', async () => {
     ],
     expected: [
       'pending:jc0qcdvpkmqzrelpaesi3pah/pending:njiorsf64z4iqjm2dbfa3zuu',
+      'pending:jc0qcdvpkmqzrelpaesi3pah/approved:dvkpb5wjay835m0xrgq1iz6v',
     ],
   });
 });

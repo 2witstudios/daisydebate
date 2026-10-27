@@ -69,6 +69,7 @@ export function retentionTargets({
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundFeedback: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -193,6 +194,18 @@ export function retentionTargets({
       purge: ({ now, limit }: { now: string; limit: number }) =>
         purge({ before: cutoff(now, 180 * DAY_MS), limit }),
     })),
+    /**
+     * DEC-251: a decline row stops counting and blocking at its own
+     * `expires_at` (the policy window after its last decline), so the cutoff
+     * is the run's clock itself.
+     */
+    {
+      name: 'retention.social_declines',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredSocialDeclines({ before: cutoff(now, 0), limit }),
+    },
     /**
      * ADR 0033: the online set's lapsed members, which reads filter but
      * never delete. Redis is expendable, so a failure here only leaves

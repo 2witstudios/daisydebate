@@ -98,7 +98,7 @@ test('real group creation installs only creator authority and erases counterpart
       code: 'CONFLICT',
     });
     await f.client.unsafe(
-      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'group.archive',$3,$4,$5)",
+      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at,unrelated) values($1,$2,'group.archive',$3,$4,$5,false)",
       [
         f.fixture.actorId,
         unrelatedRequestId,

@@ -13,17 +13,21 @@ CREATE TABLE "messaging_social_declines" (
 	"declined_count" bigint NOT NULL,
 	"last_declined_at" timestamp with time zone NOT NULL,
 	"blocked_until" timestamp with time zone,
+	"expires_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "messaging_social_declines_pkey" PRIMARY KEY("decliner_actor_id","requester_actor_id"),
 	CONSTRAINT "messaging_social_declines_pair" CHECK (("low_actor_id" = "decliner_actor_id" and "high_actor_id" = "requester_actor_id") or ("low_actor_id" = "requester_actor_id" and "high_actor_id" = "decliner_actor_id")),
-	CONSTRAINT "messaging_social_declines_count" CHECK ("declined_count" between 0 and 9007199254740991)
+	CONSTRAINT "messaging_social_declines_count" CHECK ("declined_count" between 0 and 3),
+	CONSTRAINT "messaging_social_declines_expiry" CHECK ("expires_at" > "last_declined_at" and ("blocked_until" is null or "blocked_until" <= "expires_at"))
 );
 --> statement-breakpoint
 ALTER TABLE "messaging_social_commands" ADD COLUMN "unrelated" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "messaging_social_commands" ALTER COLUMN "unrelated" DROP DEFAULT;--> statement-breakpoint
 CREATE INDEX "messaging_retained_authors_actor_idx" ON "messaging_retained_authors" ("actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_social_commands_actor_created_idx" ON "messaging_social_commands" ("actor_id","created_at");--> statement-breakpoint
 CREATE INDEX "messaging_social_declines_pair_idx" ON "messaging_social_declines" ("low_actor_id","high_actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_social_declines_requester_idx" ON "messaging_social_declines" ("requester_actor_id");--> statement-breakpoint
 CREATE INDEX "messaging_social_declines_high_actor_idx" ON "messaging_social_declines" ("high_actor_id");--> statement-breakpoint
+CREATE INDEX "messaging_social_declines_expires_idx" ON "messaging_social_declines" ("expires_at");--> statement-breakpoint
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_XzNb7mYFXBhe_fkey" FOREIGN KEY ("channel_id") REFERENCES "messaging_channels"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "messaging_social_declines" ADD CONSTRAINT "messaging_social_declines_decliner_actor_id_actors_id_fkey" FOREIGN KEY ("decliner_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint

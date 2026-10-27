@@ -65,6 +65,11 @@ export type MessagingSocialFrame = {
     readonly limits: SocialRequestLimits;
   }) => Promise<{ readonly channelId: string; readonly state: string }>;
   readonly blocking: boolean | null;
+  /**
+   * DEC-251: refuses (AUTHORIZATION, as a block) a request the other
+   * member's declines block at `now`, before any budget is spent.
+   */
+  readonly refuseDeclineBlock: (now: string) => Promise<void>;
   readonly contacts: readonly MessagingContactFact[];
   readonly readReceipt: (requestId: string) => Promise<{
     readonly kind: string;

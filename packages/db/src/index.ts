@@ -56,6 +56,7 @@ import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { transcriptRetention } from './transcript-retention';
+import { socialDeclineRetention } from './messaging/social-request-budget';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -176,6 +177,7 @@ export function createDatabase({
     ...retainedConversationOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
+    ...socialDeclineRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),

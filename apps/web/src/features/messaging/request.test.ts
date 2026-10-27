@@ -22,37 +22,58 @@ const command = {
   introduction: 'Hello',
 };
 
-/** A contact store holding `receipt`, whose commit is recorded, never applied. */
+/**
+ * A contact store holding `receipt`, whose commit is recorded, never applied.
+ * `refusal` is what opening the frame or its decline-block check refuses.
+ */
 const storeWith = (
   receipt: { kind: string; digest: string | null; channelId: string } | null,
   commits: unknown[],
+  refusal: {
+    readonly at: 'open' | 'decline';
+    readonly code: 'NOT_FOUND' | 'AUTHORIZATION';
+  } | null = null,
 ): MessagingSocialStore =>
   ({
-    withContacts: async (_scope: unknown, work: (frame: unknown) => unknown) =>
-      work({
+    withContacts: async (
+      _scope: unknown,
+      work: (frame: unknown) => unknown,
+    ) => {
+      if (refusal?.at === 'open') throw createAppError(refusal.code);
+      return work({
         readReceipt: async () => receipt,
+        refuseDeclineBlock: async () => {
+          if (refusal?.at === 'decline') throw createAppError(refusal.code);
+        },
         readDmRequest: async () => ({ channelId, state: 'pending' }),
         commitDmRequest: async (plan: unknown) => {
           commits.push(plan);
           return { channelId, state: 'pending' };
         },
-      }),
+      });
+    },
   }) as unknown as MessagingSocialStore;
+
+const dependenciesOf = (
+  store: MessagingSocialStore,
+  limit: (actorId: string) => Promise<void>,
+) => ({
+  store,
+  bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
+  clock: { now: () => '2026-10-27T12:00:00.000Z' },
+  ids: { next: () => channelId },
+  policyRevision: 1,
+  limits: dec251MessagingValues.socialRequests,
+  limit,
+});
 
 test('a retried DM request with the social limiter spent still returns its stored channel (code-review [7])', async () => {
   const commits: unknown[] = [];
   const spent = async () => {
     throw createAppError('RATE_LIMIT');
   };
-  const dependencies = (store: MessagingSocialStore) => ({
-    store,
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    clock: { now: () => '2026-10-27T12:00:00.000Z' },
-    ids: { next: () => channelId },
-    policyRevision: 1,
-    limits: dec251MessagingValues.socialRequests,
-    limit: spent,
-  });
+  const dependencies = (store: MessagingSocialStore) =>
+    dependenciesOf(store, spent);
   const receipt = {
     kind: 'dm.request',
     digest: messagingSocialDigest('dm.request', [recipientActorId, 'Hello']),
@@ -81,5 +102,40 @@ test('a retried DM request with the social limiter spent still returns its store
       'replay the stored channel without committing, and commit nothing for the refused one',
     actual: [replayed, commits.length],
     expected: [{ channelId, state: 'pending' }, 0],
+  });
+});
+
+test('an unknown recipient, a block and a decline block refuse alike, spending nothing (DEC-251, plan F7)', async () => {
+  const outcomes: unknown[] = [];
+  for (const refusal of [
+    { at: 'open', code: 'NOT_FOUND' },
+    { at: 'open', code: 'AUTHORIZATION' },
+    { at: 'decline', code: 'AUTHORIZATION' },
+  ] as const) {
+    const commits: unknown[] = [];
+    const spends: string[] = [];
+    const refused = await requestMessagingDm(
+      command,
+      principal,
+      dependenciesOf(storeWith(null, commits, refusal), async (actorId) => {
+        spends.push(actorId);
+      }),
+    ).then(
+      () => 'accepted',
+      (error: { code?: string }) => error.code,
+    );
+    outcomes.push({ refused, spends, commits: commits.length });
+  }
+  assert({
+    given:
+      'a request to an unknown account, to one in a pair block, and to one whose declines block the requester',
+    should:
+      'answer each with the same NOT_FOUND, before the limiter and with no commit',
+    actual: outcomes,
+    expected: Array.from({ length: 3 }, () => ({
+      refused: 'NOT_FOUND',
+      spends: [],
+      commits: 0,
+    })),
   });
 });

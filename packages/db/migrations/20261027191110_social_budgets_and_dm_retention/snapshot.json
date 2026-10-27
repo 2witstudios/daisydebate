@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3bca4bac-90a4-4a52-848b-d9b12cb3d66d",
+  "id": "5415b976-c30e-43b3-8d4b-db91b3490b7f",
   "prevIds": [
     "e73a17b5-526e-442a-bbcd-77e39f2b4b88"
   ],
@@ -4417,7 +4417,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "false",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "unrelated",
@@ -4512,6 +4512,19 @@
       "generated": null,
       "identity": null,
       "name": "blocked_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_social_declines"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_social_declines"
@@ -10191,6 +10204,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "messaging_social_declines_high_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_social_declines"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_social_declines_expires_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "messaging_social_declines"
@@ -16989,8 +17023,15 @@
       "table": "messaging_social_declines"
     },
     {
-      "value": "\"declined_count\" between 0 and 9007199254740991",
+      "value": "\"declined_count\" between 0 and 3",
       "name": "messaging_social_declines_count",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_social_declines"
+    },
+    {
+      "value": "\"expires_at\" > \"last_declined_at\" and (\"blocked_until\" is null or \"blocked_until\" <= \"expires_at\")",
+      "name": "messaging_social_declines_expiry",
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_social_declines"

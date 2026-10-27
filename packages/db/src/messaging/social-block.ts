@@ -71,6 +71,7 @@ export function contactBlockWriter(
       counterpartActorId: ownsLow ? pair.highActorId : pair.lowActorId,
       requestId: command.requestId,
       kind: 'dm.block',
+      unrelated: false,
       digest: command.digest,
       createdAt: new Date(command.now),
       resultChannelId: dm?.channelId ?? null,

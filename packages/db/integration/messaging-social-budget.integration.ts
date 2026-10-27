@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { socialDeclineRetention } from '../src/messaging/social-request-budget';
 import {
   friendCommand,
   openPairStore,
@@ -186,3 +187,62 @@ test('the request budgets count the ledger, never the current pair rows (DEC-251
     await client.close();
   }
 });
+
+test('a pending or declined DM leaves the pair unrelated, so asking again spends the unrelated budget (DEC-251)', () =>
+  withPair(async ({ store, asker }) => {
+    const { client, fixture } = store;
+    const snapshots: boolean[] = [];
+    for (const [state, decidedAt] of [
+      ['declined', day(0)],
+      ['pending', null],
+    ] as const) {
+      await client.unsafe(
+        'update messaging_dm_pairs set request_state=$2, decided_at=$3::timestamptz where channel_id=$1',
+        [fixture.channelId, state, decidedAt],
+      );
+      await change(store, asker, 'request', day(1));
+      const [ledger] = (await client.unsafe(
+        "select unrelated from messaging_social_commands where actor_id=$1 and kind='friend.request'",
+        [asker[0]],
+      )) as { unrelated: boolean }[];
+      snapshots.push(ledger!.unrelated);
+      await client.unsafe(
+        'delete from messaging_friendships where low_actor_id=$1 or high_actor_id=$1',
+        [asker[0]],
+      );
+      await client.unsafe(
+        'delete from messaging_social_commands where actor_id=$1',
+        [asker[0]],
+      );
+    }
+    assert({
+      given: 'a friend request after a declined DM, then after a pending one',
+      should: 'snapshot both as unrelated: only an accepted DM relates a pair',
+      actual: snapshots,
+      expected: [true, true],
+    });
+  }));
+
+test('the retention sweep deletes a decline row only once it has expired (DEC-251)', () =>
+  withPair(async ({ store, answerer, declined }) => {
+    const { client, database } = store;
+    await declined([0, 1, 2]);
+    const { purgeExpiredSocialDeclines } = socialDeclineRetention({ database });
+    const kept = await purgeExpiredSocialDeclines({
+      before: day(30),
+      limit: 500,
+    });
+    const blocked = await declinesOf(client, answerer[0]);
+    const swept = await purgeExpiredSocialDeclines({
+      before: day(32.01),
+      limit: 500,
+    });
+    assert({
+      given:
+        'a block from the third decline (day 2), swept on day 30 and again just after day 32',
+      should:
+        'keep the live block, then delete the row once 30 days have passed since its last decline',
+      actual: [kept, blocked, swept, await declinesOf(client, answerer[0])],
+      expected: [0, [{ count: 0, blocked: true }], 1, []],
+    });
+  }));

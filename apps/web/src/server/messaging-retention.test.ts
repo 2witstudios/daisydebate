@@ -6,7 +6,7 @@ setupRitewayBun();
 
 type Targets = Parameters<typeof retentionTargets>[0];
 
-test('no retention target deletes messaging rows by age (DEC-126, DEC-251)', () => {
+test('no retention target deletes messaging content by age (DEC-126, DEC-251)', () => {
   // Every purge the sweep may be handed answers nothing; only names matter.
   const database = new Proxy(
     {},
@@ -20,8 +20,10 @@ test('no retention target deletes messaging rows by age (DEC-126, DEC-251)', () 
   assert({
     given: 'the production retention targets',
     should:
-      'name no messaging table: messages live until their author deletes them or is erased',
-    actual: targets.filter(({ name }) => /messag|channel|reaction/i.test(name)),
-    expected: [],
+      'touch no message, channel or reaction: messages live until their author deletes them or is erased, and only spent DEC-251 decline blocks expire',
+    actual: targets
+      .filter(({ name }) => /messag|channel|reaction|social/i.test(name))
+      .map(({ name }) => name),
+    expected: ['retention.social_declines'],
   });
 });
