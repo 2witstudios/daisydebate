@@ -6,6 +6,10 @@ on:
   pull_request:
   merge_group:
     types: [checks_requested]
+  # The nightly main run: every Playwright project (engines, mobile layouts
+  # and visual), where PRs and main pushes run Chromium alone (ADR 0083).
+  schedule:
+    - cron: '41 6 * * *'
   # AUTH-6.2-AC7: the release-qualification gate (three consecutive full
   # suite runs, retries disabled) is not a per-PR check — it runs only on
   # manual dispatch, on this uncontended runner instead of a shared
@@ -21,15 +25,32 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# No quick check here: ci.yml runs it once per push, and a lint failure there
+# never cascades into browser reds (ADR 0083).
 jobs:
-  quick-check:
-    permissions:
-      contents: read
-      checks: write
-    uses: ./.github/workflows/quick-check.yml
+  # Decides, without installing or building anything, whether this run needs
+  # the Isolated Room Launch suite: a PR needs it only when it changes room,
+  # round, realtime, messaging or media paths (scripts/affected-e2e.ts).
+  scope:
+    name: Browser scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.select.outputs.native }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - id: select
+        run: bun scripts/select-e2e.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   e2e:
-    needs: quick-check
     name: Playwright browser suite
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
@@ -92,6 +113,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Select owned browser specs with full-suite fallback
+        id: select
         run: bun scripts/select-e2e.ts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -146,7 +168,7 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium-firefox-webkit
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-${{ steps.select.outputs.browser-key }}
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -155,7 +177,10 @@ jobs:
       # stops after three apt attempts).
       - name: Install Playwright browsers
         timeout-minutes: 8
-        run: sh scripts/ci-browsers.sh chromium firefox webkit
+        env:
+          BROWSERS: ${{ steps.select.outputs.browsers }}
+        # Word splitting is the point: one argument per browser.
+        run: sh scripts/ci-browsers.sh $BROWSERS
 
       # Saved straight after the install, so a later test failure still
       # keeps the warm cache.
@@ -168,9 +193,11 @@ jobs:
             ~/.cache/daisy-apt-archives
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
+      # DAISY_E2E_PROJECT_ARGS is --project=chromium on per-change runs and
+      # empty on the nightly run (scripts/select-e2e.ts).
       - name: Run browser tests
         if: ${{ github.event_name != 'workflow_dispatch' }}
-        run: bun run --cwd apps/web test:e2e
+        run: bun run --cwd apps/web test:e2e $DAISY_E2E_PROJECT_ARGS
         env:
           CI: true
           # Explicit slot values: the config never defaults to a database.
@@ -230,7 +257,6 @@ jobs:
   # (http://localhost:4800) and its own database; Chromium only, through
   # the CDP virtual authenticator.
   admin:
-    needs: quick-check
     name: Admin E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -308,7 +334,8 @@ jobs:
           E2E_ADMIN_DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_admin_e2e
 
   room-launch:
-    needs: quick-check
+    needs: scope
+    if: needs.scope.outputs.native == 'true'
     name: Isolated Room Launch browser suite
     runs-on: ubuntu-24.04
     # One shared slot keeps the suite on a single worker: about 3 min of
@@ -471,24 +498,55 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [quick-check, e2e]
+    needs: [e2e]
     if: always()
     steps:
       - name: Require actual browser execution
         env:
-          QUICK: ${{ needs.quick-check.result }}
           SUITE: ${{ needs.e2e.result }}
-        run: test "$QUICK" = success && test "$SUITE" = success
+        run: test "$SUITE" = success
 
+  # Passes when the suite ran and passed, or when scope found no Room Launch
+  # path in the change and the suite was skipped for that reason alone.
   native-gate:
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [quick-check, room-launch]
+    needs: [scope, room-launch]
     if: always()
     steps:
-      - name: Require actual native execution
+      - name: Require native execution or a scoped skip
         env:
-          QUICK: ${{ needs.quick-check.result }}
+          SCOPE: ${{ needs.scope.result }}
+          NATIVE: ${{ needs.scope.outputs.native }}
           SUITE: ${{ needs.room-launch.result }}
-        run: test "$QUICK" = success && test "$SUITE" = success
+        run: test "$SUITE" = success || { test "$SCOPE" = success && test "$NATIVE" = false && test "$SUITE" = skipped; }
+
+  # The nightly run has no PR to show its result on, so a failure goes to
+  # the drive's Incidents channel, as a failed CI run on main does.
+  notify-drive:
+    name: Report nightly failure to drive Incidents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [e2e, admin, room-launch]
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - name: Post the failure to the Incidents channel
+        env:
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+          NOTIFY_REF: ${{ github.ref_name }}
+          NOTIFY_SHA: ${{ github.sha }}
+          NOTIFY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          bun scripts/notify-drive.ts incidents
+          --ref "$NOTIFY_REF"
+          --sha "$NOTIFY_SHA"
+          --run-url "$NOTIFY_RUN_URL"
+          --tasks "$NOTIFY_REF"

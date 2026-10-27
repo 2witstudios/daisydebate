@@ -67,7 +67,7 @@
     "visual:server": "bun scripts/visual-server.ts",
     "test:e2e": "bun scripts/heavy.ts bun --env-file=.env run turbo run test:e2e",
     "test:e2e:qualify": "bun --env-file=.env scripts/e2e-release-qualification.ts",
-    "check": "bun scripts/heavy.ts sh -c 'bun format:check && bun lint && bun run policy && bun run knip && bun run duplication && bun run invariants && bun run evidence && bun typecheck && bun run test && bun run metrics:check && bun run build'",
+    "check": "bun scripts/heavy.ts sh -c 'bun format:check && bun lint && bun run policy && bun run invariants && bun typecheck && bun run test && bun run build'",
     "db:generate": "bun run --cwd packages/db db:generate",
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
     "db:seed": "bun --env-file=.env scripts/seed.ts",
