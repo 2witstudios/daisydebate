@@ -59,7 +59,7 @@ type AgeStepDependencies = {
     readonly termsVersion: string;
     readonly now: string;
   }) => Promise<'recorded' | 'already-recorded'>;
-  /** Deletes the provisional account that gave an under-age answer. */
+  /** Deletes the provisional account that gave an under-age answer, unless it already answered. */
   readonly forget: (userId: string) => Promise<'deleted' | 'refused'>;
 };
 
@@ -115,7 +115,10 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
           dependencies.floor,
         );
         if (decision !== 'accept') {
-          await dependencies.forget(userId);
+          // Refused means the account answered already or became a member:
+          // the first answer stands, so no refusal page and no hold.
+          if ((await dependencies.forget(userId)) === 'refused')
+            throw createAppError('CONFLICT');
           return refused(decision, id);
         }
         const outcome = await dependencies.record({

@@ -32,7 +32,7 @@ const refusalOf = async (response: Response) => {
  * The age form's POST, as a server action: it works before hydration and
  * without JavaScript. It runs POST /api/account/age in process with this
  * request's headers, so every gate of that route applies and the server
- * alone bands the answer. Accepted, it moves on to the username step; an
+ * alone bands the answer. Accepted (now or by an earlier answer), it moves on to the username step; an
  * age below the floor carries the route's day-long hold to the browser and
  * returns to the age step, which then shows the refusal.
  */
@@ -55,7 +55,8 @@ export async function ageStepAction(
       body: JSON.stringify(read.body),
     },
   );
-  if (response.ok)
+  // 409: this account answered already and that first answer stands.
+  if (response.ok || response.status === 409)
     return {
       ...initialAgeForm,
       ...moveOn(incoming, usernameHref(destination)),

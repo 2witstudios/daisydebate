@@ -146,4 +146,86 @@ describe('the age step (WAIT-4.6, WAIT-4.7)', () => {
       });
     });
   });
+
+  test('deleting a provisional account takes its sign-in rows and keeps suppressions', async () => {
+    await withFixture(url, async (fixture) => {
+      const id = createId();
+      const email = `${id}@example.test`;
+      const hash = `hash-${id}`;
+      await fixture.sql`insert into users(id,email) values(${id},${email})`;
+      await fixture.sql`insert into session(id,token,user_id,expires_at)
+        values(${createId()},${createId()},${id},${now})`;
+      await fixture.sql`insert into verification(id,identifier,value,expires_at) values
+        (${createId()},${`sign-in:${id}`},${JSON.stringify({ email: email.toUpperCase() })},${now}),
+        (${createId()},${`other:${id}`},${JSON.stringify({ email })},${now})`;
+      await fixture.sql`insert into email_suppression(recipient_hash,reason,provider_message_id)
+        values(${hash},'bounce',${createId()})`;
+      try {
+        const result = await withDatabase((database) =>
+          database.deleteProvisionalUser({
+            userId: id,
+            signInPurpose: 'sign-in',
+            recipientHashOf: () => hash,
+          }),
+        );
+        assert({
+          given:
+            'a provisional account with a session, its sign-in link (email in another case), an unrelated link and a suppression',
+          should:
+            'delete the account, its session and its sign-in link, and keep the unrelated link and the suppression',
+          actual: [
+            result,
+            await fixture.count('session', 'user_id', id),
+            await fixture.count('verification', 'identifier', `sign-in:${id}`),
+            await fixture.count('verification', 'identifier', `other:${id}`),
+            await fixture.count('email_suppression', 'recipient_hash', hash),
+          ],
+          expected: ['deleted', 0, 0, 1, 1],
+        });
+      } finally {
+        await fixture.sql`delete from verification where identifier=${`other:${id}`}`;
+        await fixture.sql`delete from email_suppression where recipient_hash=${hash}`;
+      }
+    });
+  });
+
+  test('an account that answered, or no account, is never deleted', async () => {
+    await withFixture(url, async (fixture) => {
+      const answered = createId();
+      await fixture.sql`insert into users(id,email) values(${answered},${`${answered}@example.test`})`;
+      try {
+        const results = await withDatabase(async (database) => {
+          await database.recordAgeStep({
+            userId: answered,
+            birthMonth: '1990-01',
+            termsVersion: 'draft-0',
+            now,
+          });
+          const forget = (userId: string) =>
+            database.deleteProvisionalUser({
+              userId,
+              signInPurpose: 'sign-in',
+              recipientHashOf: () => 'hash-none',
+            });
+          return [await forget(answered), await forget(createId())];
+        });
+        assert({
+          given:
+            'a provisional account that already recorded an adult age, then an id with no account',
+          should:
+            'refuse both and keep the first answer, so a later under-age answer never deletes it',
+          actual: [
+            results,
+            await fixture.count('users', 'id', answered),
+            await fixture.count('account_age', 'user_id', answered),
+          ],
+          expected: [['refused', 'refused'], 1, 1],
+        });
+      } finally {
+        await fixture.sql`delete from account_terms where user_id=${answered}`;
+        await fixture.sql`delete from account_age where user_id=${answered}`;
+        await fixture.sql`delete from users where id=${answered}`;
+      }
+    });
+  });
 });

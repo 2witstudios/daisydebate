@@ -92,8 +92,9 @@ export const ageStepOperations = ({
 
   /**
    * WAIT-4.7: an under-13 answer deletes the account that gave it, in one
-   * transaction, only while it has no username, so a member can never
-   * reach the actors restrict. Sessions, accounts and passkeys cascade; the
+   * transaction, only while it has no username and no recorded age, so a
+   * member can never reach the actors restrict and a first accepted answer
+   * stands. Sessions, accounts and passkeys cascade; the
    * account's emailed links (stored under `signInPurpose`) and its delivery
    * receipts (by the keyed hash `recipientHashOf` computes) go with it;
    * suppressions outlive their deliveries and stay. Writes no
@@ -115,6 +116,13 @@ export const ageStepOperations = ({
           .where(and(eq(users.id, input.userId), isNull(users.username)))
           .for('update');
         if (!user) return 'refused';
+        // The first answer stands: an account that already recorded an age
+        // (under this same row lock) is not deleted by a later answer.
+        const [answered] = await tx
+          .select({ userId: accountAge.userId })
+          .from(accountAge)
+          .where(eq(accountAge.userId, input.userId));
+        if (answered) return 'refused';
         if (user.email !== null) {
           await tx
             .delete(verifications)

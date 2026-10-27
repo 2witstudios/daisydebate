@@ -376,6 +376,9 @@ const removeAccounts = (
       'text',
     )}::text[])`;
     await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
+    // The age step's rows restrict the user delete (WAIT-4.6).
+    await sql`DELETE FROM account_terms WHERE user_id IN (${owned})`;
+    await sql`DELETE FROM account_age WHERE user_id IN (${owned})`;
     await sql`DELETE FROM users WHERE id IN (${owned})`;
     // A claim owes its window an owner digest (ADR 0075); it goes once
     // nobody pending is left in that window.

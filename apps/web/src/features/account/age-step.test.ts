@@ -15,7 +15,12 @@ const provisional: Identity = {
 const handlerWith = ({
   identity = provisional,
   floor = 16 as const,
-}: { identity?: Identity; floor?: 13 | 16 } = {}) => {
+  forgets = 'deleted' as const,
+}: {
+  identity?: Identity;
+  floor?: 13 | 16;
+  forgets?: 'deleted' | 'refused';
+} = {}) => {
   const recorded: unknown[] = [];
   const forgotten: string[] = [];
   const handler = createAgeStepHandler({
@@ -32,7 +37,7 @@ const handlerWith = ({
     },
     forget: async (userId) => {
       forgotten.push(userId);
-      return 'deleted';
+      return forgets;
     },
   });
   return { handler, recorded, forgotten };
@@ -103,6 +108,24 @@ describe('POST /api/account/age', () => {
         ['user1', 'user1'],
         `${AGE_HOLD_COOKIE}=below-floor; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax`,
       ],
+    });
+  });
+
+  test('an under-age answer after an accepted one changes nothing', async () => {
+    const { handler, recorded } = handlerWith({ forgets: 'refused' });
+    const response = await handler(post(answer(2018)));
+    assert({
+      given:
+        'an under-13 answer from an account that already recorded an age (or just became a member)',
+      should:
+        'answer a conflict with no refusal page, no hold and nothing recorded, so the first answer stands',
+      actual: [
+        response.status,
+        (await response.json()).error.code,
+        response.headers.get('set-cookie'),
+        recorded.length,
+      ],
+      expected: [409, 'CONFLICT', null, 0],
     });
   });
 
