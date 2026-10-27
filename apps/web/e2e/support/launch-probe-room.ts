@@ -1,7 +1,6 @@
-import { humanRoundSelection } from './human-round-selection';
+import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import { createId } from '@paralleldrive/cuid2';
 import {
-  roomCatalogChoiceSchema,
   roomViewSchema,
   roundViewSchema,
   attendanceReceiptSchema,
@@ -40,19 +39,12 @@ async function createProbeRoom(
   json: ProbeRequests,
   members: readonly LaunchProbeMember[],
 ) {
-  const catalog = (await json(members[0]!, '/api/rooms/catalog')) as {
-    choices: unknown[];
-  };
-  const choice = catalog.choices
-    .map((raw) => roomCatalogChoiceSchema.parse(raw))
-    .find((item) => item.formatId === 'foundation');
-  if (!choice) throw new Error('Public probe foundation format missing');
   const created = await json(members[0]!, '/api/rooms', {
     commandId: createId(),
     title: 'Public ingress receipt resource',
     topic: 'Cities should fund transit',
     visibility: 'public',
-    selection: humanRoundSelection(choice, 1),
+    selection: humanRoundSelection(foundationChoice, 1),
   });
   let room = roomViewSchema.parse(created.view);
   const roomCommand = async (

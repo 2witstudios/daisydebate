@@ -1,5 +1,6 @@
 import { friendListSchema, parseUsername } from '@daisy/protocol';
 import type { MockFormState } from '../../mock-form/form';
+import { casualSelection, defaultChoice } from '../../rooms/format-browser';
 import { readRoomTemplates, type RoomTemplate } from '../../rooms/read-catalog';
 
 /** The topic a challenge room opens with; the host edits it on the room page. */
@@ -7,8 +8,8 @@ const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
 
 /**
  * The room a Challenge creates (ADR 0072): unlisted, so only its invite
- * link reaches it, on the catalog's first template with that template's
- * own defaults, named for the two members.
+ * link reaches it, on the catalog's default format and its pinned preset,
+ * named for the two members.
  */
 function challengeRoomForm({
   viewer,
@@ -26,16 +27,7 @@ function challengeRoomForm({
   form.set('title', `@${viewer} vs @${friend}`);
   form.set('topic', CHALLENGE_TOPIC);
   form.set('visibility', 'unlisted');
-  form.set(
-    'selection',
-    JSON.stringify({
-      kind: 'catalog',
-      formatId: template.formatId,
-      formatVersion: template.formatVersion,
-      competitionType: 'casual',
-      config: template.defaultConfig,
-    }),
-  );
+  form.set('selection', JSON.stringify(casualSelection(template)));
   return form;
 }
 
@@ -90,7 +82,7 @@ async function deliverChallenge(
 
 /**
  * Challenge an accepted friend (ADR 0072): confirm the friendship through
- * the friend list route, take the catalog's default template, and create
+ * the friend list route, take the catalog's default format, and create
  * the room through the one room-create route, then deliver the challenge to
  * the friend, every call carrying the caller's own request. A member who is not a friend gets the same answer
  * as an outage.
@@ -119,7 +111,8 @@ export async function challengeFriend({
   if (!friend.ok || !(await isFriend(routes.friends, friend.username)))
     return challengeUnavailable;
   const catalog = await readRoomTemplates(routes.catalog);
-  const template = catalog.kind === 'found' ? catalog.choices[0] : undefined;
+  const template =
+    catalog.kind === 'found' ? defaultChoice(catalog.choices) : undefined;
   if (!template) return challengeUnavailable;
   const created = await create(
     challengeRoomForm({ viewer, friend: friend.username, template, commandId }),

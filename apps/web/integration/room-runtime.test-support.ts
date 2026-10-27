@@ -14,6 +14,9 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
+import { foundationSelection } from './foundation-selection.test-support';
+
+import { drawEntropy } from '../src/features/room-runtime/entropy';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
@@ -105,31 +108,25 @@ async function fixture(
     store,
     redis: controlled,
     ids: systemId,
+    entropy: drawEntropy,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
-  /** The reference catalog choice every Room suite builds on. */
-  const foundation = async () =>
-    (await operations.catalog(host)).find((c) => c.formatId === 'foundation')!;
+  /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
+  const foundation = async () => ({
+    definition: foundationSelection.definition,
+    preset: { config: foundationSelection.config },
+  });
   const create = async (
     overrides: Partial<RoomCreate> = {},
     who: typeof host = host,
   ) => {
-    const config = (await operations.catalog(host)).find(
-      (c) => c.formatId === 'foundation',
-    )!.defaultConfig;
     const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
       topic: 'Cities should make transit free',
       visibility: 'public',
-      selection: {
-        kind: 'catalog',
-        formatId: 'foundation',
-        formatVersion: 1,
-        competitionType: 'casual',
-        config,
-      },
+      selection: foundationSelection,
       ...overrides,
     });
     rooms.push(r.view.id);
@@ -234,6 +231,7 @@ async function fixture(
     bot,
     create,
     foundation,
+    foundationSelection,
     command,
     consent,
     seatBotOpponent,

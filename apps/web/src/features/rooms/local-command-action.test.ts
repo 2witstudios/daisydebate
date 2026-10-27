@@ -4,10 +4,10 @@ import { createLocalCommandAction } from './local-command-action';
 setupRitewayBun();
 const scenarios = [
   {
-    type: 'start-prep',
+    type: 'start-pre-round',
     passed: false,
     pending: true,
-    forwarded: ['start-prep'],
+    forwarded: ['start-pre-round'],
     consent: [],
     error: false,
   },

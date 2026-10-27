@@ -1,6 +1,7 @@
 import { enterLobbyRoom, proveGathering } from './support/room-gathering-proof';
 import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
+import { proveNoScriptFormatChoice } from './support/room-format-no-script';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
 import { roomViewSchema, roundViewSchema } from '@daisy/protocol';
@@ -287,6 +288,12 @@ test('catalog dialog previews real speech defaults and commits the selected temp
   browser,
 }) => {
   await proveFormatPicker(browser);
+});
+
+test('Room setup chooses a standard, reads Custom after an edit and goes Back without JavaScript', async ({
+  browser,
+}) => {
+  await proveNoScriptFormatChoice(browser);
 });
 
 test('native Lobby search and keyset pages discover beyond the first page without truncation', async ({

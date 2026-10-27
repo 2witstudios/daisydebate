@@ -19,13 +19,11 @@ import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
   RoomListQuery,
-  FormatDefinition,
   RoomAssemblyState,
   RoomCatalogChoice,
   RoomCastChoice,
   RoomCommandResponse,
   RoomCreate,
-  RoomConfig,
 } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -37,10 +35,11 @@ export type Store = Pick<
   | 'listRoomCatalogSources'
   | 'listRoomBots'
   | 'getFormatRevision'
-  | 'getCurrentPreset'
+  | 'getFormatSelectionFacts'
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
+  | 'readRoomAssemblyFacts'
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
@@ -49,45 +48,21 @@ type Redis = Pick<
   ReturnType<typeof createRedis>,
   'setRoomConsent' | 'readRoomConsent'
 >;
-/** Suggested initial config comes exclusively from the pinned format's declared legal choices. */
-const initialConfig = (definition: FormatDefinition): RoomConfig => ({
-  preRoundPrep: { enabled: false },
-  inRoundPrep: { enabled: false },
-  speechTiming: {
-    countdownMs: definition.configurable.timing.countdownMs.min,
-    segmentDurationOverrides: {},
-  },
-  crossExamination: {
-    crossExMode: definition.configurable.interaction.crossExModes[0]!,
-  },
-  interruptions: definition.configurable.interaction.interruptions
-    ? {
-        mode: definition.configurable.interaction.interruptions.modes[0]!,
-        minRemainingMs:
-          definition.configurable.interaction.interruptions.minRemainingMs.min,
-      }
-    : null,
-  yielding: definition.configurable.interaction.yield
-    ? {
-        allowed: definition.configurable.interaction.yield.enabledChoices[0]!,
-        returnsTime:
-          definition.configurable.interaction.yield.returnsTimeChoices[0]!,
-      }
-    : null,
-});
-
 export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
   consentTtlMs,
   botsAvailable,
+  entropy,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
+  /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
+  readonly entropy: () => string;
 }) {
   const eligible = (state: RoomAssemblyState): RoomAssemblyState => ({
     ...state,
@@ -126,11 +101,12 @@ export function createRoomRuntimeOperations({
     }
   };
   const view = async (caller: Caller, roomId: string) => {
-    const state = eligible(
-      await store.readRoomAssembly(roomId, caller, (state, account) =>
-        can(caller, 'room.read', account, state),
-      ),
+    const facts = await store.readRoomAssemblyFacts(
+      roomId,
+      caller,
+      (state, account) => can(caller, 'room.read', account, state),
     );
+    const state = eligible(facts.state);
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
@@ -139,12 +115,14 @@ export function createRoomRuntimeOperations({
         caller.actorId,
         currentRoomConsent(consent, now),
         now,
+        facts.drawSeed,
       ),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
     };
   };
+  /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */
   const catalog = async (
     caller: Caller,
   ): Promise<readonly RoomCatalogChoice[]> =>
@@ -156,13 +134,15 @@ export function createRoomRuntimeOperations({
       formatId: source.id,
       formatVersion: source.version,
       label: source.name,
+      role: source.role,
+      family: source.family,
+      leagues: source.leagues,
+      searchTerms: source.searchTerms,
+      sortOrder: source.sortOrder,
+      rulesEdition: source.rulesEdition,
+      sourceUrl: source.sourceUrl,
       definition: source.definition,
-      defaultConfig:
-        source.presets[0]?.config ?? initialConfig(source.definition),
-      presets: source.presets.map((p) => ({
-        version: p.version,
-        config: p.config,
-      })),
+      preset: { version: source.preset.version, config: source.preset.config },
     }));
   const create = async (
     caller: Caller,
@@ -183,14 +163,14 @@ export function createRoomRuntimeOperations({
       formatId,
       formatVersion,
       presetVersion,
+      basis,
       competitionType,
       resolved,
-    } = await resolveRoomSelection(
-      body,
-      body.selection.kind === 'custom' ? [] : await catalog(caller),
-      store,
-      ids,
-    );
+      recheck,
+    } = await resolveRoomSelection(body, store, ids);
+    // A draw Room's topic comes from its reveal; any other Room names one.
+    if ((body.topic === null) !== resolved.roomPlan.resolutionDraw.enabled)
+      throw createAppError('CONFLICT', 'illegal-config');
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
@@ -204,6 +184,7 @@ export function createRoomRuntimeOperations({
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
+      selection: recheck,
       room: {
         id: ids.next(),
         hostActorId: caller.actorId,
@@ -213,6 +194,7 @@ export function createRoomRuntimeOperations({
         formatId,
         formatVersion,
         presetVersion,
+        basis,
         competitionType,
         config,
         executionPlan: resolved.roomPlan,
@@ -288,6 +270,7 @@ export function createRoomRuntimeOperations({
       eligible,
       consentOf,
       view,
+      entropy,
     }),
   };
 }

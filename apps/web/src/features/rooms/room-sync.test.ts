@@ -5,6 +5,7 @@ import type { RoomCommandIds } from './room-command-ids';
 import {
   prepDeadline,
   presentedView,
+  roomDeadline,
   roomSync,
   seedRoomSync,
 } from './room-sync';
@@ -15,8 +16,10 @@ const ids = (tag: string): RoomCommandIds => ({
   header: { details: `${tag}d`, leave: `${tag}l`, close: `${tag}c` },
   readiness: { ready: `${tag}r`, unready: `${tag}u`, 'start-round': `${tag}s` },
   prep: { start: `${tag}ps`, finish: `${tag}pf` },
+  strikes: [],
   settings: `${tag}x`,
   seats: [],
+  format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
 });
 const view = (
   changeVersion: number,
@@ -71,6 +74,12 @@ describe('room sync time', () => {
       ],
       expected: [45000, 0],
     });
+    assert({
+      given: 'a client clock that reads fractions of a millisecond',
+      should: 'present whole milliseconds, as every duration is',
+      actual: presentedView(prepping, 16000.7).prep.remainingMs,
+      expected: 45000,
+    });
   });
 
   test('a running prep has a read deadline; any other room has none', () => {
@@ -95,6 +104,64 @@ describe('room sync time', () => {
       should: 'present the held view itself',
       actual: presentedView(seeded, 50000) === seeded.value.view,
       expected: true,
+    });
+  });
+});
+
+describe('strike time', () => {
+  const striking = seedRoomSync(
+    {
+      ...view(3),
+      resolutionDraw: {
+        visibility: 'progress',
+        drawSize: 5,
+        strikes: [],
+        turn: {
+          ordinal: 0,
+          side: 'negative',
+          dueAt: '2026-10-12T00:01:00.000Z',
+          remainingMs: 60_000,
+        },
+        revealedAt: null,
+      },
+    },
+    ids('a'),
+    1000,
+  );
+  test('the strike counts down from the read, whatever the client clock says (PR #472 review)', () => {
+    assert({
+      given:
+        'a turn with 60 s left at a read at 1 s, observed at 16 s and 91 s',
+      should:
+        'present 45 s then zero, and reread when the reported time runs out',
+      actual: [
+        presentedView(striking, 16_000).resolutionDraw?.turn?.remainingMs,
+        presentedView(striking, 91_000).resolutionDraw?.turn?.remainingMs,
+        roomDeadline(striking),
+      ],
+      expected: [45_000, 0, 61_000],
+    });
+  });
+  test('a turn with no time left schedules no reread (PR #472 review)', () => {
+    const due = seedRoomSync(
+      {
+        ...striking.value.view,
+        resolutionDraw: {
+          ...striking.value.view.resolutionDraw!,
+          turn: {
+            ...striking.value.view.resolutionDraw!.turn!,
+            remainingMs: 0,
+          },
+        },
+      },
+      ids('a'),
+      1000,
+    );
+    assert({
+      given: 'a read reporting a turn already at zero',
+      should: 'leave the backstop to settle it, never a read loop at zero',
+      actual: roomDeadline(due),
+      expected: null,
     });
   });
 });

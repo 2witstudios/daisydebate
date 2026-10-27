@@ -1,5 +1,13 @@
 import type { roomCommandTransaction } from './room-command-transaction';
-import type { RoomCommandReceipt, FormatDefinition } from '@daisy/protocol';
+import type {
+  RoomCommandReceipt,
+  FormatDefinition,
+  FormatSelectionFacts,
+} from '@daisy/protocol';
+import {
+  readFormatSelectionFacts,
+  type SelectionTuple,
+} from './format-operations';
 
 import { createAppError } from '@daisy/errors';
 
@@ -34,6 +42,15 @@ export const roomCreateOperations = ({
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
+    /**
+     * A catalog selection rechecked against the facts read FOR SHARE in this
+     * transaction, so a publication that lands after the decision refuses the
+     * create instead of pinning a preset the policy would now refuse.
+     */
+    readonly selection?: {
+      readonly tuple: SelectionTuple;
+      readonly admits: (facts: FormatSelectionFacts | null) => boolean;
+    } | null;
     readonly caller: Caller;
     readonly authorize: (account: Account) => boolean;
   }): Promise<RoomCommandReceipt> {
@@ -53,6 +70,13 @@ export const roomCreateOperations = ({
           input.payloadDigest,
         );
         if (replay) return replay;
+        if (
+          input.selection &&
+          !input.selection.admits(
+            await readFormatSelectionFacts(tx, input.selection.tuple),
+          )
+        )
+          throw createAppError('CONFLICT', 'format-unavailable');
         if (input.definition)
           await publishDefinition(
             tx,

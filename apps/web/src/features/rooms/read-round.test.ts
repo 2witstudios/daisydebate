@@ -54,6 +54,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     completedAt: null,
     outcome: null,
     unjudgedRuling: null,
+    resolutionAudit: null,
     status: 'scheduled',
     competitionType: 'casual',
     topic: 'Frozen launch topic',
@@ -69,6 +70,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     ],
     config: {
       preRoundPrep: { enabled: false },
+      resolutionDraw: { enabled: false },
       inRoundPrep: { enabled: false },
       speechTiming: { countdownMs: 731, segmentDurationOverrides: {} },
       crossExamination: { crossExMode: 'ordered' },
