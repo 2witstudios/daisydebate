@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
@@ -21,6 +22,11 @@ import type {
 type AdmissionContext = Parameters<
   Parameters<Store['issueMediaToken']>[0]['sign']
 >[0];
+/** A human caller and the participant-access rule its fenced facts must meet (ADR 0075). */
+const callerOf = (actorId: string) => ({
+  actorId,
+  admits: admitsPrincipalAccess,
+});
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
@@ -30,6 +36,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const snapshot = async (roundId: string, actorId?: string) => {
     const state = await input.store.readMediaSession({
       roundId,
+      admits: admitsPrincipalAccess,
       ...(actorId ? { actorId } : {}),
       buildProjection,
     });
@@ -39,16 +46,29 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
   const acquire = async (sessionId: string) => {
     const owner = input.nextId();
-    for (;;) {
-      const claim = await input.store.claimMediaReconcile({ sessionId, owner });
-      if (claim.kind === 'claimed') return claim;
-      await input.wait();
+    await input.priority(sessionId, 'enter', owner);
+    try {
+      for (;;) {
+        const claim = await input.store.claimMediaReconcile({
+          sessionId,
+          owner,
+        });
+        if (claim.kind === 'claimed') return claim;
+        await input.wait();
+        await input.priority(sessionId, 'enter', owner);
+      }
+    } finally {
+      await input.priority(sessionId, 'leave', owner);
     }
   };
   const serve = async (sessionId: string, version: number) => {
     for (;;) {
       const progress = await input.store.mediaReconcileProgress(sessionId);
       if (progress.servedVersion >= version) return;
+      if (await input.priority(sessionId, 'waiting')) {
+        await input.wait();
+        continue;
+      }
       const claim = await input.store.claimMediaReconcile({
         sessionId,
         owner: input.nextId(),
@@ -73,7 +93,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   ): Promise<RoundMediaState> => {
     const request = await input.store.requestMediaReconcile({
       roundId,
-      ...(actorId ? { actorId } : {}),
+      ...(actorId ? { caller: callerOf(actorId) } : {}),
     });
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
@@ -83,7 +103,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       principal.kind === 'human'
         ? await input.store.ensureBinding({
             roundId,
-            actorId: principal.actorId,
+            caller: callerOf(principal.actorId),
             buildProjection,
           })
         : await input.store.ensureBotBinding({
@@ -120,32 +140,48 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         roomName: context.binding.roomName,
       };
     };
-    const claim = await acquire(binding.sessionId);
+    let claim = await acquire(binding.sessionId);
     const held: { issued?: Awaited<ReturnType<typeof sign>> } = {};
     // The token is issued while this reconcile still holds the session, so a
     // concurrent reconcile (recovery, another caller) is never live in
     // between to refuse it (ISSUE-534).
-    await run(claim, principal, async () => {
+    const issue = async () => {
       const state = await snapshot(roundId);
       if (admissionRevoked(state))
         throw createAppError('CONFLICT', 'Round media admission is closed');
       if (
         state.session.unsafeAt ||
         state.unresolved ||
-        !(await input.deadline(input.media.exists(binding.roomName)))
+        !(await input.deadline(input.media.exists(state.session.roomName)))
       )
         throw createAppError('INFRASTRUCTURE');
       held.issued = await input.store.issueMediaToken({
         roundId,
         principal,
+        admits: admitsPrincipalAccess,
         reconcileOwner: claim.fence.owner,
         buildProjection,
         sign,
       });
-    });
+    };
+    await run(claim, principal, issue);
+    // Rotation releases the old claim. Reacquire the new room before creating
+    // or signing; an unresolved cleanup never earns a retry.
+    if (
+      !held.issued &&
+      (await snapshot(roundId)).session.roomName !== claim.roomName
+    ) {
+      claim = await acquire(binding.sessionId);
+      await run(claim, principal, issue);
+    }
     if (held.issued) return held.issued;
-    // The reconcile refused or cleaned up and never reached the issue.
-    if (admissionRevoked(await snapshot(roundId)))
+    // The reconcile refused or cleaned up and never reached the issue. Read
+    // as the human caller, so one revoked meanwhile is refused as such.
+    const after = await snapshot(
+      roundId,
+      principal.kind === 'human' ? principal.actorId : undefined,
+    );
+    if (admissionRevoked(after))
       throw createAppError('CONFLICT', 'Round media admission is closed');
     throw createAppError('INFRASTRUCTURE');
   };

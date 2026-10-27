@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { admitParticipants } from '../src/beta-access-testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createMediaSessionStore } from '../src/media-session';
 import { createBoundedTransaction } from '../src/bounded-transaction';
@@ -43,5 +44,9 @@ export async function mediaTestHuman(
     'update users set email_verified=true where id=(select user_id from actors where id=$1)',
     [seat.actorId],
   );
+  // The seated human is an admitted participant (ADR 0075).
+  const [owner] =
+    await fixture.sql`select user_id from actors where id = ${seat.actorId}`;
+  await admitParticipants(fixture.sql, [owner!.user_id as string]);
   return { roundId, seat };
 }

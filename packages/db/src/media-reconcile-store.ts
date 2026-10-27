@@ -1,3 +1,4 @@
+import { rotateRevokedMediaRoom } from './media-room-rotation';
 import {
   readMediaBotLeases,
   mediaPublicationParticipants,
@@ -18,13 +19,16 @@ import {
 } from './round-clock-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import type { RoundCommandAuthority } from '@daisy/protocol';
+import {
+  withdrawnSeats,
+  type ParticipantAdmission,
+} from './participant-admission';
 import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
 
-type Session = typeof mediaSessions.$inferSelect;
 import {
   proofMatches,
   type MediaVendorIntent,
@@ -71,20 +75,25 @@ export function createMediaReconcileStore(input: {
       .from(mediaSessions)
       .where(eq(mediaSessions.id, mediaId(sessionId)));
     if (!initial) throw createAppError('NOT_FOUND');
-    await lockMediaRound(tx, initial.roundId);
+    const authority = await lockMediaRound(tx, initial.roundId);
     const [session] = await tx
       .select()
       .from(mediaSessions)
       .where(eq(mediaSessions.id, sessionId))
       .for('update');
     if (!session) throw createAppError('NOT_FOUND');
-    return session;
+    // The fenced seats travel with the session, so no caller locks twice.
+    return {
+      ...session,
+      seats: authority.participants,
+      accounts: authority.accounts,
+    };
   };
   const withFence = <T>(
     request: MediaReconcileFence,
     work: (
       tx: BoundedTransactionContext,
-      session: Session,
+      session: Awaited<ReturnType<typeof locked>>,
       now: Date,
     ) => Promise<T>,
   ) =>
@@ -105,9 +114,13 @@ export function createMediaReconcileStore(input: {
       request: MediaReconcileFence & {
         readonly intent: MediaVendorIntent;
         readonly buildProjection: LockedRoundTickInput['buildProjection'];
+        /** ADR 0075: participant access, read for every human seat. */
+        readonly admits: ParticipantAdmission;
         readonly authorize: (context: {
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
+          readonly bindings: readonly { readonly roundParticipantId: string }[];
+          readonly withdrawn: readonly string[];
           readonly now: string;
           readonly finalSegmentEndedAt: string | null;
           readonly participantId: string | null;
@@ -120,11 +133,10 @@ export function createMediaReconcileStore(input: {
           (await pending(tx, session.id)).length,
           request.intent.kind,
         );
-        const authority = await lockMediaRound(tx, session.roundId);
         const botLeases = await readMediaBotLeases(
           tx,
           session.roundId,
-          authority.participants,
+          session.seats,
         );
         const tick = await executeLockedRoundTick(tx, {
           roundId: session.roundId,
@@ -150,12 +162,23 @@ export function createMediaReconcileStore(input: {
           participantId = binding.participantId;
         }
         request.authorize({
+          bindings: await tx
+            .select({
+              roundParticipantId: mediaParticipants.roundParticipantId,
+            })
+            .from(mediaParticipants)
+            .where(eq(mediaParticipants.sessionId, session.id)),
           round,
           participants: mediaPublicationParticipants(
-            authority.participants,
+            session.seats,
             botLeases,
             round,
             tick.now,
+          ),
+          withdrawn: withdrawnSeats(
+            session.seats,
+            session.accounts,
+            request.admits,
           ),
           now: tick.now,
           finalSegmentEndedAt: tick.finalSegmentEndedAt,
@@ -251,6 +274,16 @@ export function createMediaReconcileStore(input: {
             request,
             await mutationCount(tx, session.id),
           );
+        const roomName =
+          cleaned && !terminal && !session.endedAt
+            ? await rotateRevokedMediaRoom(
+                tx,
+                session.id,
+                session.seats,
+                now,
+                input.nextId,
+              )
+            : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
           unresolved,
@@ -258,7 +291,7 @@ export function createMediaReconcileStore(input: {
         });
         await tx
           .update(mediaSessions)
-          .set(fields)
+          .set({ ...fields, ...(roomName ? { roomName } : {}) })
           .where(eq(mediaSessions.id, session.id));
         return result;
       });

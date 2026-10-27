@@ -1,7 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { SQL } from 'bun';
-import { testDatabaseUrl, withSql } from './fixtures';
+import { linkFrom, testDatabaseUrl, tokenOf, withSql } from './fixtures';
+import {
+  redeemMagicLink,
+  type createTestAuthServer,
+  type SentMessages,
+} from './auth-server-harness';
 
 /**
  * RT-2.2: shared fixtures for suites that assert an auth operation appends a
@@ -98,4 +103,40 @@ export const trackRevocations = async (userId: string) => {
       await cleanupActorFor(userId);
     },
   };
+};
+
+/** One real magic-link sign-in: its cookie, user id and session token. */
+export const signInOnce = async (
+  auth: ReturnType<typeof createTestAuthServer>,
+  email: string,
+  sent: SentMessages,
+) => {
+  await auth.instance.api.signInMagicLink({
+    body: { email },
+    headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
+  });
+  const token = tokenOf(linkFrom(sent.at(-1)!));
+  const response = await redeemMagicLink(auth, token);
+  const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
+  // Read on the server through auth.api: browser responses carry no session
+  // token (ISSUE-63).
+  const body = await auth.instance.api.getSession({
+    headers: new Headers({ cookie }),
+    query: { disableCookieCache: true },
+  });
+  return {
+    cookie,
+    userId: body?.user?.id ?? '',
+    sessionToken: body?.session?.token ?? '',
+  };
+};
+
+export const sessionExists = async (
+  admin: SQL,
+  token: string,
+): Promise<boolean> => {
+  const rows = await admin.unsafe('select 1 from session where token = $1', [
+    token,
+  ]);
+  return rows.length > 0;
 };

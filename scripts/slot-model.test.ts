@@ -257,6 +257,9 @@ describe('slot .env values', () => {
         E2E_PORT: '3100',
         REALTIME_PORT: '3011',
         CLAMD_TEST_PORT: '3310',
+        TEST_CLICKHOUSE_URL: 'http://127.0.0.1:18123',
+        TEST_CLICKHOUSE_SHIPPER_PASSWORD: 'local-shipper-only',
+        TEST_CLICKHOUSE_READER_PASSWORD: 'local-reader-only',
         MEDIA_WORKER_DATABASE_URL:
           'postgres://daisy_media_worker_local:media-worker-loopback-only@localhost:15432/daisy',
         TEST_ADMIN_DATABASE_URL:
@@ -296,6 +299,9 @@ describe('slot .env values', () => {
         E2E_PORT: '13021',
         REALTIME_PORT: '13025',
         CLAMD_TEST_PORT: '3310',
+        TEST_CLICKHOUSE_URL: 'http://127.0.0.1:18123',
+        TEST_CLICKHOUSE_SHIPPER_PASSWORD: 'local-shipper-only',
+        TEST_CLICKHOUSE_READER_PASSWORD: 'local-reader-only',
         MEDIA_WORKER_DATABASE_URL:
           'postgres://daisy_media_worker_local:media-worker-loopback-only@127.0.0.1:35432/daisy_wt_abc',
         TEST_ADMIN_DATABASE_URL:

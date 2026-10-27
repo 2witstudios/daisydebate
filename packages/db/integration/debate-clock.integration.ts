@@ -6,6 +6,7 @@ import {
   roundAuthoring,
   withFixture,
 } from './constraint-helpers';
+import { authoredRoundCommand } from './round-command.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
@@ -19,11 +20,9 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
       if (!before) throw new Error('Round missing');
       let firstInstant = '';
       const segmentId = createId();
-      await database.applyRoundExecution({
-        roundId,
-        expectedVersion: 1,
-        command: null,
-        buildProjection: (now) => {
+      await database.executeRoundCommand({
+        ...authoredRoundCommand(authoring, 1),
+        buildProjection: ({ now }) => {
           firstInstant = now;
           return {
             round: {
@@ -65,10 +64,8 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
         outcome: started.outcome,
         checkpoint: started.checkpoint,
       };
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 2,
-        command: null,
         buildProjection: () => ({
           round: {
             ...active,
@@ -83,11 +80,9 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
         }),
       });
       let completedAt = '';
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 3,
-        command: null,
-        buildProjection: (now) => {
+        buildProjection: ({ now }) => {
           completedAt = now;
           return {
             round: {

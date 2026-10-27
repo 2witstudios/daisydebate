@@ -1,5 +1,4 @@
 import { expect } from 'bun:test';
-import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase, roundRow, validRules } from './index.test-support';
 import { emptyRuntimeCheckpoint, type RoundProjection } from '@daisy/protocol';
@@ -123,118 +122,11 @@ describe('round persistence', () => {
       expected: true,
     });
   });
-
-  test('applyRoundExecution writes the command, the segments and the round row as one versioned step', async () => {
-    const { database, queries } = createTestDatabase([
-      [], // command idempotency select
-      [[3, 'scheduled', null, null, null, null, checkpoint]], // version and persisted phase under row lock
-      [{ now: new Date('2026-01-01T00:00:00.000Z') }], // fresh clock after lock
-      [], // the round-row update
-      [[1n, '42']], // the Round phase doorbell, in the same transaction
-      [], // pg_notify for the Round doorbell
-      [], // the command insert
-      [[9, 'scheduled', null, null, null, null, checkpoint]], // refusing run's locked Round state
-    ]);
-    await database.applyRoundExecution({
-      roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
-      expectedVersion: 3,
-      command: {
-        commandId: 'd0e1f2a3b4c5d6e7f8a9b0c1',
-        actorId: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-        serviceId: null,
-        type: 'start',
-        payloadDigest: 'a'.repeat(64),
-        result: { ok: true },
-      },
-      buildProjection: () => activeCountdownProjection,
-    });
-    assert({
-      given: 'a start execution at the expected version',
-      should:
-        'check the command id, lock the round and write the versioned command and phase signal',
-      actual: [
-        queries[0]?.query.includes('"round_commands"'),
-        queries[1]?.query.includes('for no key update'),
-        queries[6]?.query.includes('insert into "round_commands"'),
-        queries[4]?.params.find(
-          (value) => typeof value === 'object' && value !== null,
-        ),
-        queries[5]?.query.includes('pg_notify'),
-      ],
-      expected: [
-        true,
-        true,
-        true,
-        {
-          kind: 'debate.phase-changed',
-          ids: ['c8d4e2f6a1b3k5m7n9p2r4t6'],
-          entityVersion: 4,
-        },
-        true,
-      ],
-    });
-    await assertRejects({
-      given: 'an execution against a round that moved on',
-      should: 'refuse with a conflict and write nothing',
-      actual: () =>
-        database.applyRoundExecution({
-          roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
-          expectedVersion: 4,
-          command: null,
-          buildProjection: () => ({
-            round: null,
-            segmentInserts: [],
-            segmentCloses: [],
-            effects: [],
-          }),
-        }),
-      code: 'CONFLICT',
-    });
-    assert({
-      given: 'the refused stale-version execution after an accepted transition',
-      should: 'append no second Round phase signal',
-      actual: queries.filter((query) =>
-        query.query.startsWith('insert into "outbox"'),
-      ).length,
-      expected: 1,
-    });
-  });
-
-  test('applyRoundExecution does not write or signal a true no-op', async () => {
-    const { database, queries } = createTestDatabase([
-      [
-        [
-          7,
-          'active',
-          'countdown',
-          new Date('2026-01-01T00:00:00.000Z'),
-          null,
-          null,
-          checkpoint,
-        ],
-      ], // complete locked state
-      [{ now: new Date('2026-01-01T00:00:00.000Z') }], // clock
-    ]);
-    await database.applyRoundExecution({
-      roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
-      expectedVersion: 7,
-      command: null,
-      buildProjection: () => activeCountdownProjection,
-    });
-    assert({
-      given: 'an accepted Round projection that keeps its current phase',
-      should: 'leave version and outbox unchanged',
-      actual: queries.map(({ query }) =>
-        query.startsWith('insert into "outbox"'),
-      ),
-      expected: [false, false],
-    });
-  });
 });
 
 test('Round projection callbacks are synchronous pure execution seams', () => {
   type BuildProjection = Parameters<
-    ReturnType<typeof createTestDatabase>['database']['applyRoundExecution']
+    ReturnType<typeof createTestDatabase>['database']['executeRoundCommand']
   >[0]['buildProjection'];
   // @ts-expect-error A callback cannot perform asynchronous I/O while holding the transaction.
   const asynchronous: BuildProjection = async () => activeCountdownProjection;

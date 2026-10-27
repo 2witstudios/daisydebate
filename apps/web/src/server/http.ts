@@ -1,5 +1,5 @@
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isTransactionCapacityRefusal } from '@daisy/db';
+import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,

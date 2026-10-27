@@ -51,6 +51,24 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
   only for this identity. Failed HTTP requests still record their actual
   retryable 503; a deferred refusal preserves the response already sent.
 
+## Retention and routing
+
+On staging, the log shipper (`apps/log-shipper`) streams every app's stdout
+from Fly's org log stream into a 6PN-only ClickHouse. The admin app's
+Security page reads it through a read-only role
+([ADR 0084](../decisions/0084-operational-log-pipeline.md),
+[runbook](log-pipeline.md)).
+
+- **Admission.** A line is stored only when `@daisy/logger/ingest`
+  admits it against the registry and field table below. Anything else is
+  counted by reason in `shipper_drops`, never stored raw.
+- **Delivery.** The stream is at-most-once, and inserts are
+  retry-idempotent, so counts are lower bounds. The page shows the
+  shipper's heartbeat as coverage before any count.
+- **Retention.** 28 days on receipt time (privacy.md, "Operational logs").
+- **Production.** Production uses its own Fly org and its own pipeline,
+  rolled out by the owner.
+
 ## Event registry
 
 The logger accepts these events. The registry, rather than caller
@@ -74,6 +92,7 @@ diverge:
 | `auth.rate_limit.unavailable`            | error    | The auth limiter or client resolution failed; denied with a public 503                                                                                                                                                                                                                     |
 | `auth.rate_limit.network_denied`         | warn     | A magic-link request was refused for its client's IPv6 /56 or /48 or IPv4 /24 (`scope` only; AUTH-3.10)                                                                                                                                                                                    |
 | `auth.session.unavailable`               | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out                                                                                                                                                                                     |
+| `auth.sign_out.failed`                   | error    | The no-JS sign-out form's auth sign-out failed or threw; the browser returns to its page with a notice, still signed in. Carries only `operation`, never the error, body or cookie                                                                                                         |
 | `auth.mail.sent`                         | info     | An auth email was handed to the mail transport                                                                                                                                                                                                                                             |
 | `auth.mail.failed`                       | error    | Auth email delivery failed                                                                                                                                                                                                                                                                 |
 | `auth.mail.receipt_failed`               | error    | The provider accepted a message but recording its receipt failed                                                                                                                                                                                                                           |
@@ -91,6 +110,7 @@ diverge:
 | `auth.email_change.verified`             | info     | Ownership of the new address was verified and the change completed                                                                                                                                                                                                                         |
 | `auth.email_change.cleanup_failed`       | error    | A scheduled email-change-token cleanup batch failed                                                                                                                                                                                                                                        |
 | `round.media.unsafe`                     | error    | A media reconcile failed; the session is marked unsafe and the error goes to the error tracker under the same request ID (`operation`, `errorCode`, `requestId`)                                                                                                                           |
+| `round.media.fairness_degraded`          | warn     | An optional admission hint failed or exceeded 250 ms; canonical admission and recovery continue. Logged once per degraded episode (`operation` only, category `none`).                                                                                                                     |
 | `round.judging.failed`                   | error    | A judging worker pass failed; claimed judging work stays recoverable for the next pass (`operation` is `round.judging.` plus one of `execute`, `scan`, `renew`; `errorCode` is the error's own code or `INTERNAL`)                                                                         |
 | `round.coaching.failed`                  | error    | An AI coaching call failed after its claim; the Round is claimed again on a later scan while it has paid calls left (ADR 0071) (`operation` is `round.coaching.` plus one of `coach`, `scan`; `errorCode` only). A full provider is not a failure                                          |
 | `beta.mail.failed`                       | error    | A durable mail intent batch failed (ADR 0075); the intents stay queued or leased and are sent on a later tick (`operation` is `beta.mail.send`; `errorCode` only)                                                                                                                          |
@@ -107,7 +127,7 @@ diverge:
 | `realtime.outbox.actor_missing`          | warn     | An outbox row referenced an actor that could not be resolved                                                                                                                                                                                                                               |
 | `realtime.outbox.drain_failed`           | error    | A drain pass's range read or sink call failed; the loop stays alive and the next wakeup retries                                                                                                                                                                                            |
 | `realtime.outbox.delivery_lag_estimated` | info     | A readiness probe estimated the drain's seq-distance from the outbox high-water mark                                                                                                                                                                                                       |
-| `realtime.delivery.backlog`              | info     | A readiness probe reported retained delivery rows, running rows, topics and the oldest retained publication age (counts and milliseconds only)                                                                                                                                             |
+| `realtime.delivery.backlog`              | info     | A readiness probe found a retained delivery row at least 1 s old; reports retained rows, running rows, topics and the oldest retained publication age (counts and milliseconds only)                                                                                                       |
 | `realtime.connection.rejected`           | info     | A realtime socket connection was rejected                                                                                                                                                                                                                                                  |
 | `realtime.subscription.unavailable`      | error    | A subscription's authority read failed or outlasted its budget rather than deciding; the subscriber is refused with the transient `INFRASTRUCTURE` code (a real denial stays `AUTHORIZATION`), and delivery publishes nothing until a later revalidation allows (`operation`, `errorCode`) |
 | `request.unhandled`                      | error    | Next reported an unhandled request failure                                                                                                                                                                                                                                                 |
@@ -118,6 +138,8 @@ diverge:
 | `redis.command.failed`                   | error    | A Redis command failed                                                                                                                                                                                                                                                                     |
 | `availability.sample_failed`             | error    | A web availability sample could not be recorded; that window has no availability evidence                                                                                                                                                                                                  |
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed; the interval retries on its next tick                                                                                                                                                                                                             |
+| `logship.started`                        | info     | The log shipper subscribed to the org log stream (ADR 0084)                                                                                                                                                                                                                                |
+| `logship.insert.failed`                  | error    | A log batch insert into ClickHouse failed; the batch stays in flight and is retried under the same token (`errorCode`, `pending` only, ADR 0084)                                                                                                                                           |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
 The five round worker failure events (`round.maintenance.failed`,

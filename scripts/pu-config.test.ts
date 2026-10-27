@@ -62,15 +62,17 @@ describe('committed pu agent context', () => {
     });
   });
 
-  test('states the autonomous merge rule', () => {
+  test('states the merge rule', () => {
     assert({
       given: 'the context pu injects into every agent',
-      should: 'make the auto-merge request conditional on the live ruleset',
+      should:
+        'say builders never merge and the flow sweep merges after PR_READY (ADR 0083)',
       actual: [
-        context.includes('gh pr merge --auto --merge'),
-        context.includes('ready for owner merge'),
+        context.includes('Builders never merge'),
+        context.includes('PR_READY'),
+        context.includes('gh pr merge'),
       ],
-      expected: [true, true],
+      expected: [true, true, false],
     });
   });
 });

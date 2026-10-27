@@ -6,7 +6,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { DetailList } from '../detail-list/detail-list';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { SourceLegend, SourceText } from '../source-text/source-text';
 import { TagList } from '../tag-list/tag-list';
@@ -44,13 +44,13 @@ function Provenance({ view }: { readonly view: CardDetailView }) {
               className="inline-flex items-center gap-1"
             >
               {card.url.replace(/^https?:\/\//, '')}
-              <PrepIcon name="external" size={14} />
+              <Icon name="external" size={14} />
             </a>,
           ],
           [
             'Source copy',
             <span key="copy" className="inline-flex items-center gap-1">
-              <PrepIcon name="check" size={14} className="text-online" />
+              <Icon name="check" size={14} className="text-online" />
               Saved, unchanged
             </span>,
           ],
@@ -101,14 +101,14 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
               aria-label="More actions"
               className={`${buttonClass('secondary')} list-none`}
             >
-              <PrepIcon name="dots" size={18} />
+              <Icon name="dots" size={18} />
             </summary>
             <div className="absolute z-10 mt-2 flex min-w-rail flex-col rounded-md border border-border-strong bg-surface-raised p-2 shadow-2">
               <Link
                 href={view.deleteHref}
                 className="flex min-h-12 items-center gap-2 px-3 text-base text-live no-underline hover:no-underline"
               >
-                <PrepIcon name="trash" size={18} />
+                <Icon name="trash" size={18} />
                 Delete card
               </Link>
             </div>
@@ -119,7 +119,7 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
             role="status"
             className="flex flex-wrap items-center gap-3 rounded-md border border-gold-border bg-gold-soft p-4 text-sm"
           >
-            <PrepIcon name="history" size={18} className="text-gold" />
+            <Icon name="history" size={18} className="text-gold" />
             {`Version ${view.pastVersion.version}`}
             <Link href={view.pastVersion.currentHref}>
               Back to the current version
@@ -170,7 +170,7 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
               Your credibility notes
             </h2>
             <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
-              <PrepIcon name="lock" size={14} />
+              <Icon name="lock" size={14} />
               Stay private when shared
             </span>
           </div>

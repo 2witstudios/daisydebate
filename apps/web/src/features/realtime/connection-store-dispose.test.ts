@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
-import { buildChannelTopic } from '@daisy/protocol';
+import {
+  ENVELOPE_VERSION,
+  buildChannelTopic,
+  buildDebateTopic,
+} from '@daisy/protocol';
 import {
   createConnectionStore,
   type ConnectionStoreDeps,
@@ -122,7 +125,7 @@ test('a ticket answered after disposal cannot open, send or schedule', async () 
   store.subscribe(() => (notified += 1));
   store.onMessage(() => (notified += 1));
   store.onDiagnostic(() => (notified += 1));
-  store.subscribeTopic('debate:' + 'd'.repeat(24), () => (notified += 1));
+  store.subscribeTopic(buildDebateTopic('d'.repeat(24)), () => (notified += 1));
   store.close();
   assert({
     given:

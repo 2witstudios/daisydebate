@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -32,6 +33,7 @@ test('actual attendance refuses a missing Round without manufacturing pending ev
             segmentId: createId(),
           },
           principal: { kind: 'human', actorId: attempt.actorId! },
+          admits: admitsPrincipalAccess,
           payloadDigest: attempt.payloadDigest,
           acceptWindow: () => {
             accepted = true;

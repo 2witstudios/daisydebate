@@ -1,7 +1,7 @@
 'use client';
 import './zod-jitless';
 import Link from 'next/link';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/rooms/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
@@ -16,6 +16,7 @@ import { useRoundEndedRoute } from './use-round-ended';
  * server-authoritative. Once the Round ends, the judge goes to its result.
  */
 export function LiveJudgeRoom(props: {
+  readonly transcript?: ReactNode;
   readonly view: RoundView;
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
@@ -49,6 +50,7 @@ export function LiveJudgeRoom(props: {
       </p>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       {media(view)}
+      {props.transcript}
       <Link href={`/judge/ballot/${view.id}`} prefetch={false}>
         Open your ballot
       </Link>

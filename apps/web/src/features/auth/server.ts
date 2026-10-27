@@ -1,5 +1,4 @@
 import type { Participation } from '@daisy/auth';
-import { isTransactionCapacityRefusal } from '@daisy/db';
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
@@ -19,7 +18,7 @@ import {
 } from './email-change/email-change';
 import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
 import { createSuppressionCheck } from './mail/suppression-check';
-import { reportAuthFailure } from './failure-report';
+import { betterAuthLogger, reportAuthFailure } from './failure-report';
 import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
 import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
@@ -30,6 +29,7 @@ import {
   revokeSessionsPlugin,
   type RevokeSessions,
 } from './sessions/revoke-sessions';
+import { signOutFailsClosedPlugin } from './sessions/sign-out-fails-closed';
 import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
@@ -99,20 +99,7 @@ const composeBetterAuth = (dependencies: {
     trustedOrigins: [origin],
     secret: config.BETTER_AUTH_SECRET,
     database: dependencies.database,
-    // Better Auth's default logger prints driver errors verbatim, including
-    // SQL text and bound parameters (magic-link tokens, emails). Report only
-    // the severity through the application logger.
-    logger: {
-      log: (level, _message, ...details) => {
-        if (details.some(isTransactionCapacityRefusal)) return;
-        if (level === 'error' || level === 'warn')
-          dependencies.logger.log(
-            'request.unhandled',
-            { source: 'better-auth', sourceLevel: level },
-            'Authentication library reported a failure',
-          );
-      },
-    },
+    logger: betterAuthLogger(dependencies.logger),
     // better-call prints unhandled errors with console.error, exposing SQL and
     // parameters; rethrow so the guarded handler below reports them safely.
     onAPIError: { throw: true },
@@ -188,6 +175,8 @@ const composeBetterAuth = (dependencies: {
           origin,
           deliver: dependencies.deliver,
           spendCeiling: createSignUpCeiling({
+            clock: dependencies.clock,
+            ceilings: config.AUTH_SIGN_UP_MAIL_CEILINGS,
             limiter: dependencies.limiter,
             logger: dependencies.logger,
           }),
@@ -229,6 +218,7 @@ const composeBetterAuth = (dependencies: {
         dependencies.logger,
       ),
       revokeSessionsPlugin(dependencies.revokeOtherSessions),
+      signOutFailsClosedPlugin,
       // Last: strips the session token and ipAddress from every HTTP
       // response after the plugins above have read the full result.
       browserSessionShapePlugin,

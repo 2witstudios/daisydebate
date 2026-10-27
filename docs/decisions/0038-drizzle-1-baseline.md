@@ -54,7 +54,7 @@ exception registries as fixes.
      `migration.sql`.
    - **Relational query builder v2.** Daisy passes no `relations` to
      `drizzle()` and uses no `db.query`. Better Auth's drizzle adapter
-     (1.7.5, peer `drizzle-orm ^0.45.2 || >=1.0.0-rc.1 <2.0.0`) reaches
+     (1.7.7, peer `drizzle-orm ^0.45.2 || >=1.0.0-rc.1 <2.0.0`) reaches
      `db.query` only for its experimental joins, which are off, so it runs
      on the core query builder; the auth integration suites prove it.
    - **Driver change.** drizzle-orm 1.0's Bun SQL driver sets
@@ -164,8 +164,10 @@ schema)` cannot be declared without a zod schema; every write is parsed
   once after this merges, and the legacy `daisy_template` database dropped
   once (steps in the ISSUE-6 handoff). Staging must be reset too; that is a
   human-only sign-off leaf.
-- Production and staging need `CREATEROLE` on the migration credential
-  (unchanged since ADR 0032) and, to realise the runtime split, a
+- Superseded by [ADR 0080](0080-least-privilege-migration-owner.md): the
+  migration credential holds no `CREATEROLE`. The operator creates the
+  runtime roles, and the guarded `CREATE ROLE` is a no-op outside local and
+  CI. Production and staging need, to realise the runtime split, a
   `daisy_web` password and an app `DATABASE_URL` distinct from the
   migration credential. ISSUE-39 split them: the release command reads
   `MIGRATION_DATABASE_URL`, and the app refuses to start as a role that can

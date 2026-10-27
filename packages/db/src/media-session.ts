@@ -18,6 +18,7 @@ import {
   lockMediaRound,
   mediaId as parseId,
   requireMediaWindow,
+  type MediaCaller,
 } from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
@@ -46,13 +47,12 @@ export function createMediaSessionStore({
       run((tx) => lockedMediaSnapshot(tx, input)),
     async ensureBinding(input: {
       readonly roundId: string;
-      readonly actorId: string;
+      readonly caller: MediaCaller;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
       const roundId = parseId(input.roundId);
-      const actorId = parseId(input.actorId);
       return run(async (tx) => {
-        const authority = await lockMediaRound(tx, roundId, actorId);
+        const authority = await lockMediaRound(tx, roundId, input.caller);
         const roundParticipantId = authority.caller!.id;
         const [current] = await tx
           .select({

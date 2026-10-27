@@ -8,6 +8,19 @@ import { hydrateRoundRows } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import {
+  requireAdmittedPrincipal,
+  type ParticipantAdmission,
+} from './participant-admission';
+
+/**
+ * A human caller and the participant-access rule its own fenced facts must
+ * meet (ADR 0075): one cannot be named without the other.
+ */
+export type MediaCaller = {
+  readonly actorId: string;
+  readonly admits: ParticipantAdmission;
+};
 
 export const mediaId = (value: string) => {
   const parsed = idSchema.safeParse(value);
@@ -15,12 +28,33 @@ export const mediaId = (value: string) => {
   return parsed.data;
 };
 
+/**
+ * The caller's own eligible human seat, refused unless it holds
+ * participant access read after the fence. Seats stay membership-only.
+ */
+function boundCaller(
+  participants: RoundCommandAuthority['participants'],
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+  mediaCaller: MediaCaller,
+) {
+  const seat = participants.find(
+    (candidate) =>
+      candidate.actorId === mediaCaller.actorId &&
+      candidate.kind === 'human' &&
+      candidate.eligible,
+  );
+  if (!seat) throw unseatedRefusal();
+  requireAdmittedPrincipal(mediaCaller.admits, accounts, mediaCaller.actorId);
+  return seat;
+}
+
 /** Account fences precede the Round fence, matching competitive writes and erasure. */
 export async function lockMediaRound(
   tx: BoundedTransactionContext,
   roundId: string,
-  actorId?: string,
+  mediaCaller?: MediaCaller,
 ) {
+  const actorId = mediaCaller?.actorId;
   mediaId(roundId);
   if (actorId !== undefined) mediaId(actorId);
   const seats = await tx
@@ -31,7 +65,10 @@ export async function lockMediaRound(
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)
     .where(eq(rounds.id, roundId));
-  if (!initial) throw createAppError('NOT_FOUND');
+  // A human gets the unseated refusal for a missing Round: no existence oracle.
+  const missing = () =>
+    actorId === undefined ? createAppError('NOT_FOUND') : unseatedRefusal();
+  if (!initial) throw missing();
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
@@ -43,9 +80,9 @@ export async function lockMediaRound(
     .from(rounds)
     .where(eq(rounds.id, roundId))
     .for('no key update');
-  if (!row) throw createAppError('NOT_FOUND');
+  if (!row) throw missing();
   const round = await hydrateRoundRows(tx, roundId);
-  if (!round) throw createAppError('NOT_FOUND');
+  if (!round) throw missing();
   const participants: RoundCommandAuthority['participants'] = await Promise.all(
     round.participants.map(async (seat) => {
       if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
@@ -53,16 +90,14 @@ export async function lockMediaRound(
       return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
     }),
   );
-  const caller =
-    actorId === undefined
-      ? null
-      : participants.find(
-          (seat) =>
-            seat.actorId === actorId && seat.kind === 'human' && seat.eligible,
-        );
-  if (actorId !== undefined && !caller) throw createAppError('AUTHORIZATION');
-  return { participants, caller };
+  const caller = mediaCaller
+    ? boundCaller(participants, accounts, mediaCaller)
+    : null;
+  return { participants, caller, accounts };
 }
+
+/** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
+export const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 export const mediaWindowClosed = (
   status: string,

@@ -4,8 +4,7 @@ import {
   buttonClass,
   type ButtonVariant,
 } from '../../components/button/button-class';
-import { SampleAction } from '../../components/sample-action/sample-action';
-import { cn } from '../../cn';
+import { SampleButton } from '../../components/sample-button/sample-button';
 
 export type DisabledActionProps = {
   readonly label: string;
@@ -35,29 +34,6 @@ export function DisabledAction({
     >
       {label}
     </button>
-  );
-}
-
-export type SampleButtonProps = {
-  readonly label: string;
-  readonly variant?: ButtonVariant;
-  readonly className?: string;
-};
-
-/**
- * A control with no backend: it answers on the same page with the shell
- * banner and saves nothing. Use it where the operation is not built, never
- * for a control that is unavailable for a reason the screen can state.
- */
-export function SampleButton({
-  label,
-  variant = 'secondary',
-  className,
-}: SampleButtonProps) {
-  return (
-    <SampleAction label={label} className={cn(buttonClass(variant), className)}>
-      {label}
-    </SampleAction>
   );
 }
 

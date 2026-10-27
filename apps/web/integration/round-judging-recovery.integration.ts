@@ -7,6 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { fixtureBallot, freezeBotJudge } from './round-judging.test-support';
+import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 const ballot = fixtureBallot(
@@ -86,7 +87,7 @@ test('cached judging response retries actual shared completion without redispatc
       });
     },
     {
-      botBusyCap: 4,
+      ...botAdmissionForTests,
       judging: {
         leaseMs: 60000,
         model: 'fixture-model',

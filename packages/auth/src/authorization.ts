@@ -1,7 +1,7 @@
 import { admitsCapability } from './participant-access';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';
-export { accountEntitlements } from './account-entitlements';
+export { accountEntitlements, aiRoundAllowance } from './account-entitlements';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
@@ -28,7 +28,11 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from './authorization-facts';
-export { ageAdmitted, participantAccess } from './participant-access';
+export {
+  admitsPrincipalAccess,
+  ageAdmitted,
+  participantAccess,
+} from './participant-access';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,

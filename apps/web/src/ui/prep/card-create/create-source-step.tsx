@@ -8,11 +8,11 @@ import {
   textareaClass,
 } from '../form-controls/form-class';
 import { DetailList } from '../detail-list/detail-list';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import { Icon, type IconName } from '../../components/icon/icon';
 import { StateAlert } from '../state-alert/state-alert';
 
 const link = 'no-underline hover:no-underline';
-const modeSymbols: Readonly<Record<string, PrepIconName>> = {
+const modeSymbols: Readonly<Record<string, IconName>> = {
   paste: 'copy',
   link: 'link',
   file: 'upload',
@@ -22,7 +22,7 @@ function NextLink({ href }: { readonly href: string }) {
   return (
     <Link href={href} className={`${buttonClass('primary')} ${link}`}>
       Next: highlight
-      <PrepIcon name="arrowRight" size={18} />
+      <Icon name="arrowRight" size={18} />
     </Link>
   );
 }
@@ -40,7 +40,7 @@ function FetchedPage(props: {
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-raised p-4">
       <p className="flex items-center gap-2 text-base font-strong">
-        <PrepIcon name="check" size={18} className="text-online" />
+        <Icon name="check" size={18} className="text-online" />
         Page fetched
       </p>
       <DetailList rows={rows} />
@@ -65,7 +65,7 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
                 aria-current={mode.current ? 'true' : undefined}
                 className={`${buttonClass(mode.current ? 'primary' : 'secondary')} ${link}`}
               >
-                <PrepIcon name={modeSymbols[mode.id] ?? 'copy'} size={18} />
+                <Icon name={modeSymbols[mode.id] ?? 'copy'} size={18} />
                 {mode.label}
               </Link>
             </li>
@@ -118,7 +118,7 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
               />
             </div>
             <button type="submit" className={buttonClass('primary')}>
-              <PrepIcon name="download" size={18} />
+              <Icon name="download" size={18} />
               Fetch page
             </button>
           </form>
@@ -146,7 +146,7 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
             htmlFor="src-file"
             className="flex min-h-16 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-raised p-6 text-center"
           >
-            <PrepIcon name="upload" size={24} className="text-ink-muted" />
+            <Icon name="upload" size={24} className="text-ink-muted" />
             <span className="text-base font-strong">
               Drop a PDF or DOCX here, or choose a file
             </span>

@@ -20,8 +20,9 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
   });
   assert({
     given:
-      'a debater in a scheduled Round, the same debater speaking, and after the last speech',
-    should: 'forfeit while the Round is live, then only navigate',
+      'a debater in a scheduled Round, the same debater speaking, and after the last speech while the Round awaits its ballot',
+    should:
+      'forfeit while the Round is live, then leave freed: the debate is over and nothing is forfeited (ISSUE-590)',
     actual: [
       leaveIntent(
         { ...view, status: 'scheduled' },
@@ -38,7 +39,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     expected: [
       forfeit({ ...view, status: 'scheduled' }),
       forfeit(speaking),
-      { kind: 'navigate' },
+      { kind: 'freed' },
     ],
   });
   assert({
@@ -46,6 +47,19 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     should: 'only navigate: neither can forfeit',
     actual: [judge.actorId, 'x'.repeat(24)].map((actorId) =>
       leaveIntent(speaking, actorId, Date.parse(at(startOf(0) + 1000))),
+    ),
+    expected: [{ kind: 'navigate' }, { kind: 'navigate' }],
+  });
+});
+
+test('only a debater is told they are freed while the ballot is pending (ISSUE-590)', () => {
+  const judging = ran(rules.length, true);
+  const after = Date.parse(at(startOf(rules.length) + 1000));
+  assert({
+    given: 'the judge and an unseated viewer of a Round awaiting its ballot',
+    should: 'only navigate: the judge still ballots, and a viewer held nothing',
+    actual: [judge.actorId, 'x'.repeat(24)].map((actorId) =>
+      leaveIntent(judging, actorId, after),
     ),
     expected: [{ kind: 'navigate' }, { kind: 'navigate' }],
   });

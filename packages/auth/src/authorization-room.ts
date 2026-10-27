@@ -35,6 +35,8 @@ export function roundAllowed(
   resource: RoundAuthorizationFact,
   context: AuthorizationInput['context'],
 ): boolean {
+  if (capability === 'round.transcript.read')
+    return resource.participants.some((p) => p.actorId === actorId);
   if (!capability.startsWith('round.coaching.'))
     return roundReadable(actorId, resource);
   return (

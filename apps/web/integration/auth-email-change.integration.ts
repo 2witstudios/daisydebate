@@ -118,7 +118,7 @@ describe('AUTH-5.6 change the recovery email', () => {
         given:
           'a completed email change with a second, independent prior session',
         should:
-          'notify the old address, keep the completing session live, revoke the other one and append a real session.revoked row (RT-2.2)',
+          'notify the old address, keep the completing session live, revoke both earlier sessions and append one exact session.revoked row per deleted session (ADR 0032 §5)',
         actual: {
           notifiedOldAddress: confirmMail!.to === email,
           completingSessionLive: await flows.isAuthenticated(newCookie),
@@ -129,7 +129,8 @@ describe('AUTH-5.6 change the recovery email', () => {
           notifiedOldAddress: true,
           completingSessionLive: true,
           otherSessionRevoked: true,
-          outboxEventsAppended: 1,
+          // The signing-up and the other prior session: two deleted, two controls.
+          outboxEventsAppended: 2,
         },
       });
     } finally {

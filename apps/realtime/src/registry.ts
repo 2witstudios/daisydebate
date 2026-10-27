@@ -118,18 +118,14 @@ export function createSubscriptionRegistry({
       payload: outboxPayloadSchema.parse(row.payload),
     };
   }
-  function resync(
-    connection: Connection,
-    request: { id: string; topic: string },
-    sub: Subscription,
-  ) {
-    detach(connection, request.topic, sub);
-    connection.topics.delete(request.topic);
+  function resync(connection: Connection, topic: string, sub: Subscription) {
+    detach(connection, topic, sub);
+    connection.topics.delete(topic);
     connection.socket.send({
       v: ENVELOPE_VERSION,
       type: 'resync_required',
-      id: request.id,
-      topic: request.topic,
+      id: sub.requestId,
+      topic,
     });
   }
   const delivery = createSubscriptionDelivery({
@@ -149,7 +145,7 @@ export function createSubscriptionRegistry({
     overflow(topic) {
       for (const connection of connections) {
         const sub = connection.topics.get(topic);
-        if (sub) resync(connection, { id: sub.requestId, topic }, sub);
+        if (sub) resync(connection, topic, sub);
       }
     },
   });

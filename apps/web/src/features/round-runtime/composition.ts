@@ -1,6 +1,6 @@
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
-import { canReadRound } from './reads';
+import { canReadRound, canReadTranscript } from './reads';
 import { createRoundHandlers } from './handlers';
 import { createRoundRuntimeOperations } from './operations';
 
@@ -15,12 +15,12 @@ export function composeRoundRoutes(app: App) {
       app.database.readLaunchedRound(roundId, caller, (round, account) =>
         canReadRound(caller, round, account),
       ),
-    utterances: (caller, roundId, segmentId) =>
-      app.database.readRoundSegmentUtterances({
+    transcript: (caller, roundId) =>
+      app.database.readRoundTranscript({
         caller,
         roundId,
-        segmentId,
-        authorize: (round, account) => canReadRound(caller, round, account),
+        authorize: (round, account) =>
+          canReadTranscript(caller, round, account),
       }),
   });
 }

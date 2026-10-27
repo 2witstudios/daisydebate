@@ -4,7 +4,12 @@ import { requireTestServices } from '@daisy/config';
 import { Room, RoomEvent } from '@livekit/rtc-node';
 import { once } from 'node:events';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { mediaDependencies } from './round-media.test-support';
+import { createId } from '@paralleldrive/cuid2';
+import { signedCaptureBroker } from './capture-token.test-support';
+import {
+  mediaDependencies,
+  localMediaConfig,
+} from './round-media.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
 import {
   startRuntimeRound,
@@ -27,7 +32,13 @@ const join = async (token: string) => {
   }
 };
 
-test('canonical revocation of a hidden human judge closes actual self-hosted admission until fresh eligibility', async () => {
+async function requiredJoin(token: string) {
+  const room = await join(token);
+  if (!room) throw new Error('Expected LiveKit connection');
+  return room;
+}
+
+test('canonical revocation rotates actual self-hosted admission and capture without restoring eligibility', async () => {
   await withRoomRuntime(async (f) => {
     const judge = await f.member();
     let room = await assembleJudgedRoom(f);
@@ -54,18 +65,41 @@ test('canonical revocation of a hidden human judge closes actual self-hosted adm
       await operations.session(roundId, judge.actorId),
     ];
     const [session] =
-      await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+      await f.sql`select id,room_name from media_sessions where round_id=${roundId}`;
     const roomName = String(session!.room_name);
-    const connected = await join(admitted.token);
+    const scope = {
+      roundId,
+      sessionId: String(session!.id),
+      workerId: createId(),
+      epoch: 1,
+    };
+    const captureFixture = {
+      ...f,
+      roundId,
+      media: deps.media,
+      mediaOperations: operations,
+      mediaConfig: localMediaConfig,
+    };
+    const { capture, broker, principal } = signedCaptureBroker(
+      captureFixture,
+      scope,
+    );
+    await capture.claimMediaWorkerLease({
+      roundId,
+      sessionId: scope.sessionId,
+      workerId: scope.workerId,
+      leaseMs: 15000,
+    });
+    const oldCapture = await broker.captureToken(scope, principal);
+    const captureRoom = await requiredJoin(oldCapture.token);
+    const connected = await requiredJoin(admitted.token);
     try {
-      const disconnected = connected
-        ? once(connected, RoomEvent.Disconnected, {
-            signal: AbortSignal.timeout(5000),
-          }).then(
-            () => true,
-            () => false,
-          )
-        : Promise.resolve(false);
+      const disconnected = once(connected, RoomEvent.Disconnected, {
+        signal: AbortSignal.timeout(5000),
+      }).then(
+        () => true,
+        () => false,
+      );
       await f.sql`update users set email_verified=false where id=${judge.userId}`;
       await operations.recoverActiveSessions();
       const dropped = await disconnected;
@@ -85,34 +119,100 @@ test('canonical revocation of a hidden human judge closes actual self-hosted adm
         expected: [true, true, false, true],
       });
       await assertRejects({
-        given: 'a seated debater while the revoked judge fact remains',
-        should: 'refuse to recreate the room or mint a token',
+        given: 'the revoked judge after rotation',
+        should: 'refuse a new admission',
+        code: 'AUTHORIZATION',
+        actual: () => operations.session(roundId, judge.actorId),
+      });
+      await assertRejects({
+        given: 'the old capture worker renewing after rotation',
+        should: 'refuse without stealing the new epoch',
         code: 'CONFLICT',
-        actual: () => operations.session(roundId, f.host.actorId),
+        actual: () =>
+          capture.claimMediaWorkerLease({
+            roundId,
+            sessionId: scope.sessionId,
+            workerId: scope.workerId,
+            leaseMs: 15000,
+            expectedEpoch: scope.epoch,
+          }),
       });
-      assert({
-        given: 'the refused admission',
-        should: 'leave the vendor room absent for the old judge token',
-        actual: [
-          await deps.media.exists(roomName),
-          (await operations.read(roundId, f.host.actorId)).state,
-        ],
-        expected: [false, 'unavailable'],
+      await assertRejects({
+        given: 'the rotated-out worker asking for another token',
+        should: 'deny old-room capture authority',
+        code: 'CONFLICT',
+        actual: () => broker.captureToken(scope, principal),
       });
-      await f.sql`update users set email_verified=true where id=${judge.userId}`;
+      await assertRejects({
+        given: 'a late old-epoch transcript append after rotation',
+        should: 'reject it at the lease fence before touching any stream',
+        code: 'CONFLICT',
+        actual: () =>
+          capture.appendCapturedTranscript({
+            ...scope,
+            segmentId: createId(),
+            roundParticipantId: createId(),
+            trackId: 'old-track',
+            startOffsetMs: 0,
+            durationMs: 1,
+            text: 'Must not persist',
+            before: '2026-01-01T00:00:00.000Z',
+            after: '2026-01-01T00:00:00.001Z',
+          }),
+      });
       const reopened = await operations.session(roundId, f.host.actorId);
-      assert({
-        given: 'fresh canonical eligibility read under the Round lock',
-        should: 'reopen admission with a new token for the same opaque room',
-        actual: [
-          await deps.media.exists(roomName),
-          reopened.identity === debater.identity,
-          reopened.token !== debater.token,
-        ],
-        expected: [true, true, true],
+      const replacement = await join(reopened.token);
+      const freshWorker = { ...scope, workerId: createId() };
+      const lease = await capture.claimMediaWorkerLease({
+        roundId,
+        sessionId: scope.sessionId,
+        workerId: freshWorker.workerId,
+        leaseMs: 15000,
       });
+      const fresh = signedCaptureBroker(captureFixture, {
+        ...freshWorker,
+        epoch: lease.epoch,
+      });
+      const token = await fresh.broker.captureToken(
+        { ...freshWorker, epoch: lease.epoch },
+        fresh.principal,
+      );
+      const restartedCapture = await join(token.token);
+      try {
+        assert({
+          given:
+            'remaining eligible debater and replacement capture worker with the judge still revoked',
+          should:
+            'connect both to the new room while keeping old tokens and epoch fenced',
+          actual: [
+            replacement !== null,
+            restartedCapture !== null,
+            token.roomName !== roomName,
+            lease.epoch > scope.epoch,
+            reopened.identity === debater.identity,
+            await deps.media.exists(roomName),
+          ],
+          expected: [true, true, true, true, true, false],
+        });
+        const staleCapture = await join(oldCapture.token);
+        await staleCapture?.disconnect();
+        assert({
+          given: 'the old capture token after new-room recovery',
+          should: 'never recreate or rejoin the deleted room',
+          actual: staleCapture === null,
+          expected: true,
+        });
+      } finally {
+        await replacement?.disconnect();
+        await restartedCapture?.disconnect();
+      }
     } finally {
-      await connected?.disconnect();
+      await connected.disconnect();
+      await captureRoom.disconnect();
+      const [current] =
+        await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+      if (current && (await deps.media.exists(current.room_name)))
+        await deps.media.deleteRoom(current.room_name);
     }
   });
-}, 30_000);
+}, 60_000);

@@ -106,6 +106,7 @@ test('settled commands', async () => {
     desiredState: 'approved',
     expectedRevision: 1,
     createdAt: at('2026-09-01T00:00:00.000Z'),
+    lastSignedAt: at('2026-09-01T00:00:00.000Z'),
     resolvedAt: resolvedAt === null ? null : at(resolvedAt),
   });
   await db

@@ -22,25 +22,40 @@ export const mediaEnded = (
   (snapshot.finalSegmentEndedAt !== null &&
     Date.parse(snapshot.now) >=
       Date.parse(snapshot.finalSegmentEndedAt) + 30 * 60_000);
-/**
- * Self-hosted LiveKit keeps issued tokens valid after removal or permission
- * changes, so a revoked human seat closes the whole session's admission until
- * fresh canonical eligibility returns. Erasure never returns.
- */
+/** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
-  snapshot: Pick<MediaSnapshot, 'participants'>,
+  snapshot: Pick<MediaSnapshot, 'participants'> & {
+    readonly bindings: readonly { readonly roundParticipantId: string }[];
+  },
 ) =>
-  snapshot.participants.some((seat) => seat.kind === 'human' && !seat.eligible);
+  snapshot.bindings.some((binding) =>
+    snapshot.participants.some(
+      (seat) =>
+        seat.id === binding.roundParticipantId &&
+        seat.kind === 'human' &&
+        !seat.eligible,
+    ),
+  );
+/**
+ * A seat's media grants. A withdrawn seat (a human whose participant access
+ * was revoked, ISSUE-714) gets none: the next reconcile demotes it in the
+ * room. Only that seat is treated as ineligible, so every other seat's
+ * grants, the opponent's floor included, are computed as before.
+ */
 export const seatGrants = (
   snapshot: Pick<
     MediaSnapshot,
-    'round' | 'now' | 'finalSegmentEndedAt' | 'participants'
+    'round' | 'now' | 'finalSegmentEndedAt' | 'participants' | 'withdrawn'
   >,
   participantId: string,
   nextId: () => string,
 ) =>
   mediaGrants({
-    participants: snapshot.participants,
+    participants: snapshot.withdrawn.includes(participantId)
+      ? snapshot.participants.map((seat) =>
+          seat.id === participantId ? { ...seat, eligible: false } : seat,
+        )
+      : snapshot.participants,
     participantId,
     rules: snapshot.round.rules,
     position: mediaRuntime(snapshot, nextId).position(snapshot.now),

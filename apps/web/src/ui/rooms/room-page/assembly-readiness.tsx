@@ -146,7 +146,8 @@ export function StartControl({
   const admissionBlocked =
     view.botAdmission !== null &&
     (view.botAdmission.kind === 'unavailable' ||
-      view.botAdmission.refusal !== null);
+      (view.botAdmission.kind === 'allowance' &&
+        view.botAdmission.refusal !== null));
   const notice = startNotice(view, actorId, blocked);
   return (
     <section

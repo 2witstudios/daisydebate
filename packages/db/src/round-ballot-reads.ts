@@ -37,13 +37,13 @@ export type RoundBallotRecord = {
   } | null;
 };
 
-/** The frozen transcript a seated participant reads once the Round completes. */
-async function seatTranscript(
+/** The frozen transcript an authorized audience reads once the Round completes. */
+async function audienceTranscript(
   tx: Parameters<typeof readLockedFrozenRoundTranscript>[0],
   roundId: string,
-  seated: boolean | undefined,
+  allowed: boolean,
 ) {
-  if (!seated) return null;
+  if (!allowed) return null;
   const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
   return frozen
     ? { completeness: frozen.completeness, utterances: frozen.utterances }
@@ -90,6 +90,10 @@ export const roundBallotReads = ({
     readonly roundId: string;
     readonly caller: Caller;
     readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorizeTranscript: (
+      round: LaunchedRound,
+      account: Account,
+    ) => boolean;
     readonly authorizeCoaching: (
       round: LaunchedRound,
       account: Account,
@@ -136,11 +140,11 @@ export const roundBallotReads = ({
             rows,
             frozen,
           }),
-          // DEC-101: the transcript stays private to the Round's seats.
-          transcript: await seatTranscript(
+          // The shared transcript audience policy owns this private read.
+          transcript: await audienceTranscript(
             tx,
             input.roundId,
-            seat && completed,
+            completed && input.authorizeTranscript(round, currentAccount),
           ),
         }),
         // The coaching feature decides the debater's coaching from these facts.

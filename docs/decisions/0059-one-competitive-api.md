@@ -53,7 +53,8 @@ POST /api/rounds/:roundId/commands   → start · start-prep · start-speech ·
                                        yield · interrupt · forfeit
 GET  /api/rounds/:roundId/participants         → seats
 GET  /api/rounds/:roundId/segments             → segment history
-GET  /api/rounds/:roundId/segments/:segmentId/utterances → transcript
+GET  /api/rounds/:roundId/transcript           → Round-wide transcript snapshot
+                                       (shared transcript audience policy)
 POST /api/rounds/:roundId/ballots    → submit a ballot (judge seats, one
                                        contract)
 GET  /api/rounds/:roundId/ballots    → ballots

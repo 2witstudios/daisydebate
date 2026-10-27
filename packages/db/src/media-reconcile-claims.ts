@@ -3,7 +3,11 @@ import { eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
-import { lockMediaRound, mediaId } from './media-session-authority';
+import {
+  lockMediaRound,
+  mediaId,
+  type MediaCaller,
+} from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
 import { reconcileClaim } from './media-reconcile-rules';
@@ -22,10 +26,10 @@ export function createMediaReconcileClaims(deps: {
   return {
     async requestMediaReconcile(request: {
       readonly roundId: string;
-      readonly actorId?: string;
+      readonly caller?: MediaCaller;
     }) {
       return deps.run(async (tx) => {
-        await lockMediaRound(tx, mediaId(request.roundId), request.actorId);
+        await lockMediaRound(tx, mediaId(request.roundId), request.caller);
         const [session] = await tx
           .select()
           .from(mediaSessions)

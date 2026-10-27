@@ -2,13 +2,15 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildUserInboxTopic } from '@daisy/protocol';
-import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
-import { fixtureEmail, linkFrom, removeAccount, tokenOf } from './fixtures';
+import {
+  sessionExists,
+  signInOnce,
+  withOutboxInsertBlockedForTopic,
+} from './auth-outbox-helpers';
+import { fixtureEmail, removeAccount } from './fixtures';
 import {
   createDatabaseAuthServer,
-  createTestAuthServer,
-  redeemMagicLink,
-  type SentMessages,
+  type createTestAuthServer,
 } from './auth-server-harness';
 import { requireTestServices } from '@daisy/config';
 
@@ -16,45 +18,15 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const signInOnce = async (
-  auth: ReturnType<typeof createTestAuthServer>,
-  email: string,
-  sent: SentMessages,
-) => {
-  await auth.instance.api.signInMagicLink({
-    body: { email },
-    headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
-  });
-  const token = tokenOf(linkFrom(sent.at(-1)!));
-  const response = await redeemMagicLink(auth, token);
-  const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
-  // Read on the server through auth.api: browser responses carry no session
-  // token (ISSUE-63).
-  const body = await auth.instance.api.getSession({
-    headers: new Headers({ cookie }),
-    query: { disableCookieCache: true },
-  });
-  return {
-    cookie,
-    userId: body?.user?.id ?? '',
-    sessionToken: body?.session?.token ?? '',
-  };
-};
-
-const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
-  const rows = await admin.unsafe('select 1 from session where token = $1', [
-    token,
-  ]);
-  return rows.length > 0;
-};
-
 /**
  * MSG-2.1-arch1 (G6): a real-fault proof for every route that deletes a
  * session. The `session.revoked` control is appended by the database's own
  * delete trigger in the deleting transaction, so a forced outbox failure
  * rolls the revocation back on every route, Better Auth's own sign-out and
- * `/revoke-session` included, and the caller sees the outage instead of a
- * revocation that never reaches realtime.
+ * `/revoke-session` included: the session survives with no control, the
+ * caller sees the outage rather than a success (sign-out through
+ * `signOutFailsClosedPlugin`, ISSUE-719), and a retry deletes it with
+ * exactly one.
  */
 const routes: readonly {
   readonly path: string;
@@ -62,8 +34,16 @@ const routes: readonly {
   readonly deletes: readonly ('first' | 'second')[];
   readonly body: (secondToken: string) => string;
 }[] = [
-  { path: '/revoke-other-sessions', deletes: ['second'], body: () => '{}' },
-  { path: '/revoke-sessions', deletes: ['first', 'second'], body: () => '{}' },
+  {
+    path: '/revoke-other-sessions',
+    deletes: ['second'],
+    body: () => '{}',
+  },
+  {
+    path: '/revoke-sessions',
+    deletes: ['first', 'second'],
+    body: () => '{}',
+  },
   {
     path: '/revoke-session',
     deletes: ['second'],
@@ -129,12 +109,19 @@ for (const route of routes) {
       const keptWhileBlocked = await Promise.all(
         targets.map(({ sessionToken }) => sessionExists(admin, sessionToken)),
       );
+      // One lookup per token: Bun's unsafe() does not bind a JS array as a
+      // PostgreSQL array parameter.
       const targetIds: string[] = (
-        await admin.unsafe(
-          'select id from session where token = any($1) order by id',
-          [targets.map(({ sessionToken }) => sessionToken)],
+        await Promise.all(
+          targets.map(async ({ sessionToken }) => {
+            const [row] = await admin.unsafe(
+              'select id from session where token = $1',
+              [sessionToken],
+            );
+            return (row as { id: string }).id;
+          }),
         )
-      ).map(({ id }: { id: string }) => id);
+      ).sort();
       const status = (
         await postRoute(auth, route, first.cookie, second.sessionToken)
       ).status;
@@ -145,7 +132,7 @@ for (const route of routes) {
       assert({
         given: `a real ${route.path} call while its outbox insert is forced to fail, then the same call again`,
         should:
-          'refuse and keep the session the first time, then delete it with exactly one control naming the actor and that session',
+          'keep the session with no control the first time, then delete it with exactly one control naming the actor and that session',
         actual: {
           // Refused either as a thrown INFRASTRUCTURE or as a 5xx answer.
           refused:
@@ -172,12 +159,6 @@ for (const route of routes) {
           remaining: 0,
           controls: targetIds.map((id) => [actorId, id]),
         },
-      });
-      assert({
-        given: `a forced outbox failure under a real ${route.path} call`,
-        should: 'never answer success',
-        actual: blockedStatus !== 200,
-        expected: true,
       });
     } finally {
       await database.close();

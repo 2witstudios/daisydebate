@@ -1,7 +1,7 @@
 import { canCoach } from '../round-coaching/authorization';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
-import { canReadRound } from '../round-runtime/reads';
+import { canReadRound, canReadTranscript } from '../round-runtime/reads';
 import { createRoundBallotOperations } from './operations';
 import { createRoundBallotHandlers } from './handlers';
 import { coachingView } from '../round-coaching/policy';
@@ -18,6 +18,8 @@ export function composeRoundBallotRoutes(app: App) {
         caller,
         roundId,
         authorize: (round, account) => canReadRound(caller, round, account),
+        authorizeTranscript: (round, account) =>
+          canReadTranscript(caller, round, account),
         authorizeCoaching: (round, account) =>
           canCoach(
             account,

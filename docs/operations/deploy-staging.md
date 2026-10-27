@@ -31,7 +31,7 @@ run the Next build; both install stages also copy their manifests
 ([live Rounds](#11-live-rounds-livekit-realtime-and-the-capture-worker-issue-528)).
 
 `scripts/docker-workspaces.test.ts` discovers repository workspaces and
-follows transitive workspace dependencies. The existing CI `test` job and
+follows transitive workspace dependencies. The CI quick check and
 `bun check` run it, rejecting missing manifests in either install stage
 and missing runtime source. The required CI image job also builds the
 complete shared runtime image and imports ingress and media with production
@@ -62,20 +62,20 @@ web machine's environment, not only the release command's. So the owner
 credential lives in its own release-only app
 ([ADR 0041](../decisions/0041-migration-credential-in-a-release-only-app.md)):
 
-| Secret                   | App                                                      | Role                                                                                            | Used by                                                                                                                                                                                               |
-| ------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MIGRATION_DATABASE_URL` | `daisy-debate-staging-migrate` (`fly.migrate.toml`) only | `daisy_migrator`, the schema owner (`fly postgres attach`, superuser, so it holds `CREATEROLE`) | That app's `release_command` (`packages/db/scripts/migrate.ts`), on a temporary machine destroyed when it exits. The runner refuses to run in production without this secret                          |
-| `DATABASE_URL`           | `daisy-debate-staging` (`fly.toml`)                      | `daisy_web`, DML only (created by the baseline migration)                                       | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`, and production config refuses to start with `MIGRATION_DATABASE_URL` in the environment at all |
+| Secret                   | App                                                      | Role                                                                                    | Used by                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MIGRATION_DATABASE_URL` | `daisy-debate-staging-migrate` (`fly.migrate.toml`) only | `daisy_migrator`, the schema owner: no superuser, `CREATEROLE` or `CREATEDB` (ADR 0080) | That app's `release_command` (`packages/db/scripts/migrate.ts`), on a temporary machine destroyed when it exits. The runner refuses to run in production without this secret                          |
+| `DATABASE_URL`           | `daisy-debate-staging` (`fly.toml`)                      | `daisy_web`, DML only (created by the operator, ADR 0080)                               | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`, and production config refuses to start with `MIGRATION_DATABASE_URL` in the environment at all |
 
 The migrator app has no services and no machines. The workflow deploys it
 with `--update-only`, so the only machine that ever holds the owner
 credential is the release command's temporary one.
 
-The baseline creates `daisy_web` without a password (`CREATE ROLE daisy_web
-LOGIN` if it is missing). Setting that password is a one-time human step
-(step 2). Creating the role with its password before the first deploy is
-compatible, because the baseline skips an existing role and grants it the
-same privileges.
+The operator creates every runtime role (`daisy_web`, `daisy_realtime`,
+`daisy_media_worker`) and grants it `CONNECT` before the first deploy (step
+2), because the migration owner cannot create roles (ADR 0080). The
+baseline's guarded `CREATE ROLE` then skips them and grants their table
+privileges.
 
 ## Cost (per the owner's spend constraint)
 
@@ -413,15 +413,27 @@ machine: no automatic backups or failover — fine for staging only.
 fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
   --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
 # The migration owner, attached to the migrator app only. Attach creates a
-# superuser login, prints its URL and sets it as that app's secret.
+# superuser login, prints its URL and sets it as that app's secret. Reduce it
+# at once to the least-privilege owner (ADR 0080): it keeps the database and
+# everything it migrates, and loses every cluster privilege. Create the
+# runtime roles below before the first migration, because it cannot.
 fly postgres attach daisy-debate-staging-db -a daisy-debate-staging-migrate \
   --database-name daisy_debate_staging --database-user daisy_migrator \
   --variable-name MIGRATION_DATABASE_URL
+echo "ALTER ROLE daisy_migrator NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"'
 
-# The runtime role, once: a random password, then the role holding it.
+# The runtime roles, once, before the first deploy: daisy_web with a random
+# password, and daisy_realtime and daisy_media_worker without one (section 11
+# sets theirs). The database grants PUBLIC no CONNECT, so each role gets it
+# here. Run over SSH: `fly postgres connect` needs a terminal and hangs on
+# piped input.
 DAISY_WEB_PASSWORD="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
-echo "CREATE ROLE daisy_web LOGIN PASSWORD '$DAISY_WEB_PASSWORD';" \
-  | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
+printf "CREATE ROLE daisy_web LOGIN PASSWORD '%s';\nCREATE ROLE daisy_realtime LOGIN;\nCREATE ROLE daisy_media_worker LOGIN;\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_web, daisy_realtime, daisy_media_worker;\n" "$DAISY_WEB_PASSWORD" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"' >/dev/null 2>&1 \
+  && echo created
 # Same host, port, database and query string as the URL attach printed;
 # only the user and password differ.
 fly secrets import -a daisy-debate-staging --stage <<SECRETS
@@ -430,7 +442,7 @@ SECRETS
 unset DAISY_WEB_PASSWORD
 ```
 
-If `daisy_web` already exists (a deploy has run), use `ALTER ROLE daisy_web
+If a role already exists, rotate its password with `ALTER ROLE ...
 PASSWORD '...'` instead of `CREATE ROLE`.
 
 Verify: `fly secrets list -a daisy-debate-staging-migrate` shows only
@@ -793,14 +805,13 @@ KEY="API$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(
 SECRET="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 printf 'LIVEKIT_KEYS=%s: %s\n' "$KEY" "$SECRET" | fly secrets import -a daisy-debate-staging-livekit --stage
 
-# The baseline creates daisy_realtime and daisy_media_worker with LOGIN and
-# no password. Set each once, over SSH to the Postgres machine (`fly
-# postgres connect` needs a terminal and hangs on piped input):
+# Step 2 created daisy_realtime and daisy_media_worker, with CONNECT, and
+# without passwords (ADR 0080). Set each password once, over SSH to the
+# Postgres machine (`fly postgres connect` needs a terminal and hangs on
+# piped input):
 RT_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 MW_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
-# The Fly Postgres database grants CONNECT to no role by default; daisy_web
-# holds it from the original setup, and these two need the same grant.
-printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_realtime, daisy_media_worker;\n" "$RT_PW" "$MW_PW" \
+printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\n" "$RT_PW" "$MW_PW" \
   | fly ssh console -a daisy-debate-staging-db \
       -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"'
 DB=daisy-debate-staging-db.flycast:5432/daisy_debate_staging?sslmode=disable
@@ -959,6 +970,43 @@ admin request is authenticated by its passkey session and authorized by
 **Lost passkey.** `fly ssh console -a daisy-debate-staging-admin -C "bun
 /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
 replacement link; consuming it revokes every earlier passkey and session.
+
+**Owner sign-in on staging today.** The `owner` operator already exists:
+BETA-H created it and its first link expired unused, and the ISSUE-685 smoke
+proof (below) added a passkey to it from a throwaway virtual authenticator. So
+the owner's first sign-in uses `--name owner --replace` instead of step 5's
+plain `--name owner`; consuming that link leaves the owner's own passkey as
+the only one.
+
+1. `fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"`
+2. In another terminal, `fly proxy 4800:8080 -a daisy-debate-staging-admin`.
+3. Open the printed `http://localhost:4800/enroll#…` link within 15 minutes,
+   choose **Create passkey**, then **Sign in with a passkey**.
+4. **Accounts** lists pending sign-ups. **Approve** queues the approval email
+   (the page says "Done. Approval email queued."); **Revoke** removes access
+   on the tester's next request. **Audit** shows the hash chain.
+
+**Approval smoke proof (ISSUE-685, 2026-10-27; DEC-255).** A browser journey across
+both apps in CI is out of scope: it would need the production web build and
+its PostgreSQL and Redis inside the admin E2E job, and the real 6PN topology
+exists only on Fly. The proof splits instead:
+
+- **On staging:** the admin app over `fly proxy`, a passkey session, then
+  approve and revoke of a synthetic tester (`beta_smoke_685b`, a
+  `delivered+…@resend.dev` address) through web's signed listener. Web
+  logged `operator.command.applied` twice. The account's events read
+  `pending → approved → revoked` with the `operator:daisy-admin/<id>`
+  principal, and the approval email was cancelled as `not-owed` once the
+  revoke landed.
+- **In CI:** `apps/web/e2e/beta.e2e.ts` proves an approved account reaches
+  `/play` on its next request, and `apps/admin/e2e/operator-journey.e2e.ts`
+  proves the admin journey against a verifying stand-in.
+
+A tester without an adult age record is refused with `INVARIANT`
+(ISSUE-664): the account must finish onboarding before approval. The first
+synthetic tester, `beta_smoke_685`, was created without one, was refused, and
+was then revoked. Both testers stay on staging, revoked. Their addresses are
+Resend's test inbox, not a person's, and nobody can sign in as them.
 
 ## Staging data inventory (ISSUE-169, 2026-09-28)
 

@@ -3,6 +3,10 @@ import {
   onDocumentVisibilityChange,
   systemScheduler,
 } from '../realtime/browser-adapters';
+import { sharedConnections } from './shared-connection';
+
+/** The tab's one socket per realtime URL, shared by every resource sync. */
+const tabConnection = sharedConnections(createBrowserConnectionStore);
 
 /**
  * The real browser edges of resource sync: the monotonic clock, the
@@ -18,7 +22,6 @@ export function browserSyncEdges(socketUrl: string | null) {
           if (visible) listener();
         }),
     },
-    connection:
-      socketUrl === null ? null : createBrowserConnectionStore(socketUrl),
+    connection: socketUrl === null ? null : tabConnection(socketUrl),
   };
 }

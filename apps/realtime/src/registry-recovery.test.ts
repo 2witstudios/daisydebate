@@ -194,3 +194,39 @@ test('an allow that expires in flight during revalidation resyncs at once', asyn
     expected: { frames: ['subscribed', 'resync_required'], retained: false },
   });
 });
+
+test('a row that finds the lease elapsed resyncs its subscriber at once, not at the next pass', async () => {
+  const f = await suspended();
+  f.setNow(60_000);
+  f.decide({ revision: '1', validUntil: 120_000 });
+  f.registry.sink([row(1)]);
+  await f.registry.settled();
+  assert({
+    given:
+      'a subscription whose lease elapsed, a row on its topic, and an authority that still allows',
+    should:
+      'ask the subscriber to reread right away instead of waiting for revalidation',
+    actual: { frames: f.frames(), retained: f.connection.topics.has(topic) },
+    expected: { frames: ['subscribed', 'resync_required'], retained: false },
+  });
+});
+
+test('a row on a stream detached by an authority outage leaves it detached until authority answers', async () => {
+  const f = await suspended();
+  f.setNow(60_000);
+  f.decide('fail');
+  f.registry.sink([row(1)]);
+  await f.registry.settled();
+  f.registry.sink([row(2)]);
+  await f.registry.settled();
+  assert({
+    given: 'an elapsed lease, rows on its topic, and an authority that fails',
+    should: 'publish nothing and keep the stream detached for revalidation',
+    actual: {
+      frames: f.frames(),
+      attached: f.attached.size,
+      retained: f.connection.topics.has(topic),
+    },
+    expected: { frames: ['subscribed'], attached: 0, retained: true },
+  });
+});

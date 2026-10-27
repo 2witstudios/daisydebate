@@ -13,14 +13,13 @@ import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
-import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
+import {
+  roundBotAdmissionEntrypoints,
+  type BotAdmissionOptions,
+} from './round-bot-admission-entrypoints';
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-export {
-  isReportedCapacityRefusal,
-  isTransactionCapacityRefusal,
-} from './transaction-admission';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { SQL } from 'bun';
@@ -34,6 +33,7 @@ import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
 import { operatorAccountOperations } from './operator-accounts';
+import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
@@ -59,6 +59,10 @@ import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
 export type { DatabaseEventSink } from './instrumented';
+export type {
+  ProvisionalLinkPurposes,
+  ProvisionalMailCleanup,
+} from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
@@ -78,15 +82,15 @@ export function createDatabase({
   eventSink,
   client: injectedClient,
   nextActorId,
-  botBusyCap,
+  botAdmission,
   judging,
   botPublication,
   coaching,
 }: {
   url: string;
   maxConnections?: number;
-  /** No implicit bot capacity: absence truthfully refuses bot admission. */
-  botBusyCap?: number | undefined;
+  /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
+  botAdmission?: BotAdmissionOptions | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
   coaching?: CoachingOptions | undefined;
@@ -110,11 +114,11 @@ export function createDatabase({
     maxConnections,
     now: performance.now,
   });
-  const { admission: botAdmission, operations: botAdmissionOperations } =
+  const { admission, operations: botAdmissionOperations } =
     roundBotAdmissionEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
-      busyCap: botBusyCap,
+      botAdmission,
     });
   return {
     ...botAdmissionOperations,
@@ -157,6 +161,7 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
+    ...provisionalRetentionOperations({ database, eventSink }),
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...mailIntentOperations({ database, eventSink }),
@@ -183,7 +188,7 @@ export function createDatabase({
     ...formatOperations({ database, eventSink }),
     ...roomCommandOperations({
       database,
-      botAdmission,
+      botAdmission: admission,
       eventSink,
       commandTransaction: roomCommandTransaction(client, maxConnections),
     }),

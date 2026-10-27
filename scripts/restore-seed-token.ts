@@ -15,9 +15,10 @@ export const randomSeedToken = (): string =>
   Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
 
 /**
- * The same `<purpose>:<sha3-256(token)>` shape Better Auth's `magicLink`
- * plugin stores a real sign-in link under (`server.ts`'s `storeToken`
- * custom hasher calls the real `emailedLinkIdentifier`) — duplicated here
+ * The same `<purpose>:<sha3-256(token)>` shape a real emailed link is stored
+ * under (`server.ts`'s `storeToken` custom hasher calls the real
+ * `emailedLinkIdentifier`; Better Auth then prefixes a sign-in link with
+ * `magic-link:`, so its stored purpose is `magic-link:sign-in`) — duplicated here
  * for the same reason as `randomSeedToken`.
  */
 export const emailedLinkIdentifier = (purpose: string, token: string): string =>

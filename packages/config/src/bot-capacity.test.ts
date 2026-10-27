@@ -24,6 +24,22 @@ test('AI Round admission requires an explicit server capacity bound', () => {
       readServerConfig({ ...env, AI_ROUND_BUSY_CAP: value }),
     ).toThrow('Invalid server configuration: AI_ROUND_BUSY_CAP');
 });
+test('the AI-round allowance is one flat trusted monthly cap', () => {
+  assert({
+    given: 'no cap, or an explicit cap within the protocol maximum',
+    should: 'default to the beta cap of 20 and keep an explicit bound',
+    actual: [
+      readServerConfig(env).AI_ROUND_MONTHLY_CAP,
+      readServerConfig({ ...env, AI_ROUND_MONTHLY_CAP: '1000' })
+        .AI_ROUND_MONTHLY_CAP,
+    ],
+    expected: [20, 1000],
+  });
+  for (const value of ['', '0', '-1', '1.5', '1001', 'Infinity'])
+    expect(() =>
+      readServerConfig({ ...env, AI_ROUND_MONTHLY_CAP: value }),
+    ).toThrow('Invalid server configuration: AI_ROUND_MONTHLY_CAP');
+});
 test('bot workers require a complete explicit bounded resource policy', () => {
   const policy = {
     maxControllers: 8,

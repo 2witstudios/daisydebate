@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import {
+  requireAdmittedPrincipal,
+  type ParticipantAdmission,
+} from './participant-admission';
+import {
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
   idSchema,
@@ -47,6 +51,8 @@ type CheckInInput = {
   readonly principal: AttendancePrincipal;
   readonly payloadDigest: string;
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
+  /** ADR 0075: participant access for a human principal, decided after the fence. */
+  readonly admits: ParticipantAdmission;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
 async function authorizeSeat(
@@ -54,7 +60,11 @@ async function authorizeSeat(
   principal: AttendancePrincipal,
   fenced: Fenced,
   verifyWorker: WorkerVerifier,
+  admits: ParticipantAdmission,
 ) {
+  // Seats stay membership-only; the commanding human also needs access.
+  if (principal.kind === 'human')
+    requireAdmittedPrincipal(admits, fenced.accounts, principal.actorId);
   const seat = selectAttendanceSeat(principal, fenced.seats);
   // The required canonical verifier SHARE-locks the exact seat/run and
   // checks active kind, config, epoch and lease in this same transaction.
@@ -97,6 +107,7 @@ export function createAttendanceOperations(deps: {
     async readRoundAttendanceTargets(input: {
       readonly roundId: string;
       readonly principal: AttendancePrincipal;
+      readonly admits: ParticipantAdmission;
     }) {
       if (!idSchema.safeParse(input.roundId).success)
         throw createAppError('VALIDATION');
@@ -113,6 +124,7 @@ export function createAttendanceOperations(deps: {
           input.principal,
           fenced,
           deps.verifyWorker,
+          input.admits,
         );
         const evidence = await attendanceEvidence(tx, fenced.round);
         const recorded = await tx.execute(
@@ -150,6 +162,7 @@ export function createAttendanceOperations(deps: {
             input.principal,
             fenced,
             deps.verifyWorker,
+            input.admits,
           );
           const evidence = await attendanceEvidence(tx, round);
           const segment = requireCheckInSegment(

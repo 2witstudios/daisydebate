@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { OnboardingFrame } from '../onboarding/frame/frame';
+import {
+  SIGN_OUT_FAILED_NOTICE,
+  SignOutForm,
+} from '../components/sign-out-form/sign-out-form';
 
 export type BetaWaitingProps = {
   readonly username: string;
@@ -10,17 +14,54 @@ export type BetaWaitingProps = {
   readonly reason: 'pending' | 'revoked' | 'age-required';
   /** The age step, which returns here once answered. */
   readonly ageHref: string;
+  /** Back from a sign-out that did not happen (ISSUE-691). */
+  readonly signOutFailed?: boolean;
 };
 
 const link =
   'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';
 
 /**
- * The beta waiting page (ADR 0075): an account that finished sign-up and
- * waits for an operator. Plain markup, so it works without JavaScript; the
- * account's own settings (sign-out, export, deletion) stay one link away.
+ * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
+ * signs out without JavaScript, beside the page's links.
  */
-export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
+function Actions({
+  failed,
+  children,
+}: {
+  readonly failed: boolean;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {failed ? (
+        <p role="alert" className="text-md text-ink">
+          {SIGN_OUT_FAILED_NOTICE}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-3">
+        {children}
+        <Link className={link} href="/settings">
+          Account settings
+        </Link>
+        <SignOutForm next="/beta" className={`${link} bg-transparent`} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The beta waiting page (ADR 0075): an account that finished sign-up and
+ * waits for an operator. Plain markup, so it works without JavaScript: it
+ * signs out in place, and the account's settings (export, deletion) stay one
+ * link away.
+ */
+export function BetaWaiting({
+  username,
+  reason,
+  ageHref,
+  signOutFailed = false,
+}: BetaWaitingProps) {
   const paused = reason === 'revoked';
   if (reason === 'age-required')
     return (
@@ -37,14 +78,11 @@ export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
             month and year to continue.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <Actions failed={signOutFailed}>
           <Link className={link} href={ageHref}>
             Add your age
           </Link>
-          <Link className={link} href="/settings">
-            Account settings
-          </Link>
-        </div>
+        </Actions>
       </OnboardingFrame>
     );
   return (
@@ -64,14 +102,11 @@ export function BetaWaiting({ username, reason, ageHref }: BetaWaitingProps) {
             : 'Daisy is in a private beta. Your account is set up, and we will email you as soon as you are in.'}
         </p>
       </div>
-      <div className="flex flex-wrap gap-3">
+      <Actions failed={signOutFailed}>
         <Link className={link} href="/leaderboard">
           See the leaderboard
         </Link>
-        <Link className={link} href="/settings">
-          Account settings
-        </Link>
-      </div>
+      </Actions>
     </OnboardingFrame>
   );
 }

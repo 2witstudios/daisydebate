@@ -14,10 +14,28 @@ Run `bun db:migrate` with DATABASE_URL locally. In production the runner reads `
 
 Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. `bun slot:up` writes and migrates this checkout's test database; `bun slot:up` also writes TEST_REDIS_URL: the slot's own Redis database (main 1, a worktree `2 + its port block`), where every integration test uses its own `t3-` namespace; the runner refuses any other database before it deletes anything (ADR 0034). Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per instance: sum of instance pool limits plus migrations/admin capacity must remain below PostgreSQL max_connections.
 
-**Runtime roles (ADR 0032 §7, ADR 0038).** The baseline creates both
-runtime roles if they are missing (`CREATE ROLE ... LOGIN`, no password), so
-the migration credential needs `CREATEROLE`. Production sets their passwords
-out of band, never committed.
+**The migration owner (ADR 0080).** Staging and production migrate as a
+least-privilege owner, `daisy_migrator` on staging: `NOSUPERUSER NOCREATEDB
+NOCREATEROLE NOREPLICATION NOBYPASSRLS`. It owns the participant database,
+which makes it the owner of schema `public` through `pg_database_owner`. It
+also owns schema `drizzle` and every table, index, sequence, type and
+function it migrates, plus the trusted `btree_gist` extension. It has
+`CONNECT` on no other application database (only PostgreSQL's default
+PUBLIC `CONNECT` on `postgres`, `repmgr` and the templates, where it owns
+nothing). So the `SECURITY DEFINER` authorization
+functions run as the table owner, never as a superuser, and the credential
+cannot open the admin database. Local and CI databases migrate as the
+superuser `daisy`.
+
+**Runtime roles (ADR 0032 §7, ADR 0038, ADR 0080).** Roles are cluster
+objects. In staging and production the operator creates every runtime role
+as superuser `postgres` before the migration that grants to it deploys.
+The baseline's `CREATE ROLE ... LOGIN` is guarded by `IF NOT EXISTS`, so it
+creates a missing role only locally and in CI. A PR that adds a role adds
+its provisioning step to [deploy-staging](deploy-staging.md). If the role is
+missing, the release fails safely: `permission denied to create role` rolls
+back the migration and the web deploy does not run. Production sets role
+passwords out of band, never committed.
 
 - `daisy_web`, the web application's role: `SELECT, INSERT, UPDATE, DELETE`
   on every `public` table and `USAGE, SELECT` on every sequence (a

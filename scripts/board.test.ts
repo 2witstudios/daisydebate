@@ -107,11 +107,11 @@ describe('bun board:*', () => {
     assert({
       given: 'board:status completed from an agent and from the owner',
       should:
-        'refuse the agent before any call, naming the review record, and let the owner through to the list check',
+        'refuse the agent before any call, naming the merge automation, and let the owner through to the list check',
       actual: [
         runBoard(agent.deps, ['status', task, 'completed']),
         agent.calls.length,
-        agent.output.join('').includes('independent review record'),
+        agent.output.join('').includes('Done comes from the merge automation'),
         runBoard(owner.deps, ['status', task, 'completed']) !== 2 &&
           owner.calls.length > 0,
       ],

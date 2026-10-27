@@ -1,7 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  isReportedCapacityRefusal,
   isTransactionCapacityRefusal,
+  markCapacityRefusalReported,
   refuseCapacity,
 } from './transaction-admission';
 
@@ -58,5 +60,19 @@ test('unsupported cause chains never suppress ordinary failure reporting', () =>
     should: 'leave each on the ordinary failure path',
     actual: [tooDeep, hostile, recovering].map(isTransactionCapacityRefusal),
     expected: [false, false, false],
+  });
+});
+
+test('a reported refusal stays reported under any other wrapper of the same refusal', () => {
+  const refusal = refuseCapacity();
+  markCapacityRefusalReported(new Error('logged wrapper', { cause: refusal }));
+  assert({
+    given:
+      'a refusal marked reported through one wrapper, then seen through a different wrapper',
+    should: 'recognise it as already reported',
+    actual: isReportedCapacityRefusal(
+      new Error('rethrown wrapper', { cause: refusal }),
+    ),
+    expected: true,
   });
 });

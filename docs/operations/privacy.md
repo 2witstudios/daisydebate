@@ -59,8 +59,8 @@ it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
   `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
-  `standings.updated` on `standings`, and `user.notification-delivered` on
-  `user:inbox`. The first two carry only ids and a projected competitive
+  `debate.transcript-changed` on `debate`, `standings.updated` on `standings`, and `user.notification-delivered` on
+  `user:inbox`. The Round and standings doorbells carry only ids and a projected competitive
   state (`identifier`/`none`). `user.notification-delivered` also carries
   `notificationType` (a controlled vocabulary string, category `none` —
   never free text) and `occurredAt` (a timestamp, category `none`);
@@ -208,6 +208,13 @@ inventory becomes the single index:
   immediately by the revoking operation (`revokeOtherSessions`,
   `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
   path ever logs `ip_address`, `user_agent` or a token.
+- **Abandoned sign-ups** (ISSUE-660): a provisional account with no
+  username, age, Terms acceptance, actor, role grant, privacy job or
+  activity in the last 24 hours is deleted, with its own sign-in and
+  email-change links, by the same retention sweep
+  (`retention.provisional_user`). Its delivery receipts age out on their
+  own. See
+  [Abandoned provisional accounts](#abandoned-provisional-accounts).
 - **Round transcripts and cached judgments** (DEC-101, DEC-89; ISSUE-498):
   `utterances` rows (transcript text and the capture body digest, both
   `personal`/`private`) are deleted 180 days after `created_at`, and a
@@ -219,15 +226,33 @@ inventory becomes the single index:
   own lines, keeps other debaters', and discards every pending judgment of a
   Round the subject sat in. Export returns the subject's own lines.
 - **Operational logs** (AUTH-7.5-AC3): every process writes structured
-  JSON to stdout only ([observability](observability.md)); no log shipper
-  or second store is configured, so Fly.io's platform log search is the
-  only place they persist, and it
-  [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
-  Operational logs are kept no longer than 30 days: that is a ceiling,
-  not a minimum (owner decision DEC-42, confirmed 2026-09-29). Fly's 7-day
-  log search satisfies it, and no log shipper is added. Any log drain or
-  shipper added later must keep its retention at or under 30 days and
-  record it here.
+  JSON to stdout only ([observability](observability.md)). Operational logs
+  are kept no longer than 30 days: that is a ceiling, not a minimum (owner
+  decision DEC-42, confirmed 2026-09-29). Two places hold them:
+  - Fly.io's platform log search
+    [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
+  - On staging, the operational log store
+    ([ADR 0084](../decisions/0084-operational-log-pipeline.md)): a
+    self-hosted ClickHouse on 6PN, fed by the log shipper. It keeps only
+    lines the `@daisy/logger` vocabulary admits, with a **28-day TTL** on
+    the shipper's receipt time. Daily partitions are dropped whole. An hourly
+    sweep drops every partition dated 29 or more days ago, so no row
+    outlives 29 days and 1 hour, inside the 30-day ceiling. The admin
+    page alarms at 29 days 2 hours. There are no volume snapshots or backups,
+    and no ClickHouse internal log tables.
+
+  Its columns carry no personal, sensitive or secret field.
+  - Identifiers, scoped to the log surface: `requestId`, `traceId`,
+    `userId`, `actorId`, `providerMessageId`, and `clientIdHash` (a SHA3
+    digest, never an address).
+  - Category `none`: `app`, `region`, `instance` (Fly machine ids),
+    `service`, `appVersion`, `gitCommit`, `event`, `severity`, and every
+    code, path and count field.
+
+  Purpose: operator security views in the admin app. Lawful basis:
+  legitimate interest in securing the service. Erasure is by expiry; no
+  row is exported. Any further log drain or shipper must keep its
+  retention at or under 30 days and record it here.
 
 ## Data subject rights
 
@@ -308,3 +333,53 @@ and the PostHog adapter and consent banner (PRIV-6) are separate leaves of
 the privacy and telemetry epic, tracked on the epic's PageSpace plan page.
 This document describes the rules those leaves implement, not their
 current implementation status.
+
+### Transcript invalidation
+
+`debate.transcript-changed` carries `kind` (none), `ids` (identifier, the Round
+invalidation target) and `entityVersion` (none, the transcript revision), with no
+text, track, speaker or judge identity. Purpose: refetch the current protected
+transcript after capture or closure. Storage: the existing PostgreSQL outbox,
+retained for 24 hours; delivery is transient authenticated Round-topic fan-out.
+Existing Round identifier lifecycle and outbox deletion apply. This necessary
+transport adds no analytics event or new personal-data storage. Transcript text
+remains personal/private under DEC-101 and its 180-day retention/subject erasure.
+
+### Media admission hints
+
+`<namespace>:v1:media-admission:<sessionId>` stores a bounded sorted set of waiter
+identifiers and their expiry times. Session and waiter ids are category
+`identifier`; expiry scores are `none`. Purpose: expendable scheduling fairness
+between admissions and recovery, with PostgreSQL retaining authority. Storage:
+existing Redis, at most 256 entries and 15 seconds (one reconcile lease). No
+personal content, account identity or credential is stored; expiry and explicit
+waiter release erase it. `round.media.fairness_degraded` is registered in the
+logger with `operation` (`enter`, `leave`, `waiting`, category `none`) to report
+loss of the hint. No analytics event or new consent category is introduced.
+
+### Abandoned provisional accounts
+
+ISSUE-660(b), confirmed by the orchestrator on 2026-10-27, refined in the
+#474 review. A sign-up is abandoned when, 24 hours after it was created, it
+has none of these:
+
+- a username, an age or a Terms acceptance;
+- an actor, a role grant, a privacy job or an erased-account history;
+- any activity since that cutoff: no session created or refreshed, and no
+  sign-in link sent to its email.
+
+The startup and hourly retention sweep deletes up to 20 batches of 50 per
+run. A backlog drains over later runs: 24 hours is the eligibility window,
+not a guarantee that deletion finishes at that instant.
+
+Candidates come from one unlocked read. Each account then goes in its own
+short transaction, so no transaction spans a batch (ADR 0032). That
+transaction locks the row with `SKIP LOCKED`, rechecks every protection in
+a fresh statement, and deletes the account's own sign-in and email-change
+links with it. Sessions, credentials and passkeys cascade.
+
+Delivery receipts (keyed recipient hashes) stay for their own 30 days, so a
+late bounce or complaint still suppresses the address. Suppressions and
+unrelated verification purposes also remain. Only the under-age deletion
+(WAIT-4.7, DEC-244) removes receipts at once. The sweep logs only its stable
+operation name, counts and success or failure.

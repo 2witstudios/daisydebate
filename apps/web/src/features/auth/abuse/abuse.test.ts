@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { emailedLinkIdentifier } from '../confirmation/emailed-link-token';
+import { storedSignInIdentifier } from '../confirmation/emailed-link-token';
 import { create, magicLinkRequest, tokenIn } from './abuse.test-support';
 
 setupRitewayBun();
@@ -43,6 +43,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
           'daisy-revoke-others-on-email-change',
           'daisy-revoke-sessions',
           'daisy-sign-in-address-guard',
+          'daisy-sign-out-fails-closed',
           'magic-link',
           'passkey',
         ],
@@ -80,7 +81,7 @@ describe('AUTH-3.3 magic-link issuance', () => {
       expected: {
         status: 200,
         opaque256: true,
-        identifier: emailedLinkIdentifier('sign-in', token),
+        identifier: storedSignInIdentifier(token),
         tokenAbsent: false,
         fiveMinutes: true,
       },

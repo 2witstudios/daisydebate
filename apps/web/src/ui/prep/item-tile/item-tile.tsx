@@ -1,8 +1,8 @@
 import type { ItemKind } from '../../../features/prep/library/library-item';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import { Icon, type IconName } from '../../components/icon/icon';
 import { itemTileClass } from './item-tile-class';
 
-const glyphOf: Readonly<Record<ItemKind, PrepIconName>> = {
+const glyphOf: Readonly<Record<ItemKind, IconName>> = {
   brief: 'doc',
   card: 'card',
   case: 'briefcase',
@@ -18,7 +18,7 @@ export const kindLabel: Readonly<Record<ItemKind, string>> = {
 export function ItemTile({ kind }: { readonly kind: ItemKind }) {
   return (
     <span className={itemTileClass(kind)}>
-      <PrepIcon name={glyphOf[kind]} size={18} />
+      <Icon name={glyphOf[kind]} size={18} />
     </span>
   );
 }

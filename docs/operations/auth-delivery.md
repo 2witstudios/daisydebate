@@ -197,6 +197,23 @@ DELETE FROM session WHERE id IN (
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```
 
+## Retention of abandoned sign-ups (ISSUE-660)
+
+A sign-up creates a provisional account (no username) before the age step.
+An account is abandoned when, 24 hours after it was created, it still has
+no username, age or Terms acceptance, and no session or sign-in link since
+then. That includes a browser held by an under-age refusal that signed up
+again. The hourly sweep deletes up to 20 batches of 50 such accounts per
+run, each in its own short transaction, with the policy in
+[privacy](privacy.md#abandoned-provisional-accounts). Each account's own
+sign-in and email-change links go in that transaction. Its delivery receipts
+stay for their 30 days, so a late bounce still suppresses the address. Events use `operation: 'retention.provisional_user'`:
+`retention.sweep.completed` (`deleted`, `batches`) and
+`retention.sweep.failed`.
+
+A held browser that answers the age step again is refused, and its new
+provisional account is deleted at once instead of waiting for the sweep.
+
 ## Alerting (AUTH-7.7)
 
 Nothing inside the app can alert on its own unavailability while it is
@@ -528,9 +545,9 @@ at the edge is the response.
    drains: the backlog clears within about one provider round trip. The
    ceiling does not necessarily reopen with it. The minute ceiling resets
    each minute, but once the day ceiling (3,000) is spent, new sign-ups get
-   no mail until its window ends, up to a day after its first send, while
+   no mail until the next UTC midnight, while
    sign-in links are still sent. If real volume is the cause, raise the
-   ceilings (`MAGIC_LINK_GLOBAL_RULES`, `rate-limit.ts`, and ADR 0025)
+   validated `AUTH_SIGN_UP_MAIL_CEILINGS` configuration (below)
    rather than the bound: the bound protects the Postgres pool and the
    process's memory.
 4. Check `auth.mail.failed`: a slow or failing provider holds every slot
@@ -578,3 +595,28 @@ Keys pass through the existing SHA3-256 rate-limiter adapter, contain no
 username or cursor, and expire with the 60-second window. The client hash
 is the existing ingress-generated keyed pseudonym (never the raw address),
 private and used only for abuse control. No new telemetry is emitted.
+
+## Configuring global sign-up mail capacity
+
+`AUTH_SIGN_UP_MAIL_CEILINGS` is optional deployment JSON. Absence preserves
+`{"perMinute":120,"perDay":3000}`. An override must supply both positive
+safe integer fields, with no extra keys, for example
+`AUTH_SIGN_UP_MAIL_CEILINGS='{"perMinute":200,"perDay":5000}'`.
+Empty/malformed JSON, partial objects, strings, zero, negative, fractional
+or unsafe numbers fail startup through `readServerConfig`; authentication
+composition validates the same contract through `readAuthConfig`. Errors
+name fields only, never the rejected value. This setting is server-only.
+
+The minute counter retains its 60-second window. The daily counter is keyed
+by the injected clock's UTC date and reopens at UTC midnight, across every
+instance using the same Redis namespace. A previous date's counter expires
+within 24 hours; it contains only a count. Neither counter includes an
+address or account state. Both remain the existing atomic Redis limiter,
+with no process-local fallback or second client implementation.
+
+Every magic-link request spends the same ceilings, whether or not an
+account exists. Saturation silently drops new-address mail behind the same
+success response while sign-in links remain available (DEC-52/DEC-77).
+Recipient/network protections and the bounded after-response work pool are
+unchanged. Raising deployment capacity does not raise those work bounds.
+No production configuration is changed by the implementation.

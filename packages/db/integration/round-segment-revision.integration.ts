@@ -2,36 +2,38 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildDebateTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { withFixture } from './constraint-helpers';
+import {
+  authoredRoundCommand,
+  withAuthoredRound,
+} from './round-command.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 test('segment-only projection commits the same revision as event and command receipt', async () => {
-  await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date('2026-10-06T09:00:00.000Z'),
-    });
-    const database = createDatabase({ url, nextActorId: createId });
+  const round = {
+    status: 'active',
+    current_stage: 'live',
+    started_at: new Date('2026-10-06T09:00:00.000Z'),
+  };
+  await withAuthoredRound(url, round, async (fixture, authored) => {
+    const { actorId, roundId, database } = authored;
     const commandId = createId();
+    const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
     try {
       const before = await database.getRound(roundId);
       if (!before) throw new Error('Round missing');
       const first = before.rules.segments[0]!;
-      await database.applyRoundExecution({
-        roundId,
-        expectedVersion: 1,
-        command: {
+      await database.executeRoundCommand({
+        ...authoredRoundCommand(
+          { roundId, actorId },
+          1,
+          {
+            type: 'start_speech',
+            participantId: participant.id,
+          },
           commandId,
-          actorId: null,
-          serviceId: 'integration',
-          type: 'start_speech',
-          payloadDigest: 'a'.repeat(64),
-          result: { ok: true },
-        },
-        buildProjection: (now) => ({
+        ),
+        buildProjection: ({ now }) => ({
           round: null,
           segmentInserts: [
             {
@@ -47,10 +49,8 @@ test('segment-only projection commits the same revision as event and command rec
           effects: [],
         }),
       });
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 2,
-        command: null,
         buildProjection: () => ({
           round: null,
           segmentInserts: [],

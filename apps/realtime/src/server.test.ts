@@ -210,8 +210,12 @@ describe('createRealtimeServer fetch', () => {
     });
   });
 
-  for (const retained of [0, 3])
-    test(`logs the delivery backlog only when work is owed (${retained} retained)`, async () => {
+  for (const [retained, oldestAgeMs] of [
+    [0, 0],
+    [3, 900],
+    [3, 1_000],
+  ] as const)
+    test(`logs the delivery backlog only once owed work has waited a second (${retained} retained, ${oldestAgeMs} ms)`, async () => {
       const logged: string[] = [];
       const recordingLogger: Logger = {
         log: (event) => {
@@ -229,7 +233,7 @@ describe('createRealtimeServer fetch', () => {
               retained,
               running: retained > 0 ? 1 : 0,
               topics: retained > 0 ? 1 : 0,
-              oldestAgeMs: retained > 0 ? 900 : 0,
+              oldestAgeMs,
             }),
           },
         }),
@@ -239,11 +243,12 @@ describe('createRealtimeServer fetch', () => {
         fakeServer(false),
       );
       assert({
-        given: `a readiness probe with ${retained} retained delivery rows`,
-        should: retained > 0 ? 'log the backlog' : 'log no backlog line',
+        given: `a readiness probe with ${retained} retained delivery rows, the oldest ${oldestAgeMs} ms old`,
+        should:
+          oldestAgeMs >= 1_000 ? 'log the backlog' : 'log no backlog line',
         actual: logged.filter((event) => event === 'realtime.delivery.backlog')
           .length,
-        expected: retained > 0 ? 1 : 0,
+        expected: oldestAgeMs >= 1_000 ? 1 : 0,
       });
     });
 

@@ -7,7 +7,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../form-controls/form-class';
 import { IconButtonInert } from '../inert-action/icon-button-inert';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { StateAlert } from '../state-alert/state-alert';
 
 type Share = NonNullable<ReviewView['share']>;
@@ -67,11 +67,11 @@ export function ShareDialog({ share }: { readonly share: Share }) {
             aria-label="Close"
             className="inline-flex size-12 items-center justify-center text-ink-muted"
           >
-            <PrepIcon name="x" size={18} />
+            <Icon name="x" size={18} />
           </Link>
         </header>
         <p className="flex items-center gap-2 rounded-md bg-accent-soft p-3 text-sm">
-          <PrepIcon name="lock" size={16} className="text-accent" />
+          <Icon name="lock" size={16} className="text-accent" />
           Private to you until you add someone
         </p>
         <h3 className="text-sm font-bold text-ink-muted">People with access</h3>

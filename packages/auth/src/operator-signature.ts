@@ -124,6 +124,8 @@ export type OperatorVerification =
       readonly keyId: string;
       readonly operatorRef: string;
       readonly nonce: string;
+      /** The signed time; a command commits only within skew of it. */
+      readonly timestampMs: number;
     }
   | {
       readonly ok: false;
@@ -208,6 +210,7 @@ export function verifyOperatorRequest(input: {
     keyId: parts.keyId,
     operatorRef: parts.operatorRef,
     nonce: parts.nonce,
+    timestampMs: Number(parts.timestamp),
   };
 }
 

@@ -183,14 +183,15 @@ async function lockCaptureStream(
     )
     .for('update');
   if (!segment) throw createAppError('NOT_FOUND');
-  await tx
+  const created = await tx
     .insert(transcriptSegments)
     .values({
       roundId: input.roundId,
       segmentId: input.segmentId,
       roundParticipantId: input.roundParticipantId,
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ segmentId: transcriptSegments.segmentId });
   const [stream] = await tx
     .select()
     .from(transcriptSegments)
@@ -203,7 +204,7 @@ async function lockCaptureStream(
     .for('update');
   if (!stream || stream.roundId !== input.roundId)
     throw createAppError('CONFLICT');
-  return { segment, stream };
+  return { segment, stream, created: created.length > 0 };
 }
 export async function captureWriteContext(
   tx: CaptureTx,

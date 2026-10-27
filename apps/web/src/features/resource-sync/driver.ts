@@ -58,6 +58,7 @@ export function createResourceSyncDriver<T>({
   doorbell,
   deadline = () => null,
   onConnectionOpen,
+  pollMs = RESOURCE_POLL_MS,
 }: {
   readonly identity: ResourceIdentity<T>;
   readonly seed: ResourceSync<T>;
@@ -71,6 +72,10 @@ export function createResourceSyncDriver<T>({
   ) => Doorbell;
   /** When the held value goes out of date by itself, if it does. */
   readonly onConnectionOpen?: () => void;
+  readonly pollMs?: {
+    readonly doorbell: number | null;
+    readonly alone: number;
+  };
   readonly deadline?: (state: ResourceSync<T>) => number | null;
 }) {
   const transition = resourceSync(identity);
@@ -86,16 +91,17 @@ export function createResourceSyncDriver<T>({
 
   const armPoll = () => {
     if (poll !== null) scheduler.clearTimeout(poll);
-    poll = scheduler.setTimeout(
-      () => {
-        poll = null;
-        if (visibility.isVisible()) signal(null);
-        if (poll === null) armPoll();
-      },
-      ringing && state.freshness === 'current'
-        ? RESOURCE_POLL_MS.doorbell
-        : RESOURCE_POLL_MS.alone,
-    );
+    const delay =
+      ringing && state.freshness === 'current' ? pollMs.doorbell : pollMs.alone;
+    if (delay === null) {
+      poll = null;
+      return;
+    }
+    poll = scheduler.setTimeout(() => {
+      poll = null;
+      if (visibility.isVisible()) signal(null);
+      if (poll === null) armPoll();
+    }, delay);
   };
   const armDeadline = () => {
     const at = deadline(state);

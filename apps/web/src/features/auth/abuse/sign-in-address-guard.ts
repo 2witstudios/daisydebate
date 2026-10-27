@@ -13,7 +13,7 @@ export type RevokeSessionUnlessAddressHeld = (input: {
 const MAGIC_LINK_VERIFY_PATH = '/magic-link/verify';
 
 /**
- * ISSUE-103: Better Auth 1.7.5's `/magic-link/verify` finds the account by
+ * ISSUE-103: Better Auth 1.7.7's `/magic-link/verify` finds the account by
  * the link's address and creates the session in separate statements, so an
  * email change can complete in between. Its revoke-all then runs before the
  * session exists, and the session would outlive the change on an account

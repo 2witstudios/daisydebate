@@ -50,12 +50,12 @@ Round worker, which `bun dev` does not start.
 | `bun lint`                                                    | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                                                                                                             |
 | `bun format` / `bun format:check`                             | Prettier write / verify                                                                                                                                                                                                        |
 | `bun typecheck`                                               | `tsc --noEmit` per workspace (web runs `next typegen` first); `typeRoots` is the repo's own `node_modules/@types`, so an ancestor `~/node_modules/@types` never changes the result                                             |
-| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — completed main candidate; needs network, `gh`                                                                 |
-| `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                                                                                                    |
-| `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` branch snapshots allowed; main runs full `bun check` on clean exact HEAD                                                                                                |
+| `bun check`                                                   | format:check + lint + policy + invariants + typecheck + test + build — the blocking gates, as in CI; needs network, `gh`                                                                                                       |
+| `bun check:affected`                                          | Fast per-slice inner loop: lint/prettier on changed files, boundaries, styling, affected turbo graph                                                                                                                           |
+| `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks`; branch pushes allowed; main runs full `bun check` on clean exact HEAD                                                                                                  |
 | `bun migrations:check`                                        | Fail stray or orphaned migration files, a broken snapshot chain, or a branch that rewrites/edits/reorders shared migrations vs `origin/main` (ADR 0038)                                                                        |
-| `bun run duplication`                                         | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                                                                                                                  |
-| `bun evidence`                                                | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                                                                                                                  |
+| `bun run duplication`                                         | Copy-paste report (jscpd): lists clones absent from `.jscpd-baseline.json`; advisory in CI (ADR 0026, ADR 0083)                                                                                                                |
+| `bun evidence`                                                | Orphan-suite and CI-wiring report: every test tier is claimed by a real runner; advisory in CI                                                                                                                                 |
 | `bun db:generate`                                             | Generate migration SQL from schema changes (review the SQL!)                                                                                                                                                                   |
 | `bun db:migrate`                                              | Apply pending migrations                                                                                                                                                                                                       |
 | `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, mark its version (reference data comes from migrations)                                                                                      |
@@ -216,11 +216,9 @@ and TypeScript project discovery. Open the main checkout, not the parent of
 bun hooks:install   # git config core.hooksPath .githooks
 ```
 
-Branch pushes are allowed as provisional snapshots. The hook checks an exact clean
-candidate with full `bun check` only when pushing to `main`. Required GitHub main
-checks remain authoritative. Record failed/deferred branch checks and discharge
-applicable proof before main acceptance. Agent launchers retain this hook through
-`core.hooksPath`; installing it is not a branch-readiness approval.
+Branch pushes are always allowed. The hook checks an exact clean candidate
+with full `bun check` only when pushing to `main`. Required GitHub main checks
+remain authoritative. Agent launchers retain this hook through `core.hooksPath`.
 
 `core.hooksPath` lives in the shared Git config and applies to every worktree;
 each resolves `.githooks` from its own checkout. The hook allows deletions and

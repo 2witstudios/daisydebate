@@ -19,7 +19,7 @@ import { Badge } from '../../components/badge/badge';
 import { cn } from '../../cn';
 // The lobby's auto-applying GET form; a shared primitive once a third
 // vertical wants it (reported to the parent instead of duplicated).
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { BackLink } from '../back-link/back-link';
 import { TrainCard } from '../card/train-card';
 import { Cards, Chips } from '../choice/choices';

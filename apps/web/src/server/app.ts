@@ -1,4 +1,7 @@
-import { roundWorkerDatabaseOptions } from './round-worker-policy';
+import {
+  botAdmissionOptions,
+  roundWorkerDatabaseOptions,
+} from './round-worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
@@ -105,9 +108,7 @@ export function createApp({
       config.ROUND_BOT_WORKER_POLICY,
       nextWorkerToken,
     ),
-    ...(config.AI_ROUND_BUSY_CAP === undefined
-      ? {}
-      : { botBusyCap: config.AI_ROUND_BUSY_CAP }),
+    ...botAdmissionOptions(config),
   });
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;

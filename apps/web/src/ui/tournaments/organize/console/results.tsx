@@ -2,7 +2,7 @@ import type { ConsoleView } from '../../../../features/tournaments/console-view'
 import { buttonClass } from '../../../components/button/button-class';
 import { Badge } from '../../../components/badge/badge';
 import { StatusLine } from '../../../components/status-line/status-line';
-import { SampleButton } from '../../inert-action/inert-action';
+import { SampleButton } from '../../../components/sample-button/sample-button';
 import { LinkButton } from '../../link-button/link-button';
 import { Notice } from '../../notice/notice';
 import { tournamentRoutes } from '../../../../features/tournaments/routes';

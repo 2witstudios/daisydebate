@@ -10,13 +10,13 @@ const UNTRUSTED_CLAUSE =
 
 // Mirrors AGENTS.md: every agent keeps its tasks current, but none grants
 // Done or edits a task's criteria or scope, including a task this run appears
-// to satisfy. Done comes from an independent review record.
+// to satisfy. Done comes from the merge automation (ADR 0083).
 const BOARD_CLAUSE =
   'You may create review tasks and keep tasks you are working on current ' +
   '(To Do, In Progress, In Review, Blocked). Never mark a task Done, and ' +
   "never change any task's criteria or scope, including a task this run " +
-  'appears to satisfy: Done is granted from an independent review record, ' +
-  'never by the agent that did the work.';
+  "appears to satisfy: Done comes from the merge automation when the PR's " +
+  'latest review verdict approves, never from the agent that did the work.';
 
 const PROVENANCE_CLAUSE =
   'Cite every technical claim as a repository path pinned to the source ' +

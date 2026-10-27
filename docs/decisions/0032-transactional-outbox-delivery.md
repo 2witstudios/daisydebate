@@ -248,7 +248,10 @@ are not best-effort HTTP.
   nothing (realtime refuses it anyway), so the expiry sweep adds no rows; a
   user with an actor cannot be deleted (`actors.user_id` RESTRICT), so the
   only account deletion, of a provisional user, has no control to send. A failed append rolls the delete back, so a revocation can no
-  longer commit without its control, and realtime closes exactly the
+  longer commit without its control. Every deleting route fails closed:
+  Better Auth 1.7.5's own `/sign-out` would log a failed delete and answer
+  200 with the cookie cleared, so `signOutFailsClosedPlugin` deletes the
+  session first and lets the failure reach the caller (ISSUE-719), and realtime closes exactly the
   deleted session's sockets rather than every socket of the actor. A user
   with no actor has no realtime presence and appends nothing. The trigger
   runs as the deleting role (`SECURITY INVOKER`) and reads the actor without

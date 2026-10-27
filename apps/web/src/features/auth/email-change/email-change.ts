@@ -15,6 +15,7 @@ import {
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
+  SIGN_IN_STORED_PURPOSE,
   type EmailedLinkPurpose,
 } from '../confirmation/emailed-link-token';
 import { renderAuthEmail } from '../mail/templates';
@@ -49,7 +50,7 @@ export type CompleteEmailChange = (input: {
   readonly userId: string;
   readonly email: string;
   readonly newEmail: string;
-  readonly signInPurpose: EmailedLinkPurpose;
+  readonly signInPurpose: typeof SIGN_IN_STORED_PURPOSE;
 }) => Promise<'changed' | 'stale'>;
 
 /** Server-side subject of an email-change token; never inside the link. */
@@ -94,7 +95,7 @@ const invalidToken = () =>
 
 /**
  * ISSUE-2: the recovery-email change (AUTH-5.6) on opaque stored tokens.
- * Better Auth 1.7.5's own `/change-email` and `/verify-email` put the
+ * Better Auth 1.7.7's own `/change-email` and `/verify-email` put the
  * account, the new address and the step inside a signed JWT that is never
  * stored and cannot be revoked. Here each emailed link carries only a
  * 256-bit CSPRNG token; its SHA3-256 digest is stored under its purpose
@@ -213,7 +214,7 @@ export const emailChangePlugin = (dependencies: {
           // still mailed to the old address commit together (ISSUE-99).
           const completion = await dependencies.completeEmailChange({
             ...verified,
-            signInPurpose: 'sign-in',
+            signInPurpose: SIGN_IN_STORED_PURPOSE,
           });
           if (completion === 'stale') throw invalidToken();
           const updated = await ctx.context.internalAdapter.findUserById(

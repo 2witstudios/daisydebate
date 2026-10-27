@@ -50,9 +50,10 @@ export type SubscriptionTransport = {
     subscription: Subscription,
   ) => boolean;
   readonly nativeTopic: (connection: Connection, topic: string) => string;
+  /** Ends the stream and asks its subscriber, on its own request id, to reread. */
   readonly resync: (
     connection: Connection,
-    request: Pick<SubscribeRequest, 'id' | 'topic'>,
+    topic: string,
     sub: Subscription,
   ) => void;
 };

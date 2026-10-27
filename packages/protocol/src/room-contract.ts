@@ -176,6 +176,8 @@ type RoomMutation = {
     readonly commandId: string;
   } | null;
   readonly freeze: boolean;
+  /** A freeze that reserves the host's AI-round allowance (DEC-186). */
+  readonly spendsAiRound: boolean;
   readonly publishDefinition: boolean;
   /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];
@@ -191,11 +193,14 @@ export type RoomListStatus = (typeof roomListStatuses)[number];
 /** The page size a listing query takes when it names none. */
 export const roomListDefaultPageSize = 20;
 
+/** The Lobby's orders over immutable creation time; the first is the default. */
+export const roomListSorts = ['newest', 'longest-waiting'] as const;
+
 /** Provisional discovery resource-work settings; these are not Room capacity. */
 export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
   /** Immutable creation-time order; the Room id breaks timestamp ties. */
-  sort: z.enum(['longest-waiting', 'newest']).optional(),
+  sort: z.enum(roomListSorts).optional(),
   pageSize: z.int().min(1).max(50).default(roomListDefaultPageSize),
   q: z.string().trim().max(100).default(''),
   /**

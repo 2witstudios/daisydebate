@@ -30,3 +30,15 @@ export const emailedLinkIdentifier = (
   purpose: EmailedLinkPurpose,
   token: string,
 ): string => `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+
+/**
+ * The prefix a sign-in link's row is stored under. Better Auth's `magicLink`
+ * plugin puts `magic-link:` in front of the `storeToken` hash
+ * (better-auth 1.7.7, GHSA-965c-763c-88jm purpose isolation), so every
+ * reader that finds sign-in rows by prefix reads them through this.
+ */
+export const SIGN_IN_STORED_PURPOSE = 'magic-link:sign-in';
+
+/** The identifier Better Auth stores a sign-in link's token under. */
+export const storedSignInIdentifier = (token: string): string =>
+  `magic-link:${emailedLinkIdentifier('sign-in', token)}`;

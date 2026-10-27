@@ -1,16 +1,12 @@
 import type { InertAction } from '../../../features/prep/actions';
-import {
-  buttonClass,
-  type ButtonVariant,
-} from '../../components/button/button-class';
-import { SampleAction } from '../../components/sample-action/sample-action';
-import { cn } from '../../cn';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import type { ButtonVariant } from '../../components/button/button-class';
+import type { IconName } from '../../components/icon/icon';
+import { SampleButton } from '../../components/sample-button/sample-button';
 
 export type InertActionButtonProps = {
   readonly action: InertAction;
   readonly variant?: ButtonVariant;
-  readonly symbol?: PrepIconName;
+  readonly symbol?: IconName;
   readonly className?: string;
   /** Overrides the action's label where the screen words it differently. */
   readonly label?: string;
@@ -27,11 +23,12 @@ export function InertActionButton({
   className,
   label,
 }: InertActionButtonProps) {
-  const text = label ?? action.label;
   return (
-    <SampleAction label={text} className={cn(buttonClass(variant), className)}>
-      {symbol === undefined ? null : <PrepIcon name={symbol} size={18} />}
-      {text}
-    </SampleAction>
+    <SampleButton
+      label={label ?? action.label}
+      variant={variant}
+      {...(symbol === undefined ? {} : { symbol })}
+      {...(className === undefined ? {} : { className })}
+    />
   );
 }

@@ -98,6 +98,6 @@ Before artifact upload, the sanitizer parses JSON/JSONL records, redacts decoded
 string leaves and sensitive header objects, and reserializes nested records.
 Plaintext uses the existing header, key and query redactions. Archive traversal
 and replacement remain unchanged. Already truncated predecessor records cannot
-be reconstructed. Current candidate results, failures and independent review
-coverage belong in the task delivery record; these test entry points do not
-assert that a particular candidate has passed whole acceptance.
+be reconstructed. Current candidate results, failures and review coverage
+belong on the slice PR; these test entry points do not assert that a
+particular candidate has passed whole acceptance.
