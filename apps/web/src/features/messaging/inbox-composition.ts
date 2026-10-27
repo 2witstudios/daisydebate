@@ -79,6 +79,8 @@ export function composeMessagingInbox(input: {
         ),
     });
   return {
+    /** One channel's entry under the same fresh authority as the inbox. */
+    entry: inspectChannel,
     read: (page: { readonly limit: number; readonly after?: string }) =>
       readMessagingInbox(page, {
         candidates: (query) => store.candidates({ ...actor, ...query }),

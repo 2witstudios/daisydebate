@@ -46,5 +46,10 @@ export function createMessagingInboxSchemas(maxItems: number) {
       entries: z.array(messagingInboxEntrySchema).max(maxItems),
       nextAfter: idSchema.nullable(),
     }),
+    /** One conversation's own entry: who it is with, for its page (ISSUE-605). */
+    entry: z.strictObject({
+      version: z.literal(1),
+      entry: messagingInboxEntrySchema,
+    }),
   };
 }

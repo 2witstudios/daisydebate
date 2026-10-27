@@ -41,3 +41,20 @@ export function messageMutationUnavailable(form: FormData): MessageFormState {
     notice: 'Your message could not be changed. The text is kept; try again.',
   };
 }
+
+/**
+ * ISSUE-668: the form's request id was already spent on another change (a
+ * lost response, then a revision), so the kept text gets a new id and the
+ * member is told why.
+ */
+export function messageMutationConflict(
+  form: FormData,
+  nextRequestId: string,
+): MessageFormState {
+  return {
+    ...messageFormUnavailable(form),
+    requestId: nextRequestId,
+    notice:
+      'This message changed since you opened it. Your text is kept; review it and save again.',
+  };
+}

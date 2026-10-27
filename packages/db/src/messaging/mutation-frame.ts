@@ -1,3 +1,4 @@
+import { invalidateChannelInboxes } from './inbox-change';
 import { deleteMessageFiles } from '../messaging-files';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -131,6 +132,7 @@ export function channelMutationFrame(
         version: 1,
         payload: plan.doorbell,
       });
+      await invalidateChannelInboxes(tx, input.channelId);
       counters.changeVersion = plan.message.changeVersion;
     },
   };

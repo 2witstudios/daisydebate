@@ -1,9 +1,40 @@
 import type { App } from '../../server/app';
-import { createMessagingInboxSchemas } from '@daisy/protocol';
+import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import { createMessagingInboxSchemas, idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { parseValidated } from '../../server/http';
 import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
+const inboxOf = (app: App, principal: AuthorizationPrincipal) =>
+  composeMessagingInbox({
+    database: app.database,
+    principal,
+    clock: app.clock,
+    postingPolicy: app.messagingPolicy.posting,
+    readingPolicy: app.messagingPolicy.reading,
+  });
+
+/** One conversation's inbox entry: its title and kind for its page (ISSUE-605). */
+export function composeMessagingChannelEntryRoute(app: App) {
+  return (request: Request, channelId: string) => {
+    const schemas = createMessagingInboxSchemas(
+      app.messagingPolicy.bounds.pageItems,
+    );
+    return runMessagingHandler(messagingHttpBoundary(app), request, {
+      name: 'messaging.channel.entry',
+      readOnly: true,
+      readInput: async () => parseValidated(idSchema, channelId),
+      operation: async (value, principal) =>
+        schemas.entry.parse({
+          version: 1,
+          entry: await inboxOf(app, principal).entry(
+            parseValidated(idSchema, value),
+          ),
+        }),
+    });
+  };
+}
+
 export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;
@@ -32,13 +63,7 @@ export function composeMessagingInboxRoute(app: App) {
       },
       operation: async (value, principal) => {
         const query = parseValidated(schemas.query, value);
-        const result = await composeMessagingInbox({
-          database: app.database,
-          principal,
-          clock: app.clock,
-          postingPolicy: policy.posting,
-          readingPolicy: policy.reading,
-        }).read({
+        const result = await inboxOf(app, principal).read({
           limit: policy.bounds.pageItems,
           ...(query.after === undefined ? {} : { after: query.after }),
         });

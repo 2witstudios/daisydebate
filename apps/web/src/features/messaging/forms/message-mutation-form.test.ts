@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   parseMessageMutationForm,
+  messageMutationConflict,
   messageMutationUnavailable,
 } from './message-mutation-form';
 setupRitewayBun();
@@ -72,5 +73,19 @@ test('native mutation refusal retains draft and request identity without permitt
     actual: async () =>
       parseMessageMutationForm('c'.repeat(24), 'foreign', form),
     code: 'VALIDATION',
+  });
+});
+
+test('a spent request id answers a fresh one with the text kept (ISSUE-668)', () => {
+  const form = new FormData();
+  form.set('requestId', 'r'.repeat(24));
+  form.set('text', 'Revised text');
+  const state = messageMutationConflict(form, 'n'.repeat(24));
+  assert({
+    given:
+      'an edit refused because its request id already carried another change',
+    should: 'keep the revised text and submit next time under a new request id',
+    actual: [state.requestId, state.text, Boolean(state.notice)],
+    expected: ['n'.repeat(24), 'Revised text', true],
   });
 });

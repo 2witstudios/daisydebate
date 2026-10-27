@@ -2,15 +2,21 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
 import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { submitMessagingForm } from '../../../../server/messaging-form-submit';
 import {
   parseMessageMutationForm,
+  messageMutationConflict,
   messageMutationUnavailable,
 } from '../../../../features/messaging/forms/message-mutation-form';
 import { moveOn } from '../../../../server/form-action';
+import {
+  formReadThrough,
+  messagingMarkReadBody,
+} from '../../../../features/messaging/mark-read';
 import {
   parseMessageForm,
   messageFormUnavailable,
@@ -18,6 +24,40 @@ import {
 } from '../../../../features/messaging/forms/send-form';
 
 const send = processRoute((routes) => routes.messaging.send);
+const markRead = processRoute((routes) => routes.messaging.markRead);
+
+/**
+ * ISSUE-606: marks a conversation read through `sequence` by native POST,
+ * never on a GET. Best effort: a refusal leaves it unread.
+ */
+async function markReadThrough(
+  incoming: Headers,
+  channelId: string,
+  sequence: number | null,
+) {
+  if (sequence === null) return;
+  try {
+    await inProcessFetch(markRead, incoming)('/api/messaging/read', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
+    });
+  } catch {
+    // The next visit with JavaScript, or the next native post, marks it.
+  }
+}
+
+/** The no-JS "Mark as read" button: marks it, then returns to the page. */
+export async function markReadAction(
+  channelId: string,
+  sequence: number,
+): Promise<void> {
+  const incoming = new Headers(await headers());
+  const id = idSchema.parse(channelId);
+  await markReadThrough(incoming, id, sequence);
+  revalidatePath('/messages');
+  moveOn(incoming, `/messages/${id}`);
+}
 export async function sendMessageAction(
   channelId: unknown,
   _previous: MessageFormState,
@@ -51,6 +91,7 @@ export async function sendMessageAction(
     const result: unknown = await response.json();
     const reply = z.object({ id: idSchema }).safeParse(result);
     if (!reply.success) return kept;
+    await markReadThrough(incoming, command.channelId, formReadThrough(form));
     const path = `/messages/${command.channelId}`;
     revalidatePath(path);
     next = `${path}?sent=${reply.data.id}`;
@@ -76,16 +117,16 @@ export async function changeMessageAction(
       messageId,
       form,
     );
-    if (
-      !(await submitMessagingForm(
-        incoming,
-        operation === 'edit' ? edit : remove,
-        `/api/messaging/messages/${operation}`,
-        command,
-        { field: 'id', value: command.messageId },
-      ))
-    )
-      return kept;
+    const outcome = await submitMessagingForm(
+      incoming,
+      operation === 'edit' ? edit : remove,
+      `/api/messaging/messages/${operation}`,
+      command,
+      { field: 'id', value: command.messageId },
+    );
+    if (outcome === 'conflict')
+      return messageMutationConflict(form, systemId.next());
+    if (outcome === 'refused') return kept;
   } catch {
     return kept;
   }

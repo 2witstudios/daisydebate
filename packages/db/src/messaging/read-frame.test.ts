@@ -27,6 +27,7 @@ test('protected history and changes preserve bounded pagination and authority-on
     [row(2, 6), row(3, 7)],
     [row(3, 7)],
     [[3]],
+    [[1n, '9']], // the reader's own inbox doorbell (ISSUE-603)
   ]);
   let authorizations = 0;
   const frame = channelReadFrame(

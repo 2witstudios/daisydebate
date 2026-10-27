@@ -7,7 +7,10 @@ import { composeMessagingGroupManagementRoute } from './group-management-route';
 import { composeMessagingCreationIntentRoutes } from './creation-intent-route';
 import { composeMessagingGroupCreationRoute } from './group-creation-route';
 import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
-import { composeMessagingInboxRoute } from './inbox-route';
+import {
+  composeMessagingChannelEntryRoute,
+  composeMessagingInboxRoute,
+} from './inbox-route';
 import { composeRetainedConversationRoutes } from './retained-route';
 import {
   composeMessagingSocialRoutes,
@@ -184,6 +187,7 @@ export function composeMessagingRoutes(app: App) {
     files: composeMessagingFileRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
+    channelEntry: composeMessagingChannelEntryRoute(app),
     retained: composeRetainedConversationRoutes(app),
     preferences: composeMessagingPreferenceRoutes(app),
     typing: composeMessagingTypingRoutes(app),

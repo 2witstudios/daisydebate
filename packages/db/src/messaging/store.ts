@@ -1,3 +1,4 @@
+import { invalidateChannelInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -141,6 +142,7 @@ export function createMessagingStore({
                 version: 1,
                 payload: plan.doorbell,
               });
+              await invalidateChannelInboxes(tx, channel.id);
               counters.messageSequence = plan.message.sequence;
               counters.changeVersion = plan.message.changeVersion;
             },

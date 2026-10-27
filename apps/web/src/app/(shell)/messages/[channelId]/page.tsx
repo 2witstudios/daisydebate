@@ -2,12 +2,17 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema, messagingBetaLimits } from '@daisy/protocol';
+import {
+  createMessagingInboxSchemas,
+  idSchema,
+  messagingBetaLimits,
+} from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
   readThroughSequence,
+  conversationNames,
 } from '../../../../features/messaging/conversation';
 import { Button } from '../../../../ui/components/button/button';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
@@ -17,7 +22,8 @@ import { MessageComposer } from '../../../../ui/messaging/message-composer';
 import { MarkConversationRead } from '../../../../ui/messaging/mark-read';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
-import { sendMessageAction } from './actions';
+import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
+import { markReadAction, sendMessageAction } from './actions';
 export const metadata = { title: 'Messages' };
 export default async function ConversationPage({
   params,
@@ -36,6 +42,7 @@ export default async function ConversationPage({
   );
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
+  const names = conversationNames(await readChannelEntry(id.data));
   const readThrough =
     conversation === null
       ? null
@@ -46,7 +53,7 @@ export default async function ConversationPage({
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
-        title="Conversation"
+        title={names.title}
         lede="Private messages"
         actions={<Link href="/messages">Back to messages</Link>}
       />
@@ -68,7 +75,19 @@ export default async function ConversationPage({
             searchQuery={searchQuery ?? null}
           />
           {readThrough === null ? null : (
-            <MarkConversationRead channelId={id.data} sequence={readThrough} />
+            <>
+              <MarkConversationRead
+                channelId={id.data}
+                sequence={readThrough}
+              />
+              <noscript>
+                <form action={markReadAction.bind(null, id.data, readThrough)}>
+                  <button type="submit" className="text-accent underline">
+                    Mark as read
+                  </button>
+                </form>
+              </noscript>
+            </>
           )}
           <ConversationLive
             channelId={id.data}
@@ -79,6 +98,7 @@ export default async function ConversationPage({
             <MessageHistory
               history={conversation.history}
               actorId={actorId}
+              otherAuthor={names.otherAuthor}
               {...(searchQuery === undefined ? {} : { searchQuery })}
             />
           </ConversationLive>
@@ -88,11 +108,27 @@ export default async function ConversationPage({
             action={sendMessageAction.bind(null, id.data)}
             requestId={systemId.next()}
             maxUnits={conversation.bounds.messageUnits}
+            readThrough={readThrough}
           />
         </>
       )}
     </main>
   );
+}
+
+/** This conversation's own inbox entry, or null when it cannot be read. */
+async function readChannelEntry(channelId: string) {
+  const response = await ENTRY(
+    new Request(
+      `http://in-process.invalid/api/messaging/channels/${channelId}/entry`,
+      { headers: new Headers(await headers()) },
+    ),
+  );
+  if (!response.ok) return null;
+  const parsed = createMessagingInboxSchemas(1).entry.safeParse(
+    await response.json(),
+  );
+  return parsed.success ? parsed.data.entry : null;
 }
 
 async function readPageConversation(channelId: string, query: SearchParams) {

@@ -1,3 +1,5 @@
+import type { AuthorizationTransaction } from '../authorization';
+import { invalidateMessagingInboxes } from './inbox-change';
 import { and, asc, desc, eq, gt, lt, lte, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -16,7 +18,7 @@ const requireOrder = (order: number) => {
 };
 /** Transaction is already fenced; the port enforces the protected-read guard. */
 export function channelReadFrame(
-  tx: Pick<BunSQLDatabase, 'select' | 'insert'>,
+  tx: Pick<BunSQLDatabase, 'select' | 'insert'> & AuthorizationTransaction,
   input: { readonly channelId: string; readonly actorId: string },
   counters: MessagingCounters,
   authorize: () => Promise<void>,
@@ -131,6 +133,8 @@ export function channelReadFrame(
         })
         .returning({ readSequence: messagingActorStates.readSequence });
       if (!row) throw createAppError('INFRASTRUCTURE');
+      // ISSUE-603: the reader's other open inboxes refresh their unread state.
+      await invalidateMessagingInboxes(tx, [input.actorId]);
       return row.readSequence;
     },
   };

@@ -21,13 +21,13 @@ export async function changeReactionAction(
   try {
     const command = parseReactionForm(channelId, messageId, form);
     if (
-      !(await submitMessagingForm(
+      (await submitMessagingForm(
         incoming,
         change,
         '/api/messaging/reactions',
         command,
         { field: 'messageId', value: command.messageId },
-      ))
+      )) !== 'accepted'
     )
       return kept;
   } catch {

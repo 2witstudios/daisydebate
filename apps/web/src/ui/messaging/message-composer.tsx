@@ -20,11 +20,14 @@ export function MessageComposer({
   requestId,
   channelId,
   maxUnits,
+  readThrough,
 }: {
   readonly action: FormAction<MessageFormState>;
   readonly requestId: string;
   readonly channelId: string;
   readonly maxUnits: number;
+  /** The last message the reader saw; a native send marks it read (ISSUE-606). */
+  readonly readThrough?: number | null;
 }) {
   const [answer, post, pending] = useFormAction<MessageFormState>(
     action,
@@ -57,6 +60,9 @@ export function MessageComposer({
       className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4"
     >
       <input type="hidden" name="requestId" value={answer.requestId} />
+      {readThrough == null ? null : (
+        <input type="hidden" name="readThrough" value={readThrough} />
+      )}
       <label htmlFor="message-text" className="text-sm font-semibold">
         Your message
       </label>

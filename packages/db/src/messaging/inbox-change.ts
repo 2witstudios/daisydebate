@@ -32,3 +32,24 @@ export async function invalidateDmInboxes(
       String(pair.highActorId),
     ]);
 }
+
+/**
+ * ISSUE-603: a channel's content changed (a send, edit or removal), so every
+ * participant's inbox preview and unread state need a fresh read: both DM
+ * members, or a group's current members. The bell carries no channel or
+ * content.
+ */
+export async function invalidateChannelInboxes(
+  tx: AuthorizationTransaction,
+  channelId: string,
+) {
+  const rows = await tx.execute(sql`
+    select low_actor_id as "actorId" from public.messaging_dm_pairs where channel_id=${channelId}
+    union select high_actor_id from public.messaging_dm_pairs where channel_id=${channelId}
+    union select actor_id from public.messaging_group_grants where channel_id=${channelId} and revoked_at is null
+  `);
+  await invalidateMessagingInboxes(
+    tx,
+    [...rows].map((row) => String(row.actorId)),
+  );
+}
