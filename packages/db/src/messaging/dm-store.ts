@@ -42,7 +42,14 @@ export function createMessagingDmStore({
         if (!fact || fact.authority.kind !== 'dm')
           throw createAppError('NOT_FOUND');
         await authorize('read')(tx, scope, { fact, accounts });
-        return readRequestRow(tx, scope.channelId);
+        // The preview projects sender, introduction and time, never more.
+        const row = await readRequestRow(tx, scope.channelId);
+        return {
+          channelId: row.channelId,
+          senderActorId: row.requestSenderActorId,
+          introduction: row.introduction,
+          requestedAt: row.requestedAt.toISOString(),
+        };
       }),
     withChannel: (scope, work) =>
       withMessagingChannel(
@@ -60,14 +67,7 @@ export function createMessagingDmStore({
               throw createAppError('NOT_FOUND');
             return fact;
           };
-          const currentRequest = async () => {
-            const [row] = await tx
-              .select()
-              .from(messagingDmPairs)
-              .where(eq(messagingDmPairs.channelId, scope.channelId));
-            if (!row) throw createAppError('NOT_FOUND');
-            return row;
-          };
+          const currentRequest = () => readRequestRow(tx, scope.channelId);
           const fresh = async (mode: Parameters<MessagingDmFence>[0]) => {
             const fact = await currentFact();
             await authorize(mode)(tx, scope, { fact, accounts });
@@ -153,7 +153,7 @@ export function createMessagingDmStore({
       ),
   };
 }
-/** The pending request's preview: sender, introduction and time, never more. */
+/** The one read of a DM pair's request row, for the preview and decisions. */
 async function readRequestRow(
   tx: Pick<BunSQLDatabase, 'select'>,
   channelId: string,
@@ -163,12 +163,7 @@ async function readRequestRow(
     .from(messagingDmPairs)
     .where(eq(messagingDmPairs.channelId, channelId));
   if (!row) throw createAppError('NOT_FOUND');
-  return {
-    channelId: row.channelId,
-    senderActorId: row.requestSenderActorId,
-    introduction: row.introduction,
-    requestedAt: row.requestedAt.toISOString(),
-  };
+  return row;
 }
 function validateDecision(command: DecisionCommand) {
   if (

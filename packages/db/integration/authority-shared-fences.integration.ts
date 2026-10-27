@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { createAppError } from '@daisy/errors';
 import { createMessagingStore } from '../src/messaging';
 import { createMessagingTestFixture } from '../src/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -200,6 +201,92 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
       });
     } finally {
       await f.cleanup();
+      await client.close();
+    }
+  });
+
+  test('a reader blocked behind a writer that revokes it never answers from the old cast', async () => {
+    const client = new SQL(url);
+    const holder = new SQL(url);
+    const f = await createMessagingTestFixture(client);
+    const groupId = createId();
+    try {
+      await client.unsafe(
+        "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
+        [groupId],
+      );
+      await client.unsafe(
+        "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",
+        [groupId, f.actorId, f.otherActorId, f.now],
+      );
+      // The member's read evaluates whatever cast it is handed after its waits.
+      const casts: (readonly string[])[] = [];
+      const store = createMessagingStore({
+        database: drizzle({ client }),
+        authorize: async (_tx, input, { fact }) => {
+          const members =
+            fact.authority.kind === 'private_group'
+              ? fact.authority.activeMemberActorIds
+              : [];
+          casts.push(members);
+          if (!members.includes(input.actorId))
+            throw createAppError('AUTHORIZATION');
+        },
+      });
+      const held = Promise.withResolvers<void>();
+      const revoke = Promise.withResolvers<void>();
+      const writer = holder.begin(async (tx) => {
+        await tx`select public.daisy_messaging_channel_fence(${groupId}, null, null)`;
+        held.resolve();
+        await revoke.promise;
+        await tx`update messaging_group_grants set revoked_at = now() where channel_id = ${groupId} and actor_id = ${f.otherActorId}`;
+      });
+      await held.promise;
+      const reading = store
+        .readChannel(
+          {
+            channelId: groupId,
+            userId: f.otherUserId,
+            actorId: f.otherActorId,
+          },
+          async (frame) => {
+            await frame.authorize();
+            return 'answered';
+          },
+        )
+        .then(
+          (answer) => answer,
+          (error: { code?: unknown }) => `refused:${String(error.code)}`,
+        );
+      // Wait until the reader is queued on the writer's channel row lock.
+      for (let tries = 0; tries < 100; tries += 1) {
+        const [{ waiting }] =
+          await client`select count(*)::int as waiting from pg_locks where not granted`;
+        if (waiting > 0) break;
+        await Bun.sleep(20);
+      }
+      revoke.resolve();
+      await writer;
+      const outcome = await reading;
+      assert({
+        given:
+          'a member reading a private group while a writer holds the channel and revokes that member before committing',
+        should:
+          'refuse the read, never handing authorization a cast that still includes the revoked member',
+        actual: {
+          refused: outcome.startsWith('refused:'),
+          staleCasts: casts.filter((members) =>
+            members.includes(f.otherActorId),
+          ).length,
+        },
+        expected: { refused: true, staleCasts: 0 },
+      });
+    } finally {
+      await client.unsafe('delete from messaging_channels where id=$1', [
+        groupId,
+      ]);
+      await f.cleanup();
+      await holder.close();
       await client.close();
     }
   });
