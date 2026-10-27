@@ -138,11 +138,40 @@ async function fencedAuthority<T>(
     throw castChanged();
   return work({ tx, fact, accounts });
 }
-/** Public database factory binds its pool; the consumer evaluates policy in this same tx. */
+/** Whole-transaction restarts a read takes when the cast keeps moving. */
+const READ_RESTARTS = 2;
+/**
+ * Runs a read transaction, restarting it whole at most twice when the cast
+ * moved under it; still moving after that is a retryable outage, never a
+ * stale answer (MSG-2.1-arch1).
+ */
+export async function restartingRead<T>(
+  database: Pick<BunSQLDatabase, 'transaction'>,
+  read: (
+    tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  ) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await database.transaction(read);
+    } catch (error) {
+      if (!isCastChange(error)) throw error;
+      if (attempt >= READ_RESTARTS)
+        throw createAppError('INFRASTRUCTURE', undefined, error);
+    }
+  }
+}
+/**
+ * Public database factory binds its pool; the consumer evaluates policy in
+ * this same tx. Its consumers (inbox entries, realtime subscribe decisions)
+ * only read, so it takes the shared fences.
+ */
 export function createMessagingChannelAuthority(database: BunSQLDatabase) {
   return <T>(
     input: Scope,
     work: (frame: AuthorityFrame) => Promise<T>,
   ): Promise<T> =>
-    database.transaction((tx) => withLockedMessagingAuthority(tx, input, work));
+    restartingRead(database, (tx) =>
+      withSharedMessagingAuthority(tx, input, work),
+    );
 }

@@ -115,13 +115,25 @@ export type MessagingLockedFrame = {
   ) => Promise<MessagingMutationState>;
   readonly commitMutation: (plan: MessagingMutationPlan) => Promise<void>;
 };
+/** What a read may do: no counters, sends or mutations (MSG-2.1-arch1). */
+export type MessagingReadFrame = Pick<
+  MessagingLockedFrame,
+  'history' | 'changes' | 'authorize' | 'fact' | 'accounts'
+>;
+type ChannelScope = {
+  readonly channelId: string;
+  readonly actorId: string;
+  readonly userId: string;
+};
 export type MessagingChannelStore = {
+  /** Commands: exclusive fences and the channel counters. */
   readonly withChannel: <T>(
-    input: {
-      readonly channelId: string;
-      readonly actorId: string;
-      readonly userId: string;
-    },
+    input: ChannelScope,
     work: (frame: MessagingLockedFrame) => Promise<T>,
+  ) => Promise<T>;
+  /** Reads: shared fences, so readers never serialize behind each other. */
+  readonly readChannel: <T>(
+    input: ChannelScope,
+    work: (frame: MessagingReadFrame) => Promise<T>,
   ) => Promise<T>;
 };

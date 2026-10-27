@@ -3,6 +3,7 @@ export type {
   MessagingAuthorizationFence,
   MessagingChannelStore,
   MessagingLockedFrame,
+  MessagingReadFrame,
   MessagingMessageRecord,
   MessagingSendCommand,
   MessagingSendState,

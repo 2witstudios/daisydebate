@@ -2,6 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type {
   MessagingLockedFrame,
   MessagingChannelStore,
+  MessagingReadFrame,
 } from '@daisy/db/messaging';
 import {
   createMessagingCoreSchemas,
@@ -19,14 +20,19 @@ export function createMessagingReadOperations({
   readonly store: MessagingChannelStore;
 }) {
   const schemas = createMessagingCoreSchemas(bounds);
-  const run = <T>(
+  // Reads take shared fences; only the read marker writes (MSG-2.1-arch1).
+  const read = <T>(
+    channelId: string,
+    principal: AuthorizationPrincipal,
+    work: (frame: MessagingReadFrame) => Promise<T>,
+  ) =>
+    store.readChannel({ channelId, ...requireMessagingActor(principal) }, work);
+  const write = <T>(
     channelId: string,
     principal: AuthorizationPrincipal,
     work: (frame: MessagingLockedFrame) => Promise<T>,
-  ) => {
-    const identity = requireMessagingActor(principal);
-    return store.withChannel({ channelId, ...identity }, work);
-  };
+  ) =>
+    store.withChannel({ channelId, ...requireMessagingActor(principal) }, work);
   const history = (
     command: {
       channelId: string;
@@ -36,7 +42,7 @@ export function createMessagingReadOperations({
     },
     principal: AuthorizationPrincipal,
   ) =>
-    run(command.channelId, principal, async (frame) => {
+    read(command.channelId, principal, async (frame) => {
       const page = await frame.history({
         limit: command.limit,
         ...(command.before === undefined
@@ -58,7 +64,7 @@ export function createMessagingReadOperations({
       history(parseValidated(schemas.search, input), principal),
     changes(input: unknown, principal: AuthorizationPrincipal) {
       const command = parseValidated(schemas.changes, input);
-      return run(command.channelId, principal, async (frame) => {
+      return read(command.channelId, principal, async (frame) => {
         const { messages, ...page } = await frame.changes({
           limit: command.limit,
           after: command.after.changeVersion,
@@ -86,7 +92,7 @@ export function createMessagingReadOperations({
     },
     markRead(input: unknown, principal: AuthorizationPrincipal) {
       const command = parseValidated(schemas.markRead, input);
-      return run(command.channelId, principal, async (frame) => ({
+      return write(command.channelId, principal, async (frame) => ({
         version: 1,
         channelId: command.channelId,
         sequence: await frame.markRead(command.cursor.sequence),

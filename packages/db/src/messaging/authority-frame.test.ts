@@ -9,6 +9,17 @@ import {
 } from './authority-frame';
 import { messagingAuthorityFixture } from './social.test-support';
 setupRitewayBun();
+/** The statement order each scenario runs: a shared read restarts once on drift. */
+function expectedStatements(
+  changed: boolean,
+  locked: boolean,
+  extended: boolean,
+) {
+  if (extended) return ['fact', 'account', 'invitation-pairs', 'fence', 'fact'];
+  if (!locked) return ['fact', 'account', 'fence'];
+  const attempt = ['fact', 'account', 'fence', 'fact'];
+  return changed ? [...attempt, ...attempt] : attempt;
+}
 for (const [changed, locked, extended] of [
   [false, true, false],
   [true, true, false],
@@ -16,7 +27,7 @@ for (const [changed, locked, extended] of [
   [false, true, true],
   [true, true, true],
 ] as const) {
-  test(`minimal channel fence ${extended ? 'with invitation participants ' : ''}${!locked ? 'refuses absent authority' : changed ? 'refuses member drift' : 'rereads facts after ordered locks'}`, async () => {
+  test(`minimal channel fence ${extended ? 'with invitation participants ' : ''}${!locked ? 'refuses absent authority' : changed ? (extended ? 'refuses member drift' : 'restarts a read on member drift') : 'rereads facts after ordered locks'}`, async () => {
     const fact = messagingAuthorityFixture();
     if (fact.authority.kind !== 'dm') throw new Error('DM fixture required');
     const actorId = fact.authority.lowActorId;
@@ -46,7 +57,7 @@ for (const [changed, locked, extended] of [
             },
           ];
         }
-        if (text.includes('daisy_authorization_accounts'))
+        if (/daisy_authorization_(read_)?accounts/.test(text))
           return [
             {
               actorId,
@@ -106,9 +117,9 @@ for (const [changed, locked, extended] of [
           read({ actorId, userId, channelId: fact.channelId }, work),
         code: 'NOT_FOUND',
       });
-    else if (changed)
+    else if (changed && extended)
       await assertRejects({
-        given: 'a cast identity changed while locking',
+        given: 'a cast identity changed while a command held its locks',
         should: 'refuse before handing facts to the consumer',
         actual: () =>
           read({ actorId, userId, channelId: fact.channelId }, work),
@@ -125,14 +136,14 @@ for (const [changed, locked, extended] of [
             ? 'invitation-pairs'
             : text.includes('jsonb_build_object')
               ? 'fact'
-              : text.includes('daisy_authorization_accounts')
+              : /daisy_authorization_(read_)?accounts/.test(text)
                 ? 'account'
                 : 'fence',
         ),
         statements.some((text) =>
           /messaging_messages|\btitle\b|select \*/i.test(
             text.replace(
-              'select * from public.daisy_authorization_accounts',
+              /select \* from public\.daisy_authorization_(read_)?accounts/,
               '',
             ),
           ),
@@ -140,14 +151,79 @@ for (const [changed, locked, extended] of [
         used,
       ],
       expected: [
-        extended
-          ? ['fact', 'account', 'invitation-pairs', 'fence', 'fact']
-          : locked
-            ? ['fact', 'account', 'fence', 'fact']
-            : ['fact', 'account', 'fence'],
+        expectedStatements(changed, locked, extended),
         false,
-        changed || !locked ? 0 : 1,
+        !locked || (changed && extended) ? 0 : 1,
       ],
     });
   });
 }
+
+test('a read whose cast keeps moving gives up after two restarts, never answering stale', async () => {
+  const fact = messagingAuthorityFixture();
+  if (fact.authority.kind !== 'dm') throw new Error('DM fixture required');
+  const actorId = fact.authority.lowActorId;
+  const dialect = new PgDialect();
+  let reads = 0;
+  let transactions = 0;
+  const tx = {
+    execute: async (query: SQL) => {
+      const text = dialect.sqlToQuery(query).sql;
+      if (text.includes('jsonb_build_object')) {
+        reads += 1;
+        // Every reread after the fences sees a different cast.
+        return [
+          {
+            fact:
+              reads % 2 === 0
+                ? {
+                    ...fact,
+                    authority: {
+                      ...fact.authority,
+                      highActorId: 'd'.repeat(24),
+                    },
+                  }
+                : fact,
+          },
+        ];
+      }
+      if (/daisy_authorization_(read_)?accounts/.test(text))
+        return [
+          {
+            actorId,
+            userId: 'u'.repeat(24),
+            member: true,
+            erased: false,
+            revision: 9,
+            betaState: 'approved',
+            betaRevision: 1,
+            ageBand: 'adult',
+          },
+        ];
+      return [{ locked: true }];
+    },
+  };
+  const read = createMessagingChannelAuthority({
+    transaction: async (work: (value: typeof tx) => Promise<unknown>) => {
+      transactions += 1;
+      return work(tx);
+    },
+  } as unknown as BunSQLDatabase);
+  await assertRejects({
+    given:
+      'a cast that moves between discovery and the fences on every attempt',
+    should: 'answer a retryable outage after three transactions',
+    actual: () =>
+      read(
+        { actorId, userId: 'u'.repeat(24), channelId: fact.channelId },
+        async () => 'unreachable',
+      ),
+    code: 'INFRASTRUCTURE',
+  });
+  assert({
+    given: 'the same persistent cast churn',
+    should: 'run exactly the first transaction and two restarts',
+    actual: transactions,
+    expected: 3,
+  });
+});

@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
-import { withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingChannel } from './channel-frame';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
 import { channelMutationFrame } from './mutation-frame';
@@ -28,6 +28,31 @@ export function createMessagingStore({
   readonly authorize: MessagingAuthorizationFence;
 }): MessagingChannelStore {
   return {
+    readChannel: (input, work) =>
+      readMessagingChannel(
+        database,
+        input,
+        ({ tx, channel, fact, accounts }) => {
+          const authorizeRead = () => authorize(tx, input, { fact, accounts });
+          const { history, changes } = channelReadFrame(
+            tx,
+            input,
+            {
+              channelId: channel.id,
+              messageSequence: channel.messageSequence,
+              changeVersion: channel.changeVersion,
+            },
+            authorizeRead,
+          );
+          return work({
+            history,
+            changes,
+            authorize: authorizeRead,
+            fact,
+            accounts,
+          });
+        },
+      ),
     withChannel: async (input, work) => {
       return withMessagingChannel(
         database,

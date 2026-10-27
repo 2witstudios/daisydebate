@@ -3,7 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
-  isCastChange,
+  restartingRead,
   withLockedMessagingAuthority,
   withSharedMessagingAuthority,
 } from './authority-frame';
@@ -38,31 +38,12 @@ export async function withMessagingChannel<T>(
   );
 }
 
-/** Whole-transaction restarts a read takes when the cast keeps moving. */
-const READ_RESTARTS = 2;
-/**
- * The read counterpart (MSG-2.1-arch1): shared fences, no counter lock, and
- * a bounded restart of the whole transaction when the cast moved; still
- * moving after that is a retryable outage, never a stale answer.
- */
-export async function readMessagingChannel<T>(
+/** The read counterpart (MSG-2.1-arch1): shared fences and no counter lock. */
+export const readMessagingChannel = <T>(
   database: BunSQLDatabase,
   input: Input,
   work: (frame: Frame) => Promise<T>,
-): Promise<T> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await database.transaction((tx) =>
-        withSharedMessagingAuthority(
-          tx,
-          input,
-          withChannelRow(tx, input, work),
-        ),
-      );
-    } catch (error) {
-      if (!isCastChange(error)) throw error;
-      if (attempt >= READ_RESTARTS)
-        throw createAppError('INFRASTRUCTURE', undefined, error);
-    }
-  }
-}
+): Promise<T> =>
+  restartingRead(database, (tx) =>
+    withSharedMessagingAuthority(tx, input, withChannelRow(tx, input, work)),
+  );
