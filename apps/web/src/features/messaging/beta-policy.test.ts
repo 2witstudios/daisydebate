@@ -57,7 +57,7 @@ test('the shipped beta policy is DEC-251, frozen, within DEC-124', () => {
   assert({
     given: 'the beta posting policy',
     should:
-      'admit 16+ members only (DEC-251), sized at the DEC-124 message limit',
+      'admit 16+ members within one age band only (DEC-251, ADR 0061), sized at the DEC-124 message limit',
     actual: [
       betaMessagingPolicy.posting,
       betaMessagingPolicy.bounds.messageUnits,
@@ -72,7 +72,6 @@ test('the shipped beta policy is DEC-251, frozen, within DEC-124', () => {
         allowedBandPairs: [
           ['adult', 'adult'],
           ['16-17', '16-17'],
-          ['16-17', 'adult'],
         ],
       },
       messagingBetaLimits.messageUnits,

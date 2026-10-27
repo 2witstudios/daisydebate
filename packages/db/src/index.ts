@@ -1,5 +1,6 @@
 import { messagingOperations } from './messaging/operations';
 import { friendshipReadOperations } from './messaging/friendships';
+import { retainedConversationOperations } from './messaging/retained-store';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
@@ -169,6 +170,7 @@ export function createDatabase({
     ...actorOperations({ database, eventSink }),
     ...messagingOperations(database),
     ...friendshipReadOperations({ database, eventSink }),
+    ...retainedConversationOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>

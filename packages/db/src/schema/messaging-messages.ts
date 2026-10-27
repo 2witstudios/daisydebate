@@ -17,7 +17,10 @@ import {
 import { timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
 
-/** Content is scrubbed in place; receipts never preserve deleted content. */
+/**
+ * Content is scrubbed in place, except an erased member's DM rows, which are
+ * deleted outright (ADR 0085). Receipts never preserve deleted content.
+ */
 export const messagingMessages = pgTable(
   'messaging_messages',
   {

@@ -34,6 +34,18 @@ export const messagingContactBlockResultSchema = z.strictObject({
   blocked: z.boolean(),
   revision: z.number().int().positive().safe(),
 });
+/**
+ * A channel's lifecycle. `retained` is a DM whose other member was erased:
+ * only its survivor's own rows remain, readable by them alone (DEC-126).
+ */
+export const messagingChannelLifecycles = [
+  'active',
+  'archived',
+  'retained',
+] as const;
+export type MessagingChannelLifecycle =
+  (typeof messagingChannelLifecycles)[number];
+
 export const messagingGroupCreationResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,

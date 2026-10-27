@@ -16,8 +16,10 @@ export type MessagingGroupInvitationFact = {
   readonly kind: 'group_invitation';
   readonly channel: Pick<
     MessagingChannelFact,
-    'channelId' | 'policyRevision' | 'revision' | 'lifecycle'
+    'channelId' | 'policyRevision' | 'revision'
   > & {
+    /** Groups are never retained (DEC-126). */
+    readonly lifecycle: 'active' | 'archived';
     readonly kind: 'private_group';
     readonly policyKey: 'social.private_group';
     readonly activeMemberActorIds: readonly string[];

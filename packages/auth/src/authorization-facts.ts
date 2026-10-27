@@ -1,3 +1,4 @@
+import type { MessagingChannelLifecycle } from '@daisy/protocol';
 import type {
   AuthorizationCapability,
   AuthorizationDenyReason,
@@ -84,7 +85,7 @@ export type ChannelAuthorizationFact = {
   readonly channelId: string;
   readonly policyKey: string;
   readonly policyRevision: number;
-  readonly lifecycle: 'active' | 'archived';
+  readonly lifecycle: MessagingChannelLifecycle;
   readonly revision: number;
   readonly authority:
     | {

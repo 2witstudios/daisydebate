@@ -34,6 +34,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
   const social = await import('../schema/messaging-social');
   const subjects = await import('../schema/messaging-social-command-subjects');
   const messages = await import('../schema/messaging-messages');
+  const retained = await import('../schema/messaging-retained');
   const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
     await import('./messaging-declarations');
   const tables = [
@@ -42,6 +43,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(social),
     ...Object.values(subjects),
     ...Object.values(messages),
+    ...Object.values(retained),
   ];
   const expected = currentColumns(tables);
   assert({

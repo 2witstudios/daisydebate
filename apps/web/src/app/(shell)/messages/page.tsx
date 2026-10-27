@@ -9,7 +9,17 @@ import type { SearchParams } from '../../../features/access/decision';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { InboxRow } from '../../../ui/messaging/inbox-row';
+import { RetainedConversationList } from '../../../ui/messaging/retained-list';
 import { GET } from '../../api/messaging/inbox/route';
+import { GET as retainedList } from '../../api/messaging/retained/route';
+import { messagingRetainedSchemas } from '@daisy/protocol';
+
+/** The survivor's retained conversations (DEC-126), or none when unreadable. */
+async function readRetainedConversations(response: Response) {
+  if (!response.ok) return [];
+  const parsed = messagingRetainedSchemas.list.safeParse(await response.json());
+  return parsed.success ? parsed.data.conversations : [];
+}
 export const metadata = { title: 'Messages' };
 export default async function MessagesPage({
   searchParams,
@@ -31,6 +41,13 @@ export default async function MessagesPage({
     }),
   );
   const inbox = await readMessagingInboxResponse(response);
+  const retained = await readRetainedConversations(
+    await retainedList(
+      new Request('http://in-process.invalid/api/messaging/retained', {
+        headers: new Headers(await headers()),
+      }),
+    ),
+  );
   const now = systemClock.now();
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
@@ -77,6 +94,7 @@ export default async function MessagesPage({
           ) : null}
         </InboxLive>
       )}
+      <RetainedConversationList conversations={retained} />
     </main>
   );
 }

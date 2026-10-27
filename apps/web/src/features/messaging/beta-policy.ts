@@ -156,7 +156,11 @@ export function tightenMessagingValues(
   });
 }
 
-/** DEC-251 posting: admitted (beta approved) participants aged 16 or over. */
+/**
+ * DEC-251 posting: admitted (beta approved) participants aged 16 or over,
+ * within one age band. ADR 0061 allows no cross-band contact without a
+ * separately approved guardian policy, so 16-17 and adult never meet.
+ */
 const betaDmPolicy = {
   state: 'approved',
   decision: 'DEC-251',
@@ -165,7 +169,6 @@ const betaDmPolicy = {
   allowedBandPairs: [
     ['adult', 'adult'],
     ['16-17', '16-17'],
-    ['16-17', 'adult'],
   ],
 } as const satisfies SocialContactPolicy;
 

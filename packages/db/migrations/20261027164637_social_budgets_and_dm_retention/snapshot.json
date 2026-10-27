@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f49ed5b9-8933-4858-bb6e-6f30df7d54b1",
+  "id": "98c02161-6f48-4795-a146-c1eece9dde03",
   "prevIds": [
     "c2e7935e-66f3-4ef9-8077-d82d9ff3da14"
   ],
@@ -201,6 +201,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_receipts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_retained_authors",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3761,6 +3767,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_retained_authors"
     },
     {
       "type": "text",
@@ -9826,6 +9871,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_retained_authors_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "subject_actor_id",
           "isExpression": false,
           "asc": true,
@@ -13569,6 +13635,40 @@
     {
       "nameExplicit": false,
       "columns": [
+        "channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "messaging_channels",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_retained_authors_XzNb7mYFXBhe_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "messaging_retained_authors_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "subject_actor_id"
       ],
       "schemaTo": "public",
@@ -15382,6 +15482,17 @@
     },
     {
       "columns": [
+        "channel_id",
+        "actor_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_retained_authors_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "messaging_retained_authors"
+    },
+    {
+      "columns": [
         "actor_id",
         "request_id",
         "subject_actor_id"
@@ -16682,7 +16793,7 @@
       "table": "messaging_channels"
     },
     {
-      "value": "\"lifecycle\" in ('active', 'archived')",
+      "value": "\"lifecycle\" in ('active', 'archived', 'retained')",
       "name": "messaging_channels_lifecycle",
       "entityType": "checks",
       "schema": "public",

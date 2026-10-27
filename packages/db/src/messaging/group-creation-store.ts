@@ -1,3 +1,4 @@
+import { groupLifecycleOf } from './social';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -114,7 +115,7 @@ export function createMessagingGroupCreationStore(
           return {
             ...receipt,
             channelId: fresh.channelId,
-            lifecycle: fresh.lifecycle,
+            lifecycle: groupLifecycleOf(fresh.lifecycle),
           };
         };
         return work({

@@ -156,18 +156,24 @@ test('messaging rights erase subject associations atomically and preserve other 
         other_grants: 1,
       },
     });
+    const [dm] = await client.unsafe(
+      "select lifecycle,(select string_agg(actor_id, ',') from messaging_retained_authors r where r.channel_id=c.id) as survivors from messaging_channels c where id=$1",
+      [channelId],
+    );
     assert({
-      given: 'committed erasure with another author',
+      given: 'committed erasure of one DM member with another author',
       should:
-        'scrub only subject text and preserve the other contribution physically',
-      actual: messages,
+        'delete the subject’s DM rows outright and keep the survivor’s, retained for them alone (DEC-126)',
+      actual: [messages, dm],
       expected: [
-        { author_actor_id: actorId, text: null, removed: true },
-        {
-          author_actor_id: otherActorId,
-          text: 'Other private text',
-          removed: false,
-        },
+        [
+          {
+            author_actor_id: otherActorId,
+            text: 'Other private text',
+            removed: false,
+          },
+        ],
+        { lifecycle: 'retained', survivors: otherActorId },
       ],
     });
     const [group] = await client.unsafe(

@@ -1,3 +1,4 @@
+import { groupLifecycleOf } from './social';
 import { readMessagingGroupCommand } from './group-command-row';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -45,7 +46,7 @@ export function createMessagingGroupIssuanceStore(input: {
                 observedAbsent = receipt === null;
                 return {
                   channelId: scope.channelId,
-                  lifecycle: authority.fact.lifecycle,
+                  lifecycle: groupLifecycleOf(authority.fact.lifecycle),
                   receipt:
                     receipt === null
                       ? null

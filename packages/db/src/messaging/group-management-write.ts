@@ -1,3 +1,4 @@
+import { groupLifecycleOf } from './social';
 import { writeMessagingGroupLifecycle } from './group-channel-write';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -67,7 +68,7 @@ export async function writeGroupManagement(
     .for('update');
   const plan = planGroupManagement({
     ...scope,
-    lifecycle: fact.lifecycle,
+    lifecycle: groupLifecycleOf(fact.lifecycle),
     grants: grants.map((grant) => {
       if (grant.role !== 'manager' && grant.role !== 'member')
         throw createAppError('INFRASTRUCTURE');

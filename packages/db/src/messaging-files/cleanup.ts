@@ -26,19 +26,30 @@ export async function deleteMessageFiles(
     );
 }
 /** Only this subject's authored objects, never another member's shared files. */
+/**
+ * Deletes `actorId`'s files, in `channelId` only when given, queuing each
+ * stored object's deletion through a file intent.
+ */
 export async function eraseSubjectFiles(
   tx: AuthorizationTransaction,
   actorId: string,
+  channelId?: string,
 ) {
-  if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
+  if (
+    !idSchema.safeParse(actorId).success ||
+    (channelId !== undefined && !idSchema.safeParse(channelId).success)
+  )
+    throw createAppError('VALIDATION');
+  const scope =
+    channelId === undefined ? sql`true` : sql`channel_id = ${channelId}`;
   // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
   await tx.execute(sql`
     insert into messaging_file_deletion_intents(object_key, charged_bytes)
     select object_key, reserved_bytes from messaging_files
-    where owner_actor_id = ${actorId} and lifecycle <> 'deleted'
+    where owner_actor_id = ${actorId} and ${scope} and lifecycle <> 'deleted'
   `);
   await tx.execute(
-    sql`delete from messaging_files where owner_actor_id = ${actorId}`,
+    sql`delete from messaging_files where owner_actor_id = ${actorId} and ${scope}`,
   );
 }
 export async function exportSubjectFiles(

@@ -112,6 +112,11 @@ const messagingColumns = {
     ],
     none: ['kind', 'created_at'],
   },
+  messaging_retained_authors: {
+    identifier: ['channel_id'],
+    personal: ['actor_id', 'created_at'],
+    none: [],
+  },
   messaging_social_declines: {
     identifier: [],
     personal: [
@@ -200,6 +205,11 @@ function privacyPurpose(
   }
   if (table === 'messaging_files') {
     return 'Private attachment metadata and quota reservation';
+  }
+  if (table === 'messaging_retained_authors') {
+    // DEC-126: the explicit grant to a survivor's own retained rows, with
+    // the same retention and basis as those message bodies.
+    return 'Survivor access to own retained messages';
   }
   if (table === 'messaging_social_declines') {
     // DEC-251: counts 30 days, blocks 30 days; deleted on acceptance, with

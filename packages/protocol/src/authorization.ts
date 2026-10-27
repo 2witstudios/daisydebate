@@ -6,6 +6,8 @@ const authorizationCapabilities = [
   'social.friend.end',
   'social.friend.list',
   'social.presence.update',
+  'channel.retained.read',
+  'channel.retained.delete',
   'social.request.create',
   'channel.create.private_group',
   'foundation.create',

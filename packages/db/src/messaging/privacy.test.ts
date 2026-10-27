@@ -58,6 +58,7 @@ test('subject export removes other-direction private state and serializes dates/
       },
     ],
     [{ actor_id: actorId, hidden: true, updated_at: date }],
+    [{ channel_id: channelId, actor_id: actorId, created_at: date }],
     [
       {
         decliner_actor_id: actorId,
@@ -112,6 +113,7 @@ test('subject export removes other-direction private state and serializes dates/
       result.messaging_group_invitations,
       result.messaging_files,
       result.messaging_social_declines,
+      result.messaging_retained_authors,
       queries.some((entry) =>
         entry.query.includes(
           'from messaging_social_declines where decliner_actor_id=',
@@ -184,6 +186,7 @@ test('subject export removes other-direction private state and serializes dates/
           blocked_until: null,
         },
       ],
+      [{ channel_id: channelId, actor_id: actorId, created_at: now }],
       true,
     ],
   });
@@ -205,6 +208,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
   const { client, queries } = fakeSql([
     [],
     [],
+    [], // the subject's DMs and their survivors
     [
       { id: 'm'.repeat(24), channelId, authorActorId: actorId },
       { id: 'n'.repeat(24), channelId, authorActorId: peerId },
@@ -213,6 +217,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [{ changeVersion: 3 }],
     [],
+    [], // the retained channels the subject survives
     [],
     [],
     [],
@@ -297,6 +302,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
 });
 test('exhausted erase version refuses before association or file deletion', async () => {
   const { client, queries } = fakeSql([
+    [],
     [],
     [],
     [{ id: 'm'.repeat(24), channelId, authorActorId: actorId }],

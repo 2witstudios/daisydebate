@@ -17,6 +17,8 @@ export function requireMessagingGroupResult(
     channel.policyKey !== 'social.private_group'
   )
     throw createAppError('AUTHORIZATION');
+  // Only DMs are ever retained (DEC-126): a retained group is absent.
+  if (channel.lifecycle === 'retained') throw createAppError('NOT_FOUND');
   const resource: GroupCommandResultAuthorizationFact = {
     kind: 'group_command_result',
     channel: {

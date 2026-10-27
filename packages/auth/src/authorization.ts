@@ -113,6 +113,9 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  // DEC-126: a retained DM is its survivor's own rows, read only through
+  // channel.retained.read; every channel capability refuses it.
+  if (resource.lifecycle === 'retained') return deny('missing-capability');
   if (['channel.group.revoke', 'channel.group.archive'].includes(capability))
     return decision(groupSafetyAllowed(actorId, capability, resource));
   if (capability === 'channel.leave')

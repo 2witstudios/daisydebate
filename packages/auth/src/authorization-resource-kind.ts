@@ -14,6 +14,8 @@ export function validResourceKind(
     'channel.inbox.read': 'messaging_collection',
     'social.friend.list': 'messaging_collection',
     'social.presence.update': 'messaging_collection',
+    'channel.retained.read': 'messaging_collection',
+    'channel.retained.delete': 'messaging_collection',
     'member.history.read': 'member_history',
     'channel.file.cleanup': 'pending_file',
     'account.collection.read': 'account_collection',

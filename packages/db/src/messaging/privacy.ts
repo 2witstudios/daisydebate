@@ -3,6 +3,14 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
+import {
+  deleteAbandonedChannels,
+  detachSurvivorsFromSubject,
+  eraseRetainedAuthorship,
+  retainSurvivorDms,
+  retainedChannelsOf,
+  survivingDms,
+} from './retained-dm';
 import { appendOutboxEvent } from '../outbox';
 import type { AuthorizationTransaction } from '../authorization';
 import {
@@ -58,6 +66,7 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
       union select result_channel_id from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}
       union select channel_id from messaging_files where owner_actor_id=${actorId}
+      union select channel_id from messaging_retained_authors where actor_id=${actorId}
       union select c.result_channel_id from messaging_social_commands c join messaging_social_command_subjects s on s.actor_id=c.actor_id and s.request_id=c.request_id where s.subject_actor_id=${actorId}
     ) order by id for update
   `);
@@ -185,10 +194,22 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const now = z.iso.datetime().parse(context.now);
       await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
+      // DEC-126 (ADR 0085): a DM survivor keeps only their own rows.
+      const dms = await survivingDms(tx, subject.actorId);
+      // Every version advance comes first, so an exhausted one refuses
+      // before anything is deleted.
       await scrubSubjectMessages(tx, subject.actorId, now, versions);
       await eraseSubjectTitles(tx, subject.actorId, versions);
+      await eraseRetainedAuthorship(
+        tx,
+        subject.actorId,
+        await retainedChannelsOf(tx, subject.actorId),
+      );
+      await detachSurvivorsFromSubject(tx, subject.actorId, dms);
       await eraseSubjectFiles(tx, subject.actorId);
+      const abandoned = await retainSurvivorDms(tx, subject.actorId, dms, now);
       await eraseAssociations(tx, subject.actorId, versions);
+      await deleteAbandonedChannels(tx, abandoned);
       for (const [channelId, version] of versions)
         await appendOutboxEvent(tx, {
           topic: buildChannelTopic(channelId),
@@ -265,6 +286,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_presence_settings where actor_id=${actorId}`,
         ),
       );
+      const retained = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_retained_authors where actor_id=${actorId} order by channel_id`,
+        ),
+      );
       // Only the subject's own declines: the declines of others stay theirs.
       const declines = rowsOf<Record<string, unknown>>(
         await tx.execute(
@@ -310,6 +336,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_presence_settings: presenceSettings,
           messaging_social_commands: commands,
           messaging_social_declines: declines,
+          messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
         }).map(([table, rows]) => [table, exportRows(rows)]),

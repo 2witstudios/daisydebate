@@ -179,8 +179,12 @@ export {
   createMessagingSocialSchemas,
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
+  messagingChannelLifecycles,
 } from './messaging/social';
-export type { MessagingSocialBounds } from './messaging/social';
+export type {
+  MessagingChannelLifecycle,
+  MessagingSocialBounds,
+} from './messaging/social';
 export type {
   RoomAssemblyState,
   RoomConsent,
@@ -230,6 +234,7 @@ export {
 export { parseUsername } from './username';
 
 export { messagingPreferenceSchemas } from './messaging/preferences';
+export { messagingRetainedSchemas } from './messaging/retained';
 export { messagingTypingSchemas } from './messaging/typing';
 
 export {

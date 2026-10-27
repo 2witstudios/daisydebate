@@ -106,6 +106,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/requests/[channelId]/page'),
     '(shell)/messages/requests/[channelId]/status/page.tsx': () =>
       import('../../app/(shell)/messages/requests/[channelId]/status/page'),
+    '(shell)/messages/retained/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/retained/[channelId]/page'),
     '(shell)/messages/groups/[channelId]/manage/page.tsx': () =>
       import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
     '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>

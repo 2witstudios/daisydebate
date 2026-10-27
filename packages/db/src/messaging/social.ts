@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -11,11 +11,22 @@ import {
 } from '../schema/messaging-social';
 
 const positiveRevision = z.number().int().positive().safe();
+
+/**
+ * A private group's lifecycle: only DMs are ever retained (DEC-126), so a
+ * retained group is refused as absent.
+ */
+export function groupLifecycleOf(
+  lifecycle: (typeof messagingChannelLifecycles)[number],
+): 'active' | 'archived' {
+  if (lifecycle === 'retained') throw createAppError('NOT_FOUND');
+  return lifecycle;
+}
 const base = {
   kind: z.literal('channel'),
   channelId: idSchema,
   policyRevision: positiveRevision,
-  lifecycle: z.enum(['active', 'archived']),
+  lifecycle: z.enum(messagingChannelLifecycles),
   revision: positiveRevision,
 };
 const dmAuthority = z
