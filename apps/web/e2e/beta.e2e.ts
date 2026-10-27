@@ -70,7 +70,7 @@ test.describe('without JavaScript', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/sign-in$/);
     await page.goto('/play');
     await expect(page).toHaveURL(/\/sign-in/);
   });

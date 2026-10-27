@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { OnboardingFrame } from '../onboarding/frame/frame';
+import {
+  SIGN_OUT_FAILED_NOTICE,
+  SignOutForm,
+} from '../components/sign-out-form/sign-out-form';
 
 export type BetaWaitingProps = {
   readonly username: string;
@@ -32,7 +36,7 @@ function Actions({
     <div className="flex flex-col gap-3">
       {failed ? (
         <p role="alert" className="text-md text-ink">
-          We couldn’t sign you out. Please try again.
+          {SIGN_OUT_FAILED_NOTICE}
         </p>
       ) : null}
       <div className="flex flex-wrap gap-3">
@@ -40,11 +44,7 @@ function Actions({
         <Link className={link} href="/settings">
           Account settings
         </Link>
-        <form method="post" action="/auth/sign-out">
-          <button type="submit" className={`${link} bg-transparent`}>
-            Sign out
-          </button>
-        </form>
+        <SignOutForm next="/beta" className={`${link} bg-transparent`} />
       </div>
     </div>
   );

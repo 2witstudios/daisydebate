@@ -6,7 +6,7 @@ setupRitewayBun();
 const ORIGIN = 'http://localhost:3000';
 const CLEARED = 'better-auth.session_token=; Max-Age=0; Path=/; HttpOnly';
 
-const formPost = (origin: string | null) =>
+const formPost = (origin: string | null, body = '') =>
   new Request(`${ORIGIN}/auth/sign-out`, {
     method: 'POST',
     headers: {
@@ -14,7 +14,7 @@ const formPost = (origin: string | null) =>
       cookie: 'better-auth.session_token=abc',
       ...(origin ? { origin } : {}),
     },
-    body: '',
+    body,
   });
 
 const handlerWith = (answer: Response) => {
@@ -43,7 +43,7 @@ describe('the sign-out form (ISSUE-691)', () => {
     assert({
       given: 'a native form post from the page, carrying the session cookie',
       should:
-        'run the auth sign-out with that cookie and a JSON body, then 303 home with its cleared cookie',
+        'run the auth sign-out with that cookie and a JSON body, then 303 to /sign-in with its cleared cookie',
       actual: [
         new URL(sent.url).pathname,
         sent.method,
@@ -61,7 +61,7 @@ describe('the sign-out form (ISSUE-691)', () => {
         'application/json',
         '{}',
         303,
-        '/',
+        '/sign-in',
         [CLEARED],
       ],
     });
@@ -110,6 +110,30 @@ describe('the sign-out form (ISSUE-691)', () => {
       expected: [
         [303, '/beta?signOut=failed', []],
         [303, '/beta?signOut=failed', []],
+      ],
+    });
+  });
+
+  test('a failure returns to the page the form names, never off-site (review F9)', async () => {
+    const { handler } = handlerWith(new Response(null, { status: 500 }));
+    const back = async (body: string) =>
+      (await handler(formPost(ORIGIN, body))).headers.get('location');
+    assert({
+      given:
+        'a failed sign-out from Settings, from a page with its own query, from an off-site next, and from an over-long body',
+      should:
+        'return to that page with the notice, keep its query, and fall back to /beta for anything not a safe local page',
+      actual: [
+        await back('next=%2Fsettings%2Fsecurity'),
+        await back('next=%2Fsettings%3Ftab%3Dprivacy'),
+        await back('next=%2F%2Fevil.example'),
+        await back(`next=%2Fsettings&pad=${'x'.repeat(4096)}`),
+      ],
+      expected: [
+        '/settings/security?signOut=failed',
+        '/settings?tab=privacy&signOut=failed',
+        '/beta?signOut=failed',
+        '/beta?signOut=failed',
       ],
     });
   });

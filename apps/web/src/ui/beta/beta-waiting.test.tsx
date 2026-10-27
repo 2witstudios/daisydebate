@@ -78,7 +78,7 @@ describe('signing out of /beta without JavaScript (ISSUE-691)', () => {
             ageHref: '/onboarding/age?next=%2Fbeta',
           }),
         ).includes(
-          '<form action="/auth/sign-out" method="post"><button type="submit"',
+          '<form action="/auth/sign-out" method="post"><input type="hidden" name="next" value="/beta"/><button type="submit"',
         ),
     );
     assert({
