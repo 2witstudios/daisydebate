@@ -1,0 +1,2 @@
+CREATE INDEX "verification_identifier_pattern_idx" ON "verification" ("identifier" text_pattern_ops);--> statement-breakpoint
+CREATE INDEX "users_provisional_created_idx" ON "users" ("created_at","id") WHERE "username" is null and "deleted_at" is null;

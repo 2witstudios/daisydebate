@@ -306,7 +306,7 @@ test('the sweep finds candidates and their links through indexes (ISSUE-716)', a
         plan.includes(
           index === 0
             ? 'users_provisional_created_idx'
-            : 'verification_identifier_idx',
+            : 'verification_identifier_pattern_idx',
         ),
       ),
       expected: [true, true],

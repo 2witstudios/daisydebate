@@ -73,10 +73,13 @@ export const verifications = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
-    // text_pattern_ops serves both Better Auth's identifier equality and a
-    // purpose prefix (`identifier like 'sign-in:%'`), so the sweep's link
-    // cleanup reads only that purpose's rows (ISSUE-716).
-    index('verification_identifier_idx').on(
+    index('verification_identifier_idx').on(table.identifier),
+    // ISSUE-716 expand step: text_pattern_ops serves a purpose prefix
+    // (`identifier like 'sign-in:%'`) as well as equality, so the sweep's
+    // link cleanup reads only that purpose's rows. Created beside the plain
+    // index so the release takes only a short SHARE lock (database.md,
+    // lock-bounded releases); a later release drops the plain one.
+    index('verification_identifier_pattern_idx').on(
       table.identifier.op('text_pattern_ops'),
     ),
     index('verification_expires_at_idx').on(table.expiresAt),

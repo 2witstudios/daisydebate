@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "287000d6-acde-4db9-a969-2b1ddacc99fc",
+  "id": "d23996d5-dc0c-4bc6-8b86-9f6e374ea99e",
   "prevIds": [
     "c2e7935e-66f3-4ef9-8077-d82d9ff3da14"
   ],
@@ -8544,6 +8544,27 @@
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "verification_identifier_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "verification"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "identifier",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
           "opclass": {
             "name": "text_pattern_ops",
             "default": false
@@ -8555,7 +8576,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "verification_identifier_idx",
+      "name": "verification_identifier_pattern_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "verification"
