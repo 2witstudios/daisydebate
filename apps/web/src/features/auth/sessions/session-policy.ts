@@ -8,7 +8,7 @@ export const SESSION_FRESH_AGE_SECONDS = 60 * 60;
 
 /**
  * Better Auth slides a session once `updateAge` has passed since it was
- * last extended (1.7.5 `get-session`: expiresAt - expiresIn + updateAge <=
+ * last extended (1.7.7 `get-session`: expiresAt - expiresIn + updateAge <=
  * now). Both instants are UTC ISO strings.
  */
 export const sessionRefreshDue = (expiresAt: string, now: string): boolean =>

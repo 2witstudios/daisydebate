@@ -54,7 +54,7 @@ exception registries as fixes.
      `migration.sql`.
    - **Relational query builder v2.** Daisy passes no `relations` to
      `drizzle()` and uses no `db.query`. Better Auth's drizzle adapter
-     (1.7.5, peer `drizzle-orm ^0.45.2 || >=1.0.0-rc.1 <2.0.0`) reaches
+     (1.7.7, peer `drizzle-orm ^0.45.2 || >=1.0.0-rc.1 <2.0.0`) reaches
      `db.query` only for its experimental joins, which are off, so it runs
      on the core query builder; the auth integration suites prove it.
    - **Driver change.** drizzle-orm 1.0's Bun SQL driver sets

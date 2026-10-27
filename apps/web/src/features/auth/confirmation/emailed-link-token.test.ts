@@ -4,6 +4,8 @@ import {
   EMAILED_LINK_PURPOSES,
   emailedLinkIdentifier,
   generateEmailedLinkToken,
+  SIGN_IN_STORED_PURPOSE,
+  storedSignInIdentifier,
 } from './emailed-link-token';
 
 setupRitewayBun();
@@ -56,5 +58,24 @@ describe('ISSUE-2 emailed-link tokens', () => {
       actual: new Set(identifiers).size,
       expected: EMAILED_LINK_PURPOSES.length,
     });
+  });
+});
+
+test('a sign-in link is stored under the prefix Better Auth gives magic links', () => {
+  const token = generateEmailedLinkToken();
+  assert({
+    given: 'a sign-in token and Better Auth 1.7.7 magic-link purpose isolation',
+    should:
+      'be stored as magic-link: plus the sign-in identifier, which readers find by the stored purpose prefix',
+    actual: {
+      identifier: storedSignInIdentifier(token),
+      prefixed: storedSignInIdentifier(token).startsWith(
+        `${SIGN_IN_STORED_PURPOSE}:`,
+      ),
+    },
+    expected: {
+      identifier: `magic-link:sign-in:${sha3(token)}`,
+      prefixed: true,
+    },
   });
 });
