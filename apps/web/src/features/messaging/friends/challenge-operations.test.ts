@@ -1,7 +1,6 @@
-import { dec251MessagingValues } from '../beta-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { friendTestPorts } from './friend-ports.test-support';
 import { assertRejects } from '@daisy/errors/testing';
-import { fixedClock, sequentialId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { changeChallenge } from './challenge-operations';
@@ -54,9 +53,7 @@ const harness = ({
     writes,
     capabilities,
     dependencies: {
-      clock: fixedClock(now),
-      ids: sequentialId('friend-request'),
-      limits: dec251MessagingValues.socialRequests,
+      ...friendTestPorts(now),
       limit: async () => {},
       lookup: async (name: string) => (name === 'bea' ? them : null),
       store,

@@ -48,16 +48,42 @@ const day = (offset: number) =>
     Date.parse('2026-10-09T18:00:00.000Z') + offset * 86_400_000,
   ).toISOString();
 
-test('three declines by one person block the requester for 30 days, and acceptance clears them (DEC-251)', async () => {
+/** Runs `work` over a fresh fixture pair, then removes it. */
+const withPair = async (
+  work: (pair: {
+    readonly store: Store;
+    readonly asker: readonly [string, string];
+    readonly answerer: readonly [string, string];
+    /** Every request and decline of `offsets`, the asker asking. */
+    readonly declined: (offsets: readonly number[]) => Promise<void>;
+  }) => Promise<void>,
+) => {
   const store = await openPairStore(databaseUrl);
   const { client, fixture } = store;
   const asker = [fixture.actorId!, fixture.userId!] as const;
   const answerer = [fixture.otherActorId!, fixture.otherUserId!] as const;
   try {
-    for (const offset of [0, 1]) {
-      await change(store, asker, 'request', day(offset));
-      await change(store, answerer, 'decline', day(offset));
-    }
+    await work({
+      store,
+      asker,
+      answerer,
+      declined: async (offsets) => {
+        for (const offset of offsets) {
+          await change(store, asker, 'request', day(offset));
+          await change(store, answerer, 'decline', day(offset));
+        }
+      },
+    });
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+};
+
+test('three declines by one person block the requester for 30 days, and acceptance clears them (DEC-251)', () =>
+  withPair(async ({ store, asker, answerer, declined }) => {
+    const { client } = store;
+    await declined([0, 1]);
     const afterTwo = await declinesOf(client, answerer[0]);
     await change(store, asker, 'request', day(2));
     await change(store, answerer, 'decline', day(2));
@@ -82,22 +108,12 @@ test('three declines by one person block the requester for 30 days, and acceptan
         [],
       ],
     });
-  } finally {
-    await fixture.cleanup();
-    await client.close();
-  }
-});
+  }));
 
-test('a block lapses after 30 days, and a decline older than 30 days no longer counts', async () => {
-  const store = await openPairStore(databaseUrl);
-  const { client, fixture } = store;
-  const asker = [fixture.actorId!, fixture.userId!] as const;
-  const answerer = [fixture.otherActorId!, fixture.otherUserId!] as const;
-  try {
-    for (const offset of [0, 1, 2]) {
-      await change(store, asker, 'request', day(offset));
-      await change(store, answerer, 'decline', day(offset));
-    }
+test('a block lapses after 30 days, and a decline older than 30 days no longer counts', () =>
+  withPair(async ({ store, asker, answerer, declined }) => {
+    const { client } = store;
+    await declined([0, 1, 2]);
     await change(store, asker, 'request', day(33));
     await change(store, answerer, 'decline', day(33));
     const afterLapse = await declinesOf(client, answerer[0]);
@@ -113,11 +129,7 @@ test('a block lapses after 30 days, and a decline older than 30 days no longer c
         [{ count: 1, blocked: false }],
       ],
     });
-  } finally {
-    await fixture.cleanup();
-    await client.close();
-  }
-});
+  }));
 
 test('the request budgets count the ledger, never the current pair rows (DEC-251)', async () => {
   const store = await openPairStore(databaseUrl);

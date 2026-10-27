@@ -175,7 +175,7 @@ const reactionChoices = ['👍', '❤️', '😂', '😮', '😢', '👏'];
  * The beta messaging policy every deployed app runs. Private groups (DEC-127)
  * compose no group posting or admission, so every group entry point refuses.
  */
-export function composeBetaMessagingPolicy(
+function composeBetaMessagingPolicy(
   values: MessagingBetaValues,
 ): MessagingRuntimePolicy {
   return {
