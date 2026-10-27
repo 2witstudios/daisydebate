@@ -1,4 +1,4 @@
-import type { DocumentRecord } from '@daisy/db';
+import type { DocumentRecord } from '@daisy/db/documents';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type AppError } from '@daisy/errors';

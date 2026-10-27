@@ -1,5 +1,5 @@
 import { fixedClock, fixedIds } from '@daisy/clock';
-import type { DocumentRecord } from '@daisy/db';
+import type { DocumentRecord } from '@daisy/db/documents';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import {
   createDebateDocumentOperations,

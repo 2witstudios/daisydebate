@@ -4,7 +4,7 @@ import type {
   AttendanceEvaluationFacts,
   AttendanceEvaluator,
   AttendanceStore,
-} from '@daisy/db';
+} from '@daisy/db/attendance';
 import {
   oneOnOneDefinition,
   oneOnOneRoomConfig,
