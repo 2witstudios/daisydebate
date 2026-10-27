@@ -80,8 +80,15 @@ export const nextDestination = (search: SearchParams): string => {
 export const signInHref = (destination: string): string =>
   `/sign-in?next=${encodeURIComponent(destination)}`;
 
-/** Choose a username, then continue to an already validated destination. */
+/**
+ * The start of onboarding for an account without a username: the age step
+ * (WAIT-4.6), which goes on to the username step, then the destination.
+ */
 export const onboardingHref = (destination: string): string =>
+  `/onboarding/age?next=${encodeURIComponent(destination)}`;
+
+/** Choose a username, once the age step is answered, then the destination. */
+export const usernameHref = (destination: string): string =>
   `/onboarding/username?next=${encodeURIComponent(destination)}`;
 
 /** The passkey offer after a claimed username, then the destination. */
