@@ -51,14 +51,12 @@ export const resolutionBankOperations = ({
           .insert(resolutionBankRevisions)
           .values({ revision, note: input.note.trim() });
         if (input.add.length)
-          await tx
-            .insert(resolutionBankEntries)
-            .values(
-              input.add.map((entry) => ({
-                ...entry,
-                addedInRevision: revision,
-              })),
-            );
+          await tx.insert(resolutionBankEntries).values(
+            input.add.map((entry) => ({
+              ...entry,
+              addedInRevision: revision,
+            })),
+          );
         if (input.retire.length) {
           const retired = await tx
             .update(resolutionBankEntries)

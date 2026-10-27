@@ -1,21 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { resolutionBankRevision1 } from './resolution-bank';
+import { committedMigrationSql } from './migrations.test-support';
 
 setupRitewayBun();
 
 /** Every bank entry the committed migrations insert, in folder order. */
 const migratedEntries = async () => {
-  const directory = new URL('../migrations/', import.meta.url).pathname;
-  const folders = [...new Bun.Glob('*/migration.sql').scanSync(directory)]
-    .map((path) => path.split('/')[0]!)
-    .sort();
-  const sql = (
-    await Promise.all(
-      folders.map((folder) =>
-        Bun.file(`${directory}${folder}/migration.sql`).text(),
-      ),
-    )
-  ).join('\n');
+  const sql = await committedMigrationSql();
   return [
     ...sql.matchAll(
       /\('([a-z0-9]{24})', '((?:[^']|'')*)', '(policy|value|fact)', '(intro|standard|advanced)', '([a-z-]+)', '([^']+)', (\d+)\)/g,
