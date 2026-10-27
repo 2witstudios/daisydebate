@@ -71,6 +71,10 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `batches`                | count |
 | `closeCode`              | count |
 | `deliverySeqLagEstimate` | count |
+| `retained`               | count |
+| `running`                | count |
+| `topics`                 | count |
+| `oldestAgeMs`            | count |
 | `pending`                | count |
 | `scope`                  | code  |
 
@@ -107,3 +111,13 @@ session tokens, WebAuthn challenges and operator passkeys, outside Better
 Auth, in its own database: 32 OS CSPRNG bytes, base64url, stored and compared
 only as SHA3-256 digests. Nothing else in this record changes; no admin token,
 cookie or challenge is ever logged.
+
+## Amendment (2026-10-27): delivery backlog counts
+
+Bounded realtime delivery (RT-2.3c-arch1) reports what an instance still owes
+its subscribers on each readiness probe as `realtime.delivery.backlog`. It
+adds four fields of kind **count**, each with privacy category `none`:
+`retained` (rows waiting or running), `running` (rows whose delivery has
+started), `topics` (topics holding retained rows) and `oldestAgeMs` (the
+oldest retained row's publication age). They carry no topic, resource or
+actor identifier.

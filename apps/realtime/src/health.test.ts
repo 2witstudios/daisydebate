@@ -99,6 +99,29 @@ describe('checkReadiness', () => {
     });
   });
 
+  test('reports the delivery backlog without gating ready', async () => {
+    const backlog = { retained: 3, running: 1, topics: 2, oldestAgeMs: 1500 };
+    const resources: ReadinessResources = {
+      ...healthyResources,
+      outbox: {
+        cursor: () => ({ txid: '5', seq: 10n }),
+        highWaterMark: async () => ({ txid: '5', seq: 10n }),
+        backlog: () => backlog,
+      },
+    };
+    assert({
+      given: 'delivery work retained behind an already-advanced drain cursor',
+      should: 'report the backlog and its age while staying ready',
+      actual: await checkReadiness(resources),
+      expected: {
+        ready: true,
+        checks: { database: true, listen: true, redis: true },
+        deliverySeqLagEstimate: 0,
+        deliveryBacklog: backlog,
+      },
+    });
+  });
+
   test('omits deliverySeqLagEstimate, and stays ready, when the high-water mark read fails', async () => {
     const resources: ReadinessResources = {
       ...healthyResources,

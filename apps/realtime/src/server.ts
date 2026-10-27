@@ -46,6 +46,12 @@ const readyResponse = async (resources: RealtimeServerResources) => {
       { deliverySeqLagEstimate: report.deliverySeqLagEstimate },
       'Delivery lag estimated',
     );
+  if (report.deliveryBacklog !== undefined)
+    resources.logger.log(
+      'realtime.delivery.backlog',
+      { ...report.deliveryBacklog },
+      'Delivery backlog reported',
+    );
   return Response.json(
     { status: report.ready ? 'ready' : 'unavailable' },
     { status: report.ready ? 200 : 503, headers: noStore },

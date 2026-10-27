@@ -45,6 +45,7 @@ export const eventRegistry = {
   'realtime.outbox.actor_missing': 'warn',
   'realtime.outbox.drain_failed': 'error',
   'realtime.outbox.delivery_lag_estimated': 'info',
+  'realtime.delivery.backlog': 'info',
   'realtime.connection.rejected': 'info',
   'realtime.subscription.unavailable': 'error',
   'db.query.failed': 'error',
@@ -134,6 +135,10 @@ export const loggableFields = {
   batches: 'count',
   closeCode: 'count',
   deliverySeqLagEstimate: 'count',
+  retained: 'count',
+  running: 'count',
+  topics: 'count',
+  oldestAgeMs: 'count',
   pending: 'count',
   scope: 'code',
 } as const satisfies Record<string, FieldKind>;
