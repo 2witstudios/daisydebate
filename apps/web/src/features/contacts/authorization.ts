@@ -84,7 +84,7 @@ export function contactAuthorizationFence({
       principal,
       capability:
         operation.kind === 'dm'
-          ? 'social.request.create'
+          ? 'channel.dm.request'
           : 'channel.create.private_group',
       resource,
       context: {

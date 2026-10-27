@@ -10,7 +10,7 @@ const authorizationCapabilities = [
   'social.presence.update',
   'channel.retained.read',
   'channel.retained.delete',
-  'social.request.create',
+  'channel.dm.request',
   'channel.create.private_group',
   'foundation.create',
   'foundation.read',

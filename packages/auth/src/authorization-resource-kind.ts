@@ -32,9 +32,7 @@ export function validResourceKind(
   )
     return resource.kind === 'contact_pair';
   if (
-    ['social.request.create', 'channel.create.private_group'].includes(
-      capability,
-    )
+    ['channel.dm.request', 'channel.create.private_group'].includes(capability)
   )
     return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))
