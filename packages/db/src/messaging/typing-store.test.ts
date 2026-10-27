@@ -21,6 +21,27 @@ test('typing store fences full cast then publishes only validated thin hint in t
     ];
   });
   assert({
+    given: 'a typing update in a channel',
+    should:
+      'fence accounts and the channel shared, never exclusively (MSG-2.1-arch1)',
+    actual: {
+      shared: [
+        queries.some((row) =>
+          row.query.includes('daisy_authorization_read_accounts_v2('),
+        ),
+        queries.some((row) =>
+          row.query.includes('daisy_messaging_channel_read_fence('),
+        ),
+      ],
+      exclusive: queries.some(
+        (row) =>
+          row.query.includes('daisy_messaging_channel_fence(') ||
+          row.query.includes('daisy_authorization_accounts_v2('),
+      ),
+    },
+    expected: { shared: [true, true], exclusive: false },
+  });
+  assert({
     given: 'current account/pair/channel fenced cast',
     should:
       'use one transaction and a channel-only non-position hint without inserting outbox',
