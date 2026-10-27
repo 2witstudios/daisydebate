@@ -64,3 +64,46 @@ test('provisional retention refuses bad bounds without querying', async () => {
     expected: [[true, true, true], 0],
   });
 });
+
+test('eligible provisional cleanup uses exact mail owners and returns committed deletion counts', async () => {
+  const user = { id: 'u'.repeat(24), email: 'unit@example.test' };
+  const { database, queries } = createTestDatabase([
+    [user],
+    [user],
+    [],
+    [],
+    [{ id: user.id }],
+  ]);
+  const deleted = await database.purgeExpiredProvisionalUsers({
+    before,
+    limit: 1,
+    ...options,
+  });
+  const cleanup = queries[2]!;
+  assert({
+    given: 'an eligible locked provisional with an email address',
+    should:
+      'clean sign-in and both email-change subjects, remove only its keyed receipts and count the deleted user',
+    actual: {
+      deleted,
+      statements: queries.length,
+      selection: queries[0]?.params,
+      subjects:
+        cleanup.query.includes('email-change-approve:') &&
+        cleanup.query.includes('email-change-verify:') &&
+        cleanup.query.includes("'userId'"),
+      owners: cleanup.params,
+      receipt: queries[3]?.params,
+      user: queries[4]?.params,
+    },
+    expected: {
+      deleted: 1,
+      statements: 5,
+      selection: [before, 1],
+      subjects: true,
+      owners: ['sign-in:', user.email, user.id],
+      receipt: [`hash:${user.email}`],
+      user: [user.id],
+    },
+  });
+});
