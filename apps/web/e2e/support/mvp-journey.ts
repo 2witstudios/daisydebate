@@ -61,7 +61,7 @@ async function expectInHistory(page: Page, username: string, roundId: string) {
  * ISSUE-639, the unranked beta MVP journey as one proof:
  * - clause 1: the beta gate denies a pending member (approval: ISSUE-685);
  * - clause 2: two approved members meet through the Lobby, play a standard
- *   one-on-one Round to a human ballot, read the authorized result and
+ *   one-on-one Value Round to a human ballot, read the authorized result and
  *   transcript, and find the same Round in their profile history.
  * Clause 3 (Freestyle strike and reveal) has no producer on main; clause 4
  * (friends, Challenge, DM) is the Social slice's seam. Both are recorded in
@@ -76,7 +76,7 @@ export async function proveMvpJourney(browser: Browser) {
       'ISSUE-639',
     );
     const title = `ISSUE-639 ${createId().slice(0, 8)}`;
-    let room = await createFromPlay(aff, title, 'one-on-one');
+    let room = await createFromPlay(aff, title, 'value');
     for (const page of [neg, judge]) await joinFromLobby(page, title, room.id);
     const players: Player[] = [
       { page: aff, seat: 'Affirmative 1' },
