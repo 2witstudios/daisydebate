@@ -21,6 +21,33 @@ export const emailedLinkRejected = (response: Response): boolean => {
   );
 };
 
+type JsonPost = (
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+) => Request;
+
+/**
+ * Answers the real age step as an adult who accepts the Terms: every
+ * sign-up passes it before its username claim (WAIT-4.6).
+ */
+export async function answerAdultAge(
+  ageRoute: { POST: (request: Request) => Promise<Response> },
+  jsonPost: JsonPost,
+  cookie: string,
+): Promise<void> {
+  const answered = await ageRoute.POST(
+    jsonPost(
+      '/api/account/age',
+      { month: 1, year: 1990, terms: true },
+      {
+        cookie,
+      },
+    ),
+  );
+  if (!answered.ok) throw new Error('Fixture age step failed');
+}
+
 /**
  * Account harness for the stage-4 suites: real sign-up through the mounted
  * request and /auth/confirm routes, and the real username claim route, all
@@ -32,15 +59,20 @@ export function createAccountFlows(testApp?: TestApp) {
   /** A server-side session read as a page render makes it for one client. */
   const identifyAs = (cookie: string, client = newClient()) =>
     identify(app.auth(), new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
-  const usernameRoute = flows.testApp.routes.username;
+  const { username: usernameRoute, age: ageRoute } = flows.testApp.routes;
 
-  /** A brand-new account signed in through the real request → confirm path. */
+  /**
+   * A brand-new account signed in through the real request → confirm path,
+   * past the age step as every sign-up must be before its username claim.
+   */
   const signUp = async () => {
     const { email, token } = await flows.startSignup();
     const response = await flows.redeem(token, {
-      newUserCallbackURL: '/onboarding/username?next=%2Flobby',
+      newUserCallbackURL: '/onboarding/age?next=%2Flobby',
     });
-    return { email, token, response, cookie: cookieHeader(response) };
+    const cookie = cookieHeader(response);
+    await answerAdultAge(ageRoute, jsonPost, cookie);
+    return { email, token, response, cookie };
   };
 
   const claim = (

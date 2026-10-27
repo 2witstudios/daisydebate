@@ -17,9 +17,11 @@ const member: Identity = {
 const handlerWith = ({
   identity = member,
   consume = allowEvery,
+  aged = true,
 }: {
   identity?: Identity;
   consume?: ConsumeStub;
+  aged?: boolean;
 } = {}) => {
   const claims: unknown[] = [];
   const handler = createUsernameHandler({
@@ -31,6 +33,7 @@ const handlerWith = ({
       claims.push(input);
       return { kind: 'claimed' };
     },
+    hasRecordedAge: async () => aged,
   });
   return { handler, claims };
 };
@@ -147,6 +150,19 @@ describe('POST /api/account/username gates', () => {
         { username: 'ada_1' },
         [{ userId: 'user1', username: 'ada_1' }],
       ],
+    });
+  });
+});
+
+describe('POST /api/account/username and the age step', () => {
+  test('an account that has not answered the age step claims nothing', async () => {
+    const { handler, claims } = handlerWith({ aged: false });
+    const response = await handler(post());
+    assert({
+      given: 'a provisional account with no recorded age posting a name',
+      should: 'refuse with 403 and claim nothing',
+      actual: [response.status, claims.length],
+      expected: [403, 0],
     });
   });
 });

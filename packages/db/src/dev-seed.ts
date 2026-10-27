@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
+import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
@@ -53,6 +54,9 @@ export type DevSeed = {
  * This is the only path `bun db:seed` writes through; it is not part of
  * `createDatabase()`, because no running application seeds.
  */
+/** A birth month every seeded member is an adult for. */
+const SEEDED_BIRTH_MONTH = '1990-01';
+
 export async function applyDevSeed({
   url,
   seed,
@@ -88,6 +92,15 @@ export async function applyDevSeed({
                   : sql`excluded.email_verified`,
             },
           });
+        // Seeded members are adults (WAIT-4.6): the age step is answered.
+        await tx
+          .insert(accountAge)
+          .values({
+            userId: person.userId,
+            birthMonth: SEEDED_BIRTH_MONTH,
+            recordedAt: sql`now()`,
+          })
+          .onConflictDoNothing({ target: accountAge.userId });
         await tx
           .insert(actors)
           .values({ id: person.actorId, kind: 'human', userId: person.userId })

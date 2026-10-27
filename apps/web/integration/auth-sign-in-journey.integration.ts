@@ -54,13 +54,13 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
         stored: await usernameOf(email),
       },
       expected: {
-        redirect: [303, '/onboarding/username?next=/lobby'],
+        redirect: [303, '/onboarding/age?next=/lobby'],
         sessionRows: 1,
         provisional: 'provisional',
         provisionalActor: null,
         beforeAccess: {
           kind: 'redirect',
-          to: '/onboarding/username?next=%2Flobby',
+          to: '/onboarding/age?next=%2Flobby',
         },
         claim: [201, { username: name }],
         member: name,

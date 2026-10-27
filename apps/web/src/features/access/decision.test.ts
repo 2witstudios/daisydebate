@@ -52,7 +52,7 @@ describe('decideAccess', () => {
         path: '/play',
         requirement: 'participant',
       }),
-      expected: { kind: 'redirect', to: '/onboarding/username?next=%2Fplay' },
+      expected: { kind: 'redirect', to: '/onboarding/age?next=%2Fplay' },
     });
   });
 
@@ -250,8 +250,8 @@ describe('return links', () => {
         '/judge',
         '/lobby',
         '/sign-in?next=%2Flobby%3Ftab%3Da%26b%3D1',
-        '/onboarding/username?next=%2Franked',
-        '/sign-in?next=%2Fonboarding%2Fusername%3Fnext%3D%252Franked',
+        '/onboarding/age?next=%2Franked',
+        '/sign-in?next=%2Fonboarding%2Fage%3Fnext%3D%252Franked',
         '/onboarding/passkey?next=%2Flobby%3Ftab%3Da',
       ],
     });

@@ -78,6 +78,7 @@ describe('applyDevSeed preserves email/emailVerified it does not specify', () =>
       try {
         await database`delete from rounds where id = ${roundId}`;
         await database`delete from actors where id = ${actorId}`;
+        await database`delete from account_age where user_id = ${userId}`;
         await database`delete from users where id = ${userId}`;
         await database`delete from seed_versions where seed_name = 'email-preservation-test'`;
       } finally {
