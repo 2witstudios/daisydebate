@@ -255,7 +255,8 @@ export class Fixture {
   /** Commits a transcript freeze a ballot or judging job can name; erased with its Round. */
   async freeze(roundId: string, revision = 1) {
     await this.sql.unsafe(
-      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,0,'incomplete')",
+      // The frontier is the durable counter, as the ISSUE-505 guard requires.
+      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,coalesce((select revision from round_transcripts where round_id=$1),0),'incomplete')",
       [roundId, revision],
     );
     return revision;

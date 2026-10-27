@@ -48,7 +48,8 @@ async function completedRound(
     await fixture.sql`update rounds set status='completed',current_stage=null,completed_at=${end},outcome='affirmative' where id=${roundId}`;
   }
   if (frozen)
-    await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
+    await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness)
+      select ${roundId},1,revision,'complete' from round_transcripts where round_id=${roundId}`;
   return { aff };
 }
 
