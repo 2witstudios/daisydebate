@@ -5,8 +5,13 @@ import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
 import { mediaWorkerLeases } from './schema/transcript-segments';
 
-/** Called only after the locked owner/epoch and settled absence proof pass. */
-export async function rotateRevokedMediaRoom(
+/**
+ * Drops revoked human seats from the media session and fences its worker
+ * lease; returns the next vendor room name, so the session moves to a fresh
+ * LiveKit room. Called only after the locked owner/epoch and settled absence
+ * proof pass.
+ */
+export async function rotateRevokedMediaSession(
   tx: BoundedTransactionContext,
   sessionId: string,
   participants: RoundCommandAuthority['participants'],

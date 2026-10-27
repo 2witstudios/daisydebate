@@ -1,4 +1,4 @@
-import { rotateRevokedMediaRoom } from './media-room-rotation';
+import { rotateRevokedMediaSession } from './media-session-rotation';
 import {
   readMediaBotLeases,
   mediaPublicationParticipants,
@@ -276,7 +276,7 @@ export function createMediaReconcileStore(input: {
           );
         const roomName =
           cleaned && !terminal && !session.endedAt
-            ? await rotateRevokedMediaRoom(
+            ? await rotateRevokedMediaSession(
                 tx,
                 session.id,
                 session.seats,

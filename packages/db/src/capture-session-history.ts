@@ -3,7 +3,7 @@ import type { CaptureTx } from './media-capture-context';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 
 /** Vendor lifecycle evidence survives rotation, even when no PCM or text was persisted. */
-export async function captureRoomInterrupted(
+export async function captureSessionInterrupted(
   tx: CaptureTx,
   sessionId: string,
   segment: {
