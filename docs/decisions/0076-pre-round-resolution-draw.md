@@ -44,7 +44,11 @@ draw must be fair, replayable and private until the reveal.
    idle time is measured from `rooms.last_command_at`.
 7. **Information hiding.** Only seated debaters see drawn texts. Everyone
    else sees progress. Delivery uses a viewer-independent frozen config, and
-   the Room view is projected field by field.
+   the Room view is projected field by field. After the Round ends, anyone
+   who may read it reads the draw's audit envelope: bank lines, the
+   positions, the commitment and the debated line. Struck host-written lines
+   go to the Round's own people only, its debaters, judges and host
+   (DEC-256).
 8. **ADR 0058 extension: evidence frozen onto the Round.** At Launch the
    writer freezes proof metadata (`rounds.resolution_evidence`, immutable),
    the seed (`round_draw_seeds`, immutable) and the erasable texts and

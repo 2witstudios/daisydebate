@@ -4,6 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { RoomStrike } from './room-strike';
 import { RoomStrikeReveal } from './room-strike-reveal';
+import { strikePress } from './room-strike-confirm';
 
 setupRitewayBun();
 
@@ -61,7 +62,15 @@ const debaterView: RoomView = {
       text: `${SENTINEL} ${position}`,
       category: position === 0 ? 'value' : null,
     })),
-    strikes: [{ ordinal: 0, side: 'negative', kind: 'timeout', position: 2 }],
+    strikes: [
+      {
+        ordinal: 0,
+        side: 'negative',
+        kind: 'timeout',
+        position: 2,
+        byViewer: false,
+      },
+    ],
     turn,
     revealedAt: null,
   },
@@ -175,7 +184,10 @@ const revealed = (view: RoomView): RoomView => {
       draw.visibility === 'debater'
         ? {
             ...draw,
-            strikes: [...draw.strikes, { ...lastStrike, position: 1 }],
+            strikes: [
+              ...draw.strikes,
+              { ...lastStrike, position: 1, byViewer: true },
+            ],
             turn: null,
             revealedAt,
           }
@@ -228,5 +240,26 @@ test('after the reveal, debaters see how the resolution was chosen', () => {
       spectator: '',
       strikeFormGone: '',
     },
+  });
+});
+
+test('the confirm posts only the resolution it named (PR #472 review)', () => {
+  assert({
+    given:
+      'a first press with nothing chosen, a first press on 2, the confirm on 2, and the confirm after switching to 3',
+    should:
+      'let the native check speak, ask about 2, post 2, and ask about 3 instead of striking it unasked',
+    actual: [
+      strikePress(null, null),
+      strikePress(null, '2'),
+      strikePress('2', '2'),
+      strikePress('2', '3'),
+    ],
+    expected: [
+      { kind: 'post' },
+      { kind: 'ask', position: '2' },
+      { kind: 'post' },
+      { kind: 'ask', position: '3' },
+    ],
   });
 });

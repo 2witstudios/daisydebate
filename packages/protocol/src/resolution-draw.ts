@@ -166,7 +166,13 @@ export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
       )
       .readonly(),
     strikes: z
-      .array(publicStrikeSchema.extend({ position: z.int().min(0) }))
+      .array(
+        publicStrikeSchema.extend({
+          position: z.int().min(0),
+          /** This viewer's own strike, so a teammate's never reads as theirs. */
+          byViewer: z.boolean(),
+        }),
+      )
       .readonly(),
     turn: turnSchema,
     revealedAt: timestamp.nullable(),

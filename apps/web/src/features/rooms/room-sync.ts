@@ -56,7 +56,8 @@ export function prepDeadline(state: RoomSync): number | null {
 /** When the open strike falls due by the read's own account, the room must be read again. */
 function drawDeadline(state: RoomSync): number | null {
   const turn = state.value.view.resolutionDraw?.turn;
-  return turn ? state.readAt + turn.remainingMs : null;
+  // At zero the backstop settles the strike: a reread now would loop.
+  return turn && turn.remainingMs > 0 ? state.readAt + turn.remainingMs : null;
 }
 
 /** The nearest time-derived change: the strike due instant or the prep end. */

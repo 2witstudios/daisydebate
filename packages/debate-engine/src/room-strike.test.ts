@@ -221,8 +221,10 @@ describe('projection', () => {
     const struck = strike(room, 'other', 0, 3);
     const after = struck.ok ? struck.mutation.state : room;
     assert({
-      given: 'the Negative struck position 3',
-      should: 'show the position to debaters and only the turn to a spectator',
+      given:
+        'the Negative struck position 3, read by the Negative and a spectator',
+      should:
+        'show the position, marked as their own, to the debater and only the turn to a spectator',
       actual: [
         projectRoom(after, 'other', consent, edges.now, SEED).resolutionDraw
           ?.strikes,
@@ -230,7 +232,15 @@ describe('projection', () => {
           ?.strikes,
       ],
       expected: [
-        [{ ordinal: 0, side: 'negative', kind: 'debater', position: 3 }],
+        [
+          {
+            ordinal: 0,
+            side: 'negative',
+            kind: 'debater',
+            position: 3,
+            byViewer: true,
+          },
+        ],
         [{ ordinal: 0, side: 'negative', kind: 'debater' }],
       ],
     });

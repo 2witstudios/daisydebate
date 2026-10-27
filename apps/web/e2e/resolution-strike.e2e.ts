@@ -141,6 +141,10 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
       await page.goto(`/rooms/${view.id}`);
       await expect(page.getByRole('heading', { name: yourTurn })).toBeVisible();
     }
+    // Without scripts the timer is the server read's own count: within the 15 s window.
+    await expect(negative.page.getByRole('timer')).toContainText(
+      /0:(0\d|1[0-5])/,
+    );
     await negative.page.getByRole('radio').first().check();
     await negative.page
       .getByRole('button', { name: 'Strike this resolution' })

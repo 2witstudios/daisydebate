@@ -175,3 +175,24 @@ test('a strike window has a floor and pre-round prep a ceiling (PR #472 review)'
     expected: [true, false, false, true, false],
   });
 });
+
+test('a format may allow at most two hours of prep before the round (PR #472 delta review)', () => {
+  const allows = (max: number) => {
+    const parsed = formatDefinitionSchema.safeParse({
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        preRoundPrep: { durationMs: { min: 0, max } },
+      },
+    });
+    return parsed.success
+      ? 'accepted'
+      : parsed.error.issues.map((issue) => issue.path.join('.'));
+  };
+  assert({
+    given: 'a definition allowing exactly two hours, and one ms more',
+    should: 'accept the ceiling and refuse past it at the prep bound',
+    actual: [allows(7_200_000), allows(7_200_001)],
+    expected: ['accepted', ['configurable.preRoundPrep.durationMs']],
+  });
+});

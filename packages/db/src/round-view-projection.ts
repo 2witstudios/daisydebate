@@ -17,12 +17,6 @@ export const readableCheckpoint = (
 };
 
 /**
- * One viewer's Round (DEC-98, DEC-174): a human judge's seat names the
- * judge only to that judge and to the host who seated them; everyone else,
- * debaters and spectators alike, sees that the seat is filled. The host's
- * actor is never sent.
- */
-/**
  * Struck host-written lines reach the Round's own people only; everyone
  * else keeps the positions, the commitment and the debated line (which is
  * the public topic). Bank lines are Daisy's and stay public.
@@ -43,6 +37,12 @@ const auditFor = (
         textsWithheld: true,
       };
 
+/**
+ * One viewer's Round (DEC-98, DEC-174): a human judge's seat names the
+ * judge only to that judge and to the host who seated them; everyone else,
+ * debaters and spectators alike, sees that the seat is filled. The host's
+ * actor is never sent.
+ */
 export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,

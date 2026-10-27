@@ -281,3 +281,14 @@ test('between strikes, no one outside the debaters receives a line, the seed or 
     },
   });
 });
+
+test('a Room closed mid-strike shows no turn to count down (PR #472 review)', () => {
+  const closed: RoomAssemblyState = { ...begin().state, status: 'abandoned' };
+  assert({
+    given: 'a Room the host closed while the debaters were striking',
+    should: 'project no open turn, so no viewer waits on a deadline',
+    actual: projectRoom(closed, 'host', consent, edges.now, SEED).resolutionDraw
+      ?.turn,
+    expected: null,
+  });
+});

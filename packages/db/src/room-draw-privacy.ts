@@ -62,6 +62,12 @@ const scrubHostLines = (room: RoomAssemblyState): RoomAssemblyState => {
   };
 };
 
+/** Whether the Room's config or plan still lists the host's own lines. */
+const hostListed = (room: RoomAssemblyState) =>
+  [room.config.resolutionDraw, room.executionPlan.resolutionDraw].some(
+    (draw) => draw.enabled && draw.source.kind === 'host',
+  );
+
 const open = (room: RoomAssemblyState) =>
   room.status === 'assembling' || room.status === 'ready';
 
@@ -140,41 +146,63 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
           );
   };
 
+  /** The Rounds launched from a host-list draw keep only placeholders. */
+  const scrubRoundCopies = async (
+    tx: Tx,
+    roomId: string,
+    topic: string | null,
+  ) => {
+    const launched = await tx
+      .select({ id: rounds.id })
+      .from(rounds)
+      .where(eq(rounds.roomId, roomId));
+    for (const round of launched) {
+      await tx
+        .delete(roundResolutionDrawTexts)
+        .where(eq(roundResolutionDrawTexts.roundId, round.id));
+      await tx
+        .delete(roundDrawPrivateInputs)
+        .where(eq(roundDrawPrivateInputs.roundId, round.id));
+      if (topic !== null)
+        await tx
+          .update(rounds)
+          .set({ resolution: topic })
+          .where(eq(rounds.id, round.id));
+    }
+  };
+
+  /**
+   * One Room the erased actor hosts. Only a host list is the host's text: a
+   * bank draw's inputs are the seated players' history, and a fixed topic is
+   * the Room adopter's, so neither is rewritten here. An open Room closes.
+   */
+  const eraseHosted = async (
+    tx: Tx,
+    row: typeof rooms.$inferSelect,
+    now: string,
+  ) => {
+    const { state } = await roomFacts(tx, row);
+    const draw = state.resolutionDraw;
+    const hostDraw = draw?.manifest.source.kind === 'host';
+    const hostLines = hostDraw || hostListed(state);
+    const scrubbed = hostLines ? scrubHostLines(state) : state;
+    if (hostDraw)
+      await tx
+        .delete(roomResolutionDrawInputs)
+        .where(eq(roomResolutionDrawInputs.drawId, draw.id));
+    if (open(state))
+      await persist(tx, state, transitions.closeRoom(scrubbed), now);
+    else if (hostLines) await scrubLaunched(tx, scrubbed);
+    if (hostDraw) await scrubRoundCopies(tx, row.id, scrubbed.topic);
+  };
+
   const eraseAuthor = async (tx: Tx, actorId: string, now: string) => {
     const hosted = await tx
       .select()
       .from(rooms)
       .where(eq(rooms.hostActorId, actorId))
       .for('update');
-    for (const row of hosted) {
-      const { state } = await roomFacts(tx, row);
-      const scrubbed = scrubHostLines(state);
-      if (state.resolutionDraw)
-        await tx
-          .delete(roomResolutionDrawInputs)
-          .where(eq(roomResolutionDrawInputs.drawId, state.resolutionDraw.id));
-      if (open(state))
-        await persist(tx, state, transitions.closeRoom(scrubbed), now);
-      else await scrubLaunched(tx, scrubbed);
-      if (state.resolutionDraw?.manifest.source.kind !== 'host') continue;
-      const launched = await tx
-        .select({ id: rounds.id })
-        .from(rounds)
-        .where(eq(rounds.roomId, row.id));
-      for (const round of launched) {
-        await tx
-          .delete(roundResolutionDrawTexts)
-          .where(eq(roundResolutionDrawTexts.roundId, round.id));
-        await tx
-          .delete(roundDrawPrivateInputs)
-          .where(eq(roundDrawPrivateInputs.roundId, round.id));
-        if (scrubbed.topic !== null)
-          await tx
-            .update(rounds)
-            .set({ resolution: scrubbed.topic })
-            .where(eq(rounds.id, round.id));
-      }
-    }
+    for (const row of hosted) await eraseHosted(tx, row, now);
   };
 
   const erasePlayer = async (tx: Tx, actorId: string, now: string) => {

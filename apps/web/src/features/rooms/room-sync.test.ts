@@ -136,4 +136,26 @@ describe('strike time', () => {
       expected: [45_000, 0, 61_000],
     });
   });
+  test('a turn with no time left schedules no reread (PR #472 review)', () => {
+    const due = seedRoomSync(
+      {
+        ...striking.value.view,
+        resolutionDraw: {
+          ...striking.value.view.resolutionDraw!,
+          turn: {
+            ...striking.value.view.resolutionDraw!.turn!,
+            remainingMs: 0,
+          },
+        },
+      },
+      ids('a'),
+      1000,
+    );
+    assert({
+      given: 'a read reporting a turn already at zero',
+      should: 'leave the backstop to settle it, never a read loop at zero',
+      actual: roomDeadline(due),
+      expected: null,
+    });
+  });
 });

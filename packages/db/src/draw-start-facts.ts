@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, lte, max, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import {
   resolutionBankEntries,
@@ -59,26 +59,36 @@ const bankSnapshot = async (tx: Tx): Promise<DrawBankSnapshot | null> => {
   return { revision, entries };
 };
 
-/** Bank entries chosen in each seated human's recent Rounds. */
+/**
+ * Bank entries chosen in each seated human's recent Rounds, in one query:
+ * it runs under the Room's lock, so one round-trip, not one per human.
+ */
 const recentChoices = async (tx: Tx, state: RoomAssemblyState) => {
   const humans = state.participants
     .filter((p) => p.kind === 'human')
     .map((p) => p.actorId);
+  if (!humans.length) return [];
+  const ranked = tx
+    .select({
+      evidence: rounds.resolutionEvidence,
+      rank: sql<number>`row_number() over (partition by ${roundParticipants.actorId} order by ${rounds.createdAt} desc)`.as(
+        'rank',
+      ),
+    })
+    .from(roundParticipants)
+    .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
+    .where(inArray(roundParticipants.actorId, humans))
+    .as('ranked');
+  const recent = await tx
+    .select({ evidence: ranked.evidence })
+    .from(ranked)
+    .where(lte(ranked.rank, RECENT_ROUNDS));
   const exclusions = new Set<string>();
-  for (const actorId of humans) {
-    const recent = await tx
-      .select({ evidence: rounds.resolutionEvidence })
-      .from(roundParticipants)
-      .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-      .where(eq(roundParticipants.actorId, actorId))
-      .orderBy(desc(rounds.createdAt))
-      .limit(RECENT_ROUNDS);
-    for (const { evidence } of recent) {
-      const chosen = evidence?.items.find(
-        (i) => i.position === evidence.survivorPosition,
-      )?.bankEntryId;
-      if (chosen) exclusions.add(chosen);
-    }
+  for (const { evidence } of recent) {
+    const chosen = evidence?.items.find(
+      (i) => i.position === evidence.survivorPosition,
+    )?.bankEntryId;
+    if (chosen) exclusions.add(chosen);
   }
   return [...exclusions];
 };

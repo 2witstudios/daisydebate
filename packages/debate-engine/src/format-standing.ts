@@ -151,6 +151,16 @@ function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
  * default stays Standard. A template basis is always Custom, and a room
  * with no basis is plain Custom.
  */
+/** The standing of a room whose rules equal its basis's: Standard for a standard. */
+const unchangedStanding = (basis: StandingBasis): FormatStanding =>
+  basis.role === 'standard'
+    ? { kind: 'standard', formatId: basis.formatId }
+    : {
+        kind: 'custom',
+        basis: { formatId: basis.formatId, role: basis.role },
+        changes: [],
+      };
+
 export function formatStanding({
   active,
   basis,
@@ -159,23 +169,30 @@ export function formatStanding({
   readonly basis: StandingBasis | null;
 }): FormatStanding {
   if (!basis) return { kind: 'custom', basis: null, changes: [] };
-  const from = compile(basis.definition, basis.config);
-  const to = compile(active.definition, active.config);
-  const changes = from && to ? changesBetween(from, to) : [];
   const sameIdentity =
     active.formatId === basis.formatId &&
     active.formatVersion === basis.formatVersion;
+  // A room untouched since its basis needs no compile: every read of an
+  // unchanged room (each countdown reread included) answers from the inputs.
   if (
-    basis.role === 'standard' &&
     sameIdentity &&
-    from !== null &&
-    to !== null &&
-    same(from, to)
+    same(active.definition, basis.definition) &&
+    same(active.config, basis.config)
   )
-    return { kind: 'standard', formatId: basis.formatId };
-  return {
-    kind: 'custom',
-    basis: { formatId: basis.formatId, role: basis.role },
-    changes,
-  };
+    return unchangedStanding(basis);
+  const from = compile(basis.definition, basis.config);
+  const to = compile(active.definition, active.config);
+  if (!from || !to)
+    return {
+      kind: 'custom',
+      basis: { formatId: basis.formatId, role: basis.role },
+      changes: [],
+    };
+  return sameIdentity && same(from, to)
+    ? unchangedStanding(basis)
+    : {
+        kind: 'custom',
+        basis: { formatId: basis.formatId, role: basis.role },
+        changes: changesBetween(from, to),
+      };
 }

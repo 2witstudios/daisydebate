@@ -5,6 +5,7 @@ import {
   roundLength,
   shapeLabel,
   speechName,
+  strikeLabel,
   yieldLabel,
 } from './vocabulary';
 
@@ -82,5 +83,31 @@ test('a round’s length is derived from its speeches, countdowns and prep', () 
       prepPerSideMs: null,
     }),
     expected: 'about 5 min',
+  });
+});
+
+test('a strike reads as yours only when you made it (PR #472 review)', () => {
+  const side = (s: 'affirmative' | 'negative') =>
+    s === 'affirmative' ? 'Aff team' : 'Neg team';
+  const label = (byViewer: boolean, struckSide: 'affirmative' | 'negative') =>
+    strikeLabel(
+      { kind: 'debater', side: struckSide, byViewer },
+      'affirmative',
+      side,
+    );
+  assert({
+    given:
+      'an Aff debater reading their own strike, their teammate’s, and the other side’s',
+    should: 'say you, your teammate, and the other side by name',
+    actual: [
+      label(true, 'affirmative'),
+      label(false, 'affirmative'),
+      label(false, 'negative'),
+    ],
+    expected: [
+      'You struck this',
+      'Your teammate struck this',
+      'Neg team struck this',
+    ],
   });
 });

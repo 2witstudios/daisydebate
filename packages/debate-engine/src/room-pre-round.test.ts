@@ -261,3 +261,21 @@ describe('start-pre-round', () => {
     });
   });
 });
+
+test('the draw button shows only when the draw would start (PR #472 review)', () => {
+  const room = drawRoom();
+  const can = (ready: { available: boolean; readyActorIds: string[] }) =>
+    projectRoom(room, 'host', ready, edges.now, null).capabilities
+      .canStartPreRound;
+  assert({
+    given:
+      'a full draw Room with everyone Ready, one debater not Ready, and Ready unreadable',
+    should: 'offer the draw only when the draw gate would let it start',
+    actual: [
+      can(consent),
+      can({ available: true, readyActorIds: ['host'] }),
+      can({ available: false, readyActorIds: [] }),
+    ],
+    expected: [true, false, false],
+  });
+});

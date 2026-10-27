@@ -18,12 +18,20 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'version-conflict': 'The room changed. Review the latest room and try again.',
   'strike-conflict':
     'Someone struck first, or time ran out. Here is the draw now.',
-  'not-your-turn': 'It is the other side’s turn to strike.',
-  'strike-unavailable': 'That resolution is already struck.',
+  // Also returned to an ineligible striker or a seat on an all-bot side.
+  'not-your-turn': 'You can’t strike on this turn.',
+  // Also returned when the Room has no draw at all.
+  'strike-unavailable': 'That resolution can’t be struck now.',
   'format-unavailable':
     'That format is no longer offered. Choose from the list now.',
   'illegal-config':
     'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
+  'not-ready': 'Everyone seated must be Ready before the draw.',
+  'readiness-unavailable':
+    'Ready can’t be read right now. Try again in a moment.',
+  'actor-ineligible': 'Someone in a seat can’t take part right now.',
+  'draw-unavailable':
+    'There aren’t enough resolutions to draw from. Choose another source or add lines.',
 };
 
 /** Why a room command was refused, in the room's words; generic when unknown. */

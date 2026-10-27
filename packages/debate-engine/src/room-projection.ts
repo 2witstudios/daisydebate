@@ -11,6 +11,7 @@ import { settleRoom, survivorOf } from './resolution-draw';
 
 import { assemblyOpen, complete, startBlocker } from './room-assembly-facts';
 import { prepFinished } from './pre-round-phase';
+import { drawGate } from './room-pre-round';
 import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
 const participantReady = (
   p: Pick<
@@ -160,7 +161,7 @@ export function projectRoom(
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
     prep: prepView(room, now),
-    capabilities: roomCapabilities(room, actorId, blocker, now, phase),
+    capabilities: roomCapabilities(room, actorId, blocker, now, phase, consent),
     startRefusal: blocker,
     roundRef: room.roundRef,
   };
@@ -175,7 +176,8 @@ const projectDraw = (
 ): ResolutionDrawView => {
   const draw = room.resolutionDraw!;
   const turn =
-    phase.phase === 'striking'
+    // A closed Room settles nothing more, so it has no turn to count down.
+    phase.phase === 'striking' && assemblyOpen(room)
       ? {
           ordinal: phase.turn.ordinal,
           side: phase.turn.side,
@@ -213,12 +215,15 @@ const projectDraw = (
       text,
       category,
     })),
-    strikes: draw.strikes.map(({ ordinal, side, kind, position }) => ({
-      ordinal,
-      side,
-      kind,
-      position,
-    })),
+    strikes: draw.strikes.map(
+      ({ ordinal, side, kind, position, actorId: by }) => ({
+        ordinal,
+        side,
+        kind,
+        position,
+        byViewer: by === actorId,
+      }),
+    ),
     turn,
     revealedAt,
   };
@@ -236,12 +241,23 @@ const prepView = (room: RoomAssemblyState, now: string): RoomView['prep'] => ({
       : room.prepRemainingMs,
   finished: prepFinished(room, now),
 });
+/** The pre-round can begin, and a draw would start: everyone Ready and eligible. */
+const preRoundStartable = (
+  room: RoomAssemblyState,
+  phase: PreRoundPhase,
+  consent: RoomConsent,
+) =>
+  phase.phase === 'not-begun' &&
+  complete(room) &&
+  (!room.executionPlan.resolutionDraw.enabled ||
+    drawGate(room, consent) === null);
 const roomCapabilities = (
   room: RoomAssemblyState,
   actorId: string,
   blocker: RoomView['startRefusal'],
   now: string,
   phase: PreRoundPhase,
+  consent: RoomConsent,
 ): RoomView['capabilities'] => {
   const host = room.hostActorId === actorId;
   const open = assemblyOpen(room);
@@ -253,7 +269,7 @@ const roomCapabilities = (
     canEdit: manage && editable && room.competitionType !== 'ranked',
     canClaimSeat: editable,
     canReady: canReady(open, own),
-    canStartPreRound: manage && phase.phase === 'not-begun' && complete(room),
+    canStartPreRound: manage && preRoundStartable(room, phase, consent),
     canStrike: open && mayStrike(room, actorId, phase),
     canFinishPrep: manage && prepCanFinish(room, now),
     canStart: host && blocker === null,

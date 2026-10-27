@@ -25,7 +25,7 @@ const erase = (f: Fixture, subject: { userId: string; actorId: string }) =>
 /** Every durable copy of a Room's draw and its Round, as counts and text. */
 const footprint = async (f: Fixture, roomId: string) => {
   const [row] = await f.sql`select
-    r.status, r.topic,
+    r.status, r.topic, r.change_version,
     r.config::text || r.execution_plan::text as config,
     (select count(*)::int from room_participants p where p.room_id = r.id) seats,
     (select string_agg(i.text, '|' order by i.position) from room_resolution_draw_items i join room_resolution_draws d on d.id = i.draw_id where d.room_id = r.id) items,
@@ -105,14 +105,16 @@ test('a bank draw keeps Daisy-authored texts when its host is erased', async () 
     assert({
       given: 'a launched bank draw whose host is erased',
       should:
-        'keep the bank texts and the debated resolution, deleting only the private inputs',
+        'keep the bank texts and the debated resolution and leave the Room unrewritten, deleting only the seated host’s private inputs',
       actual: [
         after.items === before.items,
         after.round_texts,
         after.round_resolution === before.round_resolution,
         after.round_inputs,
+        // PR #472 review: nothing host-written, so no rewrite and no change signal.
+        after.change_version === before.change_version,
       ],
-      expected: [true, 5, true, 0],
+      expected: [true, 5, true, 0, true],
     });
   });
 });

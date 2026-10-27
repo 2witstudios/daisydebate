@@ -8,6 +8,21 @@ import type { IdGenerator } from '@daisy/clock';
 import type { Store } from './operations';
 
 /**
+ * Everything a create persists from a selection decision. The create
+ * transaction admits only an identical fingerprint, so a field added here
+ * is rechecked at once.
+ */
+const fingerprint = (
+  decision: Extract<ReturnType<typeof decideFormatSelection>, { ok: true }>,
+) =>
+  JSON.stringify([
+    decision.definition,
+    decision.config,
+    decision.basis,
+    decision.rankedPresetVersion,
+  ]);
+
+/**
  * What a create body selects, decided by the one selection policy (FMT-1):
  * a catalog format at its canonical preset, ranked play at an eligible
  * preset, or a private custom definition. The client never supplies a
@@ -56,12 +71,7 @@ export async function resolveRoomSelection(
     await store.getFormatSelectionFacts(tuple),
   );
   if (!decision.ok) throw createAppError('VALIDATION', decision.refusal);
-  const decided = JSON.stringify([
-    decision.definition,
-    decision.config,
-    decision.basis,
-    decision.rankedPresetVersion,
-  ]);
+  const decided = fingerprint(decision);
   return {
     selection,
     definition: decision.definition,
@@ -81,15 +91,7 @@ export async function resolveRoomSelection(
       tuple,
       admits: (facts: FormatSelectionFacts | null) => {
         const again = decideFormatSelection(request, facts);
-        return (
-          again.ok &&
-          JSON.stringify([
-            again.definition,
-            again.config,
-            again.basis,
-            again.rankedPresetVersion,
-          ]) === decided
-        );
+        return again.ok && fingerprint(again) === decided;
       },
     },
   };

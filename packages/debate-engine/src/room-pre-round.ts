@@ -51,7 +51,8 @@ const DIFFICULTIES: ['advanced', 'intro', 'standard'] = [
 ];
 
 /** A draw starts only with every seat eligible and every human Ready. */
-const drawGate = (
+/** Why a draw may not start yet, or null: the cast, eligibility and Ready. */
+export const drawGate = (
   room: RoomAssemblyState,
   consent: RoomConsent,
 ): RoomRefusal | null => {

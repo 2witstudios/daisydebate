@@ -83,21 +83,28 @@ export function strikeSummary(
   return `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`;
 }
 
-/** Who struck a drawn resolution, from the viewer's side of the table. */
+/**
+ * Who struck a drawn resolution, from the viewer's seat: you, your teammate
+ * on a two-person side, or the other side by name.
+ */
 export function strikeLabel(
   strike: {
     readonly kind: 'debater' | 'timeout' | 'automatic';
     readonly side: 'affirmative' | 'negative';
+    readonly byViewer: boolean;
   },
   viewerSide: 'affirmative' | 'negative' | null,
   sideName: (side: 'affirmative' | 'negative') => string,
 ): string {
-  const mine = strike.side === viewerSide;
+  const ourSide = strike.side === viewerSide;
   if (strike.kind === 'timeout')
-    return mine
+    return ourSide
       ? 'Daisy struck this for you · time ran out'
       : `Daisy struck this for ${sideName(strike.side)} · time ran out`;
-  return mine ? 'You struck this' : `${sideName(strike.side)} struck this`;
+  if (strike.byViewer) return 'You struck this';
+  return ourSide
+    ? 'Your teammate struck this'
+    : `${sideName(strike.side)} struck this`;
 }
 
 const FIVE_MINUTES = 300_000;
