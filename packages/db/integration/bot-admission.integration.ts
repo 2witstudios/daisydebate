@@ -7,7 +7,8 @@ import { createRoundBotAdmission } from '../src/round-bot-admission';
 import {
   admissionSponsor,
   betaAllowance,
-  refusalMessage,
+  refusal,
+  refusalOf,
   testBotAdmission,
 } from './bot-admission.test-support';
 import { createBotSeat } from './bot-seat.test-support';
@@ -152,10 +153,10 @@ test('actual global capacity fails closed', async () => {
         'another approved host with allowance but one occupied global slot',
       should:
         'refuse capacity without guessing settings, as the bots-busy room refusal',
-      actual: await refusalMessage(() =>
+      actual: await refusal(() =>
         admission.reserve({ actorId: otherActor, roundId: secondRound }),
       ),
-      expected: 'bots-busy',
+      expected: { code: 'CONFLICT', message: 'bots-busy' },
     });
     assert({
       given: 'invalid capacity configuration',
@@ -202,10 +203,10 @@ test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', as
       given:
         'a live bot-debater Round holding no reservation, as ranked play leaves it, at a cap of 1',
       should: 'refuse the next AI Round for capacity, as bots-busy',
-      actual: await refusalMessage(() =>
+      actual: await refusal(() =>
         admission.reserve({ actorId, roundId: refused }),
       ),
-      expected: 'bots-busy',
+      expected: { code: 'CONFLICT', message: 'bots-busy' },
     });
     const status = await admission.readStatus(actorId);
     assert({
@@ -237,11 +238,15 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
       actual: [
         attempts.map((a) => a.status).sort(),
         attempts.flatMap((a) =>
-          a.status === 'rejected' ? [(a.reason as Error).message] : [],
+          a.status === 'rejected' ? [refusalOf(a.reason)] : [],
         ),
         n,
       ],
-      expected: [['fulfilled', 'rejected'], ['bots-busy'], 1],
+      expected: [
+        ['fulfilled', 'rejected'],
+        [{ code: 'CONFLICT', message: 'bots-busy' }],
+        1,
+      ],
     });
   });
 });

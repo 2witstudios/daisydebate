@@ -9,7 +9,7 @@ import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { roomCommandTransaction } from '../src/room-command-transaction';
 import { roomCommandOperations } from '../src/room-command-operations';
-import { refusalMessage, testBotAdmission } from './bot-admission.test-support';
+import { refusal, testBotAdmission } from './bot-admission.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -221,13 +221,13 @@ test('a bot debater that spends no allowance still takes a capacity slot (ISSUE-
           'a ranked-style freeze (no allowance) and another live bot-debater Round at a cap of 1',
         should:
           'refuse the whole freeze for capacity as the bots-busy room refusal',
-        actual: await refusalMessage(() =>
+        actual: await refusal(() =>
           roomCommandOperations({
             ...common,
             botAdmission: testBotAdmission(run, 1),
           }).executeRoomCommand(input),
         ),
-        expected: 'bots-busy',
+        expected: { code: 'CONFLICT', message: 'bots-busy' },
       });
       const accepted = await roomCommandOperations({
         ...common,

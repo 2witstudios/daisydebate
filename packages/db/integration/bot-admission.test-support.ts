@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { aiRoundAllowance } from '@daisy/auth/authorization';
 import type { BoundedTransaction } from '../src/bounded-transaction';
@@ -55,9 +56,14 @@ export const withTwoRoundAdmission = (
     await work({ fixture, run, firstRound, secondRound, actorId, admission });
   });
 
-/** The refusal's message, which the Room answers as its refusal (`bots-busy`); null when it succeeds. */
-export const refusalMessage = (work: () => Promise<unknown>) =>
-  work().then(
-    () => null,
-    (error: Error) => error.message,
-  );
+/**
+ * How a rejection reads as the Room's refusal: the AppError's code and
+ * message together (the Room maps a refusal by both), `NOT_APP_ERROR` for a
+ * stray error, null when the work succeeds.
+ */
+export const refusalOf = (error: unknown) =>
+  isAppError(error)
+    ? { code: error.code, message: error.message }
+    : { code: 'NOT_APP_ERROR', message: String(error) };
+export const refusal = (work: () => Promise<unknown>) =>
+  work().then(() => null, refusalOf);
