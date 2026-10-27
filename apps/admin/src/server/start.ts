@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import next from 'next';
+import { SWEEP_INTERVAL_MS, sweepExpired } from '../db/retention';
 import { roleRefusal, schemaPowers } from '../db/runtime-role';
 import { gateRequest, PEER_HEADER } from './gate';
 import { adminRuntime } from './runtime';
@@ -13,7 +14,7 @@ import { adminRuntime } from './runtime';
  */
 const SHUTDOWN_DEADLINE_MS = 10_000;
 
-const { config, database, logger } = adminRuntime();
+const { config, database, logger, auth } = adminRuntime();
 const refusal = roleRefusal(config.NODE_ENV, await schemaPowers(database.db));
 if (refusal) {
   await database.close();
@@ -51,7 +52,27 @@ server.once('listening', () =>
 );
 server.listen({ port: config.ADMIN_PORT, host: config.ADMIN_HOST });
 
+const sweep = () =>
+  sweepExpired(database.db, auth.clock.now()).then(
+    (deleted) =>
+      logger.log(
+        'retention.sweep.completed',
+        { deleted, source: 'admin' },
+        'Admin retention sweep completed',
+      ),
+    () =>
+      logger.log(
+        'retention.sweep.failed',
+        { source: 'admin', errorCode: 'INFRASTRUCTURE' },
+        'Admin retention sweep failed',
+      ),
+  );
+const sweeper = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+sweeper.unref();
+void sweep();
+
 const stop = async () => {
+  clearInterval(sweeper);
   const deadline = setTimeout(() => process.exit(1), SHUTDOWN_DEADLINE_MS);
   deadline.unref();
   server.close();
