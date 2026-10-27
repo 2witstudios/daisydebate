@@ -7,11 +7,17 @@ import { toEventRow, type EventRow } from './rows';
 /**
  * Why a stream record was not stored (ADR 0081): the logger's own reasons,
  * plus an oversized record, a malformed envelope, one that disagrees with
- * its subject (`placement`), an app outside the configured list, a source time too far
- * from receipt, and a full buffer. A record is never kept in any raw form.
+ * its subject (`placement`), an app outside the configured list, a source
+ * time too far from receipt, and a full buffer. A record is never kept in any raw form.
  */
 export type ShipDropReason =
-  DropReason | 'size' | 'envelope' | 'app' | 'time' | 'backpressure';
+  | DropReason
+  | 'size'
+  | 'envelope'
+  | 'placement'
+  | 'app'
+  | 'time'
+  | 'backpressure';
 export type DropRow = {
   readonly minute: string;
   readonly app: string;
@@ -89,30 +95,35 @@ export function classify({
   };
 }
 
-/** The broker's placement of a record, for a configured app only. */
-const subjectPlacement = (subject: string, apps: ReadonlySet<string>) => {
-  const [prefix, app = '', region = '', instance = '', ...extra] =
-    subject.split('.');
-  return prefix === 'logs' && apps.has(app) && extra.length === 0
+type Placement = {
+  readonly app: string;
+  readonly region?: string;
+  readonly instance?: string;
+};
+
+/**
+ * The broker's placement of a record, for a configured app only. Fly's
+ * stream delivers each record under the subscription's own subject
+ * (`logs.<app>.>`), so the app is always attested; a concrete
+ * `logs.<app>.<region>.<instance>` subject also attests the rest.
+ */
+const subjectPlacement = (
+  subject: string,
+  apps: ReadonlySet<string>,
+): Placement | null => {
+  const [prefix, app = '', ...rest] = subject.split('.');
+  if (prefix !== 'logs' || !apps.has(app)) return null;
+  if (rest.length === 1 && rest[0] === '>') return { app };
+  const [region, instance] = rest;
+  return rest.length === 2 && region && instance
     ? { app, region, instance }
     : null;
 };
 
-const samePlacement = (
-  record: {
-    readonly app: string;
-    readonly region: string;
-    readonly instance: string;
-  },
-  placement: {
-    readonly app: string;
-    readonly region: string;
-    readonly instance: string;
-  },
-) =>
+const samePlacement = (record: Placement, placement: Placement) =>
   record.app === placement.app &&
-  record.region === placement.region &&
-  record.instance === placement.instance;
+  (placement.region === undefined || record.region === placement.region) &&
+  (placement.instance === undefined || record.instance === placement.instance);
 
 const nearReceipt = (at: string, receivedAt: string) => {
   const skew = Date.parse(at) - Date.parse(receivedAt);

@@ -27,6 +27,23 @@ describe('classify', () => {
     });
   });
 
+  test('trusts the subscription subject Fly delivers under for the app only', () => {
+    const wildcard = `logs.${app}.>`;
+    assert({
+      given: "the subscription's own subject, as Fly's stream delivers it",
+      should: 'store a record of that app and refuse one naming another app',
+      actual: [
+        reasonOf(wildcard, valid),
+        reasonOf(wildcard, record(JSON.stringify(line), { region: 'iad' })),
+        reasonOf(
+          wildcard,
+          record(JSON.stringify(line), { name: 'daisy-debate-staging-admin' }),
+        ),
+      ],
+      expected: ['row', 'row', `${app}:placement`],
+    });
+  });
+
   test('refuses every untrusted record with a closed reason', () => {
     const late = record(
       JSON.stringify({ ...line, time: line.time - 2 * 3_600_000 }),

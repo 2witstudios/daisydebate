@@ -57,8 +57,13 @@ unread messages.
 decoded, when any of these holds:
 
 - It is larger than 16 KiB (`size`).
-- Its envelope disagrees with the broker's subject on app, region or
-  instance (`envelope`).
+- Its envelope is malformed (`envelope`).
+- Its envelope names a different app from the subscription it arrived on
+  (`placement`). Fly's stream delivers each record under the
+  subscription's own subject, `logs.<app>.>`, so the broker attests only
+  the app. Region and instance are checked only against a concrete
+  `logs.<app>.<region>.<instance>` subject (observed on staging,
+  2026-10-27).
 - Its app is not configured (`app`).
 - Its source time is more than 5 minutes ahead of, or 1 hour behind, the
   shipper's receipt time (`time`).
