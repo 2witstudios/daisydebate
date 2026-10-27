@@ -49,6 +49,24 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   of an unmerged producer. Pin source and integration SHAs, contracts, ownership
   and gaps; build availability is separate from main acceptance and global Done.
 
+## Work intake and retained evidence
+
+Start in the drive's `Start here` page and living integration order. Before
+scoping current work, read `Product intent/Product map`, the applicable capability
+intents and their "Constraints other features must respect now" sections. Follow
+affected-capability links (Rooms/realtime to Spectating, Formats to Judging,
+Messaging to Privacy) and include the source links in the scoped plan and prompt.
+Future intent constrains current work without creating a future task tree.
+Design work extends the existing shipped UI and canvases in `Designs`.
+
+Selected delivery and concrete release hardening retain detailed tasks. Completed
+or superseded task history lives in `Archive/Work history`, which remains a
+TASK_LIST so direct-parent membership and task IDs survive. Preserve criteria,
+links and statuses at move time, recording the original state. Ordinary
+`bun board:stale` and merge-followup evidence reconciliation still apply in
+Archive; still-owed acceptance stays visible from current work. Review records
+remain under the existing `Reviews` root. A merge alone never grants Done.
+
 ## What each session must not own concurrently
 
 - **Migrations.** One migration writer at a time across the whole

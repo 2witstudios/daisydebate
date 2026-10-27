@@ -5,6 +5,7 @@ import { origin } from './accounts';
 import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 import { proveSiblingSave } from './room-setup-save-proof';
+import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
 export async function enterLobbyRoom(page: Page, view: RoomView) {
@@ -139,4 +140,5 @@ export async function proveGathering(
   await page.reload();
   await proveSiblingSave(page);
   await visualStates(page, info);
+  await proveClosedRoomNavigation(page);
 }

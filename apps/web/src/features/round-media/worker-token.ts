@@ -38,7 +38,7 @@ export function createMediaWorkerTokenBroker(input: {
         authenticated.serviceId !== `media-capture:${scope.workerId}`
       )
         throw createAppError('AUTHORIZATION');
-      await input.capture.verifyMediaWorkerLease(scope);
+      await input.capture.verifyMediaWorkerLease(scope, 'recover');
       const read = async () => {
         const state = await input.sessions.readMediaSession({
           roundId: scope.roundId,
@@ -56,7 +56,10 @@ export function createMediaWorkerTokenBroker(input: {
       const issue = async (state: Awaited<ReturnType<typeof read>>) => {
         if (!(await input.deadline(input.media.exists(state.session.roomName))))
           throw createAppError('INFRASTRUCTURE');
-        const current = await input.capture.verifyMediaWorkerLease(scope);
+        const current = await input.capture.verifyMediaWorkerLease(
+          scope,
+          'mint',
+        );
         const identity = input.nextId();
         const token = await input.media.joinToken({
           room: state.session.roomName,

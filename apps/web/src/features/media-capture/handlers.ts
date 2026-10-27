@@ -57,35 +57,38 @@ export function createMediaCaptureHandlers(input: {
         // Authentication parsed the exact signed JSON object and refused conflicting scope.
         const payload = { ...JSON.parse(body), roundId: principal.roundId };
         const operation = url.pathname.split('/').at(-1);
-        if (operation === 'token')
-          return Response.json(
-            await input.token(parseValidated(captureScope, payload), principal),
-          );
-        const relay = relays.get(String(operation));
-        if (relay) {
-          const { roundId, sessionId, workerId, epoch, ...body } = payload;
-          await relay(
-            parseValidated(captureScope, {
-              roundId,
-              sessionId,
-              workerId,
-              epoch,
-            }),
-            body,
-          );
-          return Response.json(null);
-        }
-        const capture = input.capture();
-        const operations = {
-          lease: capture.claimMediaWorkerLease,
-          read: capture.readMediaCaptureState,
-          append: capture.appendCapturedTranscript,
-          observe: capture.observeCapturedStream,
-          seal: capture.sealCapturedStream,
-        };
-        const dispatch = operations[operation as keyof typeof operations];
-        if (!dispatch) throw createAppError('AUTHORIZATION');
         try {
+          if (operation === 'token')
+            return Response.json(
+              await input.token(
+                parseValidated(captureScope, payload),
+                principal,
+              ),
+            );
+          const relay = relays.get(String(operation));
+          if (relay) {
+            const { roundId, sessionId, workerId, epoch, ...body } = payload;
+            await relay(
+              parseValidated(captureScope, {
+                roundId,
+                sessionId,
+                workerId,
+                epoch,
+              }),
+              body,
+            );
+            return Response.json(null);
+          }
+          const capture = input.capture();
+          const operations = {
+            lease: capture.claimMediaWorkerLease,
+            read: capture.readMediaCaptureState,
+            append: capture.appendCapturedTranscript,
+            observe: capture.observeCapturedStream,
+            seal: capture.sealCapturedStream,
+          };
+          const dispatch = operations[operation as keyof typeof operations];
+          if (!dispatch) throw createAppError('AUTHORIZATION');
           return Response.json((await dispatch(payload)) ?? null);
         } catch (error) {
           const refusal = namedCaptureRefusal(error, id);
