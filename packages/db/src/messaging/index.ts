@@ -14,6 +14,7 @@ export type {
 
 export { createMessagingPrivacyAdopter } from './privacy';
 export { createMessagingSocialStore } from './social-store';
+export type { MessagingFriendshipRow } from './friendships';
 export type {
   MessagingSocialAuthorizationFence,
   MessagingSocialStore,
@@ -53,3 +54,8 @@ export type {
   MessagingReactionFence,
   MessagingReactionStore,
 } from './reaction-contracts';
+
+export {
+  readMessagingInboxSummary,
+  type MessagingInboxSummary,
+} from './inbox-summary';

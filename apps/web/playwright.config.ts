@@ -1,3 +1,4 @@
+import { affectedExclusions } from './e2e/support/affected-projects';
 import { defineConfig, devices } from '@playwright/test';
 import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
 
@@ -109,6 +110,7 @@ const firefoxLaunch = {
   firefoxUserPrefs: { 'browser.formfill.enable': false },
 };
 
+const excluded = affectedExclusions(process.env.DAISY_E2E_EXCLUDE);
 const ports = resolveE2EPorts(process.env);
 const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
@@ -160,6 +162,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], launchOptions: chromiumLaunch },
       testIgnore: [
+        ...excluded,
         '**/visual.e2e.ts',
         '**/room-launch.e2e.ts',
         '**/ballot.e2e.ts',
@@ -177,30 +180,32 @@ export default defineConfig({
       name: 'chromium-mobile',
       use: { ...devices['Pixel 8'], launchOptions: chromiumLaunch },
       testMatch: [...AUTH_JOURNEY_SPECS, PASSKEY_AUTOFILL_SPEC],
+      testIgnore: excluded,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'], launchOptions: firefoxLaunch },
       testMatch: AUTH_JOURNEY_SPECS,
-      testIgnore: '**/passkey-lifecycle.e2e.ts',
+      testIgnore: ['**/passkey-lifecycle.e2e.ts', ...excluded],
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
       testMatch: AUTH_JOURNEY_SPECS,
-      testIgnore: '**/passkey-lifecycle.e2e.ts',
+      testIgnore: ['**/passkey-lifecycle.e2e.ts', ...excluded],
     },
     {
       name: 'webkit-mobile',
       use: { ...devices['iPhone 15'] },
       testMatch: AUTH_JOURNEY_SPECS,
-      testIgnore: '**/passkey-lifecycle.e2e.ts',
+      testIgnore: ['**/passkey-lifecycle.e2e.ts', ...excluded],
     },
     ...(runsVisualProject(process.env, process.platform)
       ? [
           {
             name: 'visual',
             testMatch: '**/visual.e2e.ts',
+            testIgnore: excluded,
             use: browserEndpoint
               ? {
                   connectOptions: {

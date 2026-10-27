@@ -1,16 +1,7 @@
-import type { PresenceStatus as Presence } from '@daisy/protocol';
-import type { Tier } from '../types/tier/tier';
 import type { TournamentSummary } from '../types/tournament-summary/tournament-summary';
 import { debates } from '../mock/debates';
 import { tournament } from '../mock/tournament';
 import { users } from '../mock/users';
-
-type OnlineUserRow = {
-  readonly name: string;
-  readonly tier: Tier;
-  readonly rating: number;
-  readonly presence: Presence;
-};
 
 type LiveDebateRow = {
   readonly topic: string;
@@ -22,12 +13,12 @@ type LiveDebateRow = {
 };
 
 type UiResources = {
-  readonly onlineCount: number;
+  /** How many of the member's friends are online; null until read. */
+  readonly friendsOnline: number | null;
   readonly tournament: TournamentSummary;
 };
 
 type UiCollections = {
-  readonly onlineUsers: readonly OnlineUserRow[];
   readonly liveDebates: readonly LiveDebateRow[];
 };
 
@@ -39,16 +30,10 @@ export type UiState = {
 /** Deterministic seed from the mock fixtures (the future wiring swap point). */
 export const createInitialState = (): UiState => ({
   resources: {
-    onlineCount: 1248,
+    friendsOnline: null,
     tournament,
   },
   collections: {
-    onlineUsers: users.map(({ name, tier, rating, presence }) => ({
-      name,
-      tier,
-      rating,
-      presence,
-    })),
     liveDebates: debates.map((debate) => ({
       topic: debate.topic,
       viewers: debate.viewers,

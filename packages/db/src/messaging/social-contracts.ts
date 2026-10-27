@@ -21,7 +21,23 @@ export type MessagingSocialAuthorizationFence = (
     readonly accounts: readonly ReturnType<typeof authorizationAccountFact>[];
   },
 ) => Promise<void>;
+type MessagingFriendshipPair = {
+  readonly state: 'pending' | 'accepted';
+  readonly requesterActorId: string;
+};
 export type MessagingSocialFrame = {
+  readonly readFriendship: () => Promise<{
+    readonly otherActorId: string;
+    readonly pair: MessagingFriendshipPair | null;
+    readonly actorPendingOutgoing: number;
+    readonly actorFriends: number;
+    readonly otherFriends: number;
+  }>;
+  readonly commitFriendship: (input: {
+    readonly previous: MessagingFriendshipPair | null;
+    readonly next: MessagingFriendshipPair | null;
+    readonly now: string;
+  }) => Promise<void>;
   readonly readDmRequest: () => Promise<{
     readonly channelId: string;
     readonly state: string;
