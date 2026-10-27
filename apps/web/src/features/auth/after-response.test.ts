@@ -149,7 +149,7 @@ describe('createAfterResponse', () => {
         peak,
         started,
         pendingAfter: pending(),
-        shed: logged.filter(([event]) => event === 'auth.mail.shed'),
+        shed: logged.filter(([event]) => event === 'mail.shed'),
       },
       expected: {
         runningAtOnce: AFTER_RESPONSE_MAX_RUNNING,
@@ -157,8 +157,8 @@ describe('createAfterResponse', () => {
         started: bound,
         pendingAfter: 0,
         shed: Array.from({ length: 10 }, () => [
-          'auth.mail.shed',
-          { operation: 'auth.after-response', pending: bound },
+          'mail.shed',
+          { operation: 'auth.after-response', purpose: 'auth', pending: bound },
           'Auth work after the answer was shed; its backlog is full',
         ]),
       },

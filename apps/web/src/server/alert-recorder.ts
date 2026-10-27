@@ -139,7 +139,7 @@ export function createAlertRecorder({
             ),
           );
           return;
-        case 'auth.mail.shed':
+        case 'mail.shed':
           // ISSUE-220: a count per minute, no address or task identity.
           swallow(
             redis.incrementWithExpiry(

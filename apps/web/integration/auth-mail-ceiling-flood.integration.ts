@@ -94,7 +94,7 @@ const heapMb = () => {
 };
 
 const shedCount = (events: readonly string[]) =>
-  events.filter((event) => event === 'auth.mail.shed').length;
+  events.filter((event) => event === 'mail.shed').length;
 
 describe('ISSUE-185 work handed off past a saturated answer is bounded', () => {
   test('a flood of existing accounts over 20 connections never holds more than the bound, and sheds the rest (narrowed bounds)', async () => {
@@ -195,11 +195,11 @@ describe('ISSUE-185 work handed off past a saturated answer is bounded', () => {
       given:
         'a saturated sign-in whose send the provider still holds when the shutdown deadline is reached, then again once it has finished',
       should:
-        'log auth.mail.abandoned with the unfinished count and nothing else, then log nothing',
+        'log mail.abandoned with the unfinished count and nothing else, then log nothing',
       actual: {
         status: result,
         abandoned: records
-          .filter((record) => record.event === 'auth.mail.abandoned')
+          .filter((record) => record.event === 'mail.abandoned')
           .map(({ operation, pending, msg }) => ({ operation, pending, msg })),
         afterwards: quiet.records.length,
       },

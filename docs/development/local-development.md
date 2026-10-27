@@ -85,7 +85,7 @@ Postgres installs; `.env.example` holds the main checkout's slot values and
 `bun slot:up` rewrites them in a worktree.
 
 Authentication variables (`BETTER_AUTH_SECRET`, `RECIPIENT_HASH_SECRET`,
-`RESEND_API_KEY`, `AUTH_EMAIL_FROM`) are documented in `.env.example` and
+`RESEND_API_KEY`, `EMAIL_FROM`) are documented in `.env.example` and
 validated only when the auth composition activates — baseline startup and
 `bun doctor` never require them. `RECIPIENT_HASH_SECRET` keys the
 suppression ledger and per-recipient rate-limit buckets independently of

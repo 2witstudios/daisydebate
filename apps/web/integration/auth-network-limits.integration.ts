@@ -130,7 +130,7 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
         floodAdmittedWithinLimit:
           (floodStatuses[200] ?? 0) <= MAGIC_LINK_NETWORK_RULES.ipv6_48.max,
         floodRefused: (floodStatuses[429] ?? 0) > 0,
-        shed: events.filter((event) => event === 'auth.mail.shed').length,
+        shed: events.filter((event) => event === 'mail.shed').length,
         poolNeverNearFull: peak < 64,
         mailCounts,
       },

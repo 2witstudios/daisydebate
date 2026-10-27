@@ -48,8 +48,8 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('mail.failed', { purpose: 'auth' });
     store.observe('mail.failed', { purpose: 'beta-access' });
     store.observe('mail.failed', { purpose: 'billing' });
-    store.observe('auth.mail.shed', { pending: 68 });
-    store.observe('auth.mail.shed', { pending: 68 });
+    store.observe('mail.shed', { pending: 68 });
+    store.observe('mail.shed', { pending: 68 });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
     store.observe('auth.rate_limit.network_denied', { scope: 'ipv4_24' });

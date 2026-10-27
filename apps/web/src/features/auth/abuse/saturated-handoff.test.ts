@@ -109,8 +109,7 @@ describe('a saturated ceiling answers before any account-dependent work (ISSUE-1
       actual: {
         known: knownAnswer,
         status: knownAnswer.status,
-        shed: harness.logs.filter(([event]) => event === 'auth.mail.shed')
-          .length,
+        shed: harness.logs.filter(([event]) => event === 'mail.shed').length,
         sent: harness.sent.length,
         tokensKept: harness.db.verification.length - tokensBefore,
       },

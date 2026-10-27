@@ -35,7 +35,7 @@ describe('auth server composition', () => {
         RECIPIENT_HASH_SECRET: authTestEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authTestEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authTestEnv.RESEND_API_KEY,
-        AUTH_EMAIL_FROM: authTestEnv.AUTH_EMAIL_FROM,
+        EMAIL_FROM: authTestEnv.EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
         AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },

@@ -155,7 +155,7 @@ exactly one place.
 - **Mail shed past the bound (ISSUE-220).** A saturated sign-up ceiling
   hands each magic-link request's lookup and send or drop to bounded work
   after its answer (ADR 0025, DEC-73). Work past the bound is shed and
-  logged as `auth.mail.shed`, and real sign-ins get no mail. The tap
+  logged as `mail.shed`, and real sign-ins get no mail. The tap
   increments a per-minute `alert-mail-shed-<minute>` counter (11-minute
   TTL, like the 5xx buckets), and `readAlertSnapshot` sums the trailing
   `ALERT_THRESHOLDS.mailShedWindowMinutes` (10) into `mailShed.count`.

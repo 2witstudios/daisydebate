@@ -99,7 +99,7 @@ describe('authentication configuration', () => {
         RECIPIENT_HASH_SECRET: authEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
-        AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
+        EMAIL_FROM: authEnv.EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
         AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },
@@ -170,7 +170,7 @@ describe('authentication configuration', () => {
       readAuthConfig({
         ...authEnv,
         RESEND_API_KEY: ' ',
-        AUTH_EMAIL_FROM: 'not-an-address\r\nBcc: victim@example.com',
+        EMAIL_FROM: 'not-an-address\r\nBcc: victim@example.com',
         PUBLIC_APP_URL: 'not-a-url',
       });
     } catch (error) {
@@ -182,7 +182,7 @@ describe('authentication configuration', () => {
       actual: {
         namesAllThree:
           message.includes('RESEND_API_KEY') &&
-          message.includes('AUTH_EMAIL_FROM') &&
+          message.includes('EMAIL_FROM') &&
           message.includes('PUBLIC_APP_URL'),
         echoesValue:
           message.includes('not-an-address') || message.includes('Bcc'),
@@ -196,9 +196,9 @@ describe('authentication configuration', () => {
       given: 'an authentication sender without a valid mailbox',
       should: 'reject the sender configuration by field name',
       actual: failureOf(() =>
-        readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy Debate @' }),
+        readAuthConfig({ ...authEnv, EMAIL_FROM: 'Daisy Debate @' }),
       ),
-      expected: 'Error: Invalid auth configuration: AUTH_EMAIL_FROM',
+      expected: 'Error: Invalid auth configuration: EMAIL_FROM',
     });
   });
 
@@ -244,10 +244,10 @@ describe('authentication configuration', () => {
         }),
       ).sort(),
       expected: [
-        'AUTH_EMAIL_FROM',
         'AUTH_SIGN_UP_MAIL_CEILINGS',
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
+        'EMAIL_FROM',
         'PUBLIC_APP_URL',
         'RECIPIENT_HASH_SECRET',
         'RESEND_API_KEY',

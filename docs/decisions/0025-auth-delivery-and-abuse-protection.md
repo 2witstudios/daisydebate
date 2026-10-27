@@ -216,7 +216,7 @@ token>` as the `verification.identifier`. The subject (the email for
   queue never exceeds the slot holders. A task arriving past both bounds
   is shed before it starts, so before the account lookup: the request has
   already had the same `200`, no lookup, send or drop runs, the token
-  expires unused, and `auth.mail.shed` is logged with the backlog's size
+  expires unused, and `mail.shed` is logged with the backlog's size
   only and counted as `auth_mail_shed_total` on `/api/ops/metrics`. A flood
   that fills the bound sheds real sign-ins too: availability yields to a
   bounded backlog (DEC-73). Where the pool fills depends on the host and
@@ -302,7 +302,7 @@ token>` as the `verification.identifier`. The subject (the email for
   outbox for real sends leaks through the canary's delivery latency: a
   target's queued send delays the attacker's own mail. The handed-off
   work finishes before the app's pools close on shutdown, and a shutdown
-  deadline that cuts it off logs `auth.mail.abandoned` with the count
+  deadline that cuts it off logs `mail.abandoned` with the count
   (fly.toml's `kill_timeout` outlasts that deadline, ISSUE-214). A database
   failure during the work is logged as `request.unhandled`, and its
   unmailed token expires unused. What stays

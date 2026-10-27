@@ -119,7 +119,7 @@ export function createApp({
   const emailSender = (authConfig: AuthConfig) =>
     createResendSender({
       apiKey: authConfig.RESEND_API_KEY,
-      from: authConfig.AUTH_EMAIL_FROM,
+      from: authConfig.EMAIL_FROM,
       ids,
       fetch,
     });
@@ -229,15 +229,15 @@ export function createApp({
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
     /**
      * Logs how much auth work handed off past its answer is still unfinished
-     * (`auth.mail.abandoned`, a count only) when a shutdown's deadline cuts
+     * (`mail.abandoned`, a count only) when a shutdown's deadline cuts
      * it off (ISSUE-214). Silent when there is none.
      */
     reportUnfinishedWork: () => {
       const pending = auth?.pendingWork() ?? 0;
       if (pending > 0)
         logger.log(
-          'auth.mail.abandoned',
-          { operation: 'server.shutdown', pending },
+          'mail.abandoned',
+          { operation: 'server.shutdown', purpose: 'auth', pending },
           'Auth work after the answer was cut off by the shutdown deadline',
         );
     },

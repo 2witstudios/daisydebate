@@ -47,7 +47,7 @@ export type AfterResponseLimits = {
  * A piece of work holds one of `maxRunning` slots until it ends;
  * `maxQueued` wait for a slot, and a piece arriving past both is shed
  * before it starts (so before any account lookup, whatever the address),
- * logged as `auth.mail.shed` with the backlog's size, and its unmailed
+ * logged as `mail.shed` with the backlog's size, and its unmailed
  * token expires unused (DEC-73). Its database steps go through `dbStep`,
  * at most `dbSteps` at once.
  *
@@ -95,8 +95,12 @@ export function createAfterResponse(
     else if (waiting.length < limits.maxQueued) waiting.push(work);
     else
       logger.log(
-        'auth.mail.shed',
-        { operation: 'auth.after-response', pending: pending() },
+        'mail.shed',
+        {
+          operation: 'auth.after-response',
+          purpose: 'auth',
+          pending: pending(),
+        },
         'Auth work after the answer was shed; its backlog is full',
       );
   };

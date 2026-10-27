@@ -187,7 +187,7 @@ export function createMetricsStore() {
         case 'mail.failed':
           recordMailFailure(fields);
           return;
-        case 'auth.mail.shed':
+        case 'mail.shed':
           authMailShedTotal += 1;
           return;
         case 'auth.rate_limit.network_denied':

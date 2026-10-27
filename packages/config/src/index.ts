@@ -172,7 +172,7 @@ const authFields = {
   }, 'Expected HTTP(S) URL'),
   RESEND_API_KEY: secret(z.string().regex(/^\S+$/)),
   /** Sender email header value; newlines and malformed mailboxes are rejected. */
-  AUTH_EMAIL_FROM: z
+  EMAIL_FROM: z
     .string()
     .refine(
       (value) =>

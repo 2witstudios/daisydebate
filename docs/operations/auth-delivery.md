@@ -13,7 +13,7 @@ deploy and to reason about failures.
 | `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141)                 |
 | `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
 | `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                                        |
-| `AUTH_EMAIL_FROM`       | Verified sender mailbox                                                                                                               |
+| `EMAIL_FROM`            | Verified sender mailbox                                                                                                               |
 | `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook                                                                                        |
 | `AUTH_TRUSTED_PROXIES`  | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
 | `OPS_PROBE_TOKEN`       | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
@@ -90,7 +90,7 @@ before the account lookup and the send or drop, which finish afterwards
 `mail.failed`, and `request.unhandled` with `source:
 auth.after-response` for a database failure in that work. That work is
 bounded (512 holding a slot, 64 waiting, with only its database steps
-gated at 4 at once); past it a request's work is shed with no mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
+gated at 4 at once); past it a request's work is shed with no mail, logged as `mail.shed` and counted as `auth_mail_shed_total` on
 `/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
 "Alerting" and "Auth mail shed past the bound" below): it means a flood,
 real sign-in volume above what the bound drains, or slow or failing mail
@@ -254,7 +254,7 @@ existing event stream — no new call sites):
 | `delivery_failures`   | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                  |
 | `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
 | `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
-| `mail_shed`           | 20+ `auth.mail.shed` over the trailing 10 minutes (ISSUE-220)                                   | per-minute `alert-mail-shed-*`                     |
+| `mail_shed`           | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                     |
 | `network_limited`     | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality

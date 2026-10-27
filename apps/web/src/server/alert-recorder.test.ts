@@ -157,7 +157,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
     const bucket = Math.floor(Date.parse(NOW) / 60_000);
-    recorder.observe('auth.mail.shed', {
+    recorder.observe('mail.shed', {
       operation: 'auth.after-response',
       pending: 68,
     });
