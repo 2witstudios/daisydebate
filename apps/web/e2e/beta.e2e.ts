@@ -52,19 +52,3 @@ test('a fresh sign-up from a protected page finishes onboarding on /beta and rea
   await page.reload();
   await expect(page).toHaveURL(/\/ranked$/);
 });
-
-test.describe('without JavaScript', () => {
-  test.use({ javaScriptEnabled: false });
-
-  test('a waitlisted account signs out from /beta with a plain form (ISSUE-691)', async ({
-    page,
-  }) => {
-    await signUpWaitlisted(page.request);
-    await page.goto('/beta');
-    await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page).toHaveURL(/\/sign-in/);
-    // The session is gone: the waiting page now asks for a sign-in.
-    await page.goto('/beta');
-    await expect(page).toHaveURL(/\/sign-in\?next=/);
-  });
-});

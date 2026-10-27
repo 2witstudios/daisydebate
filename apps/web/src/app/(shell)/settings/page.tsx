@@ -6,7 +6,6 @@ import {
 } from '../../../features/settings/preferences';
 import { requireAccess } from '../../../lib/access';
 import { requestIdentity } from '../../../lib/request-session';
-import { claimedUsername } from '../../../features/settings/claimed-username';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
 import {
   saveNotificationsAction,
@@ -22,9 +21,10 @@ export default async function SettingsRoute({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/settings', searchParams);
+  const identity = await requestIdentity();
   return (
     <SettingsPage
-      username={claimedUsername(await requestIdentity())}
+      username={identity.state === 'member' ? identity.username : null}
       preferences={getPreferences()}
       saved={parseSettingsQuery(await searchParams)}
       profileAction={saveProfileAction}

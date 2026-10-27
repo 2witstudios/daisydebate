@@ -5,9 +5,6 @@ import { BetaWaiting } from './beta-waiting';
 
 setupRitewayBun();
 
-/** The page's server action; rendering never calls it. */
-const noSignOut = async () => {};
-
 describe('BetaWaiting (ADR 0075)', () => {
   test('a pending account is told it is on the list, with its account one link away', () => {
     const html = renderToString(
@@ -15,28 +12,17 @@ describe('BetaWaiting (ADR 0075)', () => {
         username: 'ada',
         reason: 'pending',
         ageHref: '/onboarding/age?next=%2Fbeta',
-        signOutAction: noSignOut,
       }),
     );
     assert({
       given: 'a pending account',
-      should:
-        'name it on the list, link to its settings and offer a sign-out form, without script (ISSUE-691)',
+      should: 'name it on the list and link to its settings, without script',
       actual: {
         headline: html.includes('You&#x27;re on the list, @ada'),
         settings: html.includes('href="/settings"'),
-        signOut: /<form[^>]*>.*Sign out<\/button><\/form>/.test(html),
-        // React's own form-action replay helper aside, no client script.
-        script: html
-          .replace(/<script>addEventListener\("submit"[\s\S]*?<\/script>/, '')
-          .includes('<script'),
+        script: html.includes('<script'),
       },
-      expected: {
-        headline: true,
-        settings: true,
-        signOut: true,
-        script: false,
-      },
+      expected: { headline: true, settings: true, script: false },
     });
   });
 
@@ -46,7 +32,6 @@ describe('BetaWaiting (ADR 0075)', () => {
         username: 'ada',
         reason: 'revoked',
         ageHref: '/onboarding/age?next=%2Fbeta',
-        signOutAction: noSignOut,
       }),
     );
     assert({
@@ -66,7 +51,6 @@ describe('BetaWaiting (ADR 0075)', () => {
         username: 'ada',
         reason: 'age-required',
         ageHref: '/onboarding/age?next=%2Fbeta',
-        signOutAction: noSignOut,
       }),
     );
     assert({

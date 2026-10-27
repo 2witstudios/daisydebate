@@ -7,7 +7,6 @@ import {
   type SearchParams,
 } from '../../../features/access/decision';
 import { BetaWaiting } from '../../../ui/beta/beta-waiting';
-import { signOutAction } from './actions';
 
 export const metadata: Metadata = {
   title: "You're on the beta list",
@@ -35,7 +34,6 @@ export default async function BetaPage({
       username={identity.username}
       reason={identity.reason}
       ageHref={onboardingHref('/beta')}
-      signOutAction={signOutAction}
     />
   );
 }
