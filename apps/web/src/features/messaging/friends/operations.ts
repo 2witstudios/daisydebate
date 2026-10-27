@@ -127,6 +127,10 @@ const presenceRank: Record<FriendPresence, number> = {
   offline: 2,
 };
 
+/** How many of a friend list's friends the badge counts: away is still here. */
+export const friendsOnlineOf = (friends: FriendList['friends']): number =>
+  friends.filter((friend) => friend.presence !== 'offline').length;
+
 /** The principal's friends, online first, and their pending requests. */
 export async function readFriendList(
   principal: AuthorizationPrincipal,
@@ -157,7 +161,9 @@ export async function readFriendList(
     friends: accepted
       .map((row) => ({
         username: row.username,
-        presence: presence.get(row.otherActorId) ?? 'offline',
+        presence: row.otherHidden
+          ? ('offline' as const)
+          : (presence.get(row.otherActorId) ?? 'offline'),
       }))
       .sort(
         (a, b) =>

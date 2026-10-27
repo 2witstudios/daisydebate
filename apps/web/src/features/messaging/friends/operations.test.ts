@@ -7,6 +7,7 @@ import {
   capabilityFor,
   changeFriendship,
   friendPresenceOf,
+  friendsOnlineOf,
   readFriendList,
   type FriendCapability,
 } from './operations';
@@ -229,6 +230,8 @@ test('readFriendList', async () => {
       return new Map([
         [them, 'online' as const],
         [e, 'away' as const],
+        // Gus hides: even a live lease of theirs must never reach the list.
+        ['g'.repeat(24), 'online' as const],
       ]);
     },
   });
@@ -253,6 +256,12 @@ test('readFriendList', async () => {
     should: 'ask only about accepted friends who do not hide their status',
     actual: asked,
     expected: [[them, c, e]],
+  });
+  assert({
+    given: 'the list with a hidden friend holding a live lease',
+    should: 'count only the visible online and away friends in the badge',
+    actual: friendsOnlineOf(list.friends),
+    expected: 2,
   });
 });
 

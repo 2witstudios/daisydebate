@@ -232,7 +232,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
   assert({
     given: 'subject association cleanup',
     should:
-      'hold complete channel union first, transfer opaque charge before deleting files and delete receipt identity outright',
+      'hold complete channel union first, transfer opaque charge before deleting files, and delete receipt identity and presence choice outright',
     actual: [
       fileIntent > 1,
       queries[1]?.query.includes('order by id for update'),
@@ -244,8 +244,11 @@ test('erasure fences every subject channel before file cleanup and publishes fin
         queries.findIndex((query) =>
           query.query.includes('delete from messaging_contact_pairs'),
         ),
+      queries.find((query) =>
+        query.query.includes('delete from messaging_presence_settings'),
+      )?.params,
     ],
-    expected: [true, true, true, [actorId], true],
+    expected: [true, true, true, [actorId], true, [actorId]],
   });
 });
 test('exhausted erase version refuses before association or file deletion', async () => {

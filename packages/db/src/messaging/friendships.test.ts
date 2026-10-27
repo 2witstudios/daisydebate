@@ -137,3 +137,29 @@ test('presence visibility reads and writes only behind the reader’s fence', as
     expected: [true, false, ['fenced', 'fenced'], true],
   });
 });
+
+test('a member with no stored choice is visible', async () => {
+  const { client } = fakeSql([[account], []]);
+  assert({
+    given: 'no presence settings row',
+    should: 'read the member as not hidden',
+    actual: await readPresenceHidden(
+      drizzle({ client }),
+      { userId, actorId: me },
+      async () => {},
+    ),
+    expected: false,
+  });
+  await assertRejects({
+    given: 'a malformed actor id',
+    should: 'refuse the write before any query',
+    actual: () =>
+      writePresenceHidden(
+        drizzle({ client }),
+        { userId, actorId: 'x' },
+        { hidden: true, now: '2026-10-26T18:00:00.000Z' },
+        async () => {},
+      ),
+    code: 'VALIDATION',
+  });
+});

@@ -10,6 +10,7 @@ import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
   friendPresenceOf,
+  friendsOnlineOf,
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
@@ -89,8 +90,13 @@ export function composeFriendRoutes(app: App) {
     presence: (principal, hidden) =>
       setPresenceHidden(principal, hidden, {
         clock: app.clock,
+        // Its own bucket: toggling visibility never spends friend changes.
         limit: (actorId) =>
-          consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
+          consumeOrThrow(
+            app.auth().limiter,
+            `friends-presence:${actorId}`,
+            FRIEND_RULE,
+          ),
         write: (scope, input) =>
           app.database.writePresenceHidden(
             scope,
@@ -106,8 +112,7 @@ export function composeFriendRoutes(app: App) {
         app.redis.countOnlinePresence(),
       ]);
       return {
-        friendsOnline: friends.filter((friend) => friend.presence !== 'offline')
-          .length,
+        friendsOnline: friendsOnlineOf(friends),
         membersOnline,
       };
     },

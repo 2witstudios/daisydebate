@@ -30,6 +30,15 @@ type FriendshipListScope = {
   readonly actorId: string;
 };
 
+/** Refuses a scope that is not two well-formed ids before any query. */
+const requireScope = (scope: FriendshipListScope) => {
+  if (
+    !idSchema.safeParse(scope.userId).success ||
+    !idSchema.safeParse(scope.actorId).success
+  )
+    throw createAppError('VALIDATION');
+};
+
 /**
  * One member's own friendships and requests with each counterpart's current
  * username, after `authorize` passes on the reader's locked account. Erased,
@@ -41,11 +50,7 @@ export async function listMessagingFriendships(
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly MessagingFriendshipRow[]> {
-  if (
-    !idSchema.safeParse(scope.userId).success ||
-    !idSchema.safeParse(scope.actorId).success
-  )
-    throw createAppError('VALIDATION');
+  requireScope(scope);
   return readOwnCollection(database, scope, authorize, (tx) =>
     readRows(tx, scope.actorId),
   );
@@ -57,6 +62,7 @@ export function readPresenceHidden(
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<boolean> {
+  requireScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const [row] = await tx
       .select({ hidden: messagingPresenceSettings.hidden })
@@ -73,6 +79,7 @@ export function writePresenceHidden(
   input: { readonly hidden: boolean; readonly now: string },
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<boolean> {
+  requireScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
     await tx
