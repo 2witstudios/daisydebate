@@ -46,3 +46,17 @@ export async function readConversationResponse(response: Response) {
     typingRefetchMs: recovery?.data ?? null,
   };
 }
+
+/**
+ * The newest sequence a reader has now seen: only the live first page counts,
+ * never a search result or an older page, so reading history never skips
+ * unread messages.
+ */
+export function readThroughSequence(
+  history: MessagingConversation,
+  view: { readonly searching: boolean; readonly paging: boolean },
+): number | null {
+  if (view.searching || view.paging || history.messages.length === 0)
+    return null;
+  return Math.max(...history.messages.map((message) => message.sequence));
+}

@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { formRequestId } from './form-scope';
+import { formRequestId, singleFormField } from './form-scope';
 export type BlockFormState = {
   readonly requestId: string;
   readonly username: string;
@@ -8,12 +8,7 @@ export type BlockFormState = {
 };
 export function parseBlockForm(input: unknown) {
   if (!(input instanceof FormData)) throw createAppError('VALIDATION');
-  const read = (key: string) => {
-    const value = input.get(key);
-    if (typeof value !== 'string' || input.getAll(key).length !== 1)
-      throw createAppError('VALIDATION');
-    return value;
-  };
+  const read = (key: string) => singleFormField(input, key);
   const requestId = idSchema.safeParse(read('requestId'));
   const decision = read('decision');
   if (!requestId.success || !['block', 'unblock'].includes(decision))

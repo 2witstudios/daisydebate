@@ -45,14 +45,16 @@ if (gatewayUnresolved)
     { operation: 'server.start' },
     'No single default gateway was found, so no proxy is trusted for it',
   );
+const instanceId = systemId.next();
 const { close, drain } = await serveRealtime({
   resources,
   port,
   hostname,
   trustedProxies,
+  presence: { instanceId, nextId: () => systemId.next() },
 });
 const lease = startRealtimeServiceLease({
-  instanceId: systemId.next(),
+  instanceId,
   renew: resources.database.renewServiceInstance,
   deliveredThrough: drain.cursor,
   failed: () =>

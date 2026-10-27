@@ -1,0 +1,84 @@
+import type { ServerWebSocket } from 'bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { Logger } from '@daisy/logger';
+import { createWebSocketHandlers, type SocketData } from './socket';
+import type { PresenceTracker } from './presence';
+
+setupRitewayBun();
+
+const logger: Logger = { log: () => {}, child: () => logger };
+const actorId = 'a'.repeat(24);
+const hello = JSON.stringify({
+  v: 1,
+  type: 'hello',
+  protocolVersion: 1,
+  ticket: 'a'.repeat(43),
+});
+
+const connect = async () => {
+  const events: unknown[][] = [];
+  const presence: PresenceTracker = {
+    start: (actor, activity) => {
+      events.push(['start', actor, activity]);
+      return {
+        activity: (activity) => events.push(['activity', activity]),
+        stop: () => events.push(['stop']),
+      };
+    },
+  };
+  const ws = {
+    data: { origin: 'http://localhost:3000' } as SocketData,
+    send: () => 1,
+    getBufferedAmount: () => 0,
+    close: () => {},
+  } as unknown as ServerWebSocket<SocketData>;
+  const handlers = createWebSocketHandlers({
+    logger,
+    timers: { setTimeout: () => 0 as never, clearTimeout: () => {} },
+    now: () => 0,
+    authenticate: async () => ({
+      actorId,
+      userId: 'b'.repeat(24),
+      sessionId: 'c'.repeat(24),
+    }),
+    presence,
+  });
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  return { ws, handlers, events };
+};
+
+const activity = (value: 'active' | 'idle') =>
+  JSON.stringify({ v: 1, type: 'presence.activity', activity: value });
+
+test('only a socket that reports activity holds a presence session', async () => {
+  const quiet = await connect();
+  quiet.handlers.close(quiet.ws);
+  const reporting = await connect();
+  await reporting.handlers.message(reporting.ws, activity('active'));
+  await reporting.handlers.message(reporting.ws, activity('idle'));
+  reporting.handlers.close(reporting.ws);
+  assert({
+    given:
+      'a room or conversation socket that never reports, and a shell socket that reports active then idle',
+    should:
+      'hold no lease for the first, and start, update and stop one for the second',
+    actual: [quiet.events, reporting.events],
+    expected: [
+      [],
+      [['start', actorId, 'active'], ['activity', 'idle'], ['stop']],
+    ],
+  });
+});
+
+test('a rejected socket stops its presence session', async () => {
+  const { ws, handlers, events } = await connect();
+  await handlers.message(ws, activity('idle'));
+  await handlers.message(ws, 'not json');
+  assert({
+    given: 'a reporting socket sending an unparseable frame',
+    should: 'stop presence as it closes',
+    actual: events,
+    expected: [['start', actorId, 'idle'], ['stop']],
+  });
+});
