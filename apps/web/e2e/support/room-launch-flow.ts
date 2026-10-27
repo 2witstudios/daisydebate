@@ -9,6 +9,10 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
 export const reread = async (request: APIRequestContext, id: string) => {
   const response = await request.get(`/api/rooms/${id}`);
   expect(response.status()).toBe(200);
@@ -69,7 +73,7 @@ export const clockText = (ms: number) => {
 export async function submitCreateRoom(
   page: Page,
   title: string,
-  formatId = 'foundation',
+  formatId = 'value',
 ) {
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
@@ -95,12 +99,39 @@ export async function submitCreateRoom(
 export async function createFromPlay(
   page: Page,
   title: string,
-  formatId = 'foundation',
+  formatId = 'value',
 ) {
   await page.goto('/play');
   await page.getByRole('link', { name: /^Open a room\b/ }).click();
   await expect(page).toHaveURL('/play/room');
   return submitCreateRoom(page, title, formatId);
+}
+
+/**
+ * The unjudged two-speech proof room, posted as a custom format: the picker
+ * offers only Daisy's standards and league templates (FMT-1), and a judged
+ * standard cannot launch with two debaters alone. Opens its page.
+ */
+export async function createProofRoom(page: Page, title: string) {
+  const response = await page.request.post('/api/rooms', {
+    headers: { origin },
+    data: {
+      commandId: createId(),
+      title,
+      topic: 'Proof cities should fund transit',
+      visibility: 'public',
+      selection: {
+        kind: 'custom',
+        definition: foundationDefinition,
+        config: foundationConfig,
+        competitionType: 'casual',
+      },
+    },
+  });
+  expect(response.status()).toBe(201);
+  const view = roomViewSchema.parse((await response.json()).view);
+  await page.goto(`/rooms/${view.id}`);
+  return view;
 }
 
 export async function closeRoom(
@@ -152,7 +183,7 @@ export async function prepareRoomAs(
   title: string,
   own: (typeof seats)[number],
 ) {
-  let view = await createFromPlay(page, title, 'one-on-one');
+  let view = await createFromPlay(page, title, 'value');
   await turnOffPreRoundPrep(page);
   await expect(async () => {
     view = await reread(page.request, view.id);
