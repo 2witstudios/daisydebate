@@ -1,7 +1,7 @@
 import { getTableColumns, getTableName } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountTermsPrivacyAdopter } from './age-step';
-import { validatePrivacyAdoption } from './privacy/declarations';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
 import { accountTerms } from './schema/account-terms';
 import { createTestDatabase } from './index.test-support';
 
