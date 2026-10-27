@@ -16,13 +16,17 @@ const transcript = (revision: number): RoundTranscriptRead => ({
   streams: [],
   utterances: [],
 });
-test('capture invalidation refreshes independently of competitive Round version', async () => {
+const connectedTranscript = () => {
   const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
   const driver = createTranscriptSync({
     seed: seedTranscript(transcript(0)),
     ...edges,
   });
   edges.connectionState({ status: 'open', generation: 1, terminal: null });
+  return { edges, driver };
+};
+test('capture invalidation refreshes independently of competitive Round version', async () => {
+  const { edges, driver } = connectedTranscript();
   edges.advance(30000);
   const before = edges.reads();
   edges.emit({
@@ -80,12 +84,7 @@ test('a no-socket client has a slow single-flight fallback and a refusal removes
 });
 
 test('the first subscription acknowledgment closes the server-seed gap', async () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
-  const driver = createTranscriptSync({
-    seed: seedTranscript(transcript(0)),
-    ...edges,
-  });
-  edges.connectionState({ status: 'open', generation: 1, terminal: null });
+  const { edges, driver } = connectedTranscript();
   edges.emit({
     v: ENVELOPE_VERSION,
     type: 'subscribed',

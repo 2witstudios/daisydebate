@@ -1,5 +1,6 @@
 import { captureRoomInterrupted } from './capture-room-history';
 import { appendTranscriptChanged } from './transcript-signal';
+import { updateCaptureStream } from './capture-stream-update';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -17,10 +18,7 @@ import {
   type CaptureDependencies,
   type CaptureTx,
 } from './media-capture-context';
-import {
-  transcriptObservations,
-  transcriptSegments,
-} from './schema/transcript-segments';
+import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import {
   requireObservationWindow,
@@ -149,19 +147,11 @@ export async function sealCapturedStream(
     )),
   });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
-  await tx
-    .update(transcriptSegments)
-    .set({
-      state,
-      sealedChunkCount: input.expectedChunkCount,
-      sealedAt: mutationNow,
-    })
-    .where(
-      and(
-        eq(transcriptSegments.segmentId, input.segmentId),
-        eq(transcriptSegments.roundParticipantId, input.roundParticipantId),
-      ),
-    );
+  await updateCaptureStream(tx, input, {
+    state,
+    sealedChunkCount: input.expectedChunkCount,
+    sealedAt: mutationNow,
+  });
   const revision = await advanceTranscriptRevision(tx, input.roundId);
   await appendTranscriptChanged(tx, input.roundId, revision);
   return { state, revision };

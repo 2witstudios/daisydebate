@@ -1,6 +1,7 @@
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import { updateCaptureStream } from './capture-stream-update';
 import type { z } from 'zod';
 import type { captureClipSchema } from './capture-input';
 import {
@@ -72,15 +73,9 @@ export async function appendCapturedTranscript(
     captureBodyDigest: bodyDigest,
     createdAt: mutationNow,
   });
-  await tx
-    .update(transcriptSegments)
-    .set({ chunkCount: sql`${transcriptSegments.chunkCount}+1` })
-    .where(
-      and(
-        eq(transcriptSegments.segmentId, input.segmentId),
-        eq(transcriptSegments.roundParticipantId, input.roundParticipantId),
-      ),
-    );
+  await updateCaptureStream(tx, input, {
+    chunkCount: sql`${transcriptSegments.chunkCount}+1`,
+  });
   const revision = await advanceTranscriptRevision(tx, input.roundId);
   await appendTranscriptChanged(tx, input.roundId, revision);
   return { duplicate: false, revision };
