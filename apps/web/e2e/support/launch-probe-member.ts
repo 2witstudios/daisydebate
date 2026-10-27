@@ -50,6 +50,15 @@ export async function createLaunchProbeMember(
     .map((part) => part.split(';')[0]!)
     .join('; ');
   if (!cookie) throw new Error('Public probe member session missing');
+  // The age step comes before the username claim (WAIT-4.6), as an adult.
+  successful(
+    await fetch(`${origin}/api/account/age`, {
+      method: 'POST',
+      headers: { origin, cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ month: 1, year: 1990, terms: true }),
+    }),
+    200,
+  );
   successful(
     await fetch(`${origin}/api/account/username`, {
       method: 'POST',

@@ -11,7 +11,7 @@ import {
 import { returnableDestination } from '../redirect';
 import { EMAIL_UNDELIVERABLE } from '../mail/undeliverable-codes';
 
-const NEW_USER_DESTINATION = '/onboarding/username';
+const NEW_USER_DESTINATION = '/onboarding/age';
 const EXPIRED = `${CONFIRM_PATH}?error=INVALID_TOKEN`;
 const MAX_FORM_BYTES = 4096;
 const tokenShape = /^[A-Za-z0-9_-]{16,256}$/;

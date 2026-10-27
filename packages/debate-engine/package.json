@@ -8,7 +8,7 @@
     "./position": "./src/round-position.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
     "test": "bun test src"
   },
   "dependencies": {
