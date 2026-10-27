@@ -1,9 +1,12 @@
-import { createAppError } from '@daisy/errors';
 import {
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-} from '@daisy/db/reference-formats';
-import { resolveRoomConfiguration } from '@daisy/debate-engine';
+  fixedId,
+  rules,
+  sessionId,
+  roundId,
+  seats,
+} from './media-world-fixture.test-support';
+export { fixedId } from './media-world-fixture.test-support';
+import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import type { MediaOperationInput, Store } from './operation-context';
 import {
@@ -11,43 +14,6 @@ import {
   type Grants,
   type Vendor,
 } from './media-vendor.test-support';
-
-/** Deterministic 24-character identifiers the real media adapter accepts. */
-export const fixedId = (label: string) =>
-  label
-    .replace(/[^a-z0-9]/g, '')
-    .padEnd(24, '0')
-    .slice(0, 24);
-
-const compiled = resolveRoomConfiguration(
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-);
-if (!compiled.ok) throw new Error('Canonical rules fixture refused');
-const rules = compiled.rules;
-const roomName = fixedId('room');
-const sessionId = fixedId('session');
-const roundId = fixedId('round');
-const seats = [
-  {
-    id: fixedId('seataff'),
-    actorId: fixedId('actoraff'),
-    role: 'affirmative',
-    slot: 0,
-  },
-  {
-    id: fixedId('seatneg'),
-    actorId: fixedId('actorneg'),
-    role: 'negative',
-    slot: 0,
-  },
-  {
-    id: fixedId('seatjudge'),
-    actorId: fixedId('actorjudge'),
-    role: 'judge',
-    slot: 0,
-  },
-] as const;
 
 /**
  * One Round's durable media facts and one self-hosted LiveKit room, held in
@@ -61,6 +27,17 @@ export function createMediaWorld(
     readonly reclaimedAfterFinish?: boolean;
   } = {},
 ) {
+  let roomName = fixedId('room');
+  const waiting = new Set<string>();
+  const priority = async (
+    _sessionId: string,
+    operation: string,
+    owner?: string,
+  ) => {
+    if (operation === 'enter') waiting.add(owner!);
+    if (operation === 'leave') waiting.delete(owner!);
+    return waiting.size > 0;
+  };
   const journal: string[] = [];
   const reported: unknown[] = [];
   const failures = new Map<Vendor, number>();
@@ -201,6 +178,15 @@ export function createMediaWorld(
       if (cleaned) {
         unsafeAt = null;
         if (terminal) endedAt ??= now;
+        else {
+          const kept = bindings.filter((binding) =>
+            eligible.get(binding.roundParticipantId),
+          );
+          if (kept.length !== bindings.length) {
+            bindings.splice(0, bindings.length, ...kept);
+            roomName = nextId();
+          }
+        }
       }
     },
     ensureBinding: async (input: { actorId: string }) => {
@@ -239,6 +225,7 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    priority,
     store,
     media,
     publicUrl: 'wss://media.daisy.invalid',

@@ -146,11 +146,37 @@ test('internal capture token admission requires a fresh exact lease and safe non
         code: 'CONFLICT',
         actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
+      await assertRejects({
+        given: 'an expired old worker trying to renew its exact epoch',
+        should: 'refuse without acquiring replacement authority',
+        code: 'CONFLICT',
+        actual: () =>
+          store.claimMediaWorkerLease({
+            roundId,
+            sessionId: scope.sessionId,
+            workerId: scope.workerId,
+            leaseMs: 15000,
+            expectedEpoch: claimed.epoch,
+          }),
+      });
       const fresh = await store.claimMediaWorkerLease({
         roundId,
         sessionId: scope.sessionId,
         workerId: scope.workerId,
         leaseMs: 15000,
+      });
+      await assertRejects({
+        given: 'a stale renewal after a new epoch is claimed',
+        should: 'leave the current epoch intact',
+        code: 'CONFLICT',
+        actual: () =>
+          store.claimMediaWorkerLease({
+            roundId,
+            sessionId: scope.sessionId,
+            workerId: scope.workerId,
+            leaseMs: 15000,
+            expectedEpoch: claimed.epoch,
+          }),
       });
       await fixture.sql.unsafe(
         "update rounds set status='abandoned',completed_at=clock_timestamp() where id=$1",

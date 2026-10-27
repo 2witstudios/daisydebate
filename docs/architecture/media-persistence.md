@@ -364,3 +364,51 @@ publication/generation authority lives in its dedicated lease and execution
 producers. This separation adds no personal-data field, retention extension or
 production/legal activation. Captured text and retry digests retain the declared
 private transcript purpose, human basis gate and owning-Round erasure contract.
+
+## Live transcript reads
+
+`GET /api/rounds/:id/transcript` is the single round-wide live text read. It
+samples the current account and Round under the shared read fences and applies
+`round.transcript.read`, the same audience policy used for completed result
+transcripts. Current policy admits the Round's debaters and judges; public
+visibility and a seatless host confer no transcript right. Persistence and the
+viewer consume the authorization decision without another seat requirement,
+so a future approved audience producer can extend that policy alone.
+
+The read reuses ordered `utterances`, explicit `transcript_segments` states and
+the immutable freeze marker. Its revision follows capture independently of
+competitive Round version, with one additional revision at freeze. Text append,
+stream seal and freeze transactionally append a `debate.transcript-changed`
+doorbell to the existing Round topic. It contains only the Round id and the
+transcript revision. The viewer refetches the protected read on that doorbell
+and reconnect/visibility recovery; clients without a connected socket use a
+30-second fallback. Refused reads remove the displayed text. Native page reloads
+use the identical read and the shared transcript disclosure works without
+JavaScript. Capturing requires an explicit open, unfrozen stream; partial
+closure and incomplete freeze never wait for a client deadline to show Partial.
+
+## Revoked media room rotation
+
+Canonical revocation of a bound human seat closes admission to the old vendor
+room. Reconciliation deletes that room, waits for every journaled mutation to
+settle, and checks provider absence against the current owner, epoch and mutation
+horizon. Only the fenced finish transaction rotates the room name to a fresh
+cuid2, removes revoked human bindings, and increments and expires the capture
+lease. It preserves the session ID, eligible bindings and mutation journal.
+Ineligible seats without a binding do not veto the replacement room (DEC-199,
+ISSUE-473). Self-hosted LiveKit must retain `room.auto_create: false`: old JWTs
+cannot recreate the deleted room.
+
+An admission that performed rotation reacquires reconciliation for the current
+room before creation and token signing. Remaining eligible seats reconnect with
+fresh room grants. Capture renewal carries its expected epoch and cannot acquire
+replacement authority after expiry or rotation. Discovery launches a new worker
+once the replacement room exists; the old worker cannot append, observe, seal or
+mint a token under its revoked epoch.
+
+Rotation does not seal an active transcript stream early. New-room chunks may
+append to the same segment/seat stream. At closure, vendor deletion/recreation
+history overlapping the segment prevents a complete seal, even when the old
+worker persisted no observation or chunk and join tolerance would otherwise hide
+the gap. Earlier lifecycle interruptions fully recovered before the segment do
+not taint it. No utterance or audio observation is fabricated to record a gap.

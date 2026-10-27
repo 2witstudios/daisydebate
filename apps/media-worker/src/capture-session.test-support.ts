@@ -63,6 +63,8 @@ const closedForGood = createMediaWorkerClient({
  */
 export function createCaptureSessionFixture(
   options: {
+    readonly lease?: CaptureClient['lease'];
+    readonly waitUntilMs?: (due: number, signal: AbortSignal) => Promise<void>;
     readonly drop?: number;
     readonly closedOnDrop?: boolean;
     readonly consumerFails?: number;
@@ -106,7 +108,7 @@ export function createCaptureSessionFixture(
   let reads = 0;
   const seals: number[] = [];
   const client = {
-    lease: async () => ({ epoch: 1 }),
+    lease: options.lease ?? (async () => ({ epoch: 1 })),
     token: async () => ({ url: 'wss://media.invalid', token: 'token' }),
     read: (
       request: { epoch: number; segmentId?: string },
@@ -155,17 +157,19 @@ export function createCaptureSessionFixture(
       voice: { transcribe: async () => '' } as never,
       sttModel: 'model',
       nowMs: performance.now,
-      waitUntilMs: (due, signal) =>
-        new Promise((resolve) => {
-          const timer = setTimeout(
-            resolve,
-            Math.max(1, due - performance.now()),
-          );
-          signal.addEventListener('abort', () => {
-            clearTimeout(timer);
-            resolve();
-          });
-        }),
+      waitUntilMs:
+        options.waitUntilMs ??
+        ((due, signal) =>
+          new Promise((resolve) => {
+            const timer = setTimeout(
+              resolve,
+              Math.max(1, due - performance.now()),
+            );
+            signal.addEventListener('abort', () => {
+              clearTimeout(timer);
+              resolve();
+            });
+          })),
       subscribe: (async (setup: { onFrame: (frame: never) => void }) => {
         options.onSubscribe?.((frame) => setup.onFrame(frame as never));
         return {

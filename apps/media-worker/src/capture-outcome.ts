@@ -1,7 +1,19 @@
 import { createAppError } from '@daisy/errors';
 import { isCaptureConnectionClosed } from '@daisy/media/capture';
+import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { tagCaptureFailure, type CaptureFailureStage } from './capture-exit';
 import type { CaptureClient } from './capture-history';
+
+export function captureSessionClosed(failure: unknown) {
+  if (failure && isCaptureClosedRefusal(failure)) return true;
+  if (failure)
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Capture session ended before safe completion',
+      failure,
+    );
+  return false;
+}
 
 /**
  * LiveKit dropped the room: the server's answer says whether the Round closed

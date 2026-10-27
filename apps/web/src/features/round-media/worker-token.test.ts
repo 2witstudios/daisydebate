@@ -1,52 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createAppError } from '@daisy/errors';
 import { createRoundMediaOperations } from './operations';
-import { createMediaWorkerTokenBroker } from './worker-token';
+import { broker, scope, authenticated } from './worker-token.test-support';
 import { createMediaWorld, fixedId } from './media-world.test-support';
 setupRitewayBun();
 
-type Broker = Parameters<typeof createMediaWorkerTokenBroker>[0];
-const workerId = fixedId('worker');
-const broker = (
-  world: ReturnType<typeof createMediaWorld>,
-  leased: () => boolean = () => true,
-) => {
-  const verified: string[] = [];
-  const capture = {
-    verifyMediaWorkerLease: async (scope: { workerId: string }) => {
-      verified.push(scope.workerId);
-      if (!leased()) throw createAppError('CONFLICT', 'Lease lost');
-      return { serverNow: '2026-10-22T00:00:00.000Z' };
-    },
-  } as unknown as Broker['capture'];
-  return {
-    verified,
-    tokens: createMediaWorkerTokenBroker({
-      sessions: world.input.store,
-      capture,
-      media: world.input.media,
-      workerUrl: world.input.workerUrl,
-      nextId: world.input.nextId,
-      deadline: world.input.deadline,
-      hold: createRoundMediaOperations(world.input).holdForCapture,
-    }),
-  };
-};
-const scope = (world: ReturnType<typeof createMediaWorld>) => ({
-  roundId: world.roundId,
-  sessionId: fixedId('session'),
-  workerId,
-  epoch: 1,
-});
-const authenticated = (world: ReturnType<typeof createMediaWorld>) =>
-  ({
-    roundId: world.roundId,
-    workerId,
-    serviceId: `media-capture:${workerId}`,
-  }) as Parameters<
-    ReturnType<typeof createMediaWorkerTokenBroker>['captureToken']
-  >[1];
 const claims = (token: string) =>
   JSON.parse(Buffer.from(token.split('.')[1]!, 'base64url').toString()) as {
     video: Record<string, unknown>;

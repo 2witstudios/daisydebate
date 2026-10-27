@@ -2,6 +2,8 @@ import {
   isNamedSeat,
   type Ballot,
   type RoundBallotRead,
+  type RoundTranscriptRead,
+  type RoundView,
 } from '@daisy/protocol';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
 import { speechName } from '../../features/debate-room/vocabulary';
@@ -24,6 +26,7 @@ export type TranscriptSection = {
   readonly key: string;
   readonly heading: string;
   readonly side: 'affirmative' | 'negative';
+  readonly status?: 'capturing' | 'partial' | 'complete' | 'pending';
   readonly lines: readonly {
     readonly id: string;
     readonly speaker: string;
@@ -83,7 +86,13 @@ export function transcriptSections(
 ): readonly TranscriptSection[] {
   const transcript = view.transcript;
   if (!transcript) return [];
-  const { round } = view;
+  return sectionsOf(view.round, transcript.utterances);
+}
+
+function sectionsOf(
+  round: RoundView,
+  utterances: NonNullable<RoundBallotRead['transcript']>['utterances'],
+): readonly TranscriptSection[] {
   const speaker = (participantId: string) => {
     const seat = round.participants
       .filter(isNamedSeat)
@@ -91,19 +100,10 @@ export function transcriptSections(
     return seat ? seat.label : 'Unknown speaker';
   };
   const sections = new Map<number, TranscriptSection>();
-  for (const line of transcript.utterances) {
-    const played = round.segments[line.segmentSequence];
-    const rules = round.rules.segments.find(
-      (segment) => segment.key === played?.rulesSegmentKey,
-    );
-    const section = sections.get(line.segmentSequence) ?? {
-      key: `${line.segmentSequence}`,
-      heading: rules
-        ? `${speechName(rules)} · ${seatLabel(rules.side, rules.slot)}`
-        : `Speech ${line.segmentSequence + 1}`,
-      side: rules?.side ?? 'affirmative',
-      lines: [],
-    };
+  for (const line of utterances) {
+    const section =
+      sections.get(line.segmentSequence) ??
+      emptySection(round, line.segmentSequence);
     sections.set(line.segmentSequence, {
       ...section,
       lines: [
@@ -118,4 +118,57 @@ export function transcriptSections(
     });
   }
   return [...sections.values()];
+}
+
+/** Only explicit open coverage can claim capture; a freeze always closes it. */
+export function transcriptState(
+  view: RoundTranscriptRead,
+): NonNullable<TranscriptSection['status']> {
+  if (view.freeze)
+    return view.freeze.completeness === 'complete' ? 'complete' : 'partial';
+  if (view.streams.some((s) => s.state === 'partial')) return 'partial';
+  return view.streams.some((s) => s.state === 'open') ? 'capturing' : 'pending';
+}
+
+/** Viewer-neutral sections: authorization has already happened at the read boundary. */
+export function liveTranscriptSections(
+  view: RoundTranscriptRead,
+): readonly TranscriptSection[] {
+  const sections = sectionsOf(view.round, view.utterances);
+  return view.round.segments.map((segment) => {
+    const existing = sections.find((s) => s.key === `${segment.sequence}`);
+    const streams = view.streams.filter((s) => s.segmentId === segment.id);
+    const status = streamStatus(streams, view.freeze !== null);
+    return {
+      ...(existing ?? emptySection(view.round, segment.sequence)),
+      status,
+    };
+  });
+}
+
+function emptySection(round: RoundView, sequence: number): TranscriptSection {
+  const played = round.segments[sequence];
+  const rules = round.rules.segments.find(
+    (s) => s.key === played?.rulesSegmentKey,
+  );
+  return {
+    key: `${sequence}`,
+    heading: rules
+      ? `${speechName(rules)} · ${seatLabel(rules.side, rules.slot)}`
+      : `Speech ${sequence + 1}`,
+    side: rules?.side ?? 'affirmative',
+    lines: [],
+  };
+}
+function streamStatus(
+  streams: RoundTranscriptRead['streams'],
+  frozen: boolean,
+): NonNullable<TranscriptSection['status']> {
+  const open = streams.some((s) => s.state === 'open');
+  if (streams.some((s) => s.state === 'partial') || (frozen && open))
+    return 'partial';
+  if (open) return 'capturing';
+  if (streams.length > 0 && streams.every((s) => s.state === 'complete'))
+    return 'complete';
+  return frozen ? 'partial' : 'pending';
 }

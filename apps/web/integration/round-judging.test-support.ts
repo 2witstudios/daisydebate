@@ -1,3 +1,7 @@
+import {
+  canReadRound,
+  canReadTranscript,
+} from '../src/features/round-runtime/reads';
 import { createId } from '@paralleldrive/cuid2';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import {
@@ -139,3 +143,17 @@ export async function freezeBotJudge(
   if (!target) throw Error('Expected actual assigned judging intent');
   return { roundId, target };
 }
+
+/** The production private transcript policy, with coaching always enabled for these fixtures. */
+export const readBallotAs = (
+  f: RoomFixture,
+  caller: { readonly userId: string; readonly actorId: string },
+  roundId: string,
+) =>
+  f.store.readRoundBallot({
+    caller,
+    roundId,
+    authorize: (r, a) => canReadRound(caller, r, a),
+    authorizeTranscript: (r, a) => canReadTranscript(caller, r, a),
+    authorizeCoaching: () => true,
+  });

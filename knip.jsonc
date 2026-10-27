@@ -25,6 +25,8 @@
         "scripts/verify.ts",
         "scripts/prove-round-judging.ts",
         "scripts/prove-media-worker.ts",
+        // Bundled by the staging-only manual workflow and piped to Fly stdin.
+        "scripts/staging-transcript-proof.ts",
       ],
     },
     // The e2e production server is started by Playwright's webServer command.

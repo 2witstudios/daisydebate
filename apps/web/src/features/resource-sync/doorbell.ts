@@ -2,7 +2,8 @@ import type { ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 
-type Versioned = 'room.changed' | 'debate.phase-changed';
+type Versioned =
+  'room.changed' | 'debate.phase-changed' | 'debate.transcript-changed';
 
 /**
  * A resource's content-free doorbell as sync signals: the announced version,
@@ -15,6 +16,7 @@ export function attachVersionDoorbell({
   id,
   connection,
   signal,
+  catchUpOnSubscribe,
 }: {
   readonly topic: string;
   readonly kind: Versioned;
@@ -25,6 +27,7 @@ export function attachVersionDoorbell({
     'subscribeTopic' | 'onMessage' | 'resubscribeTopic'
   >;
   readonly signal: (version: number | null) => void;
+  readonly catchUpOnSubscribe?: boolean;
 }) {
   const rings = (frame: ServerMessage | null) =>
     frame?.type === 'event' &&
@@ -39,6 +42,7 @@ export function attachVersionDoorbell({
     topic,
     connection,
     matches: (frame) => rings(frame) !== null,
+    ...(catchUpOnSubscribe ? { catchUpOnSubscribe } : {}),
     invalidate: () => {},
     refetch: (frame) => signal(rings(frame)),
   });
