@@ -11,8 +11,8 @@ permissions:
   # bun policy lists open PRs to catch ADR and migration number clashes.
   pull-requests: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 # Actions are pinned to full commit SHAs with the version as a trailing
 # comment; Dependabot proposes the bumps (ADR 0040, `bun policy` enforces).
 # Turbo restores content-addressed task results; service tests remain uncached.
@@ -95,7 +95,7 @@ jobs:
     needs: quick-check
     name: Web and migrator image
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -106,6 +106,22 @@ jobs:
         run: >-
           docker run --rm --entrypoint bun daisy-web-ci --eval
           'await import("@daisy/ingress/client-ip"); await import("../../packages/media/src/index.ts");'
+      # ADR 0077: the admin stages deploy from this Dockerfile too, so they
+      # are built and booted here before any deploy does it first.
+      - name: Build the admin and admin migrator stages
+        run: |
+          docker build --progress=plain -f apps/web/Dockerfile --target admin -t daisy-admin-ci .
+          docker build --progress=plain -f apps/web/Dockerfile --target admin-migrate -t daisy-admin-migrate-ci .
+      - name: Boot each admin image to its configuration refusal
+        run: |
+          refuses() {
+            if output=$(docker run --rm "$1" 2>&1); then
+              echo "$1 started without its configuration"; exit 1
+            fi
+            grep -F "$2" <<<"$output" || { echo "$output"; exit 1; }
+          }
+          refuses daisy-admin-ci 'Invalid admin configuration: ADMIN_DATABASE_URL'
+          refuses daisy-admin-migrate-ci 'Invalid admin configuration: ADMIN_MIGRATION_DATABASE_URL'
 
   audit:
     name: Dependency vulnerability audit
@@ -147,6 +163,8 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
       DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
       TEST_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
+      # The admin app's own test database (ADR 0077), created and migrated below.
+      TEST_ADMIN_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_admin_test
       REDIS_URL: redis://127.0.0.1:6379/1
       TEST_REDIS_URL: redis://127.0.0.1:6379/1
       REDIS_NAMESPACE: ci
@@ -186,6 +204,11 @@ jobs:
       # The one place test logins are provisioned (packages/db/src/slots.ts),
       # after the baseline has created daisy_web.
       - run: bun db:roles
+      - name: Create and migrate the admin test database
+        run: |
+          bun -e "const sql = new Bun.SQL(process.env.DATABASE_URL); await sql.unsafe('create database daisy_admin_test'); await sql.close();"
+          ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
+          ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
       - run: bun test:integration
       # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
       # per-PR cost at one Chromium run; bun evidence enforces the split).

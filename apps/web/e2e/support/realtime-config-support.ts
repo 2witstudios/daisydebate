@@ -6,6 +6,20 @@ import {
   resolveE2EServices,
 } from '../../playwright.config';
 
+/**
+ * Every simulated member in these suites connects from one loopback
+ * address, so the realtime per-address caps (20 sockets, 4 not yet
+ * authenticated, 60 upgrades a minute) would refuse later handshakes with
+ * 429 while refused pages' retries refill the window. Only these
+ * shared-address bounds reflect that many members sit behind it; the
+ * per-member cap keeps its production value (ISSUE-652).
+ */
+const sharedLoopbackCaps = {
+  REALTIME_MAX_IP_CONNECTIONS: '10000',
+  REALTIME_MAX_UNAUTHENTICATED: '10000',
+  REALTIME_MAX_IP_UPGRADES: '10000',
+};
+
 /** Both native realtime profiles use the same actual TLS process and slot namespace. */
 export function realtimeBrowserProcesses(
   canonical: PlaywrightTestConfig,
@@ -53,6 +67,7 @@ export function realtimeBrowserProcesses(
           E2E_PORT: env.E2E_PORT!,
           REALTIME_PUBLIC_URL: `wss://localhost:${ports.realtime}/ws`,
           REALTIME_ALLOWED_ORIGINS: resolveE2EOrigin(env),
+          ...(index === 1 ? sharedLoopbackCaps : {}),
         },
       };
     }),

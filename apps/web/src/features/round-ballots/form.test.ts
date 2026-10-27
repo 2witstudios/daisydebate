@@ -76,7 +76,11 @@ test('ballot responses keep entries on refusal and accept only the matching rece
     expected: [
       ['The ballot is not acknowledged', true, null],
       ['The server refused this ballot', true, null],
-      ['Attendance is still settling', true, null],
+      [
+        'Not recorded yet: attendance for the last speeches is still being confirmed',
+        true,
+        null,
+      ],
       ['The Round changed or a ballot is already recorded', true, null],
       ['The ballot is not acknowledged', true, null],
       [null, false, 'b'.repeat(24)],

@@ -1,13 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
-import { caller, accountFact } from './room-command-operations.test-support';
+import { caller, accountRow } from './room-command-operations.test-support';
 import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
 
 test('Room catalog lists role-bearing formats at their canonical presets', async () => {
-  const account = accountFact();
+  const account = accountRow();
   // Select column order as listRoomCatalogSources declares it.
   const formatRow = [
     'value',
@@ -51,7 +51,7 @@ test('Room catalog lists role-bearing formats at their canonical presets', async
   });
 });
 test('Room catalog refuses a listed format with no current preset', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database } = createTestDatabase([
     [account],
     [
@@ -80,7 +80,7 @@ test('Room catalog refuses a listed format with no current preset', async () => 
   });
 });
 test('Room create-receipt read preserve collection and command authority', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const receipt = createTestDatabase([[], [account], [account], []]);
   const absent = await receipt.database.readRoomCreateReceipt({
     caller,
@@ -97,7 +97,7 @@ test('Room create-receipt read preserve collection and command authority', async
   });
 });
 test('Room bot catalog includes current actor eligibility facts', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const availableBotId = 'c6a4e2f8h1j3k5m7n9p2r4t6';
   const unavailableBotId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([

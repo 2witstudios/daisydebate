@@ -109,6 +109,8 @@ export function createSecondInstances(testApp: TestApp) {
     const sent: string[] = [];
     const server = createAuthServer({
       getActorByUserId: (userId) => database.getActorByUserId(userId),
+      getParticipationByUserId: (userId) =>
+        database.getParticipationByUserId(userId),
       config: readAuthConfig(testApp.env),
       database: database.authAdapter,
       emailSender: {

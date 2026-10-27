@@ -31,7 +31,18 @@ export async function reachExpiredLink(
   theme: Theme = 'dark',
 ): Promise<string> {
   const { email, link } = await requestConfirmLink(page, request);
-  await confirmSignIn(page, link);
+  // Listen before clicking: the POST may finish before the click returns.
+  // Its outcome need not navigate to onboarding, but it must finish before
+  // cleanup/revisit can abort redemption and leave the token unused.
+  const [redemption] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === '/auth/confirm',
+    ),
+    confirmSignIn(page, link),
+  ]);
+  expect(await redemption.finished()).toBeNull();
   await page.context().clearCookies();
   await gotoWithTheme(page, link, theme);
   await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();

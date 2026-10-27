@@ -2,13 +2,17 @@ import { sql } from 'drizzle-orm';
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { timestampColumn, versionColumn, versionPositive } from './columns';
-/** WAIT-4.1a: collection is separately held; the source is private personal data. */
+/**
+ * WAIT-4.1a: collection is separately held; the source is private personal
+ * data. Erasure deletes it through its privacy adopter, and deleting the
+ * user row (a provisional account, a dev reset) takes it along.
+ */
 export const accountAge = pgTable(
   'account_age',
   {
     userId: text('user_id')
       .primaryKey()
-      .references(() => users.id, { onDelete: 'restrict' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     birthMonth: text('birth_month').notNull(),
     version: versionColumn(),
     recordedAt: timestampColumn('recorded_at').notNull(),

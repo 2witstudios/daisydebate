@@ -171,3 +171,46 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
     expected: [409, 'active-room', activeRoom, 'CONFLICT', { activeRoom }],
   });
 });
+
+test('a waitlisted account reaches the evaluator only through Room commands (ADR 0075)', async () => {
+  const waitlisted: Identity = {
+    state: 'waitlisted',
+    username: 'Member',
+    reason: 'pending',
+    principal: { kind: 'user', userId: id, actorId: id },
+  };
+  let commands = 0;
+  const handlers = createRoomHandlers(
+    dependencies(waitlisted, {
+      command: async () => {
+        commands++;
+        return {} as never;
+      },
+      view: async () => ({ id }),
+    }),
+  );
+  const command = await handlers.commands(
+    new Request(`${origin}/api/rooms/${id}/commands`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        commandId: id,
+        expectedVersion: 1,
+        expectedConsentVersion: 0,
+        type: 'ready',
+      }),
+    }),
+    id,
+  );
+  const read = await handlers.read(
+    new Request(`${origin}/api/rooms/${id}`, { headers: { origin } }),
+    id,
+  );
+  assert({
+    given: 'a waitlisted account commanding a Room and reading it',
+    should:
+      'hand the command to the operation, where the evaluator keeps only leaving, and refuse the read at the edge',
+    actual: [command.status, commands, read.status],
+    expected: [200, 1, 403],
+  });
+});

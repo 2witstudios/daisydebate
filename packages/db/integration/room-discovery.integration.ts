@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { resolve } from 'node:path';
 import { runMigrations } from '../src/migrator';
 import { discoverRooms } from '../src/room-discovery';
+import { discoveryRelationWork } from '../src/room-discovery-plan.test-support';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
@@ -12,7 +13,7 @@ import { integrationSuite } from './suite.test-support';
 requireTestServices(process.env);
 const { databaseUrl } = integrationSuite();
 
-test('discovery uses partial ordered indexes independently of historical Room and Round volume', async () => {
+test('discovery work is independent of historical Room and Round volume', async () => {
   await withFixture(databaseUrl, async (f) => {
     const folder = resolve(import.meta.dir, '../migrations');
     const [initial] =
@@ -35,18 +36,10 @@ test('discovery uses partial ordered indexes independently of historical Room an
       (_, i) => `d${String(i).padStart(23, '0')}`,
     );
     for (const [i, id] of ids.entries()) {
-      await f.insert('rooms', {
+      await f.room(caller.actorId, formatId, {
         id,
-        host_actor_id: caller.actorId,
         title: token,
         topic: token,
-        visibility: 'public',
-        format_id: formatId,
-        format_version: 1,
-        competition_type: 'casual',
-        config: validConfig,
-        execution_plan: {},
-        rules_snapshot: validRules,
         status: i < 2 ? 'assembling' : i === 5 ? 'abandoned' : 'started',
         created_at: new Date('2026-01-01'),
       });
@@ -96,7 +89,12 @@ test('discovery uses partial ordered indexes independently of historical Room an
           discoverRooms(
             tx,
             caller,
-            { q: token, pageSize: 2, ...(cursor ? { cursor } : {}) },
+            {
+              q: token,
+              pageSize: 2,
+              sort: 'longest-waiting',
+              ...(cursor ? { cursor } : {}),
+            },
             () => true,
             () => true,
             () => false,
@@ -140,7 +138,9 @@ test('discovery uses partial ordered indexes independently of historical Room an
       await f.sql`analyze rooms`;
       await f.sql`analyze rounds`;
       const after = await explain(2000);
-      const plan = JSON.stringify(after);
+      // Each branch has 102 active entries; live entries each join one Room.
+      // Count filtered rows and loops too, so a history scan cannot hide behind LIMIT.
+      const activeWorkBound = 3 * (liveIds.length / 2 + 2);
       assert({
         given:
           'historical Room/Round count doubles while live candidates remain fixed',
@@ -157,11 +157,11 @@ test('discovery uses partial ordered indexes independently of historical Room an
         given:
           'the actual discovery query under default planner settings and earlier historical keys',
         should:
-          'use both partial indexes without scanning history or aggregate tables',
+          'stay within active-set work without scanning history or aggregate tables',
         actual: [
           queries.filter((q) => q.query.trim().startsWith('select')).length,
-          plan.includes('rooms_discovery_assembly_idx'),
-          plan.includes('rounds_discovery_live_room_idx'),
+          discoveryRelationWork(before) <= activeWorkBound,
+          discoveryRelationWork(after) <= activeWorkBound,
           queries.some((q) =>
             /format_revisions|readiness_command_id/.test(q.query),
           ),

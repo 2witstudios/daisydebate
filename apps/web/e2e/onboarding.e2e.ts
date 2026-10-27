@@ -1,3 +1,4 @@
+import { approveBetaAccounts } from './support/beta-access';
 import { expect, test } from './support/fixtures';
 import {
   confirmSignIn,
@@ -9,6 +10,8 @@ import {
   signUpMember,
   signUpProvisional,
   uniqueName,
+  answerAgeStep,
+  signUpBeforeAge,
 } from './support/accounts';
 import { claimUsername } from './support/forms';
 import { effectsRan } from './support/hydration';
@@ -85,10 +88,12 @@ test('a new claim hides the last refusal while it is pending', async ({
 test('a new member walks onboarding with JavaScript and the answers stay saved', async ({
   page,
 }) => {
-  await signUpProvisional(page.request);
+  const { email } = await signUpProvisional(page.request);
   await page.goto('/onboarding/username?next=%2Flobby');
   await effectsRan(page);
   await claimUsername(page, uniqueName('walker'));
+  // Approved by an operator (ADR 0075), so the finished member reaches /lobby.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   await walkOnboarding(page);
 
@@ -150,7 +155,10 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await claimUsername(page, uniqueName('helper'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   // The destination is already the welcome step: no onboarding inside it.
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
@@ -158,4 +166,51 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
   await page.getByRole('link', { name: 'Go to home' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
+});
+
+// The age step (WAIT-4.6, WAIT-4.7): an answer below the beta floor keeps
+// nothing, signs the browser out with the account gone, and holds the
+// browser to the same neutral page for a day.
+for (const [label, year, title] of [
+  ['under 13', 2018, 'Daisy is for people 13 and older.'],
+  [
+    '13 to 15, during the beta',
+    2012,
+    'The Daisy beta is open to people 16 and older for now.',
+  ],
+] as const)
+  test(`an age ${label} is refused, kept nowhere and held`, async ({
+    page,
+  }) => {
+    await signUpBeforeAge(page.request);
+    await page.goto('/onboarding/age?next=%2Flobby');
+    await page.getByLabel('Month').selectOption('6');
+    await page.getByLabel('Year').selectOption(String(year));
+    await page.getByLabel(/I agree to the Terms/).check();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(
+      page.getByText('We haven’t kept anything you entered.'),
+    ).toBeVisible();
+    await expect(page.getByRole('combobox')).toHaveCount(0);
+    // The account is gone: its session no longer signs anyone in.
+    const session = await page.request.get('/api/auth/get-session');
+    expect(await session.json()).toBeNull();
+    // The browser is held to the same answer.
+    await page.goto('/onboarding/age?next=%2Flobby');
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  });
+
+test.describe('the age step with JavaScript off', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('a native post leads to the username', async ({ page }) => {
+    await signUpBeforeAge(page.request);
+    await page.goto('/onboarding/age?next=%2Flobby');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    // Native validation keeps an unanswered form from posting.
+    await expect(page).toHaveURL(/\/onboarding\/age/);
+    await answerAgeStep(page);
+    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
+  });
 });

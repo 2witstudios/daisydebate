@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { PrivacyAdopter, PrivacyFieldDeclaration } from './contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import type { PrivacyAdopter } from './contracts';
 
 type Group = {
   readonly identifier: readonly string[];

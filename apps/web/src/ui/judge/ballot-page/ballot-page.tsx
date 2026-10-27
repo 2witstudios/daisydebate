@@ -22,15 +22,19 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { BallotEntry, roundBallotErrorId as errorId } from './ballot-entry';
 import { BallotEvidence } from './ballot-evidence';
 import { MediaPageLink } from '../../round-media/media-page-link';
+import { BallotOpensNotice, useBallotOpensIn } from './ballot-opens';
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
   commandId: seedId,
   action,
+  renderedAtMs,
 }: {
   readonly view: RoundBallotRead;
   readonly commandId: string;
   readonly action: FormAction<RoundBallotFormState>;
+  /** When the server rendered the page (epoch ms), for the settling countdown. */
+  readonly renderedAtMs: number;
 }) {
   const router = useRouter();
   const [commandId] = useState(seedId);
@@ -57,6 +61,11 @@ export function BallotPage({
   const debaters = ballotDebaters(view);
   const display = ballotDisplay(view, answer);
   const own = display === 'retry' ? null : view.own?.ballot;
+  const opensInMs = useBallotOpensIn(
+    view.round,
+    renderedAtMs,
+    display === 'open',
+  );
   return (
     <div className="mx-auto flex w-full max-w-reading flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <Link
@@ -66,6 +75,11 @@ export function BallotPage({
         Back to Judge
       </Link>
       <PageHeader title="Your ballot" lede={view.round.topic} />
+      <BallotOpensNotice
+        round={view.round}
+        opensInMs={opensInMs}
+        renderedAtMs={renderedAtMs}
+      />
       <BallotEntry
         display={display}
         view={view}
@@ -75,6 +89,7 @@ export function BallotPage({
         pending={pending}
         commandId={commandId}
         debaters={debaters}
+        opensInMs={opensInMs}
       />
       {own ? (
         <BallotSummary

@@ -25,6 +25,8 @@ type UsernameDependencies = {
     userId: string;
     username: string;
   }) => Promise<UsernameClaim>;
+  /** Whether the account has answered the age step (WAIT-4.6). */
+  readonly hasRecordedAge: (userId: string) => Promise<boolean>;
 };
 
 /** The two stable 409 answers the onboarding screen tells apart. */
@@ -75,6 +77,8 @@ const respond = (
  * Gate order is ADR 0020: route (same origin), Principal (session cookie),
  * authorization (a signed-in user, never a body-supplied id), atomic rate
  * limit, and only then durable work. The body is exactly `{ username }`.
+ * An account that has not answered the age step cannot claim a name, so the
+ * step cannot be skipped by calling this route directly (WAIT-4.6).
  */
 export function createUsernameHandler(dependencies: UsernameDependencies) {
   return (request: Request) =>
@@ -92,6 +96,8 @@ export function createUsernameHandler(dependencies: UsernameDependencies) {
           CLAIM_RULE,
         );
         const username = await readClaimedName(request);
+        if (!(await dependencies.hasRecordedAge(userId)))
+          throw createAppError('AUTHORIZATION');
         return respond(
           await dependencies.claim({ userId, username }),
           username,

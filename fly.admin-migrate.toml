@@ -1,0 +1,19 @@
+# Release-only migrator for the admin database (ADR 0077, the ADR 0041
+# pattern). Its one secret is ADMIN_MIGRATION_DATABASE_URL, the
+# daisy_admin_owner credential; the admin app never holds it. Deployed by
+# .github/workflows/deploy-staging.yml with `--update-only`, so the release
+# command's temporary machine is the only one that ever boots, and a
+# failed migration stops the admin deploy that follows.
+app = "daisy-debate-staging-admin-migrate"
+primary_region = "ord"
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  build-target = "admin-migrate"
+
+[deploy]
+  release_command = "bun /app/apps/admin/src/db/migrate.ts"
+
+  [deploy.release_command_vm]
+    size = "shared-cpu-1x"
+    memory = "256mb"

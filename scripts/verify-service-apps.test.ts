@@ -95,11 +95,13 @@ describe('findServiceAppProblems (ISSUE-528)', () => {
 });
 
 describe('findServiceDeployProblems (ISSUE-528)', () => {
-  const step = (config: string, token: string) =>
-    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only\n`;
+  const step = (config: string, token: string, flags = '') =>
+    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only${flags}\n`;
   const migrate =
     '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
-  const all = SERVICE_APPS.map((app) => step(app.file, app.token)).join('');
+  const all = SERVICE_APPS.map((app) =>
+    step(app.file, app.token, app.private ? ' --no-public-ips' : ''),
+  ).join('');
 
   test('the committed workflow deploys every service app', () => {
     assert({
@@ -231,6 +233,70 @@ describe('findServiceDeployProblems job-level token (ISSUE-528)', () => {
         'deploy-staging.yml sets FLY_API_TOKEN for a whole job; each deploy token belongs to its own step',
       ),
       expected: true,
+    });
+  });
+});
+
+describe('the admin apps (ADR 0077)', () => {
+  const migrator = (deploy: string) =>
+    `app = "daisy-debate-staging-admin-migrate"\n\n[build]\n  dockerfile = "apps/web/Dockerfile"\n  build-target = "admin-migrate"\n${deploy}`;
+
+  test('a release-only app must run its release command', () => {
+    assert({
+      given: 'the admin migrator with and without its release_command',
+      should: 'accept it with one and report it without',
+      actual: [
+        findServiceAppProblems({
+          file: 'fly.admin-migrate.toml',
+          toml: migrator('\n[deploy]\n  release_command = "bun migrate.ts"\n'),
+          target: 'admin-migrate',
+          release: true,
+        }),
+        findServiceAppProblems({
+          file: 'fly.admin-migrate.toml',
+          toml: migrator(''),
+          target: 'admin-migrate',
+          release: true,
+        }),
+      ],
+      expected: [
+        [],
+        [
+          'fly.admin-migrate.toml is release-only and must run its migration as release_command',
+        ],
+      ],
+    });
+  });
+
+  test('the admin app deploys after its own migrator', () => {
+    const step = (config: string, token: string) =>
+      `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only\n`;
+    const migrate =
+      '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
+    const others = SERVICE_APPS.filter(({ file }) => !file.includes('admin'))
+      .map((app) => step(app.file, app.token))
+      .join('');
+    const admin = step('fly.admin.toml', 'FLY_ADMIN_API_TOKEN').replace(
+      '--local-only',
+      '--local-only --no-public-ips',
+    );
+    const adminMigrate = step(
+      'fly.admin-migrate.toml',
+      'FLY_ADMIN_MIGRATE_API_TOKEN',
+    );
+    assert({
+      given: 'the admin deploy before and after the admin migrator',
+      should: 'report only the deploy that runs first',
+      actual: [
+        findServiceDeployProblems(migrate + others + admin + adminMigrate),
+        findServiceDeployProblems(migrate + others + adminMigrate + admin),
+      ],
+      expected: [
+        [
+          'deploy-staging.yml must deploy fly.admin.toml after fly.admin-migrate.toml, with its own secrets.FLY_ADMIN_API_TOKEN',
+        ],
+        [],
+      ],
     });
   });
 });

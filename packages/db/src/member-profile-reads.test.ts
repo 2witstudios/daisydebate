@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
 import type { HistoryScope } from './member-profile-reads';
 
+import { factOfRow } from './room-command-operations.test-support';
 setupRitewayBun();
 
 const at = new Date('2026-10-05T12:00:00.000Z');
@@ -14,9 +15,13 @@ const account = {
   userId: caller.userId,
   actorId: caller.actorId,
   member: true,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
   erased: false,
   revision: 3,
 };
+const accountFact = factOfRow(account);
 const memberRow = [userId, actorId, 'debater-a', at];
 
 /** A decision that records what it was asked and answers `scope`. */
@@ -82,7 +87,7 @@ describe('readMemberProfile', () => {
         profile,
       },
       expected: {
-        asked: [[actorId, account]],
+        asked: [[actorId, accountFact]],
         // Not read only: the account fence takes a FOR SHARE lock.
         snapshot: 'set transaction isolation level repeatable read',
         fenced: true,

@@ -4,3 +4,5 @@ export type {
 } from './round-feedback';
 export type { RoundHydration } from './round-hydration';
 export type { LockedRoundCommandContext } from './round-command-operations';
+
+export type { RoundCoachingAccess } from './round-coaching-access';

@@ -37,7 +37,7 @@ describe('createRequestLink', () => {
         body: {
           email: 'ada@example.test',
           callbackURL: '/ranked',
-          newUserCallbackURL: '/onboarding/username?next=%2Franked',
+          newUserCallbackURL: '/onboarding/age?next=%2Franked',
         },
       },
     });

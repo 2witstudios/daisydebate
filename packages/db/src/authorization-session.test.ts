@@ -10,7 +10,16 @@ test('session authorization binds durable session, user, actor, erasure and expi
   const userId = 'a'.repeat(24),
     actorId = 'b'.repeat(24),
     sessionId = 'c'.repeat(24);
-  const account = { userId, actorId, member: true, erased: false, revision: 1 };
+  const account = {
+    userId,
+    actorId,
+    member: true,
+    erased: false,
+    revision: 1,
+    betaState: 'approved',
+    betaRevision: 1,
+    ageBand: 'adult',
+  };
   const session = { userId, expiresAt: new Date('2026-10-09T00:01:00.000Z') };
   const cases = [
     { session, account },

@@ -22,6 +22,8 @@ const unreachableDatabase = () => {
   const sent: string[] = [];
   const server = createAuthServer({
     getActorByUserId: (userId) => database.getActorByUserId(userId),
+    getParticipationByUserId: (userId) =>
+      database.getParticipationByUserId(userId),
     config: testApp.app.auth().config,
     database: database.authAdapter,
     emailSender: {

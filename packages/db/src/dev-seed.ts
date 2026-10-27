@@ -1,7 +1,9 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
+import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
+import { accountBetaAccess } from './schema/beta-access';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
@@ -53,6 +55,9 @@ export type DevSeed = {
  * This is the only path `bun db:seed` writes through; it is not part of
  * `createDatabase()`, because no running application seeds.
  */
+/** A birth month every seeded member is an adult for. */
+const SEEDED_BIRTH_MONTH = '1990-01';
+
 export async function applyDevSeed({
   url,
   seed,
@@ -88,6 +93,15 @@ export async function applyDevSeed({
                   : sql`excluded.email_verified`,
             },
           });
+        // Seeded members are adults (WAIT-4.6): the age step is answered.
+        await tx
+          .insert(accountAge)
+          .values({
+            userId: person.userId,
+            birthMonth: SEEDED_BIRTH_MONTH,
+            recordedAt: sql`now()`,
+          })
+          .onConflictDoNothing({ target: accountAge.userId });
         await tx
           .insert(actors)
           .values({ id: person.actorId, kind: 'human', userId: person.userId })
@@ -95,6 +109,18 @@ export async function applyDevSeed({
             target: actors.id,
             set: { kind: sql`excluded.kind`, userId: sql`excluded.user_id` },
           });
+        // Seeded people are beta members (ADR 0075): dev and demo sign-in
+        // reaches the app, never the waiting page.
+        await tx
+          .insert(accountBetaAccess)
+          .values({
+            userId: person.userId,
+            state: 'approved',
+            requestedAt: sql`now()`,
+            decidedAt: sql`now()`,
+            provenance: 'signup',
+          })
+          .onConflictDoNothing();
       }
       await tx
         .insert(rounds)

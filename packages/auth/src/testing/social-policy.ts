@@ -1,4 +1,3 @@
-import { authorize } from '../authorization';
 import type {
   ChannelAuthorizationFact,
   SocialAccountFact,
@@ -26,18 +25,19 @@ export const messagingTestGroupPolicy = {
   groupBlockScope: 'all_pairs',
 } as const satisfies SocialCreationPolicy;
 
+/**
+ * Membership, not participant admission: facts about the other accounts in
+ * a channel use `member` (ADR 0075), so one account losing admission never
+ * closes reading for the rest.
+ */
 function currentBoundMember({ account }: SocialAccountFact) {
-  if (account.actorId === null) return false;
-  return authorize({
-    principal: {
-      kind: 'user',
-      userId: account.userId,
-      actorId: account.actorId,
-    },
-    capability: 'channel.inbox.read',
-    resource: { kind: 'messaging_collection', actorId: account.actorId },
-    context: { account },
-  }).allow;
+  return (
+    account.actorId !== null &&
+    account.member &&
+    !account.erased &&
+    Number.isSafeInteger(account.revision) &&
+    account.revision > 0
+  );
 }
 
 /**

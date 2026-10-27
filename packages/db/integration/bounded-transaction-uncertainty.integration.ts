@@ -7,6 +7,7 @@ import { createAvailabilitySampler } from '../src/availability-operations';
 import { reconcileCheckInAttempts } from '../src/check-in-attempts';
 import { finishedOrBlockedBehind } from '../src/testing';
 import type { TransactionSettlement } from '../src/transaction-settlement';
+import { loseTransactionCommitReply } from './bounded-transaction.test-support';
 import {
   withCheckInAttempt as withAttempt,
   writeCheckInLedger,
@@ -18,25 +19,10 @@ for (const fault of ['cleanup-failure', 'lost-commit-reply']) {
   test(`durable uncertainty survives ${fault} until backend and fresh ledger reconciliation`, async () =>
     withAttempt(async ({ f, run, client, attempt, lifecycle }) => {
       let settlement: TransactionSettlement | undefined;
-      const originalReserve = client.reserve.bind(client);
-      let reserved = 0;
-      if (fault === 'lost-commit-reply')
-        client.reserve = async (options) => {
-          const connection = await originalReserve(options);
-          reserved += 1;
-          if (reserved !== 2) return connection;
-          return new Proxy(connection, {
-            apply(target, thisArg, args) {
-              const query = Reflect.apply(target, thisArg, args);
-              const template = args[0];
-              if (Array.isArray(template) && template[0] === 'commit')
-                return query.then(() => {
-                  throw new Error('injected lost COMMIT reply');
-                });
-              return query;
-            },
-          });
-        };
+      const restore =
+        fault === 'lost-commit-reply'
+          ? loseTransactionCommitReply(client, 2)
+          : () => {};
       try {
         await run(
           async (tx) => {
@@ -64,7 +50,7 @@ for (const fault of ['cleanup-failure', 'lost-commit-reply']) {
         settlement = (error.cause as { settlement?: TransactionSettlement })
           ?.settlement;
       } finally {
-        client.reserve = originalReserve;
+        restore();
       }
       const sampler = createAvailabilitySampler(client);
       let stamp: string | undefined;

@@ -8,6 +8,9 @@ setupRitewayBun();
 const owner = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 const other = { userId: 'v'.repeat(24), actorId: 'b'.repeat(24) };
 const roundId = 'r'.repeat(24);
+const limiter = {
+  consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+};
 const row = {
   roundId,
   completedAt: '2026-10-26T12:00:00.000Z',
@@ -42,6 +45,8 @@ const accountOf = (
   userId: who.userId,
   actorId: who.actorId,
   member: true,
+  beta: { state: 'approved' as const, revision: 1 },
+  ageBand: 'adult' as const,
   erased: false,
   revision: 2,
   ...overrides,
@@ -98,9 +103,10 @@ const profileFor = (
   query: { before?: string } = {},
 ) => {
   const { store, reads } = storeFor(true, account);
-  return readProfile(store, { identity, username: 'debater-a', query }).then(
-    (profile) => ({ profile, reads }),
-  );
+  return readProfile(
+    { store, limiter },
+    { identity, username: 'debater-a', query },
+  ).then((profile) => ({ profile, reads }));
 };
 
 describe('readProfile', () => {
@@ -176,11 +182,17 @@ describe('readProfile', () => {
       given: 'an unreadable session',
       should: 'refuse as an outage before any read',
       actual: () =>
-        readProfile(store, {
-          identity: { state: 'unavailable', principal: { kind: 'anonymous' } },
-          username: 'debater-a',
-          query: {},
-        }),
+        readProfile(
+          { store, limiter },
+          {
+            identity: {
+              state: 'unavailable',
+              principal: { kind: 'anonymous' },
+            },
+            username: 'debater-a',
+            query: {},
+          },
+        ),
       code: 'INFRASTRUCTURE',
     });
     const missing = storeFor(false);
@@ -189,11 +201,14 @@ describe('readProfile', () => {
       should: 'have read nothing, then answer null',
       actual: [
         reads.length,
-        await readProfile(missing.store, {
-          identity: visitor,
-          username: 'nobody',
-          query: {},
-        }),
+        await readProfile(
+          { store: missing.store, limiter },
+          {
+            identity: visitor,
+            username: 'nobody',
+            query: {},
+          },
+        ),
       ],
       expected: [0, null],
     });
@@ -214,5 +229,67 @@ describe('judgePanel', () => {
       ],
       expected: ['none', 'ai', 'human', 'mixed'],
     });
+  });
+});
+
+test('profile budget refusals precede every durable profile read', async () => {
+  for (const [decision, code] of [
+    [{ allowed: false, retryAfterSeconds: 60 }, 'RATE_LIMIT'],
+    [null, 'INFRASTRUCTURE'],
+  ] as const) {
+    const { store, reads } = storeFor(true);
+    await assertRejects({
+      given:
+        'an anonymous server-render request with a denied or broken budget',
+      should: 'fail closed before profile database access',
+      actual: () =>
+        readProfile(
+          {
+            store,
+            limiter: { consume: async () => decision! },
+          },
+          { identity: visitor, username: 'debater-a', query: {} },
+        ),
+      code,
+    });
+    assert({
+      given: 'the refused server render',
+      should: 'perform no database reads',
+      actual: reads.length,
+      expected: 0,
+    });
+  }
+});
+
+test('profile read budgets cannot be split by username or history cursor', async () => {
+  const { store } = storeFor(true);
+  const budgets: unknown[] = [];
+  const budget = {
+    consume: async (
+      key: string,
+      rule: { max: number; windowSeconds: number },
+    ) => {
+      budgets.push([key, rule]);
+      return { allowed: true, retryAfterSeconds: 0 };
+    },
+  };
+  for (const username of ['debater-a', 'different-member'])
+    await readProfile(
+      { store, limiter: budget },
+      {
+        identity: visitor,
+        username,
+        query: { before: roundId },
+        clientId: 'trusted-client',
+      },
+    );
+  assert({
+    given: 'two anonymous reads across names and cursor pages',
+    should: 'share both client and global database budgets',
+    actual: budgets,
+    expected: [0, 1].flatMap(() => [
+      ['profile:read:client:trusted-client', { max: 60, windowSeconds: 60 }],
+      ['profile:read:global', { max: 600, windowSeconds: 60 }],
+    ]),
   });
 });

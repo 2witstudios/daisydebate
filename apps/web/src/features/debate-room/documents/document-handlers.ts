@@ -77,7 +77,7 @@ export function createDebateRoomDocumentHandlers(dependencies: Dependencies) {
     rule: keyof typeof rules,
   ): Promise<DocumentPrincipal> => {
     const identity = requireSignedIn(await dependencies.identify(request));
-    if (identity.state === 'provisional') throw createAppError('AUTHORIZATION');
+    if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
     const { userId } = identity.principal;
     await consumeOrThrow(
       dependencies.limiter(),

@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
+import { loadAuthorizationAccount } from './authorization';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { instrumented, type DatabaseEventSink } from './instrumented';
 import { accountAccessEvents, accountBetaAccess } from './schema/beta-access';
 import { mailIntents } from './schema/mail-intents';
 
@@ -50,3 +52,25 @@ export async function enrolPendingBetaAccess(
     })
     .onConflictDoNothing({ target: mailIntents.dedupeKey });
 }
+
+/**
+ * An account's participation facts for identity resolution (ADR 0075),
+ * read through the canonical account function, never the raw tables: its
+ * beta state and its age band now. Both null for an unknown account.
+ */
+export const betaAccessOperations = ({
+  database,
+  eventSink,
+}: {
+  readonly database: Pick<BunSQLDatabase, 'execute' | 'insert'>;
+  readonly eventSink?: DatabaseEventSink | undefined;
+}) => ({
+  getParticipationByUserId: (userId: string) =>
+    instrumented(eventSink, 'getParticipationByUserId', async () => {
+      const account = await loadAuthorizationAccount(database, userId);
+      return {
+        betaState: account?.beta?.state ?? null,
+        ageBand: account?.ageBand ?? null,
+      };
+    }),
+});

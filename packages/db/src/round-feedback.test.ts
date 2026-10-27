@@ -34,6 +34,14 @@ const scripted = (answers: unknown[]) => {
   return { run, left: () => queue.length };
 };
 
+const accessRow = {
+  roundId: 'r1',
+  createdByActorId: null,
+  visibility: 'public',
+  status: 'completed',
+  revision: 1,
+  participants: [],
+};
 const token = 't'.repeat(43);
 const coaching = {
   affirmative: 'Weigh your access impact first.',
@@ -108,7 +116,11 @@ describe('createRoundFeedbackJobs()', () => {
   });
 
   test('scan', async () => {
-    const { jobs, left } = jobsWith([[{ roundId: 'r1' }, { roundId: 'r2' }]]);
+    const { jobs, left } = jobsWith([
+      [{ roundId: 'r1' }, { roundId: 'r2' }],
+      [accessRow],
+      [{ ...accessRow, roundId: 'r2' }],
+    ]);
     for (const [given, limit, since] of [
       ['a batch limit outside 1 to 64', 65, '2026-10-25T12:00:00.000Z'],
       ['an unreadable window start', 8, 'yesterday-ish'],
@@ -116,14 +128,14 @@ describe('createRoundFeedbackJobs()', () => {
       await assertRejects({
         given,
         should: 'refuse with VALIDATION',
-        actual: () => jobs.scan(limit, since),
+        actual: () => jobs.scan(limit, since, () => true),
         code: 'VALIDATION',
       });
     assert({
       given: 'two candidate Rounds',
       should: 'list them in one statement, deciding nothing',
       actual: {
-        listed: await jobs.scan(8, '2026-10-25T12:00:00.000Z'),
+        listed: await jobs.scan(8, '2026-10-25T12:00:00.000Z', () => true),
         left: left(),
       },
       expected: { listed: ['r1', 'r2'], left: 0 },
@@ -132,8 +144,8 @@ describe('createRoundFeedbackJobs()', () => {
 
   test('the decision leaves or ends a Round', async () => {
     const seen: RoundCoachingFacts[] = [];
-    const skipped = jobsWith([[], [factsRow]]);
-    const ended = jobsWith([[], [factsRow], undefined]);
+    const skipped = jobsWith([[], [accessRow], [factsRow]]);
+    const ended = jobsWith([[], [accessRow], [factsRow], undefined]);
     assert({
       given: 'a decision to leave the Round, then one to end its lapsed lease',
       should:
@@ -174,6 +186,7 @@ describe('createRoundFeedbackJobs()', () => {
   };
   const claimAnswers = (claimed: unknown) => [
     [],
+    [accessRow],
     [factsRow],
     [freeze],
     [],

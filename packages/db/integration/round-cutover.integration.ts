@@ -1,16 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { assertRejects } from '@daisy/errors/testing';
 import { type RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src';
-import { newRoomValues } from '../src/room-operations';
-import { rooms } from '../src/schema/rooms';
-import {
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-} from '../src/reference-formats';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture } from './constraint-helpers';
 
@@ -56,138 +48,6 @@ test('two ranked rooms may pin the same approved preset', async () => {
       actual: await fixture.count('rooms', 'format_id', formatId),
       expected: 2,
     });
-  });
-});
-
-test('a room waits for every seat and finishes durable pre-round prep before freezing', async () => {
-  await withFixture(url, async (fixture) => {
-    const formatId = `fmt-${createId()}`;
-    await fixture.insert(
-      'format_revisions',
-      {
-        format_id: formatId,
-        version: 1,
-        definition: oneOnOneDefinition,
-      },
-      'format_id',
-    );
-    await fixture.insert('formats', {
-      id: formatId,
-      name: 'Prep proof format',
-      current_version: 1,
-    });
-    const prep = { enabled: true as const, durationMs: 60_000 };
-    const rules = {
-      ...validRules,
-      seats: { affirmative: 1, negative: 1, judge: 1 },
-      segments: oneOnOneDefinition.segments.map(
-        ({ defaultDurationMs, ...segment }) => ({
-          ...segment,
-          durationMs: defaultDurationMs,
-        }),
-      ),
-    };
-    const roomId = createId();
-    const roundId = createId();
-    fixture.track('rooms', roomId);
-    fixture.track('rounds', roundId);
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      await drizzle({ client: fixture.sql })
-        .insert(rooms)
-        .values(
-          newRoomValues(
-            {
-              id: roomId,
-              hostActorId: await fixture.actor(),
-              title: 'Prep proof',
-              topic: 'A motion',
-              visibility: 'public',
-              formatId,
-              formatVersion: 1,
-              presetVersion: null,
-              basis: null,
-              competitionType: 'casual',
-              config: { ...oneOnOneRoomConfig, preRoundPrep: prep },
-              executionPlan: { preRoundPrep: prep },
-              rules,
-            },
-            'assembling',
-          ),
-        );
-      for (const [role, slot] of [
-        ['affirmative', 0],
-        ['negative', 0],
-        ['judge', 0],
-      ] as const) {
-        const participantId = createId();
-        fixture.track('room_participants', participantId);
-        fixture.track('round_participants', participantId);
-        await database.seatRoomParticipant({
-          roomId,
-          participantId,
-          actorId: await fixture.actor(),
-          role,
-          slot,
-        });
-        const [row] = (await fixture.sql.unsafe(
-          'select status from rooms where id = $1',
-          [roomId],
-        )) as Array<{ status: string }>;
-        assert({
-          given: `${role} joined the room`,
-          should: 'mark ready only once every declared seat is held',
-          actual: row?.status,
-          expected: role === 'judge' ? 'ready' : 'assembling',
-        });
-      }
-      await assertRejects({
-        given: 'a complete cast before pre-round prep starts',
-        should: 'refuse to freeze a round',
-        actual: () =>
-          database.startRound({
-            roomId,
-            roundId,
-            resolution: 'A test resolution',
-          }),
-        code: 'CONFLICT',
-      });
-      await database.startRoomPrep(roomId);
-      await assertRejects({
-        given: 'the same pre-round prep start replayed',
-        should: 'leave its original database clock anchor intact',
-        actual: () => database.startRoomPrep(roomId),
-        code: 'CONFLICT',
-      });
-      await assertRejects({
-        given: 'prep anchored on the database clock but still running',
-        should: 'refuse to freeze a round',
-        actual: () =>
-          database.startRound({
-            roomId,
-            roundId,
-            resolution: 'A test resolution',
-          }),
-        code: 'CONFLICT',
-      });
-      await fixture.sql.unsafe(
-        "update rooms set prep_started_at = statement_timestamp() - interval '61 seconds' where id = $1",
-        [roomId],
-      );
-      await database.startRound({
-        roomId,
-        roundId,
-        resolution: 'A test resolution',
-      });
-      assert({
-        given: 'all seats held and the stored prep anchor expired',
-        should: 'freeze exactly one scheduled round with the pinned rules',
-        actual: await fixture.count('rounds', 'id', roundId),
-        expected: 1,
-      });
-    } finally {
-      await database.close();
-    }
   });
 });
 

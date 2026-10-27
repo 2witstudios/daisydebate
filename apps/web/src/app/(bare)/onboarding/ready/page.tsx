@@ -7,6 +7,7 @@ import { listBots } from '../../../../features/train/bots';
 import { readOnboardingAnswers } from '../answers';
 import { ReadyStep } from '../../../../ui/onboarding/ready/ready';
 import { readStepEntry, stepRobots } from '../step-entry';
+import { requestOptionalAnswersAdmitted } from '../../../../lib/request-session';
 
 export const metadata: Metadata = {
   title: 'Your first debate',
@@ -25,11 +26,15 @@ export default async function OnboardingReadyPage({
       answers={await readOnboardingAnswers()}
       botNames={listBots().map((bot) => bot.name)}
       homeHref={destination}
-      editHrefs={{
-        about: onboardingStepHref('about', destination),
-        experience: onboardingStepHref('experience', destination),
-        topics: onboardingStepHref('topics', destination),
-      }}
+      editHrefs={
+        (await requestOptionalAnswersAdmitted())
+          ? {
+              about: onboardingStepHref('about', destination),
+              experience: onboardingStepHref('experience', destination),
+              topics: onboardingStepHref('topics', destination),
+            }
+          : null
+      }
     />
   );
 }

@@ -106,6 +106,8 @@ test('signed-in app typing routes bind the principal and current account fence b
           accounts: f.accounts.map((row) => ({
             ...row.account,
             member: false,
+            beta: { state: 'approved' as const, revision: 1 },
+            ageBand: 'adult' as const,
           })),
           notify: async () => {
             throw new Error('No refused hint');

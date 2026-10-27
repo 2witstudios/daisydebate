@@ -148,6 +148,24 @@ describe('POST /api/realtime/ticket gates', () => {
     });
   });
 
+  test('a waitlisted (no beta access) caller is 403 (ADR 0075)', async () => {
+    const { handler, issued } = handlerWith({
+      identity: {
+        state: 'waitlisted',
+        username: 'ada',
+        reason: 'revoked',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const response = await handler(post());
+    assert({
+      given: 'a signed-in account with a username but revoked beta access',
+      should: 'answer 403 AUTHORIZATION and issue no realtime ticket',
+      actual: [...(await statusAndCode(response)), issued],
+      expected: [403, 'AUTHORIZATION', []],
+    });
+  });
+
   test('a limiter outage fails closed with 503 before any durable work', async () => {
     const { handler, issued } = handlerWith({
       consume: async () => {

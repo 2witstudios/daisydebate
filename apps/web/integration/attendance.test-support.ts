@@ -4,7 +4,7 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import { foundationSelection } from './room-runtime.test-support';
+import { foundationSelection } from './foundation-selection.test-support';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 
 /** Real Room launch/commands/shared clock; no invented actual speech timeline. */

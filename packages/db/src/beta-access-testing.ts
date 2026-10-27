@@ -22,3 +22,45 @@ export async function removeUnowedBetaDigests(sql: SQL): Promise<void> {
           and b.requested_at >= m.window_start
           and b.requested_at < m.window_start + interval '10 minutes')`;
 }
+
+/**
+ * Test-only (ADR 0075): admits accounts as participants, the default every
+ * integration fixture builds: an approved beta row and an adult age record
+ * (kept if one exists; `recordedAt` pins a suite's clock). The account
+ * revision is left alone for fresh fixture accounts; `approveBetaAccess`
+ * moves it for an account a session already read. Gate and age suites opt
+ * out by not calling it. Never call this from production code: approval
+ * belongs to the signed operator API.
+ */
+export async function admitParticipants(
+  sql: SQL,
+  userIds: readonly string[],
+  recordedAt?: string,
+): Promise<void> {
+  if (userIds.length === 0) return;
+  const ids = `{${userIds.join(',')}}`;
+  await sql`insert into account_beta_access (user_id, state, revision, requested_at, decided_at, provenance)
+    select id, 'approved', 1, now(), now(), 'signup' from unnest(${ids}::text[]) as id
+    on conflict (user_id) do update set state = 'approved', revision = account_beta_access.revision + 1,
+      decided_at = now()
+    where account_beta_access.state <> 'approved'`;
+  await sql`insert into account_age (user_id, birth_month, version, recorded_at)
+    select id, '2000-01', 1, coalesce(${recordedAt ?? null}::timestamptz, now())
+    from unnest(${ids}::text[]) as id
+    on conflict (user_id) do nothing`;
+}
+
+/**
+ * Test-only (ADR 0075): approves an account that already claimed a
+ * username, as an operator would, through `admitParticipants`, then moves
+ * its account revision so a live session re-reads the fact. Idempotent.
+ */
+export async function approveBetaAccess(
+  sql: SQL,
+  userId: string,
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    await admitParticipants(tx, [userId]);
+    await tx`update users set version = version + 1 where id = ${userId}`;
+  });
+}

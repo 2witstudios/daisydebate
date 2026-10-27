@@ -64,6 +64,18 @@
       ],
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
+    // ADR 0077: the custom server and the two CLIs are process entries
+    // (`start`, fly.admin-migrate.toml's release command, `fly ssh console`).
+    "apps/admin": {
+      "entry": [
+        "src/server/start.ts",
+        "src/db/migrate.ts",
+        "src/scripts/operator-enroll.ts",
+        "e2e/support/prepare.ts",
+        "e2e/support/operator-api-server.ts",
+        "integration/**/*.integration.ts",
+      ],
+    },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
     "apps/media-worker": {
       // Bun.resolveSync selects the isolated native subprocess entries; the

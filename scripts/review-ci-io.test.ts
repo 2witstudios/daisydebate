@@ -49,6 +49,7 @@ describe('ciRunFromApi', () => {
     event: 'pull_request',
     path: '.github/workflows/ci.yml',
     head_branch: 'pu/builder',
+    created_at: '2026-10-26T12:00:01Z',
     repository: { full_name: repository },
     head_repository: { full_name: repository },
   };
@@ -209,6 +210,7 @@ describe('pullRequestFacts', () => {
           head: { sha, ref: 'pu/builder' },
           base: { sha, ref: 'develop', repo: { default_branch: 'trunk' } },
           changed_files: 0,
+          created_at: '2026-10-26T12:00:00Z',
           body: null,
         },
         undefined,
@@ -221,6 +223,7 @@ describe('pullRequestFacts', () => {
         headRef: 'pu/builder',
         baseRef: 'develop',
         defaultBranch: 'trunk',
+        createdAt: '2026-10-26T12:00:00Z',
       },
     });
   });

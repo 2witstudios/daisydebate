@@ -97,3 +97,30 @@ export function testDatabaseRefusal({
     runDatabase,
   );
 }
+
+/**
+ * Why TEST_ADMIN_DATABASE_URL is not this slot's admin test database
+ * (`<slot>_admin_test`, which `bun slot:up` creates beside `<slot>_test`),
+ * or undefined when it is. Admin suites reset its tables, so a suite pointed
+ * at another slot's, a dev or a deployed admin database is refused first.
+ */
+export function adminTestDatabaseRefusal({
+  adminTestDatabaseUrl,
+  databaseUrl,
+}: {
+  readonly adminTestDatabaseUrl: string | undefined;
+  readonly databaseUrl: string | undefined;
+}): string | undefined {
+  const admin = parsed(adminTestDatabaseUrl);
+  const slot = parsed(databaseUrl);
+  if (admin === undefined)
+    return 'TEST_ADMIN_DATABASE_URL is unset (run bun slot:up)';
+  if (slot === undefined)
+    return 'DATABASE_URL is unset, so this slot cannot be told from another (run bun slot:up)';
+  if (serverOf(admin) !== serverOf(slot))
+    return "TEST_ADMIN_DATABASE_URL names a different Postgres server than DATABASE_URL, expected this slot's shared Postgres";
+  const expected = slotTestDatabase(slot).replace(/_test$/, '_admin_test');
+  return databaseOf(admin) === expected
+    ? undefined
+    : `TEST_ADMIN_DATABASE_URL must name this slot's admin test database, ${expected} (run bun slot:up)`;
+}

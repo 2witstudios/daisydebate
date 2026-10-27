@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import {
   authorize,
+  participantAccess,
   type ChannelAuthorizationFact,
   type MessagingCollectionAuthorizationFact,
   type SocialAccountFact,
   type SocialPolicyEvidence,
 } from '@daisy/auth/authorization';
+import { liveParticipantSession } from './participant-session';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
@@ -50,10 +52,7 @@ export function createRealtimeAuthorization({
       ...principal,
       now: resources.clock.now(),
     });
-    if (
-      !session ||
-      Date.parse(session.expiresAt) <= Date.parse(resources.clock.now())
-    )
+    if (!session || !liveParticipantSession(session, resources.clock.now()))
       return null;
     const base = [
       principal.sessionId,
@@ -136,9 +135,8 @@ export function createRealtimeAuthorization({
       now: resources.clock.now(),
     });
     if (
-      !current ||
-      current.account.revision !== accountRevision ||
-      Date.parse(current.expiresAt) <= Date.parse(resources.clock.now()) ||
+      !liveParticipantSession(current, resources.clock.now()) ||
+      current?.account.revision !== accountRevision ||
       now() >= bound
     )
       return null;
@@ -167,7 +165,11 @@ export function createRealtimeAuthorization({
           ...principal,
           now: resources.clock.now(),
         });
-        if (!current || current.account.revision !== accountRevision)
+        if (
+          !current ||
+          !participantAccess(current.account) ||
+          current.account.revision !== accountRevision
+        )
           return null;
         const instant = resources.clock.now();
         const reading = readingPolicy?.({
@@ -222,10 +224,7 @@ export function createRealtimeAuthorization({
         ...principal,
         now: resources.clock.now(),
       });
-      return (
-        session !== null &&
-        Date.parse(session.expiresAt) > Date.parse(resources.clock.now())
-      );
+      return liveParticipantSession(session, resources.clock.now());
     },
   };
 }

@@ -7,6 +7,7 @@ import { z } from 'zod';
  * `revoked` is paused. An erased account has no beta state at all.
  */
 export const betaAccessStates = ['pending', 'approved', 'revoked'] as const;
+export type BetaAccessState = (typeof betaAccessStates)[number];
 
 /** How a beta access row came to exist: a sign-up, or the expand migration's cohort. */
 export const betaAccessProvenances = ['signup', 'grandfathered'] as const;
@@ -19,7 +20,7 @@ export const operatorConsoleOrigin = 'http://localhost:4800';
 
 /**
  * The closed, non-personal result an operator beta access command records
- * and replays (ADR 0076): no address, no username, only states and counts.
+ * and replays (ADR 0079): no address, no username, only states and counts.
  */
 export const betaAccessCommandResultSchema = z.strictObject({
   commandId: z.string().regex(/^[a-z0-9]{24}$/),
@@ -28,3 +29,6 @@ export const betaAccessCommandResultSchema = z.strictObject({
   accessRevision: z.number().int().positive(),
   mail: z.enum(['queued', 'none']),
 });
+export type BetaAccessCommandResult = z.infer<
+  typeof betaAccessCommandResultSchema
+>;

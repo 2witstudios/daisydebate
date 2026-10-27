@@ -29,18 +29,20 @@ import {
 } from './realtime-hints';
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
+import { betaAccessOperations } from './beta-access';
+import { operatorAccountOperations } from './operator-accounts';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
-import { roomOperations } from './room-operations';
 import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
 import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
+import { ageStepOperations } from './age-step';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -155,6 +157,8 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...mailIntentOperations({ database, eventSink }),
+    ...betaAccessOperations({ database, eventSink }),
+    ...operatorAccountOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     ...messagingOperations(database),
     ...friendshipReadOperations({ database, eventSink }),
@@ -174,7 +178,6 @@ export function createDatabase({
         readOutboxCatchup(database, topic, since, through, limit),
       ),
     ...formatOperations({ database, eventSink }),
-    ...roomOperations({ database, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission,
@@ -194,6 +197,7 @@ export function createDatabase({
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
+    ...ageStepOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),
     ...memberProfileReadOperations({ database, eventSink }),
     /**

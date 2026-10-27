@@ -93,6 +93,7 @@ export function createWebSocketHandlers({
     clearHelloTimer(ws, timers);
     if (ws.data.connection) registry?.remove(ws.data.connection);
     ws.data.presence?.stop();
+    ws.data.presence = undefined;
     ws.data.admission?.release();
   }
   function reject(
