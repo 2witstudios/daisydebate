@@ -35,8 +35,11 @@ type Boundary = {
   readonly identify: (request: Request) => Promise<Identity>;
 };
 /**
- * DEC-251's one per-account read budget (120 per minute): every messaging
- * read spends from the same bucket, so no surface multiplies it.
+ * DEC-251's one per-account read budget (120 per minute): every content
+ * read (history, changes, search, inbox, a channel's entry, reactions,
+ * preferences, retained) spends from the same bucket, so no surface
+ * multiplies it. The typing poll is transport, not a content read, and has
+ * its own bucket (`consumeTypingTraffic`).
  */
 export const consumeMessagingRead = (app: App, actorId: string) =>
   consumeWindowsOrThrow(
@@ -45,12 +48,28 @@ export const consumeMessagingRead = (app: App, actorId: string) =>
     app.messagingPolicy.limits.read,
   );
 
-/** Two channel-metadata handlers share the participant boundary and the read budget. */
-export function messagingActorHandlerPort(app: App) {
+/**
+ * Typing reads and writes: polled every few seconds per open conversation,
+ * so they spend their own bucket (same windows) and never starve content
+ * reads. Signals additionally spend DEC-251's one-per-3-s rule.
+ */
+export const consumeTypingTraffic = (app: App, actorId: string) =>
+  consumeWindowsOrThrow(
+    app.auth().limiter,
+    `messaging:typing:${actorId}`,
+    app.messagingPolicy.limits.read,
+  );
+
+/** Two channel-metadata handlers share the participant boundary; each names its budget. */
+export function messagingActorHandlerPort(
+  app: App,
+  consume: (actorId: string) => Promise<void> = (actorId) =>
+    consumeMessagingRead(app, actorId),
+) {
   return {
     boundary: messagingHttpBoundary(app),
     maxBodyBytes: app.messagingPolicy.maxBodyBytes,
-    consume: (actorId: string) => consumeMessagingRead(app, actorId),
+    consume,
   };
 }
 /** Message and social handlers use the same injected participant boundary. */

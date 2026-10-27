@@ -3,6 +3,7 @@ import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 import {
   runMessagingHandler,
+  consumeTypingTraffic,
   messagingActorHandlerPort,
   readMessagingScope,
   type MessagingHandlerPort,
@@ -16,7 +17,9 @@ export function composeMessagingTypingRoutes(app: App) {
     const policy = app.messagingPolicy;
     const bounds = parseValidated(messagingTypingSchemas.policy, policy.typing);
     return createMessagingTypingHandler({
-      ...messagingActorHandlerPort(app),
+      ...messagingActorHandlerPort(app, (actorId) =>
+        consumeTypingTraffic(app, actorId),
+      ),
       signal: (actorId) =>
         consumeWindowsOrThrow(
           app.auth().limiter,

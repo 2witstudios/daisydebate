@@ -62,3 +62,55 @@ test('the inbox and a conversation’s entry spend the one DEC-251 read budget',
     await app.close();
   }
 });
+
+test('a spent typing budget never refuses content reads', async () => {
+  const actorId = 'a'.repeat(24);
+  const { auth, cookie } = await signedMessagingAuth(
+    actorId,
+    'typing-budget@daisy.example.com',
+  );
+  const app = createMessagingUnitApp({
+    clock: fixedClock('2026-10-27T12:00:00.000Z'),
+    ids: sequentialId('typing-budget'),
+    messagingPolicy: betaMessagingPolicy,
+  });
+  // Only the typing bucket is spent; content reads may proceed (to the
+  // unreachable database, which answers 503 rather than 429).
+  const routes = composeMessagingRoutes({
+    ...app,
+    auth: () => ({
+      ...auth,
+      limiter: {
+        consume: async (key) => ({
+          allowed: !key.startsWith('messaging:typing:'),
+          retryAfterSeconds: 60,
+        }),
+      },
+    }),
+  });
+  const origin = auth.config.PUBLIC_APP_URL;
+  const channelId = 'c'.repeat(24);
+  try {
+    const typing = await routes.typing(
+      new Request(`${origin}/api/messaging/channels/${channelId}/typing`, {
+        headers: { cookie },
+      }),
+      false,
+      channelId,
+    );
+    const history = await routes.history(
+      new Request(`${origin}/api/messaging/channels/${channelId}/messages`, {
+        headers: { cookie },
+      }),
+      channelId,
+    );
+    assert({
+      given: 'a member who has spent the typing poll budget',
+      should: 'refuse typing alone and leave history to its own read budget',
+      actual: [typing.status, history.status === 429],
+      expected: [429, false],
+    });
+  } finally {
+    await app.close();
+  }
+});
