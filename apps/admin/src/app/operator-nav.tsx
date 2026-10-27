@@ -7,6 +7,7 @@ export function OperatorNav({ name }: { readonly name: string }) {
     <nav aria-label="Admin">
       <Link href="/accounts">Accounts</Link>
       <Link href="/audit">Audit</Link>
+      <Link href="/security">Security</Link>
       <form action={signOutAction}>
         <span className="muted">{name} </span>
         <button type="submit">Sign out</button>

@@ -4,6 +4,7 @@ import {
 } from '@daisy/protocol/operator';
 import { z } from 'zod';
 import type { OperatorClientConfig } from './features/operator-client/client';
+import type { LogStoreConfig } from './features/security/store';
 
 /**
  * The admin app's environment, validated once at the process edge. Errors
@@ -37,15 +38,23 @@ const adminConfigSchema = z
   );
 export type AdminConfig = z.infer<typeof adminConfigSchema>;
 
-export function readAdminConfig(
+/** Parses settings or refuses startup, naming fields and never values. */
+function parseOrRefuse<T>(
+  schema: z.ZodType<T>,
   env: Readonly<Record<string, string | undefined>>,
-): AdminConfig {
-  const parsed = adminConfigSchema.safeParse(env);
+): T {
+  const parsed = schema.safeParse(env);
   if (!parsed.success)
     throw new Error(
       `Invalid admin configuration: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
     );
   return parsed.data;
+}
+
+export function readAdminConfig(
+  env: Readonly<Record<string, string | undefined>>,
+): AdminConfig {
+  return parseOrRefuse(adminConfigSchema, env);
 }
 
 /** The release-only migrate app's one secret (ADR 0041 pattern). */
@@ -79,6 +88,21 @@ const operatorClientSchema = z.object({
 });
 
 /**
+ * An optional group of settings: null when none of its keys is set, the
+ * parsed group when it is complete and valid, and a startup refusal naming
+ * fields (never values) for anything in between.
+ */
+function allOrNone<T>(
+  keys: readonly string[],
+  schema: z.ZodType<T>,
+  env: Readonly<Record<string, string | undefined>>,
+): T | null {
+  return keys.every((name) => env[name] === undefined)
+    ? null
+    : parseOrRefuse(schema, env);
+}
+
+/**
  * The signing client's settings (ADR 0079), all four or none: none leaves
  * the accounts screen unconfigured, and a partial set refuses startup
  * rather than half-loading.
@@ -86,16 +110,36 @@ const operatorClientSchema = z.object({
 export function readOperatorClientConfig(
   env: Readonly<Record<string, string | undefined>>,
 ): OperatorClientConfig | null {
-  if (operatorKeys.every((name) => env[name] === undefined)) return null;
-  const parsed = operatorClientSchema.safeParse(env);
-  if (!parsed.success)
-    throw new Error(
-      `Invalid admin configuration: ${parsed.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
-    );
-  return {
-    baseUrl: parsed.data.OPERATOR_API_URL,
-    keyId: parsed.data.OPERATOR_API_KEY_ID,
-    key: new Uint8Array(Buffer.from(parsed.data.OPERATOR_API_KEY, 'base64url')),
-    audience: parsed.data.OPERATOR_AUDIENCE,
-  };
+  const data = allOrNone(operatorKeys, operatorClientSchema, env);
+  return (
+    data && {
+      baseUrl: data.OPERATOR_API_URL,
+      keyId: data.OPERATOR_API_KEY_ID,
+      key: new Uint8Array(Buffer.from(data.OPERATOR_API_KEY, 'base64url')),
+      audience: data.OPERATOR_AUDIENCE,
+    }
+  );
+}
+
+const logStoreKeys = ['CLICKHOUSE_URL', 'CLICKHOUSE_READER_PASSWORD'] as const;
+const logStoreSchema = z.object({
+  CLICKHOUSE_URL: z.url({ protocol: /^https?$/ }),
+  // A Fly secret, never in [env] (ADR 0084).
+  CLICKHOUSE_READER_PASSWORD: z.string().min(32),
+});
+
+/**
+ * The log store's read-only connection (ADR 0084), both or neither: neither
+ * leaves the Security page unconfigured, and one alone refuses startup.
+ */
+export function readLogStoreConfig(
+  env: Readonly<Record<string, string | undefined>>,
+): LogStoreConfig | null {
+  const data = allOrNone(logStoreKeys, logStoreSchema, env);
+  return (
+    data && {
+      url: data.CLICKHOUSE_URL,
+      password: data.CLICKHOUSE_READER_PASSWORD,
+    }
+  );
 }

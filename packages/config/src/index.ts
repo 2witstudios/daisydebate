@@ -29,6 +29,7 @@ export { readRealtimeTransportConfig } from './realtime-transport';
 
 export {
   requireAdminTestDatabase,
+  requireTestClickHouse,
   requireTestServices,
   requireTestSlotServices,
 } from './test-services';
