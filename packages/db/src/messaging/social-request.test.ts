@@ -84,7 +84,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
   });
 });
 for (const state of ['pending', 'accepted'])
-  test(`existing ${state} pair converges without replacing authority`, async () => {
+  test(`the screen converges on an existing ${state} pair without replacing authority`, async () => {
     const { client, queries } = fakeSql([[request(state)]]);
     const frame = dmRequestFrame(
       drizzle({ client }),
@@ -97,7 +97,7 @@ for (const state of ['pending', 'accepted'])
       should:
         'return the durable channel without spending a social request, writing a ledger row, creating channels or renewing pair state',
       actual: [
-        await frame.commitDmRequest(command),
+        await frame.screenDmRequest(now),
         queries.map((entry) => entry.query.split(/\s/)[0]),
         queries.some((entry) => entry.query.includes('insert')),
       ],
@@ -173,28 +173,61 @@ for (const [facts, code] of [
       expected: true,
     });
   });
-test('asking again for an existing DM with the day spent still opens it (DEC-251)', async () => {
+test('committing an existing DM without the screen is refused (DEC-251)', async () => {
   const { client, queries } = fakeSql([[request('accepted')]]);
-  const frame = dmRequestFrame(
-    drizzle({ client }),
-    input,
-    [pair],
-    async () => {},
-  );
+  await assertRejects({
+    given: 'an accepted DM committed directly',
+    should: 'refuse it rather than converge a second way',
+    actual: () =>
+      dmRequestFrame(
+        drizzle({ client }),
+        input,
+        [pair],
+        async () => {},
+      ).commitDmRequest(command),
+    code: 'CONFLICT',
+  });
   assert({
-    given: 'an accepted DM and an actor who has spent the daily budget',
-    should:
-      'converge on the conversation without reading or spending the budget',
-    actual: [
-      await frame.commitDmRequest(command),
-      queries.some((entry) =>
-        entry.query.includes('messaging_social_commands'),
-      ),
-    ],
-    expected: [{ channelId, state: 'accepted' }, false],
+    given: 'the refused commit',
+    should: 'read the pair only, never the budget ledger or declines',
+    actual: queries.map((entry) => entry.query.split(/\s/)[0]),
+    expected: ['select'],
   });
 });
-test('a reopened request to a DM partner is spent as related', async () => {
+test('the screen answers null for a new request and refuses a decline-blocked one', async () => {
+  const outcomes: unknown[] = [];
+  for (const blocked of [false, true]) {
+    const { client, queries } = fakeSql([[], [{ blocked }]]);
+    const outcome = await dmRequestFrame(
+      drizzle({ client }),
+      input,
+      [pair],
+      async () => {},
+    )
+      .screenDmRequest(now)
+      .then(
+        (value) => value,
+        (error: { code?: string }) => error.code,
+      );
+    outcomes.push([
+      outcome,
+      queries.some((entry) =>
+        entry.query.includes('messaging_social_declines'),
+      ),
+    ]);
+  }
+  assert({
+    given: 'no DM yet, first unblocked and then blocked by the peer’s declines',
+    should:
+      'read the decline block both times, answering null to commit and then refusing as a block',
+    actual: outcomes,
+    expected: [
+      [null, true],
+      ['AUTHORIZATION', true],
+    ],
+  });
+});
+test('a reopened request to a declined DM partner checks declines and the budget again', async () => {
   const { client, queries } = fakeSql([
     [request('declined', new Date(now))],
     budget({ unrelated: false, hourly: 5, daily: 19 }),
@@ -207,9 +240,8 @@ test('a reopened request to a DM partner is spent as related', async () => {
   );
   await frame.commitDmRequest(command).catch(() => undefined);
   assert({
-    given:
-      'a declined DM asked again inside the day budget with the unrelated hour spent',
-    should: 'pass the budget check, the pair being related',
+    given: 'a declined DM asked again inside the day budget',
+    should: 'read the decline block and the budget facts again',
     actual: queries.some((entry) =>
       entry.query.includes('from messaging_social_declines'),
     ),

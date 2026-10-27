@@ -58,6 +58,9 @@ export function dmRequestFrame(
     return channel;
   };
   return {
+    // An existing pending or accepted DM is no new request: asking again
+    // converges on it without spending DEC-251's budgets or writing a ledger
+    // row (the convergence is idempotent, so no receipt is needed).
     async screenDmRequest(now) {
       await authorize();
       const current = await read();
@@ -79,11 +82,9 @@ export function dmRequestFrame(
       if (command.policyRevision !== input.policyRevision)
         throw createAppError('CONFLICT');
       const current = await read();
-      // An existing pending or accepted DM is no new request: asking again
-      // converges on it without spending DEC-251's budgets or writing a
-      // ledger row (the convergence is idempotent, so no receipt is needed).
-      if (current && converges(current))
-        return { channelId: current.channelId, state: current.requestState };
+      // screenDmRequest owns convergence: a pending or accepted DM is no new
+      // request, so committing one is a caller that skipped the screen.
+      if (current && converges(current)) throw createAppError('CONFLICT');
       const record = await spendSocialRequest(tx, {
         actorId: input.actorId,
         counterpartActorId: counterpartOf(input),

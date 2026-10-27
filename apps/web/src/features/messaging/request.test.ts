@@ -33,6 +33,10 @@ const storeWith = (
     readonly at: 'open' | 'decline';
     readonly code: 'NOT_FOUND' | 'AUTHORIZATION';
   } | null = null,
+  converged: {
+    readonly channelId: string;
+    readonly state: string;
+  } | null = null,
 ): MessagingSocialStore =>
   ({
     withContacts: async (
@@ -44,7 +48,7 @@ const storeWith = (
         readReceipt: async () => receipt,
         screenDmRequest: async () => {
           if (refusal?.at === 'decline') throw createAppError(refusal.code);
-          return null;
+          return converged;
         },
         readDmRequest: async () => ({ channelId, state: 'pending' }),
         commitDmRequest: async (plan: unknown) => {
@@ -138,5 +142,25 @@ test('an unknown recipient, a block and a decline block refuse alike, spending n
       spends: [],
       commits: 0,
     })),
+  });
+});
+
+test('asking for an existing DM converges with the social limiter spent, committing nothing', async () => {
+  const commits: unknown[] = [];
+  const result = await requestMessagingDm(
+    command,
+    principal,
+    dependenciesOf(
+      storeWith(null, commits, null, { channelId, state: 'accepted' }),
+      async () => {
+        throw createAppError('RATE_LIMIT');
+      },
+    ),
+  );
+  assert({
+    given: 'an accepted DM and a social window already spent',
+    should: 'open the conversation without the limiter or a commit',
+    actual: [result, commits.length],
+    expected: [{ channelId, state: 'accepted' }, 0],
   });
 });
