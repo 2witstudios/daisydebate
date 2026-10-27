@@ -28,7 +28,7 @@ export default async function MessageRequestPage({
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
         title="Message request"
-        actions={<Link href="/lobby">Back to lobby</Link>}
+        actions={<Link href="/messages">Back to messages</Link>}
       />
       {preview ? (
         <section className="flex flex-col gap-6 rounded-lg border border-border bg-surface-raised p-5">

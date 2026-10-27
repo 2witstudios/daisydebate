@@ -23,7 +23,7 @@ export type OnboardingStepWrite =
   | { readonly step: 'topics'; readonly topics: readonly Topic[] };
 
 /** A member's stored answers; `completedAt` is a UTC ISO string. */
-export type OnboardingRecord = {
+type OnboardingRecord = {
   readonly wants: readonly Want[];
   readonly club: Club | null;
   readonly experience: Experience | null;

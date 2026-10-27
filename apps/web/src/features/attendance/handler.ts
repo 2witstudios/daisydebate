@@ -47,7 +47,7 @@ export function createAttendanceHandler(deps: HandlerDeps) {
         const roundId = parseValidated(idSchema, rawRoundId);
         await consumeOrThrow(
           deps.limiter(),
-          `attendance:${roundId}:${member.principal.userId}`,
+          `attendance:${member.principal.userId}`,
           attendanceRate,
         );
         const actor = await deps.getActorByUserId(member.principal.userId);

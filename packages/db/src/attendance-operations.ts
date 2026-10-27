@@ -21,10 +21,8 @@ import {
   type PrincipalColumns,
 } from './attendance-facts';
 export type {
-  AttendanceTransactionContext,
   AttendanceTransaction,
   AttendancePrincipal,
-  AttendanceFacts,
   LockedAttendanceCheckIn,
 } from './attendance-facts';
 import {

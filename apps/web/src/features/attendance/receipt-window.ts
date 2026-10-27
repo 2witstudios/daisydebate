@@ -4,7 +4,7 @@ import {
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { attendanceTimingPolicy } from '@daisy/protocol';
-import type { LockedAttendanceCheckIn } from '@daisy/db';
+import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { attendanceWindowFor } from './windows';
 import { attendanceReceiptTime } from './receipt-time';
 

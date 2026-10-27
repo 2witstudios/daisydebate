@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type {
   JudgePanel,
@@ -142,10 +143,13 @@ function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
 export function ProfilePage({
   profile,
   paged,
+  actions,
 }: {
   readonly profile: MemberProfile;
   /** Whether this is an older page of the history. */
   readonly paged: boolean;
+  /** The viewer's actions toward this member, if any. */
+  readonly actions?: ReactNode;
 }) {
   const base = `/profile/${profile.username}`;
   return (
@@ -165,7 +169,9 @@ export function ProfilePage({
             </p>
           </div>
         </div>
-        <ProfileActions username={profile.username} me={profile.me} />
+        <ProfileActions username={profile.username} me={profile.me}>
+          {actions}
+        </ProfileActions>
       </header>
       <RecordSummary profile={profile} />
       <section aria-label="Match history" className={card}>
