@@ -121,11 +121,11 @@ entrypoint. The MySQL, PostgreSQL and interserver ports are off.
 **Roles** (`users.d/daisy.xml`; passwords come from environment variables
 that are Fly secrets):
 
-| Role                 | Network           | Grants                                         | Profile                                                                                      |
-| -------------------- | ----------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `default`            | loopback only     | admin                                          | applies migrations, sweeps partitions                                                        |
-| `daisy_shipper`      | `fdaa::/16` (6PN) | `INSERT ON daisy_logs.*`                       | 30 s, 256 MiB, 2 concurrent                                                                  |
-| `daisy_admin_reader` | `fdaa::/16` (6PN) | `SELECT ON daisy_logs.*`, the migrations table | `readonly = 1`; 10 s, 256 MiB, 50 M rows read, 10 000 result rows, 4 concurrent, all `throw` |
+| Role                 | Network           | Grants                                                                                                | Profile                                                                                      |
+| -------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `default`            | loopback only     | admin                                                                                                 | applies migrations, sweeps partitions                                                        |
+| `daisy_shipper`      | `fdaa::/16` (6PN) | `INSERT ON daisy_logs.*`                                                                              | 30 s, 256 MiB, 2 concurrent                                                                  |
+| `daisy_admin_reader` | `fdaa::/16` (6PN) | `SELECT ON daisy_logs.*`, `daisy_meta` migrations and sweeps, part metadata columns of `system.parts` | `readonly = 1`; 10 s, 256 MiB, 50 M rows read, 10 000 result rows, 4 concurrent, all `throw` |
 
 **Schema.** Migrations are versioned forward files under
 `infra/clickhouse/migrations/`. The entrypoint applies each file once, in
