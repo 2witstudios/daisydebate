@@ -95,7 +95,7 @@ export const requestMemberProfile = async (
   query: MatchHistoryQuery,
 ): Promise<MemberProfile | null> =>
   readProfile(
-    { store: processApp().database, limiter: processApp().auth().limiter },
+    { store: processApp().database, limiter: processApp().limiter },
     {
       clientId: (await headers()).get(CLIENT_ID_HASH_HEADER),
       identity: await requestIdentity(),

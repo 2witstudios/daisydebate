@@ -6,7 +6,7 @@ export const composeRoundMemberDependencies = (app: App) => ({
   identify: (request: Request) => identify(app.auth(), request.headers),
   origin: () => app.auth().config.PUBLIC_APP_URL,
   getActorByUserId: (id: string) => app.database.getActorByUserId(id),
-  limiter: () => app.auth().limiter,
+  limiter: () => app.limiter,
   limits: app.roomPolicy?.limits ?? {
     read: { max: 1, windowSeconds: 1 },
     command: { max: 1, windowSeconds: 1 },

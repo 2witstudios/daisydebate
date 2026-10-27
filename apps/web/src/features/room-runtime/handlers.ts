@@ -8,7 +8,7 @@ import {
   roomListQuerySchema,
   roomRefusalSchema,
 } from '@daisy/protocol';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   refusalResponse,
   handleOperation,
@@ -31,7 +31,7 @@ type Dependencies = {
   readonly operations: RoomRuntimeOperations;
   readonly active: () => boolean;
   readonly maxBodyBytes: number;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly limits: {
     readonly create: Rule;
     readonly read: Rule;

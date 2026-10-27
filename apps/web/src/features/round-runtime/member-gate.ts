@@ -1,7 +1,7 @@
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   refusalResponse,
   handleOperation,
@@ -18,7 +18,7 @@ export type RoundMemberRouteDependencies = {
   readonly getActorByUserId: (
     id: string,
   ) => Promise<{ readonly id: string } | null>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly limits: { readonly read: Rule; readonly command: Rule };
   readonly active: () => boolean;
 };

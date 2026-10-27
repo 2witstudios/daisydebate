@@ -19,7 +19,7 @@ import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
 import { identify } from '../../lib/identity';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
@@ -111,7 +111,7 @@ export function composeMessagingRoutes(app: App) {
             clock: app.clock,
             limit: async (actorId) =>
               consumeOrThrow(
-                app.auth().limiter,
+                app.limiter,
                 `messaging:mutation:${actorId}`,
                 policy.limits.actorSend,
               ),
@@ -140,12 +140,12 @@ export function composeMessagingRoutes(app: App) {
           ids: app.ids,
           limit: async (actorId, channelId) => {
             await consumeOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:send:${actorId}`,
               policy.limits.actorSend,
             );
             await consumeOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:send:${actorId}:${channelId}`,
               policy.limits.channelSend,
             );
@@ -161,7 +161,7 @@ export function composeMessagingRoutes(app: App) {
             if (principal.kind !== 'user' || principal.actorId === null)
               throw createAppError('AUTHORIZATION');
             await consumeOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:read:${principal.actorId}`,
               policy.limits.read,
             );

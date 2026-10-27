@@ -6,7 +6,7 @@ import { createRedis, redisKey } from '@daisy/redis';
 import { openTestRedis } from '@daisy/redis/testing';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
-import { createAuthRateLimiter } from '../src/features/auth/abuse/redis-limiter';
+import { createRateLimiter } from '../src/server/rate-limit';
 import {
   deriveRecipientSubkey,
   recipientKey,
@@ -16,7 +16,7 @@ import { createAuthServer } from '../src/features/auth/server';
 const silentLogger = { log: () => {}, child: () => silentLogger };
 const noLedger = { isSuppressed: async () => false, record: async () => {} };
 
-/** The limiter's real Redis key for a gate bucket key (`redis-limiter.ts`). */
+/** The limiter's real Redis key for a gate bucket key (`server/rate-limit.ts`). */
 const limiterKey = (testApp: TestApp, bucket: string) =>
   redisKey(
     testApp.redisNamespace,
@@ -93,7 +93,7 @@ export function createSecondInstances(testApp: TestApp) {
     overrides: {
       redisUrl?: string;
       limiter?: (
-        base: ReturnType<typeof createAuthRateLimiter>,
+        base: ReturnType<typeof createRateLimiter>,
       ) => Parameters<typeof createAuthServer>[0]['limiter'];
     } = {},
   ) => {
@@ -105,7 +105,7 @@ export function createSecondInstances(testApp: TestApp) {
       url: overrides.redisUrl ?? testRedisUrl,
       namespace: testApp.redisNamespace,
     });
-    const base = createAuthRateLimiter(redis);
+    const base = createRateLimiter(redis);
     const sent: string[] = [];
     const server = createAuthServer({
       getActorByUserId: (userId) => database.getActorByUserId(userId),

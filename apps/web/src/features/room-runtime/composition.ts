@@ -35,7 +35,7 @@ export function composeRoomRoutes(app: App) {
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
       getActorByUserId: (userId) => app.database.getActorByUserId(userId),
-      limiter: () => app.auth().limiter,
+      limiter: () => app.limiter,
       active: () => true,
       maxBodyBytes: policy.maxBodyBytes,
       limits: policy.limits,

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
-import type { AuthRateLimiter } from './rate-limit';
+import type { RateLimiter } from '../../../server/rate-limit';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import {
   authTestEnv,
@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 
 const email = 'player@daisy.example.com';
-type Decision = Awaited<ReturnType<AuthRateLimiter['consume']>>;
+type Decision = Awaited<ReturnType<RateLimiter['consume']>>;
 const allow: Decision = { allowed: true, retryAfterSeconds: 0 };
 
 const compose = (options: { decide?: (key: string) => Decision }) => {
