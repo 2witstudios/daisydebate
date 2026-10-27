@@ -46,6 +46,7 @@ const betaAccessColumns = {
       'lease_token_digest',
       'lease_expires_at',
       'next_attempt_at',
+      'window_start',
       'last_error_code',
       'created_at',
       'completed_at',

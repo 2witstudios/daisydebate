@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "29ce8604-dfa0-461c-bd55-2911fad5160d",
+  "id": "3d8ad216-12b0-44d2-845d-1cebbd8cf02b",
   "prevIds": [
     "a7a2a6fa-a779-4aed-b944-3ed517d5b08a"
   ],
@@ -2486,6 +2486,19 @@
       "generated": null,
       "identity": null,
       "name": "dedupe_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "mail_intents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "window_start",
       "entityType": "columns",
       "schema": "public",
       "table": "mail_intents"
@@ -8605,6 +8618,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "account_beta_access"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "target_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "operator_command_receipts_target_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "operator_command_receipts"
     },
     {
       "nameExplicit": true,
@@ -15955,6 +15989,13 @@
     {
       "value": "(\"purpose\" = 'beta-approved') = (\"recipient_user_id\" is not null)",
       "name": "mail_intents_recipient_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "mail_intents"
+    },
+    {
+      "value": "(\"purpose\" = 'beta-requests-digest') = (\"window_start\" is not null)",
+      "name": "mail_intents_window_check",
       "entityType": "checks",
       "schema": "public",
       "table": "mail_intents"

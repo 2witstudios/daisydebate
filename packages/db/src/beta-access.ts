@@ -44,6 +44,7 @@ export async function enrolPendingBetaAccess(
       id: nextId(),
       purpose: 'beta-requests-digest',
       dedupeKey: sql`'beta-requests:' || to_char(${windowStart} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI"Z"')`,
+      windowStart: sql`${windowStart}`,
       // Sent once its window closes, so one email covers the whole window.
       nextAttemptAt: sql`${windowStart} + ${DIGEST_WINDOW}`,
     })

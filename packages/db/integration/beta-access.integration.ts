@@ -17,6 +17,22 @@ const provisionalUser = async (fixture: Fixture) => {
   return userId;
 };
 
+/** The claim inserts the human actor; track it so the purge removes it before its user. */
+const claimAs = async (
+  fixture: Fixture,
+  database: ReturnType<typeof createDatabase>,
+  userId: string,
+  username: string,
+) => {
+  const outcome = await database.claimUsername({ userId, username });
+  const [actor] =
+    (await fixture.sql`select id from actors where user_id = ${userId}`) as {
+      id: string;
+    }[];
+  if (actor) fixture.track('actors', actor.id);
+  return outcome;
+};
+
 const accessOf = async (fixture: Fixture, userId: string) =>
   (await fixture.sql.unsafe(
     'select state, revision, provenance, decided_at is null as undecided from account_beta_access where user_id = $1',
@@ -35,14 +51,8 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
       const userId = await provisionalUser(fixture);
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        const first = await database.claimUsername({
-          userId,
-          username: `b-${userId}`,
-        });
-        const retry = await database.claimUsername({
-          userId,
-          username: `b-${userId}`,
-        });
+        const first = await claimAs(fixture, database, userId, `b-${userId}`);
+        const retry = await claimAs(fixture, database, userId, `b-${userId}`);
         const [digest] = (await fixture.sql.unsafe(
           `select state, purpose, recipient_user_id, next_attempt_at > now() as later,
              dedupe_key = 'beta-requests:' || to_char(date_bin(interval '10 minutes', now(), timestamptz '2000-01-01 00:00:00+00') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI"Z"') as this_window
@@ -98,7 +108,7 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
       const userId = await provisionalUser(fixture);
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        await database.claimUsername({ userId, username: `r-${userId}` });
+        await claimAs(fixture, database, userId, `r-${userId}`);
       } finally {
         await database.close();
       }
@@ -180,8 +190,8 @@ test('the expand migration approves exactly the grandfathered cohort', async () 
              e.to_state, e.principal, e.id ~ '^[a-z0-9]{24}$' as id_shape
            from account_beta_access b join users u on u.id = b.user_id
            join account_access_events e on e.user_id = b.user_id
-           where b.user_id = any($1)`,
-          [Object.values(ids)],
+           where b.user_id in ($1, $2, $3)`,
+          Object.values(ids),
         );
         throw new RollbackWith(cohort);
       })

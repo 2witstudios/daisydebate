@@ -44,6 +44,7 @@ CREATE TABLE "mail_intents" (
 	"purpose" text NOT NULL,
 	"recipient_user_id" text,
 	"dedupe_key" text NOT NULL UNIQUE,
+	"window_start" timestamp with time zone,
 	"state" text DEFAULT 'queued' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"lease_token_digest" text,
@@ -55,6 +56,7 @@ CREATE TABLE "mail_intents" (
 	CONSTRAINT "mail_intents_purpose_check" CHECK ("purpose" in ('beta-approved', 'beta-requests-digest')),
 	CONSTRAINT "mail_intents_state_check" CHECK ("state" in ('queued', 'leased', 'sent', 'failed', 'cancelled')),
 	CONSTRAINT "mail_intents_recipient_check" CHECK (("purpose" = 'beta-approved') = ("recipient_user_id" is not null)),
+	CONSTRAINT "mail_intents_window_check" CHECK (("purpose" = 'beta-requests-digest') = ("window_start" is not null)),
 	CONSTRAINT "mail_intents_attempts_check" CHECK ("attempts" >= 0),
 	CONSTRAINT "mail_intents_lease_check" CHECK (("state" = 'leased') = ("lease_token_digest" is not null and "lease_expires_at" is not null) and ("lease_token_digest" is null or "lease_token_digest" ~ '^[0-9a-f]{64}$')),
 	CONSTRAINT "mail_intents_completed_check" CHECK (("state" in ('sent', 'failed', 'cancelled')) = ("completed_at" is not null)),
@@ -63,6 +65,7 @@ CREATE TABLE "mail_intents" (
 --> statement-breakpoint
 CREATE INDEX "account_access_events_user_idx" ON "account_access_events" ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "account_beta_access_listing_idx" ON "account_beta_access" ("state","requested_at","user_id");--> statement-breakpoint
+CREATE INDEX "operator_command_receipts_target_idx" ON "operator_command_receipts" ("target_user_id");--> statement-breakpoint
 CREATE INDEX "operator_command_receipts_created_idx" ON "operator_command_receipts" ("created_at");--> statement-breakpoint
 CREATE INDEX "mail_intents_due_idx" ON "mail_intents" ("state","next_attempt_at");--> statement-breakpoint
 CREATE INDEX "mail_intents_recipient_idx" ON "mail_intents" ("recipient_user_id");--> statement-breakpoint

@@ -31,6 +31,8 @@ export const mailIntents = pgTable(
       onDelete: 'cascade',
     }),
     dedupeKey: text('dedupe_key').notNull().unique(),
+    /** A digest's UTC window start: the accounts it counts joined in this window. */
+    windowStart: timestampColumn('window_start'),
     state: text('state').notNull().default('queued'),
     attempts: integer('attempts').notNull().default(0),
     leaseTokenDigest: text('lease_token_digest'),
@@ -49,6 +51,10 @@ export const mailIntents = pgTable(
     check(
       'mail_intents_recipient_check',
       sql`(${table.purpose} = 'beta-approved') = (${table.recipientUserId} is not null)`,
+    ),
+    check(
+      'mail_intents_window_check',
+      sql`(${table.purpose} = 'beta-requests-digest') = (${table.windowStart} is not null)`,
     ),
     check('mail_intents_attempts_check', sql`${table.attempts} >= 0`),
     check(

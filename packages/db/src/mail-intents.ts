@@ -127,12 +127,9 @@ export function mailIntentOperations({
       }),
     readMailIntentDelivery: (id: string): Promise<MailIntentDelivery> =>
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
-        // A digest's window is its dedupe key (`beta-requests:<UTC start>`),
-        // which retries never move, unlike `next_attempt_at`.
+        // A digest counts its own window, which retries never move.
         const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id,
-            case when purpose = 'beta-requests-digest'
-              then (substr(dedupe_key, 15, 16) || ':00+00')::timestamptz end as window_start
+          (await database.execute(sql`select purpose, recipient_user_id, window_start
           from mail_intents where id = ${id}`)) as unknown as {
             purpose: string;
             recipient_user_id: string | null;

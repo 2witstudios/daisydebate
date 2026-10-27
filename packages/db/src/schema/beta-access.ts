@@ -118,6 +118,7 @@ export const operatorCommandReceipts = pgTable(
       sql`${table.requestDigest} ~ '^[0-9a-f]{64}$' and ${table.adminAuditHead} ~ '^[0-9a-f]{64}$'`,
     ),
     jsonbIsObject('operator_command_receipts', table.result),
+    index('operator_command_receipts_target_idx').on(table.targetUserId),
     index('operator_command_receipts_created_idx').on(table.createdAt),
   ],
 );

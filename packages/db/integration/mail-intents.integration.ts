@@ -13,13 +13,26 @@ const token = () => `${createId()}${createId()}`;
 /** An intent due long ago, so a claim takes it before any real queue entry. */
 const dueIntent = async (
   fixture: Fixture,
-  row: { purpose: string; recipient?: string | null; dedupeKey?: string },
+  row: {
+    purpose: string;
+    recipient?: string | null;
+    dedupeKey?: string;
+    /** A digest's window; digests default to one long past. */
+    windowStart?: string;
+  },
 ) => {
   const id = createId();
+  const digest = row.purpose === 'beta-requests-digest';
   await fixture.sql.unsafe(
-    `insert into mail_intents (id, purpose, recipient_user_id, dedupe_key, next_attempt_at)
-     values ($1, $2, $3, $4, timestamptz '2000-01-01 00:00:00+00')`,
-    [id, row.purpose, row.recipient ?? null, row.dedupeKey ?? `test:${id}`],
+    `insert into mail_intents (id, purpose, recipient_user_id, dedupe_key, window_start, next_attempt_at)
+     values ($1, $2, $3, $4, $5::timestamptz, timestamptz '2000-01-01 00:00:00+00')`,
+    [
+      id,
+      row.purpose,
+      row.recipient ?? null,
+      row.dedupeKey ?? `test:${id}`,
+      digest ? (row.windowStart ?? '2000-01-01T00:00:00Z') : null,
+    ],
   );
   return id;
 };
@@ -223,10 +236,12 @@ describe('the durable mail queue (ADR 0075)', () => {
       const id = await dueIntent(fixture, {
         purpose: 'beta-requests-digest',
         dedupeKey: `beta-requests:${window}Z`,
+        windowStart: `${window}:00Z`,
       });
       const empty = await dueIntent(fixture, {
         purpose: 'beta-requests-digest',
         dedupeKey: 'beta-requests:2001-02-03T05:00Z',
+        windowStart: '2001-02-03T05:00:00Z',
       });
       await withDatabase(url, async (database) => {
         const digest = await database.readMailIntentDelivery(id);

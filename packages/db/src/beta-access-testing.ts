@@ -12,6 +12,6 @@ export async function removeUnowedBetaDigests(sql: SQL): Promise<void> {
     where m.purpose = 'beta-requests-digest' and m.state = 'queued'
       and not exists (select 1 from account_beta_access b
         where b.state = 'pending'
-          and b.requested_at >= (substr(m.dedupe_key, 15, 16) || ':00+00')::timestamptz
-          and b.requested_at < (substr(m.dedupe_key, 15, 16) || ':00+00')::timestamptz + interval '10 minutes')`;
+          and b.requested_at >= m.window_start
+          and b.requested_at < m.window_start + interval '10 minutes')`;
 }
