@@ -49,8 +49,8 @@ function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
   const toKeys = to.segments.map((s) => s.key);
   const identity = (rules: RoundRules, key: string) => {
     const index = rules.segments.findIndex((s) => s.key === key);
-    const { durationMs: _duration, ...rest } = rules.segments[index]!;
-    return { ...rest, index };
+    const segment = rules.segments[index]!;
+    return [index, segment.label, segment.type, segment.side, segment.slot];
   };
   const kept = toKeys.filter((key) => fromKeys.includes(key));
   const structure = {

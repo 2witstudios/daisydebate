@@ -33,4 +33,3 @@ export { assertAttendanceRules } from './attendance-policy';
 
 export { requireAttendanceDecision } from './attendance-decision';
 export { decideFormatSelection } from './format-selection';
-export { formatStanding } from './format-standing';

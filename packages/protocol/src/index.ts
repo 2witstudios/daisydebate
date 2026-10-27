@@ -20,15 +20,17 @@ export type {
 } from './primitives';
 export {
   MAX_FORMAT_SEATS,
-  MAX_FORMAT_SEGMENTS,
   formatSeatsSchema,
   formatDefinitionSchema,
   roundRulesSchema,
   segmentTypes,
 } from './format';
 export type { FormatDefinition, RoundRules, SegmentType } from './format';
-export { formatStandingSchema } from './format-standing';
-export type { FormatChange, FormatStanding } from './format-standing';
+export type {
+  FormatChange,
+  FormatSelectionFacts,
+  FormatStanding,
+} from './format-standing';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export {
   CAPTURE_CALL_DEADLINE_MS,

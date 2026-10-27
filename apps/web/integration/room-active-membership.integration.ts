@@ -8,7 +8,6 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
-import { foundationSelection } from './room-runtime.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -228,7 +227,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
       title: 'Rematch',
       topic: 'Libraries should remain public',
       visibility: 'public',
-      selection: foundationSelection,
+      selection: f.foundationSelection,
     });
     try {
       assert({

@@ -1,4 +1,8 @@
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+import type {
+  FormatDefinition,
+  FormatSelectionFacts,
+  RoomConfig,
+} from '@daisy/protocol';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -22,7 +26,7 @@ type FormatPresetRecord = {
 };
 
 /** Shared current-revision join used by single-format reads and the Room catalog. */
-export const currentFormatRevisions = (client: BunSQLDatabase) =>
+const currentFormatRevisions = (client: BunSQLDatabase) =>
   client
     .select({
       id: formats.id,
@@ -46,25 +50,8 @@ export type SelectionTuple = {
   readonly presetVersion: number;
 };
 
-/** What the selection policy judges; shaped like the engine's FormatSelectionFacts. */
-export type FormatSelectionFactsRecord = {
-  readonly format: {
-    readonly id: string;
-    readonly name: string;
-    readonly leagues: readonly string[];
-    readonly catalogOwned: boolean;
-    readonly role: 'standard' | 'template' | null;
-    readonly currentVersion: number;
-  };
-  readonly definition: FormatDefinition;
-  readonly preset: {
-    readonly version: number;
-    readonly formatVersion: number;
-    readonly config: RoomConfig;
-    readonly rankedEligible: boolean;
-    readonly current: boolean;
-  };
-};
+/** What the selection policy judges (FMT-1). */
+export type FormatSelectionFactsRecord = FormatSelectionFacts;
 
 /**
  * The stored facts for one selection tuple, or null when any part is

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { FormatDefinition } from './format';
+import type { RoomConfig } from './room';
 import { crossExModeSchema, interruptionModeSchema } from './format';
 import { debateRoleSchema } from './primitives';
 
@@ -41,13 +43,16 @@ const formatChangeSchema = z.discriminatedUnion('kind', [
     fromMs: msSchema,
     toMs: msSchema,
   }),
-  ...(['in-round-prep', 'pre-round-prep'] as const).map((kind) =>
-    z.strictObject({
-      kind: z.literal(kind),
-      fromMs: msSchema.nullable(),
-      toMs: msSchema.nullable(),
-    }),
-  ),
+  z.strictObject({
+    kind: z.literal('in-round-prep'),
+    fromMs: msSchema.nullable(),
+    toMs: msSchema.nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal('pre-round-prep'),
+    fromMs: msSchema.nullable(),
+    toMs: msSchema.nullable(),
+  }),
   z.strictObject({
     kind: z.literal('cross-ex-mode'),
     from: crossExModeSchema,
@@ -84,3 +89,27 @@ export const formatStandingSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export type FormatStanding = z.infer<typeof formatStandingSchema>;
+
+/** What the adapter loaded, under its locks, for the requested tuple. */
+export type FormatSelectionFacts = {
+  readonly format: {
+    readonly id: string;
+    readonly name: string;
+    readonly leagues: readonly string[];
+    /** No owning actor: a publisher catalog row, never a private custom format. */
+    readonly catalogOwned: boolean;
+    /** Null when the picker does not offer it (One-on-one, Foundation). */
+    readonly role: 'standard' | 'template' | null;
+    readonly currentVersion: number;
+  };
+  /** The revision `formatVersion` names. */
+  readonly definition: FormatDefinition;
+  readonly preset: {
+    readonly version: number;
+    readonly formatVersion: number;
+    readonly config: RoomConfig;
+    readonly rankedEligible: boolean;
+    /** Not superseded. */
+    readonly current: boolean;
+  };
+};

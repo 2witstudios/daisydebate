@@ -60,20 +60,22 @@ const checked = (html: string, value: string) =>
       input.includes(`value="${value}"`) && input.includes('checked=""'),
   );
 
+const valueStandard: RoomView['format'] = {
+  name: 'Value',
+  role: 'standard',
+  leagues: [],
+  basis: {
+    formatId: 'value',
+    name: 'Value',
+    formatVersion: 1,
+    presetVersion: 2,
+  },
+  standing: { kind: 'standard', formatId: 'value' },
+};
+
 describe('FormatChoice', () => {
   test('a room on a standard', () => {
-    const html = render({
-      name: 'Value',
-      role: 'standard',
-      leagues: [],
-      basis: {
-        formatId: 'value',
-        name: 'Value',
-        formatVersion: 1,
-        presetVersion: 2,
-      },
-      standing: { kind: 'standard', formatId: 'value' },
-    });
+    const html = render(valueStandard);
     assert({
       given: 'a casual room still running the Value standard',
       should:
@@ -110,15 +112,7 @@ describe('FormatChoice', () => {
 
   test('a room edited away from its standard', () => {
     const html = render({
-      name: 'Value',
-      role: 'standard',
-      leagues: [],
-      basis: {
-        formatId: 'value',
-        name: 'Value',
-        formatVersion: 1,
-        presetVersion: 2,
-      },
+      ...valueStandard,
       standing: {
         kind: 'custom',
         basis: { formatId: 'value', role: 'standard' },
@@ -179,18 +173,7 @@ describe('FormatChoice', () => {
   });
 
   test('the league browser', () => {
-    const html = render({
-      name: 'Value',
-      role: 'standard',
-      leagues: [],
-      basis: {
-        formatId: 'value',
-        name: 'Value',
-        formatVersion: 1,
-        presetVersion: 2,
-      },
-      standing: { kind: 'standard', formatId: 'value' },
-    });
+    const html = render(valueStandard);
     assert({
       given: 'a catalog with one league template',
       should:

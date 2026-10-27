@@ -73,3 +73,58 @@ export function choiceSummary(choice: RoomCatalogChoice): string {
     prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
   })}`;
 }
+
+const familyOrder: readonly Family[] = families;
+
+/** The native select's groups: Daisy's standards first, then league rules by family. */
+export function catalogGroups<T extends CatalogEntry>(
+  catalog: readonly T[],
+  familyLabel: Readonly<Record<Family, string>>,
+): readonly { readonly label: string; readonly options: readonly T[] }[] {
+  return [
+    { label: 'Daisy standards', options: standardOptions(catalog) },
+    ...familyOrder.map((family) => ({
+      label: `League rules · ${familyLabel[family]}`,
+      options: browseTemplates(catalog, { family, query: '' }).flatMap(
+        (group) => group.templates,
+      ),
+    })),
+  ].filter((group) => group.options.length > 0);
+}
+
+type BrowserTab = 'standard' | Family;
+
+/** The browse dialog's tabs: standards when offered, then each family present. */
+export function browserTabs(
+  catalog: readonly CatalogEntry[],
+  familyLabel: Readonly<Record<Family, string>>,
+): readonly { readonly key: BrowserTab; readonly label: string }[] {
+  return [
+    ...(standardOptions(catalog).length
+      ? [{ key: 'standard' as const, label: 'Daisy standards' }]
+      : []),
+    ...familyOrder
+      .filter((family) => catalog.some((entry) => entry.family === family))
+      .map((family) => ({ key: family, label: familyLabel[family] })),
+  ];
+}
+
+/** What the browse dialog lists: every match while searching, else the open tab. */
+export function browserListing<T extends CatalogEntry>(
+  catalog: readonly T[],
+  { query, tab }: { readonly query: string; readonly tab: BrowserTab },
+): readonly T[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length)
+    return [
+      ...standardOptions(catalog).filter((entry) => matches(entry, words)),
+      ...browseTemplates(catalog, { family: 'policy', query }).flatMap(
+        (group) => group.templates,
+      ),
+    ];
+  return tab === 'standard'
+    ? standardOptions(catalog)
+    : browseTemplates(catalog, { family: tab, query: '' }).flatMap(
+        (group) => group.templates,
+      );
+}

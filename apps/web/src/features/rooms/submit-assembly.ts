@@ -27,15 +27,20 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (typeof raw[key] !== 'string') return null;
     raw[key] = JSON.parse(raw[key]);
   }
-  if ('format' in raw) {
-    // One radio or select names a whole catalog tuple (FMT-3).
-    if (typeof raw.format !== 'string') return null;
-    const tuple = formatTupleSchema.safeParse(JSON.parse(raw.format));
-    if (!tuple.success) return null;
-    const { format: _format, ...rest } = raw;
-    return { ...rest, ...tuple.data };
-  }
-  return raw;
+  return 'format' in raw ? withFormatTuple(raw) : raw;
+}
+
+/** One radio or select names a whole catalog tuple (FMT-3); spread it, refuse anything else. */
+function withFormatTuple(
+  raw: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (typeof raw.format !== 'string') return null;
+  const tuple = formatTupleSchema.safeParse(JSON.parse(raw.format));
+  if (!tuple.success) return null;
+  const fields = Object.fromEntries(
+    Object.entries(raw).filter(([key]) => key !== 'format'),
+  );
+  return { ...fields, ...tuple.data };
 }
 
 const formatTupleSchema = z.strictObject({

@@ -229,6 +229,7 @@ async function fixture(
     bot,
     create,
     foundation,
+    foundationSelection,
     command,
     consent,
     seatBotOpponent,

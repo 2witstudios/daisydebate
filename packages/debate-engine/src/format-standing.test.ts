@@ -161,8 +161,11 @@ describe('formatStanding', () => {
 
   test('definition changes', () => {
     const removed = oneOnOneFormatFixture.segments.at(-1)!.key;
-    const { [removed]: _dropped, ...bounds } =
-      oneOnOneFormatFixture.configurable.timing.segmentDurationMs;
+    const bounds = Object.fromEntries(
+      Object.entries(
+        oneOnOneFormatFixture.configurable.timing.segmentDurationMs,
+      ).filter(([key]) => key !== removed),
+    );
     const definition: FormatDefinition = {
       ...oneOnOneFormatFixture,
       seats: { ...oneOnOneFormatFixture.seats, judge: 3 },

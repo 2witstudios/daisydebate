@@ -1,11 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
-import {
-  caller,
-  room,
-  accountFact,
-} from './room-command-operations.test-support';
+import { caller, accountFact } from './room-command-operations.test-support';
 import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();

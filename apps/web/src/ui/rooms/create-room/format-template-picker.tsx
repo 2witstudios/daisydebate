@@ -1,6 +1,12 @@
 'use client';
 
-import { useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type RefObject,
+} from 'react';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
@@ -11,7 +17,9 @@ import {
   speechName,
 } from '../../../features/debate-room/vocabulary';
 import {
-  browseTemplates,
+  browserListing,
+  browserTabs,
+  catalogGroups,
   choiceSummary,
   presetSpeechMs,
   standardOptions,
@@ -60,20 +68,155 @@ function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
   );
 }
 
+/** Browse dialog: search, family tabs and a preview; choosing sets the native select. */
+function FormatBrowserDialog({
+  choices,
+  serialize,
+  dialog,
+  draft,
+  setDraft,
+  onUse,
+}: {
+  readonly choices: readonly RoomTemplate[];
+  readonly serialize: (choice: RoomTemplate) => string;
+  readonly dialog: RefObject<HTMLDialogElement | null>;
+  readonly draft: string;
+  readonly setDraft: (value: string) => void;
+  readonly onUse: () => void;
+}) {
+  const titleId = useId();
+  const [query, setQuery] = useState('');
+  const tabs = browserTabs(choices, formatFamilyLabel);
+  const [tab, setTab] = useState(tabs[0]?.key ?? 'standard');
+  const listed = browserListing(choices, { query, tab });
+  const preview = choices.find((choice) => serialize(choice) === draft);
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby={titleId}
+      className="m-auto max-h-full w-full max-w-dash-column overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim max-compact:rounded-none"
+    >
+      <header className="mb-6 flex items-center justify-between gap-4">
+        <h2 id={titleId} className="font-display text-xl font-bold">
+          Choose a format
+        </h2>
+        <button
+          type="button"
+          className={buttonClass('secondary')}
+          onClick={() => dialog.current?.close()}
+        >
+          Cancel
+        </button>
+      </header>
+      <div className="grid grid-cols-2 gap-6 max-compact:grid-cols-1">
+        <div className="flex min-w-0 flex-col gap-3">
+          <input
+            type="search"
+            aria-label="Search formats and leagues"
+            placeholder="Search: LD, NSDA, policy, NCFCA…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className={controlClass}
+          />
+          {query ? null : (
+            <div
+              role="group"
+              aria-label="Format families"
+              className="flex flex-wrap gap-1"
+            >
+              {tabs.map((option) => (
+                <button
+                  type="button"
+                  key={option.key}
+                  aria-pressed={option.key === tab}
+                  onClick={() => setTab(option.key)}
+                  className="min-h-room-target rounded-round border border-border px-3 text-sm font-strong aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div
+            aria-label="Available formats"
+            className="flex max-h-full flex-col gap-2 overflow-auto"
+          >
+            {listed.map((choice) => (
+              <button
+                type="button"
+                key={`${choice.formatId}:${choice.formatVersion}`}
+                aria-pressed={draft === serialize(choice)}
+                className="rounded-lg border border-border p-3 text-left hover:bg-surface-raised aria-pressed:border-accent aria-pressed:bg-surface-raised"
+                onClick={() => setDraft(serialize(choice))}
+              >
+                <span className="block">{choice.label}</span>
+                <span className="block text-xs text-ink-muted">
+                  {choice.leagues.join(', ')}
+                </span>
+              </button>
+            ))}
+            {listed.length ? null : (
+              <p className="text-sm text-ink-muted">
+                No format matches. Try a league (NSDA, NCFCA) or an event
+                (policy, LD).
+              </p>
+            )}
+          </div>
+        </div>
+        {preview ? (
+          <section aria-label="Format preview" className="flex flex-col gap-4">
+            <h3 className="font-display text-lg font-bold">{preview.label}</h3>
+            <TemplateSchedule choice={preview} />
+            <p className="text-xs text-ink-muted">
+              {preview.rulesEdition ? `Rules: ${preview.rulesEdition}` : null}
+            </p>
+            <button
+              type="button"
+              className={buttonClass('primary')}
+              onClick={onUse}
+            >
+              Use this format
+            </button>
+          </section>
+        ) : null}
+      </div>
+    </dialog>
+  );
+}
+
+type PickerField = {
+  readonly name: string;
+  readonly label: string;
+  readonly id: string;
+};
+const createField: PickerField = {
+  name: 'selection',
+  label: 'Format',
+  id: 'assembly-format',
+};
+
+/** A new room starts on Value, Daisy's default standard (FMT-3). */
+const defaultChoice = (choices: readonly RoomTemplate[]) =>
+  choices.find((choice) => choice.formatId === 'value') ??
+  standardOptions(choices)[0] ??
+  choices[0];
+
 /** Local browsing enhances the canonical select; the native POST remains authoritative. */
 export function FormatTemplatePicker({
   choices,
   defaultValue,
+  field = createField,
+  serialize = selectionValue,
 }: {
   readonly choices: readonly RoomTemplate[];
   readonly defaultValue?: string | undefined;
+  /** The native field: create's `selection`, or Room setup's `format` tuple. */
+  readonly field?: PickerField;
+  readonly serialize?: (choice: RoomTemplate) => string;
 }) {
-  // A new room starts on Value, Daisy's default standard (FMT-3).
-  const first =
-    choices.find((choice) => choice.formatId === 'value') ??
-    standardOptions(choices)[0] ??
-    choices[0];
-  const initial = defaultValue ?? (first ? selectionValue(first) : '');
+  const { name, label, id: fieldId } = field;
+  const first = defaultChoice(choices);
+  const initial = defaultValue ?? (first ? serialize(first) : '');
   const [value, setValue] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const interactive = useSyncExternalStore(
@@ -82,48 +225,33 @@ export function FormatTemplatePicker({
     () => false,
   );
   const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const selected = choices.find((choice) => selectionValue(choice) === value);
-  const preview = choices.find((choice) => selectionValue(choice) === draft);
+  const selected = choices.find((choice) => serialize(choice) === value);
   return (
     <div className="flex flex-col gap-3">
-      <FormField id="assembly-format" label="Format">
+      <FormField id={fieldId} label={label}>
         <select
-          id="assembly-format"
-          name="selection"
+          id={fieldId}
+          name={name}
           required
           value={selected ? value : ''}
           onChange={(event) => setValue(event.target.value)}
           className={controlClass}
         >
-          {!selected ? (
+          {selected ? null : (
             <option value="">Choose an available format</option>
-          ) : null}
-          {[
-            { label: 'Daisy standards', options: standardOptions(choices) },
-            ...(['policy', 'value', 'parli', 'other'] as const).map(
-              (family) => ({
-                label: `League rules · ${formatFamilyLabel[family]}`,
-                options: browseTemplates(choices, {
-                  family,
-                  query: '',
-                }).flatMap((group) => group.templates),
-              }),
-            ),
-          ]
-            .filter((group) => group.options.length > 0)
-            .map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((choice) => (
-                  <option
-                    key={`${choice.formatId}:${choice.formatVersion}`}
-                    value={selectionValue(choice)}
-                  >
-                    {templateLine(choice)}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+          )}
+          {catalogGroups(choices, formatFamilyLabel).map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.options.map((choice) => (
+                <option
+                  key={`${choice.formatId}:${choice.formatVersion}`}
+                  value={serialize(choice)}
+                >
+                  {templateLine(choice)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </FormField>
       {selected ? (
@@ -144,63 +272,17 @@ export function FormatTemplatePicker({
           >
             Browse formats
           </button>
-          <dialog
-            ref={dialog}
-            aria-labelledby={titleId}
-            className="m-auto max-h-full w-full max-w-dash-column overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim max-compact:rounded-none"
-          >
-            <header className="mb-6 flex items-center justify-between gap-4">
-              <h2 id={titleId} className="font-display text-xl font-bold">
-                Choose a format
-              </h2>
-              <button
-                type="button"
-                className={buttonClass('secondary')}
-                onClick={() => dialog.current?.close()}
-              >
-                Cancel
-              </button>
-            </header>
-            <div className="grid grid-cols-2 gap-6 max-compact:grid-cols-1">
-              <div
-                aria-label="Available formats"
-                className="flex max-h-full flex-col gap-2 overflow-auto"
-              >
-                {choices.map((choice) => (
-                  <button
-                    type="button"
-                    key={`${choice.formatId}:${choice.formatVersion}`}
-                    aria-pressed={draft === selectionValue(choice)}
-                    className="rounded-lg border border-border p-3 text-left hover:bg-surface-raised aria-pressed:border-accent aria-pressed:bg-surface-raised"
-                    onClick={() => setDraft(selectionValue(choice))}
-                  >
-                    {choice.label}
-                  </button>
-                ))}
-              </div>
-              {preview ? (
-                <section
-                  aria-label="Format preview"
-                  className="flex flex-col gap-4"
-                >
-                  <h3 className="font-display text-lg font-bold">
-                    {preview.label}
-                  </h3>
-                  <TemplateSchedule choice={preview} />
-                  <button
-                    type="button"
-                    className={buttonClass('primary')}
-                    onClick={() => {
-                      setValue(draft);
-                      dialog.current?.close();
-                    }}
-                  >
-                    Use this format
-                  </button>
-                </section>
-              ) : null}
-            </div>
-          </dialog>
+          <FormatBrowserDialog
+            choices={choices}
+            serialize={serialize}
+            dialog={dialog}
+            draft={draft}
+            setDraft={setDraft}
+            onUse={() => {
+              setValue(draft);
+              dialog.current?.close();
+            }}
+          />
         </>
       ) : null}
     </div>

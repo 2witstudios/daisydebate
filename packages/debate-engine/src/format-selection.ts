@@ -1,4 +1,10 @@
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+import type {
+  FormatDefinition,
+  FormatSelectionFacts,
+  RoomConfig,
+} from '@daisy/protocol';
+
+export type { FormatSelectionFacts };
 import {
   resolveRoomConfiguration,
   type ResolveOutcome,
@@ -24,30 +30,6 @@ export type FormatSelectionRequest = {
   readonly presetVersion: number;
   /** The room's current basis; only `reset` reads it. */
   readonly basis: FormatBasis | null;
-};
-
-/** What the adapter loaded, under its locks, for the requested tuple. */
-export type FormatSelectionFacts = {
-  readonly format: {
-    readonly id: string;
-    readonly name: string;
-    readonly leagues: readonly string[];
-    /** No owning actor: a publisher catalog row, never a private custom format. */
-    readonly catalogOwned: boolean;
-    /** Null when the picker does not offer it (One-on-one, Foundation). */
-    readonly role: 'standard' | 'template' | null;
-    readonly currentVersion: number;
-  };
-  /** The revision `formatVersion` names. */
-  readonly definition: FormatDefinition;
-  readonly preset: {
-    readonly version: number;
-    readonly formatVersion: number;
-    readonly config: RoomConfig;
-    readonly rankedEligible: boolean;
-    /** Not superseded. */
-    readonly current: boolean;
-  };
 };
 
 type FormatSelectionOutcome =
@@ -88,30 +70,39 @@ const isCurrent = (facts: FormatSelectionFacts) =>
 const oneOnOneSeats = ({ seats }: FormatDefinition) =>
   seats.affirmative === 1 && seats.negative === 1 && seats.judge === 1;
 
+/** Ranked admission: the current eligible preset of a 1/1/1 format, no picker role needed. */
+const rankedAdmits = (facts: FormatSelectionFacts) =>
+  isCurrent(facts) &&
+  facts.preset.rankedEligible &&
+  oneOnOneSeats(facts.definition);
+
+/** A reset names the room's own pinned basis exactly. */
+const isOwnBasis = (request: FormatSelectionRequest) =>
+  request.basis !== null &&
+  request.basis.formatId === request.formatId &&
+  request.basis.presetVersion === request.presetVersion;
+
+const admissions: Readonly<
+  Record<
+    FormatSelectionIntent,
+    (request: FormatSelectionRequest, facts: FormatSelectionFacts) => boolean
+  >
+> = {
+  'create-casual': (_request, facts) =>
+    facts.format.role !== null && isCurrent(facts),
+  choose: (_request, facts) => facts.format.role !== null && isCurrent(facts),
+  'create-ranked': (_request, facts) => rankedAdmits(facts),
+  reset: (request) => isOwnBasis(request),
+};
+
 /** Whether the intent may use these facts, before compiling. */
-function admitted(
+const admitted = (
   request: FormatSelectionRequest,
   facts: FormatSelectionFacts,
-): boolean {
-  if (!facts.format.catalogOwned || !sameTuple(request, facts)) return false;
-  switch (request.intent) {
-    case 'create-casual':
-    case 'choose':
-      return facts.format.role !== null && isCurrent(facts);
-    case 'create-ranked':
-      return (
-        isCurrent(facts) &&
-        facts.preset.rankedEligible &&
-        oneOnOneSeats(facts.definition)
-      );
-    case 'reset':
-      return (
-        request.basis !== null &&
-        request.basis.formatId === request.formatId &&
-        request.basis.presetVersion === request.presetVersion
-      );
-  }
-}
+) =>
+  facts.format.catalogOwned &&
+  sameTuple(request, facts) &&
+  admissions[request.intent](request, facts);
 
 /**
  * The one decision every format selection goes through: create, ranked

@@ -6,7 +6,6 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
-import { foundationSelection } from './room-runtime.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -18,7 +17,7 @@ test('a fresh Room after an actual result preserves the original aggregate and r
       title: 'Fresh rematch',
       topic: 'Libraries should remain public',
       visibility: 'public' as const,
-      selection: foundationSelection,
+      selection: f.foundationSelection,
     };
     const { roundId, operations } = await startRuntimeRound(f, room);
     await assertRejects({

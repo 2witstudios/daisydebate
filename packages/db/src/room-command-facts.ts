@@ -17,6 +17,7 @@ import {
 import { appendOutboxEvent } from './outbox';
 
 import { actors } from './schema/actors';
+import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { botProfiles } from './schema/bot-profiles';
 import { roomCommands } from './schema/room-commands';
@@ -24,7 +25,6 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
-import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 
 export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
@@ -119,51 +119,6 @@ export const publishDefinition = async (
     currentVersion: 1,
     createdByActorId: hostActorId,
   });
-};
-/**
- * The catalog preset a room is based on, with its pinned revision, for
- * standing (FMT-1). A basis whose format left the catalog keeps its pinned
- * provenance but is no longer a standard.
- */
-const basisSource = async (
-  tx: Tx,
-  row: typeof rooms.$inferSelect,
-): Promise<RoomAssemblyState['basis']> => {
-  if (row.basisFormatId === null || row.basisPresetVersion === null)
-    return null;
-  const [basis] = await tx
-    .select({
-      formatVersion: formatPresets.formatVersion,
-      config: formatPresets.config,
-      name: formats.name,
-      role: formats.catalogRole,
-      definition: formatRevisions.definition,
-    })
-    .from(formatPresets)
-    .innerJoin(formats, eq(formats.id, formatPresets.formatId))
-    .innerJoin(
-      formatRevisions,
-      and(
-        eq(formatRevisions.formatId, formatPresets.formatId),
-        eq(formatRevisions.version, formatPresets.formatVersion),
-      ),
-    )
-    .where(
-      and(
-        eq(formatPresets.formatId, row.basisFormatId),
-        eq(formatPresets.version, row.basisPresetVersion),
-      ),
-    );
-  if (!basis) throw createAppError('INVARIANT');
-  return {
-    formatId: row.basisFormatId,
-    presetVersion: row.basisPresetVersion,
-    formatVersion: basis.formatVersion,
-    name: basis.name,
-    role: basis.role ?? 'template',
-    definition: basis.definition,
-    config: basis.config,
-  };
 };
 export const roomState = async (
   tx: Tx,

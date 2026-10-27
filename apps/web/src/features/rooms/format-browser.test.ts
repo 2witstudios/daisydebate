@@ -1,5 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { browseTemplates, standardOptions } from './format-browser';
+import {
+  browseTemplates,
+  browserListing,
+  browserTabs,
+  catalogGroups,
+  standardOptions,
+} from './format-browser';
 
 setupRitewayBun();
 
@@ -109,6 +115,56 @@ describe('browseTemplates', () => {
       should: 'return no groups',
       actual: browseTemplates(catalog, { family: 'other', query: 'wudc' }),
       expected: [],
+    });
+  });
+});
+
+const familyLabel = {
+  policy: 'Policy',
+  value: 'Value',
+  parli: 'Parli',
+  other: 'Other formats',
+};
+
+describe('catalogGroups', () => {
+  test('the native select', () => {
+    assert({
+      given: 'standards and templates in several families',
+      should: 'group Daisy standards first, then league rules by family',
+      actual: catalogGroups(catalog, familyLabel).map((group) => [
+        group.label,
+        ids(group.options),
+      ]),
+      expected: [
+        ['Daisy standards', ['policy', 'value']],
+        ['League rules · Policy', ['nsda-policy']],
+        ['League rules · Value', ['nsda-ld', 'ncfca-ld']],
+        ['League rules · Other formats', ['nsda-pf']],
+      ],
+    });
+  });
+});
+
+describe('the browse dialog', () => {
+  test('tabs and listing', () => {
+    assert({
+      given: 'the catalog, a tab and a search',
+      should:
+        'offer only the families present, list the open tab, and search standards and templates alike',
+      actual: {
+        tabs: browserTabs(catalog, familyLabel).map((tab) => tab.key),
+        standardTab: ids(
+          browserListing(catalog, { query: '', tab: 'standard' }),
+        ),
+        valueTab: ids(browserListing(catalog, { query: '', tab: 'value' })),
+        search: ids(browserListing(catalog, { query: 'policy', tab: 'value' })),
+      },
+      expected: {
+        tabs: ['standard', 'policy', 'value', 'other'],
+        standardTab: ['policy', 'value'],
+        valueTab: ['nsda-ld', 'ncfca-ld'],
+        search: ['policy', 'nsda-policy'],
+      },
     });
   });
 });

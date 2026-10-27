@@ -19,13 +19,11 @@ import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
   RoomListQuery,
-  FormatDefinition,
   RoomAssemblyState,
   RoomCatalogChoice,
   RoomCastChoice,
   RoomCommandResponse,
   RoomCreate,
-  RoomConfig,
 } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
