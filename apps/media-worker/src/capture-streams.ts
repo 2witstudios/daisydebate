@@ -20,7 +20,10 @@ type Key = Pick<Stream, 'segmentId' | 'roundParticipantId'>;
  * staging within this window; a stream also waits for staging to hand over
  * every frame it holds (ISSUE-577).
  */
-const SEAL_SETTLE_MS = 500 + CAPTURE_BATCH_INTERVAL_MS;
+/** LiveKit keeps a segment's last frames in flight for about this long. */
+const FRAME_ARRIVAL_MS = 500;
+/** One batch interval on top of the frame-arrival allowance. */
+const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
 
 /**
  * Bounded segment/seat streams this worker seals. A committed nonempty
