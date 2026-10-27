@@ -9,6 +9,10 @@ import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
 import { readMessagingChannelFact } from '../src/messaging/social';
 import { retainedConversationOperations } from '../src/messaging/retained-store';
+import {
+  acknowledgeErasedFileDeletion,
+  pendingFileDeletions,
+} from '../src/messaging-files';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -204,8 +208,9 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
   }
 });
 
-test('a survivor with no message of their own keeps nothing (DEC-126)', async () => {
+test('a survivor with no message of their own keeps nothing, their files included (DEC-126)', async () => {
   const dm = await openDm();
+  const file = { id: createId(), objectKey: createId() };
   try {
     await dm.client.unsafe(
       'update messaging_messages set reply_to_message_id=null where channel_id=$1',
@@ -215,14 +220,71 @@ test('a survivor with no message of their own keeps nothing (DEC-126)', async ()
       'update messaging_messages set text=null, removed_at=created_at where id=$1',
       [dm.ids.reply],
     );
+    await dm.client.unsafe(
+      "insert into messaging_files(id,channel_id,owner_actor_id,request_id,object_key,filename,mime,reserved_bytes,generation,authority_revision,lifecycle,created_at,expires_at) values($1,$2,$3,$4,$5,'survivor.pdf','application/pdf',20,1,1,'reserved',$6,$6::timestamptz + interval '1 hour')",
+      [
+        file.id,
+        dm.channelId,
+        dm.survivor.actorId,
+        createId(),
+        file.objectKey,
+        now,
+      ],
+    );
     await dm.erase(dm.subject);
+    const intent = async () =>
+      dm.client.unsafe(
+        'select charged_bytes::int as charged from messaging_file_deletion_intents where object_key=$1',
+        [file.objectKey],
+      );
+    const erased = {
+      residue: await dm.residue(),
+      files: (
+        await dm.client.unsafe(
+          'select count(*)::int as n from messaging_files where id=$1',
+          [file.id],
+        )
+      )[0].n,
+      intent: [...(await intent())],
+      work: (await pendingFileDeletions(dm.database, 65535)).some(
+        (work) => work.kind === 'erased' && work.objectKey === file.objectKey,
+      ),
+    };
     assert({
-      given: 'a survivor whose only message was already removed',
-      should: 'delete the channel with everything in it',
-      actual: await dm.residue(),
-      expected: { channels: 0, messages: 0, grants: 0, receipts: 0 },
+      given:
+        'a survivor whose only message was already removed, holding a reserved upload in the DM',
+      should:
+        'delete the channel with everything in it and turn the upload into charged, opaque erasure work',
+      actual: erased,
+      expected: {
+        residue: { channels: 0, messages: 0, grants: 0, receipts: 0 },
+        files: 0,
+        intent: [{ charged: 20 }],
+        work: true,
+      },
+    });
+    const removed: string[] = [];
+    await acknowledgeErasedFileDeletion(
+      dm.database,
+      file.objectKey,
+      async (key) => {
+        removed.push(key);
+      },
+    );
+    assert({
+      given: 'the storage worker acknowledging the erased object',
+      should: 'remove that object once and release its charge',
+      actual: { removed, intent: [...(await intent())] },
+      expected: { removed: [file.objectKey], intent: [] },
     });
   } finally {
+    await dm.client.unsafe(
+      'delete from messaging_file_deletion_intents where object_key=$1',
+      [file.objectKey],
+    );
+    await dm.client.unsafe('delete from messaging_files where id=$1', [
+      file.id,
+    ]);
     await dm.close();
   }
 });
