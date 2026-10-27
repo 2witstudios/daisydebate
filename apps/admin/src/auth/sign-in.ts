@@ -1,4 +1,4 @@
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -94,11 +94,18 @@ export const auditSession = (
     at: input.now,
   });
 
-class CounterRaced extends Error {}
+/** The credential row moved after the assertion was checked against it. */
+class CredentialChanged extends Error {
+  constructor(readonly detail: 'credential_unknown' | 'counter_regressed') {
+    super('Credential changed during sign-in');
+  }
+}
 
 /**
- * Compare-and-swap on the counter the assertion was checked against: of two
- * racing assertions from a cloned device-bound key, only one advances it.
+ * Compare-and-swap on the credential the assertion was checked against: of
+ * two racing assertions from a cloned device-bound key, only one advances the
+ * counter, and a credential revoked meanwhile (`--replace`) opens no session.
+ * The row lock serializes this with the revocation.
  */
 async function advanceCounter(
   tx: AdminTransaction,
@@ -114,6 +121,7 @@ async function advanceCounter(
     .where(
       and(
         eq(operatorCredentials.id, input.id),
+        isNull(operatorCredentials.revokedAt),
         or(
           eq(operatorCredentials.backedUp, true),
           eq(operatorCredentials.signCount, input.stored),
@@ -121,7 +129,14 @@ async function advanceCounter(
       ),
     )
     .returning({ id: operatorCredentials.id });
-  if (rows.length !== 1) throw new CounterRaced('Sign counter moved');
+  if (rows.length === 1) return;
+  const [row] = await tx
+    .select({ revokedAt: operatorCredentials.revokedAt })
+    .from(operatorCredentials)
+    .where(eq(operatorCredentials.id, input.id));
+  throw new CredentialChanged(
+    row?.revokedAt ? 'credential_unknown' : 'counter_regressed',
+  );
 }
 
 /** Rotation: the presented session (if any) dies with the new one's birth. */
@@ -234,8 +249,8 @@ export async function finishSignIn(
     await releaseAttempt(deps, slot);
     return { ok: true, sessionToken };
   } catch (error) {
-    if (error instanceof CounterRaced)
-      return refuse(deps, slot, 'counter_regressed', operator.id);
+    if (error instanceof CredentialChanged)
+      return refuse(deps, slot, error.detail, operator.id);
     throw error;
   }
 }

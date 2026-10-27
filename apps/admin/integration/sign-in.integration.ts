@@ -1,9 +1,13 @@
 import { requireTestServices } from '@daisy/config';
-import { asc } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ATTEMPT_LIMIT } from '../src/auth/rate-limit';
 import { beginSignIn, finishSignIn } from '../src/auth/sign-in';
-import { auditEvents, operatorSessions } from '../src/db/schema';
+import {
+  auditEvents,
+  operatorCredentials,
+  operatorSessions,
+} from '../src/db/schema';
 import {
   address,
   assertion,
@@ -116,6 +120,54 @@ test('racing assertions from a cloned device-bound key', async () => {
       (await lastKinds(2)).sort(),
     ],
     expected: [1, ['auth.failure:counter_regressed', 'auth.success:']],
+  });
+});
+
+/** Resolves once another backend is blocked on a lock on the credentials. */
+async function signInBlocked() {
+  for (let poll = 0; poll < 500; poll += 1) {
+    const [row] = await db.execute<{ waiting: number }>(
+      sql`select count(*)::int as waiting from pg_stat_activity
+          where datname = current_database() and wait_event_type = 'Lock'
+            and query ilike '%operator_credentials%'`,
+    );
+    if ((row?.waiting ?? 0) > 0) return;
+    await Bun.sleep(10);
+  }
+  throw new Error('the sign-in never reached the credential row');
+}
+
+test('a passkey replaced while its sign-in is in flight', async () => {
+  const deps = testDeps(db);
+  const device = await enrolledOwner(deps, 18);
+  const response = await assertion(deps, device, 1);
+  let signIn: ReturnType<typeof finishSignIn> | undefined;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(operatorCredentials)
+      .set({ revokedAt: new Date(deps.clock.now()) })
+      .where(eq(operatorCredentials.credentialId, response.id));
+    signIn = finishSignIn(deps, { address, presented: null, response });
+    await signInBlocked();
+  });
+  const result = await signIn;
+  const [credential] = await db
+    .select({ operatorId: operatorCredentials.operatorId })
+    .from(operatorCredentials)
+    .where(eq(operatorCredentials.credentialId, response.id));
+  const sessions = await db
+    .select()
+    .from(operatorSessions)
+    .where(eq(operatorSessions.operatorId, credential?.operatorId ?? ''));
+  assert({
+    given: 'a sign-in that read the credential before its revocation committed',
+    should: 'refuse it and open no session',
+    actual: [result, sessions.length, await lastKinds(1)],
+    expected: [
+      { ok: false, code: 'AUTHENTICATION' },
+      0,
+      ['auth.failure:credential_unknown'],
+    ],
   });
 });
 
