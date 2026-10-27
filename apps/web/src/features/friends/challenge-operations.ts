@@ -8,8 +8,7 @@ import { mayChallenge } from './friendship';
 import { requireMemberActor } from '../access/actor';
 
 type ChallengeCommand = 'challenge' | 'decline';
-type ChallengeCapability =
-  'social.challenge.send' | 'social.challenge.decline';
+type ChallengeCapability = 'social.challenge.send' | 'social.challenge.decline';
 
 /**
  * A challenge's own rate limit (S3): sending or declining spends this
