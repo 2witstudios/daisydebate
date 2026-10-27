@@ -1,9 +1,11 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { finishedOrBlockedBehind } from '../src/testing';
 import { captureSchemaStream } from './capture-schema.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
-import { insertFrozenProofLine } from './frozen-transcript.test-support';
+import {
+  insertFrozenProofLine,
+  writeBehindHolder,
+} from './frozen-transcript.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -104,15 +106,12 @@ for (const [first, frontier] of [
           first === 'counter'
             ? fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,${frontier},'incomplete')`
             : fixture.sql`update round_transcripts set revision=8 where round_id=${roundId}`;
-        const outcome = rejectedBy(() => writing);
-        const blocked = await finishedOrBlockedBehind(
-          writing,
+        const { blocked, refusal } = await writeBehindHolder(
           fixture.sql,
+          held,
           holder!.pid,
-          { now: performance.now },
+          writing,
         );
-        await held`commit`;
-        const refusal = await outcome;
         const [state] = await fixture.sql`select
           (select revision from round_transcripts where round_id=${roundId}) as revision,
           (select frontier from round_transcript_freezes where round_id=${roundId}) as frontier`;

@@ -1,19 +1,16 @@
-import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { withFixture } from './constraint-helpers';
-import { createAuthorizationSubject } from './authorization.test-support';
-import { authoredRoundCommand } from './round-command.test-support';
+import {
+  authoredRoundCommand,
+  withAuthoredRound,
+} from './round-command.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const instant = '2026-10-07T12:00:00.000Z';
 
 test('Round lifecycle samples after lock acquisition and survives a delayed write exactly', async () => {
-  await withFixture(url, async (fixture) => {
-    const { actorId } = await createAuthorizationSubject(fixture);
-    const roundId = await fixture.round({ created_by_actor_id: actorId });
-    const database = createDatabase({ url, nextActorId: createId });
+  await withAuthoredRound(url, {}, async (fixture, authored) => {
+    const { actorId, roundId, database } = authored;
     const blocker = await fixture.sql.reserve();
     const callbackEntered = Promise.withResolvers<string>();
     const before = await database.getRound(roundId);
@@ -121,11 +118,9 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
 });
 
 test('a scheduled forfeit persists abandonment without a start instant or ballot', async () => {
-  await withFixture(url, async (fixture) => {
-    const { actorId } = await createAuthorizationSubject(fixture);
-    const roundId = await fixture.round({ created_by_actor_id: actorId });
+  await withAuthoredRound(url, {}, async (fixture, authored) => {
+    const { actorId, roundId, database } = authored;
     const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
-    const database = createDatabase({ url, nextActorId: createId });
     try {
       const before = await database.getRound(roundId);
       if (!before) throw new Error('the scheduled round did not hydrate');

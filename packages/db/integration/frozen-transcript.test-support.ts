@@ -1,6 +1,23 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { finishedOrBlockedBehind } from '../src/testing';
 import type { captureSchemaStream } from './capture-schema.test-support';
+import { rejectedBy } from './constraint-helpers';
+
+/** Observe a write queued behind the holder's open transaction, then release it. */
+export async function writeBehindHolder(
+  client: SQL,
+  held: SQL,
+  holderPid: number,
+  writing: Promise<unknown>,
+) {
+  const outcome = rejectedBy(() => writing);
+  const blocked = await finishedOrBlockedBehind(writing, client, holderPid, {
+    now: performance.now,
+  });
+  await held`commit`;
+  return { blocked, refusal: await outcome };
+}
 
 export const insertFrozenProofLine = (
   client: Pick<SQL, 'unsafe'>,

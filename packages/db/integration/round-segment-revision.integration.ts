@@ -2,23 +2,21 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildDebateTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { withFixture } from './constraint-helpers';
-import { createAuthorizationSubject } from './authorization.test-support';
-import { authoredRoundCommand } from './round-command.test-support';
+import {
+  authoredRoundCommand,
+  withAuthoredRound,
+} from './round-command.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 test('segment-only projection commits the same revision as event and command receipt', async () => {
-  await withFixture(url, async (fixture) => {
-    const { actorId } = await createAuthorizationSubject(fixture);
-    const roundId = await fixture.round({
-      created_by_actor_id: actorId,
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date('2026-10-06T09:00:00.000Z'),
-    });
-    const database = createDatabase({ url, nextActorId: createId });
+  const round = {
+    status: 'active',
+    current_stage: 'live',
+    started_at: new Date('2026-10-06T09:00:00.000Z'),
+  };
+  await withAuthoredRound(url, round, async (fixture, authored) => {
+    const { actorId, roundId, database } = authored;
     const commandId = createId();
     const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
     try {

@@ -5,7 +5,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { captureSchemaStream } from './capture-schema.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
-import { insertFrozenProofLine as insertLine } from './frozen-transcript.test-support';
+import {
+  insertFrozenProofLine as insertLine,
+  writeBehindHolder,
+} from './frozen-transcript.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -165,15 +168,12 @@ for (const mutation of ['text', 'move-out', 'move-in'] as const)
             first === 'write'
               ? fixture.freeze(frozenRound)
               : mutate(fixture.sql);
-          const outcome = rejectedBy(() => writing);
-          const blocked = await finishedOrBlockedBehind(
-            writing,
+          const { blocked, refusal } = await writeBehindHolder(
             fixture.sql,
+            held,
             holder!.pid,
-            { now: performance.now },
+            writing,
           );
-          await held`commit`;
-          const refusal = await outcome;
           const [line] =
             await fixture.sql`select round_id,text from utterances where id=${id}`;
           assert({

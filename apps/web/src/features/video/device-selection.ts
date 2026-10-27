@@ -2,8 +2,8 @@ import { z } from 'zod';
 import type { DeviceCheckSnapshot } from './device-check-controller';
 
 const selectionSchema = z.strictObject({
-  camera: z.string().min(1).max(512).optional(),
-  microphone: z.string().min(1).max(512).optional(),
+  camera: z.string().min(1).max(512).exactOptional(),
+  microphone: z.string().min(1).max(512).exactOptional(),
 });
 type LocalStorage = () => Pick<Storage, 'getItem' | 'setItem'>;
 const tabStorage: LocalStorage = () => window.sessionStorage;

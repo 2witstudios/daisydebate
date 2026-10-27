@@ -1,38 +1,13 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { BoundedTransaction } from './bounded-transaction';
 import {
   createRoundFeedbackJobs,
   readRoundCoachingFacts,
   type RoundCoachingFacts,
 } from './round-feedback';
+import { scripted } from './round-feedback.test-support';
 
 setupRitewayBun();
-
-/** A query builder chain that resolves to `result` whichever methods it is called with. */
-const chain = (result: unknown): unknown =>
-  new Proxy(() => undefined, {
-    get: (_target, key) =>
-      key === 'then'
-        ? (ok: (value: unknown) => void, no: (error: unknown) => void) =>
-            Promise.resolve(result).then(ok, no)
-        : () => chain(result),
-  });
-
-/** A transaction answering each statement, in order, from `answers`. */
-const scripted = (answers: unknown[]) => {
-  const queue = [...answers];
-  const next = () => queue.shift();
-  const tx = {
-    execute: async () => next(),
-    select: () => chain(next()),
-    insert: () => chain(next()),
-    update: () => chain(next()),
-  };
-  const run: BoundedTransaction = (work) =>
-    work(tx as never, new AbortController().signal, {} as never);
-  return { run, left: () => queue.length };
-};
 
 const accessRow = {
   roundId: 'r1',
@@ -216,6 +191,7 @@ describe('createRoundFeedbackJobs()', () => {
     [accessRow],
     [factsRow],
     [freeze],
+    [{ revision: 1 }],
     [],
     [line],
     [claimed],
