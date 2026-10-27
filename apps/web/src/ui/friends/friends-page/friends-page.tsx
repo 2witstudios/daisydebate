@@ -70,10 +70,13 @@ export function FriendsPage({
   list,
   friendAction,
   challengeAction,
+  message,
 }: {
   readonly list: FriendList | null;
   readonly friendAction: Action;
   readonly challengeAction: Action;
+  /** The Message control for one friend; each carries its own request. */
+  readonly message: (username: string) => ReactNode;
 }) {
   return (
     <ReadingPage>
@@ -125,6 +128,7 @@ export function FriendsPage({
                   intent="challenge"
                   label="Challenge"
                 />
+                {message(username)}
                 <FriendButtonForm
                   action={friendAction}
                   username={username}

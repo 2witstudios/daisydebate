@@ -23,7 +23,13 @@ const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
     h(
       AppRouterContext,
       { value: router },
-      h(FriendsPage, { list, friendAction: action, challengeAction: action }),
+      h(FriendsPage, {
+        list,
+        friendAction: action,
+        challengeAction: action,
+        message: (username: string) =>
+          h('button', { type: 'submit' }, `Message @${username}`),
+      }),
     ),
   );
 
@@ -49,12 +55,27 @@ describe('FriendsPage', () => {
         html.indexOf('@ada') < html.indexOf('@cat'),
         html.includes('aria-label="Accept @dan"'),
         html.includes('aria-label="Challenge @ada"'),
+        html.includes('Message @ada'),
+        html.includes('Message @dan'),
         html.includes('aria-label="Remove @cat"'),
         html.includes('aria-label="Cancel @eve"'),
         html.includes('href="/profile/ada"'),
         html.includes('Watch'),
       ],
-      expected: [true, true, true, true, true, true, true, true, true, false],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+      ],
     });
   });
 
