@@ -158,19 +158,20 @@ test('no preset carries a host-written resolution list, however the row arrives 
   await withFixture(url, async (fixture) => {
     const formatId = await fixture.format();
     await fixture.preset(formatId);
+    // The draw binds as an object: Bun SQL JSON-encodes a string twice.
     const drawFrom = (source: Record<string, unknown>) =>
       rejectedBy(() =>
         fixture.sql.unsafe(
           `update format_presets set config = jsonb_set(config, '{resolutionDraw}', $2::jsonb) where format_id = $1`,
           [
             formatId,
-            JSON.stringify({
+            {
               enabled: true,
               drawSize: 3,
               strikeWindowMs: 60_000,
               firstStriker: 'negative',
               source,
-            }),
+            },
           ],
         ),
       );
