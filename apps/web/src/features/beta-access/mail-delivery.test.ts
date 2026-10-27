@@ -48,6 +48,7 @@ const scripted = (input: {
     appUrl: 'https://daisy.example.com',
     nextToken: () => 'tok',
     now: () => '2026-10-26T00:00:00.000Z',
+    failed: () => {},
   });
   return { delivery, sent, settled };
 };
@@ -167,6 +168,7 @@ describe('mail intent delivery (ADR 0075)', () => {
 test('an intent whose read fails never aborts the batch, and stops at the attempt cap (ISSUE-656)', async () => {
   const settled: Settled[] = [];
   const sent: string[] = [];
+  const failures: unknown[] = [];
   const delivery = createMailIntentDelivery({
     store: {
       claimMailIntents: async () => [
@@ -196,16 +198,18 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
     appUrl: 'https://daisy.example.com',
     nextToken: () => 'tok',
     now: () => '2026-10-26T00:00:00.000Z',
+    failed: (error) => failures.push(error),
   });
   const count = await delivery.run(10);
   assert({
     given:
       'a batch whose first intent cannot be read, a deliverable one, and one unreadable at the attempt cap',
     should:
-      'retry the first with backoff, still send the second, and fail the third for good',
+      'retry the first with backoff, still send the second, fail the third for good, and report both read failures',
     actual: {
       count,
       sent,
+      failures: failures.map((error) => (error as Error).message),
       outcomes: settled.map(({ id, outcome }) => [
         id,
         (outcome as { kind: string }).kind,
@@ -214,6 +218,7 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
     expected: {
       count: 3,
       sent: ['owed'],
+      failures: ['read failed', 'read failed'],
       outcomes: [
         ['erased', 'retry'],
         ['owed', 'sent'],

@@ -30,6 +30,7 @@ export function startBetaMail(input: {
         appUrl: app.config.PUBLIC_APP_URL,
         nextToken: nextWorkerToken,
         now: () => app.clock.now(),
+        failed: (error) => failed(error, 'decide'),
       }).run(limit),
     batch: 10,
     everyMs: 15_000,

@@ -986,7 +986,7 @@ the only one.
    (the page says "Done. Approval email queued."); **Revoke** removes access
    on the tester's next request. **Audit** shows the hash chain.
 
-**Approval smoke proof (ISSUE-685, 2026-10-27).** A browser journey across
+**Approval smoke proof (ISSUE-685, 2026-10-27; DEC-255).** A browser journey across
 both apps in CI is out of scope: it would need the production web build and
 its PostgreSQL and Redis inside the admin E2E job, and the real 6PN topology
 exists only on Fly. The proof splits instead:

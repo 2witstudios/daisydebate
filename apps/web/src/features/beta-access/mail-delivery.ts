@@ -33,6 +33,8 @@ export function createMailIntentDelivery(input: {
   readonly appUrl: string;
   readonly nextToken: () => string;
   readonly now: () => string;
+  /** An intent that could not be decided: logged by code, raw only to the reporter. */
+  readonly failed: (error: unknown) => void;
 }) {
   const decide = async (claim: Claim): Promise<Outcome> => {
     const delivery = await input.store.readMailIntentDelivery(claim.id);
@@ -95,7 +97,10 @@ export function createMailIntentDelivery(input: {
       for (const claim of claims) {
         // One intent whose read fails (erased mid-lease, say) counts as a
         // failed attempt; it never aborts the rest of the batch (ISSUE-656).
-        const outcome = await decide(claim).catch(() => retryOrFail(claim));
+        const outcome = await decide(claim).catch((error: unknown) => {
+          input.failed(error);
+          return retryOrFail(claim);
+        });
         if (
           await input.store.settleMailIntent({
             id: claim.id,

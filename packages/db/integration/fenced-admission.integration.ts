@@ -73,11 +73,19 @@ test('a revoked participant is refused media and attendance inside their fences,
             }),
           ),
           opponentMedia: await codeOf(bind(opponent.actorId)),
+          opponentAttendance: await codeOf(
+            attendance.readRoundAttendanceTargets({
+              roundId,
+              principal: { kind: 'human', actorId: opponent.actorId },
+              admits: admitsPrincipalAccess,
+            }),
+          ),
         },
         expected: {
           revokedMedia: 'AUTHORIZATION',
           revokedAttendance: 'AUTHORIZATION',
           opponentMedia: 'allowed',
+          opponentAttendance: 'allowed',
         },
       });
     } finally {
