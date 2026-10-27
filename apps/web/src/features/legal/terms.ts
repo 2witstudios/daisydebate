@@ -53,14 +53,14 @@ export const termsDocument: LegalDocument = {
         'Argue the resolution, not the person. Harassment, threats, hate speech, sexual content, doxxing, spam and impersonation are not allowed.',
         'Do not cheat: no outside help during a round, no second account, and no arranged results.',
         'Do not misuse the service: no attempts to break or overload it, to get around its limits or the age requirement, to access other people’s accounts or data, or to scrape it.',
-        'Some rounds are judged by AI, and some opponents are AI debaters. AI judging and feedback are automated and can be wrong; they decide practice results only.',
+        'Some rounds are judged by AI, and some opponents are AI debaters. AI judging and feedback are automated and can be wrong. An AI result counts like any other result, including for ratings in a ranked round. [OWNER: state how to ask for an AI result to be reviewed by a person.]',
       ],
     },
     {
       id: 'your-content',
       heading: 'What you post',
       paragraphs: [
-        'You own what you write and say. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it as needed to run the service: to the people in the round, and to anyone where the room is public. This licence ends when your content is deleted, except for results and anonymous entries kept so other members’ records stay correct.',
+        'You own what you write and say. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it as needed to run the service: to the people in the round, to signed-in members where the room is public or unlisted, and on your public profile. This licence ends when your content is deleted, except for results and anonymous entries kept so other members’ records stay correct.',
         'You are responsible for what you post and confirm you have the right to post it. We may remove content that breaks these terms. [COUNSEL: confirm the licence scope and any notice-and-takedown process.]',
       ],
     },

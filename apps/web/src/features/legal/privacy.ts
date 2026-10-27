@@ -44,7 +44,7 @@ export const privacyDocument: LegalDocument = {
         'Your session IP address and user agent: to keep accounts secure and let you review your sessions. Lawful basis: our legitimate interest in security.',
         'Your optional onboarding answers: to personalise what we suggest to you. Lawful basis: our contract with you. You can skip them.',
         'Operational logs: to run, secure and fix the service. They record what happened (for example a refused sign-in), never your email, username, IP address or what you said. Lawful basis: our legitimate interest in a secure, working service.',
-        'We do not sell your personal data, use it for advertising, or make decisions about you that have legal or similarly significant effects by automated means alone. AI judging decides the result of a practice debate only. [COUNSEL: confirm the automated decision-making statement covers AI judging and ratings.]',
+        'We do not sell your personal data or use it for advertising. When a round is judged by AI, the AI decides its result, which can change your rating in a ranked round. [OWNER: state how a member can ask for an AI result to be reviewed by a person.] [COUNSEL: confirm whether AI judging and ratings are automated decision-making that needs further disclosure or safeguards.]',
       ],
     },
     {
@@ -61,7 +61,7 @@ export const privacyDocument: LegalDocument = {
       heading: 'Who can see it',
       paragraphs: [
         'Public to anyone, signed in or not: your profile page with your username, when you joined, your win and loss record and your completed public debates (the resolution, your side, the result and whether the judging was human or AI).',
-        'Debates whose host made them unlisted or private appear only on your own view of your profile. Other people in a debate see your username, your side and what you say in it.',
+        'Debates whose host made them unlisted or private appear only on your own view of your profile. Other people in a debate see your username, your side and what you say in it, and any signed-in member can open a public or unlisted debate’s room and read what was said there.',
         'Never shown to other members: your email address, birth month, sessions, IP address and onboarding answers.',
         'People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses.',
       ],
