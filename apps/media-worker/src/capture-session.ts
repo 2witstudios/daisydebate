@@ -185,6 +185,14 @@ async function captureSession(
       await input.waitUntilMs(due, signal).catch(() => undefined);
     }
   })();
+  // One single-flight reporter: its retries cannot delay frame validation or seals.
+  const reporting = (async () => {
+    while (!signal.aborted) {
+      const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
+      await heard.report(current.state, epoch, signal);
+      await input.waitUntilMs(due, signal).catch(() => undefined);
+    }
+  })();
   try {
     while (!signal.aborted) {
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
@@ -198,7 +206,6 @@ async function captureSession(
         'refresh',
         capture.setIdentities(identities(current)).catch(outcome.closedAsDrop),
       );
-      await atStage('batch', heard.report(current.state, epoch, signal));
       await atStage(
         'batch',
         validateCaptureBatch({
@@ -252,7 +259,7 @@ async function captureSession(
     // A failing shutdown step never masks the failure that stopped the session.
     try {
       await capture.close();
-      await relaying;
+      await Promise.all([relaying, reporting]);
       activity.clear();
       staging.clear();
       stats.sealedStreams += await closeCaptureSession({

@@ -10,7 +10,7 @@ const MAX_TRACKS = 64;
 /**
  * Reports each bot track capture has subscribed to and reads, once, so the
  * bot credits speech only after capture can hear it (ISSUE-514-r2). A lost
- * report is sent again on the next batch; a human track needs none.
+ * report is sent again on its independent loop; a human track needs none.
  */
 export function createHeardReporter(input: {
   readonly heard: (track: HeardTrack, signal: AbortSignal) => Promise<void>;
