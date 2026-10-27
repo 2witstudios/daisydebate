@@ -225,25 +225,31 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   back when it reaches a terminal state through the shared terminal projection
   path (attendance adjudication, the ballot deadline, forfeit or abandonment);
   there is no time-based reclamation, and a Round whose bot worker is lost still
-  terminates (ISSUE-430-r2). DEC183 (2026-10-22) supersedes the former
-  rolling-daily allowance: free members receive one admission per UTC calendar
-  month; a current authoritative, nonrevoked grant supplies ten per its exact
-  durable period. Missing, invalid or expired grants never imply premium.
-  Reservations serialize per actor and across global capacity. The first model
-  call of any kind counts the reservation. A definite vendor failure (the vendor
+  terminates (ISSUE-430-r2). Global capacity is the busy cap on live
+  bot-debater Rounds. DEC183, as the owner amended it on 2026-10-26
+  (ISSUE-646), supersedes the former rolling-daily allowance and the
+  free-one/premium-ten grant periods with one flat beta policy: an approved,
+  live beta host may start up to the trusted `AI_ROUND_MONTHLY_CAP` (default 20)
+  AI Rounds per exact UTC calendar month, and any other account fact admits
+  none. The policy is applied to the account row locked by the admitting
+  transaction; no grant table, grant setter or caller entitlement exists, and
+  this quota is not the coaching entitlement (DEC-247). Paid pricing is decided
+  before paid launch, in this paragraph.
+  Reservations serialize per actor and across global capacity. The first
+  bot-debater model call counts the reservation. A definite vendor failure (the vendor
   itself refused the request with a 4xx other than 408, or the call never left) settles `failed` with no
   usage; anything uncertain settles `unknown` and is never fabricated as success
   or refund. When the Round ends, in the same transaction as its terminal
-  projection, a counted practice whose every model call (bot or judge) failed
+  projection, a counted practice whose every bot-debater model call failed
   definitely is refunded, once. A practice never counted needs no refund: the
   allowance spends a reservation only once its first model call counts it, or
   while its Round is scheduled or active, so a never-counted practice stops
   spending when its Round ends, with no refund state (ISSUE-469).
   Server composition must supply an explicit trusted positive integer busy cap;
   a local proof value of four is capacity configuration, not entitlement.
-  Every reservation records its PostgreSQL admission time (NOT NULL); Round
-  creation time is never a substitute. No public grant setter, billing workflow or admin surface follows
-  from this read authority. The 15-minute and two-hour reclamation horizons above
+  Every reservation records the PostgreSQL instant its admission selected the
+  month with (NOT NULL); Round creation time is never a substitute. No grant
+  setter, billing workflow or admin surface follows from this policy. The 15-minute and two-hour reclamation horizons above
   are unchanged.
 - **Captured speech has a bounded server finalization window.** The shared engine
   closes the actual final played interval at its elapsed deadline or accepted
@@ -272,16 +278,22 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   participant; one expiring, fenced AI speech generation claim per segment;
   the compiler's refusal set.
 
-DEC186 (2026-10-22) applies one AI-practice reservation to each bot-containing
-non-ranked shared Round, whether the bot debates or judges. Its sponsor is the
-current canonical human Room host. Freeze reserves atomically once; replay never
-charges again. An invalid, erased or unauthorized sponsor refuses the whole
-freeze. Human-only Rounds are unaffected. The host sees current quota and the
-allowance consequence before freeze. A reservation grants no bot command,
-publication or ballot authority. Ranked construction and bot eligibility remain
-unchanged; this allowance does not activate ranked bots. Global capacity counts
-admitted live Rounds; bounded provider-worker concurrency is separate explicit
-server configuration.
+DEC186 (2026-10-22, amended by the owner 2026-10-26, ISSUE-647) applies one
+AI-practice reservation to each non-ranked shared Round in which a bot debates.
+An AI judge is free: a cast whose only bots judge reserves and spends nothing,
+takes no busy-cap slot, and its judge calls never count, refund or take the
+bot-admission lock. Free judging is bounded by its durable job queue, provider
+admission before the lease and the immutable ballot deadline, so overload ends
+as "Judges did not rule", never stuck. The pure engine decides the cast
+consequence (`castSpendsAiRound`) and the freeze outcome carries it. The
+sponsor is the current canonical human Room host. Freeze reserves atomically
+once; replay never charges again. An invalid, erased, unauthorized or
+ineligible sponsor refuses the whole freeze. Human-only Rounds are unaffected.
+The host sees current quota and whether that exact cast spends an AI round
+before freeze. A reservation grants no bot command, publication or ballot
+authority. Ranked construction and bot eligibility remain unchanged; this
+allowance does not activate ranked bots. Bounded provider-worker concurrency is
+separate explicit server configuration.
 Media publication uses the shared LiveKit session and current runtime authority;
 browser playback/heard-report endpoints are removed at cutover. A hydration tick may waive a browser's stale
 version only when its reread observes exactly its own next version; intervening

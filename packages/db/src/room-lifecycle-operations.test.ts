@@ -171,6 +171,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
         state: { ...state, status: 'abandoned', changeVersion: 2 },
         consent: null,
         freeze: false,
+        spendsAiRound: false,
         publishDefinition: false,
         members: [],
       },

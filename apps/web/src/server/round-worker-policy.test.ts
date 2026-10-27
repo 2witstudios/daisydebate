@@ -1,8 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectionOf } from '@daisy/errors/testing';
 import { fixedClock, sequentialId } from '@daisy/clock';
+import { readServerConfig } from '@daisy/config';
+import { AI_ROUND_MONTHLY_CAP_MAX } from '@daisy/protocol';
 import { createApp } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
+import { botAdmissionOptions } from './round-worker-policy';
 setupRitewayBun();
 const env = {
   NODE_ENV: 'test',
@@ -84,5 +87,56 @@ test('coaching uses the judge model with a lease covering its whole call', async
       'coach with the configured judge model under a lease of the call timeout plus the worker lease',
     actual: [options.coaching?.model, options.coaching?.leaseMs],
     expected: ['explicit-judge', 25000],
+  });
+});
+
+test('bot-debater admission composes the busy cap with the flat beta quota', () => {
+  const approved = {
+    userId: 'u'.repeat(24),
+    actorId: 'a'.repeat(24),
+    member: true,
+    erased: false,
+    revision: 1,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
+  };
+  const configured = botAdmissionOptions({
+    AI_ROUND_BUSY_CAP: 4,
+    AI_ROUND_MONTHLY_CAP: 20,
+  }).botAdmission;
+  assert({
+    given: 'no busy cap, then a busy cap with the default monthly cap',
+    should:
+      'admit no bot debater without a bound, else apply the cap to approved accounts only',
+    actual: [
+      botAdmissionOptions({ AI_ROUND_MONTHLY_CAP: 20 }),
+      configured?.busyCap,
+      configured?.allowance(approved),
+      configured?.allowance({
+        ...approved,
+        beta: { state: 'pending', revision: 1 },
+      }),
+    ],
+    expected: [{}, 4, 20, null],
+  });
+});
+
+test('the configurable cap ceiling is the Room contract ceiling', () => {
+  const read = (AI_ROUND_MONTHLY_CAP: string) => {
+    try {
+      return readServerConfig({ ...env, AI_ROUND_MONTHLY_CAP })
+        .AI_ROUND_MONTHLY_CAP;
+    } catch {
+      return 'refused';
+    }
+  };
+  assert({
+    given: 'a cap at and just above the protocol maximum',
+    should: 'accept exactly what the botAdmission contract can carry',
+    actual: [
+      read(String(AI_ROUND_MONTHLY_CAP_MAX)),
+      read(String(AI_ROUND_MONTHLY_CAP_MAX + 1)),
+    ],
+    expected: [AI_ROUND_MONTHLY_CAP_MAX, 'refused'],
   });
 });

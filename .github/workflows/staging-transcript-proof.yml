@@ -1,0 +1,61 @@
+name: Staging transcript provider proof
+on:
+  workflow_dispatch:
+    inputs:
+      deployed_sha:
+        description: Full SHA of the deployed staging web and capture worker release
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: staging-transcript-provider-proof
+  cancel-in-progress: false
+jobs:
+  proof:
+    name: Real provider transcript freeze on staging
+    if: github.ref == 'refs/heads/main'
+    # Its main-only deployment branch policy is ISSUE-715.
+    environment: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - name: Validate the requested release and bundle the proof
+        env:
+          EXPECTED_SHA: ${{ inputs.deployed_sha }}
+        run: |
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          bun install --frozen-lockfile
+          bun build scripts/staging-transcript-proof.ts --target=bun --packages=external --outfile=/tmp/staging-transcript-proof.js
+      - name: Require the capture worker release
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_MEDIA_WORKER_API_TOKEN }}
+          EXPECTED_SHA: ${{ inputs.deployed_sha }}
+        run: |
+          printf '%s\n' 'if (process.env.FLY_APP_NAME !== "daisy-debate-staging-media-worker" || process.env.GIT_COMMIT !== process.argv[2] || !process.env.OPENROUTER_API_KEY) process.exit(1);' > /tmp/capture-release.js
+          flyctl ssh console -a daisy-debate-staging-media-worker -C "bun - $EXPECTED_SHA" < /tmp/capture-release.js
+      - name: Run against staging only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          EXPECTED_SHA: ${{ inputs.deployed_sha }}
+        run: |
+          set -o pipefail
+          flyctl ssh console -a daisy-debate-staging -C "bun - $EXPECTED_SHA" < /tmp/staging-transcript-proof.js | tee /tmp/transcript-proof-metadata.jsonl
+          # Never rely on the remote exit code alone: a pass prints its phase.
+          grep -q '"phase":"passed"' /tmp/transcript-proof-metadata.jsonl
+      - name: Record safe proof metadata
+        if: always()
+        run: |
+          if [ -f /tmp/transcript-proof-metadata.jsonl ]; then
+            echo '### Staging transcript provider proof' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/transcript-proof-metadata.jsonl >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi

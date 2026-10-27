@@ -2,7 +2,10 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
-import { transcriptSegments } from './schema/transcript-segments';
+import {
+  roundTranscripts,
+  transcriptSegments,
+} from './schema/transcript-segments';
 import { roundSegments } from './schema/round-segments';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 
@@ -22,6 +25,12 @@ export async function readLockedFrozenRoundTranscript(
 ) {
   const freeze = await readTranscriptFreeze(reader, roundId);
   if (!freeze) return null;
+  const [current] = await reader
+    .select({ revision: roundTranscripts.revision })
+    .from(roundTranscripts)
+    .where(eq(roundTranscripts.roundId, roundId));
+  if ((current?.revision ?? 0) !== freeze.frontier)
+    throw createAppError('INVARIANT', 'Frozen transcript frontier has changed');
   const coverage = await reader
     .select({
       segmentId: transcriptSegments.segmentId,

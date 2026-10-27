@@ -4,7 +4,6 @@ import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
 import type { Fixture } from './constraint-helpers';
 
 /** A validated rubric response, as cached on a pending judging job. */
@@ -29,7 +28,7 @@ export async function judgingSponsor(fixture: Fixture, roundId: string) {
   return actorId;
 }
 
-/** An active Round with an AI judge seat, a frozen transcript, a queued judging job and a reserved practice. */
+/** An active Round with an AI judge seat, a frozen transcript, a queued judging job; the AI judge is free, so nothing is reserved (DEC-186). */
 export const withJudgingJob = (
   work: (value: {
     fixture: Fixture;
@@ -38,26 +37,24 @@ export const withJudgingJob = (
     jobs: ReturnType<typeof createRoundJudgingJobs>;
   }) => Promise<void>,
   completeness: 'complete' | 'incomplete' = 'complete',
+  beforeFreeze?: (
+    fixture: Fixture,
+    target: { roundId: string; judgeParticipantId: string },
+  ) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    const actorId = await judgingSponsor(fixture, roundId);
+    await judgingSponsor(fixture, roundId);
+    const target = { roundId, judgeParticipantId: seat.id };
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
+    await beforeFreeze?.(fixture, target);
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status) values(${roundId},${seat.id},1,'queued')`;
     try {
-      await createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      }).reserve({
-        roundId,
-        actorId,
-      });
       await work({
         fixture,
         roundId,
-        target: { roundId, judgeParticipantId: seat.id },
+        target,
         jobs: createRoundJudgingJobs({
           run,
           nextId: createId,

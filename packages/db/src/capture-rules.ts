@@ -150,6 +150,7 @@ export function sealAction(
  * old PCM.
  */
 export function sealState(input: {
+  readonly interrupted?: boolean;
   readonly epoch: number;
   readonly observations: readonly {
     readonly start: Date;
@@ -168,6 +169,7 @@ export function sealState(input: {
     end: row.end.getTime(),
   }));
   const complete =
+    !input.interrupted &&
     input.chunks?.otherEpochChunks === 0 &&
     input.observations.every((row) => row.epoch === input.epoch) &&
     input.storedChunks === input.chunks.count &&

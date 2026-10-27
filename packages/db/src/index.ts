@@ -14,7 +14,10 @@ import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
-import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
+import {
+  roundBotAdmissionEntrypoints,
+  type BotAdmissionOptions,
+} from './round-bot-admission-entrypoints';
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
@@ -82,15 +85,15 @@ export function createDatabase({
   eventSink,
   client: injectedClient,
   nextActorId,
-  botBusyCap,
+  botAdmission,
   judging,
   botPublication,
   coaching,
 }: {
   url: string;
   maxConnections?: number;
-  /** No implicit bot capacity: absence truthfully refuses bot admission. */
-  botBusyCap?: number | undefined;
+  /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
+  botAdmission?: BotAdmissionOptions | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
   coaching?: CoachingOptions | undefined;
@@ -114,11 +117,11 @@ export function createDatabase({
     maxConnections,
     now: performance.now,
   });
-  const { admission: botAdmission, operations: botAdmissionOperations } =
+  const { admission, operations: botAdmissionOperations } =
     roundBotAdmissionEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
-      busyCap: botBusyCap,
+      botAdmission,
     });
   return {
     ...botAdmissionOperations,
@@ -189,7 +192,7 @@ export function createDatabase({
     ...formatOperations({ database, eventSink }),
     ...roomCommandOperations({
       database,
-      botAdmission,
+      botAdmission: admission,
       eventSink,
       commandTransaction: roomCommandTransaction(client, maxConnections),
     }),

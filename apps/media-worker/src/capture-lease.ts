@@ -16,7 +16,7 @@ export async function maintainCaptureLease(input: {
         if (!input.signal.aborted) throw error;
       });
     if (input.signal.aborted) return;
-    const renewed = await input.lease(15000, input.signal);
+    const renewed = await input.lease(15000, input.signal, input.epoch);
     if (renewed.epoch !== input.epoch)
       throw createAppError('CONFLICT', 'Capture epoch changed');
   }

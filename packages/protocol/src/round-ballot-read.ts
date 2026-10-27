@@ -2,17 +2,9 @@ import { z } from 'zod';
 import { ballotLimits, ballotSchema } from './ballot';
 import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
+import { roundUtteranceSchema } from './round-transcript';
 
 const ballotStatus = z.enum(['submitted', 'voided']);
-const utteranceSchema = z.strictObject({
-  id: idSchema,
-  segmentId: idSchema,
-  segmentSequence: z.int().nonnegative(),
-  sequence: z.int().nonnegative(),
-  roundParticipantId: idSchema,
-  text: z.string(),
-  complete: z.boolean(),
-});
 
 /**
  * A debater's own AI coaching for a completed Round (ADR 0071): written,
@@ -50,7 +42,7 @@ export const roundBallotReadSchema = z.strictObject({
       frontier: z.int().nonnegative(),
       frozenAt: z.iso.datetime(),
       completeness: z.enum(['complete', 'incomplete']),
-      utterances: z.array(utteranceSchema),
+      utterances: z.array(roundUtteranceSchema),
     })
     .nullable(),
   ballots: z.array(
@@ -67,7 +59,7 @@ export const roundBallotReadSchema = z.strictObject({
   transcript: z
     .strictObject({
       completeness: z.enum(['complete', 'incomplete']),
-      utterances: z.array(utteranceSchema),
+      utterances: z.array(roundUtteranceSchema),
     })
     .nullable(),
   /** The caller's own coaching when they debated the completed Round; null otherwise. */

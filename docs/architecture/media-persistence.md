@@ -26,8 +26,10 @@ The participant bindings follow Round erasure and are deleted with their session
 Round participant deletion is restricted until media bindings are removed, so
 subject erasure must remove dependent media routing records first. Production
 privacy policy activation remains human-held. Transcript text remains personal,
-private to seated debaters/judges and retained for 180 days under DEC-101;
-retention deletion is tracked by ISSUE-322. This change stores no transcript text.
+private to seated debaters/judges and retained for 180 days under DEC-101:
+the scheduled retention sweep purges older utterances in bounded batches, and
+subject erasure deletes a participant's lines. Neither changes a frozen
+frontier. This change stores no transcript text.
 
 ## Historical speaking authority
 
@@ -62,8 +64,22 @@ coverage, freeze and judging integration require their own real-service proof.
 `round_transcript_freezes` has one immutable row per Round. Its positive
 `revision` identifies the frozen input; `frontier` is the nonnegative committed
 transcript revision, never a timestamp. `completeness` is `complete` or
-`incomplete`. A database trigger rejects updates; subject erasure may delete the
-row. The finalizer must lock the owning Round, close admission, establish terminal
+`incomplete`. Database triggers reject updates and direct deletion while the
+owning Round exists; owning-Round erasure may cascade the row. Raw freeze
+insertion and utterance INSERT/UPDATE serialize through the parent Round's
+`FOR NO KEY UPDATE` lock. The utterance guard reads freeze facts after that lock
+and refuses writes to either the old or new Round when frozen; moves lock both
+parents in stable order. Lawful utterance DELETE remains available. The frozen
+reader compares `frontier` with `round_transcripts.revision` (absent means zero),
+never with the remaining line count. Freeze insertion must match that durable
+revision under the same parent fence. Counter INSERT/UPDATE/DELETE also fences
+both parents and refuses a frozen Round; owning-Round erasure may cascade the
+counter. Guarded mutations require `READ COMMITTED` and refuse other isolation
+levels explicitly, so a stale transaction snapshot cannot hide a committed
+freeze or counter change. Lawful line deletion leaves the counter unchanged.
+TRUNCATE of `utterances`, `round_transcripts` or `round_transcript_freezes` is
+refused outright: transcript evidence is removed row by row, never in bulk.
+The finalizer must lock the owning Round, close admission, establish terminal
 speaking history and classify every required stream before inserting the freeze.
 `frozen_at` uses the database clock at insertion. Storage alone does not prove
 coverage or authorize freezing on silence.
@@ -190,9 +206,10 @@ The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
 freeze alone cannot erase submitted ballots. Judge-seat references use deferred
 NO ACTION rather than immediate RESTRICT semantics so the owning Round's
 `ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
-or freeze deletion is refused at commit and rolls back. This changes technical
-constraint timing, not ballot voiding or replacement policy. Real PostgreSQL
-proof checks both commit refusals and zero remaining ballots, jobs, freezes,
+deletion is refused at commit and rolls back. Direct freeze deletion is refused
+immediately, including when no ballot references it. These constraints preserve
+ballot voiding and replacement policy. Real PostgreSQL proof checks both refusals
+and zero remaining ballots, jobs, freezes,
 participants and utterances after owning Round erasure.
 
 `round_judging_jobs` is keyed by `(round_id, judge_participant_id)`, preserving
@@ -233,20 +250,26 @@ fresh historical floor verification, ending the previous run, secret comparison,
 usage recording and output cancellation. Schema integrity alone authorizes no
 provider call, source frame or transcript credit.
 
-### Authoritative AI allowance periods
+### AI-round allowance
 
-DEC-183 uses `ai_allowance_grants` as durable READ authority, with no participant,
-admin, billing or public grant setter. `id` and `actor_id` are category identifier;
-`period_start`, `period_end` and `revoked_at` are category none. Actor deletion is
-restricted while grants reference it. A positive exact period and a partial GiST
-exclusion prevent overlapping nonrevoked periods for one actor. The admission
-adapter still selects current authority using fresh PostgreSQL time under its
-actor lock; premium allowance is the fixed ten from DEC-183, never inferred from
-a username or role. Revoked or absent authority cannot grant premium capacity.
+DEC-183 as amended 2026-10-26 (ISSUE-646) is one flat beta policy with no grant
+table and no grant setter. The pure `aiRoundAllowance` policy in `@daisy/auth`
+admits the trusted `AI_ROUND_MONTHLY_CAP` (default 20, at most 1000) for an
+approved, live beta member and nothing (`not-eligible`) for any other account
+fact. Composition injects it into the bot admission adapter, which applies it
+only to the account row it locks in the admitting transaction, so a host
+revoked mid-month is refused at the next admission. The period is the exact UTC
+calendar month of fresh PostgreSQL time under the actor lock, and a new
+reservation is dated with that same instant.
+
+Only a bot debater spends the host's allowance (DEC-186 as amended): the pure
+engine marks a freeze `spendsAiRound`, an AI-judge-only cast reserves nothing,
+and judge model calls never count, refund or take the bot-admission lock.
 
 `usage_reservations.reserved_at` and `refunded_at` are category none.
-`reserved_at` is NOT NULL with a PostgreSQL `clock_timestamp()` default; no
-admission time is ever invented, and Round creation time is not one. A refund
+`reserved_at` is NOT NULL; admission writes the instant it selected the month
+with (a PostgreSQL `clock_timestamp()` read), so no admission time is invented,
+and Round creation time is not one. A refund
 requires a recorded first vendor call and cannot predate it; the reservation
 time cannot follow its first call. Actor/kind/reservation-time indexing
 supports serialized actor/period accounting. These records add no generated text or PCM. Production
@@ -364,3 +387,51 @@ publication/generation authority lives in its dedicated lease and execution
 producers. This separation adds no personal-data field, retention extension or
 production/legal activation. Captured text and retry digests retain the declared
 private transcript purpose, human basis gate and owning-Round erasure contract.
+
+## Live transcript reads
+
+`GET /api/rounds/:id/transcript` is the single round-wide live text read. It
+samples the current account and Round under the shared read fences and applies
+`round.transcript.read`, the same audience policy used for completed result
+transcripts. Current policy admits the Round's debaters and judges; public
+visibility and a seatless host confer no transcript right. Persistence and the
+viewer consume the authorization decision without another seat requirement,
+so a future approved audience producer can extend that policy alone.
+
+The read reuses ordered `utterances`, explicit `transcript_segments` states and
+the immutable freeze marker. Its revision follows capture independently of
+competitive Round version, with one additional revision at freeze. Text append,
+stream seal and freeze transactionally append a `debate.transcript-changed`
+doorbell to the existing Round topic. It contains only the Round id and the
+transcript revision. The viewer refetches the protected read on that doorbell
+and reconnect/visibility recovery; clients without a connected socket use a
+30-second fallback. Refused reads remove the displayed text. Native page reloads
+use the identical read and the shared transcript disclosure works without
+JavaScript. Capturing requires an explicit open, unfrozen stream; partial
+closure and incomplete freeze never wait for a client deadline to show Partial.
+
+## Revoked media room rotation
+
+Canonical revocation of a bound human seat closes admission to the old vendor
+room. Reconciliation deletes that room, waits for every journaled mutation to
+settle, and checks provider absence against the current owner, epoch and mutation
+horizon. Only the fenced finish transaction rotates the room name to a fresh
+cuid2, removes revoked human bindings, and increments and expires the capture
+lease. It preserves the session ID, eligible bindings and mutation journal.
+Ineligible seats without a binding do not veto the replacement room (DEC-199,
+ISSUE-473). Self-hosted LiveKit must retain `room.auto_create: false`: old JWTs
+cannot recreate the deleted room.
+
+An admission that performed rotation reacquires reconciliation for the current
+room before creation and token signing. Remaining eligible seats reconnect with
+fresh room grants. Capture renewal carries its expected epoch and cannot acquire
+replacement authority after expiry or rotation. Discovery launches a new worker
+once the replacement room exists; the old worker cannot append, observe, seal or
+mint a token under its revoked epoch.
+
+Rotation does not seal an active transcript stream early. New-room chunks may
+append to the same segment/seat stream. At closure, vendor deletion/recreation
+history overlapping the segment prevents a complete seal, even when the old
+worker persisted no observation or chunk and join tolerance would otherwise hide
+the gap. Earlier lifecycle interruptions fully recovered before the segment do
+not taint it. No utterance or audio observation is fabricated to record a gap.

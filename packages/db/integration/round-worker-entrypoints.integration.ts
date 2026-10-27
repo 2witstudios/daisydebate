@@ -4,7 +4,6 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createDatabase } from '../src/index';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
 import { admissionSponsor } from './bot-admission.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
@@ -14,7 +13,7 @@ const services = requireTestServices(process.env);
 test('configured root judging aliases share the owned pool and claim actual frozen input', async () =>
   withBoundedRound(async (fixture, run, roundId, client) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    const sponsor = await admissionSponsor(fixture, [roundId]);
+    await admissionSponsor(fixture, [roundId]);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status) values(${roundId},${seat.id},1,'queued')`;
@@ -134,14 +133,6 @@ test('configured root judging aliases share the owned pool and claim actual froz
           tokenHashed: true,
         },
       });
-      await createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      }).reserve({
-        roundId,
-        actorId: sponsor,
-      });
       await store.beginRoundJudgingModelCall(claim.scope, claim.token);
       await store.recordRoundJudgingUsage(claim.scope, claim.token, {
         inputTokens: 11,
@@ -150,8 +141,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
       const [usage] =
         await fixture.sql`select input_tokens,output_tokens,configuration_snapshot from agent_runs where id=${claim.scope.agentRunId}`;
       assert({
-        given:
-          'an admitted reservation and a dispatched model call on the configured root',
+        given: 'a free AI judge model call dispatched on the configured root',
         should:
           'settle the exact counters through the bound usage alias and record the received outcome',
         actual: {

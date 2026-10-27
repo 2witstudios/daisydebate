@@ -23,6 +23,14 @@ const seatState = {
 const roundRef = z
   .strictObject({ id: idSchema, status: roundStatusSchema })
   .nullable();
+/** The highest monthly AI-round cap any deploy may configure (DEC-183, ISSUE-646). */
+export const AI_ROUND_MONTHLY_CAP_MAX = 1000;
+/** Refusal order: the host's beta eligibility, its allowance, then global bot capacity. */
+export const botAdmissionRefusals = [
+  'not-eligible',
+  'allowance',
+  'capacity',
+] as const;
 /** The closed Room refusal vocabulary every Room command and creation answers with. */
 export const roomRefusalSchema = z.enum([
   'version-conflict',
@@ -57,14 +65,19 @@ export const roomViewSchema = z.strictObject({
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
-      z.strictObject({
-        kind: z.literal('allowance'),
-        limit: z.union([z.literal(1), z.literal(10)]),
-        remaining: z.int().min(0).max(10),
-        periodStart: z.iso.datetime({ offset: true }),
-        periodEnd: z.iso.datetime({ offset: true }),
-        refusal: z.enum(['allowance', 'capacity']).nullable(),
-      }),
+      /** The cast's only bots judge: the AI judge is free (DEC-186). */
+      z.strictObject({ kind: z.literal('free') }),
+      z
+        .strictObject({
+          kind: z.literal('allowance'),
+          /** 0 only for a host the beta does not admit to AI Rounds. */
+          limit: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
+          remaining: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
+          periodStart: z.iso.datetime({ offset: true }),
+          periodEnd: z.iso.datetime({ offset: true }),
+          refusal: z.enum(botAdmissionRefusals).nullable(),
+        })
+        .refine((allowance) => allowance.remaining <= allowance.limit),
     ])
     .nullable(),
   status: z.enum(['assembling', 'ready', 'started', 'abandoned']),

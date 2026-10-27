@@ -19,10 +19,6 @@ import { recordJudgingUsage } from './round-judging-accounting';
 import { claimLockedJudgingJob } from './round-judging-claim';
 import { submitLockedJudgingResult } from './round-judging-result';
 import type { LockedRoundBallotInput } from './round-ballot-operations';
-import {
-  lockBotAdmission,
-  markLockedRoundBotModelCall,
-} from './round-bot-admission';
 import { requireLeaseMs } from './lease-policy';
 import {
   pendingBallotAction,
@@ -83,10 +79,8 @@ export function createRoundJudgingJobs(input: {
         round: Awaited<ReturnType<typeof lockRoundAgentContext>>['round'];
       },
     ) => T | Promise<T>,
-    billable = false,
   ) =>
     input.run(async (tx) => {
-      if (billable) await lockBotAdmission(tx);
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${scope.commandId},59002))`,
       );
@@ -144,34 +138,26 @@ export function createRoundJudgingJobs(input: {
         expectedVersion: round.version,
         pendingBallot: job.pendingBallot,
       })),
+    /** The AI judge is free (DEC-186): no reservation, no bot-admission lock. */
     beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(
-        scope,
-        token,
-        async (tx, { run, job }) => {
-          requireUndispatched(job, run);
-          if (await judgingDispatchEnded(tx, scope)) {
-            await failLockedJudgingJob(tx, scope, run.id);
-            return null;
-          }
-          const reservation = await markLockedRoundBotModelCall(
-            tx,
-            scope.roundId,
-          );
-          await tx
-            .update(agentRuns)
-            .set({
-              requests: run.requests + 1,
-              configurationSnapshot: {
-                ...run.configurationSnapshot,
-                providerOutcome: 'unknown',
-              },
-            })
-            .where(eq(agentRuns.id, run.id));
-          return reservation;
-        },
-        true,
-      ),
+      withLease(scope, token, async (tx, { run, job }) => {
+        requireUndispatched(job, run);
+        if (await judgingDispatchEnded(tx, scope)) {
+          await failLockedJudgingJob(tx, scope, run.id);
+          return false;
+        }
+        await tx
+          .update(agentRuns)
+          .set({
+            requests: run.requests + 1,
+            configurationSnapshot: {
+              ...run.configurationSnapshot,
+              providerOutcome: 'unknown',
+            },
+          })
+          .where(eq(agentRuns.id, run.id));
+        return true;
+      }),
     recordUsage: (
       scope: JudgingScope,
       token: string,
