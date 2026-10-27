@@ -7,7 +7,7 @@ import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
-import type { RoundRead } from '../../features/rooms/read-round';
+import type { RoundRead } from '../../features/round-runtime/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
