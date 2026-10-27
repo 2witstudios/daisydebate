@@ -1,7 +1,7 @@
 {
-  "id": "0dcd27ed-ca17-467b-b701-b523d68a3631",
+  "id": "f98dcb2e-f73f-4903-a970-2853bd522244",
   "prevIds": [
-    "1e35c580-3fc8-414c-b841-853ee68f8640"
+    "bb7e0bb3-7d99-4533-a9d5-3bd60b2da396"
   ],
   "version": "8",
   "dialect": "postgres",
@@ -9263,6 +9263,30 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "identifier",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": {
+            "name": "text_pattern_ops",
+            "default": false
+          }
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "verification_identifier_pattern_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "verification"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "expires_at",
           "isExpression": false,
           "asc": true,
@@ -13371,6 +13395,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "users_username_lower_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "users"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"username\" is null and \"deleted_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "users_provisional_created_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "users"
@@ -18426,7 +18478,7 @@
       "table": "rooms"
     },
     {
-      "value": "\"status\" in ('assembling', 'ready', 'started', 'abandoned')",
+      "value": "\"status\" in ('assembling', 'ready', 'started', 'closed')",
       "name": "rooms_status_check",
       "entityType": "checks",
       "schema": "public",
