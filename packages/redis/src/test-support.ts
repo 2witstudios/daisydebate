@@ -23,7 +23,11 @@ function fakeRedis(values: Map<string, string> = new Map()) {
     },
     async send(command: string, args: string[]) {
       commands.push({ command, args });
-      if (command === 'SET') values.set(args[0] ?? '', args[1] ?? '');
+      if (command === 'SET') {
+        // `NX` stores only when the key is absent, answering null otherwise.
+        if (args.includes('NX') && values.has(args[0] ?? '')) return null;
+        values.set(args[0] ?? '', args[1] ?? '');
+      }
       if (command === 'EVAL') return scriptedEval;
       if (command === 'SCRIPT' && args[0] === 'LOAD') {
         shaCounter += 1;

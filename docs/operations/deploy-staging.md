@@ -216,6 +216,23 @@ listens on 6PN (`/proc/net/tcp6`). A request carrying a forged
 listens on IPv6 too, such a request is still keyed by its own `fdaa:` peer,
 not by the header.
 
+**The operator listener (ADR 0079).** Once the `OPERATOR_API_KEYS`
+secret is set, this machine also listens on its own 6PN address
+(`fly-local-6pn`, resolved at start and refused unless it is in
+`fdaa::/16`), port 8081, for the signed operator API only. It is not in
+`[[services]]`, so fly-proxy never routes to it and it has no public
+address; any org machine or WireGuard peer can reach it, so it treats
+network position as reachability only. Every request must carry a valid
+`DAISY-OPERATOR-V1` signature for the configured audience, an unused nonce
+(Redis `SET NX`, refused while Redis is down) and a capability the
+admin service holds; forwarded headers are never read. Without the
+secret the listener does not start (`operator.listener.disabled`). Key
+rotation: add the new `kid` to `OPERATOR_API_KEYS`, switch the admin
+app's `OPERATOR_API_KEY_ID`/`OPERATOR_API_KEY`, then remove the old
+`kid`; emergency revocation is removing the `kid` (the secret change
+restarts the app). This listener and the admin apps joining the 6PN need
+the BETA-H owner sign-off below.
+
 **Pre-condition: owner sign-off before another app joins the org.** Every
 app created in the `daisy-debate` org puts its machines on this 6PN. While
 this trust configuration stands, no app beyond the three this runbook

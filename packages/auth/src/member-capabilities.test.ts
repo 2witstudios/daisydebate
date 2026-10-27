@@ -177,3 +177,58 @@ test('participant access needs a durable age record at the 16+ beta floor (ADR 0
     ],
   });
 });
+test('only the configured operator service holds the operator capabilities (ADR 0079)', () => {
+  const operator = {
+    kind: 'operator_service' as const,
+    serviceId: 'daisy-admin',
+    keyId: 'k20261026',
+    operatorRef: 'o'.repeat(24),
+    capabilities: [
+      'account.collection.read',
+      'account.beta_access.update',
+    ] as const,
+  };
+  const target = {
+    ...input.context.account!,
+    beta: { state: 'pending' as const, revision: 1 },
+  };
+  const decide = (
+    principal: Parameters<typeof authorize>[0]['principal'],
+    capability:
+      'account.collection.read' | 'account.beta_access.update' | 'room.create',
+    account: Parameters<typeof authorize>[0]['context']['account'] = target,
+  ) =>
+    authorize({
+      principal,
+      capability,
+      resource:
+        capability === 'account.collection.read'
+          ? { kind: 'account_collection' }
+          : capability === 'room.create'
+            ? { kind: 'room_collection' }
+            : { kind: 'account' },
+      context: { account },
+    }).allow;
+  assert({
+    given:
+      'the operator service, one missing a capability, a member, and targets that are erased or have no beta row',
+    should:
+      'allow only configured capabilities on live beta accounts, and nothing else',
+    actual: [
+      decide(operator, 'account.collection.read', null),
+      decide(operator, 'account.beta_access.update'),
+      decide(
+        { ...operator, capabilities: ['account.collection.read'] },
+        'account.beta_access.update',
+      ),
+      decide(input.principal, 'account.beta_access.update'),
+      decide(operator, 'room.create'),
+      decide(operator, 'account.beta_access.update', {
+        ...target,
+        erased: true,
+      }),
+      decide(operator, 'account.beta_access.update', { ...target, beta: null }),
+    ],
+    expected: [true, true, false, false, false, false, false],
+  });
+});

@@ -71,6 +71,10 @@ function validResourceKind(
     'channel.file.cleanup': 'pending_file',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];
+  if (capability === 'account.collection.read')
+    return resource.kind === 'account_collection';
+  if (capability === 'account.beta_access.update')
+    return resource.kind === 'account';
   if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
@@ -180,6 +184,32 @@ function serviceDecision(
     ? allow
     : deny('missing-capability');
 }
+/** ADR 0079: capabilities only the operator service may hold. */
+const operatorCapabilities: readonly AuthorizationCapability[] = [
+  'account.collection.read',
+  'account.beta_access.update',
+];
+/**
+ * The operator service holds exactly its configured capabilities and
+ * nothing else; nobody else holds them. A beta access change also needs a
+ * live target that has a beta row (a claimed username).
+ */
+function operatorDecision(
+  principal: AuthorizationPrincipal,
+  capability: AuthorizationCapability,
+  context: AuthorizationInput['context'],
+): AuthorizationDecision {
+  if (
+    principal.kind !== 'operator_service' ||
+    !operatorCapabilities.includes(capability) ||
+    !principal.capabilities.includes(capability)
+  )
+    return deny('missing-capability');
+  if (capability === 'account.collection.read') return allow;
+  return context.account !== null && context.account.beta !== null
+    ? allow
+    : deny('denied');
+}
 /** The sole pure decision. Load under producer locks and reevaluate after waits. */
 export function authorize({
   principal,
@@ -193,6 +223,11 @@ export function authorize({
   )
     return deny('denied');
   if (context.account?.erased) return deny('account-erased');
+  if (
+    principal.kind === 'operator_service' ||
+    operatorCapabilities.includes(capability)
+  )
+    return operatorDecision(principal, capability, context);
   if (principal.kind === 'service')
     return serviceDecision(principal, capability, resource);
   if (resource.kind === 'foundation') return deny('missing-capability');
@@ -256,6 +291,10 @@ function resolveMemberResource(
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;
+    // Operator resources never reach a member decision (ADR 0079).
+    case 'account_collection':
+    case 'account':
+      return deny('missing-capability');
     default:
       return resource;
   }
