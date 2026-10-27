@@ -1,24 +1,12 @@
-import type { SQL } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { AuthorizationTransaction } from './authorization';
+import { scriptedTransaction } from './scripted-transaction.test-support';
 import { onboardingPrivacyAdopter } from './onboarding-privacy';
 
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 
-function scripted(responses: unknown[][]) {
-  const remaining = [...responses];
-  const queries: { sql: string; params: unknown[] }[] = [];
-  const dialect = new PgDialect();
-  const tx = {
-    execute: async (statement: SQL) => {
-      queries.push(dialect.sqlToQuery(statement));
-      return remaining.shift() ?? [];
-    },
-  } as unknown as AuthorizationTransaction;
-  return { tx, queries };
-}
+const scripted = (responses: unknown[][]) =>
+  scriptedTransaction(responses, () => []);
 
 test('optional answers are personal/private, exported to and erased with their subject (DEC-106)', async () => {
   const exported = scripted([
