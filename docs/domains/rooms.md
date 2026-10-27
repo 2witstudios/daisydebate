@@ -20,6 +20,18 @@ UI copy may say "match"; the stored noun is the Round. "Lobby" is the public
 browsing surface of open Rooms. A LiveKit room is a media session
 (`media_sessions`), never a Daisy Room.
 
+## Formats
+
+A casual Room runs one of Daisy's standards (Policy, Value and, with the
+resolution strike, Freestyle) or Custom. Every edit to a standard's times or
+rules makes the Room Custom, "based on" the standard, with the changes listed
+and a Back to standard action that restores the exact preset it started from.
+Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
+policy, Public Forum and others) whose rules Daisy runs faithfully; a template
+always reads as Custom. Standing is derived from the Room and its basis, never
+stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
+run their format unchanged. See ADR 0077.
+
 ## Assembly and Launch
 
 A host creates a Room from the catalog or a custom definition. Members take
