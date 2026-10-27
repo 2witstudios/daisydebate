@@ -32,3 +32,8 @@ export function clockDuration(ms: number): string {
   const { minutes, seconds, fraction } = durationParts(ms);
   return `${minutes}:${seconds}${fraction ? `.${fraction}` : ''}`;
 }
+
+/** "4:59": time left on a running clock, in whole seconds rounded up. */
+export function countdownClock(ms: number): string {
+  return clockDuration(Math.ceil(ms / 1000) * 1000);
+}

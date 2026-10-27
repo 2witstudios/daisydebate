@@ -3,7 +3,10 @@ import Link from 'next/link';
 import { destinationHref } from '../../../features/coming-soon/launch';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { clockDuration } from '../../../features/rooms/duration-input';
+import {
+  clockDuration,
+  countdownClock,
+} from '../../../features/rooms/duration-input';
 import { buttonClass } from '../../components/button/button-class';
 import { CommandForm } from './assembly-readiness';
 
@@ -27,7 +30,7 @@ function prepState(view: RoomView): string {
   if (view.prep.finished) return 'Done';
   return view.prep.remainingMs === null
     ? 'Under way'
-    : `${clockDuration(view.prep.remainingMs)} left`;
+    : `${countdownClock(view.prep.remainingMs)} left`;
 }
 
 /** Prep before the round, inside the Start card: its length or live state, the host's controls, and the library. */

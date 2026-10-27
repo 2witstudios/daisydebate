@@ -72,9 +72,11 @@ export async function proveFormatPicker(browser: Browser) {
     await form
       .getByLabel('Room name', { exact: true })
       .fill(`Picker ${createId().slice(0, 8)}`);
-    await form
-      .getByLabel('Resolution')
-      .fill('Proof cities should fund transit');
+    // A striking format draws its resolution: the field stays empty.
+    if (!chosen.preset.config.resolutionDraw.enabled)
+      await form
+        .getByLabel('Resolution')
+        .fill('Proof cities should fund transit');
     await form
       .getByRole('button', { name: 'Create room', exact: true })
       .click();

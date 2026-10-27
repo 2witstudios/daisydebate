@@ -36,6 +36,15 @@ test('preparation shows its saved length, then its live state', () => {
     ],
     expected: [true, true, true, false],
   });
+  assert({
+    given: 'running prep counted down against a fractional client clock',
+    should: 'read whole seconds, rounded up',
+    actual: render({
+      ...running,
+      prep: { ...running.prep, remainingMs: 1_195_408.299_999_999_8 },
+    }).includes('19:56 left'),
+    expected: true,
+  });
 });
 
 test('the host starts preparation through a native versioned command', () => {

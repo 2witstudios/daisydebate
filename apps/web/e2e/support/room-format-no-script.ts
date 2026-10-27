@@ -71,7 +71,10 @@ export async function proveNoScriptFormatChoice(browser: Browser) {
       .toEqual({ kind: 'standard', formatId: 'value' });
 
     await page.goto(`/rooms/${room.id}#room-setup`);
-    await page.getByRole('radio', { name: /^Policy/ }).check();
+    // The radio is visually hidden inside its card: a person clicks the card.
+    const policy = page.getByRole('radio', { name: /^Policy/ });
+    await page.locator('label').filter({ has: policy }).click();
+    await expect(policy).toBeChecked();
     await page.getByRole('button', { name: 'Use this format' }).click();
     await expect
       .poll(async () => (await reread(page.request, room.id)).formatId)

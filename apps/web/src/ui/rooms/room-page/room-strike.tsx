@@ -1,6 +1,6 @@
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
-import { clockDuration } from '../../../features/rooms/duration-input';
+import { countdownClock } from '../../../features/rooms/duration-input';
 import {
   resolutionCategoryLabel,
   strikeLabel,
@@ -53,7 +53,7 @@ function Countdown({
         {mine ? 'Your time' : 'Their time'}
       </span>
       <span className="font-display text-3xl font-semibold tabular-nums">
-        {clockDuration(Math.ceil(left / 1000) * 1000)}
+        {countdownClock(left)}
       </span>
     </p>
   );
