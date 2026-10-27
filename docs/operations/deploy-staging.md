@@ -62,10 +62,10 @@ web machine's environment, not only the release command's. So the owner
 credential lives in its own release-only app
 ([ADR 0041](../decisions/0041-migration-credential-in-a-release-only-app.md)):
 
-| Secret                   | App                                                      | Role                                                                                            | Used by                                                                                                                                                                                               |
-| ------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MIGRATION_DATABASE_URL` | `daisy-debate-staging-migrate` (`fly.migrate.toml`) only | `daisy_migrator`, the schema owner (`fly postgres attach`, superuser, so it holds `CREATEROLE`) | That app's `release_command` (`packages/db/scripts/migrate.ts`), on a temporary machine destroyed when it exits. The runner refuses to run in production without this secret                          |
-| `DATABASE_URL`           | `daisy-debate-staging` (`fly.toml`)                      | `daisy_web`, DML only (created by the baseline migration)                                       | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`, and production config refuses to start with `MIGRATION_DATABASE_URL` in the environment at all |
+| Secret                   | App                                                      | Role                                                                                    | Used by                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MIGRATION_DATABASE_URL` | `daisy-debate-staging-migrate` (`fly.migrate.toml`) only | `daisy_migrator`, the schema owner: no superuser, `CREATEROLE` or `CREATEDB` (ADR 0080) | That app's `release_command` (`packages/db/scripts/migrate.ts`), on a temporary machine destroyed when it exits. The runner refuses to run in production without this secret                          |
+| `DATABASE_URL`           | `daisy-debate-staging` (`fly.toml`)                      | `daisy_web`, DML only (created by the operator, ADR 0080)                               | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`, and production config refuses to start with `MIGRATION_DATABASE_URL` in the environment at all |
 
 The migrator app has no services and no machines. The workflow deploys it
 with `--update-only`, so the only machine that ever holds the owner
@@ -409,10 +409,16 @@ machine: no automatic backups or failover — fine for staging only.
 fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
   --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
 # The migration owner, attached to the migrator app only. Attach creates a
-# superuser login, prints its URL and sets it as that app's secret.
+# superuser login, prints its URL and sets it as that app's secret. Reduce it
+# at once to the least-privilege owner (ADR 0080): it keeps the database and
+# everything it migrates, and loses every cluster privilege. Create the
+# runtime roles below before the first migration, because it cannot.
 fly postgres attach daisy-debate-staging-db -a daisy-debate-staging-migrate \
   --database-name daisy_debate_staging --database-user daisy_migrator \
   --variable-name MIGRATION_DATABASE_URL
+echo "ALTER ROLE daisy_migrator NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"'
 
 # The runtime role, once: a random password, then the role holding it.
 DAISY_WEB_PASSWORD="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
@@ -789,14 +795,16 @@ KEY="API$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(
 SECRET="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 printf 'LIVEKIT_KEYS=%s: %s\n' "$KEY" "$SECRET" | fly secrets import -a daisy-debate-staging-livekit --stage
 
-# The baseline creates daisy_realtime and daisy_media_worker with LOGIN and
-# no password. Set each once, over SSH to the Postgres machine (`fly
-# postgres connect` needs a terminal and hangs on piped input):
+# The operator creates daisy_realtime and daisy_media_worker, before the
+# migration that grants to them deploys, because the migration owner cannot
+# create roles (ADR 0080). Run it over SSH to the Postgres machine (`fly
+# postgres connect` needs a terminal and hangs on piped input). A role that
+# already exists is rotated with ALTER ROLE ... PASSWORD instead:
 RT_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 MW_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 # The Fly Postgres database grants CONNECT to no role by default; daisy_web
 # holds it from the original setup, and these two need the same grant.
-printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_realtime, daisy_media_worker;\n" "$RT_PW" "$MW_PW" \
+printf "CREATE ROLE daisy_realtime LOGIN PASSWORD '%s';\nCREATE ROLE daisy_media_worker LOGIN PASSWORD '%s';\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_realtime, daisy_media_worker;\n" "$RT_PW" "$MW_PW" \
   | fly ssh console -a daisy-debate-staging-db \
       -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"'
 DB=daisy-debate-staging-db.flycast:5432/daisy_debate_staging?sslmode=disable
