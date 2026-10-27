@@ -21,7 +21,7 @@ export type SpectatorSeat = {
   readonly activity: SpectatorActivity;
 };
 
-export type SpectatorSpeech = {
+type SpectatorSpeech = {
   readonly key: string;
   readonly label: string;
   readonly side: DebateSide;
@@ -29,7 +29,7 @@ export type SpectatorSpeech = {
   readonly state: 'done' | 'now' | 'next' | 'upcoming';
 };
 
-export type SpectatorStage =
+type SpectatorStage =
   | 'starting'
   | 'countdown'
   | 'speech'
