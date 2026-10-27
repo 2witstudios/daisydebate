@@ -38,7 +38,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/clock": "workspace:*",
-        "@daisy/errors": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@simplewebauthn/server": "13.3.2",
@@ -51,6 +50,7 @@
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@playwright/test": "1.63.0",
+        "@types/node": "26.6.2",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "drizzle-kit": "1.0.0-rc.4",
