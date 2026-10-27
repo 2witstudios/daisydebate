@@ -10,6 +10,7 @@ import type { ShellAccount } from '../../account';
 import {
   friendsLabel,
   memberDestinations,
+  notificationsDestination,
   moreDestination,
   primaryDestinations,
   profileHref,
@@ -60,6 +61,7 @@ const moreLinksFor = (
     ),
   ...(account.state === 'member'
     ? [
+        ...[notificationsDestination()].filter((item) => item !== null),
         {
           href: memberDestinations.friends.href,
           label: friendsLabel(online),
