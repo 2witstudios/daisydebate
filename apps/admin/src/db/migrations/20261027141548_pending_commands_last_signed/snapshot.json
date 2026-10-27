@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "f1b67662-e2f3-4d4f-9fd7-30df43e5b856",
-  "prevIds": [
-    "46f7b556-9a29-4251-b2b2-d6cc832bd915"
-  ],
+  "prevIds": ["46f7b556-9a29-4251-b2b2-d6cc832bd915"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -1120,14 +1118,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "enrollment_id"
-      ],
+      "columns": ["enrollment_id"],
       "schemaTo": "public",
       "tableTo": "operator_enrollments",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "operator_challenges_enrollment_id_operator_enrollments_id_fkey",
@@ -1137,14 +1131,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "operator_id"
-      ],
+      "columns": ["operator_id"],
       "schemaTo": "public",
       "tableTo": "operators",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "operator_credentials_operator_id_operators_id_fkey",
@@ -1154,14 +1144,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "operator_id"
-      ],
+      "columns": ["operator_id"],
       "schemaTo": "public",
       "tableTo": "operators",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "operator_enrollments_operator_id_operators_id_fkey",
@@ -1171,14 +1157,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "operator_id"
-      ],
+      "columns": ["operator_id"],
       "schemaTo": "public",
       "tableTo": "operators",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "operator_sessions_operator_id_operators_id_fkey",
@@ -1188,14 +1170,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "operator_id"
-      ],
+      "columns": ["operator_id"],
       "schemaTo": "public",
       "tableTo": "operators",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "pending_commands_operator_id_operators_id_fkey",
@@ -1204,9 +1182,7 @@
       "table": "pending_commands"
     },
     {
-      "columns": [
-        "seq"
-      ],
+      "columns": ["seq"],
       "nameExplicit": false,
       "name": "audit_events_pkey",
       "schema": "public",
@@ -1214,9 +1190,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "bucket"
-      ],
+      "columns": ["bucket"],
       "nameExplicit": false,
       "name": "auth_attempts_pkey",
       "schema": "public",
@@ -1224,9 +1198,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "seq"
-      ],
+      "columns": ["seq"],
       "nameExplicit": false,
       "name": "chain_checkpoints_pkey",
       "schema": "public",
@@ -1234,9 +1206,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "operator_challenges_pkey",
       "schema": "public",
@@ -1244,9 +1214,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "operator_credentials_pkey",
       "schema": "public",
@@ -1254,9 +1222,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "operator_enrollments_pkey",
       "schema": "public",
@@ -1264,9 +1230,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "operator_sessions_pkey",
       "schema": "public",
@@ -1274,9 +1238,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "operators_pkey",
       "schema": "public",
@@ -1284,9 +1246,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "command_id"
-      ],
+      "columns": ["command_id"],
       "nameExplicit": false,
       "name": "pending_commands_pkey",
       "schema": "public",
