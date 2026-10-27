@@ -32,6 +32,15 @@ describe('typecheck benchmark evidence', () => {
       ),
       expected: ['apps/web/tsconfig.json'],
     });
+    assert({
+      given: 'the admin app behind the same typegen and heavy-queue wrapper',
+      should: 'select the admin project without replacing typegen',
+      actual: configsForScript(
+        'apps/admin',
+        "bun ../../scripts/heavy.ts sh -c 'next typegen && tsgo --noEmit'",
+      ),
+      expected: ['apps/admin/tsconfig.json'],
+    });
   });
   test('isolates compiler incremental state for generated Next types', () => {
     assert({
@@ -51,6 +60,24 @@ describe('typecheck benchmark evidence', () => {
         '--tsBuildInfoFile',
         '/tmp/evidence/native.tsbuildinfo',
       ],
+    });
+    assert({
+      given: 'the admin app, the other incremental Next project',
+      should: 'keep its incremental metadata private to the benchmark too',
+      actual: compilerArgs(
+        'apps/admin/tsconfig.json',
+        '/tmp/evidence/native.tsbuildinfo',
+      ).slice(-2),
+      expected: ['--tsBuildInfoFile', '/tmp/evidence/native.tsbuildinfo'],
+    });
+    assert({
+      given: 'a project without incremental state',
+      should: 'pass no build-info override',
+      actual: compilerArgs(
+        'packages/db/tsconfig.json',
+        '/tmp/evidence/native.tsbuildinfo',
+      ).includes('--tsBuildInfoFile'),
+      expected: false,
     });
   });
   test('attests the checked-out source instead of the GitHub merge ref', () => {

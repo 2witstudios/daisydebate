@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { adminE2EClaimProblems } from './evidence-admin';
 import {
   ciGateProblems,
   ciInvokedTasks,
@@ -117,8 +118,10 @@ describe('classifyTestFile', () => {
         'packages/db/integration/db.integration.ts',
         'packages/db/integration/seed.integration.ts',
         'apps/web/e2e/app.e2e.ts',
+        'apps/admin/e2e/operator-journey.e2e.ts',
+        'apps/realtime/e2e/x.e2e.ts',
       ].map(classifyTestFile),
-      expected: ['integration', 'integration', 'e2e'],
+      expected: ['integration', 'integration', 'e2e', 'e2e', 'orphan'],
     });
   });
 
@@ -383,6 +386,34 @@ describe('ciGateProblems', () => {
         ({ code }) => code,
       ),
       expected: ['E2E_DUPLICATED'],
+    });
+  });
+});
+
+describe('the admin browser journey claim (ADR 0077)', () => {
+  const playwright = {
+    'test:e2e':
+      'bun ../../scripts/heavy.ts node node_modules/@playwright/test/cli.js test',
+  };
+  test('a claimed journey', () => {
+    assert({
+      given:
+        'admin e2e suites, a Playwright test:e2e and a workflow running it',
+      should: 'report nothing',
+      actual: adminE2EClaimProblems(
+        1,
+        playwright,
+        'run: bun run --cwd apps/admin test:e2e',
+      ),
+      expected: [],
+    });
+  });
+  test('an unrun journey', () => {
+    assert({
+      given: 'admin e2e suites with no Playwright script and no workflow step',
+      should: 'report both as unrun',
+      actual: adminE2EClaimProblems(1, {}, '').map(({ code }) => code),
+      expected: ['UNRUN_SUITE', 'UNRUN_SUITE'],
     });
   });
 });

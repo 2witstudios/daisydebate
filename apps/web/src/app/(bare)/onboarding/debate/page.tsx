@@ -6,6 +6,7 @@ import {
 import { DebateStep } from '../../../../ui/onboarding/intro/debate-step';
 import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
+import { requestOptionalAnswersAdmitted } from '../../../../lib/request-session';
 
 export const metadata: Metadata = {
   title: 'How a debate works',
@@ -20,7 +21,10 @@ export default async function OnboardingDebateStepPage({
   const { destination } = await readStepEntry(searchParams, 'debate');
   return (
     <DebateStep
-      nextHref={onboardingStepHref('about', destination)}
+      nextHref={onboardingStepHref(
+        (await requestOptionalAnswersAdmitted()) ? 'about' : 'ready',
+        destination,
+      )}
       backHref={onboardingStepHref('daisy', destination)}
       skip={stepSkip(destination)}
     />

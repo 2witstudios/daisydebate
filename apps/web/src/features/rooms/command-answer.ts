@@ -46,7 +46,27 @@ export function commandAnswer(
   return {
     values: {},
     ...edge.move(
-      `/rooms/${roomId}${result.kind === 'accepted' ? '' : '?notice=command-refused'}`,
+      `/rooms/${roomId}${result.kind === 'accepted' ? '' : '?notice=command-refused'}#`,
     ),
   };
+}
+
+/** Room details/settings saves share the same native fragment-clearing answer. */
+export function roomFormAnswer(
+  result: Parameters<typeof commandAnswer>[0],
+  form: FormData,
+  edge: Parameters<typeof commandAnswer>[3],
+): RoomFormState {
+  if (result.kind === 'accepted')
+    return edge.hydrated
+      ? { values: {}, view: result.view }
+      : { values: {}, ...edge.move(`/rooms/${result.view.id}#`) };
+  return refused(
+    form,
+    result.kind === 'refused' && result.reason === 'version-conflict'
+      ? 'The room changed. Review the latest room before saving.'
+      : result.kind === 'unavailable'
+        ? 'The update is not acknowledged. Try again.'
+        : 'These changes were refused. Check the room settings.',
+  );
 }

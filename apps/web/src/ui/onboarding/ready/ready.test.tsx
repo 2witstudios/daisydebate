@@ -86,6 +86,28 @@ describe('ReadyStep', () => {
     });
   });
 
+  test('no answer summary for a member not asked the questions', () => {
+    const html = renderToString(
+      h(ReadyStep, {
+        answers: emptyAnswers,
+        botNames: ['Juno'],
+        homeHref: '/lobby',
+        editHrefs: null,
+      }),
+    );
+    assert({
+      given: 'a member whose canonical age does not admit optional answers',
+      should:
+        'still offer a first debate, with no answer summary and no Edit link',
+      actual: [
+        html.includes('Debate a bot'),
+        html.includes('<dl'),
+        html.includes('/onboarding/about'),
+      ],
+      expected: [true, false, false],
+    });
+  });
+
   test('edit and home links keep next', () => {
     const html = render();
     assert({

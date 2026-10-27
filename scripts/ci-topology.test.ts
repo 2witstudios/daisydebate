@@ -30,10 +30,11 @@ describe('CI quick prerequisite topology', () => {
       ci.integration,
       browser.e2e,
       browser['room-launch'],
+      browser.admin,
     ];
     assert({
       given: 'the actual CI and browser workflows',
-      should: 'hold all 15 expensive jobs behind reusable quick checks',
+      should: 'hold all 16 expensive jobs behind reusable quick checks',
       actual: {
         prerequisites: expensive.map((job) => job.needs),
         held: expensive.reduce((total, job) => total + width(job), 0),
@@ -41,8 +42,8 @@ describe('CI quick prerequisite topology', () => {
         initial: initialWidth(ci) + initialWidth(browser),
       },
       expected: {
-        prerequisites: Array(5).fill('quick-check'),
-        held: 15,
+        prerequisites: Array(6).fill('quick-check'),
+        held: 16,
         reusable: './.github/workflows/quick-check.yml',
         initial: 4,
       },

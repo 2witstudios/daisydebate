@@ -1,0 +1,88 @@
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import next from 'next';
+import { SWEEP_INTERVAL_MS, sweepExpired } from '../db/retention';
+import { roleRefusal, schemaPowers } from '../db/runtime-role';
+import { gateRequest, PEER_HEADER } from './gate';
+import { adminRuntime } from './runtime';
+
+/**
+ * The admin process (ADR 0077). It refuses a schema-altering database role
+ * before serving, then answers every request through the Host and Origin
+ * gate; Next renders only what the gate admits. Production binds `[::]:8080`, which
+ * `fly proxy 4800:8080` reaches over 6PN; there is no public service.
+ */
+const SHUTDOWN_DEADLINE_MS = 10_000;
+
+const { config, database, logger, auth } = adminRuntime();
+const refusal = roleRefusal(config.NODE_ENV, await schemaPowers(database.db));
+if (refusal) {
+  await database.close();
+  throw new Error(refusal);
+}
+const app = next({
+  dev: config.NODE_ENV !== 'production',
+  // Next's own fetches go to this process: the canonical host name and the
+  // port it listens on (4800 locally, 8080 behind `fly proxy`).
+  hostname: 'localhost',
+  port: config.ADMIN_PORT,
+  dir: fileURLToPath(new URL('../..', import.meta.url)),
+});
+const handle = app.getRequestHandler();
+await app.prepare();
+
+const server = createServer((request, response) => {
+  const decision = gateRequest({
+    host: request.headers.host,
+    method: request.method,
+    origin: request.headers.origin,
+    socketAddress: request.socket.remoteAddress,
+  });
+  if (!decision.admit) {
+    response.writeHead(decision.status, { 'content-type': 'text/plain' });
+    response.end('Misdirected request');
+    return;
+  }
+  request.headers[PEER_HEADER] = decision.peer;
+  void handle(request, response);
+});
+server.once('listening', () =>
+  logger.log(
+    'server.start',
+    { port: config.ADMIN_PORT, source: 'admin' },
+    'Admin server listening',
+  ),
+);
+server.listen({ port: config.ADMIN_PORT, host: config.ADMIN_HOST });
+
+const sweep = () =>
+  sweepExpired(database.db, auth.clock.now()).then(
+    (deleted) =>
+      logger.log(
+        'retention.sweep.completed',
+        { deleted, source: 'admin' },
+        'Admin retention sweep completed',
+      ),
+    () =>
+      logger.log(
+        'retention.sweep.failed',
+        { source: 'admin', errorCode: 'INFRASTRUCTURE' },
+        'Admin retention sweep failed',
+      ),
+  );
+const sweeper = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+sweeper.unref();
+void sweep();
+
+const stop = async () => {
+  clearInterval(sweeper);
+  const deadline = setTimeout(() => process.exit(1), SHUTDOWN_DEADLINE_MS);
+  deadline.unref();
+  server.close();
+  await app.close();
+  await database.close();
+  logger.log('server.shutdown', { source: 'admin' }, 'Admin server stopped');
+  process.exit(0);
+};
+process.once('SIGTERM', () => void stop());
+process.once('SIGINT', () => void stop());

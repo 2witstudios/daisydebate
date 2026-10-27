@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db/profile';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -13,7 +14,7 @@ setupRitewayBun();
 const member: Identity = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'user1', actorId: null },
+  principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
 };
 
 const NOW = '2026-10-05T12:00:00.000Z';
@@ -21,11 +22,18 @@ const NOW = '2026-10-05T12:00:00.000Z';
 const handlerWith = ({
   identity = member,
   consume = allowEvery,
+  ageRefused = false,
 }: {
   identity?: Identity;
   consume?: ConsumeStub;
+  ageRefused?: boolean;
 } = {}) => {
-  const saved: Array<{ userId: string; answers: OnboardingStepWrite }> = [];
+  const saved: Array<{
+    userId: string;
+    actorId: string;
+    answers: OnboardingStepWrite;
+    now: string;
+  }> = [];
   const completed: Array<{ userId: string; at: string }> = [];
   const handler = createOnboardingHandler({
     logger: silentLogger,
@@ -33,8 +41,10 @@ const handlerWith = ({
     identify: async () => identity,
     limiter: () => ({ consume }),
     clock: { now: () => NOW },
-    save: async (userId, answers) => {
-      saved.push({ userId, answers });
+    save: async (input) => {
+      // The adapter refuses inside its transaction, before any write.
+      if (ageRefused) throw createAppError('AUTHORIZATION');
+      saved.push(input);
     },
     complete: async (userId, at) => {
       completed.push({ userId, at: at.toISOString() });
@@ -138,7 +148,8 @@ describe('POST /api/account/onboarding answers', () => {
     const response = await handler(post(about));
     assert({
       given: 'a member posting the about step',
-      should: 'save it under their own id and answer 200 with the step',
+      should:
+        'save it under their own session ids at the injected time and answer 200 with the step',
       actual: [response.status, await response.json(), saved],
       expected: [
         200,
@@ -146,7 +157,9 @@ describe('POST /api/account/onboarding answers', () => {
         [
           {
             userId: 'user1',
+            actorId: 'actor1',
             answers: { step: 'about', wants: ['debate'], club: 'own' },
+            now: NOW,
           },
         ],
       ],
@@ -167,6 +180,45 @@ describe('POST /api/account/onboarding answers', () => {
         saved,
       ],
       expected: [400, 'VALIDATION', []],
+    });
+  });
+
+  test('optional answers without an admitted age store nothing (ISSUE-645)', async () => {
+    const refused = handlerWith({ ageRefused: true });
+    const actorless = handlerWith({
+      identity: {
+        state: 'member',
+        username: 'ada',
+        principal: { kind: 'user', userId: 'user1', actorId: null },
+      },
+    });
+    const statuses = [
+      (await refused.handler(post(about))).status,
+      (await actorless.handler(post(about))).status,
+      (await refused.handler(post({ step: 'finish' }))).status,
+    ];
+    assert({
+      given:
+        'a member whose canonical age the adapter refuses, a member with no actor, then the refused member finishing',
+      should:
+        'refuse both answers with 403 and store nothing, while Finish still records completion',
+      actual: [
+        statuses,
+        refused.saved.length + actorless.saved.length,
+        refused.completed.length,
+      ],
+      expected: [[403, 403, 200], 0, 1],
+    });
+  });
+
+  test('a client-supplied age is not an input', async () => {
+    const { handler, saved } = handlerWith({ ageRefused: true });
+    const response = await handler(post({ ...about, age: 30, adult: true }));
+    assert({
+      given: 'an about step carrying its own age claim',
+      should: 'refuse the body as invalid and store nothing',
+      actual: [response.status, saved.length],
+      expected: [400, 0],
     });
   });
 

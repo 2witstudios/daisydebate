@@ -4,10 +4,8 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { DEC_244 } from './account-age';
-import type {
-  PrivacyAdopter,
-  PrivacyFieldDeclaration,
-} from './privacy/contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
 import { verifications } from './schema/auth';

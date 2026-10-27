@@ -1,4 +1,4 @@
-import type { PrivacyFieldDeclaration } from './contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import { privacyColumns, pendingPrivacyField } from './field-declarations';
 
 const columns = {

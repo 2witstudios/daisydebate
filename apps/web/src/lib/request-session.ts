@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
@@ -56,6 +57,31 @@ export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
   if (identity.state !== 'provisional') return false;
   return processApp().database.hasRecordedAge(identity.principal.userId);
 });
+
+/**
+ * Whether this render's member may be asked the optional onboarding
+ * questions: their canonical age fact admits it (16 or over, ISSUE-645).
+ * False for anyone else; a waitlisted account onboards before approval. A page only skips the questions on it; every
+ * answer's write decides again under the account fence.
+ */
+export const requestOptionalAnswersAdmitted = cache(
+  async (): Promise<boolean> => {
+    const identity = await requestIdentity();
+    // A waitlisted account onboards before approval (ADR 0075).
+    if (
+      (identity.state !== 'member' && identity.state !== 'waitlisted') ||
+      identity.principal.actorId === null
+    )
+      return false;
+    const app = processApp();
+    return app.database.optionalAnswersAdmitted({
+      userId: identity.principal.userId,
+      actorId: identity.principal.actorId,
+      now: app.clock.now(),
+      admits: admitsOptionalAnswers,
+    });
+  },
+);
 
 /**
  * A member's profile as this render's viewer may see it, read in the server

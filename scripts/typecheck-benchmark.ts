@@ -7,15 +7,19 @@ export const configsForScript = (workspace: string, script: string): string[] =>
     (match) => `${workspace}/${match[1] ?? 'tsconfig.json'}`,
   );
 
+// The incremental Next projects, whose route types `next typegen` generates.
+const incrementalProjects: ReadonlySet<string> = new Set([
+  'apps/admin/tsconfig.json',
+  'apps/web/tsconfig.json',
+]);
+
 export const compilerArgs = (project: string, buildInfo: string) => [
   '--noEmit',
   '--pretty',
   'false',
   '-p',
   project,
-  ...(project === 'apps/web/tsconfig.json'
-    ? ['--tsBuildInfoFile', buildInfo]
-    : []),
+  ...(incrementalProjects.has(project) ? ['--tsBuildInfoFile', buildInfo] : []),
 ];
 
 export const checkedCandidate = (checkout: string, requested: string) => {

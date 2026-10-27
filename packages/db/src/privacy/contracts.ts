@@ -1,28 +1,6 @@
 import type { AuthorizationTransaction } from '../authorization';
 
-/** Policies name actual decision records; pending never confers activation authority. */
-type PrivacyPolicy =
-  | { readonly status: 'pending'; readonly decision: string }
-  | {
-      readonly status: 'approved';
-      readonly decision: string;
-      readonly rule: string;
-    };
-
-export type PrivacyFieldDeclaration = {
-  readonly table: string;
-  readonly column: string;
-  readonly category:
-    'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
-  readonly visibility?: 'public' | 'private';
-  readonly storage: 'postgres';
-  readonly owner: string;
-  readonly purpose: string;
-  readonly lawfulBasis: PrivacyPolicy;
-  readonly retention: PrivacyPolicy;
-  readonly erasure: 'delete' | 'scrub' | 'retain-nonpersonal';
-  readonly exportable: boolean;
-};
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 export type PrivacySubject = {
   readonly userId: string;

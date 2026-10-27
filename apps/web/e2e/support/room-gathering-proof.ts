@@ -4,6 +4,7 @@ import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
+import { proveSiblingSave } from './room-setup-save-proof';
 import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
@@ -121,9 +122,23 @@ export async function proveGathering(
       '0:43.456',
     );
     expect(new URL(room.url()).search).toBe('');
+    const details = room.getByRole('form', { name: 'Room details' });
+    await details
+      .getByLabel('Room name', { exact: true })
+      .fill('Native setup proof');
+    await details
+      .getByRole('button', { name: 'Save room', exact: true })
+      .click();
+    await expect(details).toBeHidden();
+    expect(new URL(room.url()).hash).toBe('');
+    expect((await reread(native.request, view.id)).title).toBe(
+      'Native setup proof',
+    );
   } finally {
     await native.close();
   }
+  await page.reload();
+  await proveSiblingSave(page);
   await visualStates(page, info);
   await proveClosedRoomNavigation(page);
 }

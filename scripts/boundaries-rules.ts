@@ -58,6 +58,10 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT
   // leaf); the edge is declared now so nothing else moves when it lands.
+  // ADR 0077: the admin app holds no participant database or Redis
+  // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
+  // the participant app only through the signed operator API (`auth`).
+  admin: ['auth', 'clock', 'config', 'errors', 'logger', 'protocol'],
   realtime: [
     'ingress',
     'protocol',

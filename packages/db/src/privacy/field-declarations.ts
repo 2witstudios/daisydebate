@@ -1,4 +1,4 @@
-import type { PrivacyFieldDeclaration } from './contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 /** Flatten explicit producer column groups without deriving policy from a schema. */
 export const privacyColumns = (
