@@ -1,10 +1,6 @@
 import { expect, test } from './support/fixtures';
 import {
-  answerAgeStep,
-  confirmSignIn,
-  emailedLink,
-  freshEmail,
-  requestSignInLink,
+  reachOnboardingFromRanked,
   signUpWaitlisted,
   uniqueName,
 } from './support/accounts';
@@ -42,13 +38,7 @@ test('a fresh sign-up from a protected page finishes onboarding on /beta and rea
   page,
   request,
 }) => {
-  await page.goto('/ranked');
-  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
-  const email = freshEmail();
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await answerAgeStep(page);
-  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  const email = await reachOnboardingFromRanked(page, request);
   const username = uniqueName('waiting');
   await claimUsername(page, username);
   await page.getByRole('button', { name: 'Not now' }).click();

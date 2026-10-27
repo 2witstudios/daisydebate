@@ -11,6 +11,7 @@ import {
   passkeySignInAfterSignOut,
   requestSignInLink,
   answerAgeStep,
+  reachOnboardingFromRanked,
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
@@ -134,14 +135,7 @@ test('completing onboarding and saving a passkey from a protected page other tha
 }) => {
   await withoutPasskeyAutofill(page);
   await addVirtualAuthenticator(page);
-  await page.goto('/ranked');
-  await expect(page).toHaveURL(/\/sign-in\?next=(\/|%2F)ranked$/);
-
-  const email = freshEmail();
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await answerAgeStep(page);
-  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  const email = await reachOnboardingFromRanked(page, request);
 
   await page.getByLabel('Username').fill(uniqueName('destined'));
   await page.getByRole('button', { name: 'Continue' }).click();

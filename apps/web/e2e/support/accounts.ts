@@ -135,6 +135,25 @@ export async function reachOnboarding(page: Page, request: APIRequestContext) {
   return email;
 }
 
+/**
+ * A visitor sent from /ranked to sign-in signs up through the real
+ * handlers and reaches the username step still carrying /ranked; returns
+ * the email for the later approval (ADR 0075).
+ */
+export async function reachOnboardingFromRanked(
+  page: Page,
+  request: APIRequestContext,
+) {
+  await page.goto('/ranked');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
+  const email = freshEmail();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
+  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  return email;
+}
+
 /** Answers the age step as an adult through the real form (WAIT-4.6). */
 export async function answerAgeStep(page: Page) {
   await expect(page).toHaveURL(/\/onboarding\/age/);

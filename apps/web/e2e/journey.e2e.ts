@@ -10,6 +10,7 @@ import {
   signUpMember,
   uniqueName,
   reachOnboarding,
+  reachOnboardingFromRanked,
   sessionUsername,
   answerAgeStep,
 } from './support/accounts';
@@ -155,13 +156,7 @@ test('declining the passkey offer after onboarding from a protected page other t
   page,
   request,
 }) => {
-  await page.goto('/ranked');
-  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
-  const email = freshEmail();
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await answerAgeStep(page);
-  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  const email = await reachOnboardingFromRanked(page, request);
   await claimUsername(page, uniqueName('ranked'));
   // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
   await approveBetaAccounts(email);
