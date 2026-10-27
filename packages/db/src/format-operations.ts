@@ -1,7 +1,7 @@
 import type {
   FormatDefinition,
   FormatSelectionFacts,
-  RoomConfig,
+  FormatSettings,
 } from '@daisy/protocol';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -22,7 +22,7 @@ type FormatPresetRecord = {
   readonly formatId: string;
   readonly version: number;
   readonly formatVersion: number;
-  readonly config: RoomConfig;
+  readonly config: FormatSettings;
 };
 
 /** Shared current-revision join used by single-format reads and the Room catalog. */

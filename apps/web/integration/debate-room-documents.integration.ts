@@ -4,7 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import {
   oneOnOneDefinition,
-  oneOnOneRankedConfig,
+  oneOnOneRankedSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
@@ -26,7 +26,7 @@ const NOW = '2026-10-05T18:00:00.000Z';
  */
 const resolved = resolveRoomConfiguration(
   oneOnOneDefinition,
-  oneOnOneRankedConfig,
+  oneOnOneRankedSettings,
 );
 if (!resolved.ok) throw new Error(resolved.refusal.message);
 const rules = resolved.rules;

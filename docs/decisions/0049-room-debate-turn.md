@@ -241,7 +241,7 @@ and this amendment does not rename them.
 
 [ADR 0058](0058-one-round-model.md) §4 deletes `rulesMatchFormat()` along
 with the validation responsibility it named: a ranked round resolves from an
-approved `RoomConfig` — a sanctioned preset — or it does not exist, so an
+approved preset's format settings (ADR 0078 §10) or it does not exist, so an
 invalid ranked configuration is unrepresentable rather than detectable
 afterwards. Section 3's "ranked refuses overrides through
 `rulesMatchFormat`" and section 6's "the start command refuses it through

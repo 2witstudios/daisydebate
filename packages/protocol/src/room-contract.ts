@@ -1,3 +1,4 @@
+import type { FormatSettings } from './format-settings';
 import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
@@ -212,7 +213,8 @@ export type RoomAssemblyState = {
     readonly name: string;
     readonly role: 'standard' | 'template';
     readonly definition: FormatDefinition;
-    readonly config: RoomConfig;
+    /** The basis preset's format settings, not a Room config (ISSUE-775). */
+    readonly config: FormatSettings;
   } | null;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;

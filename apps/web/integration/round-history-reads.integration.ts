@@ -8,7 +8,7 @@ import {
 } from './round-runtime.test-support';
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import {
   canReadRound,
@@ -29,7 +29,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
         },
         competitionType: 'casual',
         config: {
-          ...oneOnOneRoomConfig,
+          ...oneOnOneSettings,
           speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
         },
       },
@@ -149,7 +149,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
         definition: oneOnOneDefinition,
         competitionType: 'casual',
         config: {
-          ...oneOnOneRoomConfig,
+          ...oneOnOneSettings,
           speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
         },
       },

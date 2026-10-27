@@ -1,6 +1,6 @@
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 
@@ -11,10 +11,7 @@ export const fixedId = (label: string) =>
     .padEnd(24, '0')
     .slice(0, 24);
 
-const compiled = resolveRoomConfiguration(
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-);
+const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 export const rules = compiled.rules;
 export const sessionId = fixedId('session');

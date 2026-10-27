@@ -6,7 +6,7 @@ import {
   oneOnOneFormatFixture,
 } from '@daisy/protocol/testing';
 import { unboundedFormatDefinitions } from '@daisy/protocol/format-bounds-testing';
-import { oneOnOneConfig } from './runtime.test-support';
+import { oneOnOneSettings } from './runtime.test-support';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 setupRitewayBun();
@@ -18,7 +18,7 @@ for (const [name, definition] of [
 ]) {
   test(`rejects ${name} before compiling executable rules`, () => {
     const outcome = resolveRoomConfiguration(definition, {
-      ...oneOnOneConfig,
+      ...oneOnOneSettings,
       inRoundPrep: { enabled: false },
     });
     assert({
@@ -41,7 +41,7 @@ test('compiler preserves bounded asymmetric sides and a cross-ex-only speaking s
       s.side === 'negative' ? { ...s, type: 'cross_ex' as const } : s,
     ),
   };
-  const result = resolveRoomConfiguration(definition, oneOnOneConfig);
+  const result = resolveRoomConfiguration(definition, oneOnOneSettings);
   assert({
     given: 'a two-sided format at the work boundary without judges',
     should:

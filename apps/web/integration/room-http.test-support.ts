@@ -6,7 +6,7 @@ import {
 } from '@daisy/protocol';
 import {
   oneOnOneDefinition,
-  oneOnOneRankedConfig,
+  oneOnOneRankedSettings,
 } from '@daisy/db/reference-formats';
 import { createRoutes } from '../src/server/routes';
 import { inProcessFetch } from '../src/server/in-process-fetch';
@@ -89,11 +89,11 @@ export async function withHumanJudgeHttpRound(
     // One-on-one is ranked-only and absent from the picker (FMT-1), so
     // this proof posts its schedule as a custom format.
     const config = {
-      ...oneOnOneRankedConfig,
+      ...oneOnOneRankedSettings,
       preRoundPrep: { enabled: false },
       resolutionDraw: { enabled: false },
       speechTiming: {
-        ...oneOnOneRankedConfig.speechTiming,
+        ...oneOnOneRankedSettings.speechTiming,
         countdownMs: people.countdownMs ?? 0,
       },
     };

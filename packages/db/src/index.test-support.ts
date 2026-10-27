@@ -2,7 +2,7 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { CompetitionType, RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
-import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
+import { foundationDefinition, oneOnOneSettings } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 import { validRules } from './testing-rules';
@@ -154,7 +154,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     basisFormatId: null,
     basisPresetVersion: null,
     competitionType: 'casual',
-    config: oneOnOneRoomConfig,
+    config: oneOnOneSettings,
     executionPlan: {
       preRoundPrep: { enabled: false },
       resolutionDraw: { enabled: false },

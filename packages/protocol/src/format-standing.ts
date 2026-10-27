@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FormatDefinition } from './format';
-import type { RoomConfig } from './room';
+import type { FormatSettings } from './format-settings';
 import { crossExModeSchema, interruptionModeSchema } from './format';
 import { debateRoleSchema } from './primitives';
 import { frozenResolutionDrawSchema } from './resolution-draw';
@@ -114,7 +114,8 @@ export type FormatSelectionFacts = {
   readonly preset: {
     readonly version: number;
     readonly formatVersion: number;
-    readonly config: RoomConfig;
+    /** The preset's format settings, never a Room config (ISSUE-775). */
+    readonly config: FormatSettings;
     readonly rankedEligible: boolean;
     /** Not superseded. */
     readonly current: boolean;

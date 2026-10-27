@@ -1,9 +1,9 @@
 import type { FormatSelectionFacts } from '@daisy/protocol';
 import {
-  foundationConfig,
+  foundationSettings,
   foundationDefinition,
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 
 /** Catalog sources as the store lists them: role-bearing formats at their canonical presets. */
@@ -24,7 +24,7 @@ export const catalog = [
       formatId: 'value',
       version: 1,
       formatVersion: 1,
-      config: oneOnOneRoomConfig,
+      config: oneOnOneSettings,
     },
   },
   {
@@ -43,7 +43,7 @@ export const catalog = [
       formatId: 'proof-template',
       version: 2,
       formatVersion: 1,
-      config: foundationConfig,
+      config: foundationSettings,
     },
   },
 ];
@@ -62,7 +62,7 @@ export const valueFacts: FormatSelectionFacts = {
   preset: {
     version: 1,
     formatVersion: 1,
-    config: oneOnOneRoomConfig,
+    config: oneOnOneSettings,
     rankedEligible: false,
     current: true,
   },

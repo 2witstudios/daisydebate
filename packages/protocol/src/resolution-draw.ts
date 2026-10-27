@@ -50,9 +50,15 @@ const categoriesSchema = z
     'Categories must be unique',
   );
 
+/** Daisy's curated bank: the only source a format can name. */
+const bankChoiceSchema = z.strictObject({
+  kind: z.literal('bank'),
+  categories: categoriesSchema,
+});
+
 /** Internal: the source as the host chose it. */
 const drawSourceSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('bank'), categories: categoriesSchema }),
+  bankChoiceSchema,
   z.strictObject({
     kind: z.literal('host'),
     resolutions: hostResolutionsSchema,
@@ -61,7 +67,7 @@ const drawSourceSchema = z.discriminatedUnion('kind', [
 
 /** Public and frozen: a host list is only its length. */
 const frozenDrawSourceSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('bank'), categories: categoriesSchema }),
+  bankChoiceSchema,
   z.strictObject({
     kind: z.literal('host'),
     count: drawSizeSchema,
@@ -86,6 +92,15 @@ const sourceCoversDraw = (draw: {
   !draw.enabled ||
   draw.source?.kind !== 'host' ||
   draw.source.resolutions.length >= (draw.drawSize ?? 0);
+
+/**
+ * A format's draw policy (ISSUE-775): the bank only. A host-written list is
+ * a Room's own input, so no preset or template can carry one.
+ */
+export const formatResolutionDrawSchema = z.discriminatedUnion('enabled', [
+  declined,
+  z.strictObject({ ...drawChoice, source: bankChoiceSchema }),
+]);
 
 /** The Room's draw choice (internal: compiler, engine, persistence). */
 export const roomResolutionDrawSchema = z

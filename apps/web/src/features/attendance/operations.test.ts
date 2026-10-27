@@ -7,17 +7,14 @@ import type {
 } from '@daisy/db/attendance';
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import { createAttendanceFeature } from './operations';
 setupRitewayBun();
 
-const compiled = resolveRoomConfiguration(
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-);
+const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = compiled.rules;
 const firstSpeech = rules.segments.find((s) => s.type === 'speech')!;

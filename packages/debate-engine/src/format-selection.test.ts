@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
-import { oneOnOneConfig } from './runtime.test-support';
+import { oneOnOneSettings } from './runtime.test-support';
 import {
   decideFormatSelection,
   type FormatSelectionFacts,
@@ -28,7 +28,7 @@ const facts = (
   preset: {
     version: 3,
     formatVersion: 1,
-    config: oneOnOneConfig,
+    config: oneOnOneSettings,
     rankedEligible: false,
     current: true,
     ...overrides.preset,
@@ -71,7 +71,7 @@ describe('decideFormatSelection', () => {
       },
       expected: {
         definition: oneOnOneFormatFixture,
-        config: oneOnOneConfig,
+        config: oneOnOneSettings,
         basis: { formatId: 'value', presetVersion: 3 },
         rankedPresetVersion: null,
         compiled: true,
@@ -267,9 +267,9 @@ describe('decideFormatSelection', () => {
         facts({
           preset: {
             config: {
-              ...oneOnOneConfig,
+              ...oneOnOneSettings,
               speechTiming: {
-                ...oneOnOneConfig.speechTiming,
+                ...oneOnOneSettings.speechTiming,
                 segmentDurationOverrides: { NOPE: 60_000 },
               },
             },

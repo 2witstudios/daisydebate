@@ -107,7 +107,7 @@ export const selectFormat = (
       name: facts.format.name,
       role: facts.format.role ?? 'template',
       definition: decision.definition,
-      config: decision.config,
+      config: facts.preset.config,
     },
     definition: decision.definition,
     config: decision.config,

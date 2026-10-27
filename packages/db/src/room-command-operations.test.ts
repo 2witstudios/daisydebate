@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { FormatSelectionFacts } from '@daisy/protocol';
-import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
+import { foundationDefinition, oneOnOneSettings } from './reference-formats';
 import {
   accountRow,
   caller,
@@ -73,7 +73,7 @@ test('Room create rechecks its catalog selection under the create transaction (P
     foundationDefinition,
     3,
     1,
-    oneOnOneRoomConfig,
+    oneOnOneSettings,
     false,
     new Date(0),
   ];

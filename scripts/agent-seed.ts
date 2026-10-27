@@ -1,6 +1,6 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
-  foundationConfig,
+  foundationSettings,
   foundationDefinition,
 } from '@daisy/db/reference-formats';
 
@@ -37,7 +37,7 @@ const agentSeedResolution =
  */
 const resolved = resolveRoomConfiguration(
   foundationDefinition,
-  foundationConfig,
+  foundationSettings,
 );
 if (!resolved.ok)
   throw new Error(`Seed round refuses to resolve: ${resolved.refusal.message}`);

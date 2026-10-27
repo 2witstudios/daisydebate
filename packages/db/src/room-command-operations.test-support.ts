@@ -1,4 +1,4 @@
-import { oneOnOneRoomConfig } from './reference-formats';
+import { oneOnOneSettings } from './reference-formats';
 import { validRules } from './testing-rules';
 
 export const caller = {
@@ -56,7 +56,7 @@ export const room = {
   presetVersion: null,
   basis: null,
   competitionType: 'casual' as const,
-  config: oneOnOneRoomConfig,
+  config: oneOnOneSettings,
   executionPlan: {
     preRoundPrep: { enabled: false as const },
     resolutionDraw: { enabled: false as const },

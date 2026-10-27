@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostIdentityHidden, projectRoom } from './room-projection';
-import { roomViewSchema } from '@daisy/protocol';
+import { formatSettingsSchema, roomViewSchema } from '@daisy/protocol';
 import { edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
@@ -170,7 +170,7 @@ describe('projectRoom format (FMT-1)', () => {
       name: 'Value',
       role: 'standard' as const,
       definition,
-      config: base.config,
+      config: formatSettingsSchema.parse(base.config),
     },
   };
   test('a room still on its standard', () => {

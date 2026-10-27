@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomConfig } from '@daisy/protocol';
+import type { FormatSettings } from '@daisy/protocol';
 import { format, schedule } from './catalog-formats.test-support';
 
 setupRitewayBun();
@@ -15,7 +15,7 @@ describe('catalogFormats', () => {
         capable: format(id).definition.configurable.resolutionDraw !== null,
       };
     };
-    const bank: RoomConfig['resolutionDraw'] = {
+    const bank: FormatSettings['resolutionDraw'] = {
       enabled: true,
       drawSize: 5,
       strikeWindowMs: 60_000,

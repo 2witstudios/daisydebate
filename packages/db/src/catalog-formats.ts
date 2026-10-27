@@ -1,8 +1,8 @@
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
-import { oneOnOneDefinition, oneOnOneRoomConfig } from './reference-formats';
+import type { FormatDefinition, FormatSettings } from '@daisy/protocol';
+import { oneOnOneDefinition, oneOnOneSettings } from './reference-formats';
 import {
-  strikeConfig,
-  templateConfig,
+  strikeSettings,
+  templateSettings,
   templateDefinition,
   withDraw,
 } from './catalog-builders';
@@ -52,7 +52,7 @@ export type CatalogFormat = {
   readonly rulesEdition: string | null;
   readonly sourceUrl: string | null;
   readonly definition: FormatDefinition;
-  readonly preset: RoomConfig;
+  readonly preset: FormatSettings;
 };
 
 /**
@@ -66,7 +66,7 @@ const standard = (
   sortOrder: number,
   { definition, preset }: Pick<CatalogFormat, 'definition' | 'preset'> = {
     definition: withDraw(oneOnOneDefinition),
-    preset: oneOnOneRoomConfig,
+    preset: oneOnOneSettings,
   },
 ): CatalogFormat => ({
   id,
@@ -92,7 +92,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
   standard('value', 'Value', 2),
   standard('freestyle', 'Freestyle', 3, {
     definition: withDraw(oneOnOneDefinition),
-    preset: strikeConfig(oneOnOneRoomConfig, 20),
+    preset: strikeSettings(oneOnOneSettings, 20),
   }),
   template({
     id: 'nsda-ld',
@@ -107,7 +107,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(4, 'ordered'),
+    preset: templateSettings(4, 'ordered'),
   }),
   template({
     id: 'ncfca-ld',
@@ -124,7 +124,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech'],
     }),
-    preset: templateConfig(3, 'ordered'),
+    preset: templateSettings(3, 'ordered'),
   }),
   template({
     id: 'stoa-ld',
@@ -141,7 +141,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(4, 'ordered'),
+    preset: templateSettings(4, 'ordered'),
   }),
   template({
     id: 'nsda-policy',
@@ -156,7 +156,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(8, 5),
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(8, 'ordered'),
+    preset: templateSettings(8, 'ordered'),
   }),
   template({
     id: 'college-policy',
@@ -173,7 +173,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(9, 6),
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(10, 'ordered'),
+    preset: templateSettings(10, 'ordered'),
   }),
   template({
     id: 'ncfca-tp',
@@ -189,7 +189,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(8, 5),
       prepBefore: ['speech'],
     }),
-    preset: templateConfig(5, 'ordered'),
+    preset: templateSettings(5, 'ordered'),
   }),
   template({
     id: 'nsda-pf',
@@ -204,7 +204,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: publicForumSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(3, 'free'),
+    preset: templateSettings(3, 'free'),
   }),
   template({
     id: 'nsda-bq',
@@ -219,7 +219,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: bigQuestionsSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateConfig(3, 'free'),
+    preset: templateSettings(3, 'free'),
   }),
   template({
     id: 'ipda',
@@ -236,7 +236,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
         prepBefore: [],
       }),
     ),
-    preset: strikeConfig(templateConfig(0, 'ordered'), 30),
+    preset: strikeSettings(templateSettings(0, 'ordered'), 30),
   }),
   template({
     id: 'team-ipda',
@@ -253,6 +253,6 @@ export const catalogFormats: readonly CatalogFormat[] = [
         prepBefore: [],
       }),
     ),
-    preset: strikeConfig(templateConfig(0, 'ordered'), 30),
+    preset: strikeSettings(templateSettings(0, 'ordered'), 30),
   }),
 ];

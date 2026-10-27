@@ -23,9 +23,9 @@ export const proofPrincipal: Principal = Object.freeze({
   ] as const),
 });
 
-import { foundationConfig } from '@daisy/db/reference-formats';
+import { foundationSettings } from '@daisy/db/reference-formats';
 
-const proofConfig = foundationConfig;
+const proofConfig = foundationSettings;
 
 const proofFormat = 'foundation';
 

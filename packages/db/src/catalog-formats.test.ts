@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatDefinitionSchema, roomConfigSchema } from '@daisy/protocol';
+import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
 import { catalogFormats } from './catalog-formats';
+import { referencePresets } from './reference-formats';
 
 setupRitewayBun();
 
@@ -9,14 +10,20 @@ import { format, prepMs, schedule } from './catalog-formats.test-support';
 describe('catalogFormats', () => {
   test('shape', () => {
     assert({
-      given: 'every catalog entry',
-      should: 'parse as a format definition and a room config',
-      actual: catalogFormats.every(
-        (entry) =>
-          formatDefinitionSchema.safeParse(entry.definition).success &&
-          roomConfigSchema.safeParse(entry.preset).success,
-      ),
-      expected: true,
+      given: 'every catalog entry and every reference preset',
+      should:
+        'parse as a format definition and as format settings, never a Room config (ISSUE-775)',
+      actual: [
+        catalogFormats.every(
+          (entry) =>
+            formatDefinitionSchema.safeParse(entry.definition).success &&
+            formatSettingsSchema.safeParse(entry.preset).success,
+        ),
+        referencePresets.every(
+          (preset) => formatSettingsSchema.safeParse(preset.config).success,
+        ),
+      ],
+      expected: [true, true],
     });
     assert({
       given: 'the catalog ids',

@@ -124,6 +124,7 @@ export function decideFormatSelection(
   return {
     ok: true,
     definition: facts.definition,
+    // A Room adopts the preset's format settings as its config (ISSUE-775).
     config: facts.preset.config,
     resolved,
     basis: ranked

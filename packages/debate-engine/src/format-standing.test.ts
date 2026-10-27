@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { formatSettingsSchema } from '@daisy/protocol';
 import type {
   FormatChange,
   FormatDefinition,
   RoomConfig,
 } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
-import { oneOnOneConfig } from './runtime.test-support';
+import { oneOnOneSettings } from './runtime.test-support';
 import { formatStanding, type StandingBasis } from './format-standing';
 import { drawRoom } from './room-pre-round.test-support';
 
@@ -17,12 +18,12 @@ const basis = (overrides: Partial<StandingBasis> = {}): StandingBasis => ({
   formatVersion: 1,
   role: 'standard',
   definition: oneOnOneFormatFixture,
-  config: oneOnOneConfig,
+  config: oneOnOneSettings,
   ...overrides,
 });
 
 const active = (
-  config: RoomConfig = oneOnOneConfig,
+  config: RoomConfig = oneOnOneSettings,
   overrides: {
     readonly formatId?: string;
     readonly formatVersion?: number;
@@ -38,9 +39,9 @@ const active = (
 
 const withTiming = (
   overrides: Record<string, number>,
-  countdownMs = oneOnOneConfig.speechTiming.countdownMs,
+  countdownMs = oneOnOneSettings.speechTiming.countdownMs,
 ): RoomConfig => ({
-  ...oneOnOneConfig,
+  ...oneOnOneSettings,
   speechTiming: { countdownMs, segmentDurationOverrides: overrides },
 });
 
@@ -66,7 +67,10 @@ const withoutSegment = (key: string): FormatDefinition => ({
 /** A private custom definition's standing against the Value basis. */
 const customStanding = (definition: FormatDefinition) =>
   formatStanding({
-    active: active(oneOnOneConfig, { formatId: 'private-format', definition }),
+    active: active(oneOnOneSettings, {
+      formatId: 'private-format',
+      definition,
+    }),
     basis: basis(),
   });
 
@@ -115,8 +119,8 @@ describe('formatStanding', () => {
           },
           {
             kind: 'in-round-prep',
-            fromMs: oneOnOneConfig.inRoundPrep.enabled
-              ? oneOnOneConfig.inRoundPrep.budgetMsPerSide
+            fromMs: oneOnOneSettings.inRoundPrep.enabled
+              ? oneOnOneSettings.inRoundPrep.budgetMsPerSide
               : null,
             toMs: 300_000,
           },
@@ -139,7 +143,7 @@ describe('formatStanding', () => {
         changes: [
           {
             kind: 'countdown',
-            fromMs: oneOnOneConfig.speechTiming.countdownMs,
+            fromMs: oneOnOneSettings.speechTiming.countdownMs,
             toMs: 0,
           },
           { kind: 'pre-round-prep', fromMs: null, toMs: 600_000 },
@@ -153,7 +157,7 @@ describe('formatStanding', () => {
       given: 'an unchanged league template',
       should: 'be Custom with no changes: only standards are Standard',
       actual: formatStanding({
-        active: active(oneOnOneConfig, { formatId: 'nsda-ld' }),
+        active: active(oneOnOneSettings, { formatId: 'nsda-ld' }),
         basis: basis({ formatId: 'nsda-ld', role: 'template' }),
       }),
       expected: {
@@ -168,7 +172,7 @@ describe('formatStanding', () => {
       should:
         'be Custom because its identity differs, without claiming a speech or seat change',
       actual: formatStanding({
-        active: active(oneOnOneConfig, {
+        active: active(oneOnOneSettings, {
           formatId: 'private-format',
           formatVersion: 1,
         }),
@@ -219,7 +223,7 @@ describe('formatStanding', () => {
     const strikeBasis = basis({
       formatId: 'freestyle',
       definition: drawn.definition,
-      config: drawn.config,
+      config: formatSettingsSchema.parse(drawn.config),
     });
     const strikeActive = (config: RoomConfig) =>
       active(config, { formatId: 'freestyle', definition: drawn.definition });

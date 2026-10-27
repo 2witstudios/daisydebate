@@ -6,6 +6,6 @@
 export { foundationDefinition } from '../src/reference-formats';
 
 /** The casual config a one-on-one room starts from; a preset's approved value. */
-export { foundationConfig as validConfig } from '../src/reference-formats';
+export { foundationSettings as validConfig } from '../src/reference-formats';
 
 export { validRules } from '../src/testing';

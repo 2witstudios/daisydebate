@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  crossExModeSchema,
-  interruptionModeSchema,
-  MAX_PRE_ROUND_PREP_MS,
-} from './format';
+import { formatSettingsFields } from './format-settings';
 import {
   freezeResolutionDraw,
   frozenResolutionDrawSchema,
@@ -11,59 +7,14 @@ import {
 } from './resolution-draw';
 
 /**
- * "Available and declined" has exactly one spelling per level (ADR 0058):
- * a `null` capability in the definition means forbidden, so the config has
- * nothing to spell; `{ enabled: false }` here means the capability exists
- * and this room declined it. `forbidden ≠ available-but-disabled`.
+ * The Room's configuration (ADR 0058): the format settings it runs, extended
+ * with what only a Room holds, a host-written resolution list. Broader than
+ * what becomes a round rule: `preRoundPrep` is Room-executed and never
+ * reaches ECS. A ranked room has no free-form config: its every value comes
+ * from the sanctioned preset's format settings (ISSUE-775).
  */
-const declinedSchema = z.strictObject({ enabled: z.literal(false) });
-
-const preRoundPrepSchema = z.discriminatedUnion('enabled', [
-  declinedSchema,
-  z.strictObject({
-    enabled: z.literal(true),
-    durationMs: z.int().positive().max(MAX_PRE_ROUND_PREP_MS),
-  }),
-]);
-
-const inRoundPrepSchema = z.discriminatedUnion('enabled', [
-  declinedSchema,
-  z.strictObject({
-    enabled: z.literal(true),
-    budgetMsPerSide: z.int().min(0),
-  }),
-]);
-
-/**
- * The Room's whole configuration surface (ADR 0058) — broader than what
- * becomes a round rule: `preRoundPrep` is Room-executed and never reaches
- * ECS. Casual rooms are user-authored; a ranked room has no
- * free-form config at all, its every value coming from the sanctioned
- * preset, which stores exactly this shape.
- */
-const roomConfigFields = {
-  preRoundPrep: preRoundPrepSchema,
-  inRoundPrep: inRoundPrepSchema,
-  speechTiming: z.strictObject({
-    countdownMs: z.int().min(0),
-    /** Partial: unspecified segments take the format's defaultDurationMs. */
-    segmentDurationOverrides: z.record(z.string(), z.int().positive()),
-  }),
-  crossExamination: z.strictObject({ crossExMode: crossExModeSchema }),
-  /** Null only when the format forbids interruptions; otherwise an explicit legal choice. */
-  interruptions: z
-    .strictObject({
-      mode: interruptionModeSchema,
-      minRemainingMs: z.int().min(0),
-    })
-    .nullable(),
-  /** Null only when the format forbids yielding; otherwise an explicit legal choice. */
-  yielding: z
-    .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
-    .nullable(),
-};
 export const roomConfigSchema = z.strictObject({
-  ...roomConfigFields,
+  ...formatSettingsFields,
   resolutionDraw: roomResolutionDrawSchema,
 });
 export type RoomConfig = z.infer<typeof roomConfigSchema>;
@@ -73,7 +24,7 @@ export type RoomConfig = z.infer<typeof roomConfigSchema>;
  * use: a host-written resolution list appears only as its length.
  */
 export const frozenRoomConfigSchema = z.strictObject({
-  ...roomConfigFields,
+  ...formatSettingsFields,
   resolutionDraw: frozenResolutionDrawSchema,
 });
 export type FrozenRoomConfig = z.infer<typeof frozenRoomConfigSchema>;
@@ -86,13 +37,13 @@ export type FrozenRoomConfig = z.infer<typeof frozenRoomConfigSchema>;
  * the definition, the config and this plan together.
  */
 export const roomExecutionPlanSchema = z.strictObject({
-  preRoundPrep: preRoundPrepSchema,
+  preRoundPrep: formatSettingsFields.preRoundPrep,
   resolutionDraw: roomResolutionDrawSchema,
 });
 export type RoomExecutionPlan = z.infer<typeof roomExecutionPlanSchema>;
 
 export const frozenRoomExecutionPlanSchema = z.strictObject({
-  preRoundPrep: preRoundPrepSchema,
+  preRoundPrep: formatSettingsFields.preRoundPrep,
   resolutionDraw: frozenResolutionDrawSchema,
 });
 export type FrozenRoomExecutionPlan = z.infer<
