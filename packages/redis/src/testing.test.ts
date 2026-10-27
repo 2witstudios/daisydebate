@@ -34,10 +34,19 @@ function recordingClient(reply: unknown = 'OK') {
 const consumeScriptForTests = [...registeredScripts()][0] ?? '';
 const MAX = 7_200_000;
 const NS = 't3-abcdefghij';
-const capOf = (sent: readonly Sent[], key: string) =>
+// The cap is the follow-up script, never the one under test, which may read
+// PTTL itself: registration order decides which script comes first.
+const capOf = (
+  sent: readonly Sent[],
+  key: string,
+  script = consumeScriptForTests,
+) =>
   sent.find(
     ({ command, args }) =>
-      command === 'EVAL' && args[0]?.includes('PTTL') && args.includes(key),
+      command === 'EVAL' &&
+      args[0] !== script &&
+      args[0]?.includes('PTTL') &&
+      args.includes(key),
   );
 
 describe('test namespaces', () => {
@@ -185,6 +194,31 @@ describe('wrapTestRedis bounds expiry (ISSUE-237)', () => {
         ceiling: cap.args[4],
       },
       expected: { keyCount: '2', keys: ['k1', 'k2'], ceiling: String(MAX) },
+    });
+  });
+
+  test('a script under test that reads PTTL is never mistaken for the cap', async () => {
+    // Negative control: whichever registered script comes first, the cap found
+    // is the follow-up script, not the one under test.
+    const reading = [...registeredScripts()].find((script) =>
+      script.includes('PTTL'),
+    );
+    const { client, sent } = recordingClient(1);
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
+
+    await redis.send('EVAL', [reading ?? '', '1', 'k1', 'argv']);
+
+    const cap = capOf(sent, 'k1', reading);
+    assert({
+      given: 'a registered script that itself reads PTTL',
+      should:
+        'find the follow-up cap at the ceiling, not the script under test',
+      actual: {
+        registered: reading !== undefined,
+        ceiling: cap?.args[3],
+        cap: cap?.args[0] === reading,
+      },
+      expected: { registered: true, ceiling: String(MAX), cap: false },
     });
   });
 
