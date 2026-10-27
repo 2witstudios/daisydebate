@@ -100,7 +100,11 @@ class CounterRaced extends Error {}
  */
 async function advanceCounter(
   tx: AdminTransaction,
-  input: { readonly id: string; readonly stored: number; readonly next: number },
+  input: {
+    readonly id: string;
+    readonly stored: number;
+    readonly next: number;
+  },
 ): Promise<void> {
   const rows = await tx
     .update(operatorCredentials)

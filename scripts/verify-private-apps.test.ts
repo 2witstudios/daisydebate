@@ -20,8 +20,7 @@ describe('the private admin app (ADR 0076)', () => {
     const adminProblems = (toml: string) =>
       findServiceAppConfigProblems(repo(toml)).filter(
         (problem) =>
-          problem.startsWith('fly.admin.toml') &&
-          problem.includes('private'),
+          problem.startsWith('fly.admin.toml') && problem.includes('private'),
       );
     assert({
       given: 'the admin config bare, with [http_service] and with [[services]]',

@@ -9,18 +9,19 @@ const postgresUrl = z
   .string()
   .regex(/^postgres(?:ql)?:\/\/[^\s]+$/, 'must be a postgres:// URL');
 
-const adminConfigSchema = z.object({
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
-  ADMIN_DATABASE_URL: postgresUrl,
-  // Keys the stored client digest of the rate limiter (never a raw IP).
-  ADMIN_ATTEMPT_KEY: z.string().min(32),
-  ADMIN_PORT: z.coerce.number().int().min(1).max(65_535).default(4800),
-  ADMIN_HOST: z.string().min(1).default('localhost'),
-  APP_VERSION: z.string().min(1).default('development'),
-  GIT_COMMIT: z.string().min(1).default('unknown'),
-})
+const adminConfigSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
+    ADMIN_DATABASE_URL: postgresUrl,
+    // Keys the stored client digest of the rate limiter (never a raw IP).
+    ADMIN_ATTEMPT_KEY: z.string().min(32),
+    ADMIN_PORT: z.coerce.number().int().min(1).max(65_535).default(4800),
+    ADMIN_HOST: z.string().min(1).default('localhost'),
+    APP_VERSION: z.string().min(1).default('development'),
+    GIT_COMMIT: z.string().min(1).default('unknown'),
+  })
   // Fail closed: Bun defaults NODE_ENV to development, which would serve Next
   // in dev mode and skip the role refusal, so only a loopback bind may run
   // outside production.

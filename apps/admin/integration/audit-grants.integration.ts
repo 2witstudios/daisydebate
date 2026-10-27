@@ -43,7 +43,9 @@ const asRuntime = (statement: ReturnType<typeof sql>) =>
       await tx.execute(statement);
       return 'ok';
     })
-    .catch((error: unknown) => (sqlState(error) === '42501' ? 'denied' : error));
+    .catch((error: unknown) =>
+      sqlState(error) === '42501' ? 'denied' : error,
+    );
 
 const sqlState = (error: unknown): unknown => {
   for (let current = error; current instanceof Error; current = current.cause)
