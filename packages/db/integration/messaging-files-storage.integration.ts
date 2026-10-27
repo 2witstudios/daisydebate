@@ -206,6 +206,23 @@ test('real private storage deletion acknowledgement alone releases durable quota
         peerHasOwnFile: true,
       },
     });
+    // ADR 0085: the peer keeps the DM, and their files in it, only while a
+    // live message of theirs remains in it.
+    const [counters] = await client.unsafe(
+      'update messaging_channels set message_sequence=message_sequence+1, change_version=change_version+1 where id=$1 returning message_sequence as sequence, change_version as version',
+      [fixture.channelId],
+    );
+    await client.unsafe(
+      "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,$4,$5,'Peer text',$6)",
+      [
+        createId(),
+        fixture.channelId,
+        fixture.otherActorId,
+        counters.sequence,
+        counters.version,
+        fixture.now,
+      ],
+    );
     await fixture.eraseSubject(fixture.actorId);
     const associations = await client.unsafe(
       'select id from messaging_files where owner_actor_id=$1',

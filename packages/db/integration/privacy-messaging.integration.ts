@@ -239,7 +239,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         given:
           'successful same-tx MSG+age adoption and configured vendor intent',
         should:
-          'scrub subject text, remove private associations, preserve other text/title/age and publish only content-free doorbells',
+          'delete the subject DM message (ADR 0085), remove private associations, preserve other text/title/age and publish only content-free doorbells',
         actual: [
           [...contents],
           ownCounts.map((rows) => rows[0]?.n),
@@ -256,7 +256,6 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         ],
         expected: [
           [
-            { id: ownMessageId, text: null, removed: true },
             {
               id: otherMessageId,
               text: 'Counterparty contribution',

@@ -37,16 +37,8 @@ const openDm = async () => {
     [channelId],
   );
   await client.unsafe(
-    "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$4,$5,1,1,'Subject text',$7),($2,$4,$6,2,2,'Survivor reply',$7)",
-    [
-      ids.theirs,
-      ids.reply,
-      ids.removed,
-      channelId,
-      subject.actorId,
-      survivor.actorId,
-      now,
-    ],
+    "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$3,$4,1,1,'Subject text',$6),($2,$3,$5,2,2,'Survivor reply',$6)",
+    [ids.theirs, ids.reply, channelId, subject.actorId, survivor.actorId, now],
   );
   await client.unsafe(
     'insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at,removed_at) values($1,$2,$3,3,3,null,$4,$4)',
@@ -219,9 +211,10 @@ test('a survivor with no message of their own keeps nothing (DEC-126)', async ()
       'update messaging_messages set reply_to_message_id=null where channel_id=$1',
       [dm.channelId],
     );
-    await dm.client.unsafe('delete from messaging_messages where id=$1', [
-      dm.ids.reply,
-    ]);
+    await dm.client.unsafe(
+      'update messaging_messages set text=null, removed_at=created_at where id=$1',
+      [dm.ids.reply],
+    );
     await dm.erase(dm.subject);
     assert({
       given: 'a survivor whose only message was already removed',

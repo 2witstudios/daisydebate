@@ -85,9 +85,11 @@ test(
       // The adjudicated repair the preflight asks for; the predecessor guard
       // only refuses UPDATE, so this deletion is the operator's decision.
       await f.sql`delete from round_transcript_freezes where round_id=${mismatched.roundId}`;
-      await scratch.migrate(() => true);
+      // Later folders are not this guard's ledger row.
+      const throughGuard = (folder: string) => folder <= migration;
+      await scratch.migrate(throughGuard);
       const installed = { ledger: await ledger(), guards: await guards() };
-      await scratch.migrate(() => true);
+      await scratch.migrate(throughGuard);
       const [freeze] =
         await f.sql`select frontier, completeness from round_transcript_freezes where round_id=${kept.roundId}`;
       assert({
