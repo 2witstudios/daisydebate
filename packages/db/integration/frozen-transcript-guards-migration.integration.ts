@@ -32,7 +32,7 @@ test(
           await f.sql`select
             (select count(*)::int from pg_proc where proname='refuse_round_transcript_freeze_update') as old,
             (select count(*)::int from pg_proc where proname in
-              ('guard_round_transcript_freeze','guard_frozen_utterance_write','guard_frozen_transcript_counter','require_transcript_write_isolation')) as new`
+              ('guard_round_transcript_freeze','guard_frozen_utterance_write','guard_frozen_transcript_counter','require_transcript_write_isolation','refuse_transcript_truncate')) as new`
         )[0] as { old: number; new: number };
       const kept = await captureSchemaStream(f);
       await insertFrozenProofLine(f.sql, kept, 0);
@@ -42,6 +42,19 @@ test(
       await f.sql`insert into round_transcripts(round_id,revision) values(${mismatched.roundId},2)`;
       await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${mismatched.roundId},1,5,'incomplete')`;
       const before = await ledger();
+      // One at a time: TRUNCATE takes ACCESS EXCLUSIVE before its trigger runs.
+      const truncations = async () => {
+        const refused: (string | null)[] = [];
+        for (const table of [
+          'utterances',
+          'round_transcripts',
+          'round_transcript_freezes',
+        ])
+          refused.push(
+            await rejectedBy(() => f.sql.unsafe(`truncate ${table} cascade`)),
+          );
+        return refused;
+      };
 
       const refusal = await scratch
         .migrate(() => true)
@@ -92,13 +105,18 @@ test(
             () =>
               f.sql`update round_transcripts set revision=4 where round_id=${kept.roundId}`,
           ),
+          truncate: await truncations(),
         },
         expected: {
-          installed: { ledger: before + 1, guards: { old: 0, new: 4 } },
+          installed: { ledger: before + 1, guards: { old: 0, new: 5 } },
           rerunLedger: before + 1,
           freeze: { frontier: 3, completeness: 'complete' },
           frozenWrite: 'utterances_frozen_transcript_check',
           frozenCounter: 'round_transcripts_frozen_check',
+          truncate: Array.from(
+            { length: 3 },
+            () => 'transcript_truncate_check',
+          ),
         },
       });
     });

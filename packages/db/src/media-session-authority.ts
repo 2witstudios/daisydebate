@@ -31,8 +31,9 @@ export async function lockMediaRound(
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)
     .where(eq(rounds.id, roundId));
+  // A human gets the unseated refusal for a missing Round: no existence oracle.
   const missing = () =>
-    createAppError(actorId === undefined ? 'NOT_FOUND' : 'AUTHORIZATION');
+    actorId === undefined ? createAppError('NOT_FOUND') : unseatedRefusal();
   if (!initial) throw missing();
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
@@ -62,9 +63,12 @@ export async function lockMediaRound(
           (seat) =>
             seat.actorId === actorId && seat.kind === 'human' && seat.eligible,
         );
-  if (actorId !== undefined && !caller) throw createAppError('AUTHORIZATION');
+  if (actorId !== undefined && !caller) throw unseatedRefusal();
   return { participants, caller };
 }
+
+/** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
+export const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 export const mediaWindowClosed = (
   status: string,

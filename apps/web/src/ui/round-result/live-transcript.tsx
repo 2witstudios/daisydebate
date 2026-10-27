@@ -9,14 +9,11 @@ import {
 } from '../../features/round-runtime/transcript-sync';
 import { useResourceSync } from '../resource-sync/use-resource-sync';
 import { liveTranscriptSections, transcriptState } from './result-view';
-import { TranscriptContent } from './transcript-content';
+import {
+  TranscriptContent,
+  transcriptStatusLabels as labels,
+} from './transcript-content';
 
-const labels = {
-  capturing: 'Capturing',
-  partial: 'Partial',
-  complete: 'Complete',
-  pending: 'Waiting for transcript',
-} as const;
 /** Authorized data only: this component has no reader identity or seat assumption. */
 export function LiveTranscript({
   seed,

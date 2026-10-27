@@ -2,7 +2,8 @@ import { sideTextClass } from '../ballot/ballot-class';
 import { cn } from '../cn';
 import type { TranscriptSection } from './result-view';
 
-const labels = {
+/** One wording for a transcript's capture state, live and completed. */
+export const transcriptStatusLabels = {
   capturing: 'Capturing',
   partial: 'Partial',
   complete: 'Complete',
@@ -32,7 +33,9 @@ export function TranscriptContent({
             {section.heading}
           </h3>
           {section.status ? (
-            <p className="text-xs text-ink-muted">{labels[section.status]}</p>
+            <p className="text-xs text-ink-muted">
+              {transcriptStatusLabels[section.status]}
+            </p>
           ) : null}
           <ol className="flex flex-col gap-1">
             {section.lines.map((line) => (

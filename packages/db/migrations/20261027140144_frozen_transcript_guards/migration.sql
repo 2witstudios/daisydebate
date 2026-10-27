@@ -108,3 +108,22 @@ $$;
 CREATE TRIGGER round_transcripts_frozen_check
 BEFORE INSERT OR UPDATE OR DELETE ON round_transcripts
 FOR EACH ROW EXECUTE FUNCTION guard_frozen_transcript_counter();
+--> statement-breakpoint
+CREATE FUNCTION refuse_transcript_truncate() RETURNS trigger LANGUAGE plpgsql VOLATILE AS $$
+BEGIN
+  RAISE EXCEPTION 'Transcript evidence is removed row by row, never truncated'
+    USING ERRCODE = '23514', CONSTRAINT = 'transcript_truncate_check';
+END;
+$$;
+--> statement-breakpoint
+CREATE TRIGGER utterances_truncate_check
+BEFORE TRUNCATE ON utterances
+FOR EACH STATEMENT EXECUTE FUNCTION refuse_transcript_truncate();
+--> statement-breakpoint
+CREATE TRIGGER round_transcripts_truncate_check
+BEFORE TRUNCATE ON round_transcripts
+FOR EACH STATEMENT EXECUTE FUNCTION refuse_transcript_truncate();
+--> statement-breakpoint
+CREATE TRIGGER round_transcript_freezes_truncate_check
+BEFORE TRUNCATE ON round_transcript_freezes
+FOR EACH STATEMENT EXECUTE FUNCTION refuse_transcript_truncate();

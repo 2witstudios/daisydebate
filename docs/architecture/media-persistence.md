@@ -26,8 +26,10 @@ The participant bindings follow Round erasure and are deleted with their session
 Round participant deletion is restricted until media bindings are removed, so
 subject erasure must remove dependent media routing records first. Production
 privacy policy activation remains human-held. Transcript text remains personal,
-private to seated debaters/judges and retained for 180 days under DEC-101;
-retention deletion is tracked by ISSUE-322. This change stores no transcript text.
+private to seated debaters/judges and retained for 180 days under DEC-101:
+the scheduled retention sweep purges older utterances in bounded batches, and
+subject erasure deletes a participant's lines. Neither changes a frozen
+frontier. This change stores no transcript text.
 
 ## Historical speaking authority
 
@@ -75,6 +77,8 @@ both parents and refuses a frozen Round; owning-Round erasure may cascade the
 counter. Guarded mutations require `READ COMMITTED` and refuse other isolation
 levels explicitly, so a stale transaction snapshot cannot hide a committed
 freeze or counter change. Lawful line deletion leaves the counter unchanged.
+TRUNCATE of `utterances`, `round_transcripts` or `round_transcript_freezes` is
+refused outright: transcript evidence is removed row by row, never in bulk.
 The finalizer must lock the owning Round, close admission, establish terminal
 speaking history and classify every required stream before inserting the freeze.
 `frozen_at` uses the database clock at insertion. Storage alone does not prove

@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomParticipant } from '@daisy/protocol';
 import { castSpendsAiRound } from './ai-round-cast';
+import { executeRoomCommand } from './room-assembly';
+import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
@@ -61,6 +63,55 @@ test('castSpendsAiRound()', () => {
       ['human debaters with only an AI judge', false],
       ['human debaters and a human judge', false],
       ['a ranked Round with a bot debater', false],
+    ],
+  });
+});
+
+test('a real Launch carries the cast consequence in its freeze', () => {
+  const room = state();
+  const [host, other] = room.participants;
+  const bot = { kind: 'bot' as const, consentCommandId: null };
+  const casts = {
+    'a bot debater': { ...room, participants: [host!, { ...other!, ...bot }] },
+    'an AI judge alone': {
+      ...room,
+      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 1 } },
+      participants: [
+        host!,
+        other!,
+        {
+          ...other!,
+          ...bot,
+          id: 'p3',
+          actorId: 'judge',
+          role: 'judge' as const,
+        },
+      ],
+    },
+    'humans only': room,
+  };
+  assert({
+    given:
+      'start-round on a bot-debater cast, an AI-judge-only cast and a human-only cast',
+    should: 'freeze each, spending an AI round only for the bot debater',
+    actual: Object.entries(casts).map(([given, cast]) => {
+      const result = executeRoomCommand(
+        cast,
+        'host',
+        { commandId: 'start', expectedVersion: 4, type: 'start-round' },
+        consent,
+        edges,
+      );
+      return [
+        given,
+        result.ok && result.mutation.freeze,
+        result.ok && result.mutation.spendsAiRound,
+      ];
+    }),
+    expected: [
+      ['a bot debater', true, true],
+      ['an AI judge alone', true, false],
+      ['humans only', true, false],
     ],
   });
 });

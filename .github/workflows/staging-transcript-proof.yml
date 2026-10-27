@@ -15,6 +15,8 @@ jobs:
   proof:
     name: Real provider transcript freeze on staging
     if: github.ref == 'refs/heads/main'
+    # Its main-only deployment branch policy is ISSUE-715.
+    environment: staging
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -46,6 +48,8 @@ jobs:
         run: |
           set -o pipefail
           flyctl ssh console -a daisy-debate-staging -C "bun - $EXPECTED_SHA" < /tmp/staging-transcript-proof.js | tee /tmp/transcript-proof-metadata.jsonl
+          # Never rely on the remote exit code alone: a pass prints its phase.
+          grep -q '"phase":"passed"' /tmp/transcript-proof-metadata.jsonl
       - name: Record safe proof metadata
         if: always()
         run: |

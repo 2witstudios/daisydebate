@@ -32,7 +32,6 @@ export const botAdmissionRefusals = [
   'capacity',
 ] as const;
 /** The closed Room refusal vocabulary every Room command and creation answers with. */
-
 export const roomRefusalSchema = z.enum([
   'version-conflict',
   'host-required',

@@ -95,7 +95,7 @@ paid entitlement does not bypass the current participant gate. Likewise,
 participant admission and an own debating seat still apply. Age eligibility
 belongs to participant admission, which coaching inherits; there is no second
 coaching-specific age rule.
-AI-round allowance grants do not grant coaching. No billing writer or generic
+The AI-round quota does not grant coaching. No billing writer or generic
 flags platform exists here.
 
 Discovery filters out rounds without an entitled human debater, using canonical

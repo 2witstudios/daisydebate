@@ -115,7 +115,7 @@ const namedRefusals: Readonly<
   'Capture admission is closed': { refusal: 'capture-closed', status: 409 },
   'Capture session is closed': { refusal: 'capture-paused', status: 503 },
 };
-function namedCaptureRefusal(error: unknown, requestId: string) {
+export function namedCaptureRefusal(error: unknown, requestId: string) {
   if (
     !isAppError(error) ||
     error.code !== 'CONFLICT' ||

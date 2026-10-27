@@ -11,7 +11,7 @@ import { RoundNativeAttendance } from '../../../../../features/attendance/native
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundView } from '@daisy/protocol';
+import { idSchema, isNamedSeat, type RoundView } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
@@ -98,7 +98,11 @@ export default async function RoundRoomPage({
         read={readPersistedTranscript.bind(null, id)}
         socketUrl={result.socketUrl}
       />
-    ) : text.kind === 'unavailable' ? (
+    ) : text.kind === 'unavailable' &&
+      // Only a seat can read this transcript, so only a seat hears it failed.
+      result.round.participants.some(
+        (p) => isNamedSeat(p) && p.actorId === actorId,
+      ) ? (
       <p role="status">Transcript unavailable. Reload to try again.</p>
     ) : null;
   if (!isLiveDebater(result.round, actorId))
