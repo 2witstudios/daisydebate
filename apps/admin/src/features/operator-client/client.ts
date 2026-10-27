@@ -39,6 +39,8 @@ const definiteRefusals = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
+  // The participant's age refusal (ISSUE-664): definite, and it writes nothing.
+  INVARIANT: 422,
 } as const;
 type OperatorRefusal = keyof typeof definiteRefusals;
 

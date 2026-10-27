@@ -1,5 +1,4 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { BetaAccessCommandResult } from '@daisy/protocol';
 import { appendAudit } from '../../audit/store';
 import type { AuditEvent } from '../../audit/chain';
 import { findOperator } from '../../auth/store';
@@ -10,7 +9,7 @@ import {
   type OperatorFact,
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
-import type { OperatorCall, OperatorClient } from '../operator-client/client';
+import type { OperatorClient } from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
 import {
   intentAnchor,
@@ -58,11 +57,15 @@ async function currentFact(
   );
 }
 
-/** Authorizes a mutation now; a denial is audited and nothing is sent. */
-async function mayUpdate(
+/**
+ * Authorizes a mutation now from the operator row read now; a denial is
+ * audited, and the caller signs nothing. Returns the refusal detail, or
+ * null when allowed.
+ */
+async function updateRefusal(
   deps: CommandDeps,
   operatorId: string,
-): Promise<boolean> {
+): Promise<ReturnType<typeof deniedDetail> | null> {
   const operator = await currentFact(deps, operatorId);
   const decision = operator
     ? authorizeOperator({
@@ -71,7 +74,7 @@ async function mayUpdate(
         policy: currentApprovalPolicy,
       })
     : ({ allowed: false, reason: 'disabled' } as const);
-  if (decision.allowed) return true;
+  if (decision.allowed) return null;
   await record(
     deps,
     {
@@ -84,23 +87,29 @@ async function mayUpdate(
     },
     deps.clock.now(),
   );
-  return false;
+  return deniedDetail(decision.reason);
 }
 
-/** Audits the outcome; a settled one closes the command exactly once. */
+const mayUpdate = async (deps: CommandDeps, operatorId: string) =>
+  (await updateRefusal(deps, operatorId)) === null;
+
+/**
+ * Audits the outcome; a settled one closes the command exactly once. True
+ * when this caller recorded it, false when a racing reconciler already had.
+ */
 async function recordOutcome(
   deps: CommandDeps,
   command: PendingCommand,
   kind: 'command.outcome' | 'command.reconciled',
   audited: ReturnType<typeof auditedOutcome>,
-): Promise<void> {
+): Promise<boolean> {
   const now = deps.clock.now();
-  await deps.db.transaction(async (tx) => {
+  return deps.db.transaction(async (tx) => {
     if (
       audited.settled &&
       !(await resolvePendingCommand(tx, command.commandId, now))
     )
-      return;
+      return false;
     await appendAudit(tx, {
       id: deps.ids.next(),
       kind,
@@ -111,6 +120,7 @@ async function recordOutcome(
       detail: audited.detail,
       at: now,
     });
+    return true;
   });
 }
 
@@ -148,29 +158,70 @@ export async function submitBetaAccess(
   return commandView(call);
 }
 
-/** One open command: read it back, or resend it when it never arrived. */
+/** What reconciling one command did: whether this caller settled it. */
+type Reconciled =
+  | { readonly kind: 'settled'; readonly recorded: boolean }
+  | { readonly kind: 'open' }
+  | { readonly kind: 'unreachable' };
+
+const settledBy = (recorded: boolean): Reconciled => ({
+  kind: 'settled',
+  recorded,
+});
+
+/**
+ * A command the participant never saw: resend it under its own operator
+ * only if that operator may still update; otherwise sign nothing and close
+ * it as abandoned, which is true, since it was never applied.
+ */
+async function resendOrAbandon(
+  deps: CommandDeps,
+  command: PendingCommand,
+): Promise<Reconciled> {
+  const refused = await updateRefusal(deps, command.operatorId);
+  if (refused !== null)
+    return settledBy(
+      await recordOutcome(deps, command, 'command.reconciled', {
+        outcome: 'abandoned',
+        detail: refused,
+        settled: true,
+      }),
+    );
+  const anchor = await intentAnchor(deps.db, command.commandId);
+  if (anchor === null) return { kind: 'open' };
+  const audited = auditedOutcome(await send(deps, command, anchor));
+  const recorded = await recordOutcome(
+    deps,
+    command,
+    'command.outcome',
+    audited,
+  );
+  return audited.settled ? settledBy(recorded) : { kind: 'unreachable' };
+}
+
+/**
+ * One open command: read it back as the viewer, who was authorized now,
+ * or resend it when it never arrived. An unreadable participant is
+ * unreachable, so the caller stops the batch.
+ */
 async function reconcileOne(
   deps: CommandDeps,
   command: PendingCommand,
-): Promise<OperatorCall<BetaAccessCommandResult> | null> {
-  const read = await deps.client.readCommand(
-    command.operatorId,
-    command.commandId,
-  );
-  if (read.kind === 'ok') {
-    await recordOutcome(deps, command, 'command.reconciled', {
-      outcome: read.value.result.outcome,
-      detail: mailDetail(read.value.mailState),
-      settled: true,
-    });
-    return { kind: 'ok', value: read.value.result };
-  }
-  if (read.kind !== 'rejected' || read.code !== 'NOT_FOUND') return null;
-  const anchor = await intentAnchor(deps.db, command.commandId);
-  if (anchor === null) return null;
-  const call = await send(deps, command, anchor);
-  await recordOutcome(deps, command, 'command.outcome', auditedOutcome(call));
-  return call;
+  viewerId: string,
+): Promise<Reconciled> {
+  const read = await deps.client.readCommand(viewerId, command.commandId);
+  if (read.kind === 'ok')
+    return settledBy(
+      await recordOutcome(deps, command, 'command.reconciled', {
+        outcome: read.value.result.outcome,
+        detail: mailDetail(read.value.mailState),
+        settled: true,
+      }),
+    );
+  if (read.kind === 'unknown') return { kind: 'unreachable' };
+  return read.code === 'NOT_FOUND'
+    ? resendOrAbandon(deps, command)
+    : { kind: 'open' };
 }
 
 export const RECONCILE_BATCH = 20;
@@ -185,8 +236,10 @@ export async function reconcileOpenCommands(
     return { settled: 0, open: open.length };
   let settled = 0;
   for (const command of open) {
-    const call = await reconcileOne(deps, command);
-    if (call && auditedOutcome(call).settled) settled += 1;
+    const reconciled = await reconcileOne(deps, command, viewerId);
+    // An unreachable participant would time out every remaining call.
+    if (reconciled.kind === 'unreachable') break;
+    if (reconciled.kind === 'settled' && reconciled.recorded) settled += 1;
   }
   return { settled, open: open.length - settled };
 }

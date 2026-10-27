@@ -29,7 +29,10 @@ const countingRandom = () => {
 
 type Captured = { readonly url: string; readonly init: RequestInit };
 
-const clientWith = (answer: (captured: Captured) => Promise<Response>) => {
+const clientWith = (
+  answer: (captured: Captured) => Promise<Response>,
+  timeoutMs = 5_000,
+) => {
   const sent: Captured[] = [];
   const fetch: OperatorFetch = (url, init) => {
     sent.push({ url, init });
@@ -41,7 +44,7 @@ const clientWith = (answer: (captured: Captured) => Promise<Response>) => {
     clock: fixedClock(now),
     random: countingRandom(),
     fetch,
-    timeoutMs: 5_000,
+    timeoutMs,
   });
   return { client, sent };
 };
@@ -196,6 +199,8 @@ describe('operator response outcomes', () => {
       ['NOT_FOUND', 404],
       ['CONFLICT', 409],
       ['PAYLOAD_TOO_LARGE', 413],
+      // The age refusal (ISSUE-664): definite, nothing written.
+      ['INVARIANT', 422],
     ] as const;
     const actual = [];
     for (const [code, status] of refusals)
@@ -213,11 +218,9 @@ describe('operator response outcomes', () => {
   });
 
   test('anything that leaves the outcome open', async () => {
-    const abort = () =>
-      Promise.reject(new DOMException('timed out', 'TimeoutError'));
     assert({
       given:
-        'an infrastructure or internal error, a code at the wrong status, a malformed result, a network error or a timeout',
+        'an infrastructure or internal error, a code at the wrong status, a malformed result or a network error',
       should: 'treat the outcome as unknown',
       actual: [
         await outcomeOf(() => json(503, { error: { code: 'INFRASTRUCTURE' } })),
@@ -228,9 +231,29 @@ describe('operator response outcomes', () => {
           Promise.resolve(new Response('not json', { status: 200 })),
         ),
         await outcomeOf(() => Promise.reject(new TypeError('fetch failed'))),
-        await outcomeOf(abort),
       ],
-      expected: Array(7).fill('unknown'),
+      expected: Array(6).fill('unknown'),
+    });
+  });
+
+  test('a request outliving its timeout ends on the client signal', async () => {
+    let signal: AbortSignal | null = null;
+    // This fetch settles only when the signal the client passed aborts.
+    const { client } = clientWith(
+      ({ init }) =>
+        new Promise<Response>((_, reject) => {
+          signal = init.signal ?? null;
+          signal?.addEventListener('abort', () => reject(signal?.reason));
+        }),
+      1,
+    );
+    const outcome = await client.setBetaAccess(operatorRef, userId, command);
+    assert({
+      given: 'a participant that never answers, with a 1 ms timeout',
+      should:
+        'abort through the signal the client gave fetch and leave the outcome unknown',
+      actual: [outcome.kind, (signal as AbortSignal | null)?.aborted ?? null],
+      expected: ['unknown', true],
     });
   });
 
