@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { privacyDocument } from '../../../features/legal/documents';
+import { privacyDocument } from '../../../features/legal/privacy';
 import { LegalPage } from '../../../ui/legal/legal-page/legal-page';
 
 export const metadata: Metadata = { title: 'Privacy policy' };

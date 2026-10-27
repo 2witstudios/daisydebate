@@ -4,12 +4,12 @@ import { PRIVACY_VERSION, TERMS_VERSION } from './versions';
 setupRitewayBun();
 
 describe('legal versions', () => {
-  test('start at draft-0', () => {
+  test('the counsel drafts are draft-1 (WAIT-6.1)', () => {
     assert({
       given: 'the current terms and privacy versions',
-      should: 'both be draft-0',
+      should: 'both be draft-1 until counsel approves a published version',
       actual: [TERMS_VERSION, PRIVACY_VERSION],
-      expected: ['draft-0', 'draft-0'],
+      expected: ['draft-1', 'draft-1'],
     });
   });
 });

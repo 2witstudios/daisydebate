@@ -1,10 +1,8 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  privacyDocument,
-  termsDocument,
-} from '../../../features/legal/documents';
+import { privacyDocument } from '../../../features/legal/privacy';
+import { termsDocument } from '../../../features/legal/terms';
 import { LegalPage } from './legal-page';
 
 setupRitewayBun();
