@@ -73,7 +73,7 @@ export function CountedTextarea({
       <p className="flex flex-wrap justify-between gap-2 text-xs text-ink-muted">
         <span
           id={`${id}-over`}
-          role="status"
+          aria-live="polite"
           className="font-semibold text-ink"
         >
           {text.over}

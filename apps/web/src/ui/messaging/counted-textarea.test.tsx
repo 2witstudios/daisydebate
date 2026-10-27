@@ -59,15 +59,17 @@ test('a counted field never truncates and describes itself by its count', () => 
   );
   assert({
     given: 'a kept draft already over the limit',
-    should: 'keep every character, mark it invalid and announce the overage',
+    should:
+      'keep every character, mark it invalid and announce the overage politely without a second status region',
     actual: [
       kept.includes('>abcd</textarea>'),
       kept.includes('aria-invalid="true"'),
       kept.includes('aria-describedby="notice text-count text-over"'),
-      /role="status"[^>]*>1 character over the limit\. Shorten it to send\.</.test(
+      kept.includes('role='),
+      /aria-live="polite"[^>]*>1 character over the limit\. Shorten it to send\.</.test(
         kept,
       ),
     ],
-    expected: [true, true, true, true],
+    expected: [true, true, true, false, true],
   });
 });
