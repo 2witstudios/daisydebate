@@ -1,14 +1,20 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { handleOperation } from './http';
-import { createRecordingLogger } from './test-loggers.test-support';
+import { createLogger } from '@daisy/logger';
 
 setupRitewayBun();
 
-const { recorded, logger } = createRecordingLogger();
-
 const failWith = async (error: unknown) => {
-  recorded.length = 0;
+  const lines: string[] = [];
+  const logger = createLogger({
+    service: 'http-failure-proof',
+    destination: {
+      write: (line) => {
+        lines.push(line);
+      },
+    },
+  });
   const response = await handleOperation(
     logger,
     new Request('http://localhost/api/foundation/proof'),
@@ -18,11 +24,11 @@ const failWith = async (error: unknown) => {
   return {
     status: response.status,
     body: await response.text(),
-    cause: (recorded.at(-1)?.fields as { cause?: unknown }).cause,
+    cause: (JSON.parse(lines.at(-1) ?? '{}') as { cause?: unknown }).cause,
   };
 };
 
-test('a transaction recovery failure logs its recovery state and inner code (ISSUE-618)', async () => {
+test('a transaction recovery failure logs its recovery state and inner code (ISSUE-618, ISSUE-630)', async () => {
   const failed = await failWith(
     createAppError(
       'INFRASTRUCTURE',
