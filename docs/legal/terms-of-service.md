@@ -24,7 +24,7 @@ One person holds one account. You sign in with an emailed link or a passkey, and
 
 Daisy is in a closed beta. When you finish sign-up you join the waiting list, and you can use the full service only once we approve your access. Joining the list does not guarantee that you will be approved, or when.
 
-We may withdraw beta access at any time, for example to manage capacity or because of a breach of these terms. While your access is pending or withdrawn you can still use your settings and reduce your own footprint: leave a room, remove a friend, cancel your own requests and forfeit a round.
+We may withdraw beta access at any time, for example to manage capacity or because of a breach of these terms. While your access is pending or withdrawn you can still use your settings, leave a room and forfeit a round.
 
 Beta features can change, break or be removed without notice, and data may be reset where we tell you so in advance. [COUNSEL: confirm the beta disclaimer and any data-reset notice wording.]
 
@@ -52,11 +52,11 @@ You are responsible for what you post and confirm you have the right to post it.
 
 ## Results and records
 
-Your profile shows your public debates and your record to anyone. We may correct a result when a round was disrupted by a technical fault or a breach of these terms, and we keep a record of the correction.
+Your profile shows your public debates and your record to anyone. We may correct a result when a round was disrupted by a technical fault or a breach of these terms.
 
 ## Leaving, and being removed
 
-You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your past results stay in records as an anonymous entry so other people’s results remain accurate. [OWNER: replace with the Settings control once self-service deletion ships.]
+You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your past results stay in records as an anonymous entry so other people’s results remain accurate.
 
 We may suspend or close an account that breaks these terms or puts others at risk. Unless the law or safety prevents it, we tell you why, and you can answer.
 
@@ -68,7 +68,7 @@ Daisy is a beta service provided as it is and as available. We work to keep roun
 
 ## Changes to these terms
 
-When a change is material we show the new version and ask you to accept it before you continue. The version at the top of this page changes with it. [OWNER: re-acceptance on a new version is not built yet; ship it before the first material change.]
+When a change is material we show the new version and ask you to accept it before you continue. The version at the top of this page changes with it.
 
 ## Contact
 
