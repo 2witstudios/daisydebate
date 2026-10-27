@@ -10,7 +10,6 @@ const ports = (): Ports => ({
   evaluate: async () => null,
   finalize: async () => {},
   rateUnrated: async () => {},
-  maintainRooms: async () => {},
   timers: { setInterval: () => 1, clearInterval: () => {} },
   failed: (error) => {
     throw error;
@@ -42,9 +41,6 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     rateUnrated: async () => {
       calls.push('rating-recovery');
     },
-    maintainRooms: async () => {
-      calls.push('room-expiry');
-    },
     timers: {
       setInterval: (_pulse: () => void, ms: number) => {
         interval = ms;
@@ -62,7 +58,7 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     given:
       'all-cast active discovery and independent committed-unrated follow-up',
     should:
-      'schedule500ms and drive actual tick/evaluate/freeze ports plus rating recovery and idle Room expiry',
+      'schedule500ms and drive actual tick/evaluate/freeze ports plus rating recovery',
     actual: { interval, calls: calls.sort() },
     expected: {
       interval: 500,
@@ -74,7 +70,6 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
         'evaluate:missing-session',
         'finalize:missing-session',
         'rating-recovery',
-        'room-expiry',
       ].sort(),
     },
   });

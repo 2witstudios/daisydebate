@@ -4,7 +4,6 @@ import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
-  maintainRoom,
   freezeJudgingPlan,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -77,8 +76,6 @@ export function createRoundMaintenanceOperations(input: {
     | 'readUnratedAttendanceForfeits'
     | 'rateRound'
     | 'completeUnjudgedRound'
-    | 'readMaintenanceCandidates'
-    | 'maintainRoom'
   >;
   readonly instanceId: string;
   readonly ids: IdGenerator;
@@ -93,8 +90,6 @@ export function createRoundMaintenanceOperations(input: {
    * maintenance never freezes, judges or completes it (ISSUE-530, DEC-231).
    */
   readonly probeRoundId: string | null;
-  /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
-  readonly idleTimeoutMs: number | null;
 }) {
   const planJudging = judgingPlan(
     input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
@@ -167,35 +162,6 @@ export function createRoundMaintenanceOperations(input: {
           throw error;
       }
       return result;
-    },
-    /**
-     * Settles due draw strikes and closes open Rooms idle past the policy
-     * timeout, a page per pulse. Settlement runs even with expiry unset. A
-     * Room that fails is reported after the page, so it never holds back
-     * the Rooms after it.
-     */
-    async maintainRooms() {
-      const idleTimeoutMs = input.idleTimeoutMs;
-      const roomIds = await input.store.readMaintenanceCandidates({
-        idleTimeoutMs,
-        limit: 64,
-      });
-      const failures: unknown[] = [];
-      for (const roomId of roomIds)
-        await input.store
-          .maintainRoom({
-            roomId,
-            maintain: (state, facts) =>
-              maintainRoom(state, {
-                lastCommandAt: facts.lastCommandAt,
-                now: facts.now,
-                idleTimeoutMs,
-                drawSeed: facts.drawSeed,
-              }),
-          })
-          .catch((error: unknown) => failures.push(error));
-      if (failures.length)
-        throw new AggregateError(failures, 'Room maintenance failed');
     },
     async rateUnrated() {
       const page = await ratings({
