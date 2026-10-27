@@ -5,7 +5,7 @@
  * Host, `127.0.0.1` and `[::1]` included, is answered 421 before anything
  * runs, which also defeats DNS rebinding.
  */
-export const ADMIN_HOST = 'localhost:4800';
+const ADMIN_HOST = 'localhost:4800';
 export const ADMIN_ORIGIN = `http://${ADMIN_HOST}`;
 export const ADMIN_RP_ID = 'localhost';
 export const MISDIRECTED_STATUS = 421;

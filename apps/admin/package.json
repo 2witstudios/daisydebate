@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@daisy/clock": "workspace:*",
-    "@daisy/errors": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@simplewebauthn/server": "13.3.2",

@@ -238,3 +238,39 @@ test('authorization consumes protocol while adapters stay outside its boundary',
     ],
   });
 });
+
+describe('admin workspace edges (ADR 0076)', () => {
+  test('the admin app may never depend on the participant adapters', () => {
+    assert({
+      given: 'apps/admin declaring @daisy/db, @daisy/redis or @daisy/web',
+      should: 'forbid each one',
+      actual: ['@daisy/db', '@daisy/redis', '@daisy/web'].map((dependency) =>
+        forbiddenDependencyIssue(
+          'apps/admin',
+          '@daisy/admin',
+          dependency,
+          allowedWorkspaceDependencies,
+        ),
+      ),
+      expected: [
+        'apps/admin: forbidden dependency @daisy/db',
+        'apps/admin: forbidden dependency @daisy/redis',
+        'apps/admin: forbidden dependency @daisy/web',
+      ],
+    });
+  });
+
+  test('the admin app may depend on its declared edges', () => {
+    assert({
+      given: 'apps/admin declaring @daisy/protocol',
+      should: 'report no issue',
+      actual: forbiddenDependencyIssue(
+        'apps/admin',
+        '@daisy/admin',
+        '@daisy/protocol',
+        allowedWorkspaceDependencies,
+      ),
+      expected: null,
+    });
+  });
+});

@@ -5,7 +5,7 @@ import { sha3 } from './secrets';
  * most 10 failures per fixed 10-minute window. The client is stored only as
  * SHA3-256 of its address under ADMIN_ATTEMPT_KEY, never raw.
  */
-export const ATTEMPT_WINDOW_MS = 10 * 60_000;
+const ATTEMPT_WINDOW_MS = 10 * 60_000;
 export const ATTEMPT_LIMIT = 10;
 export type AttemptPurpose = 'enroll' | 'sign-in';
 

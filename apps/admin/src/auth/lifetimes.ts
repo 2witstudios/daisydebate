@@ -3,7 +3,7 @@
  * (ADR 0076). The database enforces single use; these rules decide expiry.
  */
 const minute = 60_000;
-export const ENROLLMENT_TTL_MS = 15 * minute;
+const ENROLLMENT_TTL_MS = 15 * minute;
 export const CHALLENGE_TTL_MS = 2 * minute;
 export const SESSION_ABSOLUTE_MS = 12 * 60 * minute;
 export const SESSION_IDLE_MS = 30 * minute;

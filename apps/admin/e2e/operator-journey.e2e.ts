@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -6,10 +7,11 @@ import { expect, test } from '@playwright/test';
  * virtual authenticator with user verification creates the passkey, the
  * same passkey signs in, and the audit page shows the chain it wrote.
  */
+const enrollCli = new URL('../src/scripts/operator-enroll.ts', import.meta.url);
 const enrollmentUrl = (): string => {
   const output = execFileSync(
     'bun',
-    ['src/scripts/operator-enroll.ts', '--name', 'owner'],
+    [fileURLToPath(enrollCli), '--name', 'owner'],
     { encoding: 'utf8', env: { ...process.env, ...serverEnv() } },
   );
   const url = output.split('\n').find((line) => line.startsWith('http://'));

@@ -55,11 +55,7 @@ export function classifyTestFile(relativePath: string): TestTier {
   if (relativePath === 'eslint.config.test.ts') return 'root-config';
   if (/^(apps|packages)\/[^/]+\/integration\//.test(relativePath))
     return 'integration';
-  if (
-    relativePath.startsWith('apps/web/e2e/') &&
-    relativePath.endsWith('.e2e.ts')
-  )
-    return 'e2e';
+  if (/^apps\/(web|admin)\/e2e\/.+\.e2e\.ts$/.test(relativePath)) return 'e2e';
   // `bun test src` globs only *.test.ts(x). An .integration or .e2e suffix
   // under src/, and any .integration.tsx or .e2e.tsx (Playwright's testMatch
   // is **/*.e2e.ts), is executed by no runner and falls through to orphan,
@@ -78,7 +74,7 @@ export function classifyTestFile(relativePath: string): TestTier {
 
 /** The ORPHAN_SUITE message: the file and the locations the gate claims. */
 export function orphanSuiteDetail(file: string): string {
-  return `${file} is not claimed by any runner; move it under a claimed location (apps/*/src/, packages/*/src/, apps/*/scripts/, packages/*/scripts/, apps/*/integration/, packages/*/integration/, the root scripts/, apps/web/e2e/)`;
+  return `${file} is not claimed by any runner; move it under a claimed location (apps/*/src/, packages/*/src/, apps/*/scripts/, packages/*/scripts/, apps/*/integration/, packages/*/integration/, the root scripts/, apps/web/e2e/, apps/admin/e2e/)`;
 }
 
 export const TEST_SERVICES_GUARD = {
@@ -276,10 +272,35 @@ const workspaceClaimProblems = async (
   return problems;
 };
 
+/**
+ * ADR 0076: the admin journey runs from apps/admin's own Playwright config,
+ * which e2e.yml must invoke, or the suite would silently stop running.
+ */
+export const adminE2EClaimProblems = (
+  suites: number,
+  scripts: Readonly<Record<string, string>>,
+  workflow: string,
+): readonly EvidenceProblem[] =>
+  suites === 0
+    ? []
+    : [
+        ...(scripts['test:e2e']?.includes('@playwright/test/cli.js')
+          ? []
+          : [
+              'apps/admin e2e suites exist but its "test:e2e" no longer drives Playwright',
+            ]),
+        ...(workflow.includes('--cwd apps/admin test:e2e')
+          ? []
+          : [
+              'no workflow invokes apps/admin test:e2e; the admin browser journey would silently stop running in CI',
+            ]),
+      ].map((detail) => ({ code: 'UNRUN_SUITE' as const, detail }));
+
 const e2eClaimProblems = async (
   e2eCount: number,
+  adminE2E: number,
 ): Promise<readonly EvidenceProblem[]> => {
-  if (e2eCount === 0) return [];
+  if (e2eCount === 0 && adminE2E === 0) return [];
   const problems: EvidenceProblem[] = [];
   const webScripts = await readScripts(join(root, 'apps/web/package.json'));
   if (!webScripts['test:e2e']?.includes('@playwright/test/cli.js'))
@@ -304,6 +325,13 @@ const e2eClaimProblems = async (
     webScripts,
     workflow: e2eWorkflow ?? '',
   };
+  problems.push(
+    ...adminE2EClaimProblems(
+      adminE2E,
+      await readScripts(join(root, 'apps/admin/package.json')),
+      e2eWorkflow ?? '',
+    ),
+  );
   problems.push(...(await loadRoomLaunchClaimProblems(proofInputs)));
   problems.push(...(await loadRealtimeClaimProblems(proofInputs)));
   return problems;
@@ -414,7 +442,12 @@ export async function collectEvidence(): Promise<EvidenceReport> {
     ...orphanProblems,
     ...rootClaimProblems(await readScripts(join(root, 'package.json'))),
     ...(await workspaceClaimProblems(byWorkspace)),
-    ...(await e2eClaimProblems(tiers.e2e)),
+    ...(await e2eClaimProblems(
+      tiers.e2e,
+      classified.filter(
+        ({ file, tier }) => tier === 'e2e' && file.startsWith('apps/admin/'),
+      ).length,
+    )),
     ...ciGateProblems(
       await readTextIfExists(join(root, '.github/workflows/ci.yml')),
     ),

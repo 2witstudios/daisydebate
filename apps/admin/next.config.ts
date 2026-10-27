@@ -7,7 +7,7 @@ const config: NextConfig = {
   poweredByHeader: false,
   agentRules: false,
   serverExternalPackages: ['drizzle-orm', '@simplewebauthn/server'],
-  transpilePackages: ['@daisy/protocol', '@daisy/errors'],
+  transpilePackages: ['@daisy/protocol'],
   experimental: { serverActions: { bodySizeLimit: '16kb' } },
   async headers() {
     return [

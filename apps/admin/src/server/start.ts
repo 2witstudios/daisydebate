@@ -11,7 +11,7 @@ import { adminRuntime } from './runtime';
  * renders only what the gate admits. Production binds `[::]:8080`, which
  * `fly proxy 4800:8080` reaches over 6PN; there is no public service.
  */
-export const SHUTDOWN_DEADLINE_MS = 10_000;
+const SHUTDOWN_DEADLINE_MS = 10_000;
 
 const { config, database, logger } = adminRuntime();
 const refusal = roleRefusal(config.NODE_ENV, await schemaPowers(database.db));

@@ -14,7 +14,6 @@ import {
  * consumed by one conditional UPDATE … RETURNING, so of two racing callers
  * exactly one sees the row; times are injected, never `now()`.
  */
-export type OperatorRow = typeof operators.$inferSelect;
 type ChallengePurpose = 'register' | 'authenticate';
 const date = (iso: string) => new Date(iso);
 

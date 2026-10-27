@@ -14,7 +14,7 @@ export const GENESIS_HASH = sha3('daisy-admin-audit-v1');
 export type AuditKind = (typeof auditKinds)[number];
 
 /** Closed detail vocabulary: never free text, never a credential. */
-export const auditDetails = [
+const auditDetails = [
   'initial',
   'additional',
   'replace',
@@ -72,7 +72,7 @@ export const canonicalAuditJson = (row: Omit<AuditRow, 'hash'>): string =>
     targetUserId: row.targetUserId,
   });
 
-export const auditHash = (row: Omit<AuditRow, 'hash'>): string =>
+const auditHash = (row: Omit<AuditRow, 'hash'>): string =>
   sha3(`${row.prevHash}${canonicalAuditJson(row)}`);
 
 /** The row that follows `head` (the current chain head) for `event`. */
