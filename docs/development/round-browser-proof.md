@@ -67,4 +67,5 @@ never proves that another participant heard audio or that capture is complete.
 
 The carrier is a branch transition until its secure device, media, outage,
 restart and multi-browser proofs pass with actual production dependencies.
-Independent exact-candidate review and full composed acceptance remain required.
+Its slice PR merges only once those proofs pass in CI and its review threads are
+resolved.

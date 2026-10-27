@@ -18,7 +18,7 @@ describe('ROOM-6.1b browser CI cleanup admission', () => {
   const slot = deriveSlot({ checkout, mainCheckout: checkout });
 
   for (const command of [
-    'bun run --cwd apps/web test:e2e',
+    'bun run --cwd apps/web test:e2e $DAISY_E2E_PROJECT_ARGS',
     'bun test:e2e:qualify',
   ]) {
     test(`${command} supplies canonical checkout metadata`, async () => {

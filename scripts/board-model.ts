@@ -226,7 +226,7 @@ const pageCommands: Readonly<
       : undefined,
 };
 
-/** Done is granted from an independent review record, never by the agent. */
+/** Done comes from the merge automation, never from the agent (ADR 0083). */
 const DONE = 'completed';
 
 export function parseBoardArgs(
@@ -236,7 +236,7 @@ export function parseBoardArgs(
   const [command = '', first = '', ...rest] = argv;
   if (autonomous && command === 'status' && rest[0] === DONE)
     return fail(
-      "A registered agent (a builder or reviewer started by pu, or any DAISY_AUTONOMOUS session) never marks a task Done: Done is granted from an independent review record, by the owner or the owner's own orchestrator session, which has a PU_AGENT_ID but no registration.",
+      "A registered agent (a builder or reviewer started by pu, or any DAISY_AUTONOMOUS session) never marks a task Done: Done comes from the merge automation when the merged PR's latest review verdict approves, or from the owner or the owner's own orchestrator session, which has a PU_AGENT_ID but no registration.",
     );
   if (command === 'create') return parseCreate(argv.slice(1));
   if (command === 'replace') return parseReplace(argv.slice(1));

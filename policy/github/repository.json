@@ -1,7 +1,6 @@
 {
   "repository": "2witstudios/daisydebate",
   "owner": "2witstudios",
-  "reviewEnforcementCutoff": null,
   "settings": {
     "allow_auto_merge": true,
     "delete_branch_on_merge": true,
@@ -45,10 +44,7 @@
           "required_status_checks": [
             { "context": "CI gate", "integration_id": 15368 },
             { "context": "Playwright E2E", "integration_id": 15368 },
-            {
-              "context": "review-record",
-              "integration_id": "vars.REVIEW_RECORD_APP_ID"
-            }
+            { "context": "Isolated Room Launch E2E", "integration_id": 15368 }
           ]
         }
       }

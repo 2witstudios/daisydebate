@@ -1,70 +1,36 @@
 ---
 name: orchestrate
-description: Carry an owner-authorized outcome through PurePoint delegation, provisional integration, independent reviews and completed delivery.
+description: Run the slice process as point guard — mission-only briefs, one Claude builder per semantic slice, one plan confirmation, and the flow sweep that merges PR_READY slices.
 ---
 
 # Orchestrate
 
-Read AGENTS.md and relevant product/architecture rules. The owner's request to
-implement the outcome authorizes planning, tasking, delegation and continuation;
-planning-only requests stay planning-only. Use the repository's task workflow
-and agent pipeline, or keep the same build/acceptance/production distinction.
+Read AGENTS.md and [the slice process](../../../docs/development/agent-pipeline.md).
+The owner's request to implement an outcome authorizes slicing, spawning,
+confirmation and merging within it; planning-only requests stay planning-only.
 
-Keep the full objective and a durable delivery record. Decompose by coherent
-outcomes and actual writer conflicts, not arbitrary file counts or globally Done
-prerequisites. Pin actual producer source and integration SHAs, contract, owner
-and gaps. Unmerged implementations can supply branch build inputs; compose and
-review them before main acceptance. Unavailable proof blocks only dependent work.
+1. **Slice.** Cut the outcome into semantic slices wide enough that no builder
+   needs to know what another is doing. Merge thin lanes into one owner.
+2. **Brief.** Write a mission-only brief of about ten lines per slice: the outcome,
+   the drive intent pages and ADRs that own it, the PRs and branches it inherits,
+   and the autonomy rules. Never research on a builder's behalf. Publish briefs
+   in the drive's `Prompts` folder.
+3. **Spawn.** One Claude builder per slice: `pu spawn --agent claude --name
+<slice> "<brief>"` (Claude, because the Ralph loop runs on Claude Code's Stop
+   hook). Hand each builder its inherited PRs and branches; tell retiring sessions
+   to finish or hand over, then `pu kill` and `pu clean` them in one pass.
+4. **Confirm once.** When a builder posts its plan on the channel, confirm or
+   redirect within minutes, alongside the architecture reviewer. Answer product,
+   architecture and scope questions on the channel immediately and record each
+   with `bun decision:record`. There is no later approval relay.
+5. **Merge.** The flow sweep merges a PR when its builder has emitted `PR_READY`
+   and the required checks are green at the exact head, at most two per cycle.
+   After a batch, run a local typecheck and knip on main. Only main receives
+   merged PRs.
+6. **Retire.** When a slice merges, its builder posts `SLICE DONE` or its next plan;
+   kill finished sessions and their reviewers.
 
-Inspect native `pu status` and `pu logs`; avoid duplicate writers and respect
-concurrency. Spawn builders with `pu spawn` in separate worktrees, giving scope,
-criteria, parent ID, current dependencies and protected exclusions. Agents may
-spawn their own children and independent reviewers within that scope. Keep board
-and prompt records current as administration, not a parent permission relay.
-Use `pu send` for meaningful scope information, real blockers and writer conflicts.
-
-Run focused proofs during implementation. Record intermediate FAIL/NOT RUN with
-candidate, reason, remaining work, responsible agent and discharge stage. Do not
-churn known failing gates while their inputs remain unchanged. Require full
-applicable proof on the final composed candidate; never shrink the requested
-outcome to the subset already passing.
-
-Review stable snapshots. Shared mutable worktrees hold mutation only while the
-reviewer uses them. Branch feedback informs development and cannot grant main
-acceptance. Builders resolve findings and obtain independent delta review without
-round limits or owner relays. Main requires completed transitions, contract and
-security reconciliation, migration integrity and independent exact-head review
-under required checks. Autonomous agents never merge directly into main/default/protected release targets.
-
-Preserve production identity, secret, deployment and data sign-offs. Escalate
-changed product intent, scope cuts, real conflicts or protected actions, and
-continue unaffected work. Report final delivery to the original spawning parent;
-do not require routine acknowledgment or duplicate every task update in channels.
-Never clean/kill another session without authorization. Context exhaustion means
-record progress and continue/delegate remaining scope, not abandon the outcome.
-
-## Receiving branch authority
-
-Within owner-authorized work, owners, point guards, root/main-level agents and
-worktree agents may merge producers into their own allocated unprotected
-non-main receiving branch. Root agents use an isolated receiving checkout, never
-the parent-main checkout. Coordinate actual writers/resources; ordinary merges
-and conflict resolution are allowed, never another agent's checkout/branch,
-force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
-and live branch protection/rulesets before acting; main, default and protected
-release targets retain acceptance/human protections, other protected targets
-follow their policy, and unknown protection facts refuse integration. Before PR
-merge automation, re-read live repository/base/head and verify the candidate
-and intended delivery target: the allocated receiving branch for producer
-integration, or the repository's resolved default branch for main acceptance.
-Compare the live base with that selected target; refuse mismatches or changed
-targets.
-
-Non-main integration needs no global Done, separate producer approval, green
-whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,
-record failed/deferred checks honestly, and preserve security/tests. One
-short-lived integration branch and umbrella PR may compose children before they
-are main-ready. Integration grants neither Done nor main acceptance. Autonomous
-agents never merge directly into main/default/protected release targets; request
-main auto-merge only under the live required review-record ruleset and applicable
-checks, otherwise report ready for owner merge. Production retains human gates.
+Production identity, secrets, production deploys and production data stay with
+the owner. Never kill or clean another session's work without handing it over
+first. Context exhaustion means recording progress and continuing, not
+abandoning the outcome.

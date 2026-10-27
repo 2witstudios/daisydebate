@@ -6,7 +6,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 const hook = resolve(import.meta.dir, '../.githooks/pre-push');
 
-describe('branch push versus main acceptance', () => {
+describe('branch push versus a push to main', () => {
   test('allows provisional branch pushes and verifies the exact clean main candidate', () => {
     const cases = [
       {

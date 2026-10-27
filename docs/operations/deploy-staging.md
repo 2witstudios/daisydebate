@@ -31,7 +31,7 @@ run the Next build; both install stages also copy their manifests
 ([live Rounds](#11-live-rounds-livekit-realtime-and-the-capture-worker-issue-528)).
 
 `scripts/docker-workspaces.test.ts` discovers repository workspaces and
-follows transitive workspace dependencies. The existing CI `test` job and
+follows transitive workspace dependencies. The CI quick check and
 `bun check` run it, rejecting missing manifests in either install stage
 and missing runtime source. The required CI image job also builds the
 complete shared runtime image and imports ingress and media with production

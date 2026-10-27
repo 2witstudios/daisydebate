@@ -2,7 +2,7 @@
 
 `pu` is the orchestration tool whenever more than one agent works, or when
 work needs an isolated worktree. Direct single-agent work may proceed without
-it.
+it. The delivery process itself is [the slice process](agent-pipeline.md).
 
 ## Two modes
 
@@ -10,92 +10,73 @@ it.
   merge any PR at any time.
 - **Autonomous.** Every agent `pu` starts runs through
   `scripts/agent-launch.sh` (configured in the committed `.pu/config.yaml`).
-  The launcher exports the machine identity from the main checkout's
-  `.env.agent` and sets `DAISY_AUTONOMOUS=1`, so `gh` and `git push` act as
-  the machine user over HTTPS, never with the owner's keyring token or SSH
-  key. `bun doctor` fails if an autonomous session resolves to the owner.
-  Until the owner creates `.env.agent` (GRD-6.2), the launcher starts agents
-  as the owner with a warning and `bun doctor` warns.
+  - The launcher exports the machine identity from the main checkout's
+    `.env.agent` and sets `DAISY_AUTONOMOUS=1`.
+  - `gh` and `git push` then act as the machine user over HTTPS, never with
+    the owner's keyring token or SSH key.
+  - `bun doctor` fails if an autonomous session resolves to the owner.
+  - Until the owner creates `.env.agent` (GRD-6.2), the launcher starts
+    agents as the owner with a warning, and `bun doctor` warns.
 
 ## Spawning and messaging
 
 ```text
-pu spawn -n <name> [-b main] [-a claude|codex|opencode] "<prompt>"
-pu spawn --worktree <worktreeId> [-a claude|codex|opencode] "<prompt>"
+pu spawn --agent claude --name <slice> "<mission brief>"
+pu spawn --agent claude -w <worktreeId> "/review <PR url>"
 pu send <agent> "<text>"
+pu channel send "<text>" | pu channel read
 pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
 
-A builder gets its own worktree. A reviewer joins the worktree it reviews
-with `--worktree`. Run `bun install --frozen-lockfile` and `bun slot:up` in a
-worktree when the work needs dependencies or services
-([ADR 0034](../decisions/0034-shared-stack-slots.md)); agents decide that for
-themselves. Agents report to whoever spawned them, so the owner never relays
-status.
-
-The spawning agent owns coordination, integration and cleanup; delegated
-agents never modify another agent's worktree. Code-writing help is a `pu`
-child in its own worktree. Worktree-isolated subagents and forks are for
-read-only research and review.
+- **One builder per slice.** The point guard spawns one Claude builder for
+  each semantic slice, in its own worktree. Claude is required because the
+  Ralph loop runs on Claude Code's Stop hook.
+- **Mission-only briefs.** The brief states only:
+  - the outcome;
+  - the owning intent pages and ADRs;
+  - the PRs and branches the slice inherits;
+  - the autonomy rules.
+- **Reviewers join the builder's worktree** with `-w`. They stay read-only
+  and are killed once they have posted.
+- **Code-writing help** is a `pu` child in its own worktree.
+  Worktree-isolated subagents and forks are for read-only research and
+  review.
+- **Services.** Run `bun install --frozen-lockfile` and `bun slot:up` in a
+  worktree when the work needs dependencies or services
+  ([ADR 0034](../decisions/0034-shared-stack-slots.md)).
+- **Channel traffic.** Plans, decisions, the architecture reviewer and the
+  point guard's confirmations go through `pu channel`. Agents report to
+  whoever spawned them, so the owner never relays status.
 
 ## Pull requests and merges
 
-- Open and update PRs with `/pr` (its body declares `Builder: <agent id>`)
-  and hand off in one step with `/handoff`: push, PR, handoff page with the
-  head SHA, tasks to In Review, parent notified.
-- Independent reviews use the Reviewer contract and `/review`. The review
-  record's `Candidate:` line mints the `review-record` check through the
-  review-record GitHub App; nobody sets that status by hand.
-- Owners, point guards, root/main-level and worktree agents may merge producers
-  into their own allocated unprotected non-main receiving checkout/branch under
-  [receiving branch authority](agent-pipeline.md#receiving-branch-authority). Resolve
-  symbolic default and live protection/rulesets, validate the live PR base/head
-  before automation, and never mutate producer or parent-main checkouts. Ordinary
-  merges/conflict resolution need no global Done, separate producer approval,
-  green whole-app CI or per-step root permission. Preserve tests/security and
-  honest provisional evidence.
-- An autonomous agent never directly merges main/default/protected release
-  targets. For main it runs `gh pr merge <n> --auto --merge`
-  only once the live `main` ruleset requires `review-record`; GitHub then
-  merges once `CI gate`, `Playwright E2E` and `review-record` all pass.
-  Without that ruleset it reports "ready for owner merge" to its parent and
-  waits. The owner may merge directly at any time.
-- After a merge, the tasks the PR names move to **Merged** and wait there
-  for a review record to grant Done. After the enforcement cutoff, a merge
-  without a `review-record` status files review debt (`ISSUE-n` plus a
-  Sprint Room notice).
+- **Opening.** Builders open one PR per slice with `/pr` and hand off with
+  `/handoff`.
+- **Converging.** The builder runs the owner's Ralph loop (PageSpace
+  `p4xbp1iwavowuruqpi5fguf7`, verbatim) until it emits `PR_READY`.
+- **Merging.** Builders never merge. Only main receives merged PRs, and no
+  PR is ever merged into another branch.
+  - The point guard's flow sweep merges a PR when its builder has emitted
+    `PR_READY` and the required checks (CI gate, Playwright E2E, Isolated
+    Room Launch E2E) are green at the exact head.
+  - The sweep merges at most two PRs per cycle.
+  - After a batch, the point guard runs a local typecheck and knip on main.
+- **After a merge.** The tasks the PR names move to Done when its latest
+  review verdict approves ([reviews](reviews.md)); otherwise they move to
+  Merged.
 
 ## Acceptance criteria
 
-- Given parallel or isolated agent work, should use `pu spawn` and separate
-  worktrees, with status and logs discoverable through `pu status` and
-  `pu logs`.
-- Given a focused delegated task, should use `pu send` or `pu attach` without
-  editing another agent's worktree.
+- Given a slice, should be built by one Claude builder in its own worktree
+  and delivered as one PR, with status and logs discoverable through
+  `pu status` and `pu logs`.
+- Given an open slice PR, should get `/review` and `/code-review` reviewers
+  spawned into the builder's worktree, which post PR comments and are then
+  killed.
+- Given a PR whose builder emitted `PR_READY` with green required checks at
+  its head, should be merged by the flow sweep, while the owner may merge
+  any PR at any time.
 - Given completed or abandoned work, should use `pu kill` followed by
-  `pu clean`; the orchestrator owns coordination and acceptance decisions on
-  the PageSpace board while delegated agents keep their own status,
-  evidence, follow-up leaves and Issues entries current.
-- Given non-main integration, should allow any agent role to merge only into
-  its allocated unprotected receiving branch after default/protection/PR-base
-  checks, preserving other checkouts, dirty work and provisional evidence.
-- Given autonomous main acceptance, should request merges only with
-  `gh pr merge --auto --merge`, and only once the live `main` ruleset
-  requires `review-record`, while the owner may merge any PR at any time.
+  `pu clean`.
 - Given direct single-agent work, should be allowed to proceed without `pu`.
-
-## Autonomous continuation
-
-A builder may spawn implementation children and independent reviewers within
-its owner-authorized outcome. Native `pu spawn`, `pu send`, `pu status` and
-`pu logs` are the workflow; no wrapper or parent acknowledgment is required.
-Code-writing children use separate worktrees. Reviewers read a stable candidate
-and report to the builder that spawned them; that builder resolves findings and
-continues. Reserve source holds for reviewers actually using a mutable worktree.
-
-Report substantial milestones, final delivery, real blockers and actual writer
-conflicts to the original parent. Routine board updates and intermediate check
-failures need no owner relay. Keep a durable continuation record across context
-handoffs. [The agent pipeline](agent-pipeline.md) defines provisional dependencies,
-deferred proof and the independent exact-candidate main acceptance boundary.
