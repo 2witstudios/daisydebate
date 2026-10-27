@@ -71,6 +71,10 @@ function harness(
     readonly closeThrows?: boolean;
     /** How long each history read takes. */
     readonly readMs?: number;
+    /** The first refresh lasts until its own history deadline aborts it. */
+    readonly stallRefresh?: boolean;
+    /** Stop only once the fresh retry has been consumed by the live loop. */
+    readonly closeAfterRecovery?: boolean;
     /** Replaces the canned history answer for every read. */
     readonly read?: (request: {
       epoch: number;
@@ -114,6 +118,24 @@ function harness(
         ? closedForGood.read(request, signal)
         : (() => {
             reads++;
+            if (options.stallRefresh && reads === 2)
+              return new Promise<Awaited<ReturnType<CaptureClient['read']>>>(
+                (_resolve, reject) => {
+                  signal?.addEventListener(
+                    'abort',
+                    () =>
+                      reject(
+                        createAppError(
+                          'CONFLICT',
+                          'Media control was cancelled',
+                        ),
+                      ),
+                    { once: true },
+                  );
+                },
+              );
+            if (options.closeAfterRecovery && reads === 4)
+              return closedForGood.read(request, signal);
             const answered = options.read
               ? options.read(request)
               : { state, calibration };
@@ -313,5 +335,17 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
       seals: session.seals(),
     },
     expected: { ended: 'closed for good', seals: [8] },
+  });
+});
+
+test('a slow refresh retains the live subscription and retries fresh history', async () => {
+  const f = harness({ stallRefresh: true, closeAfterRecovery: true });
+  const ended = await f.done;
+  assert({
+    given: 'a live capture whose first refresh exceeds the history deadline',
+    should:
+      'retry within the same session and stop only at the later authoritative closure',
+    actual: { ended, reads: f.reads() },
+    expected: { ended: 'closed for good', reads: 4 },
   });
 });

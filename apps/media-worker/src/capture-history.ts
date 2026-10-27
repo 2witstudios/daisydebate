@@ -1,5 +1,6 @@
 import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
+import { isDefiniteRefusal } from '@daisy/media/worker';
 import type { createMediaWorkerClient } from '@daisy/media/worker';
 export type CaptureClient = ReturnType<typeof createMediaWorkerClient>;
 export type CaptureState = Awaited<ReturnType<CaptureClient['read']>>['state'];
@@ -81,16 +82,41 @@ export function observedWindow(input: {
     untilMs: endEvidence ? grant.endMs! : clip.lastNominalMs + 10,
   };
 }
+/** A timed-out acquisition is not an authority refusal; restart with no partial pages. */
 export async function readCaptureHistory(
-  client: CaptureClient,
+  client: Pick<CaptureClient, 'read'>,
+  epoch: number,
+  signal: AbortSignal,
+  segmentId?: string,
+  options: { readonly deadlineSignal?: () => AbortSignal } = {},
+) {
+  for (;;) {
+    signal.throwIfAborted();
+    const deadline =
+      options.deadlineSignal?.() ??
+      AbortSignal.timeout(CAPTURE_HISTORY_READ_MS);
+    try {
+      return await readSnapshot(
+        client,
+        epoch,
+        AbortSignal.any([signal, deadline]),
+        segmentId,
+      );
+    } catch (error) {
+      // Keep the live subscription/staging only for our own acquisition timeout.
+      // A caller abort or server refusal still ends capture immediately.
+      if (signal.aborted || !deadline.aborted || isDefiniteRefusal(error))
+        throw error;
+    }
+  }
+}
+
+async function readSnapshot(
+  client: Pick<CaptureClient, 'read'>,
   epoch: number,
   signal: AbortSignal,
   segmentId?: string,
 ) {
-  signal = AbortSignal.any([
-    signal,
-    AbortSignal.timeout(CAPTURE_HISTORY_READ_MS),
-  ]);
   const first = await client.read(
     { epoch, ...(segmentId ? { segmentId } : {}) },
     signal,
