@@ -28,7 +28,7 @@ describe('auth server composition', () => {
   test('exposes the validated configuration it was given', () => {
     assert({
       given: 'configuration validated from the required auth variables',
-      should: 'expose it with an empty proxy list',
+      should: 'expose it with an empty proxy list and default mail ceilings',
       actual: composeAuthServer().config,
       expected: {
         BETTER_AUTH_SECRET: authTestEnv.BETTER_AUTH_SECRET,
@@ -37,6 +37,7 @@ describe('auth server composition', () => {
         RESEND_API_KEY: authTestEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authTestEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
+        AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },
     });
   });
