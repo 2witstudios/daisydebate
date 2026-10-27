@@ -2,6 +2,7 @@ import { emailDeliveryStatusRank } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { expect } from 'bun:test';
 import { withFixture } from './constraint-helpers';
 import { createDatabase } from '../src';
 
@@ -13,6 +14,7 @@ const options = {
   before,
   limit: 50,
   signInPurpose: 'sign-in',
+  emailChangePurposes: ['email-change-approve', 'email-change-verify'],
   recipientHashOf: (email: string) => `hash:${email}`,
 };
 
@@ -128,17 +130,14 @@ test('busy provisional rows skip the batch and a cleanup failure rolls back ever
         await tx`select id from users where id=${id} for update`;
         return database.purgeExpiredProvisionalUsers(options);
       });
-      let failed = false;
-      try {
-        await database.purgeExpiredProvisionalUsers({
+      await expect(
+        database.purgeExpiredProvisionalUsers({
           ...options,
           recipientHashOf: () => {
             throw new Error('proof cleanup failure');
           },
-        });
-      } catch (error) {
-        failed = (error as Error).message === 'proof cleanup failure';
-      }
+        }),
+      ).rejects.toThrow('proof cleanup failure');
       const kept = [
         await f.count('users', 'id', id),
         await f.count('verification', 'identifier', `sign-in:${tag}`),
@@ -149,8 +148,8 @@ test('busy provisional rows skip the batch and a cleanup failure rolls back ever
           'a locked candidate followed by a failure after verification cleanup',
         should:
           'skip without waiting, roll back mail/account removal together, then succeed on retry',
-        actual: [skipped, failed, kept, deleted],
-        expected: [0, true, [1, 1], 1],
+        actual: [skipped, kept, deleted],
+        expected: [0, [1, 1], 1],
       });
     } finally {
       await database.close();

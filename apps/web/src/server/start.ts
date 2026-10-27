@@ -1,7 +1,4 @@
-import {
-  deriveRecipientSubkey,
-  recipientKey,
-} from '../features/auth/mail/recipient-key';
+import { provisionalMailCleanup } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
@@ -133,14 +130,9 @@ const retention = startRetentionSweep({
     targets: retentionTargets({
       database: app.database,
       redis: app.redis,
-      provisionalMail: {
-        signInPurpose: 'sign-in',
-        recipientHashOf: (email) =>
-          recipientKey(
-            deriveRecipientSubkey(app.auth().config.RECIPIENT_HASH_SECRET),
-            email,
-          ),
-      },
+      provisionalMail: provisionalMailCleanup(
+        () => app.auth().config.RECIPIENT_HASH_SECRET,
+      ),
     }),
     clock: app.clock,
     logger: app.logger,

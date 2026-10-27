@@ -57,6 +57,7 @@ import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
 export type { DatabaseEventSink } from './instrumented';
+export type { ProvisionalMailCleanup } from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**

@@ -60,6 +60,7 @@ describe('retention targets', () => {
       redis,
       provisionalMail: {
         signInPurpose: 'sign-in',
+        emailChangePurposes: ['email-change-approve', 'email-change-verify'],
         recipientHashOf: (email) => email,
       },
     });
@@ -160,6 +161,7 @@ describe('retention targets', () => {
         redis,
         provisionalMail: {
           signInPurpose: 'sign-in',
+          emailChangePurposes: ['email-change-approve', 'email-change-verify'],
           recipientHashOf: (email) => email,
         },
       }),

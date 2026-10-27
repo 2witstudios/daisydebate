@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createSignOutFormHandler } from './sign-out-form';
+import {
+  createRecordingLogger,
+  silentLogger,
+} from '../../../server/test-loggers.test-support';
 
 setupRitewayBun();
 
@@ -20,6 +24,7 @@ const formPost = (origin: string | null, body = '') =>
 const handlerWith = (answer: Response) => {
   const calls: Request[] = [];
   const handler = createSignOutFormHandler({
+    logger: silentLogger,
     origin: () => ORIGIN,
     signOut: async (request) => {
       calls.push(request);
@@ -88,7 +93,9 @@ describe('the sign-out form (ISSUE-691)', () => {
 
   test('a failed sign-out keeps the page instead of pretending', async () => {
     const { handler } = handlerWith(new Response(null, { status: 500 }));
+    const { recorded, logger } = createRecordingLogger();
     const throwing = createSignOutFormHandler({
+      logger,
       origin: () => ORIGIN,
       signOut: async () => {
         throw new Error('auth unavailable');
@@ -110,6 +117,19 @@ describe('the sign-out form (ISSUE-691)', () => {
       expected: [
         [303, '/beta?signOut=failed', []],
         [303, '/beta?signOut=failed', []],
+      ],
+    });
+    assert({
+      given: 'the auth sign-out throwing',
+      should:
+        'log one fixed auth.sign_out.failed event carrying no error or request detail',
+      actual: recorded,
+      expected: [
+        {
+          event: 'auth.sign_out.failed',
+          fields: { operation: 'auth.sign_out' },
+          message: 'sign out failed',
+        },
       ],
     });
   });

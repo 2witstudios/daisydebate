@@ -389,5 +389,6 @@ export const removeAccount = (account: Account) => removeAccounts([account]);
 /** The provisional-account sweep's mail cleanup for suites that run the real retention targets (ISSUE-660). */
 export const testProvisionalMail = {
   signInPurpose: 'sign-in',
+  emailChangePurposes: ['email-change-approve', 'email-change-verify'],
   recipientHashOf: (email: string) => `hash:${email}`,
 } as const;

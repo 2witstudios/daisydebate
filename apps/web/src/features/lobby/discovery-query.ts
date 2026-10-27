@@ -1,5 +1,6 @@
 import {
   competitionTypes,
+  roomListSorts,
   roomListDefaultPageSize,
   roomListQuerySchema,
   roomListStatuses,
@@ -22,7 +23,7 @@ export const lobbyModeChoices = ['any', ...competitionTypes] as const;
 export type LobbyMode = (typeof lobbyModeChoices)[number];
 
 /** The sort select: Newest, the default, then the other orders the listing keeps stable under paging. */
-export const lobbySortChoices = ['newest', 'longest-waiting'] as const;
+export const lobbySortChoices = roomListSorts;
 
 export type LobbySort = (typeof lobbySortChoices)[number];
 

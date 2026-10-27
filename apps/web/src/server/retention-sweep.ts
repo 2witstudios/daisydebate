@@ -1,5 +1,6 @@
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
+import type { ProvisionalMailCleanup } from '@daisy/db';
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -46,10 +47,7 @@ export function retentionTargets({
   redis,
   provisionalMail,
 }: {
-  readonly provisionalMail: {
-    readonly signInPurpose: string;
-    readonly recipientHashOf: (email: string) => string;
-  };
+  readonly provisionalMail: ProvisionalMailCleanup;
   readonly database: {
     readonly purgeExpiredVerifications: (batch: Batch) => Promise<number>;
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
@@ -64,10 +62,7 @@ export function retentionTargets({
     readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
     readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
     readonly purgeExpiredProvisionalUsers: (
-      batch: Batch & {
-        readonly signInPurpose: string;
-        readonly recipientHashOf: (email: string) => string;
-      },
+      batch: Batch & ProvisionalMailCleanup,
     ) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;

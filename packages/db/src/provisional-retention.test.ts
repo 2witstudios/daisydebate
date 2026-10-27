@@ -5,6 +5,7 @@ setupRitewayBun();
 const before = '2026-10-26T00:00:00.000Z';
 const options = {
   signInPurpose: 'sign-in',
+  emailChangePurposes: ['email-change-approve', 'email-change-verify'],
   recipientHashOf: (email: string) => `hash:${email}`,
 };
 
@@ -88,14 +89,14 @@ test('eligible provisional cleanup uses exact mail owners and returns committed 
   assert({
     given: 'an eligible locked provisional with an email address',
     should:
-      'clean sign-in and both email-change subjects, remove only its keyed receipts and count the deleted user',
+      'clean sign-in and both injected email-change subjects, remove only its keyed receipts and count the deleted user',
     actual: {
       deleted,
       statements: queries.length,
       selection: queries[0]?.params,
+      // The purposes arrive as parameters: the adapter holds no purpose names.
       subjects:
-        cleanup.query.includes('email-change-approve:') &&
-        cleanup.query.includes('email-change-verify:') &&
+        !cleanup.query.includes('email-change-') &&
         cleanup.query.includes("'userId'"),
       owners: cleanup.params,
       receipt: queries[3]?.params,
@@ -106,7 +107,13 @@ test('eligible provisional cleanup uses exact mail owners and returns committed 
       statements: 5,
       selection: [before, 1],
       subjects: true,
-      owners: ['sign-in:', user.email, user.id],
+      owners: [
+        'sign-in:',
+        user.email,
+        'email-change-approve:',
+        'email-change-verify:',
+        user.id,
+      ],
       receipt: [`hash:${user.email}`],
       user: [user.id],
     },

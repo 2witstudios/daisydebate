@@ -1,3 +1,4 @@
+import type { Logger } from '@daisy/logger';
 import { readBoundedBody } from '../bounded-body';
 import { returnableDestination } from '../redirect';
 
@@ -34,9 +35,11 @@ const seeOther = (location: string) =>
  * sign-out goes back to the form's page, still signed in, with a notice.
  */
 export function createSignOutFormHandler({
+  logger,
   origin,
   signOut,
 }: {
+  readonly logger: Logger;
   readonly origin: () => string;
   /** Better Auth's mounted handler. */
   readonly signOut: (request: Request) => Promise<Response>;
@@ -56,7 +59,15 @@ export function createSignOutFormHandler({
         body: '{}',
       }),
     ).catch(() => null);
-    if (!response?.ok) return seeOther(failedHref(next));
+    if (!response?.ok) {
+      // A fixed event only: never the exception, the body or the cookie.
+      logger.log(
+        'auth.sign_out.failed',
+        { operation: 'auth.sign_out' },
+        'sign out failed',
+      );
+      return seeOther(failedHref(next));
+    }
     const signedOut = seeOther('/sign-in');
     for (const cookie of response.headers.getSetCookie())
       signedOut.headers.append('set-cookie', cookie);

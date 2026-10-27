@@ -139,12 +139,10 @@ export function modalSheet({
   const observer = new window.MutationObserver(sync);
   observer.observe(document.body, { childList: true, subtree: true });
   document.addEventListener('click', remember, true);
-  document.addEventListener('auxclick', remember, true);
   window.addEventListener('hashchange', sync);
   return () => {
     observer.disconnect();
     document.removeEventListener('click', remember, true);
-    document.removeEventListener('auxclick', remember, true);
     window.removeEventListener('hashchange', sync);
     releaseInert(held);
     if (wasOpen)

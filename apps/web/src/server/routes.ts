@@ -16,10 +16,7 @@ import { createSignOutFormHandler } from '../features/auth/sessions/sign-out-for
 import { createAgeStepHandler } from '../features/account/age-step';
 import { ACCOUNT_AGE_FLOOR } from '@daisy/auth/age-floor';
 import { TERMS_VERSION } from '../features/legal/versions';
-import {
-  deriveRecipientSubkey,
-  recipientKey,
-} from '../features/auth/mail/recipient-key';
+import { provisionalMailCleanup } from '../features/auth/mail/provisional-mail';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
@@ -63,6 +60,9 @@ export function createRoutes(app: App) {
   };
   const rooms = composeRoomRoutes(app);
   const auth = createAuthRouteHandlers(confirmAuth, logger);
+  const provisionalMail = provisionalMailCleanup(
+    () => app.auth().config.RECIPIENT_HASH_SECRET,
+  );
   return {
     mediaCapture: composeMediaCaptureRoutes(app),
     roundMedia: createRoundMediaHandlers({
@@ -81,7 +81,7 @@ export function createRoutes(app: App) {
     },
     auth,
     signOut: {
-      POST: createSignOutFormHandler({ origin, signOut: auth.POST }),
+      POST: createSignOutFormHandler({ logger, origin, signOut: auth.POST }),
     },
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
@@ -134,15 +134,7 @@ export function createRoutes(app: App) {
         termsVersion: TERMS_VERSION,
         record: (input) => database.recordAgeStep(input),
         forget: (userId) =>
-          database.deleteProvisionalUser({
-            userId,
-            signInPurpose: 'sign-in',
-            recipientHashOf: (email) =>
-              recipientKey(
-                deriveRecipientSubkey(app.auth().config.RECIPIENT_HASH_SECRET),
-                email,
-              ),
-          }),
+          database.deleteProvisionalUser({ userId, ...provisionalMail }),
       }),
     },
     onboarding: {
