@@ -11,6 +11,7 @@ for (const status of [303, 400, 429]) {
     let listeningAtClick = false;
     const response = Promise.withResolvers<Response>();
     const body = Promise.withResolvers<null>();
+    const bodyRequested = Promise.withResolvers<void>();
     const clicked = Promise.withResolvers<void>();
     const stopped = new Error('stop after observing session cleanup');
     const reply = (method: string, path: string) =>
@@ -18,7 +19,10 @@ for (const status of [303, 400, 429]) {
         request: () => ({ method: () => method }),
         url: () => `https://unit.example${path}`,
         status: () => status,
-        finished: () => body.promise,
+        finished: () => {
+          bodyRequested.resolve();
+          return body.promise;
+        },
       }) as unknown as Response;
     const responseMatches: boolean[] = [];
     const page = {
@@ -70,8 +74,7 @@ for (const status of [303, 400, 429]) {
     await Promise.resolve();
     const clearedBeforeResponse = cleared;
     response.resolve(reply('POST', '/auth/confirm'));
-    await Promise.resolve();
-    await Promise.resolve();
+    await bodyRequested.promise;
     const clearedBeforeBody = cleared;
     body.resolve(null);
     await finished;
