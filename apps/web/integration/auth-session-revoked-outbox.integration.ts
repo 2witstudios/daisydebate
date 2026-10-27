@@ -53,23 +53,43 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
  * session. The `session.revoked` control is appended by the database's own
  * delete trigger in the deleting transaction, so a forced outbox failure
  * rolls the revocation back on every route, Better Auth's own sign-out and
- * `/revoke-session` included, and the caller sees the outage instead of a
- * revocation that never reaches realtime.
+ * `/revoke-session` included: the session survives with no control, and a
+ * retry deletes it with exactly one. The revoke routes also surface the
+ * outage; Better Auth 1.7.5's `/sign-out` instead logs the failed delete,
+ * clears the cookie and answers 200 (ISSUE-719).
  */
 const routes: readonly {
   readonly path: string;
   /** Which signed-in sessions the route deletes. */
   readonly deletes: readonly ('first' | 'second')[];
   readonly body: (secondToken: string) => string;
+  /** Whether the caller sees the outage rather than a success. */
+  readonly refusesOnFailure: boolean;
 }[] = [
-  { path: '/revoke-other-sessions', deletes: ['second'], body: () => '{}' },
-  { path: '/revoke-sessions', deletes: ['first', 'second'], body: () => '{}' },
+  {
+    path: '/revoke-other-sessions',
+    deletes: ['second'],
+    body: () => '{}',
+    refusesOnFailure: true,
+  },
+  {
+    path: '/revoke-sessions',
+    deletes: ['first', 'second'],
+    body: () => '{}',
+    refusesOnFailure: true,
+  },
   {
     path: '/revoke-session',
     deletes: ['second'],
     body: (secondToken) => JSON.stringify({ token: secondToken }),
+    refusesOnFailure: true,
   },
-  { path: '/sign-out', deletes: ['first'], body: () => '{}' },
+  {
+    path: '/sign-out',
+    deletes: ['first'],
+    body: () => '{}',
+    refusesOnFailure: false,
+  },
 ];
 
 const postRoute = (
@@ -152,7 +172,7 @@ for (const route of routes) {
       assert({
         given: `a real ${route.path} call while its outbox insert is forced to fail, then the same call again`,
         should:
-          'refuse and keep the session the first time, then delete it with exactly one control naming the actor and that session',
+          'keep the session with no control the first time, then delete it with exactly one control naming the actor and that session',
         actual: {
           // Refused either as a thrown INFRASTRUCTURE or as a 5xx answer.
           refused:
@@ -173,18 +193,12 @@ for (const route of routes) {
             .sort((a: string[], b: string[]) => a[1]!.localeCompare(b[1]!)),
         },
         expected: {
-          refused: true,
+          refused: route.refusesOnFailure,
           keptWhileBlocked: targets.map(() => true),
           status: 200,
           remaining: 0,
           controls: targetIds.map((id) => [actorId, id]),
         },
-      });
-      assert({
-        given: `a forced outbox failure under a real ${route.path} call`,
-        should: 'never answer success',
-        actual: blockedStatus !== 200,
-        expected: true,
       });
     } finally {
       await database.close();
