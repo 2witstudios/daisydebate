@@ -315,9 +315,9 @@ export function createSubscriptionDelivery({
         (connection) => deliverTo(connection, row),
       );
     },
-    /** Whether any local subscription is owed rows of `topic`. */
-    observed: (topic: string) =>
-      [...connections].some((connection) => connection.topics.has(topic)),
+    /** Topics some local subscription is owed rows of, read once per batch. */
+    observedTopics: () =>
+      new Set([...connections].flatMap(({ topics }) => [...topics.keys()])),
     async revalidate(
       validate: (principal: SocketPrincipal) => Promise<boolean>,
     ) {

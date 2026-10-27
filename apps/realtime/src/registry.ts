@@ -209,11 +209,12 @@ export function createSubscriptionRegistry({
       if (last) cursor = { txid: last.txid, seq: last.seq };
       // Only rows someone here is owed take delivery capacity: a late
       // subscriber replays from the ring, and control rows were applied above.
+      const owed = delivery.observedTopics();
       scheduler.enqueue(
         rows.filter(
           (row) =>
-            isPayloadDeliverableOnTopic(row.topic, row.payload) &&
-            delivery.observed(row.topic),
+            owed.has(row.topic) &&
+            isPayloadDeliverableOnTopic(row.topic, row.payload),
         ),
       );
     },
