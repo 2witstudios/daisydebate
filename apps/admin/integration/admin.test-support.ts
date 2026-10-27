@@ -20,7 +20,7 @@ import { openAdminDatabase } from '../src/db/client';
  * test starts from empty tables; the owner may reset what the runtime role
  * never could.
  */
-export function adminTestDatabase() {
+function adminTestDatabase() {
   const handle = openAdminDatabase(requireAdminTestDatabase(process.env));
   const reset = async () => {
     await handle.db.execute(sql`
