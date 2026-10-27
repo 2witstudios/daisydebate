@@ -67,7 +67,7 @@ export type Coverage = {
   readonly shipper: 'live' | 'degraded' | 'stale' | 'missing';
   readonly natsState: string | null;
   readonly reconnects: number | null;
-  /** Apps whose refused lines in the last hour are at least their stored ones. */
+  /** Apps whose refused lines (other than non-JSON output) in the last hour are at least their stored ones. */
   readonly refusing: readonly string[];
   readonly retention: 'ok' | 'overdue' | 'unswept';
 };

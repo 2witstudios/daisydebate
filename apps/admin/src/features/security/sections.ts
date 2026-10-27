@@ -154,14 +154,19 @@ export const coverageSql = {
   apps: `SELECT app, max(received_at) AS last_received
     FROM daisy_logs.events WHERE received_at >= {floor:DateTime64(3)}
     GROUP BY app ORDER BY app LIMIT 50`,
-  /** Per app over the last hour: lines stored against lines refused. */
+  /**
+   * Per app over the last hour: lines stored against lines the pipeline
+   * refused. Non-JSON output (`json`: a framework banner, Fly's init lines)
+   * is not a coverage failure, so it is left out here and listed under
+   * Errors instead.
+   */
   flow: `SELECT app, sum(admitted) AS admitted, sum(dropped) AS dropped FROM (
       SELECT app, count() AS admitted, toUInt64(0) AS dropped
       FROM daisy_logs.events WHERE received_at >= {recent:DateTime64(3)}
       GROUP BY app
       UNION ALL
       SELECT app, toUInt64(0), sum(count) FROM daisy_logs.shipper_drops
-      WHERE minute >= {recent:DateTime64(3)} GROUP BY app
+      WHERE minute >= {recent:DateTime64(3)} AND reason != 'json' GROUP BY app
     ) GROUP BY app ORDER BY app LIMIT 50`,
   sweep: `SELECT max(at) AS last_sweep FROM daisy_meta.sweeps
     WHERE at >= {floor:DateTime64(3)}`,
