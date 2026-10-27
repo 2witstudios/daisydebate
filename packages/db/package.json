@@ -11,6 +11,7 @@
     "./slots": "./src/slots.ts",
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts",
+    "./capacity": "./src/capacity.ts",
     "./authorization-account": "./src/authorization-account.ts",
     "./messaging-social": "./src/messaging/social.ts",
     "./authorization": "./src/authorization.ts",

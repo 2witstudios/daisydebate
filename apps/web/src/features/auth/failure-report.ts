@@ -2,7 +2,7 @@ import {
   isReportedCapacityRefusal,
   isTransactionCapacityRefusal,
   markCapacityRefusalReported,
-} from '@daisy/db';
+} from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
 
 /**

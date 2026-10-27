@@ -17,11 +17,6 @@ import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints'
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-export {
-  isReportedCapacityRefusal,
-  isTransactionCapacityRefusal,
-  markCapacityRefusalReported,
-} from './transaction-admission';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { SQL } from 'bun';
