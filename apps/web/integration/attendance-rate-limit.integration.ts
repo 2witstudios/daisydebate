@@ -7,7 +7,7 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('attendance enforces the real Redis member budget across nonexistent rounds', async () => {
+test('attendance enforces the real Redis member budget before envelope admission', async () => {
   const app = createTestApp({
     ROOM_POLICY: JSON.stringify({
       consentTtlMs: 60_000,
@@ -40,7 +40,7 @@ test('attendance enforces the real Redis member budget across nonexistent rounds
         body: JSON.stringify({
           version: 1,
           commandId: createId(),
-          segmentId: createId(),
+          ...(index === 120 ? { segmentId: createId() } : {}),
         }),
       }),
       roundId,
@@ -48,9 +48,10 @@ test('attendance enforces the real Redis member budget across nonexistent rounds
     statuses.push(response.status);
   }
   assert({
-    given: 'one real member checking into 121 different nonexistent rounds',
+    given:
+      '120 invalid envelopes across distinct unverified round ids, then a valid envelope from the same real member',
     should: 'spend one shared Redis budget and refuse request 121',
     actual: statuses,
-    expected: [...Array<number>(120).fill(404), 429],
+    expected: [...Array<number>(120).fill(400), 429],
   });
 });
