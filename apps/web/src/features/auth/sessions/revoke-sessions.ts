@@ -15,7 +15,7 @@ export type RevokeSessions = (
  * the database against session creation for the user, and the one
  * operation that does it is `@daisy/db`'s `revokeOtherSessions` (a user-row
  * lock, then one DELETE, with the `session.revoked` append in the same
- * transaction). Better Auth 1.7.5's `/revoke-other-sessions` lists the
+ * transaction). Better Auth 1.7.7's `/revoke-other-sessions` lists the
  * sessions and deletes them one by one, and its `/revoke-sessions` deletes
  * without the lock, so a session committed while either runs can survive.
  * These endpoints replace both under the same keys and paths (plugin

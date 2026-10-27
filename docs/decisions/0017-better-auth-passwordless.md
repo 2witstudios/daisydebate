@@ -8,7 +8,7 @@ JWT-based email verification (`/verify-email`,
 Daisy's `daisy-email-change` plugin instead of the core `changeEmail`
 flow.
 
-Daisy adopts Better Auth, pinned to `1.7.5` together with
+Daisy adopts Better Auth, pinned to `1.7.7` together with
 `@better-auth/passkey` and `@better-auth/drizzle-adapter` at the same version,
 for email magic-link and passkey authentication over the existing PostgreSQL
 database. Passwords, OAuth, and password reset stay disabled. The version is

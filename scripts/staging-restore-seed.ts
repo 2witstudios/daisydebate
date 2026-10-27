@@ -163,8 +163,8 @@ try {
     insert into verification (id, identifier, value, expires_at)
     values (
       'restore-seed-verification-0',
-      ${emailedLinkIdentifier('sign-in', randomSeedToken())},
-      ${JSON.stringify({ email: people[0].email, name: null })},
+      ${emailedLinkIdentifier('magic-link:sign-in', randomSeedToken())},
+      ${JSON.stringify({ type: 'magic-link', email: people[0].email })},
       now() + interval '5 minutes'
     )
     on conflict (id) do update set

@@ -8,7 +8,7 @@ import { logAuthLifecycle } from './lifecycle-events';
 type Handler = (request: Request) => Promise<Response>;
 
 /**
- * The emailed-link redemption endpoints. Better Auth 1.7.5 registers the
+ * The emailed-link redemption endpoints. Better Auth 1.7.7 registers the
  * magic-link one as a GET (`better-auth/dist/plugins/magic-link/index.mjs:116-117`),
  * so a direct link would redeem it without ever crossing the same-origin
  * POST confirm page (`confirm.ts`, `confirm-email.ts`) — a login-CSRF and a

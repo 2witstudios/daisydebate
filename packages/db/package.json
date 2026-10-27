@@ -43,7 +43,7 @@
     "db:studio": "bun --bun x drizzle-kit studio"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.7.5",
+    "@better-auth/drizzle-adapter": "1.7.7",
     "@daisy/config": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
