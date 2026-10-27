@@ -1,8 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type {
-  PrivacyAdopter,
-  PrivacyFieldDeclaration,
-} from './privacy/contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import type { PrivacyAdopter } from './privacy/contracts';
 import {
   memberInterests,
   memberOnboarding,
