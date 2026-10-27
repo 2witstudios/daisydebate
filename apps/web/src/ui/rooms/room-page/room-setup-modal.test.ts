@@ -3,6 +3,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   dismissal,
   holdInert,
+  modalSheet,
+  ROOM_SETUP_HOME,
+  ROOM_TITLE,
+  type SheetWindow,
   openOnInvalid,
   releaseInert,
   returnTarget,
@@ -13,18 +17,56 @@ setupRitewayBun();
 
 /** A room page: the header link, Edit on the resolution, Customize on the round summary, then the sheet. */
 function roomPage() {
-  const { document } = new Window();
+  const window = new Window({ url: 'https://daisy.test/rooms/r1' });
+  const { document } = window;
   document.body.innerHTML = `
     <main id="room">
       <section id="resolution"><a id="edit" href="#room-setup">Edit</a></section>
-      <header><a id="home" data-room-setup-home href="#room-setup">Room setup</a></header>
+      <header><h1 id="title" ${ROOM_TITLE} tabindex="-1">Room</h1><a id="home" ${ROOM_SETUP_HOME} href="#room-setup">Room setup</a></header>
       <section id="summary"><a id="customize" href="#room-setup"><span id="label">Customize</span></a></section>
       <div id="sheet-host"><section id="room-setup" role="dialog"><form id="form"></form></section></div>
     </main>`;
   const byId = (id: string) =>
     document.getElementById(id) as unknown as HTMLElement;
-  return { document: document as unknown as Document, byId };
+  return {
+    happy: window,
+    window: window as unknown as SheetWindow,
+    document: document as unknown as Document,
+    byId,
+  };
 }
+
+/**
+ * Waits for happy-dom's own pending work, MutationObserver deliveries
+ * included: its completion signal, never a timer guess.
+ */
+const settle = (page: ReturnType<typeof roomPage>) =>
+  page.happy.happyDOM.waitUntilComplete();
+
+/** Opens the sheet by its fragment from the Edit link, as a click would. */
+const openFrom = async (page: ReturnType<typeof roomPage>, id: string) => {
+  const link = page.byId(id);
+  link.focus();
+  link.dispatchEvent(
+    new page.happy.MouseEvent('click', { bubbles: true }) as unknown as Event,
+  );
+  page.happy.location.hash = '#room-setup';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
+  await settle(page);
+};
+
+const closeByFragment = async (page: ReturnType<typeof roomPage>) => {
+  page.happy.location.hash = '';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
+  await settle(page);
+};
+
+const watch = (page: ReturnType<typeof roomPage>) =>
+  modalSheet({
+    window: page.window,
+    sheet: page.byId('room-setup'),
+    heading: () => page.byId('form'),
+  });
 
 test('focus returns to the link that opened the sheet', () => {
   const { document, byId } = roomPage();
@@ -128,5 +170,82 @@ test('an invalid value inside the collapsed rules opens the disclosure', () => {
     should: 'open on the field’s invalid event',
     actual: [before, details.open],
     expected: [false, true],
+  });
+});
+
+test('the sheet’s own wiring keeps late body content inert and returns focus (ISSUE-670)', async () => {
+  const page = roomPage();
+  const stop = watch(page);
+  await openFrom(page, 'edit');
+  // Mounted on the body itself, outside the sheet's own subtree.
+  const late = page.document.createElement('aside');
+  page.document.body.append(late);
+  await settle(page);
+  const whileOpen = late.inert;
+  await closeByFragment(page);
+  const focused = page.document.activeElement?.id;
+  stop();
+  assert({
+    given:
+      'the sheet opened from Edit, then content appended to the body behind it, then the fragment cleared',
+    should:
+      'make that content inert while open, release it on close and return focus to Edit',
+    actual: [whileOpen, late.inert, focused],
+    expected: [true, false, 'edit'],
+  });
+});
+
+test('a sheet removed while open lets go and focuses the Room title (ISSUE-671)', async () => {
+  const page = roomPage();
+  const stop = watch(page);
+  await openFrom(page, 'edit');
+  const heldBefore = page.byId('summary').inert;
+  // The round started from another device: canEdit flips false and the sheet unmounts.
+  page.byId('sheet-host').remove();
+  stop();
+  assert({
+    given: 'the open sheet unmounting because the host can no longer edit',
+    should: 'release inert and move focus to the Room title, never to body',
+    actual: [
+      heldBefore,
+      page.byId('summary').inert,
+      page.document.activeElement?.id,
+    ],
+    expected: [true, false, 'title'],
+  });
+});
+
+test('held nodes that room sync replaced are dropped, and only a plain click opens (ISSUE-671)', async () => {
+  const page = roomPage();
+  const held = new Set<HTMLElement>();
+  const sheet = page.byId('room-setup');
+  holdInert(sheet, held);
+  const replaced = page.byId('summary');
+  replaced.remove();
+  holdInert(sheet, held);
+  const stillHeld = held.has(replaced);
+  releaseInert(held);
+  const stop = watch(page);
+  for (const init of [{ ctrlKey: true }, { metaKey: true }, { button: 1 }])
+    page.byId('edit').dispatchEvent(
+      new page.happy.MouseEvent('click', {
+        bubbles: true,
+        ...init,
+      }) as unknown as Event,
+    );
+  // The sheet then opens from the address bar, with no link focused.
+  page.happy.location.hash = '#room-setup';
+  page.happy.dispatchEvent(new page.happy.Event('hashchange'));
+  await settle(page);
+  await closeByFragment(page);
+  const focused = page.document.activeElement?.id;
+  stop();
+  assert({
+    given:
+      'a held summary that sync removed, then ctrl-, meta- and middle clicks on Edit that opened new tabs, then the sheet opened by its fragment',
+    should:
+      'stop holding the detached node, and return focus to the header link rather than to a click that never opened the sheet',
+    actual: [stillHeld, focused],
+    expected: [false, 'home'],
   });
 });

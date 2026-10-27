@@ -149,6 +149,7 @@ export {
   roomCommandSchema,
   roomStatuses,
   roomListQuerySchema,
+  roomListSorts,
   roomListPageSchema,
   roomListStatuses,
   roomListDefaultPageSize,

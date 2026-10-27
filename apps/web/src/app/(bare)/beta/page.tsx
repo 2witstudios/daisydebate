@@ -34,6 +34,7 @@ export default async function BetaPage({
       username={identity.username}
       reason={identity.reason}
       ageHref={onboardingHref('/beta')}
+      signOutFailed={(await searchParams).signOut === 'failed'}
     />
   );
 }

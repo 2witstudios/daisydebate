@@ -8,8 +8,10 @@ import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
-import { verifications } from './schema/auth';
-import { emailDeliveries } from './schema/email-delivery';
+import {
+  clearProvisionalMail,
+  type ProvisionalMailCleanup,
+} from './provisional-cleanup';
 import { users } from './schema/users';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
@@ -93,17 +95,14 @@ export const ageStepOperations = ({
    * transaction, only while it has no username and no recorded age, so a
    * member can never reach the actors restrict and a first accepted answer
    * stands. Sessions, accounts and passkeys cascade; the
-   * account's emailed links (stored under `signInPurpose`) and its delivery
+   * account's emailed links (its sign-in and email-change purposes) and its delivery
    * receipts (by the keyed hash `recipientHashOf` computes) go with it;
    * suppressions outlive their deliveries and stay. Writes no
    * `session.revoked` event: the account is gone, not signed out.
    */
-  async deleteProvisionalUser(input: {
-    readonly userId: string;
-    readonly signInPurpose: string;
-    /** The caller's keyed recipient hash: @daisy/db never holds the key. */
-    readonly recipientHashOf: (email: string) => string;
-  }): Promise<'deleted' | 'refused'> {
+  async deleteProvisionalUser(
+    input: { readonly userId: string } & ProvisionalMailCleanup,
+  ): Promise<'deleted' | 'refused'> {
     if (!idSchema.safeParse(input.userId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'deleteProvisionalUser', () =>
@@ -121,21 +120,11 @@ export const ageStepOperations = ({
           .from(accountAge)
           .where(eq(accountAge.userId, input.userId));
         if (answered) return 'refused';
-        if (user.email !== null) {
-          await tx
-            .delete(verifications)
-            .where(
-              sql`case when starts_with(${verifications.identifier}, ${`${input.signInPurpose}:`}) then lower(${verifications.value}::jsonb ->> 'email') = lower(${user.email}) else false end`,
-            );
-          await tx
-            .delete(emailDeliveries)
-            .where(
-              eq(
-                emailDeliveries.recipientHash,
-                input.recipientHashOf(user.email),
-              ),
-            );
-        }
+        await clearProvisionalMail(
+          tx,
+          { id: input.userId, email: user.email },
+          input,
+        );
         const deleted = await tx
           .delete(users)
           .where(and(eq(users.id, input.userId), isNull(users.username)))

@@ -4,7 +4,7 @@ import {
   wizardSummary,
 } from '../../../features/tournaments/create-wizard';
 import { FactList } from '../fact-list/fact-list';
-import { SampleButton } from '../inert-action/inert-action';
+import { SampleButton } from '../../components/sample-button/sample-button';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { Basics, Schedule, Size } from './create-steps';

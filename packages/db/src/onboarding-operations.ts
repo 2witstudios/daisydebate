@@ -198,11 +198,6 @@ export const onboardingOperations = ({
     });
   },
 
-  /**
-   * One read-only REPEATABLE READ snapshot: each statement under READ
-   * COMMITTED sees its own snapshot, so a step saved between them could
-   * pair old and new answers that never existed together.
-   */
   /** Whether optional answers may be asked for now; the write still decides under the fence. */
   async optionalAnswersAdmitted(
     input: Omit<OnboardingSaveInput, 'answers'>,
@@ -223,6 +218,11 @@ export const onboardingOperations = ({
       }),
     );
   },
+  /**
+   * One read-only REPEATABLE READ snapshot: each statement under READ
+   * COMMITTED sees its own snapshot, so a step saved between them could
+   * pair old and new answers that never existed together.
+   */
   async readOnboarding(userId: string): Promise<OnboardingRecord> {
     return instrumented(eventSink, 'readOnboarding', () =>
       database.transaction(

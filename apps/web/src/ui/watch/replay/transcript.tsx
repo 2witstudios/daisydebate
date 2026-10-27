@@ -8,7 +8,7 @@ import type { ReplayView } from '../../../features/watch/replay-build';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
+import { controlClass } from '../../components/filter-bar/filter-bar-class';
 import { MAX_SEARCH_LENGTH } from '../../../features/watch/live-query';
 
 export type TranscriptProps = {

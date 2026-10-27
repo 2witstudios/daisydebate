@@ -3,6 +3,9 @@ import { ROOM_SETUP_HREF } from './room-labels';
 /** Marks the header's Room setup link, where focus returns when no opener is left. */
 export const ROOM_SETUP_HOME = 'data-room-setup-home';
 
+/** Marks the Room title, where focus goes when the sheet is taken away while open. */
+export const ROOM_TITLE = 'data-room-title';
+
 const openerSelector = `a[href="${ROOM_SETUP_HREF}"]`;
 
 /** The Room setup link an event came from or through; null for any other. */
@@ -50,6 +53,8 @@ function outside(sheet: HTMLElement): readonly HTMLElement[] {
  * that. Elements already inert for another reason are left alone.
  */
 export function holdInert(sheet: HTMLElement, held: Set<HTMLElement>): void {
+  // Room sync replaces nodes: one no longer on the page is not held.
+  for (const node of held) if (!node.isConnected) held.delete(node);
   for (const node of outside(sheet)) {
     if (node.inert) continue;
     node.inert = true;
@@ -61,6 +66,88 @@ export function holdInert(sheet: HTMLElement, held: Set<HTMLElement>): void {
 export function releaseInert(held: Set<HTMLElement>): void {
   for (const node of held) node.inert = false;
   held.clear();
+}
+
+/**
+ * A plain primary click: a modified or middle click opens the link in a new
+ * tab or window, not the sheet, so it never becomes the opener.
+ */
+const openingClick = (event: Event): boolean => {
+  const click = event as Partial<MouseEvent>;
+  return (
+    !click.ctrlKey &&
+    !click.metaKey &&
+    !click.shiftKey &&
+    !click.altKey &&
+    (click.button ?? 0) === 0
+  );
+};
+
+/** Whether the sheet shows: its fragment is the URL's, or a refused save is on it. */
+export function sheetOpen(hash: string, refused: boolean): boolean {
+  return hash === ROOM_SETUP_HREF || refused;
+}
+
+/** The parts of the window the sheet listens to. */
+export type SheetWindow = Pick<
+  typeof globalThis,
+  'location' | 'addEventListener' | 'removeEventListener' | 'MutationObserver'
+>;
+
+/**
+ * The open sheet's modal behaviour, framework-free so it is tested as wired:
+ * while it is open the rest of the page is inert, content mounted anywhere
+ * in the body behind it included, so focus and assistive technology stay in
+ * it; opening moves focus to its heading and closing returns it to the link
+ * that opened it. The returned stop lets everything go; a sheet taken away
+ * while open (the round started elsewhere) sends focus to the Room title.
+ */
+export function modalSheet({
+  window,
+  sheet,
+  heading,
+}: {
+  readonly window: SheetWindow;
+  readonly sheet: HTMLElement;
+  readonly heading: () => HTMLElement | null;
+}): () => void {
+  const document = sheet.ownerDocument;
+  const held = new Set<HTMLElement>();
+  let opener: HTMLElement | null = null;
+  let wasOpen = false;
+  const sync = () => {
+    const open = sheetOpen(
+      window.location.hash,
+      sheet.querySelector('[role="alert"]') !== null,
+    );
+    if (open) holdInert(sheet, held);
+    if (open === wasOpen) return;
+    wasOpen = open;
+    if (open) {
+      opener = setupOpener(document.activeElement) ?? opener;
+      heading()?.focus();
+      return;
+    }
+    releaseInert(held);
+    returnTarget(document, opener)?.focus();
+    opener = null;
+  };
+  const remember = (event: Event) => {
+    if (openingClick(event)) opener = setupOpener(event.target) ?? opener;
+  };
+  sync();
+  const observer = new window.MutationObserver(sync);
+  observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('click', remember, true);
+  window.addEventListener('hashchange', sync);
+  return () => {
+    observer.disconnect();
+    document.removeEventListener('click', remember, true);
+    window.removeEventListener('hashchange', sync);
+    releaseInert(held);
+    if (wasOpen)
+      document.querySelector<HTMLElement>(`[${ROOM_TITLE}]`)?.focus();
+  };
 }
 
 /**

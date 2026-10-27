@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { claimedUsername } from '@daisy/auth';
 import type { SearchParams } from '../../../features/access/decision';
 import {
   getPreferences,
@@ -33,7 +34,7 @@ export default async function SettingsRoute({
     : null;
   return (
     <SettingsPage
-      username={identity.state === 'member' ? identity.username : null}
+      username={claimedUsername(identity)}
       preferences={getPreferences()}
       saved={parseSettingsQuery(await searchParams)}
       profileAction={saveProfileAction}

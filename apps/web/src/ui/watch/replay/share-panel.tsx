@@ -9,7 +9,7 @@ import { replayHref } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { CopyLink } from '../copy-link/copy-link';
 import { InertButton } from '../inert-button/inert-button';
 

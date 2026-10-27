@@ -3,7 +3,8 @@ import type {
   Pairing,
 } from '../../../features/tournaments/event';
 import { StatusLine } from '../../components/status-line/status-line';
-import { DisabledAction, SampleButton } from '../inert-action/inert-action';
+import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../../components/sample-button/sample-button';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { PairingCards } from './pairing-cards';

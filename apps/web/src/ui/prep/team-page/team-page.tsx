@@ -8,7 +8,7 @@ import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { controlClass } from '../form-controls/form-class';
 import { InertActionButton } from '../inert-action/inert-action';
 import { ItemTile } from '../item-tile/item-tile';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 
 const listBox =
@@ -94,7 +94,7 @@ function Activity({ view }: { readonly view: TeamView }) {
     <ul aria-label="Activity" className={listBox}>
       {view.activity.map((entry) => (
         <li key={entry.text} className={row}>
-          <PrepIcon name={entry.symbol} size={16} className="text-ink-faint" />
+          <Icon name={entry.symbol} size={16} className="text-ink-faint" />
           <span className="flex-1 text-base">{entry.text}</span>
           <span className="text-sm text-ink-faint">{entry.when}</span>
         </li>

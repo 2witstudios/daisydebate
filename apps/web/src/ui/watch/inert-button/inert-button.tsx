@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
 import { actionLabel, type InertAction } from '../../../features/watch/actions';
-import { cn } from '../../cn';
-import {
-  buttonClass,
-  type ButtonVariant,
-} from '../../components/button/button-class';
-import { SampleAction } from '../../components/sample-action/sample-action';
+import type { ButtonVariant } from '../../components/button/button-class';
+import { SampleButton } from '../../components/sample-button/sample-button';
 
 export type InertButtonProps = {
   readonly action: InertAction;
@@ -25,11 +21,12 @@ export function InertButton({
   children,
 }: InertButtonProps) {
   return (
-    <SampleAction
+    <SampleButton
       label={actionLabel(action)}
-      className={cn(buttonClass(variant), className)}
+      variant={variant}
+      {...(className ? { className } : {})}
     >
       {children}
-    </SampleAction>
+    </SampleButton>
   );
 }

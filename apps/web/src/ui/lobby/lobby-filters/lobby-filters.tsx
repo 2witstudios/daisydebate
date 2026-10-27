@@ -3,8 +3,10 @@ import {
   isFiltered,
   lobbyHref,
   lobbyModeChoices,
+  lobbySortChoices,
   lobbyStatusChoices,
   type LobbyMode,
+  type LobbySort,
   type LobbyStatus,
 } from '../../../features/lobby/discovery-query';
 import {
@@ -15,13 +17,13 @@ import {
   SearchField,
 } from '../../components/filter-form/filter-form';
 import { TabLinks } from '../../components/tab-links/tab-links';
-import { AutoSubmitForm } from '../filter-bar/auto-submit-form';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import {
   dividerClass,
   filterBarClass,
   panelClass,
   summaryClass,
-} from '../filter-bar/filter-bar-class';
+} from '../../components/filter-bar/filter-bar-class';
 
 const statusLabels: Readonly<Record<LobbyStatus, string>> = {
   all: 'All',
@@ -40,13 +42,23 @@ const modeOptions = lobbyModeChoices.map(
   (mode) => [mode, modeLabels[mode]] as const,
 );
 
+const sortLabels: Readonly<Record<LobbySort, string>> = {
+  newest: 'Newest',
+  'longest-waiting': 'Longest waiting',
+};
+
+const sortOptions = lobbySortChoices.map(
+  (sort) => [sort, sortLabels[sort]] as const,
+);
+
 /** Search the protocol accepts; the field's maxlength matches it. */
 const MAX_SEARCH_LENGTH = 100;
 
 /**
- * Status tabs plus search and mode as one GET form: the URL carries
- * the state, so the Lobby filters on the server with no script. On the phone
- * the mode sits in a panel behind "Filters".
+ * Status tabs plus search, mode and sort as one GET form: the URL carries
+ * the state, so the Lobby filters and sorts on the server with no script. On
+ * the phone the mode and sort sit in a panel behind "Filters"; the sort is an
+ * order, not a filter, so it never counts toward the Filters badge.
  */
 export function LobbyFilters({
   query,
@@ -100,6 +112,13 @@ export function LobbyFilters({
           options={modeOptions}
           className="order-5 max-compact:order-none"
         />
+        <FilterSelect
+          name="sort"
+          label="Sort rooms"
+          value={query.sort ?? 'newest'}
+          options={sortOptions}
+          className="order-6 max-compact:order-none"
+        />
         <ClearFilters
           href={
             isFiltered(query) || query.q !== ''
@@ -107,6 +126,7 @@ export function LobbyFilters({
                   q: '',
                   pageSize: query.pageSize,
                   status: query.status,
+                  sort: query.sort,
                 })
               : null
           }

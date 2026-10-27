@@ -115,21 +115,32 @@ describe('POST /api/account/age', () => {
     });
   });
 
-  test('an under-age answer after an accepted one changes nothing', async () => {
+  test('an account whose first answer stands is never refused again', async () => {
     const { handler, recorded } = handlerWith({ forgets: 'refused' });
-    const response = await handler(post(answer(2018)));
+    const conflict = async (response: Response) => [
+      response.status,
+      (await response.json()).error.code,
+      response.headers.get('set-cookie'),
+    ];
+    const answers = [
+      await conflict(await handler(post(answer(2018)))),
+      await conflict(
+        await handler(post(answer(1990), `${AGE_HOLD_COOKIE}=below-floor`)),
+      ),
+    ];
     assert({
       given:
-        'an under-13 answer from an account that already recorded an age (or just became a member)',
+        'an account that already recorded an age (or just became a member) answering under 13, and the same from a held browser (review on #474)',
       should:
-        'answer a conflict with no refusal page, no hold and nothing recorded, so the first answer stands',
-      actual: [
-        response.status,
-        (await response.json()).error.code,
-        response.headers.get('set-cookie'),
-        recorded.length,
+        'answer each with a conflict, no refusal page and no fresh hold, recording nothing, so the first answer stands',
+      actual: [answers, recorded.length],
+      expected: [
+        [
+          [409, 'CONFLICT', null],
+          [409, 'CONFLICT', null],
+        ],
+        0,
       ],
-      expected: [409, 'CONFLICT', null, 0],
     });
   });
 
@@ -144,20 +155,23 @@ describe('POST /api/account/age', () => {
     });
   });
 
-  test('a held browser is refused before anything is read or stored', async () => {
+  test('a held browser is refused and its new provisional account forgotten', async () => {
     const { handler, recorded, forgotten } = handlerWith();
     const response = await handler(
       post(answer(1990), `${AGE_HOLD_COOKIE}=under-13`),
     );
     assert({
-      given: 'an adult answer from a browser held after an under-13 refusal',
-      should: 'give the same refusal and touch nothing',
+      given:
+        'an adult answer from a browser held after an under-13 refusal, signed in to a new provisional account (ISSUE-660)',
+      should:
+        'give the same refusal, record nothing and forget the new provisional account',
       actual: [
         response.status,
         (await response.json()).error.refusal,
-        recorded.length + forgotten.length,
+        recorded.length,
+        forgotten,
       ],
-      expected: [403, 'under-13', 0],
+      expected: [403, 'under-13', 0, ['user1']],
     });
   });
 
