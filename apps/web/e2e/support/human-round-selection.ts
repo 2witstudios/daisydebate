@@ -1,7 +1,5 @@
-import {
-  foundationConfig,
-  foundationDefinition,
-} from '@daisy/db/reference-formats';
+import { foundationDefinition } from '@daisy/db/reference-formats';
+import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
 import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 
 type ProofChoice = {
@@ -15,7 +13,7 @@ type ProofChoice = {
  */
 export const foundationChoice: ProofChoice = {
   definition: foundationDefinition,
-  preset: { config: foundationConfig },
+  preset: { config: foundationProofConfig },
 };
 
 export const humanRoundSelection = (

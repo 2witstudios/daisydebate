@@ -25,7 +25,7 @@ export const withAttendanceRound = (
           ...config,
           preRoundPrep: { enabled: false },
           resolutionDraw: { enabled: false },
-          inRoundPrep: { ...config.inRoundPrep, enabled: false },
+          inRoundPrep: { enabled: false },
           speechTiming: { ...config.speechTiming, countdownMs: 0 },
         },
       },
