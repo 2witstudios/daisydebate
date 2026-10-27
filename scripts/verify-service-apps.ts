@@ -49,6 +49,26 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
     },
   },
+  // ADR 0084: the log store (its own pinned image), then the shipper, both
+  // before the admin app that reads the store's schema.
+  {
+    file: 'fly.clickhouse.toml',
+    token: 'FLY_CLICKHOUSE_API_TOKEN',
+    target: null,
+    stop: null,
+    private: true,
+  },
+  {
+    file: 'fly.log-shipper.toml',
+    token: 'FLY_LOG_SHIPPER_API_TOKEN',
+    target: 'log-shipper',
+    stop: {
+      source: 'apps/log-shipper/src/start.ts',
+      pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
+    },
+    after: 'fly.clickhouse.toml',
+    private: true,
+  },
   // ADR 0077: the admin database's release-only migrator, then the admin app.
   {
     file: 'fly.admin-migrate.toml',
@@ -56,6 +76,7 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
     target: 'admin-migrate',
     stop: null,
     release: true,
+    after: 'fly.log-shipper.toml',
   },
   {
     file: 'fly.admin.toml',
@@ -202,7 +223,7 @@ export function findServiceAppConfigProblems(
   ];
 }
 
-/** A built app's stage and stop budget; LiveKit's pinned image has neither. */
+/** A built app's stage and stop budget; LiveKit's and ClickHouse's own images have neither. */
 function builtServiceProblems(
   app: ServiceApp,
   toml: string,

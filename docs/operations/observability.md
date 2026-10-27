@@ -51,6 +51,24 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
   only for this identity. Failed HTTP requests still record their actual
   retryable 503; a deferred refusal preserves the response already sent.
 
+## Retention and routing
+
+On staging, the log shipper (`apps/log-shipper`) streams every app's stdout
+from Fly's org log stream into a 6PN-only ClickHouse. The admin app's
+Security page reads it through a read-only role
+([ADR 0084](../decisions/0084-operational-log-pipeline.md),
+[runbook](log-pipeline.md)).
+
+- **Admission.** A line is stored only when `@daisy/logger/ingest`
+  admits it against the registry and field table below. Anything else is
+  counted by reason in `shipper_drops`, never stored raw.
+- **Delivery.** The stream is at-most-once, and inserts are
+  retry-idempotent, so counts are lower bounds. The page shows the
+  shipper's heartbeat as coverage before any count.
+- **Retention.** 28 days on receipt time (privacy.md, "Operational logs").
+- **Production.** Production uses its own Fly org and its own pipeline,
+  rolled out by the owner.
+
 ## Event registry
 
 The logger accepts these events. The registry, rather than caller
@@ -119,6 +137,8 @@ diverge:
 | `redis.command.failed`                   | error    | A Redis command failed                                                                                                                                                                                                                                                                     |
 | `availability.sample_failed`             | error    | A web availability sample could not be recorded; that window has no availability evidence                                                                                                                                                                                                  |
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed; the interval retries on its next tick                                                                                                                                                                                                             |
+| `logship.started`                        | info     | The log shipper subscribed to the org log stream (ADR 0084)                                                                                                                                                                                                                                |
+| `logship.insert.failed`                  | error    | A log batch insert into ClickHouse failed; the batch stays in flight and is retried under the same token (`errorCode`, `pending` only, ADR 0084)                                                                                                                                           |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
 The five round worker failure events (`round.maintenance.failed`,

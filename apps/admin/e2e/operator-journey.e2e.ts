@@ -96,6 +96,12 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
   );
   await expect(page.locator('tbody tr').first()).toContainText('changed');
 
+  // The e2e server has no log store: the page says so, never empty tables.
+  await page.getByRole('link', { name: 'Security' }).click();
+  await expect(page.getByRole('status')).toContainText(
+    'The log store is not configured',
+  );
+
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto('/accounts');

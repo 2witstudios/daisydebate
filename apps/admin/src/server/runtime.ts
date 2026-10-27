@@ -5,6 +5,7 @@ import { systemRandom } from '../auth/secrets';
 import { canonicalCeremony } from '../auth/webauthn';
 import {
   readAdminConfig,
+  readLogStoreConfig,
   readOperatorClientConfig,
   type AdminConfig,
 } from '../config';
@@ -15,12 +16,17 @@ import {
   OPERATOR_TIMEOUT_MS,
 } from '../features/operator-client/client';
 import { bunOperatorCrypto } from '../features/operator-client/bun-crypto';
+import {
+  createSecurityStore,
+  type SecurityStore,
+} from '../features/security/store';
 
 /**
  * The process's one set of resources, built on first use from the validated
  * environment: the database pool, the logger, the ceremony dependencies
- * every server action and page reads through, and the operator commands
- * (null while the operator API is unconfigured).
+ * every server action and page reads through, the operator commands
+ * (null while the operator API is unconfigured) and the log store reader
+ * (null while the log store is unconfigured).
  */
 export type AdminRuntime = {
   readonly config: AdminConfig;
@@ -28,6 +34,7 @@ export type AdminRuntime = {
   readonly logger: Logger;
   readonly auth: AuthDeps;
   readonly commands: CommandDeps | null;
+  readonly security: SecurityStore | null;
 };
 
 let runtime: AdminRuntime | undefined;
@@ -37,6 +44,7 @@ export function adminRuntime(): AdminRuntime {
   const config = readAdminConfig(process.env);
   const database = openAdminDatabase(config.ADMIN_DATABASE_URL);
   const operatorApi = readOperatorClientConfig(process.env);
+  const logStore = readLogStoreConfig(process.env);
   runtime = {
     config,
     database,
@@ -66,6 +74,7 @@ export function adminRuntime(): AdminRuntime {
         timeoutMs: OPERATOR_TIMEOUT_MS,
       }),
     },
+    security: logStore && createSecurityStore(logStore),
   };
   return runtime;
 }
