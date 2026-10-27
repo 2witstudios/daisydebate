@@ -3,7 +3,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ROUND_START_HORIZON_MS } from '../src/features/round-finalization/maintenance';
 import { ordinaryMaintenance } from './round-maintenance.test-support';
-import { readyBotJudgedRoom } from './round-judging.test-support';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -14,9 +13,15 @@ requireTestServices(process.env);
 
 test('a Round still scheduled past its start horizon is abandoned once across two maintenance instances, releasing its bot slot (DEC-214)', async () =>
   withRoomRuntime(async (f) => {
-    const expired = (
-      await launchRuntimeRound(f, (await readyBotJudgedRoom(f)).room)
-    ).roundId;
+    // A bot debater spends the host's AI round; an AI judge alone would not (DEC-186).
+    const bot = (await f.operations.castChoices(f.host)).find(
+      (p) => p.kind === 'bot',
+    )!;
+    const botRoom = await f.seatBotOpponent(
+      (await f.create()).view,
+      bot.actorId,
+    );
+    const expired = (await launchRuntimeRound(f, botRoom)).roundId;
     // A second Room needs its own cast: one user holds one active Room (ADR 0070).
     const fresh = (
       await launchRuntimeRound(f, await f.assemble({}, await f.freshCast()))
@@ -43,9 +48,9 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
       );
       assert({
         given:
-          'a bot Round launched past its start horizon and a fresh Round, ticked concurrently by two web instances and then again',
+          'a bot-debater Round launched past its start horizon and a fresh Round, ticked concurrently by two web instances and then again',
         should:
-          'discover and abandon only the expired Round, once, with no outcome, start or rating, and free its allowance',
+          'discover and abandon only the expired Round, once, with no outcome, start or rating, and give back its AI round',
         actual: {
           discovered: [
             discovered.includes(expired),
@@ -73,7 +78,7 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
           idempotent: true,
           fresh: 'scheduled',
           ratings: 0,
-          allowance: [0, 1],
+          allowance: [19, 20],
         },
       });
     } finally {
