@@ -176,6 +176,16 @@ function citationProblem(
     : `CI run ${id} could not be read; review-record fails closed`;
 }
 
+/** GitHub creation facts are UTC instants, never Date.parse's permissive guesses. */
+const creationTime = (value: string | undefined): number => {
+  if (typeof value !== 'string') return NaN;
+  const time = Date.parse(value);
+  const canonical = value.includes('.') ? value : value.replace(/Z$/, '.000Z');
+  return Number.isFinite(time) && new Date(time).toISOString() === canonical
+    ? time
+    : NaN;
+};
+
 /** Why the run GitHub reported does not evidence the citation, if it does not. */
 function runProblem(
   run: CiRun,
@@ -191,8 +201,8 @@ function runProblem(
   if (!sameRepository(run.headRepository, repository))
     return `CI run ${id} ran code from ${run.headRepository ?? 'an unknown repository'}, not ${repository}`;
   if (run.event === 'pull_request') {
-    const runTime = Date.parse(run.createdAt ?? '');
-    const prTime = Date.parse(pr.createdAt ?? '');
+    const runTime = creationTime(run.createdAt);
+    const prTime = creationTime(pr.createdAt);
     if (!Number.isFinite(runTime) || !Number.isFinite(prTime))
       return `CI run ${id} or PR #${pr.number} has no valid creation time, so its PR provenance cannot be verified`;
     if (runTime < prTime)

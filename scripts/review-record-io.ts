@@ -175,7 +175,7 @@ export const pullRequestFacts = (
   diff: ReviewDiff | undefined,
 ): PullRequest => ({
   number: prNumber,
-  createdAt: pull.created_at,
+  createdAt: typeof pull.created_at === 'string' ? pull.created_at : undefined,
   headSha: pull.head.sha,
   body: pull.body ?? '',
   diff,

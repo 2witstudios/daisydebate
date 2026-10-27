@@ -431,3 +431,18 @@ describe('CI evidence refuses incomplete branch history and older PR runs', () =
     });
   });
 });
+
+test('CI creation facts must be canonical UTC instants, not normalized invalid dates', () => {
+  assert({
+    given: 'a future impossible calendar date or a bare future year',
+    should:
+      'refuse the malformed provenance rather than normalize it into an accepted later run',
+    actual: ['2027-02-30T12:00:00Z', '2040'].map((createdAt) =>
+      judge(integration(), evidence(ciRun({ createdAt }))),
+    ),
+    expected: [0, 1].map(
+      () =>
+        'CI run 101 or PR #57 has no valid creation time, so its PR provenance cannot be verified',
+    ),
+  });
+});
