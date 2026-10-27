@@ -10,8 +10,32 @@ import {
   referencePresets,
   referenceAiJudge,
 } from './reference-formats';
+import { catalogFormats } from './catalog-formats';
 
 setupRitewayBun();
+
+/** Every format the migrations seed: the reference rows, then the catalog (FMT-2a). */
+const seededFormats = [
+  ...referenceFormats.map(({ id, name, revisions }) => ({
+    id,
+    name,
+    revisions,
+  })),
+  ...catalogFormats.map(({ id, name, definition }) => ({
+    id,
+    name,
+    revisions: [definition],
+  })),
+];
+const seededPresets = [
+  ...referencePresets,
+  ...catalogFormats.map(({ id, preset }) => ({
+    formatId: id,
+    version: 1,
+    formatVersion: 1,
+    config: preset,
+  })),
+];
 
 /** Every reference row the committed migrations write, parsed in folder order. */
 const migrated = async () => {
@@ -106,24 +130,25 @@ describe('reference data', () => {
   test('formats and every definition revision mirror exactly the rows the migrations write', async () => {
     const rows = await migrated();
     assert({
-      given: 'the TypeScript reference formats and the committed migrations',
+      given:
+        'the TypeScript reference and catalog formats and the committed migrations',
       should:
         'name the same formats, every immutable revision and the current pointer',
       actual: {
-        formats: referenceFormats.map(({ id }) => ({
+        formats: seededFormats.map(({ id }) => ({
           id,
           ...rows.formats.get(id),
         })),
         definitions: Object.fromEntries(rows.definitions),
       },
       expected: {
-        formats: referenceFormats.map(({ id, name, revisions }) => ({
+        formats: seededFormats.map(({ id, name, revisions }) => ({
           id,
           name,
           currentVersion: revisions.length,
         })),
         definitions: Object.fromEntries(
-          referenceFormats.flatMap(({ id, revisions }) =>
+          seededFormats.flatMap(({ id, revisions }) =>
             revisions.map((definition, index) => [
               `${id}@${index + 1}`,
               definition,
@@ -148,7 +173,7 @@ describe('reference data', () => {
         ),
       },
       expected: {
-        approved: referencePresets.map(
+        approved: seededPresets.map(
           ({ formatId, version, formatVersion, config }) => ({
             formatId,
             version,
@@ -156,14 +181,15 @@ describe('reference data', () => {
             config,
           }),
         ),
-        current: currentReferencePresets().map(
-          ({ formatId, version, formatVersion, config }) => ({
-            formatId,
-            version,
-            formatVersion,
-            config,
-          }),
-        ),
+        current: [
+          ...currentReferencePresets(),
+          ...seededPresets.slice(referencePresets.length),
+        ].map(({ formatId, version, formatVersion, config }) => ({
+          formatId,
+          version,
+          formatVersion,
+          config,
+        })),
       },
     });
   });
