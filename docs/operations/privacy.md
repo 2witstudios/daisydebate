@@ -205,6 +205,12 @@ inventory becomes the single index:
   immediately by the revoking operation (`revokeOtherSessions`,
   `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
   path ever logs `ip_address`, `user_agent` or a token.
+- **Abandoned sign-ups** (ISSUE-660): a provisional account with no
+  username, age, Terms acceptance, actor, role grant or privacy job is
+  deleted 24 hours after it was created, with its own sign-in and
+  email-change links and delivery receipts, by the same retention sweep
+  (`retention.provisional_user`). See
+  [Abandoned provisional accounts](#abandoned-provisional-accounts).
 - **Round transcripts and cached judgments** (DEC-101, DEC-89; ISSUE-498):
   `utterances` rows (transcript text and the capture body digest, both
   `personal`/`private`) are deleted 180 days after `created_at`, and a
