@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { foundationDefinition } from './reference-formats';
 import {
-  accountFact,
+  accountRow,
   caller,
   room,
 } from './room-command-operations.test-support';
@@ -14,7 +14,7 @@ const now = [{ now: new Date('2026-10-09T00:10:00.000Z') }];
 const otherRoomId = 'c1a3e5g7j9k2m4n6p8r1t3v5';
 
 test('a create whose host another Room holds is refused as active-room (ADR 0070)', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database, queries } = createTestDatabase([
     [],
     [account],
@@ -59,7 +59,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
 test('the active room read maps the membership row, and no row reads as none', async () => {
   const roundId = 'c2b4d6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([
-    [accountFact()],
+    [accountRow()],
     [
       [
         room.id,
@@ -72,7 +72,7 @@ test('the active room read maps the membership row, and no row reads as none', a
         null,
       ],
     ],
-    [accountFact()],
+    [accountRow()],
     [],
   ]);
   const authorize = (fact: { member: boolean } | null) => fact?.member === true;

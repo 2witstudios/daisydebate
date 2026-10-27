@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { validatePrivacyAdoption } from './declarations';
-import type { PrivacyFieldDeclaration } from './contracts';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 setupRitewayBun();
 const field: PrivacyFieldDeclaration = {

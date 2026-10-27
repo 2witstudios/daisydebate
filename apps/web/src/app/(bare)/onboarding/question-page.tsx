@@ -9,6 +9,8 @@ import { QuestionForm } from '../../../ui/onboarding/questions/question-form';
 import { saveStepAction } from './actions';
 import { stepSkip } from './skip';
 import { readStepEntry } from './step-entry';
+import { redirect } from 'next/navigation';
+import { requestOptionalAnswersAdmitted } from '../../../lib/request-session';
 
 const previous: Record<QuestionStep, OnboardingStep> = {
   about: 'debate',
@@ -16,7 +18,11 @@ const previous: Record<QuestionStep, OnboardingStep> = {
   topics: 'experience',
 };
 
-/** A questionnaire step's page: the member's saved answers, bound forms. */
+/**
+ * A questionnaire step's page: the member's saved answers, bound forms. A
+ * member whose canonical age does not admit optional answers skips to the
+ * last step; nothing is asked, so nothing is stored (ISSUE-645).
+ */
 export async function QuestionPage({
   step,
   searchParams,
@@ -25,6 +31,8 @@ export async function QuestionPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { destination } = await readStepEntry(searchParams, step);
+  if (!(await requestOptionalAnswersAdmitted()))
+    redirect(onboardingStepHref('ready', destination));
   return (
     <QuestionForm
       step={step}

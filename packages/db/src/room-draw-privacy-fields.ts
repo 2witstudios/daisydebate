@@ -1,4 +1,4 @@
-import type { PrivacyFieldDeclaration } from './privacy/contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 
 type Field = Pick<
   PrivacyFieldDeclaration,

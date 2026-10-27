@@ -1,6 +1,6 @@
 import { getTableColumns } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { validatePrivacyAdoption } from './privacy/declarations';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
 import { createRoomDrawPrivacyAdopter } from './room-draw-privacy';
 import {
   resolutionBankEntries,

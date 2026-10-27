@@ -122,10 +122,41 @@ The rest of this record describes BETA-2.
   - The account fence function returns the beta state.
   - `@daisy/auth`'s evaluator requires `approved` for every participant
     capability.
-  - Three safety exits do not need it: `room.leave`, `channel.leave` and
-    `social.block`.
+  - **Withdrawals do not need it.** A member who is not, or is no
+    longer, admitted can always withdraw their own footprint. They can
+    never add to it or read others' content (DEC-126). The withdrawals
+    are:
+    - leaving: `room.leave` and `channel.leave`;
+    - blocking: `social.block`;
+    - own cleanup: `channel.reaction.remove`, `channel.file.cleanup`,
+      `channel.invitation.decline` and `channel.group.archive`;
+    - the replay reads of their own commands: `channel.group.result` and
+      `channel.invitation.result`.
+  - **Not withdrawals.** Management transfer (`channel.manage`) grants
+    authority to someone else, so the last manager without admission
+    archives the group instead. Typing is presence, so it is refused.
+  - **A withdrawal reads nothing.** Removing your own reaction checks
+    only that the reaction is yours, then answers with your own
+    footprint: `reactions: []` and the change version, never the
+    aggregates. So the response shape and status never reveal whether
+    others reacted. A non-member has no own reaction, so they get 404.
+  - **One list, in one place.** `admitsCapability` in `@daisy/auth`
+    holds the list. The messaging and Room command edges hand a waitlisted
+    principal to the evaluator, so these withdrawals are reachable over
+    HTTP. Room reads and creation stay member-only at the edge.
+- **Age admission (ISSUE-664).** Participant access is beta approval
+  _and_ a durable age record whose band, computed now, meets
+  `ACCOUNT_AGE_FLOOR` (16 in the beta, DEC-106; 13 after). The account
+  fence reports that band (never birth data). A missing record is no
+  access: the account waits as `age-required`, and the beta page sends
+  it to the age step. The operator command refuses to approve such an
+  account. Age eligibility is a participant admission rule, so every
+  feature behind participant access (coaching among them) inherits it
+  and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
+  The same holds in a channel: one member losing admission never closes
+  reading for the others.
 - **What a pending account sees.**
   - Every member requirement is denied.
   - After onboarding, a pending account lands on `/beta` ("You're on the
@@ -138,6 +169,30 @@ The rest of this record describes BETA-2.
 - **Realtime.** Live sockets close through the existing `session.revoked`
   control row within one outbox drain interval. Ticket redemption,
   subscription admission and delivery re-check the fact.
+- **Expand and contract (rolling-safe).** The fence's new result shape
+  ships as versioned producers, `daisy_authorization_accounts_v2` and
+  `daisy_room_read_account_v2`. The v1 account function keeps its exact
+  five-column result, rewritten in place to compute from v2. The v1 Room
+  reader is left untouched and reaches v2 through that account wrapper.
+  A statement a live instance prepared against either v1 function
+  therefore stays valid across the migration. Every web and realtime
+  caller moves to v2 in the same release. A separate contract step, the
+  BETA-2C leaf, runs once no instance runs the old binary. It first
+  repoints the age reader's own fence call to v2, then drops v1.
+- **One age validity rule.** `daisy_age_band` is the single SQL rule for
+  a durable age record: a birth month present and not after the
+  evaluation instant, a positive version, and a finite recorded time no
+  later than that instant. Any missing input means no record (ISSUE-676). Both the
+  fence's band and the age reader use it. The fence classifies at
+  `clock_timestamp()`, sampled after its lock waits.
+- **What the band is.** `ageBand` is an account authorization fact for
+  participant admission only. It is not public profile data, not
+  consent, and not a social-eligibility grant. Social policy keeps using
+  the age reader's revisioned fact with `validUntil`.
+- **Activation point.** The gate is enforced once every web and realtime
+  instance runs this release. During a rolling deploy an old instance
+  does not enforce it; staging accepts that window, and production needs
+  its own cutover decision.
 - **Rollback.** Activation is forward-only. Redeploying a pre-activation
   binary would reopen access, so a defect in activation is fixed forward.
 

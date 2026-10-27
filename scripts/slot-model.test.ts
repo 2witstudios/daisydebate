@@ -2,7 +2,6 @@ import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   deriveSlot,
-  findOrphans,
   liveWorktreeIds,
   parsePortBlockComment,
   parseWorktreeList,
@@ -34,6 +33,9 @@ describe('slot derivation', () => {
         database: 'daisy',
         testDatabase: 'daisy_test',
         e2eDatabase: 'daisy_e2e',
+        adminDatabase: 'daisy_admin',
+        adminTestDatabase: 'daisy_admin_test',
+        adminE2eDatabase: 'daisy_admin_e2e',
         namespace: 'daisy',
         e2eNamespace: 'daisy-e2e',
       },
@@ -54,6 +56,9 @@ describe('slot derivation', () => {
         database: 'daisy_wt_3ctbm0tw',
         testDatabase: 'daisy_wt_3ctbm0tw_test',
         e2eDatabase: 'daisy_wt_3ctbm0tw_e2e',
+        adminDatabase: 'daisy_wt_3ctbm0tw_admin',
+        adminTestDatabase: 'daisy_wt_3ctbm0tw_admin_test',
+        adminE2eDatabase: 'daisy_wt_3ctbm0tw_admin_e2e',
         namespace: 'daisy-wt-3ctbm0tw',
         e2eNamespace: 'daisy-wt-3ctbm0tw-e2e',
       },
@@ -85,10 +90,13 @@ describe('slot derivation', () => {
         postgresIdentifierRule.test(slot.database),
         postgresIdentifierRule.test(slot.testDatabase),
         postgresIdentifierRule.test(slot.e2eDatabase),
+        postgresIdentifierRule.test(slot.adminDatabase),
+        postgresIdentifierRule.test(slot.adminTestDatabase),
+        postgresIdentifierRule.test(slot.adminE2eDatabase),
         redisNamespaceRule.test(slot.namespace),
         redisNamespaceRule.test(slot.e2eNamespace),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true, true],
     });
   });
 
@@ -108,6 +116,7 @@ describe('slot derivation', () => {
       `wt-${'a'.repeat(29)}`,
       'wt-a-test',
       'wt-a-e2e',
+      'wt-a-admin',
       'wt-a-test-run-0a1b2c3d',
     ])
       expect(() =>
@@ -168,54 +177,6 @@ describe('git worktree list parsing', () => {
     expect(() => liveWorktreeIds(['/x/wt-feature-b', '/y/feature_b'])).toThrow(
       /same slot/,
     );
-  });
-});
-
-describe('orphan detection', () => {
-  test('selects only slots whose worktree is gone', () => {
-    assert({
-      given: 'databases and namespaces of live, removed and main slots',
-      should: 'drop only the removed slot and never main or unknown names',
-      actual: findOrphans({
-        liveIds: ['live1', 'live1_x'],
-        databases: [
-          'daisy',
-          'daisy_test',
-          'daisy_template',
-          'daisy_wt_live1',
-          'daisy_wt_live1_test',
-          'daisy_wt_live1_e2e',
-          'daisy_wt_live1_x',
-          'daisy_wt_gone',
-          'daisy_wt_gone_test',
-          'daisy_wt_gone_e2e',
-          'daisy_wt_gone_test_run_0a1b2c3d',
-          'daisy_wt_live1_test_run_0a1b2c3d',
-          'daisy_wt_Bad',
-          'postgres',
-        ],
-        namespaces: [
-          'daisy',
-          'daisy-e2e',
-          'daisy-wt-live1',
-          'daisy-wt-live1-e2e',
-          'daisy-wt-live1-x',
-          'daisy-wt-gone',
-          'daisy-wt-gone-e2e',
-          'daisy-wt-',
-        ],
-      }),
-      expected: {
-        ids: ['gone'],
-        databases: [
-          'daisy_wt_gone',
-          'daisy_wt_gone_e2e',
-          'daisy_wt_gone_test',
-          'daisy_wt_gone_test_run_0a1b2c3d',
-        ],
-        namespaces: ['daisy-wt-gone', 'daisy-wt-gone-e2e'],
-      },
-    });
   });
 });
 
@@ -298,6 +259,12 @@ describe('slot .env values', () => {
         CLAMD_TEST_PORT: '3310',
         MEDIA_WORKER_DATABASE_URL:
           'postgres://daisy_media_worker_local:media-worker-loopback-only@localhost:15432/daisy',
+        TEST_ADMIN_DATABASE_URL:
+          'postgres://daisy:local-development-only@localhost:15432/daisy_admin_test',
+        E2E_ADMIN_DATABASE_URL:
+          'postgres://daisy:local-development-only@localhost:15432/daisy_admin_e2e',
+        ADMIN_DATABASE_URL:
+          'postgres://daisy:local-development-only@localhost:15432/daisy_admin',
       },
     });
   });
@@ -331,6 +298,12 @@ describe('slot .env values', () => {
         CLAMD_TEST_PORT: '3310',
         MEDIA_WORKER_DATABASE_URL:
           'postgres://daisy_media_worker_local:media-worker-loopback-only@127.0.0.1:35432/daisy_wt_abc',
+        TEST_ADMIN_DATABASE_URL:
+          'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin_test',
+        E2E_ADMIN_DATABASE_URL:
+          'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin_e2e',
+        ADMIN_DATABASE_URL:
+          'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_admin',
       },
     });
   });

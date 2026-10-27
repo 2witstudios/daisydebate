@@ -1,17 +1,15 @@
 'use client';
 import './zod-jitless';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/rooms/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import { MediaPageLink } from '../round-media/media-page-link';
-import { useRouter } from 'next/navigation';
-import { browserDocument } from '../round-media/browser-document';
-import { replaceRoute } from '../round-media/replace-route';
-import { RoundEndedNotice, roundEnded } from './round-ended';
+import { RoundEndedNotice } from './round-ended';
+import { useRoundEndedRoute } from './use-round-ended';
 
 /**
  * The server admits an actual own judge assignment; media grants remain
@@ -26,11 +24,7 @@ export function LiveJudgeRoom(props: {
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const media = useMemo(() => roundMediaSlot(refresh), [refresh]);
   const view = synced.value;
-  const router = useRouter();
-  const ended = roundEnded(view.status);
-  useEffect(() => {
-    if (ended) replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [ended, router, view.id]);
+  const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-dash-column flex-col gap-4 p-4">

@@ -16,6 +16,8 @@ test('bound minimal age reader uses only its caller transaction', async () => {
     member: true,
     erased: false,
     revision: 1,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
   };
   const read = bindAuthorizationAgeFact(tx);
   const now = '2026-10-09T00:00:00.000Z';

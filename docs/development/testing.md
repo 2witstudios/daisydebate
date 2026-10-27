@@ -520,7 +520,10 @@ original 17 initially runnable jobs to 4 (5 including the standalone branch-push
 quick check): two quick checks, audit and migrations. All 15 existing expensive
 jobs wait for quick success. Passing PRs still fan out; this reduces initial
 fanout, not peak concurrency across distinct passing PRs. Existing per-PR
-cancellation groups are unchanged. CI gate requires quick and every full job.
+cancellation remains scoped to superseded runs of the same PR. Main,
+merge-group and manual runs use unique per-run groups and never cancel each
+other; a new merge cannot prevent the previous main candidate from finishing.
+CI gate requires quick and every full job.
 Always-running terminal checks require both the quick prerequisite and actual
 suite success; skipped or cancelled browser jobs cannot pass a required check.
 The existing full CI matrix and aggregate gate remain required.

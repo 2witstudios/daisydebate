@@ -74,7 +74,7 @@ async function ballotRefusal(
     const body = await response.json();
     error =
       body.refusal === 'attendance-unsettled'
-        ? 'Attendance is still settling. Your ballot has not been recorded. Try again after refreshing the Round.'
+        ? 'Not recorded yet: attendance for the last speeches is still being confirmed. Your entries are kept; submit again in a few seconds.'
         : 'The Round changed or a ballot is already recorded. Your entries are kept. Refresh before trying again.';
   }
   return { values: formValues(form), error };

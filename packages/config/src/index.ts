@@ -1,13 +1,19 @@
 import { z } from 'zod';
+import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
 import { mediaEndpoint } from './media-endpoint';
-import { databaseUrl, redisUrl } from './urls';
+import {
+  deploymentIdentityFields,
+  requireDeploymentIdentity,
+} from './deployment-identity';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 import { secret, secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
+import { operatorFields, refineOperatorConfig } from './operator-config';
+import { trustedProxyList } from './trusted-proxies';
 export {
   readMediaWorkerConfig,
   type MediaWorkerConfig,
@@ -18,15 +24,21 @@ export {
 } from './realtime-endpoint';
 export { readRealtimeTransportConfig } from './realtime-transport';
 
-export { requireTestServices, requireTestSlotServices } from './test-services';
+export {
+  requireAdminTestDatabase,
+  requireTestServices,
+  requireTestSlotServices,
+} from './test-services';
 export {
   expectedTestRedisDatabase,
   testRedisDatabase,
   testRedisRefusal,
 } from './test-redis';
 
-/** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
-export const TRUSTED_PROXY_GATEWAY = 'gateway';
+export {
+  readTrustedProxyConfig,
+  TRUSTED_PROXY_GATEWAY,
+} from './trusted-proxies';
 
 const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
   if (!url.startsWith('https:'))
@@ -36,63 +48,14 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
       message: 'Production requires HTTPS',
     });
 };
-/**
- * Shared across every deployment's config schema (`readServerConfig`,
- * `readRealtimeConfig`): production refuses to boot without a real
- * `APP_VERSION`/`GIT_COMMIT` and never against local-development
- * PostgreSQL credentials.
- */
-const requireDeploymentIdentity = (
-  config: {
-    APP_VERSION: string;
-    GIT_COMMIT: string;
-    DATABASE_URL: string;
-    MIGRATION_DATABASE_URL?: string | undefined;
-  },
-  ctx: z.RefinementCtx,
-) => {
-  // ISSUE-102: the schema owner lives only in the release-only migrator app
-  // (ADR 0041); a runtime machine holding it is a misplaced Fly secret.
-  if (config.MIGRATION_DATABASE_URL !== undefined)
-    ctx.addIssue({
-      code: 'custom',
-      path: ['MIGRATION_DATABASE_URL'],
-      message: 'Production runtime must not hold the migration credential',
-    });
-  if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
-    ctx.addIssue({
-      code: 'custom',
-      path: ['APP_VERSION'],
-      message: 'Production requires deployment identity',
-    });
-  if (new URL(config.DATABASE_URL).password === 'local-development-only')
-    ctx.addIssue({
-      code: 'custom',
-      path: ['DATABASE_URL'],
-      message: 'Production forbids local development credentials',
-    });
-};
-const deploymentIdentityFields = {
-  // Required, no default: an unset NODE_ENV must refuse to start rather than
-  // silently become 'development' and skip every production check below.
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-  DATABASE_URL: secret(databaseUrl),
-  REDIS_URL: secret(redisUrl),
-  REDIS_NAMESPACE: z
-    .string()
-    .regex(/^[a-z][a-z0-9-]{0,40}$/)
-    .default('daisy'),
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .default('info'),
-  APP_VERSION: z.string().min(1).default('development'),
-  GIT_COMMIT: z.string().min(1).default('unknown'),
-  // Read only so production can refuse it; never part of the parsed config.
-  MIGRATION_DATABASE_URL: secret(z.string()).optional(),
-};
 const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
+  /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
+  PREMIUM_BETA_GRANT: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   ROOM_POLICY: roomPolicyConfig,
   /** Configured isolated member/session resource for the actual public check-in probe. */
   ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
@@ -108,6 +71,7 @@ const serverFields = {
    * digests are cancelled as unconfigured.
    */
   BETA_NOTIFY_EMAIL: z.email().optional(),
+  ...operatorFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
   LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
@@ -121,6 +85,7 @@ const serverFields = {
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
+    refineOperatorConfig(config, ctx);
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);
@@ -177,44 +142,6 @@ export function readRealtimeConfig(
     );
   return result.data;
 }
-// IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
-// written in hex (only zero groups, then ffff, then exactly two groups).
-const embedsIpv4 = (value: string) =>
-  value.includes('.') ||
-  /^[0:]*:ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(value.split('/')[0] ?? '');
-// The accepted set must stay a subset of what Better Auth acts on: it drops
-// an entry it cannot parse with only a warning, quietly untrusting a real
-// proxy. It reduces IPv4-mapped IPv6 to four bytes and caps that prefix at
-// 32, so mapped ranges are refused outright; operators write the IPv4 form.
-// Stricter than Better Auth on purpose (no leading-zero prefixes either).
-// The literal keyword instead trusts this machine's single default gateway,
-// resolved once at the server edge through @daisy/ingress/trusted-proxies:
-// on Fly that is the one address fly-proxy connects from (ISSUE-162).
-const proxyAddress = z.union([
-  z.ipv4(),
-  z.cidrv4(),
-  z.union([z.ipv6(), z.cidrv6()]).refine((value) => !embedsIpv4(value)),
-  z.literal(TRUSTED_PROXY_GATEWAY),
-]);
-/** Optional comma-separated list: absent or blank means an empty list. */
-const commaList = (entry: z.ZodType<string, string>) =>
-  z
-    .string()
-    .default('')
-    .transform((value) =>
-      value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
-    )
-    .pipe(z.array(entry));
-
-/** Shared ingress configuration, independent of authentication activation. */
-export function readTrustedProxyConfig(
-  env: Readonly<Record<string, string | undefined>>,
-): readonly string[] {
-  const parsed = commaList(proxyAddress).safeParse(env.AUTH_TRUSTED_PROXIES);
-  if (!parsed.success)
-    throw new Error('Invalid ingress configuration: AUTH_TRUSTED_PROXIES');
-  return parsed.data;
-}
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
@@ -253,7 +180,7 @@ const authFields = {
     z.string().regex(/^whsec_[A-Za-z0-9+/=]{16,}$/),
   ).optional(),
   /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
-  AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
+  AUTH_TRUSTED_PROXIES: trustedProxyList,
   /**
    * Bearer credential for the read-only `/api/ops/alerts` and
    * `/api/ops/metrics` probes (AUTH-7.7); required in production so the

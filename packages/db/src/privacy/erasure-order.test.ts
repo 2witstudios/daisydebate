@@ -9,7 +9,15 @@ import type { PrivacyAdopter } from './contracts';
 
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
-const account = { ...subject, revision: 1, member: true, erased: false };
+const account = {
+  ...subject,
+  revision: 1,
+  member: true,
+  erased: false,
+  betaState: 'approved',
+  betaRevision: 1,
+  ageBand: 'adult',
+};
 const now = '2026-10-09T00:00:00.000Z';
 const input = { subject, now, vendors: ['posthog'], jobIds: ['j'.repeat(24)] };
 const bindings = [
@@ -119,7 +127,18 @@ test('canonical erasure fences before associations and queues vendors after scru
 });
 
 test('erased or foreign subject facts cannot trigger further cleanup or intents', async () => {
-  const already = fakeSql([[{ ...account, erased: true, member: false }]]);
+  const already = fakeSql([
+    [
+      {
+        ...account,
+        erased: true,
+        member: false,
+        betaState: 'approved',
+        betaRevision: 1,
+        ageBand: 'adult',
+      },
+    ],
+  ]);
   const result = await erasePrivacySubject(
     drizzle({ client: already.client }),
     input,

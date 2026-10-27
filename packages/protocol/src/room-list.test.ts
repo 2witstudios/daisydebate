@@ -113,3 +113,17 @@ test('Lobby filters and discovery facts are a closed grammar', () => {
     expected: [true, false, false, false],
   });
 });
+
+test('Lobby sort is a closed server-side query contract', () => {
+  assert({
+    given: 'oldest and newest orders, then unknown and repeated sorts',
+    should: 'accept exactly the two supported creation-time keysets',
+    actual: [
+      { sort: 'longest-waiting' },
+      { sort: 'newest' },
+      { sort: 'rating' },
+      { sort: ['newest', 'longest-waiting'] },
+    ].map((query) => roomListQuerySchema.safeParse(query).success),
+    expected: [true, true, false, false],
+  });
+});

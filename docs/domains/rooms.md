@@ -67,12 +67,22 @@ Launch freezes the resolution and the draw's evidence onto the Round.
 ## Playing
 
 The host's `start` command activates the Round; only the host may start it.
+At or past the start horizon, the command refuses atomically, even before
+maintenance sweeps the scheduled Round; maintenance then abandons it.
 From then on, the runtime moves through the rules' segments and prep under the
 database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to
 the scheduled speaker, whose segment continues (DEC-203). Humans, bots and
 services all act through the one shared command operation; people reach it
 through the Round command route.
+
+The Round's room page sends each member to their own view: a debater to the
+live room, the assigned judge to the judge view, and a seatless host to the
+spectator view, a read-only projection of the Round (who holds the floor, the
+clock and the speech order) with no controls and no media. The spectator
+view is the seed of spectating: `SpectatorAudience` names why a viewer
+watches, today only `host`, and later audiences join that union without a
+second view. Everyone else gets the Round's public page.
 
 Media is a scoped LiveKit session. The capture worker turns the published
 audio of every debater, human or bot, into the transcript; bot speech enters
@@ -133,3 +143,31 @@ and when the tab becomes visible. Doorbells carry no delivery guarantee, so
 the driver also polls: every 30 seconds while realtime is connected, and every
 5 seconds without a connection or while stale. A hydrated command adopts the
 server's answer instead of navigating.
+
+Room persistence has one command path: `createRoomCommand` and
+`executeRoomCommand` atomically persist the engine's member set with every
+accepted Room mutation. Seating, prep and Launch all use that path; there is
+no separate low-level seat or freeze writer.
+
+## Lobby discovery ordering
+
+The discovery query accepts `sort=newest` (also the omitted default) or
+`sort=longest-waiting`. Both use the Room's immutable `(created_at, id)`
+tuple, descending for newest and ascending for longest waiting. The id
+uses PostgreSQL's C collation to break timestamp ties. Waiting longest is
+creation order across discovery, including a Room that has already launched;
+it never sorts on the nullable waiting display field or mutable occupancy.
+
+The string cursor is the last returned accessible Room's id. PostgreSQL
+resolves that anchor's creation instant at full stored precision, even if
+its Room has since launched or left the selected status; no JavaScript
+Date rounding or offset is involved. An invisible or missing anchor yields
+no page. The same keyset/order applies before each bounded assembly/live
+branch limit, to the combined candidates and to the final projection.
+Authorization and bounded retry after lock races remain unchanged.
+
+New Rooms before the anchor appear on refresh; those after it can appear
+on subsequent pages. Launching does not move the key. Clients restart from
+page one when changing sort, status, mode or search. The query/URL helper
+preserves sort on subsequent pages; interactive controls are owned by the
+separate Lobby design lane.

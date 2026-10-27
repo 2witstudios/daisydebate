@@ -9,7 +9,10 @@ const id = (c: string) => c.repeat(24);
 const principal = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
 const base = 'http://localhost/internal/media/capture';
 
-const fixture = (seal?: () => Promise<unknown>) => {
+const fixture = (
+  seal?: () => Promise<unknown>,
+  token?: () => Promise<never>,
+) => {
   const calls: [string, unknown][] = [];
   const record =
     (name: string, result: unknown = { ok: name }) =>
@@ -36,6 +39,7 @@ const fixture = (seal?: () => Promise<unknown>) => {
         sealCapturedStream: seal ?? record('seal', null),
       }) as never,
     token: (async (scope: unknown) => {
+      if (token) return token();
       calls.push(['token', scope]);
       return { token: 'media-token' };
     }) as never,
@@ -219,5 +223,24 @@ test('only an ended session or closed admission is named closed for good', async
       [409, 'capture-closed'],
       [503, 'capture-paused'],
     ],
+  });
+});
+
+test('a terminal token refusal ends native capture rather than restarting it', async () => {
+  const f = fixture(undefined, async () => {
+    throw createAppError('CONFLICT', 'Capture session has ended');
+  });
+  const response = await f.handlers.handle(
+    signed(
+      'token',
+      JSON.stringify({ sessionId: id('s'), workerId: id('w'), epoch: 1 }),
+    ),
+  );
+  const body = await response.json();
+  assert({
+    given: 'a valid signed token request after the server closed its session',
+    should: 'name the definite closure so the supervisor never relaunches it',
+    actual: [response.status, body.refusal],
+    expected: [409, 'capture-closed'],
   });
 });

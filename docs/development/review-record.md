@@ -38,6 +38,15 @@ written) does not linger as the final state. A merged PR whose branch no
 longer carries the reviewed SHA can be checked with `--sha <sha>` to compare
 against the record's own SHA instead of the PR's current head.
 
+CI provenance also requires the reviewed PR number itself to appear in the
+complete head-branch PR history. Empty history never proves uniqueness. For a
+`pull_request` run, the original run's `created_at` must be at or after the
+reviewed PR's `created_at`; a rerun of an older PR's run does not become this
+PR's evidence. Missing or malformed creation times fail closed. These facts
+come from GitHub's [workflow run](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+and [pull request](https://docs.github.com/en/rest/pulls/pulls#get-a-pull-request)
+API responses, without another credential or network request.
+
 The optional local CLI is host-provisioned: the operator installs
 `@pagespace/cli` outside this workspace so `pagespace` resolves on `PATH`, and
 supplies an already authorized drive-scoped credential through that CLI.

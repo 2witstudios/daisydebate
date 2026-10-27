@@ -58,6 +58,10 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT
   // leaf); the edge is declared now so nothing else moves when it lands.
+  // ADR 0077: the admin app holds no participant database or Redis
+  // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
+  // the participant app only through the signed operator API (`auth`).
+  admin: ['auth', 'clock', 'config', 'errors', 'logger', 'protocol'],
   realtime: [
     'ingress',
     'protocol',
@@ -157,6 +161,23 @@ export const adminSurfaceIssue = (relativePath: string): string | null => {
     ? `${relativePath}: admin surface in the participant app (ADR 0043)`
     : null;
 };
+
+/**
+ * ADR 0079: the signed operator API serves only the private listener. No
+ * Next route, page or action under `apps/web/src/app` may import it, so
+ * the participant app never grows a route into operator authority.
+ */
+export const operatorApiIssue = (
+  specifier: string,
+  importer: string,
+): string | null =>
+  importer.startsWith('apps/web/src/app/') &&
+  specifier.startsWith('.') &&
+  posix
+    .normalize(posix.join(posix.dirname(importer), specifier))
+    .startsWith('apps/web/src/features/operator-api')
+    ? `operator API imported from a Next route ${specifier} (ADR 0079)`
+    : null;
 
 /**
  * ISSUE-275: the repository's own `scripts/` holds the runner and tooling

@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
@@ -19,7 +20,12 @@ export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
+    | 'client'
+    | 'maxConnections'
+    | 'botBusyCap'
+    | 'judging'
+    | 'botPublication'
+    | 'coaching'
   > = {},
 ) {
   const f = await fixture(options);
@@ -32,7 +38,12 @@ export async function withRoomRuntime(
 async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
+    | 'client'
+    | 'maxConnections'
+    | 'botBusyCap'
+    | 'judging'
+    | 'botPublication'
+    | 'coaching'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),
@@ -59,6 +70,8 @@ async function fixture(
       actorId = createId();
     await sql`insert into users (id,username,email_verified) values (${userId},${`u-${userId}`},true)`;
     await sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
+    // Room callers are admitted participants (ADR 0075); removing the user cascades.
+    await admitParticipants(sql, [userId]);
     const c = { userId, actorId };
     callers.push(c);
     return c;

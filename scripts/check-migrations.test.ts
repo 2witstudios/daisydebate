@@ -4,6 +4,7 @@ import {
   findChainProblems,
   findHistoryProblems,
   formatMigrationCheckReport,
+  migrationFolders,
   migrationsFingerprint,
   parseBaseRef,
   parseLsTree,
@@ -314,6 +315,37 @@ describe('report', () => {
         ).split('\n')[1],
       ],
       expected: ['origin/main', '  ORPHAN_SNAPSHOT: x'],
+    });
+  });
+});
+
+describe('migrationFolders', () => {
+  test('covers the admin database', () => {
+    assert({
+      given: 'the guarded folders',
+      should: "include the admin app's own migrations (ADR 0077)",
+      actual: migrationFolders,
+      expected: ['packages/db/migrations', 'apps/admin/src/db/migrations'],
+    });
+  });
+
+  test('reads a folder by its own path', () => {
+    const dir = 'apps/admin/src/db/migrations';
+    assert({
+      given: 'an admin ls-tree line and a stray admin file',
+      should: 'read the tag relative to that folder and name it in problems',
+      actual: [
+        parseLsTree(
+          `100644 blob abc\t${dir}/20261026000000_baseline/migration.sql`,
+          dir,
+        ),
+        readMigrations([{ path: 'stray.sql', blob: 'x' }], dir).problems[0]
+          ?.detail,
+      ],
+      expected: [
+        [{ path: '20261026000000_baseline/migration.sql', blob: 'abc' }],
+        `${dir}/stray.sql is not <timestamp>_<name>/migration.sql or snapshot.json; the migrator never reads it`,
+      ],
     });
   });
 });

@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { commandAnswer, commandUnavailable } from './command-answer';
+import {
+  commandAnswer,
+  commandUnavailable,
+  roomFormAnswer,
+} from './command-answer';
 import { assemblySnapshot } from './assembly.test-support';
 import { answerUnavailableOnThrow } from '../../ui/form-action/form-action';
 
@@ -44,7 +48,7 @@ test('refusal and broken transport never answer as acknowledged commands', async
       state.error?.includes('private'),
     ],
     expected: [
-      `/rooms/${assemblySnapshot.id}?notice=command-refused`,
+      `/rooms/${assemblySnapshot.id}?notice=command-refused#`,
       'actor',
       true,
       undefined,
@@ -80,8 +84,8 @@ test('a hydrated room command answers with the canonical view instead of navigat
     },
     expected: {
       hydrated: { values: {}, view },
-      native: `/rooms/${view.id}`,
-      moves: [`/rooms/${view.id}`],
+      native: `/rooms/${view.id}#`,
+      moves: [`/rooms/${view.id}#`],
     },
   });
 });
@@ -112,6 +116,24 @@ test('a hydrated refusal stays on the room with its reason', () => {
       },
       'The command was not acknowledged. Review the current room and try again.',
       undefined,
+    ],
+  });
+});
+
+test('native Room details and settings answers clear an inherited setup fragment', () => {
+  const result = { kind: 'accepted' as const, view: assemblySnapshot };
+  const move = (next: string) => ({ next });
+  assert({
+    given: 'an accepted Room edit through the native or hydrated server action',
+    should:
+      'redirect the native post to an explicit empty fragment and adopt the hydrated view',
+    actual: [
+      roomFormAnswer(result, new FormData(), { hydrated: false, move }),
+      roomFormAnswer(result, new FormData(), { hydrated: true, move }),
+    ],
+    expected: [
+      { values: {}, next: `/rooms/${assemblySnapshot.id}#` },
+      { values: {}, view: assemblySnapshot },
     ],
   });
 });

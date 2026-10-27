@@ -20,6 +20,10 @@ export type Slot = {
   readonly testDatabase: string;
   /** The browser suite's own database, so integration never sees its rows. */
   readonly e2eDatabase: string;
+  /** The admin app's own databases (ADR 0077): dev, integration, browser. */
+  readonly adminDatabase: string;
+  readonly adminTestDatabase: string;
+  readonly adminE2eDatabase: string;
   readonly namespace: string;
   readonly e2eNamespace: string;
 };
@@ -31,12 +35,12 @@ const worktreeDatabasePrefix = `${prefix}_wt_`;
 const worktreeNamespacePrefix = `${prefix}-wt-`;
 // `daisy-wt-<id>-e2e` must fit REDIS_NAMESPACE (^[a-z][a-z0-9-]{0,40}$).
 const maxIdLength = 41 - worktreeNamespacePrefix.length - '-e2e'.length;
-// Lowercase words joined by single underscores. The `_test` and `_e2e`
-// suffixes are reserved so every database and namespace name maps back to
+// Lowercase words joined by single underscores. The `_test`, `_e2e` and
+// `_admin` suffixes are reserved so every database and namespace name maps back to
 // exactly one slot.
 const slotIdPattern = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 // `_test_run_<8 hex>` names one integration run's database (ISSUE-238).
-const reservedSuffix = /_(?:test|e2e)$|_test_run_[0-9a-f]{8}$/;
+const reservedSuffix = /_(?:test|e2e|admin)$|_test_run_[0-9a-f]{8}$/;
 
 const e2eRedisDatabase = 2;
 // realtime (ADR 0031): a dev port distinct from `app`, and an e2e port at
@@ -67,6 +71,9 @@ export function worktreeSlot(id: string): Slot {
     database: `${worktreeDatabasePrefix}${id}`,
     testDatabase: `${worktreeDatabasePrefix}${id}_test`,
     e2eDatabase: `${worktreeDatabasePrefix}${id}_e2e`,
+    adminDatabase: `${worktreeDatabasePrefix}${id}_admin`,
+    adminTestDatabase: `${worktreeDatabasePrefix}${id}_admin_test`,
+    adminE2eDatabase: `${worktreeDatabasePrefix}${id}_admin_e2e`,
     namespace: `${worktreeNamespacePrefix}${hyphenated}`,
     e2eNamespace: `${worktreeNamespacePrefix}${hyphenated}-e2e`,
   };
@@ -78,6 +85,9 @@ const mainSlot: Slot = {
   database: prefix,
   testDatabase: `${prefix}_test`,
   e2eDatabase: `${prefix}_e2e`,
+  adminDatabase: `${prefix}_admin`,
+  adminTestDatabase: `${prefix}_admin_test`,
+  adminE2eDatabase: `${prefix}_admin_e2e`,
   namespace: prefix,
   e2eNamespace: `${prefix}-e2e`,
 };
@@ -158,7 +168,7 @@ const idOfDatabase = (name: string): string | undefined => {
   const id = name
     .slice(worktreeDatabasePrefix.length)
     .replace(/_test_run_[0-9a-f]{8}$/, '')
-    .replace(/_(?:test|e2e)$/, '');
+    .replace(/_admin(?:_test|_e2e)?$|_(?:test|e2e)$/, '');
   return isSlotId(id) ? id : undefined;
 };
 
@@ -300,6 +310,9 @@ const slotEnvKeys = [
   'REALTIME_PORT',
   'CLAMD_TEST_PORT',
   'MEDIA_WORKER_DATABASE_URL',
+  'TEST_ADMIN_DATABASE_URL',
+  'E2E_ADMIN_DATABASE_URL',
+  'ADMIN_DATABASE_URL',
 ] as const;
 
 /**
@@ -349,6 +362,11 @@ export function slotEnvValues({
       slot.database,
       mediaWorkerRole,
     ),
+    // The admin app's owner URLs; its suites and browser server derive the
+    // DML-only logins themselves, and dev runs as the owner (ADR 0077).
+    TEST_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminTestDatabase),
+    E2E_ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminE2eDatabase),
+    ADMIN_DATABASE_URL: withPath(databaseUrl, slot.adminDatabase),
   };
 }
 

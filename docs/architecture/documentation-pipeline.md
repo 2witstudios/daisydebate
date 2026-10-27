@@ -1,13 +1,15 @@
 # Canvas documentation pipeline
 
 PageSpace Canvas pages in the `Daisy Debate` drive are the canonical published artifacts for technical
-documentation, user-facing documentation, and blog posts. Git is the evidence
-source: commits, pull requests, changed files, tests, releases, and task IDs
+documentation, user-facing documentation, and blog posts. Repository ADRs,
+architecture and domain documents govern implementation; Canvas publishes
+derived technical reading guides with useful explanations and source provenance.
+Git is the evidence source: commits, pull requests, changed files, tests, releases, and task IDs
 are sent to PageSpace as a versioned event envelope.
 
 The documentation tree starts at the top-level `Documentation` folder in that
 drive. It is not a separate drive and new content must be created below this
-folder. The `Documentation Agent` lives in the sibling `Agents` folder beside
+folder. The `Documentation Agent` lives in `Library/Agents` beside
 the Scrum Master, Builder, and Reviewer agents, and owns the page discovery and
 creation workflow.
 

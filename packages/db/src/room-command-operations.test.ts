@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { foundationDefinition } from './reference-formats';
 import {
-  accountFact,
+  accountRow,
   caller,
   room,
 } from './room-command-operations.test-support';
@@ -10,7 +10,7 @@ import { createTestDatabase, roomRow, validRules } from './index.test-support';
 setupRitewayBun();
 
 test('Room create command writes its receipt and exactly one change event', async () => {
-  const account = accountFact();
+  const account = accountRow();
   const { database, queries } = createTestDatabase([
     [],
     [account],
@@ -64,8 +64,8 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
   const readyRoom = { ...room, rules: validRules };
   const statements = [
     [[caller.actorId], [secondActorId]],
-    [accountFact(), accountFact(secondActorId, 'c4a2b6d8f1h3j5k7m9n2p4r6', 2)],
-    [accountFact()],
+    [accountRow(), accountRow(secondActorId, 'c4a2b6d8f1h3j5k7m9n2p4r6', 2)],
+    [accountRow()],
     [],
     [
       roomRow({
@@ -124,7 +124,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
   ];
   const { database, queries } = createTestDatabase([
     [],
-    [accountFact()],
+    [accountRow()],
     ...statements.slice(4, 11),
     [], // no draw
     [],

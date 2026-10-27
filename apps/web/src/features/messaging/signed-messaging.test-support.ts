@@ -15,6 +15,10 @@ export async function signedMessagingAuth(actorId: string, email: string) {
       ids: { next: () => 's' + String(++id).padStart(23, '0') },
       clock: systemClock,
       getActorByUserId: async (userId) => ({ id: actorId, userId }),
+      getParticipationByUserId: async () => ({
+        betaState: 'approved',
+        ageBand: 'adult',
+      }),
     },
     tables,
   );

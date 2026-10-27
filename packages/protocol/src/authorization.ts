@@ -10,6 +10,8 @@ const authorizationCapabilities = [
   'foundation.create',
   'foundation.read',
   'round.read',
+  'round.coaching.read',
+  'round.coaching.generate',
   'member.history.read',
   'room.create',
   'room.list',
@@ -46,6 +48,9 @@ const authorizationCapabilities = [
   'channel.request.result',
   'channel.request.decide',
   'channel.request.cancel',
+  // ADR 0079: the operator service's closed capabilities, never a user's.
+  'account.collection.read',
+  'account.beta_access.update',
 ] as const;
 export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<

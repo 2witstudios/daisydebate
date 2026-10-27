@@ -2,6 +2,7 @@ import type {
   AuthorizationCapability,
   AuthorizationDenyReason,
 } from '@daisy/protocol/authorization';
+import type { BetaAccessState } from '@daisy/protocol';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -15,6 +16,19 @@ export type AuthorizationPrincipal =
       readonly kind: 'user';
       readonly userId: string;
       readonly actorId: string | null;
+    }
+  /**
+   * ADR 0079: the admin app's service, authenticated by a signed request.
+   * Its capabilities come from server configuration for the verified key,
+   * never from the request; `operatorRef` is the service's attestation of
+   * which operator it already authorized.
+   */
+  | {
+      readonly kind: 'operator_service';
+      readonly serviceId: string;
+      readonly keyId: string;
+      readonly operatorRef: string;
+      readonly capabilities: readonly AuthorizationCapability[];
     };
 export type { AuthorizationCapability } from '@daisy/protocol/authorization';
 export type AccountAuthorizationFact = {
@@ -23,6 +37,20 @@ export type AccountAuthorizationFact = {
   readonly member: boolean;
   readonly erased: boolean;
   readonly revision: number;
+  /**
+   * The account's own beta access (ADR 0075), read under the same fence.
+   * Null when the account has no beta row: it never claimed a username, or
+   * it was erased. Only `approved` may use participant capabilities.
+   */
+  readonly beta: {
+    readonly state: BetaAccessState;
+    readonly revision: number;
+  } | null;
+  /**
+   * The account's age band now, from its durable age record (WAIT-4.6);
+   * null when it has none. Participant access needs a band at the floor.
+   */
+  readonly ageBand: import('./age-band').AgeBand | null;
 };
 export type RoomAuthorizationFact = {
   readonly kind: 'room';
@@ -230,9 +258,14 @@ export type AuthorizationInput = {
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
     | { readonly kind: 'room_collection' }
+    /** ADR 0079: the operator's account listing, and one target account (its fact is `context.account`). */
+    | { readonly kind: 'account_collection' }
+    | { readonly kind: 'account' }
     | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;
+    /** Named premium facts for this exact account; they do not grant participant admission or a seat. */
+    readonly entitlements?: { readonly coaching: boolean };
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
     /** Exact fresh pair accounts under the same account fence; no age eligibility required. */

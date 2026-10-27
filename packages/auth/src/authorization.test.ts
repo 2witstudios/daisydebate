@@ -9,6 +9,8 @@ const input: AuthorizationInput = {
       userId: 'u',
       actorId: 'a',
       member: true,
+      beta: { state: 'approved', revision: 1 },
+      ageBand: 'adult',
       erased: false,
       revision: 1,
     },
