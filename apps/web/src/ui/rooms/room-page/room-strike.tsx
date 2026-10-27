@@ -11,7 +11,7 @@ import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 
 type Draw = NonNullable<RoomView['resolutionDraw']>;
-type Side = 'affirmative' | 'negative';
+export type Side = 'affirmative' | 'negative';
 
 const sideWord: Readonly<Record<Side, string>> = {
   affirmative: 'Affirmative',
@@ -19,14 +19,14 @@ const sideWord: Readonly<Record<Side, string>> = {
 };
 
 /** The debater on a side, by name, or the side's own word. */
-const nameOf = (view: RoomView, side: Side) =>
+export const nameOf = (view: RoomView, side: Side) =>
   view.participants
     .filter(isNamedSeat)
     .filter((seat) => seat.role === side)
     .map((seat) => seat.label)
     .join(' and ') || sideWord[side];
 
-const viewerSideOf = (view: RoomView, actorId: string): Side | null => {
+export const viewerSideOf = (view: RoomView, actorId: string): Side | null => {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.actorId === actorId);

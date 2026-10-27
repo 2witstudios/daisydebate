@@ -30,6 +30,7 @@ import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
 import { RoomStrike } from './room-strike';
+import { RoomStrikeReveal } from './room-strike-reveal';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -119,6 +120,7 @@ export function RoomLive(props: Props) {
         strikeIds={ids.strikes}
       />
       <RoomResolution view={view} />
+      <RoomStrikeReveal view={view} actorId={props.actorId} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.refused ? (
         <p role="alert">

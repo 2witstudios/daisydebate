@@ -3,6 +3,7 @@ import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { RoomStrike } from './room-strike';
+import { RoomStrikeReveal } from './room-strike-reveal';
 
 setupRitewayBun();
 
@@ -155,5 +156,78 @@ test('nothing renders before the draw or after the reveal', () => {
       ),
     ],
     expected: ['', ''],
+  });
+});
+
+const revealed = (view: RoomView): RoomView => ({
+  ...view,
+  topic: `${SENTINEL} 0`,
+  resolutionDraw: view.resolutionDraw && {
+    ...view.resolutionDraw,
+    strikes: [
+      ...view.resolutionDraw.strikes,
+      ...(view.resolutionDraw.visibility === 'debater'
+        ? [
+            {
+              ordinal: 1,
+              side: 'affirmative' as const,
+              kind: 'debater' as const,
+              position: 1,
+            },
+          ]
+        : [
+            {
+              ordinal: 1,
+              side: 'affirmative' as const,
+              kind: 'debater' as const,
+            },
+          ]),
+    ],
+    turn: null,
+    revealedAt: '2026-10-12T00:00:40.000Z',
+  },
+});
+
+test('after the reveal, debaters see how the resolution was chosen', () => {
+  const debater = renderToStaticMarkup(
+    <RoomStrikeReveal view={revealed(debaterView)} actorId={host} />,
+  );
+  const spectator = renderToStaticMarkup(
+    <RoomStrikeReveal
+      view={revealed(spectatorView)}
+      actorId={'s'.repeat(24)}
+    />,
+  );
+  assert({
+    given: 'a revealed draw read by a debater and by a spectator',
+    should:
+      'show the debater the kept resolution’s category and every strike in order, and show the spectator nothing beyond the topic',
+    actual: {
+      heading: debater.includes('How it was chosen'),
+      category: debater.includes('Value'),
+      kept: debater.includes('Debated'),
+      strikes: [
+        debater.indexOf('Daisy struck this for Jordan · time ran out'),
+        debater.indexOf('You struck this'),
+      ].every((at) => at > -1),
+      spectator,
+      strikeFormGone: renderToStaticMarkup(
+        <RoomStrike
+          view={revealed(debaterView)}
+          actorId={host}
+          now={0}
+          action={async () => ({ values: {} })}
+          strikeIds={[]}
+        />,
+      ),
+    },
+    expected: {
+      heading: true,
+      category: true,
+      kept: true,
+      strikes: true,
+      spectator: '',
+      strikeFormGone: '',
+    },
   });
 });
