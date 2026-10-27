@@ -42,13 +42,14 @@ const server = createServer((request, response) => {
   request.headers[PEER_HEADER] = decision.peer;
   void handle(request, response);
 });
-server.listen({ port: config.ADMIN_PORT, host: config.ADMIN_HOST }, () =>
+server.once('listening', () =>
   logger.log(
     'server.start',
     { port: config.ADMIN_PORT, source: 'admin' },
     'Admin server listening',
   ),
 );
+server.listen({ port: config.ADMIN_PORT, host: config.ADMIN_HOST });
 
 const stop = async () => {
   const deadline = setTimeout(() => process.exit(1), SHUTDOWN_DEADLINE_MS);

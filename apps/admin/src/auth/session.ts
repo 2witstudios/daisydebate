@@ -51,6 +51,22 @@ async function revoke(
   });
 }
 
+const iso = (value: Date | null) => value?.toISOString() ?? null;
+const verdictOf = (
+  session: NonNullable<Awaited<ReturnType<typeof findSession>>>,
+  operator: Awaited<ReturnType<typeof findOperator>>,
+  now: string,
+) =>
+  sessionVerdict(
+    {
+      lastSeenAt: session.lastSeenAt.toISOString(),
+      expiresAt: session.expiresAt.toISOString(),
+      revokedAt: iso(session.revokedAt),
+    },
+    operator && { disabledAt: iso(operator.disabledAt) },
+    now,
+  );
+
 export async function resolveSession(
   deps: AuthDeps,
   token: string | undefined,
@@ -60,15 +76,7 @@ export async function resolveSession(
   if (!session) return null;
   const operator = await findOperator(deps.db, session.operatorId);
   const now = deps.clock.now();
-  const verdict = sessionVerdict(
-    {
-      lastSeenAt: session.lastSeenAt.toISOString(),
-      expiresAt: session.expiresAt.toISOString(),
-      revokedAt: session.revokedAt?.toISOString() ?? null,
-    },
-    operator && { disabledAt: operator.disabledAt?.toISOString() ?? null },
-    now,
-  );
+  const verdict = verdictOf(session, operator, now);
   const detail = revocationDetail[verdict];
   if (detail) {
     const ids = { operatorId: session.operatorId, sessionId: session.id };
