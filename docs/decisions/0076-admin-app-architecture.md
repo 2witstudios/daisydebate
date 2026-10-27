@@ -64,7 +64,7 @@ how operators authenticate, how they are authorized, and what the app records.
   port belonging to the origin alone. Any other Host, `127.0.0.1` and `[::1]`
   included, gets 421 before any ceremony, which also defeats DNS rebinding. A
   future hostname change needs a credential re-enrollment plan.
-- **Bootstrap.** `bun apps/admin/src/scripts/operator-enroll.ts --name <n>
+- **Bootstrap.** `bun /app/apps/admin/src/scripts/operator-enroll.ts --name <n>
 [--replace | --additional]`, over `fly ssh console`, mints a 15-minute link
   `http://localhost:4800/enroll#<token>`. The token rides in the fragment, so
   no server log sees it. A first enrollment creates the owner and refuses a

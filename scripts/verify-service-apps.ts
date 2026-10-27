@@ -20,6 +20,8 @@ type ServiceApp = {
   readonly release?: true;
   /** The service app config whose deploy must come first. */
   readonly after?: string;
+  /** 6PN only (ADR 0076): no public service, no public address. */
+  readonly private?: true;
 };
 
 export const SERVICE_APPS: readonly ServiceApp[] = [
@@ -64,8 +66,27 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
     },
     after: 'fly.admin-migrate.toml',
+    private: true,
   },
 ];
+
+/** A private app's config declares nothing fly-proxy could route to. */
+const publicServiceProblems = (app: ServiceApp, toml: string) =>
+  app.private &&
+  (tableBody(toml, '[http_service]') !== null ||
+    /^\s*\[\[services\]\]/m.test(uncommented(toml)))
+    ? [
+        `${app.file} is private (6PN only) and must declare no [http_service] or [[services]]`,
+      ]
+    : [];
+
+/** A private app's own deploy step never allocates a public address. */
+const publicAddressProblems = (app: ServiceApp, step: string | undefined) =>
+  app.private && step !== undefined && !step.includes('--no-public-ips')
+    ? [
+        `deploy-staging.yml must deploy ${app.file} with --no-public-ips (6PN only)`,
+      ]
+    : [];
 
 /**
  * Pure check of one built service app config: it builds its own stage,
@@ -174,6 +195,7 @@ export function findServiceAppConfigProblems(
       if (toml === undefined) return [`${app.file} is missing`];
       return [
         ...findServiceEnvProblems({ file: app.file, toml }),
+        ...publicServiceProblems(app, toml),
         ...builtServiceProblems(app, toml, read),
       ];
     }),
@@ -234,15 +256,20 @@ export function findServiceDeployProblems(workflow: string): readonly string[] {
         app.after === undefined
           ? migrate
           : code.indexOf(`flyctl deploy -c ${app.after} `);
-      return migrate !== -1 &&
+      const ordered =
+        migrate !== -1 &&
         deploy > migrate &&
         deploy > after &&
         after !== -1 &&
-        own?.includes(`FLY_API_TOKEN: \${{ secrets.${app.token} }}`)
-        ? []
-        : [
-            `deploy-staging.yml must deploy ${app.file} after ${app.after ?? 'the migration'}, with its own secrets.${app.token}`,
-          ];
+        own?.includes(`FLY_API_TOKEN: \${{ secrets.${app.token} }}`);
+      return [
+        ...(ordered
+          ? []
+          : [
+              `deploy-staging.yml must deploy ${app.file} after ${app.after ?? 'the migration'}, with its own secrets.${app.token}`,
+            ]),
+        ...publicAddressProblems(app, own),
+      ];
     }),
   ];
 }

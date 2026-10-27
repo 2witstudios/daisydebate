@@ -95,11 +95,13 @@ describe('findServiceAppProblems (ISSUE-528)', () => {
 });
 
 describe('findServiceDeployProblems (ISSUE-528)', () => {
-  const step = (config: string, token: string) =>
-    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only\n`;
+  const step = (config: string, token: string, flags = '') =>
+    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only${flags}\n`;
   const migrate =
     '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
-  const all = SERVICE_APPS.map((app) => step(app.file, app.token)).join('');
+  const all = SERVICE_APPS.map((app) =>
+    step(app.file, app.token, app.private ? ' --no-public-ips' : ''),
+  ).join('');
 
   test('the committed workflow deploys every service app', () => {
     assert({
@@ -274,7 +276,10 @@ describe('the admin apps (ADR 0076)', () => {
     const others = SERVICE_APPS.filter(({ file }) => !file.includes('admin'))
       .map((app) => step(app.file, app.token))
       .join('');
-    const admin = step('fly.admin.toml', 'FLY_ADMIN_API_TOKEN');
+    const admin = step('fly.admin.toml', 'FLY_ADMIN_API_TOKEN').replace(
+      '--local-only',
+      '--local-only --no-public-ips',
+    );
     const adminMigrate = step(
       'fly.admin-migrate.toml',
       'FLY_ADMIN_MIGRATE_API_TOKEN',

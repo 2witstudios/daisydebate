@@ -896,7 +896,7 @@ fly deploy -c fly.admin.toml --no-public-ips
 fly ips list -a daisy-debate-staging-admin                      # must show no public address
 
 # 4. Owner enrollment and access
-fly ssh console -a daisy-debate-staging-admin -C "bun apps/admin/src/scripts/operator-enroll.ts --name owner"
+fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner"
 fly proxy 4800:8080 -a daisy-debate-staging-admin               # then open the printed http://localhost:4800/enroll#… URL
 ```
 
@@ -908,7 +908,7 @@ admin request is authenticated by its passkey session and authorized by
 `authorizeOperator`, and every operator API request by its signature.
 
 **Lost passkey.** `fly ssh console -a daisy-debate-staging-admin -C "bun
-apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
+/app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
 replacement link; consuming it revokes every earlier passkey and session.
 
 ## Staging data inventory (ISSUE-169, 2026-09-28)
