@@ -81,9 +81,12 @@ Never print a secret. Each one below is generated and piped straight into
 - Run `fly logs -a daisy-debate-staging-log-shipper --no-tail`. It must show
   `logship.started`, and no repeating `logship.insert.failed`.
 - Run `fly proxy 4800:8080 -a daisy-debate-staging-admin` and open
-  `http://localhost:4800/security`. The coverage line must read "Shipper
-  live", every app that writes the stream must show a recent line, and
-  "Retention" must be under 29 days.
+  `http://localhost:4800/security`. Check three things:
+  - The coverage line reads "Shipper live". "Coverage degraded" right after
+    a fix can be refusals from the past hour that are ageing out.
+  - Every app that writes the stream shows a recent line.
+  - Retention reads "inside its lifecycle" with a recent "Last partition
+    sweep".
 - The reader role is read-only. From the admin machine,
   `fly ssh console -a daisy-debate-staging-admin` makes any INSERT as
   `daisy_admin_reader` fail with "readonly".

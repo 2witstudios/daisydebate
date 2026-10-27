@@ -225,9 +225,10 @@ inventory becomes the single index:
     ([ADR 0084](../decisions/0084-operational-log-pipeline.md)): a
     self-hosted ClickHouse on 6PN, fed by the log shipper. It keeps only
     lines the `@daisy/logger` vocabulary admits, with a **28-day TTL** on
-    the shipper's receipt time. Daily partitions are dropped whole, and an
-    hourly sweep drops any partition older than 29 days, so no row
-    outlives the 30-day ceiling. There are no volume snapshots or backups,
+    the shipper's receipt time. Daily partitions are dropped whole. An hourly
+    sweep drops every partition dated 29 or more days ago, so no row
+    outlives 29 days and 1 hour, inside the 30-day ceiling. The admin
+    page alarms at 29 days 2 hours. There are no volume snapshots or backups,
     and no ClickHouse internal log tables.
 
   Its columns carry no personal, sensitive or secret field.
