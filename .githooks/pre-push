@@ -19,7 +19,7 @@ done <<REFS
 $refs
 REFS
 if [ "$needs_check" -eq 0 ]; then
-  echo "pre-push: branch push allowed; CI is the full gate." >&2
+  echo "pre-push: branch push allowed; CI runs on the PR." >&2
   exit 0
 fi
 if [ -n "$(git status --porcelain)" ]; then

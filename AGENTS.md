@@ -215,7 +215,8 @@ it runs: stop idle ones.
   policy stage lists open PRs for ADR and migration number claims, so it
   needs the network and an authenticated `gh` (`GH_TOKEN` in CI).
 - `bun check:affected`: fast per-slice inner loop over changed files and the
-  affected turbo graph. CI runs it once per push as the quick check. The
+  affected turbo graph. CI runs it once per PR or main push as the quick check;
+  a branch push without a PR runs no CI, so open the slice PR early. The
   optional `.githooks/pre-push` hook allows branch pushes and runs the full
   gate for an exact clean candidate pushed to main.
 - CI on a PR: the quick check, then `policy`, `invariants` and `build`,

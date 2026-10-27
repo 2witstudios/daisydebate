@@ -485,10 +485,9 @@ Only task outputs and logs are archived, never `.env`, credentials or service
 state. Infrastructure and browser test results are always executed fresh.
 
 Only successful task steps save, and only for main pushes or pull requests
-whose head repository is this repository, plus `pu/**` branch pushes. The latter
-seed standalone quick-check runs in their own GitHub branch scope; main and
-sibling branches cannot restore those caches. No privileged token or scope
-override is used. Fork PRs and manual dispatches may
+whose head repository is this repository. Branch pushes without a PR start no
+CI (ADR 0083), so they save nothing. No privileged token or scope override is
+used. Fork PRs and manual dispatches may
 restore but never save through this action. GitHub also scopes PR caches to
 their merge ref: main cannot restore a PR cache. No `pull_request_target` job
 executes PR code or publishes its outputs into a main cache.
@@ -509,9 +508,10 @@ References read before configuration:
 [GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
 and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/apps/docs/content/docs/reference/configuration.mdx).
 
-### One quick check per push and the browser tier
+### One quick check per PR push and the browser tier
 
-CI runs the quick check (`bun check:affected`) once per push, as a reusable
+CI runs the quick check (`bun check:affected`) once per PR or main push (a
+branch push without a PR runs no CI), as a reusable
 workflow called from `ci.yml` alone (ADR 0083). The quick check owns:
 
 - format and lint;

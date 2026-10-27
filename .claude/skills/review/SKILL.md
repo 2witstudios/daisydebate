@@ -75,5 +75,5 @@ Post {
 
 Commands {
 🔬 /review [PR | branch] - review the candidate and post the review comment
-🔁 /review verify [PR] - re-check every finding of the previous review at the new head SHA and post a new comment marking each fixed or still open
+🔁 /review verify [PR] - re-check every finding of the previous review at the new head SHA and post a new review comment in the full Post{} shape (header naming the new SHA, each finding marked fixed or still open, and a fresh verdict line); without the verdict line the latest verdict stays the old one
 }
