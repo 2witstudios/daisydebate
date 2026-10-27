@@ -1,6 +1,7 @@
 // Shared fixtures for the CI-evidence tests: a runtime PR into main, a
 // passing CI run of it, and a record citing that run.
 import type { CiEvidence, CiRun } from './review-ci';
+import { verifyReviewRecord } from './review-record';
 import { pr, record, sha } from './review-record.test-support';
 
 export const repository = '2witstudios/daisydebate';
@@ -61,3 +62,9 @@ export const integration = (
   job = 'Infrastructure contracts',
   cited = sha,
 ) => `Integration: PASS (CI run ${url}, job ${job}, sha ${cited})`;
+
+export const judge = (
+  line: string,
+  ci: CiEvidence = evidence(),
+  target = runtimePr,
+) => verifyReviewRecord(target, [citing(line)], [], ci).description;
