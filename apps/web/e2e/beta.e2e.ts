@@ -28,6 +28,9 @@ test('a waitlisted account waits on /beta until it is approved', async ({
 
   await page.goto('/settings');
   await expect(page).toHaveURL(/\/settings$/);
+  // ISSUE-690: the name it already claimed, never a prompt to choose one.
+  await expect(page.getByRole('link', { name: `@${username}` })).toBeVisible();
+  await expect(page.locator('a[href="/onboarding/username"]')).toHaveCount(0);
 
   await approveBetaAccounts(email);
   await page.goto('/beta?next=%2Fplay');
