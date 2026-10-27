@@ -57,6 +57,15 @@ export type Identity =
       readonly principal: UserPrincipal;
     };
 
+/**
+ * The username an account has claimed, approved or still waiting (ISSUE-690),
+ * or null for anyone who has not claimed one.
+ */
+export const claimedUsername = (identity: Identity): string | null =>
+  identity.state === 'member' || identity.state === 'waitlisted'
+    ? identity.username
+    : null;
+
 const ANONYMOUS: Identity = { state: 'anonymous', principal: anonymous };
 const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
 

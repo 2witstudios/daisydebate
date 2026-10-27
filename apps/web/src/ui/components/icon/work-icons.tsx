@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 /**
- * Stroke glyphs Prep draws beyond the shared icon set (24×24, same stroke).
- * When a second destination needs one, it moves to the shared set.
+ * The shared set's working glyphs: files, editing, sharing and ordering
+ * (ISSUE-314, promoted from Prep's local set). Same 24×24 stroke.
  */
-export const prepGlyphs = {
+export const workIconPaths: Record<string, ReactNode> = {
   upload: (
     <>
       <path d="M12 16V4" />
@@ -41,7 +41,7 @@ export const prepGlyphs = {
   ),
   bookmark: <path d="M6 3h12v18l-6-4-6 4Z" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
-  arrowLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
+  'arrow-left': <path d="M19 12H5M11 6l-6 6 6 6" />,
   pencil: (
     <>
       <path d="M4 20h4L19 9l-4-4L4 16Z" />
@@ -82,7 +82,7 @@ export const prepGlyphs = {
       <path d="M12 7v5l3 2" />
     </>
   ),
-  eyeOff: (
+  'eye-off': (
     <>
       <path d="M3 3l18 18" />
       <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.9" />
@@ -105,8 +105,8 @@ export const prepGlyphs = {
       <circle cx="15" cy="18" r="1" />
     </>
   ),
-  arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
-  arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
+  'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,
+  'arrow-down': <path d="M12 5v14M6 13l6 6 6-6" />,
   refresh: (
     <>
       <path d="M20 12a8 8 0 1 1-2.3-5.7L20 8" />
@@ -130,6 +130,4 @@ export const prepGlyphs = {
     </>
   ),
   filter: <path d="M3 5h18l-7 8v6l-4-2v-4Z" />,
-} satisfies Record<string, ReactNode>;
-
-export type PrepGlyphName = keyof typeof prepGlyphs;
+};

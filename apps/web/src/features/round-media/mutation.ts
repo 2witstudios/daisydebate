@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { dispatchMediaMutation, mediaMutationOutcome } from './vendor-dispatch';
 import type {
   Claim,
@@ -39,6 +40,7 @@ export function createMediaMutations(
           ...claim.fence,
           intent,
           buildProjection,
+          admits: admitsPrincipalAccess,
           authorize,
         }),
       dispatch: () => {

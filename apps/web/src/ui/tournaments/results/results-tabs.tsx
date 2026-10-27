@@ -6,7 +6,7 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { Certificate } from '../certificate/certificate';
-import { SampleButton } from '../inert-action/inert-action';
+import { SampleButton } from '../../components/sample-button/sample-button';
 import { LinkButton } from '../link-button/link-button';
 import { cn } from '../../cn';
 

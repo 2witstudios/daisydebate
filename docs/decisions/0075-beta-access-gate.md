@@ -129,9 +129,15 @@ The rest of this record describes BETA-2.
     - leaving: `room.leave` and `channel.leave`;
     - blocking: `social.block`;
     - own cleanup: `channel.reaction.remove`, `channel.file.cleanup`,
+      `channel.message.remove` (own messages only),
       `channel.invitation.decline` and `channel.group.archive`;
-    - the replay reads of their own commands: `channel.group.result` and
-      `channel.invitation.result`.
+    - cancelling their own requests and invitations (ISSUE-692):
+      `channel.request.cancel` and `channel.invitation.cancel`;
+    - the replay reads of their own commands: `channel.group.result`,
+      `channel.invitation.result` and `channel.request.result`.
+    - forfeiting a Round (DEC-249, confirmed), so a non-admitted member is
+      never trapped in a Round; the opponent's result follows the normal
+      forfeit rules.
   - **Not withdrawals.** Management transfer (`channel.manage`) grants
     authority to someone else, so the last manager without admission
     archives the group instead. Typing is presence, so it is refused.
@@ -155,15 +161,45 @@ The rest of this record describes BETA-2.
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
-- **Round commands decide inside the fence (DEC-249).** The commanding
-  human's own access facts reach the evaluator with the Round authority,
-  read after any lock wait, so a revoke that commits after the edge's
-  identity read still refuses the command. A human without access keeps
-  `forfeit`, which is how a participant leaves a live Round. Start,
-  preparation, speech, yield, interrupt and judge ballots are refused.
-  Seats stay membership-only.
   The same holds in a channel: one member losing admission never closes
   reading for the others.
+- **Fenced commands decide access inside the fence (DEC-249,
+  ISSUE-693).** The commanding human's own access facts are read under
+  the account fence, after any lock wait, and checked by the one rule
+  (`admitsPrincipalAccess`), which the web app injects. So a revoke that
+  commits after the edge's identity read still refuses the command. This
+  covers:
+  - Round commands and judge ballots: a human without access keeps only
+    `forfeit`;
+  - attendance check-in and target reads;
+  - Round media binding, snapshots, reconcile requests and token minting.
+
+  Seats stay membership-only.
+
+- **A revoked human already in a Round's media stops publishing
+  (ISSUE-714).** Every media snapshot and every reconcile mutation also
+  lists the human seats whose own fenced facts fail the rule
+  (`withdrawn`). These are read inside the same fences, with the rule the
+  web app injects. A withdrawn seat gets no media grants: no publish, no
+  subscribe, and a judge stays hidden. Only that seat is affected: the room
+  stays open, and the opponent's grants and floor are computed exactly as
+  before, so the Round continues and forfeit stays available (DEC-249).
+  - **The bound.** The revoked identity's room permissions go to nothing
+    by the end of the first full media recovery pass that starts after the
+    revoke commits. Passes start on a 500 ms cadence, but that is not a
+    latency. A pass reconciles every live session serially, each with its
+    own bounded vendor calls, so with N live Rounds the demotion can wait
+    up to N reconciles behind a pass already under way.
+  - **Old tokens.** A token minted before the revoke stays usable for its
+    60 s join window, because self-hosted LiveKit does not invalidate it.
+    A rejoin with one is demoted again by the next pass. No new token can
+    be minted. So the revoked human can publish at most for one pass after
+    any join, and not at all once 60 s have passed since their last mint.
+  - **Proof.** `packages/db/integration/fenced-admission.integration.ts`
+    proves the withdrawn seat in the snapshot and the mutation authority.
+    `apps/web/src/features/round-media/revoked-media.test.ts` proves the
+    demotion, the open room and the untouched opponent.
+
 - **What a pending account sees.**
   - Every member requirement is denied.
   - After onboarding, a pending account lands on `/beta` ("You're on the
@@ -183,9 +219,10 @@ The rest of this record describes BETA-2.
   reader is left untouched and reaches v2 through that account wrapper.
   A statement a live instance prepared against either v1 function
   therefore stays valid across the migration. Every web and realtime
-  caller moves to v2 in the same release. A separate contract step, the
-  BETA-2C leaf, runs once no instance runs the old binary. It first
-  repoints the age reader's own fence call to v2, then drops v1.
+  caller moves to v2 in the same release. The contract step (BETA-2C,
+  migration `beta_access_fence_contract`) runs once no instance runs the
+  old binary. It first repoints the age reader's own fence calls to v2,
+  then drops both v1 functions, so only v2 remains.
 - **One age validity rule.** `daisy_age_band` is the single SQL rule for
   a durable age record: a birth month present and not after the
   evaluation instant, a positive version, and a finite recorded time no

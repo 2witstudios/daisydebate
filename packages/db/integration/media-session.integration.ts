@@ -1,4 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -28,7 +29,7 @@ test('concurrent media admission reuses one opaque session and seat identity', a
         Array.from({ length: 5 }, () =>
           store.ensureBinding({
             roundId,
-            actorId: seat.actorId,
+            caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
           }),
         ),
@@ -105,7 +106,7 @@ test('terminal and wrong-seat admission cannot create a media session', async ()
         actual: () =>
           store.ensureBinding({
             roundId: otherRoundId,
-            actorId: seat.actorId,
+            caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
           }),
         code: 'AUTHORIZATION',
@@ -120,7 +121,7 @@ test('terminal and wrong-seat admission cannot create a media session', async ()
         actual: () =>
           store.ensureBinding({
             roundId,
-            actorId: seat.actorId,
+            caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
           }),
         code: 'CONFLICT',
@@ -154,7 +155,11 @@ test('fresh canonical revocation and actual final-end expiry refuse repeated bin
       [seat.actorId],
     );
     const store = storeFor(fixture.sql);
-    const input = { roundId, actorId: seat.actorId, buildProjection };
+    const input = {
+      roundId,
+      caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
+      buildProjection,
+    };
     try {
       const binding = await store.ensureBinding(input);
       await fixture.sql.unsafe(

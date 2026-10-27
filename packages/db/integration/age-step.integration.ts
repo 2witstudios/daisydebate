@@ -119,11 +119,13 @@ describe('the age step (WAIT-4.6, WAIT-4.7)', () => {
         await database.deleteProvisionalUser({
           userId: provisional,
           signInPurpose: 'sign-in',
+          emailChangePurposes: ['email-change-approve', 'email-change-verify'],
           recipientHashOf: (email) => `hash-${email.split('@')[0]}`,
         }),
         await database.deleteProvisionalUser({
           userId: member,
           signInPurpose: 'sign-in',
+          emailChangePurposes: ['email-change-approve', 'email-change-verify'],
           recipientHashOf: () => 'hash-member',
         }),
       ]);
@@ -165,6 +167,10 @@ describe('the age step (WAIT-4.6, WAIT-4.7)', () => {
           database.deleteProvisionalUser({
             userId: id,
             signInPurpose: 'sign-in',
+            emailChangePurposes: [
+              'email-change-approve',
+              'email-change-verify',
+            ],
             recipientHashOf: () => hash,
           }),
         );
@@ -205,6 +211,10 @@ describe('the age step (WAIT-4.6, WAIT-4.7)', () => {
             database.deleteProvisionalUser({
               userId,
               signInPurpose: 'sign-in',
+              emailChangePurposes: [
+                'email-change-approve',
+                'email-change-verify',
+              ],
               recipientHashOf: () => 'hash-none',
             });
           return [await forget(answered), await forget(createId())];

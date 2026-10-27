@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Notice, NoticeAction } from '../../../features/prep/notices';
 import { buttonClass } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import {
   dangerButtonClass,
   stateAlertClass,
@@ -34,7 +34,7 @@ function ActionButton({ action }: { readonly action: NoticeAction }) {
   return (
     <Link href={action.href} className={`${classes} ${link}`}>
       {action.symbol === undefined ? null : (
-        <PrepIcon name={action.symbol} size={18} />
+        <Icon name={action.symbol} size={18} />
       )}
       {action.label}
     </Link>
@@ -51,7 +51,7 @@ export function StateAlert({ notice }: { readonly notice: Notice }) {
       role={notice.tone === 'danger' ? 'alert' : 'status'}
       className={stateAlertClass(notice.tone)}
     >
-      <PrepIcon
+      <Icon
         name={toneSymbol[notice.tone]}
         size={20}
         className={`mt-1 ${stateIconClass(notice.tone)}`}

@@ -237,6 +237,8 @@ export const pendingCommands = pgTable(
     desiredState: text('desired_state').notNull(),
     expectedRevision: integer('expected_revision').notNull(),
     createdAt: at('created_at').notNull(),
+    /** When the latest PUT for this command was signed (ADR 0077, A1). */
+    lastSignedAt: at('last_signed_at').notNull(),
     resolvedAt: at('resolved_at'),
   },
   (table) => [

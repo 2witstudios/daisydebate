@@ -25,6 +25,12 @@ export const operatorLimits = {
   headerBytes: 8 * 1024,
   skewMs: 30_000,
   nonceTtlSeconds: 120,
+  /**
+   * The participant commits a command only while its signed timestamp is
+   * within skew, checked last, and bounds each statement (COMMIT included)
+   * by this, so a PUT can never apply later than this past its deadline.
+   */
+  commandBoundMs: 5_000,
 } as const;
 
 export const operatorAudienceSchema = z

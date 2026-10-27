@@ -45,7 +45,14 @@ lifecycle:
    sit in every web machine's environment, not only the release command's. Reference data that the schema depends on (the
    `foundation` row in `formats`, ADR 0029) ships inside the migration;
    `bun db:seed` is a development fixture (agent users, actors, a seed
-   debate) and never runs against production.
+   debate) and never runs against production. The migration credential is a
+   least-privilege owner ([ADR 0080](../decisions/0080-least-privilege-migration-owner.md)):
+   it owns the database and everything it migrates, with no `SUPERUSER`,
+   `CREATEROLE` or `CREATEDB`. Create it with `CREATE ROLE ... LOGIN` and
+   `CREATE DATABASE ... OWNER` (or reduce an attached superuser with
+   `ALTER ROLE ... NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+NOBYPASSRLS`). Create `daisy_web`, `daisy_realtime` and
+   `daisy_media_worker` as `postgres` before the first migration.
 2. Provide `APP_VERSION`, `GIT_COMMIT`, `PUBLIC_APP_URL` (HTTPS),
    `DATABASE_URL` (the DML-only `daisy_web` role; startup refuses a role
    that can create or alter schema objects), `REDIS_URL`,
