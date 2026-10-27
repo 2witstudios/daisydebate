@@ -123,70 +123,107 @@ test('Room create rechecks its catalog selection under the create transaction (P
   });
 });
 
+const secondActorId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
+const readyRoom = { ...room, rules: validRules };
+const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
+/** A start-round whose policy accepts whatever Room it is handed. */
+const startInput: Parameters<
+  ReturnType<typeof createTestDatabase>['database']['executeRoomCommand']
+>[0] = {
+  caller,
+  authorizeRead: (candidate, fact) =>
+    fact?.member === true && candidate.hostActorId === caller.actorId,
+  roomId: readyRoom.id,
+  actorId: caller.actorId,
+  commandId: 'c7a5d3f1h9j2k4m6n8p1r3t5',
+  payloadDigest: 'b'.repeat(64),
+  type: 'start-round',
+  targetActorId: null,
+  formatTuple: null,
+  roundId,
+  prepare: async () => (state) => ({
+    ok: true,
+    mutation: {
+      state: {
+        ...state,
+        status: 'started',
+        version: state.version + 1,
+        changeVersion: state.changeVersion + 1,
+      },
+      consent: null,
+      freeze: true,
+      publishDefinition: false,
+      drawSecrets: null,
+      members: [state.hostActorId],
+    },
+  }),
+};
+
+/** The start test's rows, in query order, with the Room at `changeVersion`. */
+const startRows = (changeVersion = 1) => [
+  [[caller.actorId], [secondActorId]],
+  [accountRow(), accountRow(secondActorId, 'c4a2b6d8f1h3j5k7m9n2p4r6', 2)],
+  [accountRow()],
+  [],
+  [
+    roomRow({
+      id: readyRoom.id,
+      hostActorId: caller.actorId,
+      title: readyRoom.title,
+      topic: readyRoom.topic,
+      visibility: readyRoom.visibility,
+      formatId: readyRoom.formatId,
+      config: readyRoom.config,
+      executionPlan: readyRoom.executionPlan,
+      rulesSnapshot: readyRoom.rules,
+      status: 'ready',
+      changeVersion,
+    }),
+  ],
+  [[foundationDefinition]],
+  [
+    [
+      'c5a1b3d7e9f2h4j6k8m1n3p5',
+      readyRoom.id,
+      caller.actorId,
+      'affirmative',
+      0,
+      'r1',
+      0,
+    ],
+    [
+      'c6a4e2f8h1j3k5m7n9p2r4t6',
+      readyRoom.id,
+      secondActorId,
+      'negative',
+      0,
+      'r2',
+      0,
+    ],
+  ],
+  [[caller.actorId, 'human', 'Host', null, true, null]],
+  [[secondActorId, 'human', 'Other', null, true, null]],
+  [[caller.actorId, 'human', 'Host', null, true, null]],
+  [],
+  [],
+  [{ now: new Date('2026-10-09T00:00:00.000Z') }],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [[readyRoom.id]], // the host's active membership is this Room's
+  [],
+  [],
+  [[2n, '42']], // Round phase signal for the frozen scheduled Round
+  [],
+  [], // command receipt insert follows the Round phase signal
+  [[1n, '42']],
+  [],
+];
+
 test('Start mutation commits one frozen Round, cast, receipt, and change signal', async () => {
-  const secondActorId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
-  const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
-  const readyRoom = { ...room, rules: validRules };
-  const statements = [
-    [[caller.actorId], [secondActorId]],
-    [accountRow(), accountRow(secondActorId, 'c4a2b6d8f1h3j5k7m9n2p4r6', 2)],
-    [accountRow()],
-    [],
-    [
-      roomRow({
-        id: readyRoom.id,
-        hostActorId: caller.actorId,
-        title: readyRoom.title,
-        topic: readyRoom.topic,
-        visibility: readyRoom.visibility,
-        formatId: readyRoom.formatId,
-        config: readyRoom.config,
-        executionPlan: readyRoom.executionPlan,
-        rulesSnapshot: readyRoom.rules,
-        status: 'ready',
-      }),
-    ],
-    [[foundationDefinition]],
-    [
-      [
-        'c5a1b3d7e9f2h4j6k8m1n3p5',
-        readyRoom.id,
-        caller.actorId,
-        'affirmative',
-        0,
-        'r1',
-        0,
-      ],
-      [
-        'c6a4e2f8h1j3k5m7n9p2r4t6',
-        readyRoom.id,
-        secondActorId,
-        'negative',
-        0,
-        'r2',
-        0,
-      ],
-    ],
-    [[caller.actorId, 'human', 'Host', null, true, null]],
-    [[secondActorId, 'human', 'Other', null, true, null]],
-    [[caller.actorId, 'human', 'Host', null, true, null]],
-    [],
-    [],
-    [{ now: new Date('2026-10-09T00:00:00.000Z') }],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [[readyRoom.id]], // the host's active membership is this Room's
-    [],
-    [],
-    [[2n, '42']], // Round phase signal for the frozen scheduled Round
-    [],
-    [], // command receipt insert follows the Round phase signal
-    [[1n, '42']],
-    [],
-  ];
+  const statements = startRows();
   const { database, queries } = createTestDatabase([
     [],
     [accountRow()],
@@ -200,35 +237,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     ...statements.slice(12),
   ]);
 
-  const receipt = await database.executeRoomCommand({
-    caller,
-    authorizeRead: (candidate, fact) =>
-      fact?.member === true && candidate.hostActorId === caller.actorId,
-    roomId: readyRoom.id,
-    actorId: caller.actorId,
-    commandId: 'c7a5d3f1h9j2k4m6n8p1r3t5',
-    payloadDigest: 'b'.repeat(64),
-    type: 'start-round',
-    targetActorId: null,
-    formatTuple: null,
-    roundId,
-    prepare: async () => (state) => ({
-      ok: true,
-      mutation: {
-        state: {
-          ...state,
-          status: 'started',
-          version: state.version + 1,
-          changeVersion: state.changeVersion + 1,
-        },
-        consent: null,
-        freeze: true,
-        publishDefinition: false,
-        drawSecrets: null,
-        members: [state.hostActorId],
-      },
-    }),
-  });
+  const receipt = await database.executeRoomCommand(startInput);
 
   assert({
     given: 'a complete current cast accepted by the Room policy',
@@ -271,5 +280,42 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
       ],
       2,
     ],
+  });
+});
+
+test('a Room that moves under a command retries from fresh facts, then refuses as changed', async () => {
+  const moved = startRows(2);
+  // Prepared at change version 1; locked at 2, so the attempt is stale.
+  const attempt = [
+    [],
+    [accountRow()],
+    ...startRows(1).slice(4, 11),
+    [], // no draw
+    [],
+    startRows(1)[12]!,
+    ...moved.slice(0, 3),
+    ...moved.slice(4, 11),
+    [], // no draw
+  ];
+  const { database, queries } = createTestDatabase([
+    ...attempt,
+    ...attempt,
+    ...attempt,
+  ]);
+
+  await assertRejects({
+    given: 'a Room whose change version moves before every lock',
+    should: 'refuse as version-conflict, in words the page already has',
+    actual: () => database.executeRoomCommand(startInput),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'three stale attempts',
+    should: 'prepare three times from fresh facts and write nothing',
+    actual: [
+      queries.filter(({ query }) => query.includes('for update')).length,
+      queries.filter(({ query }) => query.startsWith('insert')).length,
+    ],
+    expected: [3, 0],
   });
 });
