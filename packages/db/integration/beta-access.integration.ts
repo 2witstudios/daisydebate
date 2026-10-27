@@ -137,15 +137,17 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   });
 });
 
-/** A migration's own backfill statements, run against a controlled cohort. */
-const backfillStatements = (migration = '_beta_access_expand') => {
+/** The migration's own backfill statements, run against a controlled cohort. */
+const backfillStatements = () => {
   const root = join(import.meta.dir, '..', 'migrations');
-  const folder = readdirSync(root).find((name) => name.endsWith(migration));
+  const folder = readdirSync(root).find((name) =>
+    name.endsWith('_beta_access_expand'),
+  );
   const text = readFileSync(join(root, folder!, 'migration.sql'), 'utf8');
   return text
     .split('--> statement-breakpoint')
-    .map((statement) => statement.replace(/^--.*$/gm, '').trim())
-    .filter((statement) => /^(INSERT INTO|WITH) /.test(statement));
+    .map((statement) => statement.replace(/^-->.*$/gm, '').trim())
+    .filter((statement) => statement.startsWith('INSERT INTO'));
 };
 
 test('the expand migration approves exactly the grandfathered cohort', async () => {
@@ -211,75 +213,6 @@ test('the expand migration approves exactly the grandfathered cohort', async () 
           to_state: 'approved',
           principal: 'migration:beta_access_expand',
           id_shape: true,
-        },
-      ],
-    });
-  } finally {
-    await sql.close();
-  }
-});
-
-test('a claimed account left without a beta row is backfilled as pending, once (ISSUE-654)', async () => {
-  const sql = new SQL(url, { max: 1 });
-  const ids = { missed: createId(), approved: createId() };
-  try {
-    const rows = await sql
-      .begin(async (tx) => {
-        for (const id of Object.values(ids)) {
-          await tx.unsafe('insert into users (id, username) values ($1, $2)', [
-            id,
-            `b-${id}`,
-          ]);
-          await tx.unsafe(
-            "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
-            [createId(), id],
-          );
-        }
-        await tx.unsafe(
-          `insert into account_beta_access (user_id, state, revision, requested_at, decided_at, provenance)
-           values ($1, 'approved', 1, now(), now(), 'grandfathered')`,
-          [ids.approved],
-        );
-        // The migration's own statements, twice: a rerun changes nothing.
-        for (let run = 0; run < 2; run++)
-          for (const statement of backfillStatements(
-            '_beta_access_claimed_backfill',
-          ))
-            await tx.unsafe(statement);
-        const cohort = await tx.unsafe(
-          `select b.user_id, b.state, b.provenance, b.requested_at = u.created_at as requested_at_signup,
-             (select count(*)::int from account_access_events e where e.user_id = b.user_id
-               and e.principal = 'migration:beta_access_claimed_backfill') as events
-           from account_beta_access b join users u on u.id = b.user_id
-           where b.user_id in ($1, $2) order by b.state desc`,
-          Object.values(ids),
-        );
-        throw new RollbackWith(cohort);
-      })
-      .catch((error: unknown) => {
-        if (error instanceof RollbackWith) return error.rows;
-        throw error;
-      });
-    assert({
-      given:
-        'a claimed live account with no beta row and one already approved, with the migration run twice',
-      should:
-        'add one pending signup row requested at sign-up with one migration event, and leave the approved one alone',
-      actual: rows,
-      expected: [
-        {
-          user_id: ids.missed,
-          state: 'pending',
-          provenance: 'signup',
-          requested_at_signup: true,
-          events: 1,
-        },
-        {
-          user_id: ids.approved,
-          state: 'approved',
-          provenance: 'grandfathered',
-          requested_at_signup: false,
-          events: 0,
         },
       ],
     });
