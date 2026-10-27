@@ -2,16 +2,20 @@ import type {
   ProvisionalLinkPurposes,
   ProvisionalMailCleanup,
 } from '@daisy/db';
-import { EMAILED_LINK_PURPOSES } from '../confirmation/emailed-link-token';
+import {
+  EMAILED_LINK_PURPOSES,
+  SIGN_IN_STORED_PURPOSE,
+} from '../confirmation/emailed-link-token';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 
 /**
  * The link purposes a provisional account's emailed links are stored under,
- * from the app's own purpose list: sign-in, and every email-change purpose.
+ * as stored: sign-in links under Better Auth's prefix, and every email-change
+ * purpose from the app's own list.
  * The abandoned-account sweep needs only these.
  */
 export const provisionalLinkPurposes: ProvisionalLinkPurposes = {
-  signInPurpose: EMAILED_LINK_PURPOSES[0],
+  signInPurpose: SIGN_IN_STORED_PURPOSE,
   emailChangePurposes: EMAILED_LINK_PURPOSES.filter((purpose) =>
     purpose.startsWith('email-change-'),
   ),

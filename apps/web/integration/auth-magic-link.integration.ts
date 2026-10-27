@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
 import { counts, origin, tokenOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { emailedLinkIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
+import { storedSignInIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
@@ -68,7 +68,7 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
       expected: {
         rows: 1,
         opaque256: true,
-        identifier: emailedLinkIdentifier('sign-in', token),
+        identifier: storedSignInIdentifier(token),
         plaintextLookup: 0,
         lifetimeSeconds: 300,
         counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },

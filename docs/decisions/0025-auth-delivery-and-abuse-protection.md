@@ -39,7 +39,7 @@ token>` as the `verification.identifier`. The subject (the email for
   through the plugin's `generateToken` and a `custom-hasher` `storeToken`.
   Better Auth's `'hashed'` option would be SHA-256. The recovery-email
   change (AUTH-5.6) is Daisy's `daisy-email-change` plugin
-  (`email-change.ts`). Better Auth 1.7.5's own change-email flow signs a
+  (`email-change.ts`). Better Auth's own change-email flow signs a
   stateless JWT holding the addresses and the step, which can be neither
   stored nor revoked. The plugin replaces the core `changeEmail` endpoint
   under the same key and path, so the fresh-session gate, rate limit and

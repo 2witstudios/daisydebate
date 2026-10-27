@@ -1,7 +1,7 @@
 import type { GenericEndpointContext } from 'better-auth';
 import { createAppError } from '@daisy/errors';
 import { buildConfirmLink } from '../confirmation/confirm-link';
-import { emailedLinkIdentifier } from '../confirmation/emailed-link-token';
+import { storedSignInIdentifier } from '../confirmation/emailed-link-token';
 import { renderAuthEmail } from './templates';
 import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
 import type { AfterResponse } from '../after-response';
@@ -50,7 +50,7 @@ export const createSendMagicLink =
     const dropLink = () =>
       dependencies.dbStep(() =>
         internalAdapter.deleteVerificationByIdentifier(
-          emailedLinkIdentifier('sign-in', data.token),
+          storedSignInIdentifier(data.token),
         ),
       );
     dependencies.afterResponse(async () => {
