@@ -1,28 +1,24 @@
 <h1>Task artifacts and linking</h1>
 <p>
   PageSpace is the durable delivery record. An owner's implementation request
-  authorizes routine planning, task administration, spawning, integration,
-  reviews and fixes within the requested outcome. Artifact creation is
-  administration, not another permission gate. Planning-only requests remain
-  planning-only.
+  authorizes routine discovery, planning, task administration, spawning, reviews
+  and fixes within the requested outcome. Artifact creation is administration,
+  not another permission gate. Planning-only requests remain planning-only.
 </p>
 <h2>Locations</h2>
 <ul>
   <li>
-    Roadmap: epic, phase and leaf criteria/status. Issues holds defects or
-    improvements without an owning open leaf.
+    Roadmap: epic, phase and task criteria and status. Issues holds defects or
+    improvements no open slice owns.
   </li>
   <li>
-    Plans/&lt;Epic&gt;: specification, execution manifest, delivery/continuation
-    record and handoffs.
+    Plans/&lt;slice&gt;: the one slice plan with its task list, which is also
+    the delivery record a successor resumes from.
   </li>
+  <li>Prompts: the point guard's mission briefs and shared rules.</li>
   <li>
-    Prompts/&lt;Epic&gt;: agent-specific scope, criteria, parent identity and
-    protected exclusions.
-  </li>
-  <li>
-    Reviews/&lt;Epic&gt;: independent records for stable candidate SHAs; branch
-    feedback is labeled separately from main acceptance.
+    Reviews live on the PR as comments, in the format of
+    docs/development/reviews.md.
   </li>
   <li>
     Library: universal role prompts and reusable skills, including the existing
@@ -32,92 +28,36 @@
 </ul>
 <h2>Current-work intake</h2>
 <p>
-  Open Start here and the living integration order, then read Product
-  intent/Product map, applicable capability intents and their "Constraints other
-  features must respect now" sections. Follow affected-capability cross-links:
-  Rooms/realtime to Spectating, Formats to Judging, Messaging to Privacy.
-  Include these source links in each scoped plan and prompt. Future intent
-  constrains current work without creating a future task tree. Design work
-  extends the existing shipped UI and canvases in Designs.
+  Open Start here, then read Product intent/Product map, applicable capability
+  intents and their "Constraints other features must respect now" sections.
+  Follow affected-capability cross-links: Rooms/realtime to Spectating, Formats
+  to Judging, Messaging to Privacy. Link these sources from the slice plan.
+  Future intent constrains current work without creating a future task tree.
+  Design work extends the existing shipped UI and canvases in Designs.
 </p>
 <p>
   Archive/Work history remains a TASK_LIST. Preserve task/page IDs,
-  direct-parent membership, criteria and statuses at move time, with original
-  state in the ledger. Ordinary board:stale and merge-followup evidence
-  reconciliation still apply in Archive; keep still-owed acceptance visible from
-  current work. Review records stay under the existing Reviews root. Archive is
-  not a review-debt exemption, and a merge alone does not grant Done.
+  direct-parent membership, criteria and statuses at move time; bun board:stale
+  reconciliation still applies there.
 </p>
 <h2>Linking and ownership</h2>
 <p>
-  Specific artifacts mention the general records they use. Task Related pages
-  mention plan, prompt, handoff and reviews. Documents use page mentions; GitHub
-  descriptions/comments use verified PageSpace URLs. Reuse records and their
-  page history rather than duplicate them for each procedural step. Gate logs
-  stay in CI or linked evidence; never upload credentials or environment
-  secrets.
+  Specific artifacts mention the general records they use: task Related pages
+  mention the plan and the PR. Documents use page mentions; GitHub descriptions
+  and comments use verified PageSpace URLs. Never upload credentials or
+  environment secrets.
 </p>
 <p>
-  Agents create/claim in-scope tasks, maintain their status and update execution
-  plans. Preserve delegated criteria and the requested outcome. Scope cuts or
-  conflicting product decisions go to the owner; routine execution changes do
-  not need another approval. Ready means branch progress is possible, not that
-  every acceptance prerequisite is Done. Incomplete work stays In Progress;
-  delivered candidates move In Review; merged tasks wait for independent
-  evidence before Done. Builders never self-Done.
+  Builders create and claim in-scope tasks, keep their status and update the
+  plan. Preserve delegated criteria and the requested outcome; scope cuts or
+  changed product decisions go to the point guard on the channel. Building tasks
+  are In Progress, and tasks of an open slice PR are In Review. A merge moves
+  the PR's tasks to Done when its latest review verdict approves, otherwise to
+  Merged. Builders never self-Done.
 </p>
-<h2>Evidence and continuation</h2>
+<h2>Findings</h2>
 <p>
-  Record provisional producer source and integration SHAs, contract, owner and
-  gaps. Record FAIL/NOT RUN checks with candidate, reason, remaining work,
-  responsible agent and discharge point. Deferral never satisfies a criterion.
-  Keep one durable record across context handoffs; local notes are scratch. Main
-  requires completed transitions, applicable proof and independent
-  exact-candidate review. Production identity, secrets, data and deployment
-  remain human-only.
-</p>
-<p>
-  Builders may spawn independent reviewers. Prefer stable separate snapshots;
-  only an actual mutable-worktree reviewer holds source mutation. Findings in an
-  open leaf remain its work; otherwise file an Issue with origin, why, criteria
-  and related record. Never lose a finding solely in prose. Report meaningful
-  outcomes or actual blockers to the spawning parent with native pu send; no
-  routine acknowledgment or owner relay.
-</p>
-
-<h2>Receiving branch authority</h2>
-<p>
-  Within an owner-authorized outcome, owners, point guards, root/main-level
-  agents and worktree agents have the same non-main integration authority. Merge
-  actual producer commits into only the receiving agent's own allocated checkout
-  and branch. A root agent allocates an isolated receiving checkout; it never
-  merges in the parent-main checkout. Do not modify a producer's checkout or any
-  other agent's branch. Ordinary merge commits and conflict resolution are
-  allowed; coordinate actual concurrent writers/resources, preserve dirty work,
-  and never force-push, rewrite history or reset work.
-</p>
-<p>
-  Before integrating, resolve the repository's symbolic default branch (remote
-  HEAD and live repository metadata), and inspect live target protection,
-  including branch protection and rulesets. `main`, the default branch and
-  protected release targets retain their existing acceptance/human protections;
-  any other protected target also follows its protection policy. Unknown or
-  conflicting default or protection facts do not authorize a merge. A non-main
-  name alone is insufficient. For PR merge automation, re-read the live PR's
-  repository, base and head, compare its base with the intended allocated
-  receiving branch, and recheck target protection immediately before acting.
-  Refuse a mismatch or changed candidate; never let an integration command fall
-  through to a direct main/default merge.
-</p>
-<p>
-  Allowed unprotected non-main integration does not require global Done,
-  separately approved producers, green whole-app CI, or root permission for each
-  intermediate step. Pin producer and integration SHAs, contract, ownership and
-  provisional gaps. Keep failing/deferred checks honest and preserve security
-  and tests. Use one short-lived feature integration branch and an umbrella PR
-  for the composed outcome; child branches need not each be main-ready.
-  Integration grants neither Done nor main acceptance.
-  Main/default/protected-release acceptance still needs completed transitions,
-  applicable proof and independent exact-candidate review; production, identity,
-  secrets, deployment and data retain human sign-off.
+  An in-scope finding is fixed in the slice PR. Anything outside the slice is
+  filed as ISSUE-n in Issues, with origin, why, criteria and the PR linked, in
+  the same session. A finding never lives only in a comment.
 </p>

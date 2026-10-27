@@ -1,176 +1,128 @@
-# Agent delivery pipeline
+# The slice process
 
 An owner instruction to implement an outcome authorizes agents to carry that
-outcome through planning, branch development, integration, independent reviews
-and fixes. A request only to investigate or plan stays in that scope. The owner
-steers product intent; agents own routine execution. PageSpace records the work
-and its evidence without becoming another authorization system.
+outcome through discovery, planning, building, review and convergence. A
+request only to investigate or plan stays in that scope. The owner steers
+product intent; agents own routine execution
+([ADR 0083](../decisions/0083-lean-gates-and-slice-process.md)).
+
+## The six steps
+
+1. **Semantic slice.** The point guard gives each builder a mission-only
+   brief for one slice of the product: the outcome, the drive intent pages
+   and ADRs that own it, the PRs and branches it inherits, and the autonomy
+   rules. A slice is wide enough that its builder never needs to know what
+   other builders are doing.
+2. **Builder discovery and plan.** The builder reads the repository, the
+   drive and the inherited work itself, and then writes one plan with a task
+   list in `Plans/<slice>`. Before writing it, the builder reads:
+   - the repository (AGENTS.md, the relevant docs and ADRs);
+   - the drive (`Product intent/Product map`, the capability intents and
+     their "Constraints other features must respect now" sections, the
+     `Issues` buckets touching the slice);
+   - the inherited PRs and branches.
+
+   Every task is a `Given X, should Y` criterion with a code. The builder
+   posts the plan's link on the pu channel.
+
+3. **One confirmation.** The architecture reviewer and the point guard
+   confirm or redirect within minutes. No other approval follows. Product,
+   architecture or scope questions that come up later go to the point guard
+   on the channel and are answered there.
+4. **One PR.** The builder builds the whole slice on one branch and opens
+   one PR. The PR title is a conventional commit naming every task code, and
+   the body lists the codes and links the plan. The builder commits and
+   pushes often, and splits off an earlier PR only when a piece must ship
+   first.
+5. **Ralph loop.** The builder runs the owner's Ralph loop on its PR,
+   verbatim from PageSpace `p4xbp1iwavowuruqpi5fguf7`, until it emits
+   `PR_READY`. That requires:
+   - zero unresolved threads;
+   - three consecutive clean scans;
+   - green required checks and no conflicts;
+   - the slice plan satisfied.
+
+   After 50 iterations without convergence the loop emits `BLOCKED` with
+   what it needs.
+
+6. **Async reviews.** `/review`, `/code-review` and the architecture
+   reviewer post PR comments during the loop, and the loop consumes them
+   ([reviews](reviews.md)).
+
+The point guard's flow sweep merges once `PR_READY` is out and the required
+checks are green at the exact head. The builder then posts `SLICE DONE`, or
+its next plan, on the channel.
 
 ## Branch development
 
-Work in your own worktree. Build, experiment, refactor, make provisional
-architecture choices and integrate actual unmerged producer commits. A branch
-can contain an incomplete transition, failing CI, or code whose readers arrive
-later in the same delivery. Keep tests that expose the unfinished behavior;
-never hide failures by skipping tests, weakening security or inventing a PASS.
+- Work in your own worktree, on your slice branch. The branch may carry
+  incomplete work and red checks between pushes: CI is evidence, not a
+  prohibition. Never hide a failure by skipping a test, weakening security
+  or inventing a PASS.
+- Commits from inherited PRs and branches are carried into your slice branch
+  (merge or cherry-pick them). Close each inherited PR in favor of the slice
+  PR once the slice branch carries its content. Only main receives merged
+  PRs, and no PR is ever merged into another branch.
+- Shared surfaces resolve at merge. Whoever merges second regenerates or
+  rebases, and the loop's conflict step handles it. Shared surfaces include:
+  - migrations: the first ready merges first, and the other regenerates on
+    main with `bun db:generate` and then runs `bun migrations:check`;
+  - `globals.css`;
+  - root configuration.
 
-For a provisional producer, record its exact source SHA, contract, source owner,
-integration SHA and known gaps. Verify that the composed branch actually contains
-that implementation. A producer need not be on main, globally Done, or separately
-approved before its consumer can be built. Proposed product rules remain
-provisional and cannot authorize production activation. An unavailable producer
-blocks proof that requires it; it does not block independent consumer work.
+  Never edit another agent's worktree.
 
-Coordinate actual concurrent writes and shared resources: migration generation,
-shared files currently being changed, services or mutable review snapshots. A
-package boundary or common concept alone is not a writer collision. Ordinary
-files needed for the authorized outcome may be added to the working scope; check
-active writers before editing their files. Respect explicit exclusions, protected
-feature ownership and human-only actions. Do not edit another agent's worktree.
+## Checks
 
-## Receiving branch authority
+Local runs are targeted: typecheck, lint, knip and unit tests for what you
+touched. CI is the full gate. Heavy commands queue machine-wide through
+`scripts/heavy.ts`.
 
-Within an owner-authorized outcome, owners, point guards, root/main-level agents
-and worktree agents have the same non-main integration authority. Merge actual
-producer commits into only the receiving agent's own allocated checkout and
-branch. A root agent allocates an isolated receiving checkout; it never merges
-in the parent-main checkout. Do not modify a producer's checkout or any other
-agent's branch. Ordinary merge commits and conflict resolution are allowed;
-coordinate actual concurrent writers/resources, preserve dirty work, and never
-force-push, rewrite history or reset work.
+- `bun check:affected` is the inner loop. `bun check` mirrors the blocking
+  CI gates: format, lint, policy, invariants, typecheck, unit tests and
+  build.
+- `bun run knip`, `bun run duplication`, `bun evidence` and
+  `bun metrics:check` are reports. CI runs them in its non-blocking
+  "Advisory reports" job, and knip blocks only the nightly main run.
+- CI runs the quick check once per push. Chromium Playwright runs on every
+  PR, and Isolated Room Launch runs only when a PR changes its paths. The
+  nightly run on main adds every Playwright project.
+- Run `bun migrations:check` whenever migrations change.
 
-Before integrating, resolve the repository's symbolic default branch (remote
-HEAD and live repository metadata), and inspect live target protection, including
-branch protection and rulesets. `main`, the default branch and protected release
-targets retain their existing acceptance/human protections; any other protected
-target also follows its protection policy. Unknown or conflicting default or
-protection facts do not authorize a merge. A non-main name alone is insufficient.
-For PR merge automation, re-read the live PR's repository, base and head, compare
-its base with the intended allocated receiving branch, and recheck target
-protection immediately before acting. Refuse a mismatch or changed candidate;
-never let an integration command fall through to a direct main/default merge.
-
-Allowed unprotected non-main integration does not require global Done, separately
-approved producers, green whole-app CI, or root permission for each intermediate
-step. Pin producer and integration SHAs, contract, ownership and provisional gaps.
-Keep failing/deferred checks honest and preserve security and tests. Use one
-short-lived feature integration branch and an umbrella PR for the composed
-outcome; child branches need not each be main-ready. Integration grants neither
-Done nor main acceptance. Main/default/protected-release acceptance still needs
-completed transitions, applicable proof and independent exact-candidate review;
-production, identity, secrets, deployment and data retain human sign-off.
-
-CI runs for PRs targeting any branch; push CI runs only for main. Its failures
-remain visible evidence during branch composition. Do not change workflow
-triggers or require each child to pass whole-app acceptance before integration.
+Treat a failing check as review input: fix it, or record why it is
+environmental, and rerun it once the relevant input changes. Do not churn
+an expensive command while its known blocking condition is unchanged.
 
 ## Long-running execution
 
-Keep one durable delivery record with the objective, remaining work, source
-commits, decisions, dependencies and proof obligations. Update it at meaningful
-milestones and before context handoff. Resume from it without asking the owner to
-reauthorize the same outcome. Local notes and tool state can be scratch; records
-needed by other sessions belong in PageSpace.
-
-Agents may create and claim implementation and review tasks within the authorized
-objective, write prompts, spawn PurePoint builders in separate worktrees, and
-spawn independent read-only reviewers. Check live concurrency and existing work
-before spawning. A reviewer reports to the builder that spawned it; that builder
-fixes findings, obtains delta review and integrates the result. Notify the
-original parent at substantial milestones, completion, real blockers or actual
-writer conflicts. Do not require a parent acknowledgment for routine continuation
-or repeat a delivered report merely to collect a procedural confirmation.
-
-Preserve acceptance criteria and the requested end state. Agents may refine their
-execution plan and create follow-up leaves without asking permission; they may
-not silently cut scope, weaken criteria or reinterpret a human prerequisite as
-complete. Ask the owner when product intent is ambiguous, the requested outcome
-changes, or a protected action needs human sign-off. Continue unaffected work.
-An in-scope finding is remaining work in the same delivery, not a reason to
-announce completion and defer the outcome to an unspecified future project.
-
-## Check scheduling and evidence
-
-Run focused tests when they can prove the behavior being changed. Use TDD for new
-behavior and meaningful negative controls. Run broader gates at integration
-milestones and on the completed candidate. CI may run on intermediate PRs and
-show failures; its output is evidence, not a prohibition on further branch work.
-
-Record each failed or deferred check as a proof obligation:
-
-| Candidate | Check           | State           | Reason / remaining work                                        | Responsible agent | Discharge point                                 |
-| --------- | --------------- | --------------- | -------------------------------------------------------------- | ----------------- | ----------------------------------------------- |
-| full SHA  | command / proof | FAIL or NOT RUN | missing producer, incomplete transition or unavailable service | agent ID          | integration milestone or before main acceptance |
-
-A deferral schedules proof; it never satisfies a criterion. Distinguish expected
-incomplete work, a reproduced defect, and an environment failure. Re-run when the
-relevant code, dependency, environment or candidate changes. Do not churn the
-same expensive command while its known blocking condition is unchanged. Cached
-checks remain honestly labeled as cached; cache presence alone is not a reason
-to force unrelated full reruns. Reuse evidence only where the relevant inputs and
-candidate scope still match; no old exact-head approval proves a new head.
-
-`bun check:affected` is an inner loop. `bun check` is the full main acceptance
-gate, not a prerequisite for each commit, branch push or early review. The
-optional pre-push hook allows branch snapshots and requires full verification
-of an exact clean candidate pushed to main. GitHub's protected main checks remain
-authoritative. Run migration integrity checks when migrations change and before
-acceptance; migration generation remains single-writer.
-
-## Review while building and before main
-
-Request branch feedback early when it helps resolve a design or implementation
-risk. Label its record `Review stage: branch`, name the exact SHA and list deferred
-proof. A branch review may report sound source with outstanding proof; it cannot
-mint the main acceptance status. Use the nonacceptance verdict `BRANCH FEEDBACK`
-and describe source conclusions in prose; an approval verdict belongs only to
-acceptance, including while stage-aware verification is being adopted. Fix real findings without waiting for every
-service tier to become runnable. There is no review pass-count limit and no
-mandatory owner relay between review passes.
-
-Review a stable commit snapshot. Prefer a separate review worktree or scratch
-copy so the builder can continue. If a reviewer uses the builder's mutable
-worktree, hold mutation only while that reviewer is using it; end the hold when
-the reviewer reports completion. A PageSpace artifact review does not freeze
-source. Changes after review need relevant tests and an independent delta review
-of the final composed candidate before main acceptance.
-
-Main acceptance requires the completed transition, reconciled contracts,
-architecture and security boundaries, applicable tests, migration integrity,
-resolved blockers and majors, and independent review of the exact PR head.
-Required GitHub CI/E2E/review-record checks must pass. Branch feedback is not an
-acceptance record. Autonomous agents never merge directly into main/default/protected release
-targets; for main they may request
-auto-merge only after confirming the live main ruleset requires review-record.
-The owner retains existing protected-target merge authority. Done remains an evidence-backed completion
-state, not something a builder grants itself after a cherry-pick or branch push.
-
-Documentation-only acceptance is determined from the live PR diff and Git tree
-modes, never a label or reviewer claim. Only regular non-executable markdown under
-`docs/` qualifies; instruction files, skills, templates, workflows, mixed diffs,
-missing facts, symlinks and executable modes do not. Eligible documents require
-independent contract/link/status/number review, `bun check` and an applicable
-negative control. Service tests can be NOT RUN with the applicability reason.
-Runtime and unclassified acceptance retain integration PASS and a meaningful
-negative control, for approvals with or without minor findings.
+- **Plan as delivery record.** Keep the plan page current with the
+  objective, remaining work, decisions and anything a successor needs.
+  Resume from it after a context handoff without asking anyone to
+  reauthorize.
+- **Scope.** Do not silently cut scope or weaken criteria. A changed product
+  outcome goes to the point guard. An in-scope finding is remaining work in
+  the same PR. A finding outside the slice is filed in `Issues` in the same
+  session.
+- **Reporting.** Report meaningful milestones, final delivery and real
+  blockers on the channel or to the spawning parent. Never wait on the
+  owner: the point guard answers product, architecture and scope questions.
 
 ## Production and environment protection
 
-Deployment, production data, identities, secrets and vendor activation retain
-explicit human sign-off. Branch authorization never supplies production authority.
-Agents cannot copy owner credentials, mutate the parent checkout, reset other
-slots or fake service evidence. Doctor validates the active PU launcher, identity
-and checkout's isolated environment. Parent Git dirtiness alone is not a safety
-failure; unsafe launchers, invalid identities, wrong slots and unavailable
-required services remain failures or warnings according to their actual checks.
+- Production identity, secrets, production deploys and production data keep
+  explicit human sign-off.
+- Staging (Fly org `daisy-debate`) is a builder's to use for proofs; never
+  production.
+- Agents never copy owner credentials, mutate the parent checkout, reset
+  other slots or fake service evidence.
+- `bun doctor` validates the active pu launcher, identity and the checkout's
+  isolated environment.
 
 ## Maintained distribution
 
-The repository's `.claude/skills/` and `policy/agent-pipeline/` contain the
-reviewable sources for this workflow. `bun pipeline:sync` checks installed shared
-skills and the named Daisy Library pages; `--apply` updates them with concurrent
-content checks and readback. `--local-only` limits work to installed skills. The
-command uses the CLI's existing credentials, never provisions them, and is not
-part of CI or a permission gate. Init-offense's matching code and drive-seed
-sources ship through its own reviewed branch; changing a live prompt alone is
-not generator adoption.
+The repository's `.claude/skills/` and `policy/agent-pipeline/` are the
+reviewable sources for this workflow. `bun pipeline:sync` checks the
+installed shared skills and the named Daisy Library pages, and `--apply`
+updates them with concurrent content checks and readback. The point guard's
+personal copies of the task, handoff, pr and review skills
+(`2witstudios/pointguard`) carry the same text as the repository copies.

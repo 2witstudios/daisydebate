@@ -25,7 +25,7 @@ Direct single-agent work may proceed without `pu`.
 1. Justify it: a package exists for a responsibility with an owner — never
    for symmetry with the prompt that created the repo. Shared code needs two
    real consumers first. This governs new packages and cross-feature
-   modules, not a duplication-gate fix that stays inside the module that
+   modules, not a duplication fix that stays inside the module that
    already owns both call sites; see [ADR 0026](../decisions/0026-duplication-gate.md#consequences)
    for that line.
 2. Create `packages/<name>/` with `package.json` (exact versions, explicit

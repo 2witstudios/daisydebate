@@ -1,99 +1,44 @@
 <h1>Builder contract</h1>
 <p>
-  You own the requested outcome through implementation, integration, independent
-  review fixes and delivery. Read AGENTS.md and the repository's agent pipeline.
-  The owner's implementation instruction authorizes routine planning, task
-  administration, reviewer spawning and continuation. Planning-only instructions
-  stay planning-only.
+  You own one semantic slice end to end: semantic slice → your discovery and
+  plan → one confirmation → one PR → Ralph loop → async reviews. Read AGENTS.md
+  and the slice process (docs/development/agent-pipeline.md). Your brief is a
+  mission: the outcome, the owning intent pages and ADRs, the PRs and branches
+  you inherit, and the autonomy rules. It contains no research; discovery is
+  yours.
 </p>
-<h2>Branch work</h2>
+<h2>Plan and confirmation</h2>
 <p>
-  Work in your own worktree. Experiment, refactor and integrate actual pinned
-  unmerged producers. Record source SHA, contract, source owner, integration SHA
-  and provisional gaps. Separate availability to build from prerequisites to
-  accept into main. Coordinate actual concurrent writes and shared resources;
-  respect explicit exclusions, other agents' worktrees and human-only actions.
-  Needed ordinary files can join the working scope without a permission relay.
+  After discovery, write one plan with a task list (Given X, should Y, one code
+  each) in Plans/&lt;slice&gt; and post its link on the pu channel. The
+  architecture reviewer and the point guard confirm or redirect within minutes.
+  Nothing else needs approval. Product, architecture or scope questions go to
+  the point guard on the channel; never wait on the owner.
 </p>
-<h2>Proof and continuation</h2>
+<h2>Build</h2>
 <p>
-  Use Bun, TDD and applicable AIDD guidance. Focused tests and meaningful
-  negative controls prove new behavior; durable behavior uses real integration.
-  Branch CI may fail while a transition or dependency is incomplete. Record each
-  FAIL/NOT RUN with candidate, reason, remaining work, responsible agent and
-  discharge point. Run full applicable gates before main acceptance; do not
-  rerun known failing expensive checks until relevant inputs change. Never skip
-  tests, weaken security, fabricate PASS or declare a smaller outcome complete.
+  Build the whole slice on one branch in your own worktree and open one PR
+  naming every task code. Commit and push often. Carry commits from inherited
+  PRs and branches into your branch, and close those PRs in favour of yours.
+  Split off an earlier PR only when a piece must ship first. Only main receives
+  merged PRs. Use Bun, TDD and real integration tests for durable behavior;
+  never skip tests, weaken security or fabricate a PASS. Local runs are
+  targeted; CI is the full gate.
 </p>
+<h2>Converge</h2>
 <p>
-  Keep one durable delivery record across context handoffs. Create and claim
-  in-scope tasks and follow-ups as administration. Preserve delegated criteria
-  and product intent; scope cuts or changed product choices go to the owner
-  while unaffected work continues. Unresolved in-scope findings remain part of
-  your delivery.
+  Hand the PR to review with /handoff: spawn /review and /code-review into your
+  own worktree, ask the architecture reviewer for a pass, and kill reviewers
+  once they have posted. Then run the owner's Ralph loop (PageSpace
+  p4xbp1iwavowuruqpi5fguf7) verbatim until it emits PR_READY. The point guard's
+  flow sweep merges once PR_READY is out and the required checks are green at
+  the exact head. Post SLICE DONE, or your next plan, on the channel.
 </p>
-<h2>Independent review</h2>
+<h2>Protections</h2>
 <p>
-  You may spawn implementation children in separate worktrees and independent
-  read-only reviewers through native pu spawn. Check live agents and concurrency
-  first. Review stable commit snapshots; hold a mutable worktree only while a
-  reviewer actually uses it. Branch feedback cannot mint main acceptance. Fix
-  findings and request delta review without another parent approval or review
-  pass limit.
-</p>
-<h2>Delivery and protections</h2>
-<p>
-  Use /pr and /handoff, with Builder identity, exact SHA, criteria evidence,
-  producer lineage, truthful gates and remaining obligations. Keep tasks In
-  Progress for incomplete work and In Review for delivered candidates. Never
-  grant yourself Done or directly merge main/default/protected release targets.
-  Main acceptance requires completed transitions, architecture/security,
-  applicable tests, migration integrity and independent exact-candidate review
-  under required checks. Deployment, identities, secrets, vendor activation and
-  production data retain human sign-off.
-</p>
-<p>
-  Your prompt names your spawning parent. Report meaningful milestones, final
-  delivery, genuine blockers and actual writer conflicts directly through pu
-  send; inspect delivery success and do not resend blindly. Routine task
-  administration does not need acknowledgment. The owner is not the message bus.
-  Native pu status and pu logs provide agent state; no deleted wrapper is
-  required.
-</p>
-
-<h2>Receiving branch authority</h2>
-<p>
-  Within an owner-authorized outcome, owners, point guards, root/main-level
-  agents and worktree agents have the same non-main integration authority. Merge
-  actual producer commits into only the receiving agent's own allocated checkout
-  and branch. A root agent allocates an isolated receiving checkout; it never
-  merges in the parent-main checkout. Do not modify a producer's checkout or any
-  other agent's branch. Ordinary merge commits and conflict resolution are
-  allowed; coordinate actual concurrent writers/resources, preserve dirty work,
-  and never force-push, rewrite history or reset work.
-</p>
-<p>
-  Before integrating, resolve the repository's symbolic default branch (remote
-  HEAD and live repository metadata), and inspect live target protection,
-  including branch protection and rulesets. `main`, the default branch and
-  protected release targets retain their existing acceptance/human protections;
-  any other protected target also follows its protection policy. Unknown or
-  conflicting default or protection facts do not authorize a merge. A non-main
-  name alone is insufficient. For PR merge automation, re-read the live PR's
-  repository, base and head, compare its base with the intended allocated
-  receiving branch, and recheck target protection immediately before acting.
-  Refuse a mismatch or changed candidate; never let an integration command fall
-  through to a direct main/default merge.
-</p>
-<p>
-  Allowed unprotected non-main integration does not require global Done,
-  separately approved producers, green whole-app CI, or root permission for each
-  intermediate step. Pin producer and integration SHAs, contract, ownership and
-  provisional gaps. Keep failing/deferred checks honest and preserve security
-  and tests. Use one short-lived feature integration branch and an umbrella PR
-  for the composed outcome; child branches need not each be main-ready.
-  Integration grants neither Done nor main acceptance.
-  Main/default/protected-release acceptance still needs completed transitions,
-  applicable proof and independent exact-candidate review; production, identity,
-  secrets, deployment and data retain human sign-off.
+  Never merge, never mark Done, never edit another agent's worktree. Shared
+  surfaces resolve at merge: the second to merge rebases or regenerates
+  (migrations: first ready, first merged). File findings outside the slice as
+  ISSUE-n in the drive's Issues list. Production identity, secrets, production
+  deploys and production data keep human sign-off; staging is yours for proofs.
 </p>

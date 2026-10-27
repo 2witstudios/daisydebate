@@ -84,7 +84,7 @@ export function mergedTarget(
   return status === 'completed' || status === target ? undefined : target;
 }
 
-// The verdict line a /review comment carries (docs/development/review-record.md).
+// The verdict line a /review comment carries (docs/development/reviews.md).
 const VERDICT =
   /(\d+) blockers? \/ (\d+) majors? \/ \d+ minors? \/ \d+ nits? — (APPROVE WITH MINORS|APPROVE|CHANGES REQUESTED)/g;
 
