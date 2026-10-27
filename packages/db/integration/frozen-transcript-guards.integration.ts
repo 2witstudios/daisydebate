@@ -1,31 +1,14 @@
-import type { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { captureSchemaStream } from './capture-schema.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
+import { insertFrozenProofLine as insertLine } from './frozen-transcript.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-
-const insertLine = (
-  client: Pick<SQL, 'unsafe'>,
-  stream: Awaited<ReturnType<typeof captureSchemaStream>>,
-  sequence = 0,
-  id = createId(),
-) =>
-  client.unsafe(
-    'insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values($1,$2,$3,$4,$5,$6)',
-    [
-      id,
-      stream.roundId,
-      stream.segmentId,
-      stream.seat.id,
-      sequence,
-      'Frozen proof',
-    ],
-  );
 
 test('raw SQL cannot alter frozen input or remove its freeze, while lawful erasure remains possible (ISSUE-505)', async () =>
   withFixture(databaseUrl, async (fixture) => {
@@ -142,3 +125,79 @@ for (const first of ['utterance', 'freeze'] as const)
         held.release();
       }
     }));
+
+for (const mutation of ['text', 'move-out', 'move-in'] as const)
+  for (const first of ['write', 'freeze'] as const)
+    test(`${mutation} ${first} first preserves transcript ownership across freezing (ISSUE-505 N1)`, async () =>
+      withFixture(databaseUrl, async (fixture) => {
+        const source = await captureSchemaStream(fixture);
+        const destination = await captureSchemaStream(fixture);
+        const id = createId();
+        await insertLine(fixture.sql, source, 0, id);
+        const frozenRound =
+          mutation === 'move-in' ? destination.roundId : source.roundId;
+        const mutate = (client: Pick<SQL, 'unsafe'>) =>
+          mutation === 'text'
+            ? client.unsafe('update utterances set text=$1 where id=$2', [
+                'Changed before freeze',
+                id,
+              ])
+            : client.unsafe(
+                'update utterances set round_id=$1,segment_id=$2,round_participant_id=$3 where id=$4',
+                [
+                  destination.roundId,
+                  destination.segmentId,
+                  destination.seat.id,
+                  id,
+                ],
+              );
+        const held = await fixture.sql.reserve();
+        try {
+          await held`begin isolation level read committed`;
+          const [holder] = await held`select pg_backend_pid() as pid`;
+          if (first === 'write') await mutate(held);
+          else
+            await held`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${frozenRound},1,0,'incomplete')`;
+          const writing =
+            first === 'write'
+              ? fixture.freeze(frozenRound)
+              : mutate(fixture.sql);
+          const outcome = rejectedBy(() => writing);
+          const blocked = await finishedOrBlockedBehind(
+            writing,
+            fixture.sql,
+            holder!.pid,
+            { now: performance.now },
+          );
+          await held`commit`;
+          const refusal = await outcome;
+          const [line] =
+            await fixture.sql`select round_id,text from utterances where id=${id}`;
+          assert({
+            given: `a concurrent ${mutation} and freeze with ${first} holding the parent fence`,
+            should:
+              'serialize admission and preserve original text/ownership on refusal',
+            actual: { blocked, refusal, line },
+            expected: {
+              blocked: 'blocked',
+              refusal:
+                first === 'freeze'
+                  ? 'utterances_frozen_transcript_check'
+                  : null,
+              line: {
+                round_id:
+                  first === 'write' && mutation !== 'text'
+                    ? destination.roundId
+                    : source.roundId,
+                text:
+                  first === 'write' && mutation === 'text'
+                    ? 'Changed before freeze'
+                    : 'Frozen proof',
+              },
+            },
+          });
+        } finally {
+          await held`rollback`.catch(() => undefined);
+          held.release();
+        }
+      }));
