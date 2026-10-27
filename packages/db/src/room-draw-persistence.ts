@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import type {
   DrawPrivateInputs,
+  ResolutionAudit,
   ResolutionDrawEvidence,
   ResolutionDrawState,
 } from '@daisy/protocol';
@@ -179,5 +180,48 @@ export const freezeRoomDraw = async (
     })),
     survivorPosition: survivor.position,
     revealedAt: draw.strikes.at(-1)!.at,
+  };
+};
+
+/**
+ * The public draw envelope of an ended Round (ADR 0076): proof metadata,
+ * the drawn texts that survive erasure and whether the private inputs do.
+ * Never the seed. Null for a live Round or one without a draw.
+ */
+export const roundResolutionAudit = async (
+  tx: Pick<Tx, 'select'>,
+  round: {
+    readonly id: string;
+    readonly status: string;
+    readonly resolutionEvidence: ResolutionDrawEvidence | null;
+  },
+): Promise<ResolutionAudit | null> => {
+  const evidence = round.resolutionEvidence;
+  if (
+    !evidence ||
+    (round.status !== 'completed' && round.status !== 'abandoned')
+  )
+    return null;
+  const texts = await tx
+    .select()
+    .from(roundResolutionDrawTexts)
+    .where(eq(roundResolutionDrawTexts.roundId, round.id));
+  const [inputs] = await tx
+    .select({ roundId: roundDrawPrivateInputs.roundId })
+    .from(roundDrawPrivateInputs)
+    .where(eq(roundDrawPrivateInputs.roundId, round.id));
+  return {
+    manifest: evidence.manifest,
+    manifestDigest: evidence.manifestDigest,
+    commitment: evidence.commitment,
+    items: evidence.items.map(({ position, category }) => ({
+      position,
+      category,
+      text: texts.find((t) => t.position === position)?.text ?? null,
+    })),
+    strikes: evidence.strikes,
+    survivorPosition: evidence.survivorPosition,
+    revealedAt: evidence.revealedAt,
+    inputsErased: !inputs,
   };
 };

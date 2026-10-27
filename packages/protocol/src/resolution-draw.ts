@@ -309,3 +309,32 @@ export const resolutionDrawEvidenceSchema = z.strictObject({
 export type ResolutionDrawEvidence = z.infer<
   typeof resolutionDrawEvidenceSchema
 >;
+
+/**
+ * The public draw envelope of an ended Round: checkable without the seed,
+ * which is never disclosed. A text erased with its author reads as null.
+ */
+export const resolutionAuditSchema = z.strictObject({
+  manifest: resolutionDrawManifestSchema,
+  manifestDigest: digestSchema,
+  commitment: digestSchema,
+  items: z
+    .array(
+      z.strictObject({
+        position: z.int().min(0),
+        text: z.string().min(1).nullable(),
+        category: resolutionCategorySchema.nullable(),
+      }),
+    )
+    .readonly(),
+  strikes: z
+    .array(
+      publicStrikeSchema.extend({ position: z.int().min(0), at: timestamp }),
+    )
+    .readonly(),
+  survivorPosition: z.int().min(0),
+  revealedAt: timestamp,
+  /** True once an erasure deleted the private inputs: no replay remains. */
+  inputsErased: z.boolean(),
+});
+export type ResolutionAudit = z.infer<typeof resolutionAuditSchema>;

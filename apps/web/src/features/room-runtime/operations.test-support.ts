@@ -122,6 +122,7 @@ export const launched: LaunchedRound = {
   completedAt: null,
   outcome: null,
   unjudgedRuling: null,
+  resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };

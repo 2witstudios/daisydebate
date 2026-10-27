@@ -44,6 +44,7 @@ export type {
   DrawBankSnapshot,
   DrawPrivateInputs,
   ResolutionCategory,
+  ResolutionAudit,
   ResolutionDrawEvidence,
   ResolutionDrawItem,
   ResolutionDrawManifest,

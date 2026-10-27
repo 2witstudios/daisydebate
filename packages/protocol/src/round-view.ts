@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { frozenRoomConfigSchema } from './room';
+import { resolutionAuditSchema } from './resolution-draw';
 import { roundRulesSchema, segmentTypes } from './format';
 import {
   competitionTypes,
@@ -57,6 +58,8 @@ export const roundViewSchema = z.strictObject({
   unjudgedRuling: unjudgedRulingSchema.nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
+  /** The draw's public envelope once the Round has ended; null otherwise. */
+  resolutionAudit: resolutionAuditSchema.nullable(),
   /** Null when the stored checkpoint is unreadable: no live position, not an error. */
   checkpoint: runtimeCheckpointSchema.nullable(),
   segments: z

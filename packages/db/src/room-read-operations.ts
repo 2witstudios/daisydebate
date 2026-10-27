@@ -46,6 +46,7 @@ import {
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
+import { roundResolutionAudit } from './room-draw-persistence';
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -101,6 +102,7 @@ export async function launchedRoundRows(
           ),
         ),
     ),
+    resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),
   };
