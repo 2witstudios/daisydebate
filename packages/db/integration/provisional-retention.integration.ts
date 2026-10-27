@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { withFixture } from './constraint-helpers';
 import { createDatabase } from '../src';
+import { purposePattern } from '../src/provisional-cleanup';
 
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
@@ -269,5 +270,46 @@ test('a sign-up active since the cutoff is not abandoned (review on #474)', asyn
       await database.close();
       await f.sql`delete from verification where identifier=${`sign-in:${tag}`}`;
     }
+  });
+});
+
+test('the sweep finds candidates and their links through indexes (ISSUE-716)', async () => {
+  await withFixture(url, async (f) => {
+    // With sequential scans disabled, a usable index is the only plan left.
+    const plans = await f.sql.begin(async (tx) => {
+      await tx`set local enable_seqscan = off`;
+      const plan = async (query: string, params: unknown[]) =>
+        (
+          (await tx.unsafe(`explain ${query}`, params)) as {
+            'QUERY PLAN': string;
+          }[]
+        )
+          .map((row) => row['QUERY PLAN'])
+          .join('\n');
+      return [
+        await plan(
+          'select id from users where created_at < $1::timestamptz and username is null and deleted_at is null order by created_at, id limit 50',
+          [before],
+        ),
+        await plan(
+          "delete from verification where identifier like $1 and lower(value::jsonb ->> 'email') = lower($2)",
+          [purposePattern('sign-in'), 'a@example.test'],
+        ),
+      ];
+    });
+    assert({
+      given:
+        "the sweep's candidate read and its per-account sign-in link cleanup",
+      should:
+        'read live provisional accounts through the partial users index and links through the identifier pattern index',
+      actual: plans.map((plan, index) =>
+        plan.includes(
+          index === 0
+            ? 'users_provisional_created_idx'
+            : 'verification_identifier_idx',
+        ),
+      ),
+      expected: [true, true],
+    });
   });
 });

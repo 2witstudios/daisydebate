@@ -17,8 +17,13 @@ export type ProvisionalMailCleanup = {
   readonly recipientHashOf: (email: string) => string;
 };
 
+/** A purpose's identifier prefix as a LIKE pattern, its wildcards escaped. */
+export const purposePattern = (purpose: string): string =>
+  `${purpose.replace(/[\\%_]/g, '\\$&')}:%`;
+
+/** Matches one purpose's rows through the identifier index (ISSUE-716). */
 const startsWithPurpose = (purpose: string) =>
-  sql`starts_with(${verifications.identifier}, ${`${purpose}:`})`;
+  sql`${verifications.identifier} like ${purposePattern(purpose)}`;
 
 /** The link purposes a provisional account's emailed links are stored under. */
 export type ProvisionalLinkPurposes = Pick<

@@ -73,7 +73,12 @@ export const verifications = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
-    index('verification_identifier_idx').on(table.identifier),
+    // text_pattern_ops serves both Better Auth's identifier equality and a
+    // purpose prefix (`identifier like 'sign-in:%'`), so the sweep's link
+    // cleanup reads only that purpose's rows (ISSUE-716).
+    index('verification_identifier_idx').on(
+      table.identifier.op('text_pattern_ops'),
+    ),
     index('verification_expires_at_idx').on(table.expiresAt),
   ],
 );

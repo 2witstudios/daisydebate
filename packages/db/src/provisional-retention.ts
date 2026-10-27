@@ -4,6 +4,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import {
   clearProvisionalLinks,
+  purposePattern,
   type ProvisionalLinkPurposes,
 } from './provisional-cleanup';
 
@@ -23,7 +24,7 @@ const abandoned = (before: string, signInPurpose: string) => sql`
   and not exists (select 1 from session where user_id = users.id
     and (created_at >= ${before}::timestamptz or updated_at >= ${before}::timestamptz))
   and not exists (select 1 from verification where created_at >= ${before}::timestamptz
-    and case when starts_with(identifier, ${`${signInPurpose}:`})
+    and case when identifier like ${purposePattern(signInPurpose)}
       then lower(value::jsonb ->> 'email') = lower(users.email) else false end)`;
 
 /**
