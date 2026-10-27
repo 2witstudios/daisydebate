@@ -1,12 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatSettingsSchema } from '@daisy/protocol';
 import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { oneOnOneSettings } from './runtime.test-support';
 import type { FormatSelectionFacts } from './format-selection';
-import { drawRoom } from './room-pre-round.test-support';
+import { drawRoom, drawSettings } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -213,7 +212,7 @@ describe('select-format', () => {
       definition: drawn.definition,
       preset: {
         ...valueFacts.preset,
-        config: formatSettingsSchema.parse(drawn.config),
+        config: drawSettings(['policy', 'value']),
       },
     };
     const freestyle = (room: RoomAssemblyState, topic?: string) =>

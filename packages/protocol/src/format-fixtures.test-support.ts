@@ -1,7 +1,7 @@
 import type { FormatDefinition, FormatSettings, RoomConfig } from './index';
 
-/** A room config with no prep, timing overrides, interruptions or yielding. */
-export const plainRoomConfig: RoomConfig = {
+/** Format settings with no prep, timing overrides, interruptions or yielding. */
+export const plainFormatSettings: FormatSettings = {
   preRoundPrep: { enabled: false },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
@@ -10,6 +10,9 @@ export const plainRoomConfig: RoomConfig = {
   interruptions: null,
   yielding: null,
 };
+
+/** A room config with no prep, timing overrides, interruptions or yielding. */
+export const plainRoomConfig: RoomConfig = { ...plainFormatSettings };
 
 /**
  * One-on-one's casual format settings, shared by the engine's tests and

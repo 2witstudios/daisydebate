@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatSettingsSchema } from '@daisy/protocol';
 import type {
   FormatChange,
   FormatDefinition,
@@ -8,7 +7,7 @@ import type {
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneSettings } from './runtime.test-support';
 import { formatStanding, type StandingBasis } from './format-standing';
-import { drawRoom } from './room-pre-round.test-support';
+import { drawRoom, drawSettings } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -223,7 +222,7 @@ describe('formatStanding', () => {
     const strikeBasis = basis({
       formatId: 'freestyle',
       definition: drawn.definition,
-      config: formatSettingsSchema.parse(drawn.config),
+      config: drawSettings(['policy', 'value']),
     });
     const strikeActive = (config: RoomConfig) =>
       active(config, { formatId: 'freestyle', definition: drawn.definition });
