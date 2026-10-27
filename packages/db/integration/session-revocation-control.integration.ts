@@ -7,7 +7,7 @@ import {
 } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  rejected,
+  sqlStateOf,
   withDatabase,
   withFixture,
   type Fixture,
@@ -249,9 +249,10 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
       await fixture.sql.unsafe(
         `create trigger ${guard} before insert on outbox for each row execute function ${guard}()`,
       );
-      let refused: boolean;
+      let refused: string;
       try {
-        refused = await rejected(
+        // The blocking trigger raises (P0001) inside the delete's statement.
+        refused = await sqlStateOf(
           () => fixture.sql`delete from session where id=${id}`,
         );
       } finally {
@@ -262,7 +263,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
         given: 'a session delete whose control insert fails',
         should: 'refuse the delete and keep the session',
         actual: { refused, kept: await fixture.count('session', 'id', id) },
-        expected: { refused: true, kept: 1 },
+        expected: { refused: 'P0001', kept: 1 },
       });
     });
   });
