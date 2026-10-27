@@ -1,3 +1,4 @@
+import { rotateRevokedMediaRoom } from './media-room-rotation';
 import {
   readMediaBotLeases,
   mediaPublicationParticipants,
@@ -108,6 +109,7 @@ export function createMediaReconcileStore(input: {
         readonly authorize: (context: {
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
+          readonly bindings: readonly { readonly roundParticipantId: string }[];
           readonly now: string;
           readonly finalSegmentEndedAt: string | null;
           readonly participantId: string | null;
@@ -150,6 +152,12 @@ export function createMediaReconcileStore(input: {
           participantId = binding.participantId;
         }
         request.authorize({
+          bindings: await tx
+            .select({
+              roundParticipantId: mediaParticipants.roundParticipantId,
+            })
+            .from(mediaParticipants)
+            .where(eq(mediaParticipants.sessionId, session.id)),
           round,
           participants: mediaPublicationParticipants(
             authority.participants,
@@ -251,6 +259,16 @@ export function createMediaReconcileStore(input: {
             request,
             await mutationCount(tx, session.id),
           );
+        const roomName =
+          cleaned && !terminal && !session.endedAt
+            ? await rotateRevokedMediaRoom(
+                tx,
+                session.id,
+                (await lockMediaRound(tx, session.roundId)).participants,
+                now,
+                input.nextId,
+              )
+            : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
           unresolved,
@@ -258,7 +276,7 @@ export function createMediaReconcileStore(input: {
         });
         await tx
           .update(mediaSessions)
-          .set(fields)
+          .set({ ...fields, ...(roomName ? { roomName } : {}) })
           .where(eq(mediaSessions.id, session.id));
         return result;
       });

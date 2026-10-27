@@ -386,3 +386,29 @@ and reconnect/visibility recovery; clients without a connected socket use a
 use the identical read and the shared transcript disclosure works without
 JavaScript. Capturing requires an explicit open, unfrozen stream; partial
 closure and incomplete freeze never wait for a client deadline to show Partial.
+
+## Revoked media room rotation
+
+Canonical revocation of a bound human seat closes admission to the old vendor
+room. Reconciliation deletes that room, waits for every journaled mutation to
+settle, and checks provider absence against the current owner, epoch and mutation
+horizon. Only the fenced finish transaction rotates the room name to a fresh
+cuid2, removes revoked human bindings, and increments and expires the capture
+lease. It preserves the session ID, eligible bindings and mutation journal.
+Ineligible seats without a binding do not veto the replacement room (DEC-199,
+ISSUE-473). Self-hosted LiveKit must retain `room.auto_create: false`: old JWTs
+cannot recreate the deleted room.
+
+An admission that performed rotation reacquires reconciliation for the current
+room before creation and token signing. Remaining eligible seats reconnect with
+fresh room grants. Capture renewal carries its expected epoch and cannot acquire
+replacement authority after expiry or rotation. Discovery launches a new worker
+once the replacement room exists; the old worker cannot append, observe, seal or
+mint a token under its revoked epoch.
+
+Rotation does not seal an active transcript stream early. New-room chunks may
+append to the same segment/seat stream. At closure, vendor deletion/recreation
+history overlapping the segment prevents a complete seal, even when the old
+worker persisted no observation or chunk and join tolerance would otherwise hide
+the gap. Earlier lifecycle interruptions fully recovered before the segment do
+not taint it. No utterance or audio observation is fabricated to record a gap.

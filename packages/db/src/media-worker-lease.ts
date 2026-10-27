@@ -74,3 +74,25 @@ export async function verifyMediaWorkerLease(
     serverNow: now.toISOString(),
   };
 }
+
+/** Renewal cannot turn an expired or rotated lease into a new initial claim. */
+export function requireCaptureRenewal(
+  current:
+    | {
+        readonly workerId: string;
+        readonly epoch: number;
+        readonly expiresAt: Date;
+      }
+    | undefined,
+  request: { readonly workerId: string; readonly expectedEpoch?: number },
+  now: Date,
+) {
+  if (request.expectedEpoch === undefined) return;
+  if (
+    !current ||
+    current.workerId !== request.workerId ||
+    current.epoch !== request.expectedEpoch ||
+    current.expiresAt <= now
+  )
+    throw createAppError('CONFLICT', 'Capture worker lease is stale');
+}

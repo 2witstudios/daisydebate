@@ -133,19 +133,19 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         roomName: context.binding.roomName,
       };
     };
-    const claim = await acquire(binding.sessionId);
+    let claim = await acquire(binding.sessionId);
     const held: { issued?: Awaited<ReturnType<typeof sign>> } = {};
     // The token is issued while this reconcile still holds the session, so a
     // concurrent reconcile (recovery, another caller) is never live in
     // between to refuse it (ISSUE-534).
-    await run(claim, principal, async () => {
+    const issue = async () => {
       const state = await snapshot(roundId);
       if (admissionRevoked(state))
         throw createAppError('CONFLICT', 'Round media admission is closed');
       if (
         state.session.unsafeAt ||
         state.unresolved ||
-        !(await input.deadline(input.media.exists(binding.roomName)))
+        !(await input.deadline(input.media.exists(state.session.roomName)))
       )
         throw createAppError('INFRASTRUCTURE');
       held.issued = await input.store.issueMediaToken({
@@ -155,7 +155,17 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         buildProjection,
         sign,
       });
-    });
+    };
+    await run(claim, principal, issue);
+    // Rotation releases the old claim. Reacquire the new room before creating
+    // or signing; an unresolved cleanup never earns a retry.
+    if (
+      !held.issued &&
+      (await snapshot(roundId)).session.roomName !== claim.roomName
+    ) {
+      claim = await acquire(binding.sessionId);
+      await run(claim, principal, issue);
+    }
     if (held.issued) return held.issued;
     // The reconcile refused or cleaned up and never reached the issue.
     if (admissionRevoked(await snapshot(roundId)))
