@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import {
+  betaAccessCommandAction,
   betaAccessStates,
   idSchema,
   type BetaAccessState,
@@ -7,8 +8,12 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import { operatorCommandStateSchema } from '@daisy/protocol/operator';
 import {
+  operatorCommandStateSchema,
+  type OperatorCommandState,
+} from '@daisy/protocol/operator';
+import {
+  readBetaAccessCommandState,
   runBetaAccessCommand,
   type BetaAccessCommandInput,
   type BetaAccessCommandOutcome,
@@ -16,6 +21,16 @@ import {
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+
+/** Each operator command action's owner completes its own readback. */
+const commandStateReaders: Record<
+  string,
+  (
+    database: Pick<Database, 'execute'>,
+    commandId: string,
+    result: unknown,
+  ) => Promise<Omit<OperatorCommandState, 'action'>>
+> = { [betaAccessCommandAction]: readBetaAccessCommandState };
 
 const instant = z
   .union([z.date(), z.string()])
@@ -104,27 +119,28 @@ export function operatorAccountOperations({
         ),
       ),
     /**
-     * A command's stored result and its approval mail's state, for the admin
-     * app to reconcile a response it never received. Only the service that
-     * issued the command can read it back.
+     * A command's stored result, completed by its action's owner, for the
+     * admin app to reconcile a response it never received. Only the service
+     * that issued the command can read it back.
      */
     readOperatorCommand: (input: {
       readonly commandId: string;
       readonly serviceId: string;
     }) =>
       instrumented(eventSink, 'readOperatorCommand', async () => {
-        const [row] =
-          (await database.execute(sql`select r.result, m.state as mail_state
-          from operator_command_receipts r
-          left join mail_intents m on m.dedupe_key = 'beta-approved:' || r.command_id
-          where r.command_id = ${input.commandId} and r.service_id = ${input.serviceId}`)) as unknown as {
-            result: unknown;
-            mail_state: string | null;
-          }[];
+        const [row] = (await database.execute(sql`select action, result
+          from operator_command_receipts
+          where command_id = ${input.commandId} and service_id = ${input.serviceId}`)) as unknown as {
+          action: string;
+          result: unknown;
+        }[];
         if (!row) return null;
+        const read = commandStateReaders[row.action];
+        if (!read)
+          throw createAppError('INFRASTRUCTURE', 'Unknown operator command');
         return operatorCommandStateSchema.parse({
-          result: row.result,
-          mailState: row.mail_state,
+          action: row.action,
+          ...(await read(database, input.commandId, row.result)),
         });
       }),
   };

@@ -70,6 +70,42 @@ describe('operator beta access commands (ADR 0079)', () => {
     });
   });
 
+  test('a command reads back by action, its owner adding the owed mail (ISSUE-781)', async () => {
+    await withFixture(url, async (fixture) => {
+      const { userId } = await pendingAccount(fixture);
+      const approval = command(userId, 'approved', 1);
+      const read = await withDatabase(url, async (database) => {
+        const outcome = await database.runBetaAccessCommand(approval);
+        return {
+          outcome,
+          own: await database.readOperatorCommand({
+            commandId: approval.commandId,
+            serviceId: approval.serviceId,
+          }),
+          other: await database.readOperatorCommand({
+            commandId: approval.commandId,
+            serviceId: 'another-service',
+          }),
+        };
+      });
+      assert({
+        given:
+          'an applied approval read back by its own and by another service',
+        should:
+          'return the beta access variant with its queued approval mail to the issuer only',
+        actual: [read.own, read.other],
+        expected: [
+          {
+            action: 'account.beta_access.update',
+            result: read.outcome.result,
+            mailState: 'queued',
+          },
+          null,
+        ],
+      });
+    });
+  });
+
   test('a retry replays, a reused id with another request conflicts, and a stale form conflicts', async () => {
     await withFixture(url, async (fixture) => {
       const { userId } = await pendingAccount(fixture);

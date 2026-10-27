@@ -232,9 +232,12 @@ describe('the private operator API (ADR 0079)', () => {
     );
     assert({
       given: 'a signed read of a stored command',
-      should: 'answer its stored result and the approval mail state',
+      should: 'answer its action, stored result and the approval mail state',
       actual: [response.status, await response.json()],
-      expected: [200, { result, mailState: 'sent' }],
+      expected: [
+        200,
+        { action: 'account.beta_access.update', result, mailState: 'sent' },
+      ],
     });
   });
 });

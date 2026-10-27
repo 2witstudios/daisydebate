@@ -1,6 +1,8 @@
-import type { BetaAccessCommandResult } from '@daisy/protocol';
+import type {
+  BetaAccessCommandResult,
+  BetaAccessCommandState,
+} from '@daisy/protocol';
 import type { AuditDetail } from '../../audit/chain';
-import type { OperatorCommandState } from '@daisy/protocol/operator';
 import type { OperatorCall } from '../operator-client/client';
 
 /**
@@ -17,7 +19,7 @@ export type AuditedOutcome = {
 };
 
 export const mailDetail = (
-  state: OperatorCommandState['mailState'],
+  state: BetaAccessCommandState['mailState'],
 ): AuditDetail =>
   state === null
     ? 'mail_none'

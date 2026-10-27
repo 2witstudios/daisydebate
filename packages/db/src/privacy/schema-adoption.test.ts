@@ -204,12 +204,13 @@ test('multi-target command subjects declare private erasable relationships', asy
 test('beta access declarations match all actual producer columns', async () => {
   const beta = await import('../schema/beta-access');
   const intents = await import('../schema/mail-intents');
+  const operator = await import('../schema/operator-commands');
   const { betaAccessPrivacyFields, betaAccessPrivacyExpectedColumns } =
     await import('./beta-access-declarations');
   const tables = [
     beta.accountBetaAccess,
     beta.accountAccessEvents,
-    beta.operatorCommandReceipts,
+    operator.operatorCommandReceipts,
     intents.mailIntents,
   ];
   const expected = currentColumns(tables);

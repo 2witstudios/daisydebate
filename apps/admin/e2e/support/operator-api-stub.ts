@@ -168,6 +168,7 @@ export function createOperatorApiStub(input: {
     const stored = receipts.get(commandId);
     return stored
       ? json(200, {
+          action: 'account.beta_access.update',
           result: stored,
           mailState: stored.mail === 'queued' ? 'queued' : null,
         })

@@ -1,7 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import {
+  betaAccessCommandAction,
   betaAccessCommandResultSchema,
   type BetaAccessCommandResult,
+  type BetaAccessCommandState,
   type BetaAccessState,
 } from '@daisy/protocol';
 import { operatorLimits } from '@daisy/protocol/operator';
@@ -13,6 +15,28 @@ import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
 
 type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+
+/** The approval mail a command owes, deduplicated by the command that owed it. */
+const approvalMailKey = (commandId: string) => `beta-approved:${commandId}`;
+
+/**
+ * Beta access's part of an operator command readback: the stored result and
+ * the state of the approval mail it owed (null when it owed none).
+ */
+export async function readBetaAccessCommandState(
+  database: Pick<BunSQLDatabase, 'execute'>,
+  commandId: string,
+  result: unknown,
+): Promise<Omit<BetaAccessCommandState, 'action'>> {
+  const [mail] = (await database.execute(sql`select state from mail_intents
+    where dedupe_key = ${approvalMailKey(commandId)}`)) as unknown as {
+    state: string;
+  }[];
+  return {
+    result: betaAccessCommandResultSchema.parse(result),
+    mailState: (mail?.state ?? null) as BetaAccessCommandState['mailState'],
+  };
+}
 type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
 
 /** The pure decision and authority, injected so this adapter decides nothing itself. */
@@ -152,7 +176,7 @@ async function applyChange(
     await tx.execute(sql`insert into mail_intents
         (id, purpose, recipient_user_id, dedupe_key, next_attempt_at)
       values (${input.nextId()}, 'beta-approved', ${input.targetUserId},
-        ${`beta-approved:${input.commandId}`}, now())`);
+        ${approvalMailKey(input.commandId)}, now())`);
   else
     await appendSessionRevokedFor(
       tx,
@@ -194,7 +218,7 @@ export async function runBetaAccessCommand(
       (command_id, service_id, operator_ref, action, target_user_id,
        request_digest, result, admin_audit_head)
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
-      'account.beta_access.update', ${input.targetUserId},
+      ${betaAccessCommandAction}, ${input.targetUserId},
       ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${input.adminAuditHead})`);
   // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
   // writes nothing, so an admin that waited out the deadline may abandon it.

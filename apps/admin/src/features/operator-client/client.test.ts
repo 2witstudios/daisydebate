@@ -269,7 +269,11 @@ describe('operator response outcomes', () => {
   });
 
   test('a command read back for reconciliation', async () => {
-    const stored = { result: applied, mailState: 'sent' };
+    const stored = {
+      action: 'account.beta_access.update',
+      result: applied,
+      mailState: 'sent',
+    };
     const { client, sent } = clientWith(() => json(200, stored));
     assert({
       given: 'the stored receipt of a command',
