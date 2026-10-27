@@ -12,7 +12,8 @@ COPY infra/clickhouse/users.d/ /etc/clickhouse-server/users.d/
 COPY infra/clickhouse/migrations/ /daisy/migrations/
 COPY infra/clickhouse/sweep.sql infra/clickhouse/sweep.sh /daisy/
 COPY --chmod=0755 infra/clickhouse/entrypoint.sh /daisy/entrypoint.sh
-# 6PN on Fly; compose overrides it for the local and CI stack.
+# 6PN on Fly (IPv6); compose overrides both for the local and CI stack.
+ENV CLICKHOUSE_LISTEN_HOST=::
 ENV CLICKHOUSE_CLIENT_NETWORK=fdaa::/16
 EXPOSE 8123
 ENTRYPOINT ["/daisy/entrypoint.sh"]

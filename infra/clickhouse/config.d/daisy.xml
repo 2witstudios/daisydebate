@@ -1,6 +1,8 @@
 <!-- Server settings for the operational log store (ADR 0084). -->
 <clickhouse>
-    <listen_host>::</listen_host>
+    <!-- `::` on Fly (6PN is IPv6); compose sets 0.0.0.0, since Docker
+         disables IPv6 inside containers and a `::` bind would fail. -->
+    <listen_host from_env="CLICKHOUSE_LISTEN_HOST" />
     <http_port>8123</http_port>
     <!-- Native protocol, for entrypoint.sh's clickhouse-client only: the
          default user it runs as is restricted to loopback (users.d). -->

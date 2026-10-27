@@ -69,7 +69,9 @@ services:
       context: ..
       dockerfile: infra/clickhouse/Dockerfile
     environment:
-      CLICKHOUSE_CLIENT_NETWORK: '::/0'
+      # Docker disables IPv6 inside containers: listen and admit IPv4.
+      CLICKHOUSE_LISTEN_HOST: 0.0.0.0
+      CLICKHOUSE_CLIENT_NETWORK: 0.0.0.0/0
       CLICKHOUSE_SHIPPER_PASSWORD: local-shipper-only
       CLICKHOUSE_READER_PASSWORD: local-reader-only
     ports: ['127.0.0.1:18123:8123']
