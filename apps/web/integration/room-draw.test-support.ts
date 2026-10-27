@@ -31,7 +31,7 @@ export const drawRoomOverrides = async (
         },
       },
       config: {
-        ...foundation.defaultConfig,
+        ...foundation.preset.config,
         resolutionDraw: {
           enabled: true,
           drawSize,
