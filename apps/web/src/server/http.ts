@@ -95,7 +95,9 @@ export async function handleOperation(
           });
         }
         const mapped = toPublicError(
-          isTransactionCapacityRefusal(error)
+          // A minted outer code is the answer; only an unminted wrapper
+          // around a capacity refusal becomes the retryable outage.
+          !isAppError(error) && isTransactionCapacityRefusal(error)
             ? createAppError('INFRASTRUCTURE')
             : error,
           id,

@@ -1,5 +1,8 @@
-import { isAppError } from '@daisy/errors';
-import { isTransactionCapacityRefusal } from './transaction-admission';
+import { isAppError, type ErrorCode } from '@daisy/errors';
+import {
+  isTransactionCapacityRefusal,
+  markCapacityRefusalReported,
+} from './transaction-admission';
 
 export type DatabaseEventSink = (
   event:
@@ -28,6 +31,7 @@ export async function instrumented<T>(
   } catch (error) {
     if (isDomainRefusal(error)) throw error;
     const refused = isTransactionCapacityRefusal(error);
+    if (refused && eventSink) markCapacityRefusalReported(error);
     eventSink?.(
       refused ? 'db.capacity.refused' : 'db.query.failed',
       { operation },
@@ -39,7 +43,18 @@ export async function instrumented<T>(
   }
 }
 
-/** INFRASTRUCTURE, INTERNAL and INVARIANT stay failures; every other minted code is an answer. */
-const failureCodes = new Set(['INFRASTRUCTURE', 'INTERNAL', 'INVARIANT']);
+/** Every code decides explicitly: a new protocol code must be classified here. */
+const codeKinds: Readonly<Record<ErrorCode, 'answer' | 'failure'>> = {
+  VALIDATION: 'answer',
+  AUTHENTICATION: 'answer',
+  AUTHORIZATION: 'answer',
+  NOT_FOUND: 'answer',
+  CONFLICT: 'answer',
+  PAYLOAD_TOO_LARGE: 'answer',
+  RATE_LIMIT: 'answer',
+  INVARIANT: 'failure',
+  INFRASTRUCTURE: 'failure',
+  INTERNAL: 'failure',
+};
 const isDomainRefusal = (error: unknown) =>
-  isAppError(error) && !failureCodes.has(error.code);
+  isAppError(error) && codeKinds[error.code] === 'answer';

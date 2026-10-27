@@ -72,6 +72,9 @@ for (const refused of [true, false]) {
         crashReported: recorded.some(
           ({ event }) => event === 'request.unhandled',
         ),
+        refusalsReported: recorded.filter(
+          ({ event }) => event === 'db.capacity.refused',
+        ).length,
       },
       expected: {
         status: 503,
@@ -79,6 +82,7 @@ for (const refused of [true, false]) {
         safe: true,
         failedStatus: [503],
         crashReported: !refused,
+        refusalsReported: refused ? 1 : 0,
       },
     });
   });

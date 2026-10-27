@@ -19,6 +19,7 @@ import {
 } from './email-change/email-change';
 import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
 import { createSuppressionCheck } from './mail/suppression-check';
+import { reportAuthFailure } from './failure-report';
 import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
 import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
@@ -241,12 +242,12 @@ const composeBetterAuth = (dependencies: {
           instance.handler(request),
         );
       } catch (error) {
-        if (!isTransactionCapacityRefusal(error))
-          dependencies.logger.log(
-            'request.unhandled',
-            { source: 'better-auth' },
-            'Authentication request failed',
-          );
+        reportAuthFailure(
+          dependencies.logger,
+          error,
+          'better-auth',
+          'Authentication request failed',
+        );
         // A retryable outage, typed at the source, so callers (the mounted
         // route wrapper, the confirm-page internal forward) read the error
         // code rather than the response.

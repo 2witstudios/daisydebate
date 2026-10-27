@@ -2,17 +2,19 @@ import { createAppError } from '@daisy/errors';
 
 const CAPACITY_UNAVAILABLE = 'Transcript transaction capacity unavailable';
 const capacityRefusals = new WeakSet<Error>();
+/** Errors whose capacity refusal the database boundary already logged. */
+const reportedRefusals = new WeakSet<Error>();
 /**
- * Refused-unrun admission identity through at most 16 native Error wrappers.
- * Only own data-property causes are supported; hostile links and execution
+ * Whether `marks` holds `error` or one of at most 16 native Error causes.
+ * Only own data-property causes are followed; hostile links and execution
  * recovery detail objects fail closed to ordinary failure reporting.
  */
-export function isTransactionCapacityRefusal(error: unknown): boolean {
+function causeChainHas(marks: WeakSet<Error>, error: unknown): boolean {
   const seen = new WeakSet<Error>();
   let current = error;
   try {
     for (let depth = 0; depth < 16 && current instanceof Error; depth += 1) {
-      if (capacityRefusals.has(current)) return true;
+      if (marks.has(current)) return true;
       if (seen.has(current)) return false;
       seen.add(current);
       current = Object.getOwnPropertyDescriptor(current, 'cause')?.value;
@@ -23,6 +25,19 @@ export function isTransactionCapacityRefusal(error: unknown): boolean {
   }
   return false;
 }
+/** Refused-unrun admission identity, through bounded native cause wrappers. */
+export const isTransactionCapacityRefusal = (error: unknown): boolean =>
+  causeChainHas(capacityRefusals, error);
+/** Records that `db.capacity.refused` was emitted for this rejection. */
+export function markCapacityRefusalReported(error: unknown) {
+  if (error instanceof Error) reportedRefusals.add(error);
+}
+/**
+ * A capacity refusal the database boundary already reported, so a caller
+ * further out suppresses its duplicate rather than logging it again.
+ */
+export const isReportedCapacityRefusal = (error: unknown): boolean =>
+  causeChainHas(reportedRefusals, error);
 /** The one admission refusal `isTransactionCapacityRefusal` recognises. */
 export function refuseCapacity() {
   const refusal = createAppError('INFRASTRUCTURE', CAPACITY_UNAVAILABLE);

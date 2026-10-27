@@ -40,7 +40,8 @@ export type ConnectionStoreDeps = {
   readonly url: string;
   readonly createSocket: (url: string) => WebSocketLike;
   readonly scheduler: Scheduler;
-  readonly fetchTicket: () => Promise<string>;
+  /** Aborted when the store is disposed, so a disposed store mints no ticket. */
+  readonly fetchTicket: (signal: AbortSignal) => Promise<string>;
   readonly random: () => number;
   /** Registers a visibility listener; the callback receives `true` when the
    * tab becomes visible. Returns an unsubscribe function. */

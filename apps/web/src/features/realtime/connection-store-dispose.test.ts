@@ -31,7 +31,8 @@ function deps(
   visibility: ReturnType<typeof liveVisibility>,
   scheduler: ReturnType<typeof createTimerQueue>,
   sockets: FakeSocket[],
-  fetchTicket: () => Promise<string> = async () => validTicket,
+  fetchTicket: (signal: AbortSignal) => Promise<string> = async () =>
+    validTicket,
 ): ConnectionStoreDeps {
   return {
     url: 'wss://realtime.test/ws',
@@ -94,8 +95,12 @@ test('a ticket answered after disposal cannot open, send or schedule', async () 
   const scheduler = createTimerQueue((clock, ms) => clock + ms);
   const sockets: FakeSocket[] = [];
   const ticket = Promise.withResolvers<string>();
+  let ticketSignal: AbortSignal | undefined;
   const store = createConnectionStore(
-    deps(visibility, scheduler, sockets, () => ticket.promise),
+    deps(visibility, scheduler, sockets, (signal) => {
+      ticketSignal = signal;
+      return ticket.promise;
+    }),
   );
   store.connect();
   sockets[0]!.open();
@@ -104,16 +109,33 @@ test('a ticket answered after disposal cannot open, send or schedule', async () 
   await flush();
   sockets[0]!.message({ v: ENVELOPE_VERSION, type: 'ready' });
   store.connect();
+  let notified = 0;
+  store.subscribe(() => (notified += 1));
+  store.onMessage(() => (notified += 1));
+  store.onDiagnostic(() => (notified += 1));
+  store.subscribeTopic('debate:' + 'd'.repeat(24), () => (notified += 1));
+  store.close();
   assert({
-    given: 'a disposed store whose ticket and socket answer late',
-    should: 'send nothing, schedule nothing and refuse to connect again',
+    given:
+      'a disposed store whose ticket and socket answer late, then new registrations',
+    should:
+      'abort the ticket fetch, send nothing, schedule nothing, refuse to connect and retain no listener',
     actual: {
+      aborted: ticketSignal?.aborted,
       sent: sockets[0]!.sent.length,
       timers: scheduler.pending(),
       sockets: sockets.length,
       status: store.getState().status,
+      notified,
     },
-    expected: { sent: 0, timers: 0, sockets: 1, status: 'closed' },
+    expected: {
+      aborted: true,
+      sent: 0,
+      timers: 0,
+      sockets: 1,
+      status: 'closed',
+      notified: 0,
+    },
   });
 });
 

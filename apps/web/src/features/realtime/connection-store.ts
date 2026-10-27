@@ -61,6 +61,7 @@ export function createConnectionStore(
   });
 
   let disposed = false;
+  const lifetime = new AbortController();
   const stopVisibility = deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
   });
@@ -283,7 +284,7 @@ export function createConnectionStore(
       handleClose(myGeneration, code);
     });
     deps
-      .fetchTicket()
+      .fetchTicket(lifetime.signal)
       .then((value) => {
         if (myGeneration !== generation) return;
         ticket = value;
@@ -321,12 +322,18 @@ export function createConnectionStore(
     for (const release of [stopVisibility, topics.release, diagnostics.release])
       release();
     listeners.clear();
+    lifetime.abort();
   }
+  /** After disposal a registration retains nothing. */
+  const live =
+    <A extends unknown[]>(register: (...args: A) => () => unknown) =>
+    (...args: A) =>
+      disposed ? () => {} : register(...args);
 
   return {
-    onDiagnostic: diagnostics.subscribe,
-    subscribeTopic: topics.subscribe,
-    onMessage: topics.onMessage,
+    onDiagnostic: live(diagnostics.subscribe),
+    subscribeTopic: live(topics.subscribe),
+    onMessage: live(topics.onMessage),
     resubscribeTopic: topics.resubscribe,
     connect,
     close,
@@ -338,9 +345,9 @@ export function createConnectionStore(
       // report the refresh rather than reaching into this store's internals.
     },
     getState: snapshot,
-    subscribe: (listener) => {
+    subscribe: live((listener: (state: ConnectionState) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
-    },
+    }),
   };
 }

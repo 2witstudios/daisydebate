@@ -42,6 +42,9 @@ for (const refused of [true, false]) {
         ).length,
         crashes: recorded.filter(({ event }) => event === 'request.unhandled')
           .length,
+        refusals: recorded.filter(
+          ({ event }) => event === 'db.capacity.refused',
+        ).length,
         pending: work.pending(),
       },
       expected: {
@@ -49,6 +52,7 @@ for (const refused of [true, false]) {
         completed: [200],
         failures: 0,
         crashes: refused ? 0 : 1,
+        refusals: refused ? 1 : 0,
         pending: 0,
       },
     });
