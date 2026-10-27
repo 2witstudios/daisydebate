@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
@@ -21,6 +22,11 @@ import type {
 type AdmissionContext = Parameters<
   Parameters<Store['issueMediaToken']>[0]['sign']
 >[0];
+/** A human caller and the participant-access rule its fenced facts must meet (ADR 0075). */
+const callerOf = (actorId: string) => ({
+  actorId,
+  admits: admitsPrincipalAccess,
+});
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
@@ -30,7 +36,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const snapshot = async (roundId: string, actorId?: string) => {
     const state = await input.store.readMediaSession({
       roundId,
-      ...(actorId ? { actorId } : {}),
+      ...(actorId ? { caller: callerOf(actorId) } : {}),
       buildProjection,
     });
     if (!state) throw createAppError('NOT_FOUND');
@@ -73,7 +79,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   ): Promise<RoundMediaState> => {
     const request = await input.store.requestMediaReconcile({
       roundId,
-      ...(actorId ? { actorId } : {}),
+      ...(actorId ? { caller: callerOf(actorId) } : {}),
     });
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
@@ -83,7 +89,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       principal.kind === 'human'
         ? await input.store.ensureBinding({
             roundId,
-            actorId: principal.actorId,
+            caller: callerOf(principal.actorId),
             buildProjection,
           })
         : await input.store.ensureBotBinding({
@@ -170,7 +176,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     read,
     holdForCapture,
     async session(roundId: string, actorId: string) {
-      const response = await admit(roundId, { kind: 'human', actorId });
+      const response = await admit(roundId, {
+        kind: 'human',
+        ...callerOf(actorId),
+      });
       return roundMediaAdmissionSchema.parse({
         version: response.version,
         roundId: response.roundId,

@@ -1,5 +1,6 @@
 import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
 import type { AgeBand } from './age-band';
+import type { BetaAccessState } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';
 
@@ -49,4 +50,22 @@ export function admitsCapability(
   account: Parameters<typeof participantAccess>[0],
 ): boolean {
   return withdrawals.includes(capability) || participantAccess(account);
+}
+
+/**
+ * The same rule over a human principal's fenced access facts, as the
+ * database hands them to a fenced command (Round, attendance, media).
+ */
+export function admitsPrincipalAccess(
+  access: {
+    readonly beta: BetaAccessState | null;
+    readonly ageBand: AgeBand | null;
+  } | null,
+): boolean {
+  return participantAccess(
+    access && {
+      beta: access.beta && { state: access.beta },
+      ageBand: access.ageBand,
+    },
+  );
 }

@@ -6,6 +6,7 @@ import {
   type MediaSessionRead,
 } from './media-session-snapshot';
 import { requireMediaWindow } from './media-session-authority';
+import type { ParticipantAdmission } from './participant-admission';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { LockedRoundTickInput } from './round-clock-transaction';
 import {
@@ -15,7 +16,12 @@ import {
 } from './bot-publication-context';
 
 export type MediaAdmissionPrincipal =
-  | { readonly kind: 'human'; readonly actorId: string }
+  | {
+      readonly kind: 'human';
+      readonly actorId: string;
+      /** ADR 0075: participant access over the caller's fenced facts. */
+      readonly admits: ParticipantAdmission;
+    }
   | {
       readonly kind: 'bot';
       readonly scope: BotPublicationScope;
@@ -50,7 +56,12 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
       let snapshot = await requiredSnapshot(tx, {
         roundId: input.roundId,
         ...(input.principal.kind === 'human'
-          ? { actorId: input.principal.actorId }
+          ? {
+              caller: {
+                actorId: input.principal.actorId,
+                admits: input.principal.admits,
+              },
+            }
           : {}),
         buildProjection: input.buildProjection,
       });

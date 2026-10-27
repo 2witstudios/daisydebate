@@ -1,4 +1,5 @@
 import { mediaTestHuman } from './media-session.test-support';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -13,7 +14,7 @@ async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
   const store = mediaTestStore(fixture.sql);
   const binding = await store.ensureBinding({
     roundId,
-    actorId: seat.actorId,
+    caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
     buildProjection: mediaTestTick,
   });
   return { roundId, seat, store, binding };
@@ -26,7 +27,7 @@ test('durable reconcile claims serve only the request horizon they actually star
     try {
       const first = await store.requestMediaReconcile({
         roundId,
-        actorId: seat.actorId,
+        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
       });
       const claim = await store.claimMediaReconcile({
         sessionId: binding.sessionId,
@@ -36,7 +37,7 @@ test('durable reconcile claims serve only the request horizon they actually star
         throw new Error('First reconcile was not claimed');
       const second = await otherProcess.requestMediaReconcile({
         roundId,
-        actorId: seat.actorId,
+        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
       });
       const competing = await otherProcess.claimMediaReconcile({
         sessionId: binding.sessionId,
@@ -83,7 +84,10 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
   await withFixture(databaseUrl, async (fixture) => {
     const { roundId, seat, store, binding } = await reconcileFixture(fixture);
     try {
-      await store.requestMediaReconcile({ roundId, actorId: seat.actorId });
+      await store.requestMediaReconcile({
+        roundId,
+        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
+      });
       const claim = await store.claimMediaReconcile({
         sessionId: binding.sessionId,
         owner: createId(),
@@ -126,7 +130,11 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         actual: () =>
           restarted.issueMediaToken({
             roundId,
-            principal: { kind: 'human', actorId: seat.actorId },
+            principal: {
+              kind: 'human',
+              actorId: seat.actorId,
+              admits: admitsPrincipalAccess,
+            },
             buildProjection: mediaTestTick,
             sign: async () => {
               signed = true;
@@ -235,7 +243,11 @@ test('an aborted reconcile past its lease never holds media admission', async ()
     const admit = () =>
       store.issueMediaToken({
         roundId,
-        principal: { kind: 'human', actorId: seat.actorId },
+        principal: {
+          kind: 'human',
+          actorId: seat.actorId,
+          admits: admitsPrincipalAccess,
+        },
         buildProjection: mediaTestTick,
         sign: async () => 'signed',
       });

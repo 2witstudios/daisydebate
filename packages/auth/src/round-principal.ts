@@ -3,7 +3,7 @@ import type {
   RoundCommandPrincipal,
   RoundRefusal,
 } from '@daisy/protocol';
-import { participantAccess } from './participant-access';
+import { admitsPrincipalAccess } from './participant-access';
 
 export function runScopeMatches(
   principal: Extract<RoundCommandPrincipal, { kind: 'agent' }>,
@@ -64,10 +64,5 @@ export function roundPrincipalAdmitted(
   if (principal.kind !== 'human') return true;
   if (commandType !== null && roundWithdrawals.includes(commandType))
     return true;
-  return participantAccess(
-    access && {
-      beta: access.beta && { state: access.beta },
-      ageBand: access.ageBand,
-    },
-  );
+  return admitsPrincipalAccess(access);
 }

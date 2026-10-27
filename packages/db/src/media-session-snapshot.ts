@@ -6,7 +6,11 @@ import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
-import { lockMediaRound, mediaId } from './media-session-authority';
+import {
+  lockMediaRound,
+  mediaId,
+  type MediaCaller,
+} from './media-session-authority';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -18,7 +22,8 @@ import { reconcileLive } from './media-reconcile-rules';
 
 export type MediaSessionRead = {
   readonly roundId: string;
-  readonly actorId?: string;
+  /** A human reader, bound to its participant-access rule (ADR 0075). */
+  readonly caller?: MediaCaller;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };
 /** Private canonical snapshot, never an HTTP payload. All times follow the final session lock. */
@@ -27,7 +32,7 @@ export async function lockedMediaSnapshot(
   input: MediaSessionRead,
 ) {
   const roundId = mediaId(input.roundId);
-  const authority = await lockMediaRound(tx, roundId, input.actorId);
+  const authority = await lockMediaRound(tx, roundId, input.caller);
   const [session] = await tx
     .select()
     .from(mediaSessions)

@@ -12,6 +12,14 @@ import {
   type Vendor,
 } from './media-vendor.test-support';
 
+type Caller = {
+  readonly actorId: string;
+  readonly admits: (access: {
+    readonly beta: 'approved';
+    readonly ageBand: 'adult';
+  }) => boolean;
+};
+
 /** Deterministic 24-character identifiers the real media adapter accepts. */
 export const fixedId = (label: string) =>
   label
@@ -89,6 +97,12 @@ export function createMediaWorld(
     failures.set(call, left - 1);
     throw new Error(`${call} unavailable`);
   };
+  /** As the store does: the caller's rule over its (admitted) fenced facts. */
+  const admittedActor = (caller?: Caller) => {
+    if (caller && !caller.admits({ beta: 'approved', ageBand: 'adult' }))
+      throw createAppError('AUTHORIZATION');
+    return caller?.actorId;
+  };
   const snapshot = (actorId?: string): MediaSnapshot => {
     const participants = seats.map((seat) => ({
       ...seat,
@@ -144,8 +158,8 @@ export function createMediaWorld(
     return { sessionId, roomName, identity: found.identity };
   };
   const store = {
-    readMediaSession: async (input: { actorId?: string }) =>
-      snapshot(input.actorId),
+    readMediaSession: async (input: { caller?: Caller }) =>
+      snapshot(admittedActor(input.caller)),
     requestMediaReconcile: async () => ({
       sessionId,
       version: (requested += 1),
@@ -203,10 +217,10 @@ export function createMediaWorld(
         if (terminal) endedAt ??= now;
       }
     },
-    ensureBinding: async (input: { actorId: string }) => {
+    ensureBinding: async (input: { caller: Caller }) => {
       if (['completed', 'abandoned'].includes(status))
         throw createAppError('CONFLICT', 'Round media has ended');
-      const seat = snapshot(input.actorId).caller!;
+      const seat = snapshot(admittedActor(input.caller)).caller!;
       return binding(seat.id);
     },
     issueMediaToken: async <T>(input: {
