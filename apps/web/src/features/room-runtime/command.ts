@@ -53,6 +53,14 @@ export function roomCommandOperation({
           : command.type === 'assign-seat'
             ? command.actorId
             : null,
+      formatTuple:
+        command.type === 'select-format'
+          ? {
+              formatId: command.formatId,
+              formatVersion: command.formatVersion,
+              presetVersion: command.presetVersion,
+            }
+          : null,
       roundId: ids.next(),
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
@@ -83,7 +91,7 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        return (raw, now, target, account) => {
+        return (raw, now, target, account, formatFacts) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
@@ -96,6 +104,7 @@ export function roomCommandOperation({
               now,
               participantId: ids.next(),
               formatId: ids.next(),
+              formatFacts,
               target: target
                 ? {
                     ...target,

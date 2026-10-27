@@ -10,6 +10,7 @@ import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';
 export { hostIdentityHidden, projectRoom } from './room-projection';
 import {
+  selectFormat,
   updateConfig,
   updateDetails,
   claimSeat,
@@ -25,6 +26,7 @@ import {
 const roomTransitions = {
   'update-config': updateConfig,
   'update-format': updateConfig,
+  'select-format': selectFormat,
   'update-details': updateDetails,
   'claim-seat': claimSeat,
   'assign-seat': claimSeat,
@@ -41,6 +43,7 @@ const hostCommands = new Set<RoomCommand['type']>([
   'update-config',
   'update-details',
   'update-format',
+  'select-format',
   'assign-seat',
   'remove-seat',
   'start-prep',
@@ -51,6 +54,7 @@ const hostCommands = new Set<RoomCommand['type']>([
 const editCommands = new Set<RoomCommand['type']>([
   'update-config',
   'update-format',
+  'select-format',
   'update-details',
   'claim-seat',
   'assign-seat',

@@ -11,6 +11,7 @@ import {
   seatSlotsComplete,
 } from '@daisy/protocol';
 import { activeRoomMembers } from './room-membership';
+import type { FormatSelectionFacts } from './format-selection';
 
 type Target = RoomParticipant & { readonly eligible: boolean };
 export type Edges = {
@@ -18,6 +19,8 @@ export type Edges = {
   readonly participantId: string;
   readonly formatId: string;
   readonly target: Target | null;
+  /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
+  readonly formatFacts?: FormatSelectionFacts | null;
 };
 export const assemblyOpen = (room: RoomAssemblyState) =>
   room.status === 'assembling' || room.status === 'ready';

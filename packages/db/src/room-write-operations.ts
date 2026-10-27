@@ -17,6 +17,11 @@ import {
 } from './authorization';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import {
+  readFormatSelectionFacts,
+  type FormatSelectionFactsRecord,
+  type SelectionTuple,
+} from './format-operations';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -42,6 +47,8 @@ type CommandInput = {
   readonly payloadDigest: string;
   readonly type: string;
   readonly targetActorId: string | null;
+  /** The catalog tuple a select-format names; its facts load under this transaction (FMT-1). */
+  readonly formatTuple: SelectionTuple | null;
   readonly roundId: string;
   readonly prepare: (
     state: RoomAssemblyState,
@@ -53,6 +60,7 @@ type CommandInput = {
       now: string,
       target: Actor | null,
       account: Account,
+      formatFacts: FormatSelectionFactsRecord | null,
     ) => RoomMutationOutcome
   >;
 };
@@ -111,7 +119,13 @@ export const roomWriteOperations = ({
         const target = input.targetActorId
           ? await actorFact(tx, input.targetActorId)
           : null;
-        const outcome = execute(state, now, target, account);
+        // FOR SHARE: a concurrent publication (FOR UPDATE on the format
+        // row) serializes with this selection, so the policy judges facts
+        // that hold at commit.
+        const formatFacts = input.formatTuple
+          ? await readFormatSelectionFacts(tx, input.formatTuple)
+          : null;
+        const outcome = execute(state, now, target, account, formatFacts);
         if (!outcome.ok)
           throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
         const next = outcome.mutation.state;

@@ -84,6 +84,20 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     definition: formatDefinitionSchema,
     config: roomConfigSchema,
   }),
+  /**
+   * Choose a catalog format at its canonical preset, or reset to the room's
+   * pinned basis (FMT-1). The server decides through the one selection
+   * policy; `topic` follows the draw-state rule (FMT-7).
+   */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('select-format'),
+    intent: z.enum(['choose', 'reset']),
+    formatId: textSchema,
+    formatVersion: versionSchema,
+    presetVersion: versionSchema,
+    topic: textSchema.optional(),
+  }),
   z.strictObject({ ...envelope, type: z.literal('claim-seat'), ...seat }),
   z.strictObject({
     ...envelope,

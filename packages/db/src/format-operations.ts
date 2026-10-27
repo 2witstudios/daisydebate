@@ -40,7 +40,7 @@ export const currentFormatRevisions = (client: BunSQLDatabase) =>
     );
 
 /** The exact (format, revision, preset) a selection names. */
-type SelectionTuple = {
+export type SelectionTuple = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number;

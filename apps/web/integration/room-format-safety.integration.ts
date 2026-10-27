@@ -115,6 +115,7 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
             payloadDigest: 'direct-launch-safety-proof',
             type: 'start-round',
             targetActorId: null,
+            formatTuple: null,
             roundId: createId(),
             authorizeRead: () => true,
             prepare: async () => (room, now) =>

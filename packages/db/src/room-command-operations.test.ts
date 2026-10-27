@@ -143,6 +143,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     payloadDigest: 'b'.repeat(64),
     type: 'start-round',
     targetActorId: null,
+    formatTuple: null,
     roundId,
     prepare: async () => (state) => ({
       ok: true,

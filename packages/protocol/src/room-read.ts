@@ -41,6 +41,8 @@ export const roomRefusalSchema = z.enum([
   'consent-conflict',
   /** The caller already holds another active Room (ADR 0070). */
   'active-room',
+  /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
+  'format-unavailable',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({

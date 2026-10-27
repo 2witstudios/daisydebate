@@ -71,6 +71,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
       payloadDigest: 'a'.repeat(64),
       type: 'start-round',
       targetActorId: null,
+      formatTuple: null,
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
       // The DB adapter receives an accepted pure mutation; no vendor or database is mocked.

@@ -7,6 +7,7 @@ import type {
 } from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
+import { decideFormatSelection } from './format-selection';
 
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
@@ -45,6 +46,51 @@ export const updateConfig = (
       : null,
   };
   return acceptedRoomMutation(next, { publishDefinition });
+};
+/**
+ * Choose a catalog format, or go back to the room's pinned basis (FMT-1).
+ * The one selection policy decides from the facts the adapter loaded; the
+ * room then runs that definition at that preset's config and records the
+ * basis. No catalog format enables a draw yet, so the command never carries
+ * a topic; FMT-7's draw-state rule extends this.
+ */
+export const selectFormat = (
+  room: RoomAssemblyState,
+  _actorId: string,
+  command: Extract<RoomCommand, { type: 'select-format' }>,
+  _consent: RoomConsent,
+  edges: Edges,
+): RoomMutationOutcome => {
+  if (room.competitionType === 'ranked') return refuse('illegal-config');
+  if (command.topic !== undefined) return refuse('illegal-config');
+  const decision = decideFormatSelection(
+    {
+      intent: command.intent,
+      formatId: command.formatId,
+      formatVersion: command.formatVersion,
+      presetVersion: command.presetVersion,
+      basis: room.basis,
+    },
+    edges.formatFacts ?? null,
+  );
+  if (!decision.ok) return refuse(decision.refusal);
+  const { rules, roomPlan } = decision.resolved;
+  if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
+    return refuse('seat-unavailable');
+  return acceptedRoomMutation({
+    ...room,
+    formatId: command.formatId,
+    formatVersion: command.formatVersion,
+    basis: decision.basis,
+    definition: decision.definition,
+    config: decision.config,
+    rules,
+    executionPlan: roomPlan,
+    prepStartedAt: null,
+    prepRemainingMs: roomPlan.preRoundPrep.enabled
+      ? roomPlan.preRoundPrep.durationMs
+      : null,
+  });
 };
 export const updateDetails = (
   room: RoomAssemblyState,
