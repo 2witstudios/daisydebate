@@ -9,6 +9,7 @@ import {
   uniqueName,
   reachOnboarding,
   sessionUsername,
+  answerAgeStep,
 } from './support/accounts';
 import {
   claimUsername,
@@ -39,6 +40,7 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await confirmSignIn(page, link);
 
   // A brand-new account is forced through username onboarding first.
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await page.goto('/play');
   await expect(page).toHaveURL(/\/onboarding\/username\?next=%2Fplay$/);
@@ -105,6 +107,7 @@ test('a redeemed link cannot be replayed', async ({ page, request }) => {
   await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
   await confirmSignIn(page, link);
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username/);
 
   await page.context().clearCookies();
@@ -124,6 +127,7 @@ test('an interrupted signup resumes onboarding on the next sign-in', async ({
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username/);
 
   // Walk away without choosing a name, then sign in again later.
@@ -149,6 +153,7 @@ test('declining the passkey offer after onboarding from a protected page other t
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
   await claimUsername(page, uniqueName('ranked'));
   await expect(
@@ -169,6 +174,7 @@ test('return destinations are validated and spectator routes stay public', async
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
   await page.getByRole('button', { name: 'Not now' }).click();
@@ -234,6 +240,7 @@ test('an emailed link opened in a different browser than the one that requested 
   const other = await browser.newContext({ ignoreHTTPSErrors: true });
   const otherPage = await openPage(other, 'the other browser');
   await confirmSignIn(otherPage, link);
+  await answerAgeStep(otherPage);
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
   await expect(

@@ -41,6 +41,7 @@ import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
+import { ageStepOperations } from './age-step';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -194,6 +195,7 @@ export function createDatabase({
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
+    ...ageStepOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),
     ...memberProfileReadOperations({ database, eventSink }),
     /**

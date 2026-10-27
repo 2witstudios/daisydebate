@@ -10,6 +10,7 @@ import {
   confirmSignIn,
   passkeySignInAfterSignOut,
   requestSignInLink,
+  answerAgeStep,
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
@@ -83,6 +84,7 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
 
   await page.getByLabel('Username').fill(uniqueName('ada'));
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -135,6 +137,7 @@ test('completing onboarding and saving a passkey from a protected page other tha
   const email = freshEmail();
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
 
   await page.getByLabel('Username').fill(uniqueName('destined'));

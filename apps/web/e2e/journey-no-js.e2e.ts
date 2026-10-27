@@ -10,6 +10,7 @@ import {
   signUpProvisional,
   uniqueName,
   sessionUsername,
+  answerAgeStep,
 } from './support/accounts';
 import { reachSentState, requestConfirmLink } from './support/confirm-page';
 import { walkOnboarding } from './support/onboarding';
@@ -46,6 +47,7 @@ test.describe('with JavaScript off', () => {
     // The emailed link is real: it finishes sign-in on this browser, still
     // with no script, and a new account goes on to onboarding.
     await confirmSignIn(page, await emailedLink(request, email));
+    await answerAgeStep(page);
     await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   });
 

@@ -30,6 +30,9 @@ export async function loadAccountAgeSource(
     : null;
 }
 
+/** DEC-244: the owner's age-step decision (birth month only, WAIT-4.6/4.7/4.8). */
+export const DEC_244 = 'cnl34yx54fgtuxwvekobc657';
+
 const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
   'user_id',
   'birth_month',
@@ -48,8 +51,16 @@ const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
   storage: 'postgres',
   owner: 'WAIT',
   purpose: 'Minimum durable source for current account age eligibility',
-  lawfulBasis: { status: 'pending', decision: 'sznp9ay8e88ny2sg4xujosae' },
-  retention: { status: 'pending', decision: 'njiorsf64z4iqjm2dbfa3zuu' },
+  lawfulBasis: {
+    status: 'approved',
+    decision: DEC_244,
+    rule: 'legal obligation and contract',
+  },
+  retention: {
+    status: 'approved',
+    decision: DEC_244,
+    rule: 'life of the account',
+  },
   erasure: 'delete',
   exportable: true,
 }));

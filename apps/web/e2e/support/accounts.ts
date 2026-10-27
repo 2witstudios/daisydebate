@@ -48,6 +48,19 @@ export async function emailedLink(
  * never has to duplicate the request-link-then-confirm flow.
  */
 export async function signUpProvisionalResponse(request: APIRequestContext) {
+  const signedUp = await signUpBeforeAge(request);
+  // The age step comes first (WAIT-4.6); an adult's answer lets every
+  // later onboarding step proceed as before.
+  const aged = await request.post('/api/account/age', {
+    headers: { origin },
+    data: { month: 1, year: 1990, terms: true },
+  });
+  expect(aged.status()).toBe(200);
+  return signedUp;
+}
+
+/** A new account signed in through the real handlers, at the age step. */
+export async function signUpBeforeAge(request: APIRequestContext) {
   await resetRateLimits(request);
   const email = freshEmail();
   const requested = await request.post('/api/auth/sign-in/magic-link', {
@@ -106,8 +119,18 @@ export async function reachOnboarding(page: Page, request: APIRequestContext) {
   await page.goto('/sign-in');
   await requestSignInLink(page, email);
   await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username/);
   return email;
+}
+
+/** Answers the age step as an adult through the real form (WAIT-4.6). */
+export async function answerAgeStep(page: Page) {
+  await expect(page).toHaveURL(/\/onboarding\/age/);
+  await page.getByLabel('Month').selectOption('1');
+  await page.getByLabel('Year').selectOption('1990');
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
 }
 
 /** Enrolls a passkey from account security settings on the page's device. */

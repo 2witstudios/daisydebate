@@ -25,7 +25,7 @@ function ageDatabase(responses: unknown[][]) {
   return { tx, queries };
 }
 
-test('age adopter binds own export/delete and keeps collection policies pending', async () => {
+test('age adopter binds own export/delete under the approved age-step policy', async () => {
   const subject = { userId: input.userId, actorId: 'a'.repeat(24) };
   const fixture = ageDatabase([
     [],
@@ -61,13 +61,23 @@ test('age adopter binds own export/delete and keeps collection policies pending'
     ],
   });
   assert({
-    given: 'pending age collection and retention decisions',
+    given: 'the owner’s age-step decision (DEC-244)',
     should:
-      'name the actual retention owner without granting collection approval',
-    actual: accountAgePrivacyAdopter.fields.map(({ retention }) => retention),
-    expected: Array.from({ length: 4 }, () => ({
-      status: 'pending',
-      decision: 'njiorsf64z4iqjm2dbfa3zuu',
-    })),
+      'classify the birth month under legal obligation and contract, kept for the life of the account',
+    actual: accountAgePrivacyAdopter.fields.map(
+      ({ lawfulBasis, retention }) => [lawfulBasis, retention],
+    ),
+    expected: Array.from({ length: 4 }, () => [
+      {
+        status: 'approved' as const,
+        decision: 'cnl34yx54fgtuxwvekobc657',
+        rule: 'legal obligation and contract',
+      },
+      {
+        status: 'approved' as const,
+        decision: 'cnl34yx54fgtuxwvekobc657',
+        rule: 'life of the account',
+      },
+    ]),
   });
 });
