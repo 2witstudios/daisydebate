@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import {
-  onboardingStepHref,
-  type SearchParams,
-} from '../../../../features/access/decision';
+import type { SearchParams } from '../../../../features/access/decision';
+import { answerEditHrefs } from '../../../../ui/onboarding/answer-summary/answer-summary';
 import { listBots } from '../../../../features/train/bots';
 import { readOnboardingAnswers } from '../answers';
 import { ReadyStep } from '../../../../ui/onboarding/ready/ready';
@@ -28,11 +26,7 @@ export default async function OnboardingReadyPage({
       homeHref={destination}
       editHrefs={
         (await requestOptionalAnswersAdmitted())
-          ? {
-              about: onboardingStepHref('about', destination),
-              experience: onboardingStepHref('experience', destination),
-              topics: onboardingStepHref('topics', destination),
-            }
+          ? answerEditHrefs(destination)
           : null
       }
     />

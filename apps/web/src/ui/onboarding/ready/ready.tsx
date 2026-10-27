@@ -6,12 +6,9 @@ import { SampleAction } from '../../components/sample-action/sample-action';
 import { SampleActionNotice } from '../../components/sample-action/sample-action-notice';
 import { OnboardingFrame } from '../frame/frame';
 import {
-  clubLabels,
-  experienceLabels,
-  formatLabels,
-  topicLabels,
-  wantLabels,
-} from '../questions/labels';
+  AnswerSummary,
+  type AnswerEditHrefs,
+} from '../answer-summary/answer-summary';
 
 export type ReadyStepProps = {
   readonly answers: OnboardingAnswers;
@@ -19,14 +16,8 @@ export type ReadyStepProps = {
   readonly botNames: readonly string[];
   readonly homeHref: string;
   /** Null when optional answers are not asked of this member: no summary, nothing to edit. */
-  readonly editHrefs: {
-    readonly about: string;
-    readonly experience: string;
-    readonly topics: string;
-  } | null;
+  readonly editHrefs: AnswerEditHrefs | null;
 };
-
-const none = '—';
 
 /** "Juno, Wren or Bram". */
 const orList = (names: readonly string[]) =>
@@ -53,38 +44,6 @@ export function ReadyStep({
   editHrefs,
 }: ReadyStepProps) {
   const club = clubAction(answers);
-  const summary =
-    editHrefs === null
-      ? []
-      : ([
-          [
-            'Wants to',
-            answers.wants.map((want) => wantLabels[want]).join(', '),
-            editHrefs.about,
-          ],
-          [
-            'Club',
-            answers.club === null ? '' : clubLabels[answers.club],
-            editHrefs.about,
-          ],
-          [
-            'Experience',
-            answers.experience === null
-              ? ''
-              : experienceLabels[answers.experience],
-            editHrefs.experience,
-          ],
-          [
-            'Formats',
-            answers.formats.map((format) => formatLabels[format]).join(' · '),
-            editHrefs.experience,
-          ],
-          [
-            'Topics',
-            answers.topics.map((topic) => topicLabels[topic]).join(', '),
-            editHrefs.topics,
-          ],
-        ] as const);
   return (
     <OnboardingFrame step={null} titleId="onboarding-title">
       <SampleActionNotice />
@@ -123,30 +82,7 @@ export function ReadyStep({
         </SampleAction>
       )}
       {editHrefs === null ? null : (
-        <dl className="m-0 flex flex-col border-t border-border">
-          {summary.map(([label, value, edit]) => (
-            <div
-              key={label}
-              className="flex min-h-onboarding-touch items-center gap-4 border-b border-border"
-            >
-              <dt className="w-onboarding-label shrink-0 text-sm text-ink-muted">
-                {label}
-              </dt>
-              <dd className="m-0 flex min-w-0 flex-1 items-center justify-between gap-3">
-                <span className="min-w-0 text-base font-strong text-ink">
-                  {value === '' ? none : value}
-                </span>
-                <Link
-                  href={edit}
-                  aria-label={`Edit ${label.toLowerCase()}`}
-                  className="inline-flex min-h-onboarding-touch shrink-0 items-center px-2 text-sm font-strong"
-                >
-                  Edit
-                </Link>
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <AnswerSummary answers={answers} editHrefs={editHrefs} />
       )}
       <Link
         href={homeHref}

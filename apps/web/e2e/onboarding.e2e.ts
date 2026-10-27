@@ -214,3 +214,26 @@ test.describe('the age step with JavaScript off', () => {
     await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   });
 });
+
+test.describe('onboarding answers in Settings without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  // ISSUE-324: a member sees what they answered and can change it.
+  test('Settings lists the answers and each Edit opens its step, returning to Settings', async ({
+    page,
+  }) => {
+    await signUpMember(page.request);
+    const saved = await page.request.post('/api/account/onboarding', {
+      headers: { origin },
+      data: { step: 'topics', topics: ['law'] },
+    });
+    expect(saved.status()).toBe(200);
+
+    await page.goto('/settings');
+    await expect(page.getByText('Your onboarding answers')).toBeVisible();
+    await expect(page.getByText('Law', { exact: true })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Edit topics' }).click();
+    await expect(page).toHaveURL(/\/onboarding\/topics\?next=%2Fsettings$/);
+  });
+});

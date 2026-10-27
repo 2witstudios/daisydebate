@@ -1,3 +1,8 @@
+import type { OnboardingAnswers } from '../../../features/onboarding/answers';
+import {
+  AnswerSummary,
+  type AnswerEditHrefs,
+} from '../../onboarding/answer-summary/answer-summary';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type {
@@ -60,6 +65,15 @@ export type SettingsPageProps = {
   readonly profileAction: MockFormAction;
   readonly notificationsAction: MockFormAction;
   readonly privacyAction: MockFormAction;
+  /**
+   * The member's optional onboarding answers and where each is changed
+   * (ISSUE-324); null when they are not asked of this member (under 16, or
+   * no age on record), so nothing optional is shown.
+   */
+  readonly onboarding?: {
+    readonly answers: OnboardingAnswers;
+    readonly editHrefs: AnswerEditHrefs;
+  } | null;
 };
 
 /**
@@ -74,6 +88,7 @@ export function SettingsPage({
   profileAction,
   notificationsAction,
   privacyAction,
+  onboarding = null,
 }: SettingsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -117,6 +132,17 @@ export function SettingsPage({
               )}
             </p>
             <ProfileForm action={profileAction} prefs={preferences.profile} />
+            {onboarding === null ? null : (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-md font-strong text-ink">
+                  Your onboarding answers
+                </h3>
+                <AnswerSummary
+                  answers={onboarding.answers}
+                  editHrefs={onboarding.editHrefs}
+                />
+              </div>
+            )}
           </Section>
           <Section id="notifications" title="Notifications">
             <NotificationsForm

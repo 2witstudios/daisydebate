@@ -16,6 +16,7 @@ const action = async () => initialMockForm;
 const render = (
   username: string | null,
   saved: 'profile' | 'notifications' | 'privacy' | null = null,
+  onboarding: Parameters<typeof SettingsPage>[0]['onboarding'] = null,
 ) =>
   renderToString(
     h(ThemeProvider, {
@@ -27,6 +28,7 @@ const render = (
         profileAction: action,
         notificationsAction: action,
         privacyAction: action,
+        onboarding,
       }),
     }),
   );
@@ -106,6 +108,41 @@ describe('SettingsPage', () => {
         html.includes('?did='),
       ],
       expected: [false, false, false],
+    });
+  });
+});
+
+describe('onboarding answers in Settings (ISSUE-324)', () => {
+  test('a 16+ member sees each answer with a link to change it', () => {
+    const answers = {
+      wants: ['debate' as const],
+      club: null,
+      experience: null,
+      formats: [],
+      topics: [],
+      completedAt: '2026-10-01T00:00:00.000Z',
+    };
+    const editHrefs = {
+      about: '/onboarding/about?next=%2Fsettings',
+      experience: '/onboarding/experience?next=%2Fsettings',
+      topics: '/onboarding/topics?next=%2Fsettings',
+    };
+    const shown = render('ada', null, { answers, editHrefs });
+    const hidden = render('ada');
+    assert({
+      given:
+        'a member whose optional answers are admitted, and one whose are not',
+      should:
+        'list the answers with plain Edit links that return to Settings, and show no answers at all otherwise',
+      actual: [
+        shown.includes('Your onboarding answers'),
+        shown.includes('href="/onboarding/about?next=%2Fsettings"'),
+        shown.includes('href="/onboarding/experience?next=%2Fsettings"'),
+        shown.includes('href="/onboarding/topics?next=%2Fsettings"'),
+        hidden.includes('Your onboarding answers'),
+        hidden.includes('/onboarding/about'),
+      ],
+      expected: [true, true, true, true, false, false],
     });
   });
 });
