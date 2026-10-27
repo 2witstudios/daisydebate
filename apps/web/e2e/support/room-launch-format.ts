@@ -35,9 +35,15 @@ export async function proveFormatPicker(browser: Browser) {
     });
     await browse.click();
     const dialog = page.getByRole('dialog', { name: 'Choose a format' });
-    await dialog
-      .getByRole('button', { name: chosen.label, exact: true })
-      .click();
+    // The dialog opens on one family; a search spans them all.
+    const find = async () => {
+      await dialog
+        .getByRole('searchbox', { name: 'Search formats and leagues' })
+        .fill(chosen.label);
+      // A listing reads its label then its leagues.
+      await dialog.getByRole('button', { name: chosen.label }).click();
+    };
+    await find();
     const preview = dialog.getByRole('region', { name: 'Format preview' });
     const ordered = preview.getByRole('list').getByRole('listitem');
     await expect(ordered).toHaveCount(chosen.definition.segments.length);
@@ -53,9 +59,7 @@ export async function proveFormatPicker(browser: Browser) {
     await expect(native).toHaveValue(before);
     await expect(browse).toBeFocused();
     await browse.click();
-    await dialog
-      .getByRole('button', { name: chosen.label, exact: true })
-      .click();
+    await find();
     await dialog
       .getByRole('button', { name: 'Use this format', exact: true })
       .click();
