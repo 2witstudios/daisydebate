@@ -1,6 +1,6 @@
 # 0065: Branch autonomy and main acceptance
 
-Status: proposed for main acceptance; implementation authorized by the owner on 2026-10-09.
+Status: superseded by [ADR 0083](0083-lean-gates-and-slice-process.md) (2026-10-27): the slice process replaces receiving-branch integration and review-record main acceptance.
 
 ## Context
 

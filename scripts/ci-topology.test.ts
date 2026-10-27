@@ -21,58 +21,63 @@ const initialWidth = (jobs: Record<string, Job>) =>
     .reduce((total, job) => total + width(job), 0);
 
 describe('CI quick prerequisite topology', () => {
-  test('holds every expensive job while preserving the full matrix', async () => {
+  test('runs the quick check once and holds only CI work behind it', async () => {
     const ci = await readJobs('ci');
     const browser = await readJobs('e2e');
-    const expensive = [
-      ci.checks,
-      ci.image,
-      ci.integration,
-      browser.e2e,
-      browser['room-launch'],
-      browser.admin,
-    ];
     assert({
       given: 'the actual CI and browser workflows',
-      should: 'hold all 16 expensive jobs behind reusable quick checks',
+      should:
+        'call the reusable quick check from ci.yml alone and hold its expensive jobs',
       actual: {
-        prerequisites: expensive.map((job) => job.needs),
-        held: expensive.reduce((total, job) => total + width(job), 0),
+        prerequisites: [ci.checks, ci.image, ci.integration].map(
+          (job) => job.needs,
+        ),
         reusable: ci['quick-check']?.uses,
+        browserQuickCheck: 'quick-check' in browser,
         initial: initialWidth(ci) + initialWidth(browser),
       },
       expected: {
-        prerequisites: Array(6).fill('quick-check'),
-        held: 16,
+        prerequisites: Array(3).fill('quick-check'),
         reusable: './.github/workflows/quick-check.yml',
-        initial: 4,
+        browserQuickCheck: false,
+        // quick-check, audit, migrations, reports; scope, e2e, admin.
+        initial: 7,
       },
     });
     assert({
-      given: 'the full checks matrix after quick success',
-      should: 'retain every existing task including build',
+      given: 'the checks matrix after quick success',
+      should: 'run only what the quick check does not',
       actual: ci.checks.strategy?.matrix.task,
-      expected: [
-        'format:check',
-        'lint',
-        'policy',
-        'knip',
-        'duplication',
-        'invariants',
-        'evidence',
-        'metrics:check',
-        'typecheck',
-        'test',
-        'build',
-      ],
+      expected: ['policy', 'invariants', 'build'],
     });
+  });
+
+  test('reports warn without holding the gate, except knip on the nightly run', async () => {
+    const ci = await readJobs('ci');
+    const steps = (ci.reports.steps ?? []) as {
+      run?: string;
+      'continue-on-error'?: boolean | string;
+    }[];
+    const allowance = (run: string) =>
+      steps.find((step) => step.run === run)?.['continue-on-error'];
     assert({
-      given: 'a regression removing the matrix dependency',
-      should: 'expose eleven extra initial jobs to the topology measurement',
-      actual:
-        initialWidth({ ...ci, checks: { ...ci.checks, needs: undefined } }) -
-        initialWidth(ci),
-      expected: 11,
+      given: 'the advisory reports job',
+      should:
+        'never gate CI and tolerate findings, with knip strict only when scheduled',
+      actual: {
+        gated: ci.gate.needs?.includes('reports'),
+        knip: allowance('bun run knip'),
+        others: [
+          'bun run duplication',
+          'bun run evidence',
+          'bun run metrics:check',
+        ].map(allowance),
+      },
+      expected: {
+        gated: false,
+        knip: "${{ github.event_name != 'schedule' }}",
+        others: [true, true, true],
+      },
     });
   });
 

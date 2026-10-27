@@ -9,7 +9,7 @@ dashboard or hosted service.
 
 ```sh
 bun run metrics          # print the current snapshot
-bun run metrics:check    # run coverage and enforce policy floors
+bun run metrics:check    # run coverage and report against policy floors
 bun run metrics:snapshot # append one snapshot to docs/metrics/history.jsonl
 ```
 
@@ -25,8 +25,8 @@ no file changed in the 90-day window.
 ## Signals
 
 - **LoC:** non-blank TypeScript lines, split between source and test files.
-- **Complexity:** AST-estimated cyclomatic complexity per function. The ESLint
-  ratchet rejects application functions above 10 and files above 300 lines.
+- **Complexity:** AST-estimated cyclomatic complexity per function. ESLint
+  warns on application functions above 10 and files above 300 lines.
   Repository CLI tooling has a wider allowance because it coordinates file,
   process, and report parsing operations.
 - **Coverage:** Bun lcov coverage for files owned by each workspace. Bun reports
@@ -36,8 +36,10 @@ no file changed in the 90-day window.
 - **Hotspots:** `LoC × churn × max function complexity`, similar to `aidd
 churn`. The top ten files are included in each snapshot.
 
-Coverage floors live in `docs/metrics/policy.json`. Raise a floor only when the
-corresponding tests are part of the same change.
+Coverage floors live in `docs/metrics/policy.json`. They are a reported trend,
+not a gate: CI runs `metrics:check` in its non-blocking advisory reports job
+(ADR 0083), and a dip below a floor shows as a warning on the run. Raise a
+floor only when the corresponding tests are part of the same change.
 
 ### What the `@daisy/db` unit floor owns
 

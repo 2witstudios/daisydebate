@@ -7,9 +7,8 @@
  *   bun github:rules --apply    owner only: create or update the ruleset and
  *                               patch the settings, then diff again
  *
- * The review-record check is pinned to the review-record GitHub App, whose
- * id the owner stores as the Actions variable REVIEW_RECORD_APP_ID (GRD-6.2).
- * Agents never apply: the guard refuses it and so does this script.
+ * Every required check is pinned to GitHub Actions (15368). Agents never
+ * apply: the guard refuses it and so does this script.
  */
 import { rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,7 +19,7 @@ type Rule = {
   readonly parameters?: {
     readonly required_status_checks?: readonly {
       readonly context: string;
-      readonly integration_id: number | string;
+      readonly integration_id: number;
     }[];
   } & Readonly<Record<string, unknown>>;
 };
@@ -44,35 +43,6 @@ export type RepositoryConfig = {
   readonly settings: Settings;
   readonly ruleset: Ruleset;
 };
-
-const APP_PLACEHOLDER = 'vars.REVIEW_RECORD_APP_ID';
-
-/** The committed ruleset with the review App id filled in. */
-export function desiredRuleset(
-  config: RepositoryConfig,
-  appId: number,
-): Ruleset {
-  return {
-    ...config.ruleset,
-    rules: config.ruleset.rules.map((rule) =>
-      rule.type === 'required_status_checks'
-        ? {
-            ...rule,
-            parameters: {
-              ...rule.parameters,
-              required_status_checks: (
-                rule.parameters?.required_status_checks ?? []
-              ).map((check) =>
-                check.integration_id === APP_PLACEHOLDER
-                  ? { ...check, integration_id: appId }
-                  : check,
-              ),
-            },
-          }
-        : rule,
-    ),
-  };
-}
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -135,13 +105,12 @@ export type LiveState = {
 
 export function planRules(input: {
   readonly config: RepositoryConfig;
-  readonly appId: number;
   readonly live: LiveState;
 }): {
   readonly changes: readonly string[];
   readonly actions: readonly string[];
 } {
-  const desired = desiredRuleset(input.config, input.appId);
+  const desired = input.config.ruleset;
   const rulesetChanges = input.live.ruleset
     ? diffValues(
         project(
@@ -177,15 +146,12 @@ export function applyRefusal(input: {
   readonly autonomous: boolean;
   readonly login: string | undefined;
   readonly owner: string;
-  readonly appId: number | undefined;
 }): string | undefined {
   if (input.autonomous)
     return 'Agents never apply rulesets or settings (GRD-6.2 is human-only).';
-  if (input.login !== input.owner)
-    return `Only the owner (${input.owner}) applies; gh is authenticated as ${input.login ?? 'nobody'}.`;
-  return input.appId === undefined
-    ? 'Set the Actions variable REVIEW_RECORD_APP_ID to the review-record App id first (GRD-6.2).'
-    : undefined;
+  return input.login === input.owner
+    ? undefined
+    : `Only the owner (${input.owner}) applies; gh is authenticated as ${input.login ?? 'nobody'}.`;
 }
 
 // ------------------------------------------------------------------- edges
@@ -228,31 +194,21 @@ function readLive(config: RepositoryConfig) {
     'api',
     `${repo}/rulesets`,
   ]).find((ruleset) => ruleset.name === config.ruleset.name);
-  const variable = gh([
-    'api',
-    `${repo}/actions/variables/REVIEW_RECORD_APP_ID`,
-    '--jq',
-    '.value',
-  ]);
-  const appId = Number(variable.stdout.trim());
   return {
-    appId: variable.code === 0 && Number.isInteger(appId) ? appId : undefined,
-    live: {
-      ruleset: summary
-        ? ghJson<Ruleset & { id: number }>([
-            'api',
-            `${repo}/rulesets/${summary.id}`,
-          ])
-        : undefined,
-      settings: ghJson<Settings>(['api', repo]),
-    } satisfies LiveState,
-  };
+    ruleset: summary
+      ? ghJson<Ruleset & { id: number }>([
+          'api',
+          `${repo}/rulesets/${summary.id}`,
+        ])
+      : undefined,
+    settings: ghJson<Settings>(['api', repo]),
+  } satisfies LiveState;
 }
 
-function apply(config: RepositoryConfig, appId: number, live: LiveState) {
+function apply(config: RepositoryConfig, live: LiveState) {
   const repo = `repos/${config.repository}`;
   const file = join(tmpdir(), `github-rules-${process.pid}.json`);
-  writeFileSync(file, JSON.stringify(desiredRuleset(config, appId)));
+  writeFileSync(file, JSON.stringify(config.ruleset));
   try {
     ghJson(
       live.ruleset
@@ -282,37 +238,36 @@ function apply(config: RepositoryConfig, appId: number, live: LiveState) {
 }
 
 function report(config: RepositoryConfig) {
-  const { appId, live } = readLive(config);
-  const plan = planRules({ config, appId: appId ?? 0, live });
+  const live = readLive(config);
+  const plan = planRules({ config, live });
   process.stdout.write(
     [
-      `github:rules ${config.repository} (review-record App: ${appId ?? 'REVIEW_RECORD_APP_ID unset'})`,
+      `github:rules ${config.repository}`,
       ...(plan.changes.length === 0
         ? ['  in sync']
         : plan.changes.map((c) => `  ${c}`)),
       '',
     ].join('\n'),
   );
-  return { appId, live, plan };
+  return { live, plan };
 }
 
 if (import.meta.main) {
   const config = (await Bun.file(
     join(root, 'policy/github/repository.json'),
   ).json()) as RepositoryConfig;
-  const { appId, live, plan } = report(config);
+  const { live, plan } = report(config);
   if (process.argv.includes('--apply') && plan.actions.length > 0) {
     const refusal = applyRefusal({
       autonomous: process.env.DAISY_AUTONOMOUS === '1',
       login: gh(['api', 'user', '--jq', '.login']).stdout.trim() || undefined,
       owner: config.owner,
-      appId,
     });
     if (refusal) {
       process.stderr.write(`${refusal}\n`);
       process.exit(1);
     }
-    apply(config, appId ?? 0, live);
+    apply(config, live);
     process.stdout.write(`applied: ${plan.actions.join(', ')}\n`);
     report(config);
   }

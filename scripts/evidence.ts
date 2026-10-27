@@ -225,10 +225,10 @@ export const rootClaimProblems = (
     ['test', 'bun test scripts'],
     ['lint', 'eslint.config.test.ts'],
     ['lint', 'scripts/check-styling.ts'],
+    // The blocking gates only: knip, duplication, evidence and metrics are
+    // reports outside bun check (ADR 0083).
     ['check', 'policy'],
-    ['check', 'duplication'],
     ['check', 'invariants'],
-    ['check', 'evidence'],
   ];
   for (const [script, needle] of claims)
     if (!(scripts[script] ?? '').includes(needle))

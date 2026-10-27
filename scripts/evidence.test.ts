@@ -203,8 +203,7 @@ describe('classifyTestFile', () => {
 const wiredScripts = {
   test: 'bun test scripts && turbo run test',
   lint: 'eslint . && bun scripts/check-styling.ts && bun test eslint.config.test.ts',
-  check:
-    'bun run policy && bun run knip && bun run duplication && bun run invariants && bun run evidence',
+  check: 'bun lint && bun run policy && bun run invariants && bun run build',
 };
 
 describe('rootClaimProblems', () => {
@@ -217,19 +216,19 @@ describe('rootClaimProblems', () => {
     });
   });
 
-  test('flags a check chain that drops the duplication gate', () => {
+  test('flags a check chain that drops the invariants gate', () => {
     assert({
-      given: 'a check script without the duplication gate',
+      given: 'a check script without the invariants gate',
       should: 'fail with UNRUN_SUITE naming the missing gate',
       actual: rootClaimProblems({
         ...wiredScripts,
-        check: 'bun run policy && bun run invariants && bun run evidence',
+        check: 'bun lint && bun run policy && bun run build',
       }),
       expected: [
         {
           code: 'UNRUN_SUITE',
           detail:
-            'root "check" script does not invoke duplication; the corresponding suites would not run in bun check',
+            'root "check" script does not invoke invariants; the corresponding suites would not run in bun check',
         },
       ],
     });

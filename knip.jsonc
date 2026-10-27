@@ -12,9 +12,6 @@
     // Heavy scripts run through `bun scripts/heavy.ts <command…>`, and knip
     // reads only the queue as their entry; these are the commands behind it.
     ".": {
-      // Optional host-provisioned PageSpace CLI for local review self-checks,
-      // not a workspace dependency. Provisioning: docs/development/review-record.md.
-      "ignoreBinaries": ["pagespace"],
       "entry": [
         "scripts/**/*.test.ts",
         "eslint.config.test.ts",

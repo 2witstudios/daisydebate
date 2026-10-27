@@ -22,33 +22,44 @@ and detailed procedures in the linked documents, not here.
 - UI rules, including mutating forms that work without JavaScript: [UI conventions](docs/development/ui-conventions.md).
 - Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md), and [greenfield baseline](docs/decisions/0023-greenfield-baseline.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
-- Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
-- Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
+- The delivery process (slice → discovery and plan → one confirmation → one PR → Ralph loop → async reviews): [the slice process](docs/development/agent-pipeline.md) and [ADR 0083](docs/decisions/0083-lean-gates-and-slice-process.md).
+- Parallel sessions, branches, and shared surfaces: [parallel work](docs/development/parallel-work.md).
+- Multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
+- Reviews as async PR comments: [reviews](docs/development/reviews.md).
 - Merges and the two operating modes: see "Two modes" below and [pu workflow](docs/development/pu-workflow.md).
-- New epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md) (authorized planning, implementation, integration, independent review and main acceptance).
+- New slices and epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md).
 
-## Branch autonomy and acceptance
+## The slice process
 
-An owner instruction to implement an outcome authorizes planning, task
-administration, isolated experimentation, provisional unmerged integration,
-PurePoint delegation, independent reviews and fixes within that outcome. Do not
-turn routine branch work into repeated owner or parent approval. A planning-only
-request stays planning-only. Follow [the agent delivery pipeline](docs/development/agent-pipeline.md)
-for long-running execution, dependency evidence, check scheduling and review stages.
+An owner instruction to implement an outcome authorizes discovery, planning,
+task administration, PurePoint delegation, building, reviews and fixes within
+that outcome. Do not turn routine work into repeated owner or parent
+approval. A planning-only request stays planning-only. The full process is
+[the slice process](docs/development/agent-pipeline.md):
 
-Branches may contain incomplete transitions and temporary failing/deferred checks;
-record their reason, candidate, remaining work, responsible agent and discharge
-point. Coordinate actual concurrent writers and shared resources. Before main
-acceptance, complete the transition and all applicable checks, preserve architecture,
-security and migration integrity, and obtain independent exact-candidate review.
-Production identity, secrets, deployment and data actions retain human sign-off.
+1. **Semantic slice.** One Claude builder owns a slice of the product, wide
+   enough that it never needs to know what other builders are doing. Its
+   brief is a mission (outcome, owning intent pages and ADRs, inherited PRs
+   and branches, autonomy rules), not research.
+2. **Discovery and plan.** The builder does its own discovery, then writes
+   one plan with a task list in `Plans/<slice>` and posts it on the pu
+   channel.
+3. **One confirmation.** The architecture reviewer and the point guard
+   confirm or redirect. Nothing else needs approval; later product,
+   architecture or scope questions go to the point guard on the channel.
+4. **One PR.** The builder builds the whole slice on one branch, as one PR
+   naming every task code. It splits off an earlier PR only when a piece
+   must ship first.
+5. **Ralph loop.** The builder converges the PR with the owner's Ralph loop
+   (PageSpace `p4xbp1iwavowuruqpi5fguf7`, run verbatim) until it emits
+   `PR_READY`.
+6. **Async reviews.** `/review`, `/code-review` and the architecture
+   reviewer post PR comments that the loop consumes.
 
-Non-main integration authority is identical for owners, point guards, root and
-worktree agents in their own allocated receiving checkout/branch. Resolve the
-symbolic default and live protected targets, and validate the live PR base before
-merge automation. Main/default/protected release and production protections
-remain. See [branch integration](docs/development/agent-pipeline.md#receiving-branch-authority)
-for target checks, checkout isolation and provisional evidence.
+The branch may carry incomplete work and red checks between pushes. Only
+main receives merged PRs; commits from inherited branches are carried into
+the slice branch, and no PR is merged into another branch. Production
+identity, secrets, deployment and data actions retain human sign-off.
 
 ## Dependency rules
 
@@ -100,8 +111,8 @@ for target checks, checkout isolation and provisional evidence.
   tests, and policy exceptions, and supersede the documenting ADR. Never
   accrete legacy modes, dual-shape validators, or migration replay fixtures
   for behavior nobody depends on (ADR 0023).
-- Transitions are total before main acceptance. During branch work, record
-  incomplete transitions and their remaining proof. Once we accept a decision to to replace an approach (a pipeline,
+- Transitions are total before a slice PR merges. During branch work, record
+  incomplete transitions and their remaining proof. Once we accept a decision to replace an approach (a pipeline,
   integration, transport, or tool), replace it in one move: delete the old
   code path and its tests, config, CI steps, secrets, docs, and everything it
   created outside the repo (PageSpace workflows, webhooks, triggers, data
@@ -153,20 +164,22 @@ for target checks, checkout isolation and provisional evidence.
 - Inject clocks and IDs. Do not sleep-and-hope, share mutable test state, or
   point integration tests at non-test data. `TEST_DATABASE_URL` must end in
   `_test`; integration also requires `TEST_REDIS_URL`.
-- `bun run knip` is a required dead-code gate for unused files, exports, and
-  dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
-- `bun run duplication` is a required copy-paste gate (jscpd, ADR 0026): any
-  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails, and tests
-  are scanned the same way against `.jscpd-tests-baseline.json`. When it
-  fires, consolidate — extract the shared function, component, or data table
-  into the owning module — rather than raising `minTokens`, adding an ignore,
-  or re-baselining. When consolidation would break a dependency rule, follow
-  ADR 0026's exception procedure (a dated row); the baseline otherwise only
-  shrinks.
-- `bun evidence` fails on suites no runner claims, integration guards that
-  skip instead of throwing on missing services, and gates that silently
-  stop running in CI. `bun run duplication`, `bun invariants`, and
-  `bun evidence` are part of `bun check`.
+- `bun run knip` reports unused files, exports, and dependencies. It warns
+  on PRs and blocks the nightly main run, so keep it at zero. Keep
+  `knip.jsonc` ignores limited to genuine implicit uses.
+- `bun run duplication` reports copy-paste (jscpd, ADR 0026): clones of 50+
+  tokens not in `.jscpd-baseline.json` or `.jscpd-tests-baseline.json`. It is
+  a report, not a gate. When it fires, consolidate during the review loop's
+  `/simplify` pass by extracting the shared function, component, or data
+  table into the owning module. Never raise `minTokens`, add an ignore, or
+  re-baseline to quiet it.
+- ESLint `max-lines` and `complexity` warn. Treat a warning as a prompt to
+  split or simplify, not as a blocker.
+- `bun evidence` reports suites no runner claims, integration guards that
+  skip instead of throwing on missing services, and gates that silently stop
+  running in CI. It runs, with knip, duplication and the coverage trend
+  (`bun metrics:check`), in CI's non-blocking advisory reports job.
+  `bun invariants` and `bun policy` are part of `bun check`.
 - Repository overrides are explicit: Bun/RITEway replace generic Vitest guidance,
   `@daisy/errors` plus native `Error.cause` replaces `error-causes`, durable
   behavior uses real integration tests, and unit IDs are deterministic while
@@ -196,16 +209,22 @@ it runs: stop idle ones.
   migration currency, Redis reachability, and architecture boundaries. Add
   `--json` for a machine-readable report. It should pass before service-based
   work.
-- `bun check`: the main acceptance gate: `format:check`, lint and boundaries, policy,
-  Knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy, and
-  production build. It does not boot Next or require integration services,
-  but its policy stage lists open PRs for ADR and migration number claims,
-  so it needs the network and an authenticated `gh` (`GH_TOKEN` in CI).
-- `bun check:affected`: fast per-vertical inner loop over changed files and
-  the affected turbo graph. A convenience, never a substitute for `bun check`.
-  The optional `.githooks/pre-push` hook allows provisional branch pushes and
-  runs the full gate for an exact clean candidate pushed to main. CI enforces
-  main acceptance; branch failures do not prohibit continued work.
+- `bun check`: the blocking gates, as in CI: `format:check`, lint and
+  boundaries, policy, invariants, typecheck, unit tests, and production
+  build. It does not boot Next or require integration services, but its
+  policy stage lists open PRs for ADR and migration number claims, so it
+  needs the network and an authenticated `gh` (`GH_TOKEN` in CI).
+- `bun check:affected`: fast per-slice inner loop over changed files and the
+  affected turbo graph. CI runs it once per PR or main push as the quick check;
+  a branch push without a PR runs no CI, so open the slice PR early. The
+  optional `.githooks/pre-push` hook allows branch pushes and runs the full
+  gate for an exact clean candidate pushed to main.
+- CI on a PR: the quick check, then `policy`, `invariants` and `build`,
+  plus image, audit, migrations, and Infrastructure contracts; Chromium
+  Playwright; and Isolated Room Launch unless every changed file is
+  documentation or in a known non-room area. The nightly main run adds every
+  Playwright project, and knip blocks there. Required checks: CI gate,
+  Playwright E2E, Isolated Room Launch E2E.
 - `bun migrations:check`: fails a branch that rewrites, reorders, truncates,
   or chain-breaks shared migrations relative to `origin/main`. Required
   before pushing `packages/db/migrations/` changes; migration generation is
@@ -244,20 +263,21 @@ for test roles, reset restrictions, and migration safety.
 
 ## Two modes: owner and autonomous
 
-The owner works in the loop and merges any PR whenever they choose; the
-independent review record may follow the merge. Agents started by `pu` run
-autonomously (`DAISY_AUTONOMOUS=1`) under the agent machine identity from
-the main checkout's `.env.agent`, never the owner's token or SSH key
-(`bun doctor` checks it). Until the owner creates that file (GRD-6.2),
-agents act as the owner and `bun doctor` warns. An autonomous agent never directly merges main, the symbolic default or
-protected release targets. For main it requests a merge with `gh pr merge --auto --merge` only after
-confirming the live `main` ruleset requires `review-record`; GitHub then merges only once every required check
-passes, including `review-record`, which only an independent review record
-for the exact head SHA can mint. Without that ruleset it reports "ready for
-owner merge" to its parent and waits.
+The owner works in the loop and merges any PR whenever they choose. Agents
+started by `pu` run autonomously (`DAISY_AUTONOMOUS=1`) under the agent
+machine identity from the main checkout's `.env.agent`, never the owner's
+token or SSH key (`bun doctor` checks it). Until the owner creates that file
+(GRD-6.2), agents act as the owner and `bun doctor` warns.
 
-- Spawn agents with `pu spawn` and message them with `pu send`. Builders
-  report to whoever spawned them directly; the owner is not the message bus.
+Builders never merge. The point guard's flow sweep merges a PR into main
+once its builder has emitted `PR_READY` and the required checks are green at
+the exact head, at most two merges per cycle.
+
+- Spawn agents with `pu spawn`, message them with `pu send`, and post plans
+  and decisions with `pu channel send`. Builders report to whoever spawned
+  them directly; the owner is not the message bus. Reviewers join the
+  builder's worktree (`pu spawn -w <worktree>`) and are killed once they
+  have posted.
 - Code-writing help is a `pu` child in its own worktree, never a
   worktree-isolated subagent or fork; subagents and forks do read-only work.
 - Take ADR numbers from `bun adr:next`; `bun policy` fails a
@@ -282,31 +302,28 @@ page, then the living integration order for current work and `Roadmap` for
 execution. Before planning or building, read `Product intent/Product map`, the
 applicable capability intents and their "Constraints other features must respect
 now" sections, following affected-capability cross-links. Include these source
-links in the scoped plan and prompt. Design work extends the existing shipped
-UI and canvases in `Designs`. Record and claim work within the owner-authorized
-outcome; Ready means useful
-branch progress is available, not that every prerequisite has merged. Board
-administration never reauthorizes the same outcome. Advance In Progress to
-In Review at handoff; Done requires independent acceptance evidence. Status belongs in the status field; task bodies are
-acceptance criteria (`Given X, should Y`).
+links in the slice plan. Design work extends the existing shipped UI and
+canvases in `Designs`. Record and claim work within the owner-authorized
+outcome; board administration never reauthorizes the same outcome. Advance
+In Progress to In Review when the slice PR opens. A merge moves the PR's tasks
+to Done when its latest review verdict approves, otherwise to Merged
+([reviews](docs/development/reviews.md)). Status belongs in the status field;
+task bodies are acceptance criteria (`Given X, should Y`).
 
 Codex must run the `pagespace` CLI outside its sandbox, requesting command
 escalation when required. The sandbox can block network access.
 
-PageSpace is the workspace, not only the board. Plans, prompts, handoffs and
-review records are task artifacts: they live in the drive's `Plans`,
-`Prompts` and `Reviews` folders (one subfolder per epic), reusable prompts
-and skills live in `Library`, and tasks link them with page mentions.
+PageSpace is the workspace, not only the board. Plans, prompts and handoffs
+are task artifacts: they live in the drive's `Plans` and `Prompts` folders
+(one subfolder per slice or epic), reusable prompts and skills live in
+`Library`, and tasks link them with page mentions. Reviews live on the PR.
 `Library/Agents` holds the existing
 agent pages; `Library/Engineering Standards` holds the published conventions.
 `Archive/Work history` remains a TASK_LIST: moves preserve task/page identity,
-criteria and move-time status. Normal stale-status and independent acceptance
-reconciliation still apply there; Archive never hides review debt. The
-rules are the drive's "Task artifacts and linking" page
-(`szsrb6lui57zjemvl25ywfox`); read it before producing any of these.
-Board and scratch-versus-durable-artifact rules (what counts as scratch, who
-keeps the board current, the no-edit-criteria rule, and Done coming only
-from an independent review record) are in [parallel
+criteria and move-time status, and stale-status reconciliation still applies
+there. The rules are the drive's "Task artifacts and linking" page
+(`szsrb6lui57zjemvl25ywfox`); read it before producing any of these. Board
+and scratch-versus-durable-artifact rules are in [parallel
 work](docs/development/parallel-work.md#branch-and-worktree-hygiene); they
 apply to every agent, worktree or not.
 
@@ -316,37 +333,32 @@ spec drift, User feedback), never in GitHub Issues: defects found after the owni
 findings and minors with no open leaf to carry them, and small non-epic
 improvements. The test is whether an open leaf owns it: if one does, the
 finding is a follow-up leaf under that phase regardless of merge state. Title `ISSUE-n — Given X, should
-Y`; the body records origin (PR, review record, reporter), why, and the
+Y`; the body records origin (PR, review comment, reporter), why, and the
 acceptance criteria; the Related pages block links the origin. An issue
 closes through a PR that names it, or is promoted to an epic leaf when it
 grows into feature work. `Issues/Backlog` holds feature candidates awaiting a
 spec, and `Issues/Pending decisions` the open owner decisions. Filing is an obligation: whoever observes a defect or a deferrable
 improvement — reviewer, builder, or orchestrator — creates the leaf or issue
 in the same session rather than mentioning it in prose, because an
-observation that lives only in a record or a handoff is lost once the PR
-merges. Before a stage starts, the orchestrator reads every `Issues` bucket for anything
-touching the files or phase about to be built and carries it into the
-prompt; an epic cannot close while any issue it produced is untriaged
-(promoted, scheduled, or deferred by the owner with a reason).
+observation that lives only in a comment or a handoff is lost once the PR
+merges. During discovery, the slice builder reads every `Issues` bucket for
+anything touching its slice and carries it into the plan; a slice cannot
+close while any issue it produced is untriaged (promoted, scheduled, or
+deferred by the owner with a reason).
 
 Open and update pull requests with the `/pr` skill: the description links
-the task, plan and prompt pages (and handoff and reviews as they land) so a
-reviewer can check the change against what was asked, and every review
-verdict is also posted as a PR comment. PR titles are conventional commits:
-the documentation pipeline classifies a merge from that prefix (`!` marks a
-breaking change) and reads task codes from the title, branch and body, so
-name every task code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`).
-The body carries `Builder: <agent id>`, which the review-record check
-compares with the record's reviewer. A merged task moves to **Merged**
-automatically and reaches Done only from an independent review record.
-Use `/aidd-triage` for review-comment triage.
+the plan, prompt and task pages so a reviewer can check the change against
+what was asked. PR titles are conventional commits: the documentation
+pipeline classifies a merge from that prefix (`!` marks a breaking change)
+and reads task codes from the title, branch and body, so name every task
+code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`). Reviews are PR
+comments in the [reviews](docs/development/reviews.md) format, and the
+builder's Ralph loop consumes them.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
-short-lived vertical branches, one open vertical per agent, and execution changes
-update the plan without a new approval relay; changed product intent or scope
-cuts go to the owner. The
-orchestrator owns Agent Memory writes.
-Reviews use the [review record](docs/development/review-record.md) format.
+one branch and one PR per slice, and execution changes update the plan
+without a new approval relay; changed product intent or scope cuts go to the
+point guard on the channel. The orchestrator owns Agent Memory writes.
 
 Report meaningful milestones, final delivery, genuine blockers and actual
 writer conflicts directly to the spawning parent. Use the designated PageSpace

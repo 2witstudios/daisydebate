@@ -53,13 +53,18 @@ await Bun.write(
 if (process.env.GITHUB_ENV)
   appendFileSync(
     process.env.GITHUB_ENV,
-    `DAISY_E2E_EXCLUDE=${JSON.stringify(plan.excluded)}\nDAISY_ROOM_LAUNCH_SPECS=${JSON.stringify(plan.nativeSpecs)}\n`,
+    `DAISY_E2E_EXCLUDE=${JSON.stringify(plan.excluded)}\nDAISY_ROOM_LAUNCH_SPECS=${JSON.stringify(plan.nativeSpecs)}\nDAISY_E2E_PROJECT_ARGS=${plan.projectArgs.join(' ')}\n`,
+  );
+if (process.env.GITHUB_OUTPUT)
+  appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `native=${plan.runNative}\nbrowsers=${plan.browsers}\nbrowser-key=${plan.browsers.replaceAll(' ', '-')}\n`,
   );
 if (process.env.GITHUB_STEP_SUMMARY)
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,
-    `### Browser selection: ${plan.mode}\n${plan.specs.join(', ')}\nNative Launch: ${plan.nativeSpecs.join(', ')}. Realtime: full.\n`,
+    `### Browser selection: ${plan.mode}\n${plan.specs.join(', ')}\nBrowsers: ${plan.browsers}. Native Launch: ${plan.runNative ? plan.nativeSpecs.join(', ') : 'skipped (no Room Launch paths changed)'}. Realtime: full.\n`,
   );
 console.log(
-  `Browser selection: ${plan.mode}, ${plan.specs.length} standard specs; ${plan.nativeSpecs.length} native Launch specs; realtime full`,
+  `Browser selection: ${plan.mode}, ${plan.specs.length} standard specs on ${plan.browsers}; native Launch ${plan.runNative ? `${plan.nativeSpecs.length} specs` : 'skipped'}; realtime full`,
 );
