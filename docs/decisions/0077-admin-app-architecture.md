@@ -80,8 +80,11 @@ how operators authenticate, how they are authorized, and what the app records.
 - **Sign-in.** A discoverable-credential assertion with user verification.
   The challenge is consumed before verification. A sign counter that does not
   advance on a credential registered as device-bound (not backed up) is
-  refused and audited; a synced passkey may report 0. Success rotates the
-  session: a new token, and any presented session is revoked.
+  refused and audited; a synced passkey may report 0. The session opens in
+  the transaction that advances the counter by compare-and-swap on a
+  credential that is still unrevoked, so a racing cloned assertion or a
+  concurrent `--replace` leaves no session. Success rotates the session: a
+  new token, and any presented session is revoked.
 - **Challenges** are 32 CSPRNG bytes, single-use (`UPDATE … WHERE consumed_at
 IS NULL AND expires_at > now RETURNING`), bound to their purpose and
   enrollment, and expire in 2 minutes.
