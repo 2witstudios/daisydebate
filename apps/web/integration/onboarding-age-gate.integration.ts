@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { topicChoices } from '@daisy/protocol';
+import { interestCategoryChoices } from '@daisy/protocol';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withSql } from './fixtures';
 
@@ -24,7 +24,7 @@ describe('optional onboarding answers through the composed routes (ISSUE-678)', 
       onboarding.POST(
         jsonPost(
           '/api/account/onboarding',
-          { step: 'topics', topics: [topicChoices[0]] },
+          { step: 'topics', topics: [interestCategoryChoices[0]] },
           { cookie },
         ),
       );
