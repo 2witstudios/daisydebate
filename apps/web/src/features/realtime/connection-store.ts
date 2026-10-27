@@ -10,6 +10,7 @@ import {
   parseServerMessage,
 } from './topic-subscriptions';
 import { nextReconnectDelayMs } from './backoff';
+import { createOutstandingPing } from './outstanding-ping';
 import {
   closeReasonForCode,
   decideOnClose,
@@ -42,25 +43,9 @@ export function createConnectionStore(
   let socket: WebSocketLike | null = null;
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
-  /**
-   * The id and deadline of the *earliest* outstanding (unanswered) ping, or
-   * null when it has already been answered (or none has been sent yet).
-   * Judging death by this — the age of the oldest unanswered ping — rather
-   * than by elapsed time since the tick last happened to run is what keeps a
-   * throttled hidden tab from declaring a healthy socket dead: a ping that
-   * gets answered promptly clears this before the next (possibly late) tick
-   * ever checks it, so a late tick just sends a fresh ping and waits.
-   *
-   * Only a `pong` whose `id` matches this one clears it (ADR 0031 §7: "the
-   * client sends ping every 15s and expects pong" with the same id), and
-   * nothing may push the deadline later once it is set: an extra ping (the
-   * visibilitychange nudge) is still sent on the wire, but never starts or
-   * extends tracking while an earlier ping is still outstanding — otherwise
-   * repeated visibility changes could defer detecting a truly dead socket
-   * forever.
-   */
-  let outstandingPingId: string | null = null;
-  let outstandingPingDeadline: number | null = null;
+  // Death is judged by the oldest unanswered ping's age, never by how late a
+  // (possibly throttled) tick ran.
+  const outstanding = createOutstandingPing(HEARTBEAT_DEAD_AFTER_MS);
   let pingCounter = 0;
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
@@ -103,11 +88,6 @@ export function createConnectionStore(
     socket.send(JSON.stringify({ v: ENVELOPE_VERSION, type: 'ping', id }));
     return id;
   }
-  /** Starts tracking `id` as the earliest outstanding ping's own deadline. */
-  function trackOutstandingPing(id: string) {
-    outstandingPingId = id;
-    outstandingPingDeadline = deps.scheduler.now() + HEARTBEAT_DEAD_AFTER_MS;
-  }
   /**
    * Sends a fresh ping known to be the only one in flight (on `ready`, or a
    * tick that found nothing outstanding) and starts tracking its deadline.
@@ -119,7 +99,7 @@ export function createConnectionStore(
   function sendFreshPing(myGeneration: number) {
     pingCounter += 1;
     const id = `ping-${pingCounter}`;
-    trackOutstandingPing(id);
+    outstanding.track(id, deps.scheduler.now(), true);
     if (myGeneration !== generation || !socket) return;
     socket.send(JSON.stringify({ v: ENVELOPE_VERSION, type: 'ping', id }));
   }
@@ -133,9 +113,7 @@ export function createConnectionStore(
    */
   function sendVisibilityPing(myGeneration: number) {
     const id = sendPingFrame(myGeneration);
-    if (id !== undefined && outstandingPingId === null) {
-      trackOutstandingPing(id);
-    }
+    if (id !== undefined) outstanding.track(id, deps.scheduler.now());
   }
   function reapDeadSocket(myGeneration: number) {
     if (myGeneration !== generation) return;
@@ -144,8 +122,7 @@ export function createConnectionStore(
     // triggered below cannot also run handleClose and double-schedule a
     // reconnect.
     clearHeartbeat();
-    outstandingPingId = null;
-    outstandingPingDeadline = null;
+    outstanding.clear();
     generation += 1;
     const deadSocket = socket;
     socket = null;
@@ -161,10 +138,7 @@ export function createConnectionStore(
   function scheduleHeartbeatTick(myGeneration: number) {
     heartbeatTimer = deps.scheduler.setTimeout(() => {
       if (myGeneration !== generation) return;
-      if (
-        outstandingPingDeadline !== null &&
-        deps.scheduler.now() >= outstandingPingDeadline
-      ) {
+      if (outstanding.overdue(deps.scheduler.now())) {
         // The ping that is overdue was actually sent (and given its own
         // deadline) at send time, so this fires only when the server truly
         // failed to answer it within HEARTBEAT_DEAD_AFTER_MS of *that* send
@@ -172,7 +146,7 @@ export function createConnectionStore(
         reapDeadSocket(myGeneration);
         return;
       }
-      if (outstandingPingDeadline === null) {
+      if (!outstanding.pending()) {
         // The previous ping (if any) was already answered: send a fresh one
         // and start tracking its own deadline. A tick that finds a ping
         // still outstanding but not yet overdue sends nothing and waits.
@@ -241,18 +215,14 @@ export function createConnectionStore(
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
       // must never cancel a newer ping's still-live deadline.
-      if (frame.id === outstandingPingId) {
-        outstandingPingId = null;
-        outstandingPingDeadline = null;
-      }
+      outstanding.answer(frame.id);
     }
     topics.emit(frame);
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
     clearHeartbeat();
-    outstandingPingId = null;
-    outstandingPingDeadline = null;
+    outstanding.clear();
     socket = null;
     const decision = decideOnClose({ code, consecutiveAuthFailures });
     if (closeReasonForCode(code) === 'auth_failed')
@@ -331,8 +301,7 @@ export function createConnectionStore(
     terminal = null;
     consecutiveAuthFailures = 0;
     reconnectAttempt = 0;
-    outstandingPingId = null;
-    outstandingPingDeadline = null;
+    outstanding.clear();
     const current = socket;
     socket = null;
     topics.clear();
@@ -344,21 +313,14 @@ export function createConnectionStore(
     }
   }
 
-  /**
-   * Final and idempotent (RT-2.6a-arch1): closes like `close`, then releases
-   * everything the store registered outside itself, so a page that builds a
-   * store per mount returns the document to its baseline on unmount. Late
-   * ticket answers and old socket callbacks are fenced by the generation
-   * `close` advanced, and `connect` stays inert afterwards.
-   */
+  // RT-2.6a-arch1: `close`'s generation fences late tickets and sockets.
   function dispose() {
     if (disposed) return;
     close();
     disposed = true;
-    stopVisibility();
+    for (const release of [stopVisibility, topics.release, diagnostics.release])
+      release();
     listeners.clear();
-    topics.release();
-    diagnostics.release();
   }
 
   return {

@@ -139,9 +139,8 @@ test('a deliberate close stays reusable', async () => {
 });
 
 test('the browser visibility adapter removes its document listener', () => {
-  const original = globalThis.document;
   const target = Object.assign(new EventTarget(), {
-    visibilityState: 'visible',
+    visibilityState: 'visible' as DocumentVisibilityState,
   });
   let held = 0;
   const add = target.addEventListener.bind(target);
@@ -154,20 +153,18 @@ test('the browser visibility adapter removes its document listener', () => {
     held -= 1;
     remove(...args);
   };
-  Object.assign(globalThis, { document: target });
-  try {
-    const seen: boolean[] = [];
-    const stop = onDocumentVisibilityChange((visible) => seen.push(visible));
-    target.dispatchEvent(new Event('visibilitychange'));
-    stop();
-    target.dispatchEvent(new Event('visibilitychange'));
-    assert({
-      given: 'a real event target standing in for the document',
-      should: 'deliver while attached and hold no listener after release',
-      actual: { seen, held },
-      expected: { seen: [true], held: 0 },
-    });
-  } finally {
-    Object.assign(globalThis, { document: original });
-  }
+  const seen: boolean[] = [];
+  const stop = onDocumentVisibilityChange(
+    (visible) => seen.push(visible),
+    target,
+  );
+  target.dispatchEvent(new Event('visibilitychange'));
+  stop();
+  target.dispatchEvent(new Event('visibilitychange'));
+  assert({
+    given: 'a real event target standing in for the document',
+    should: 'deliver while attached and hold no listener after release',
+    actual: { seen, held },
+    expected: { seen: [true], held: 0 },
+  });
 });
