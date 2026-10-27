@@ -8,8 +8,8 @@ import { adminRuntime } from './runtime';
 
 /**
  * The admin process (ADR 0076). It refuses a schema-altering database role
- * before serving, then answers every request through the Host gate; Next
- * renders only what the gate admits. Production binds `[::]:8080`, which
+ * before serving, then answers every request through the Host and Origin
+ * gate; Next renders only what the gate admits. Production binds `[::]:8080`, which
  * `fly proxy 4800:8080` reaches over 6PN; there is no public service.
  */
 const SHUTDOWN_DEADLINE_MS = 10_000;
@@ -22,7 +22,8 @@ if (refusal) {
 }
 const app = next({
   dev: config.NODE_ENV !== 'production',
-  // Next's own redirect fetches go to the canonical origin's host and port.
+  // Next's own fetches go to this process: the canonical host name and the
+  // port it listens on (4800 locally, 8080 behind `fly proxy`).
   hostname: 'localhost',
   port: config.ADMIN_PORT,
   dir: fileURLToPath(new URL('../..', import.meta.url)),
@@ -33,6 +34,8 @@ await app.prepare();
 const server = createServer((request, response) => {
   const decision = gateRequest({
     host: request.headers.host,
+    method: request.method,
+    origin: request.headers.origin,
     socketAddress: request.socket.remoteAddress,
   });
   if (!decision.admit) {

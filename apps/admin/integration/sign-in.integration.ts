@@ -96,6 +96,29 @@ test('the sign counter', async () => {
   });
 });
 
+test('racing assertions from a cloned device-bound key', async () => {
+  const deps = testDeps(db);
+  const bound = await enrolledOwner(deps, 16);
+  const responses = [
+    await assertion(deps, bound, 7),
+    await assertion(deps, bound, 7),
+  ];
+  const results = await Promise.all(
+    responses.map((response) =>
+      finishSignIn(deps, { address, presented: null, response }),
+    ),
+  );
+  assert({
+    given: 'two assertions carrying the same counter, verified at once',
+    should: 'sign in once and refuse the other as a regression',
+    actual: [
+      results.filter(({ ok }) => ok).length,
+      (await lastKinds(2)).sort(),
+    ],
+    expected: [1, ['auth.failure:counter_regressed', 'auth.success:']],
+  });
+});
+
 test('a synced passkey may report a zero counter', async () => {
   const deps = testDeps(db);
   const synced = await enrolledOwner(deps, 14, { backedUp: true });

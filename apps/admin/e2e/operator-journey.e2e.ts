@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
@@ -80,4 +81,46 @@ test('enroll a passkey from the CLI link, then sign in with it', async ({
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto('/accounts');
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+/** A raw request, so the test controls Host and Origin exactly. */
+const statusOf = (input: {
+  readonly method: string;
+  readonly path: string;
+  readonly headers: Readonly<Record<string, string>>;
+}) =>
+  new Promise<number | undefined>((resolve, reject) => {
+    const sent = request(
+      { host: 'localhost', port: 4800, ...input },
+      (response) => {
+        response.resume();
+        resolve(response.statusCode);
+      },
+    );
+    sent.once('error', reject);
+    sent.end();
+  });
+
+test('the real server answers a foreign Host or Origin with 421', async () => {
+  expect(
+    await statusOf({
+      method: 'GET',
+      path: '/sign-in',
+      headers: { host: '127.0.0.1:4800' },
+    }),
+  ).toBe(421);
+  expect(
+    await statusOf({
+      method: 'POST',
+      path: '/sign-in',
+      headers: { host: 'localhost:4800', origin: 'http://attacker.example' },
+    }),
+  ).toBe(421);
+  expect(
+    await statusOf({
+      method: 'GET',
+      path: '/sign-in',
+      headers: { host: 'localhost:4800' },
+    }),
+  ).toBe(200);
 });

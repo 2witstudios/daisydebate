@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -92,13 +92,39 @@ export const auditSession = (
     at: input.now,
   });
 
+class CounterRaced extends Error {}
+
+/**
+ * Compare-and-swap on the counter the assertion was checked against: of two
+ * racing assertions from a cloned device-bound key, only one advances it.
+ */
+async function advanceCounter(
+  tx: AdminTransaction,
+  input: { readonly id: string; readonly stored: number; readonly next: number },
+): Promise<void> {
+  const rows = await tx
+    .update(operatorCredentials)
+    .set({ signCount: input.next })
+    .where(
+      and(
+        eq(operatorCredentials.id, input.id),
+        or(
+          eq(operatorCredentials.backedUp, true),
+          eq(operatorCredentials.signCount, input.stored),
+        ),
+      ),
+    )
+    .returning({ id: operatorCredentials.id });
+  if (rows.length !== 1) throw new CounterRaced('Sign counter moved');
+}
+
 /** Rotation: the presented session (if any) dies with the new one's birth. */
 async function openSession(
   deps: AuthDeps,
   input: {
     readonly credentialRowId: string;
     readonly operatorId: string;
-    readonly counter: number;
+    readonly counter: { readonly stored: number; readonly next: number };
     readonly presented: string | null;
     readonly now: string;
   },
@@ -109,10 +135,7 @@ async function openSession(
     ? await findSession(deps.db, sha3(input.presented))
     : null;
   await deps.db.transaction(async (tx) => {
-    await tx
-      .update(operatorCredentials)
-      .set({ signCount: input.counter })
-      .where(eq(operatorCredentials.id, input.credentialRowId));
+    await advanceCounter(tx, { id: input.credentialRowId, ...input.counter });
     if (
       previous &&
       (await revokeSessions(tx, {
@@ -193,12 +216,21 @@ export async function finishSignIn(
   // The registered backup state decides: an assertion cannot opt itself out.
   if (!counterAccepted({ ...counter, backedUp: credential.backedUp }))
     return refuse(deps, attempt, 'counter_regressed', operator.id);
-  const sessionToken = await openSession(deps, {
-    credentialRowId: credential.id,
-    operatorId: operator.id,
-    counter: Math.max(counter.stored, counter.received),
-    presented: input.presented,
-    now,
-  });
-  return { ok: true, sessionToken };
+  try {
+    const sessionToken = await openSession(deps, {
+      credentialRowId: credential.id,
+      operatorId: operator.id,
+      counter: {
+        stored: counter.stored,
+        next: Math.max(counter.stored, counter.received),
+      },
+      presented: input.presented,
+      now,
+    });
+    return { ok: true, sessionToken };
+  } catch (error) {
+    if (error instanceof CounterRaced)
+      return refuse(deps, attempt, 'counter_regressed', operator.id);
+    throw error;
+  }
 }
