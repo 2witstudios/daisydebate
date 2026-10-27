@@ -4,6 +4,10 @@ import {
   roomViewSchema,
   type RoomView,
 } from '@daisy/protocol';
+import {
+  oneOnOneDefinition,
+  oneOnOneRankedConfig,
+} from '@daisy/db/reference-formats';
 import { createRoutes } from '../src/server/routes';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
@@ -82,38 +86,25 @@ export async function withHumanJudgeHttpRound(
   let roomId: string | null = null,
     roundId: string | null = null;
   try {
-    const catalog = await routes.rooms.catalog(
-      new Request(`${f.origin}/api/rooms/catalog`, { headers: headers(host) }),
-    );
-    const choice = (await catalog.json()).choices.find(
-      (c: { formatId: string }) => c.formatId === 'one-on-one',
-    );
+    // One-on-one is ranked-only and absent from the picker (FMT-1), so
+    // this proof posts its schedule as a custom format.
     const config = {
-      ...choice.preset.config,
+      ...oneOnOneRankedConfig,
       preRoundPrep: { enabled: false },
       speechTiming: {
-        ...choice.preset.config.speechTiming,
+        ...oneOnOneRankedConfig.speechTiming,
         countdownMs: people.countdownMs ?? 0,
       },
     };
-    const selection =
-      judges.length === 1
-        ? {
-            kind: 'catalog',
-            formatId: choice.formatId,
-            formatVersion: choice.formatVersion,
-            competitionType: 'casual',
-            config,
-          }
-        : {
-            kind: 'custom',
-            definition: {
-              ...choice.definition,
-              seats: { ...choice.definition.seats, judge: judges.length },
-            },
-            competitionType: 'casual',
-            config,
-          };
+    const selection = {
+      kind: 'custom',
+      definition: {
+        ...oneOnOneDefinition,
+        seats: { ...oneOnOneDefinition.seats, judge: judges.length },
+      },
+      competitionType: 'casual',
+      config,
+    };
     const created = await routes.rooms.create(
       f.jsonPost(
         '/api/rooms',
@@ -129,7 +120,7 @@ export async function withHumanJudgeHttpRound(
     );
     let room = roomViewSchema.parse((await created.json()).view);
     roomId = room.id;
-    if (judges.length > 1) customFormatId = room.formatId;
+    customFormatId = room.formatId;
     const seats = [
       { cookie: host, role: 'affirmative', slot: 0 },
       { cookie: guest, role: 'negative', slot: 0 },

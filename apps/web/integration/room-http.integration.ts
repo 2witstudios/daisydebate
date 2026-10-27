@@ -4,10 +4,13 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   isNamedSeat,
   roomViewSchema,
-  roomCatalogChoiceSchema,
   roundViewSchema,
   buildDebateTopic,
 } from '@daisy/protocol';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { withSql } from './fixtures';
@@ -20,26 +23,16 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     outsider = await member();
   let roomId: string | null = null;
   try {
-    const catalogResponse = await routes.rooms.catalog(
-      new Request(`${f.origin}/api/rooms/catalog`, { headers: headers(host) }),
-    );
-    const catalog = (await catalogResponse.json()).choices.map(
-      (choice: unknown) => roomCatalogChoiceSchema.parse(choice),
-    );
-    const choice = catalog.find(
-      (c: { formatId: string }) => c.formatId === 'foundation',
-    )!;
     const createBody = (visibility: string) => ({
       commandId: createId(),
       title: 'Authenticated Launch',
       topic: 'Cities should fund transit',
       visibility,
       selection: {
-        kind: 'catalog',
-        formatId: choice.formatId,
-        formatVersion: choice.formatVersion,
+        kind: 'custom',
+        definition: foundationDefinition,
         competitionType: 'casual',
-        config: choice.preset.config,
+        config: foundationConfig,
       },
     });
     const privateRequest = await routes.rooms.create(
