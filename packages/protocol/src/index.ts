@@ -193,6 +193,8 @@ export {
 } from './round-view';
 
 export {
+  AI_ROUND_MONTHLY_CAP_MAX,
+  botAdmissionRefusals,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,

@@ -246,20 +246,26 @@ fresh historical floor verification, ending the previous run, secret comparison,
 usage recording and output cancellation. Schema integrity alone authorizes no
 provider call, source frame or transcript credit.
 
-### Authoritative AI allowance periods
+### AI-round allowance
 
-DEC-183 uses `ai_allowance_grants` as durable READ authority, with no participant,
-admin, billing or public grant setter. `id` and `actor_id` are category identifier;
-`period_start`, `period_end` and `revoked_at` are category none. Actor deletion is
-restricted while grants reference it. A positive exact period and a partial GiST
-exclusion prevent overlapping nonrevoked periods for one actor. The admission
-adapter still selects current authority using fresh PostgreSQL time under its
-actor lock; premium allowance is the fixed ten from DEC-183, never inferred from
-a username or role. Revoked or absent authority cannot grant premium capacity.
+DEC-183 as amended 2026-10-26 (ISSUE-646) is one flat beta policy with no grant
+table and no grant setter. The pure `aiRoundAllowance` policy in `@daisy/auth`
+admits the trusted `AI_ROUND_MONTHLY_CAP` (default 20, at most 1000) for an
+approved, live beta member and nothing (`not-eligible`) for any other account
+fact. Composition injects it into the bot admission adapter, which applies it
+only to the account row it locks in the admitting transaction, so a host
+revoked mid-month is refused at the next admission. The period is the exact UTC
+calendar month of fresh PostgreSQL time under the actor lock, and a new
+reservation is dated with that same instant.
+
+Only a bot debater spends the host's allowance (DEC-186 as amended): the pure
+engine marks a freeze `spendsAiRound`, an AI-judge-only cast reserves nothing,
+and judge model calls never count, refund or take the bot-admission lock.
 
 `usage_reservations.reserved_at` and `refunded_at` are category none.
-`reserved_at` is NOT NULL with a PostgreSQL `clock_timestamp()` default; no
-admission time is ever invented, and Round creation time is not one. A refund
+`reserved_at` is NOT NULL; admission writes the instant it selected the month
+with (a PostgreSQL `clock_timestamp()` read), so no admission time is invented,
+and Round creation time is not one. A refund
 requires a recorded first vendor call and cannot predate it; the reservation
 time cannot follow its first call. Actor/kind/reservation-time indexing
 supports serialized actor/period accounting. These records add no generated text or PCM. Production

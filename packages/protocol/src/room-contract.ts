@@ -176,6 +176,8 @@ type RoomMutation = {
     readonly commandId: string;
   } | null;
   readonly freeze: boolean;
+  /** A freeze that reserves the host's AI-round allowance (DEC-186). */
+  readonly spendsAiRound: boolean;
   readonly publishDefinition: boolean;
   /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];

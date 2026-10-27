@@ -8,7 +8,6 @@ import { createAppError } from '@daisy/errors';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
 import { judgingSponsor } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -16,7 +15,7 @@ requireTestServices(process.env);
 test('durable judging claims fence epochs and preserve one command across recovery', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    const actorId = await judgingSponsor(fixture, roundId);
+    await judgingSponsor(fixture, roundId);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status) values(${roundId},${seat.id},1,'queued')`;
@@ -43,24 +42,27 @@ test('durable judging claims fence epochs and preserve one command across recove
       if (winner?.status !== 'fulfilled')
         throw new Error('Expected judge claim');
       const first = winner.value;
-      await assertRejects({
-        given: 'a durable judging job without an admitted usage reservation',
-        should: 'refuse provider dispatch atomically',
-        actual: () => jobs.beginModelCall(first.scope, first.token),
-        code: 'CONFLICT',
-      });
-      const admission = createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      });
-      const reserved = await admission.reserve({ roundId, actorId });
-      const counted = await jobs.beginModelCall(first.scope, first.token);
+      // The AI judge is free (DEC-186): its call takes no reservation and
+      // never waits on the fleet bot-admission lock (59003).
+      const holder = await fixture.sql.reserve();
+      let dispatched: boolean;
+      try {
+        await holder`begin`;
+        await holder`select pg_advisory_xact_lock(59003, 1)`;
+        dispatched = await jobs.beginModelCall(first.scope, first.token);
+      } finally {
+        await holder`rollback`;
+        holder.release();
+      }
       assert({
-        given: 'the actual host-sponsored Round reservation',
-        should: 'return its exact durable counted witness before dispatch',
-        actual: counted,
-        expected: reserved,
+        given:
+          'an AI-judge-only Round with no reservation while bot admission is held',
+        should: 'dispatch the judge call without reserving the host allowance',
+        actual: [
+          dispatched,
+          await fixture.count('usage_reservations', 'round_id', roundId),
+        ],
+        expected: [true, 0],
       });
       await assertRejects({
         given: 'a duplicate dispatch in the same attempt',

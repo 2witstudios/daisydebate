@@ -1,7 +1,9 @@
-import { createId } from '@paralleldrive/cuid2';
 import { withBotPublication } from './bot-publication.test-support';
-import { admissionSponsor } from './bot-admission.test-support';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
+import {
+  admissionSponsor,
+  testBotAdmission,
+} from './bot-admission.test-support';
+import type { createRoundBotAdmission } from '../src/round-bot-admission';
 
 type Publication = Parameters<Parameters<typeof withBotPublication>[0]>[0];
 type Reservation = Awaited<
@@ -15,11 +17,7 @@ export async function withGeneration(
     async (context) => {
       const { fixture, run, target } = context;
       const actorId = await admissionSponsor(fixture, [target.roundId]);
-      const admission = createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      });
+      const admission = testBotAdmission(run);
       const reservation = await admission.reserve({
         roundId: target.roundId,
         actorId,

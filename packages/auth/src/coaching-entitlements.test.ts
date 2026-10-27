@@ -1,17 +1,25 @@
+import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { accountEntitlements, authorize } from './authorization';
+import {
+  accountEntitlements,
+  aiRoundAllowance,
+  authorize,
+} from './authorization';
 import { input } from './channel.test-support';
 setupRitewayBun();
 
+const account = input.context.account!;
+/** Approved, pending, revoked and absent beta facts, then no account. */
+const betaVariants = [
+  { ...account, beta: { state: 'approved' as const, revision: 1 } },
+  { ...account, beta: { state: 'pending' as const, revision: 1 } },
+  { ...account, beta: { state: 'revoked' as const, revision: 2 } },
+  { ...account, beta: null },
+  null,
+];
+
 test('coaching premium is only the approved beta grant today', () => {
-  const account = input.context.account!;
-  const variants = [
-    { ...account, beta: { state: 'approved' as const, revision: 1 } },
-    { ...account, beta: { state: 'pending' as const, revision: 1 } },
-    { ...account, beta: { state: 'revoked' as const, revision: 2 } },
-    { ...account, beta: null },
-    null,
-  ];
+  const variants = betaVariants;
   assert({
     given: 'current account beta states and the trusted grant switch',
     should: 'grant coaching only while approved and explicitly enabled',
@@ -25,6 +33,45 @@ test('coaching premium is only the approved beta grant today', () => {
       [false, false, false, false, false],
     ],
   });
+});
+
+test('the AI-round allowance is the flat cap for approved beta members only', () => {
+  const variants = [
+    ...betaVariants.slice(0, 4),
+    { ...account, beta: { state: 'approved' as const, revision: 0 } },
+    {
+      ...account,
+      erased: true,
+      beta: { state: 'approved' as const, revision: 1 },
+    },
+    {
+      ...account,
+      member: false,
+      beta: { state: 'approved' as const, revision: 1 },
+    },
+    null,
+  ];
+  assert({
+    given: 'every canonical account fact and the trusted cap',
+    should: 'grant the cap only to a live approved member, and never infer one',
+    actual: variants.map((a) => aiRoundAllowance(a, { monthlyCap: 20 })),
+    expected: [20, null, null, null, null, null, null, null],
+  });
+  assert({
+    given: 'a coaching grant switched off',
+    should: 'leave the separate AI-round quota unchanged',
+    actual: [
+      accountEntitlements(variants[0]!, { betaGrantsPremium: false }).coaching,
+      aiRoundAllowance(variants[0]!, { monthlyCap: 20 }),
+    ],
+    expected: [false, 20],
+  });
+});
+
+test('an AI-round allowance needs a positive trusted cap', () => {
+  expect(() =>
+    aiRoundAllowance(input.context.account!, { monthlyCap: 0 }),
+  ).toThrow('A positive monthly AI-round cap is required');
 });
 
 test('coaching authorization never gates the official round read', () => {

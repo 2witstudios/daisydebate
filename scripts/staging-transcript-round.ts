@@ -71,7 +71,7 @@ export async function runStagingTranscriptRound(cookie: string) {
   if (
     room.botAdmission?.kind !== 'allowance' ||
     room.botAdmission.refusal ||
-    room.botAdmission.limit !== 10
+    room.botAdmission.remaining < 1
   )
     throw new Error('Dedicated staging allowance unavailable');
   room = roomViewSchema.parse(

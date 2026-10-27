@@ -1,3 +1,4 @@
+import { aiRoundAllowance } from '@daisy/auth/authorization';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
@@ -29,6 +30,25 @@ export function roundWorkerDatabaseOptions(
       ttsModel: policy.models.tts,
       speechBudget: 30_000,
       nextToken,
+    },
+  };
+}
+
+/**
+ * Live bot-debater admission (DEC-183/DEC-186): an explicit busy cap and the
+ * trusted flat beta quota together. No busy cap admits no bot debater.
+ */
+export function botAdmissionOptions(config: {
+  readonly AI_ROUND_BUSY_CAP?: number | undefined;
+  readonly AI_ROUND_MONTHLY_CAP: number;
+}): Pick<Parameters<typeof createDatabase>[0], 'botAdmission'> {
+  const busyCap = config.AI_ROUND_BUSY_CAP;
+  if (busyCap === undefined) return {};
+  const monthlyCap = config.AI_ROUND_MONTHLY_CAP;
+  return {
+    botAdmission: {
+      busyCap,
+      allowance: (account) => aiRoundAllowance(account, { monthlyCap }),
     },
   };
 }

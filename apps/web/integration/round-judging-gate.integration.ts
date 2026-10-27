@@ -19,6 +19,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
+import { botAdmissionForTests } from './bot-admission.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -60,7 +61,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
       });
     },
     {
-      botBusyCap: 4,
+      ...botAdmissionForTests,
       judging: {
         leaseMs: 60000,
         model: 'fixture-model',
@@ -71,78 +72,75 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
 });
 
 test('a mixed panel on an incomplete freeze completes once its human judge rules, before the deadline (ISSUE-466-r2)', async () =>
-  withRoomRuntime(
-    async (f) => {
-      const bot = await f.bot();
-      let room = await assembleJudgedRoom(f, 2);
-      room = (
-        await f.command(f.outsider, room, {
-          type: 'claim-seat',
-          role: 'judge',
-          slot: 0,
-        })
-      ).view;
-      room = (
-        await f.command(f.host, room, {
-          type: 'assign-seat',
-          role: 'judge',
-          slot: 1,
-          actorId: bot.actorId,
-        })
-      ).view;
-      room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-      const { roundId } = await startRuntimeRound(f, room);
-      await playOut(f, roundId, false);
-      const frozen = await finalizeAsWeb(f, roundId);
-      await seedSettledAttendanceLedger(f, roundId);
-      const round = (await f.store.getRound(roundId))!;
-      const [human, ai] = [f.outsider.actorId, bot.actorId].map(
-        (actorId) => round.participants.find((p) => p.actorId === actorId)!.id,
-      );
-      await createRoundBallotOperations({
-        store: f.store,
-        nextBallotId: createId,
-        nextSegmentId: createId,
-      }).submit({ kind: 'human', actorId: f.outsider.actorId }, roundId, {
-        version: 1,
-        commandId: createId(),
-        expectedVersion: round.version,
-        judgeParticipantId: human!,
-        freezeRevision: 1,
-        ballot: fixtureBallot(
-          'The negative answered the decisive clash.',
-          'negative',
-        ),
-      });
-      await finalizeByMaintenance(f, roundId);
-      const done = (await f.store.getRound(roundId))!;
-      const [receipt] =
-        await f.sql`select result, (select ballot_deadline_at > clock_timestamp() from rounds where id=${roundId}) early from round_commands where round_id=${roundId} and type='complete'`;
-      const [jobs] =
-        await f.sql`select count(*)::int n from round_judging_jobs where round_id=${roundId}`;
-      assert({
-        given:
-          'a human and an AI judge on an incomplete freeze, with the human ballot submitted inside the ballot window',
-        should:
-          'complete at once with the human ruling and the AI seat as no ruling, never queueing AI judging',
-        actual: {
-          completeness:
-            frozen.status === 'frozen' ? frozen.freeze.completeness : null,
-          done: [done.status, done.outcome],
-          receipt: [
-            receipt?.result.ruling,
-            receipt?.result.noRuling,
-            receipt?.early,
-          ],
-          jobs: jobs?.n,
-        },
-        expected: {
-          completeness: 'incomplete',
-          done: ['completed', 'negative'],
-          receipt: ['partial', [ai], true],
-          jobs: 0,
-        },
-      });
-    },
-    { botBusyCap: 4 },
-  ));
+  withRoomRuntime(async (f) => {
+    const bot = await f.bot();
+    let room = await assembleJudgedRoom(f, 2);
+    room = (
+      await f.command(f.outsider, room, {
+        type: 'claim-seat',
+        role: 'judge',
+        slot: 0,
+      })
+    ).view;
+    room = (
+      await f.command(f.host, room, {
+        type: 'assign-seat',
+        role: 'judge',
+        slot: 1,
+        actorId: bot.actorId,
+      })
+    ).view;
+    room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
+    const { roundId } = await startRuntimeRound(f, room);
+    await playOut(f, roundId, false);
+    const frozen = await finalizeAsWeb(f, roundId);
+    await seedSettledAttendanceLedger(f, roundId);
+    const round = (await f.store.getRound(roundId))!;
+    const [human, ai] = [f.outsider.actorId, bot.actorId].map(
+      (actorId) => round.participants.find((p) => p.actorId === actorId)!.id,
+    );
+    await createRoundBallotOperations({
+      store: f.store,
+      nextBallotId: createId,
+      nextSegmentId: createId,
+    }).submit({ kind: 'human', actorId: f.outsider.actorId }, roundId, {
+      version: 1,
+      commandId: createId(),
+      expectedVersion: round.version,
+      judgeParticipantId: human!,
+      freezeRevision: 1,
+      ballot: fixtureBallot(
+        'The negative answered the decisive clash.',
+        'negative',
+      ),
+    });
+    await finalizeByMaintenance(f, roundId);
+    const done = (await f.store.getRound(roundId))!;
+    const [receipt] =
+      await f.sql`select result, (select ballot_deadline_at > clock_timestamp() from rounds where id=${roundId}) early from round_commands where round_id=${roundId} and type='complete'`;
+    const [jobs] =
+      await f.sql`select count(*)::int n from round_judging_jobs where round_id=${roundId}`;
+    assert({
+      given:
+        'a human and an AI judge on an incomplete freeze, with the human ballot submitted inside the ballot window',
+      should:
+        'complete at once with the human ruling and the AI seat as no ruling, never queueing AI judging',
+      actual: {
+        completeness:
+          frozen.status === 'frozen' ? frozen.freeze.completeness : null,
+        done: [done.status, done.outcome],
+        receipt: [
+          receipt?.result.ruling,
+          receipt?.result.noRuling,
+          receipt?.early,
+        ],
+        jobs: jobs?.n,
+      },
+      expected: {
+        completeness: 'incomplete',
+        done: ['completed', 'negative'],
+        receipt: ['partial', [ai], true],
+        jobs: 0,
+      },
+    });
+  }, botAdmissionForTests));

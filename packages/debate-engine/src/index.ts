@@ -12,6 +12,7 @@ export {
   hostIdentityHidden,
   projectRoom,
 } from './room-assembly';
+export { castSpendsAiRound } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
 export { expireIdleRoom } from './room-expiry';
 export { deriveRoundOutcome } from './round-outcome';

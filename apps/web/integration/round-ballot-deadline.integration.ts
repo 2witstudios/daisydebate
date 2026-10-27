@@ -22,6 +22,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
+import { botAdmissionForTests } from './bot-admission.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -229,7 +230,7 @@ test('an AI judging job still open at the deadline is recorded as a known failur
       });
     },
     {
-      botBusyCap: 4,
+      ...botAdmissionForTests,
       judging: {
         leaseMs: 60000,
         model: 'fixture-model',

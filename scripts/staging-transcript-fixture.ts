@@ -75,10 +75,7 @@ export async function transcriptProofFixture(
           }),
       });
     }
-    // DEC-183's existing grant reader grants ten, not unlimited. Never reset usage.
-    await sql`insert into ai_allowance_grants (id,actor_id,period_start,period_end)
-      values (${createId()},${account.actor_id},date_trunc('month',now() at time zone 'UTC') at time zone 'UTC',
-        (date_trunc('month',now() at time zone 'UTC') + interval '1 month') at time zone 'UTC') on conflict do nothing`;
+    // ISSUE-646: an approved beta host has the flat monthly cap; nothing is granted or reset.
     const sessionId = createId();
     const token = Buffer.from(
       crypto.getRandomValues(new Uint8Array(32)),

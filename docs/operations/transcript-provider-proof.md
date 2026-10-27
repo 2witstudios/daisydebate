@@ -16,12 +16,12 @@ and proof counts appear in the workflow summary.
 
 The dedicated synthetic identity is `transcript-proof@example.test`, username
 `staging-transcript-proof`. Orchestrator authorization is PurePoint channel
-579 (2026-10-27), scoped to staging and ten proof Rounds per calendar month.
-The fixture uses the existing username, age-step and audited beta-access
-command operations. A DEC-183 `ai_allowance_grants` row covers the current UTC
-calendar month; its normal admission reader sets a limit of ten. There is no
-public allowance writer, so this staging-only fixture inserts the grant
-directly. It never resets usage, refunds a successful practice, alters the
+579 (2026-10-27), scoped to staging; channel 662 moved it onto the flat
+DEC-183 beta cap (ISSUE-646). The fixture uses the existing username, age-step
+and audited beta-access command operations. As an approved beta host it gets
+the configured `AI_ROUND_MONTHLY_CAP` (20 by default) for the current UTC
+calendar month through the normal admission policy; no grant or quota row is
+written. It never resets usage, refunds a successful practice, alters the
 attendance probe or grants coaching. Revoked access is refused. Each run makes
 one CSPRNG session, valid for fifteen minutes, and removes its own session in
 `finally`; an interrupted process's session expires normally. The identity and
