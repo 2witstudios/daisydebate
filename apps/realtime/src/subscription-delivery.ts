@@ -132,10 +132,7 @@ export function createSubscriptionDelivery({
     row: OutboxRow,
     sub: Subscription,
   ) {
-    if (!transport.current(connection, row.topic, sub)) {
-      transport.detach(connection, row.topic, sub);
-      return;
-    }
+    // publishFrame detaches a stream whose lease is no longer current.
     if (compare(row, sub.delivered) <= 0) return;
     if (publishFrame(connection, row.topic, sub, () => event(row)))
       sub.delivered = row;
@@ -221,26 +218,39 @@ export function createSubscriptionDelivery({
       await revalidateTopic(connection, row.topic, sub);
       return;
     }
+    const outcome = await authorizeRow(connection, row, sub);
+    if (outcome === 'published' || outcome === 'gone') return;
+    if (outcome === 'denied') terminate(connection, row.topic, sub);
+    // The event cannot be authorized now: the subscriber re-reads and asks
+    // again rather than missing it silently (ISSUE-445-r2).
+    else transport.resync(connection, row.topic, sub);
+  }
+  /**
+   * Authorizes one row for one attached subscription and publishes it. A
+   * newer bell or a concurrent revalidation can fence an attempt, even after
+   * its allow arrived, so a fenced row is authorized again rather than
+   * dropped; the last refusal is returned for the caller to act on.
+   */
+  async function authorizeRow(
+    connection: Connection,
+    row: OutboxRow,
+    sub: Subscription,
+  ) {
     let outcome: Awaited<ReturnType<typeof refresh>> = 'superseded';
-    // A newer bell or a concurrent revalidation can fence this attempt, even
-    // after its allow arrived: authorize the row again rather than drop it.
     for (let attempt = 0; attempt < FENCED_ATTEMPTS; attempt += 1) {
       outcome = await refresh(connection, row.topic, sub);
-      if (!ownsSubscription(connection, row.topic, sub)) return;
+      if (!ownsSubscription(connection, row.topic, sub)) return 'gone' as const;
       if (
         outcome === 'allowed' &&
         transport.current(connection, row.topic, sub)
       ) {
         // The current lease is checked after the final await, immediately before publish.
         publishRow(connection, row, sub);
-        return;
+        return 'published' as const;
       }
       if (outcome !== 'allowed' && outcome !== 'superseded') break;
     }
-    if (outcome === 'denied') terminate(connection, row.topic, sub);
-    // The event cannot be authorized now: the subscriber re-reads and asks
-    // again rather than missing it silently (ISSUE-445-r2).
-    else transport.resync(connection, row.topic, sub);
+    return outcome;
   }
   async function revalidateTopic(
     connection: Connection,

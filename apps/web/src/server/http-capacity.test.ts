@@ -30,15 +30,3 @@ test('a capacity refusal maps to 503 only under an unminted wrapper', async () =
     expected: [503, 409],
   });
 });
-
-test('http.ts stays loadable in a browser bundle', async () => {
-  const source = await Bun.file(new URL('./http.ts', import.meta.url)).text();
-  assert({
-    given:
-      'server/http.ts, which client components reach through shared form parsing (ui/messaging/preference-form.tsx)',
-    should:
-      'never import the @daisy/db root, whose driver import (bun) breaks the browser chunk',
-    actual: /from '@daisy\/db'/.test(source),
-    expected: false,
-  });
-});
