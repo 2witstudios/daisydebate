@@ -27,7 +27,7 @@ const unavailable = (): AgeFormState => ({
 });
 
 const selectClass =
-  'h-auth-control min-w-0 flex-1 rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink aria-invalid:border-live disabled:opacity-60';
+  'h-auth-control min-w-0 flex-1 max-narrow:flex-none rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink aria-invalid:border-live disabled:opacity-60';
 
 const missingCopy = {
   month: 'Choose your birth month.',
