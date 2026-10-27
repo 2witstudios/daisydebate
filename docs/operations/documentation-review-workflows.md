@@ -166,7 +166,14 @@ Dispatch is idempotent by `repository:commit:eventType`, so replays are safe:
 each pipeline's consult is addressed by an id derived from that key, and
 PageSpace refuses a taken id with 409 rather than running the agent again.
 
-1. Re-run the failed workflow from the Actions tab, or run
+1. Run the **Replay a documentation event** workflow
+   (`.github/workflows/docs-replay.yml`):
+   `gh workflow run docs-replay.yml -f pr=<n> -f attempt=<k> -f pipelines=<names>`.
+   It rebuilds the merged PR's event from the GitHub API and dispatches it
+   with the default branch's scripts and the job's own `PAGESPACE_TOKEN`, so
+   a dispatch fix on main reaches an older merge, and nobody needs the token
+   locally. A re-run of the original job instead runs that merge's own
+   scripts. Otherwise, re-run the failed workflow from the Actions tab, or run
    `bun docs:dispatch` locally with the same `DOC_*` variables from the
    merge or release, plus `PAGESPACE_TOKEN`, but without
    `DOC_BUDGET_ENDS_AT`: that is the job's absolute deadline, already past

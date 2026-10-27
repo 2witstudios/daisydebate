@@ -1,0 +1,76 @@
+name: Replay a documentation event
+# Replays one merged PR's documentation event with main's dispatch code, the
+# replay procedure of docs/operations/documentation-review-workflows.md
+# ("Replaying a lost event") without anyone holding PAGESPACE_TOKEN locally.
+# A re-run of the original notify-merge job would check out that merge's own
+# (possibly since-fixed) scripts; this checks out the default branch.
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Merged PR number whose documentation event to replay
+        required: true
+        type: number
+      attempt:
+        description: DOC_REPLAY_ATTEMPT (1, 2, …) addressing a fresh conversation
+        required: true
+        type: number
+        default: 1
+      pipelines:
+        description: Comma-separated pipelines to replay (empty replays every routed one)
+        required: false
+        type: string
+        default: ''
+permissions: {}
+concurrency:
+  # The same group as notify-merge, so a replay never runs beside the original.
+  group: notify-drive-${{ inputs.pr }}
+  cancel-in-progress: false
+jobs:
+  replay:
+    name: Replay the documentation event
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Start the dispatch budget with the job
+        run: echo "DOC_BUDGET_ENDS_AT=$(( $(date +%s) + 42 * 60 ))" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - name: Rebuild the merged PR's event and dispatch it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_PR: ${{ inputs.pr }}
+          DOC_REPLAY_ATTEMPT: ${{ inputs.attempt }}
+          DOC_PIPELINES: ${{ inputs.pipelines }}
+          PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$REPLAY_PR" =~ ^[0-9]+$ ]] || { echo "pr must be a number"; exit 1; }
+          [[ "$DOC_REPLAY_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || { echo "attempt must be 1 or more"; exit 1; }
+          [[ "$DOC_PIPELINES" =~ ^[a-z,-]*$ ]] || { echo "pipelines must be names like user-docs,blog"; exit 1; }
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$REPLAY_PR")"
+          [[ "$(jq -r .merged <<<"$pr")" == true ]] || { echo "PR $REPLAY_PR is not merged"; exit 1; }
+          export DOC_EVENT_ID="$(jq -r '"\(.id)-\(.merge_commit_sha)"' <<<"$pr")"
+          export DOC_OCCURRED_AT="$(jq -r .merged_at <<<"$pr")"
+          export DOC_REPOSITORY="$GITHUB_REPOSITORY"
+          export DOC_BASE_REF="$(jq -r .base.ref <<<"$pr")"
+          export DOC_COMMIT="$(jq -r .merge_commit_sha <<<"$pr")"
+          export DOC_PR_NUMBER="$REPLAY_PR"
+          export DOC_TITLE="$(jq -r .title <<<"$pr")"
+          export DOC_PR_URL="$(jq -r .html_url <<<"$pr")"
+          export DOC_AUTHOR="$(jq -r .user.login <<<"$pr")"
+          export DOC_MERGED_BY="$(jq -r '.merged_by.login // empty' <<<"$pr")"
+          export DOC_BRANCH="$(jq -r .head.ref <<<"$pr")"
+          export DOC_BODY="$(jq -r '.body // ""' <<<"$pr")"
+          DOC_CHANGED_FILES="$(git diff --name-only \
+            "$(jq -r .base.sha <<<"$pr")" "$DOC_COMMIT" | paste -sd, -)"
+          export DOC_CHANGED_FILES
+          bun scripts/dispatch-docs.ts
