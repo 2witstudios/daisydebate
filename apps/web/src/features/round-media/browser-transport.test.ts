@@ -19,15 +19,18 @@ type Captured = ReturnType<typeof capturedTrack>;
  */
 function stubSdk(
   options: {
-    readonly captureGate?: Promise<void>;
     readonly missingSource?: 'camera' | 'microphone';
+    /** Each capture waits for its gate here, in call order; undefined passes at once. */
+    readonly captureGates?: readonly (Promise<void> | undefined)[];
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
+    readonly unpublishGate?: Promise<void>;
   } = {},
 ) {
   const captures: unknown[] = [];
   const captured: Captured[] = [];
   const published: Captured[] = [];
+  const gates = [...(options.captureGates ?? [])];
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const localParticipant = {
     trackPublications: new Map(),
@@ -39,6 +42,7 @@ function stubSdk(
       return Promise.resolve();
     },
     unpublishTrack: async (track: Captured) => {
+      await options.unpublishGate;
       published.splice(published.indexOf(track), 1);
     },
   };
@@ -78,7 +82,7 @@ function stubSdk(
           options.missingSource === (options_.audio ? 'microphone' : 'camera')
         )
           throw new DOMException('private', 'OverconstrainedError');
-        await options.captureGate;
+        await gates.shift();
         const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
         captured.push(track);
         return [track];
@@ -111,7 +115,7 @@ test('a terminal stop ends a camera captured while its publish is in flight', as
 
 test('a track captured after a terminal stop is ended at once', async () => {
   const gate = Promise.withResolvers<void>();
-  const stub = stubSdk({ captureGate: gate.promise });
+  const stub = stubSdk({ captureGates: [gate.promise] });
   const { transport } = createBrowserMediaTransport(events, stub.sdk);
   void transport.apply(publish(['camera']));
   await settle();
@@ -308,3 +312,51 @@ for (const source of ['camera', 'microphone'] as const) {
     transport.stopTracks();
   });
 }
+test('a terminal stop ends the microphone whose warm capture is still in flight', async () => {
+  const warmGate = Promise.withResolvers<void>();
+  const stub = stubSdk({
+    settles: true,
+    captureGates: [undefined, warmGate.promise],
+  });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  const settled = transport.apply(publish(['camera']));
+  await settle();
+  transport.stopTracks();
+  warmGate.resolve();
+  await settle();
+  await settled;
+  assert({
+    given:
+      "a terminal stop while warmMicrophone's capture of the microphone is pending",
+    should:
+      'end the track that capture returns, never keep it warm (ISSUE-574)',
+    actual: stub.captured.map((track) => [track.source, track.ended]),
+    expected: [
+      ['camera', true],
+      ['microphone', true],
+    ],
+  });
+});
+
+test('a terminal stop ends the kept microphone whose unpublish is still in flight', async () => {
+  const unpublishGate = Promise.withResolvers<void>();
+  const stub = stubSdk({ settles: true, unpublishGate: unpublishGate.promise });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  const retiring = transport.apply(publish(['camera']));
+  await settle();
+  transport.stopTracks();
+  unpublishGate.resolve();
+  await settle();
+  await retiring;
+  assert({
+    given:
+      "a terminal stop while retire's keep-warm unpublishTrack(track, false) is pending",
+    should: 'end the kept microphone instead of holding it warm (ISSUE-574)',
+    actual: stub.captured.map((track) => [track.source, track.ended]),
+    expected: [
+      ['camera', true],
+      ['microphone', true],
+    ],
+  });
+});

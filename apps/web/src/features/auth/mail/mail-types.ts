@@ -11,6 +11,12 @@ export type AuthEmailMessage = {
   readonly subject: string;
   readonly text: string;
   readonly html: string;
+  /**
+   * The provider idempotency key when the caller owns one (a durable mail
+   * intent's id, ADR 0075), so a resend after a crash is not doubled.
+   * Absent, each send gets a fresh key.
+   */
+  readonly idempotencyKey?: string;
 };
 /** Provider receipt; correlates later delivery events, holds no recipient data. */
 type AuthEmailReceipt = { readonly providerMessageId: string };

@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   useSyncExternalStore,
@@ -77,5 +78,19 @@ export const useUiState = <T,>(selector: (state: UiState) => T): T => {
     store.subscribeUiState,
     () => selector(store.getUiState()),
     () => selector(store.getUiState()),
+  );
+};
+
+/**
+ * A transaction for client effects and handlers only (ADR 0024): the next
+ * snapshot from the current one. Never call it during render.
+ */
+export const useUiUpdate = (): ((
+  transaction: (state: UiState) => UiState,
+) => void) => {
+  const store = useUiStore();
+  return useCallback(
+    (transaction) => store.setUiState(transaction(store.getUiState())),
+    [store],
   );
 };

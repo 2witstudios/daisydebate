@@ -1,6 +1,6 @@
 import { deferred } from './outbox-drain.test-support';
 import { createSubscriptionRegistry } from './registry';
-import type { OutboxRow } from '@daisy/db';
+import type { OutboxRow } from '@daisy/db/outbox';
 
 export const topic = `room:${'b'.repeat(24)}`;
 export const row = (seq: number): OutboxRow => ({

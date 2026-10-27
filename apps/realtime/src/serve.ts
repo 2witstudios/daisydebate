@@ -2,6 +2,7 @@ import { refuseSchemaAlteringRole } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
+import { createPresenceTracker } from './presence';
 import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
@@ -23,6 +24,23 @@ function drainOptions(
     ...(onListenWake === undefined ? {} : { onListenWake }),
   };
 }
+
+const presenceTracker = (
+  resources: RealtimeApp,
+  presence:
+    { readonly instanceId: string; readonly nextId: () => string } | undefined,
+  timers: IntervalTimers,
+) =>
+  presence === undefined
+    ? {}
+    : {
+        presence: createPresenceTracker({
+          leases: resources.redis,
+          instanceId: presence.instanceId,
+          nextId: presence.nextId,
+          timers,
+        }),
+      };
 
 const listenerTls = (tls: Bun.TLSOptions | undefined) =>
   tls === undefined ? {} : { tls };
@@ -59,6 +77,7 @@ export async function serveRealtime({
   now = () => performance.now(),
   readingPolicy,
   trustedProxies = [],
+  presence,
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
@@ -68,6 +87,11 @@ export async function serveRealtime({
   readonly now?: () => number;
   readonly readingPolicy?: RealtimeReadingPolicy;
   readonly trustedProxies?: readonly string[];
+  /** This instance's id and its connection-id source for presence leases (ADR 0072). */
+  readonly presence?: {
+    readonly instanceId: string;
+    readonly nextId: () => string;
+  };
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
@@ -127,6 +151,7 @@ export async function serveRealtime({
       authenticate: delivery.authenticate,
       validatePrincipal: delivery.validatePrincipal,
       now,
+      ...presenceTracker(resources, presence, scheduler),
     },
   });
   let hintSubscription:

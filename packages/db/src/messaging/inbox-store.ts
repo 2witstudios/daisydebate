@@ -2,21 +2,14 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 type InboxScope = {
   readonly userId: string;
   readonly actorId: string;
   readonly limit: number;
   readonly after?: string;
 };
-type CollectionFence = (input: {
-  readonly tx: AuthorizationTransaction;
-  readonly scope: InboxScope;
-  readonly account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
-}) => Promise<void>;
+type CollectionFence = OwnCollectionFence<InboxScope>;
 /** Candidate IDs are private own associations, never channel grants or content. */
 export function createMessagingInboxStore(
   database: BunSQLDatabase,
@@ -33,11 +26,7 @@ export function createMessagingInboxStore(
         (scope.after !== undefined && !idSchema.safeParse(scope.after).success)
       )
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
-        const [account] = await lockAuthorizationActors(tx, [scope.actorId], {
-          maxActors: 1,
-        });
-        await authorize({ tx, scope, account: account ?? null });
+      return readOwnCollection(database, scope, authorize, async (tx) => {
         const rows = await tx.execute(sql`
         select distinct candidate.channel_id as "channelId" from (
           select channel_id from public.messaging_dm_pairs

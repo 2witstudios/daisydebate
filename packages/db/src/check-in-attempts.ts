@@ -10,7 +10,7 @@ export type CheckInAttempt = {
   readonly actorId: string | null;
   readonly serviceId: string | null;
 };
-export type CheckInAttemptMetadata = {
+type CheckInAttemptMetadata = {
   readonly receivedAt: string;
   readonly writer: { readonly pid: number; readonly backendStart: string };
 };
