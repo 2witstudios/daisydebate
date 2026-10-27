@@ -123,7 +123,7 @@ for (const javaScriptEnabled of [true, false]) {
       }).toPass();
       await sender.goto(`/messages/${journey.channelId}`);
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
-      await manageNativePreferences(sender, journey, javaScriptEnabled);
+      await manageNativePreferences(sender, journey);
       await manageNativeReactions(sender, journey.channelId, text);
       const ownMessage = await editNativeMessage(sender, journey.channelId);
       const foreign = await journey.outsider.request.get(
