@@ -1,4 +1,4 @@
-import type { OutboxPosition, OutboxRow } from '@daisy/db';
+import type { OutboxPosition, OutboxRow } from '@daisy/db/outbox';
 import { ENVELOPE_VERSION, type ServerMessage } from '@daisy/protocol';
 import type { createAuthorityLease } from './authority-lease';
 export type SocketPrincipal = {

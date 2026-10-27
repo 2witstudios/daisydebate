@@ -8,7 +8,7 @@ import {
 } from './outbox';
 
 const SAMPLER_LOCK = 59003;
-export type AvailabilityCause =
+type AvailabilityCause =
   | 'web_stale'
   | 'realtime_stale'
   | 'delivery_lag'

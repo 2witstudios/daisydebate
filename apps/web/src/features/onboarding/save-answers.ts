@@ -2,7 +2,7 @@ import type { Logger } from '@daisy/logger';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
-import type { OnboardingStepWrite } from '@daisy/db';
+import type { OnboardingStepWrite } from '@daisy/db/profile';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,

@@ -6,6 +6,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import * as packageEntry from './index';
+import * as outboxEntry from '@daisy/db/outbox';
 import { createDatabase } from './index';
 import {
   createTestDatabase,
@@ -17,7 +18,7 @@ import {
 setupRitewayBun();
 
 describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate, value-typed outbox helpers and the capacity-refusal error predicate', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate and the capacity-refusal error predicate', () => {
     assert({
       given: "the package entry's exported names",
       should:
@@ -25,13 +26,21 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
       actual: Object.keys(packageEntry).sort(),
       expected: [
         'DEFAULT_MAX_CONNECTIONS',
-        'OUTBOX_ORIGIN',
         'createDatabase',
-        'decodeOutboxCursor',
-        'encodeOutboxCursor',
         'isTransactionCapacityRefusal',
         'refuseSchemaAlteringRole',
       ].sort(),
+    });
+  });
+});
+
+describe('outbox public surface', () => {
+  test('exposes cursor values without raw persistence operations', () => {
+    assert({
+      given: 'the explicit outbox subpath',
+      should: 'expose only portable cursor helpers and the origin',
+      actual: Object.keys(outboxEntry).sort(),
+      expected: ['OUTBOX_ORIGIN', 'decodeOutboxCursor', 'encodeOutboxCursor'],
     });
   });
 });

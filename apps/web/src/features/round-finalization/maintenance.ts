@@ -1,5 +1,6 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { AttendanceResolution, Database } from '@daisy/db';
+import type { AttendanceResolution } from '@daisy/db/attendance';
+import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
