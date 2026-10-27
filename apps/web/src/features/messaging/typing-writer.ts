@@ -43,7 +43,7 @@ export function createTypingWriter({
           ? TYPING_RETRY_MS
           : response === null
             ? null
-            : ((await readTypingResponse(channelId, Promise.resolve(response)))
+            : ((await readTypingResponse(channelId, response))
                 ?.refreshAfterMs ?? null);
       stalled = sent && interval === null;
       if (!queued && !closed && desired && interval !== null)
