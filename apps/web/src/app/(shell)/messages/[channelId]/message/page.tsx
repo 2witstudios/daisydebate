@@ -40,18 +40,21 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <h1>Your message</h1>
       <p>Revise your message or remove it from the conversation.</p>
+      {/* A live refresh replaces only the snapshot region; the form holding
+          the reader's draft, its request and its notice stays mounted. */}
       <ConversationLive
         channelId={channelId}
         socketUrl={conversation.socketUrl}
         snapshotId={requestId}
       >
-        <MessageMutationForm
-          action={changeMessageAction.bind(null, channelId, messageId)}
-          state={{ requestId, text: message.text }}
-          removeRequestId={systemId.next()}
-          maxUnits={conversation.bounds.messageUnits}
-        />
+        {null}
       </ConversationLive>
+      <MessageMutationForm
+        action={changeMessageAction.bind(null, channelId, messageId)}
+        state={{ requestId, text: message.text }}
+        removeRequestId={systemId.next()}
+        maxUnits={conversation.bounds.messageUnits}
+      />
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
   );

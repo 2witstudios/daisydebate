@@ -5,12 +5,11 @@ import { openPage } from './fixtures';
 import { serverFrame } from './subscription-ledger';
 import { STEP_LIMIT_MS } from './bounded-step';
 
-/** A member's conversation page, subscribed to the channel's doorbells. */
-export async function listenForChannelBells(
-  context: BrowserContext,
-  channelId: string,
-) {
-  const page = await openPage(context, 'the seeded message doorbell');
+/**
+ * Records a page's subscription to a channel and the doorbells it hears.
+ * Attach before the page navigates so no frame is missed.
+ */
+export function watchChannelBells(page: Page, channelId: string) {
   const topic = `channel:${channelId}`;
   let subscribed = false;
   const changeVersions: number[] = [];
@@ -27,16 +26,27 @@ export async function listenForChannelBells(
         changeVersions.push(frame.payload.changeVersion);
     }),
   );
-  await page.goto(`/messages/${channelId}`);
-  await expect.poll(() => subscribed, { timeout: STEP_LIMIT_MS }).toBe(true);
   return {
+    subscribed: () =>
+      expect.poll(() => subscribed, { timeout: STEP_LIMIT_MS }).toBe(true),
     /** Resolves once a bell at `changeVersion` or later has been delivered. */
     heard: (changeVersion: number) =>
       expect
         .poll(() => Math.max(0, ...changeVersions), { timeout: STEP_LIMIT_MS })
         .toBeGreaterThanOrEqual(changeVersion),
-    close: () => page.close(),
   };
+}
+
+/** A member's conversation page, subscribed to the channel's doorbells. */
+export async function listenForChannelBells(
+  context: BrowserContext,
+  channelId: string,
+) {
+  const page = await openPage(context, 'the seeded message doorbell');
+  const bells = watchChannelBells(page, channelId);
+  await page.goto(`/messages/${channelId}`);
+  await bells.subscribed();
+  return { heard: bells.heard, close: () => page.close() };
 }
 
 /**
