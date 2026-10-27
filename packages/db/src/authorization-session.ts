@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,
-  lockAuthorizationActors,
+  readAuthorizationActors,
   type AuthorizationTransaction,
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
@@ -105,7 +105,7 @@ export function authorizationSessionOperations({
   ) => {
     sessionInstant(input);
     return database.transaction(async (tx) => {
-      await lockAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
+      await readAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
       return checkedSession(tx, input);
     });
   };

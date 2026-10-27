@@ -1,4 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { PgDialect } from 'drizzle-orm/pg-core';
+import type { SQL } from 'drizzle-orm';
 import {
   loadAuthorizationSession,
   type AuthorizationTransaction,
@@ -118,5 +120,48 @@ test('pool-bound session reader validates every identity before opening a transa
     should: 'leave the pool untouched',
     actual: calls,
     expected: 0,
+  });
+});
+
+test('a realtime session read takes only the shared account fence', async () => {
+  const actorId = 'b'.repeat(24);
+  const statements: string[] = [];
+  const dialect = new PgDialect();
+  const reader = authorizationSessionOperations({
+    database: {
+      transaction: async (
+        work: (tx: AuthorizationTransaction) => Promise<unknown>,
+      ) =>
+        work({
+          execute: async (query: SQL) => {
+            statements.push(dialect.sqlToQuery(query).sql);
+            return [];
+          },
+        } as unknown as AuthorizationTransaction),
+    } as unknown as Parameters<
+      typeof authorizationSessionOperations
+    >[0]['database'],
+  });
+  await reader
+    .resolveRealtimeSession({
+      sessionId: 'c'.repeat(24),
+      actorId,
+      now: '2026-10-09T00:00:00.000Z',
+    })
+    .catch(() => null);
+  assert({
+    given: 'a socket session check',
+    should:
+      'fence the account through the shared reader, never the exclusive lock, so peer readers never serialize',
+    actual: {
+      shared: statements.some((s) =>
+        s.includes('daisy_authorization_read_accounts_v2('),
+      ),
+      exclusive: statements.some(
+        (s) =>
+          s.includes('daisy_authorization_accounts_v2(') && s.includes('true'),
+      ),
+    },
+    expected: { shared: true, exclusive: false },
   });
 });
