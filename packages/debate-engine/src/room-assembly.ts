@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -118,7 +119,10 @@ export function executeRoomCommand(
   if (assemblyOpen(next)) next = { ...next, status: assembledStatus(next) };
   next = { ...next, changeVersion: room.changeVersion + 1 };
   if (!topicInvariantHolds(next))
-    throw new Error('A Room mutation broke the topic invariant');
+    throw createAppError(
+      'INVARIANT',
+      'A Room mutation broke the topic invariant',
+    );
   return {
     ok: true,
     mutation: {

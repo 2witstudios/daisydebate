@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -103,7 +104,8 @@ function beginDraw(
   edges: Edges,
 ): RoomMutationOutcome {
   const draw = room.executionPlan.resolutionDraw;
-  if (!draw.enabled) throw new Error('beginDraw requires an enabled draw');
+  if (!draw.enabled)
+    throw createAppError('INVARIANT', 'beginDraw requires an enabled draw');
   const gate = drawGate(room, consent);
   if (gate) return refuse(gate);
   const facts = edges.drawStart;

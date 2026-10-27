@@ -14,7 +14,6 @@ import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
 import type { DrawStartFacts } from './pre-round-phase';
 import { preRoundPhase } from './pre-round-phase';
-export { prepFinished } from './pre-round-phase';
 
 type Target = RoomParticipant & { readonly eligible: boolean };
 export type Edges = {

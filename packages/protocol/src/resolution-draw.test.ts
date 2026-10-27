@@ -6,7 +6,11 @@ import {
 } from './format-fixtures.test-support';
 import { formatDefinitionSchema } from './format';
 import { roomResolutionDrawSchema } from './resolution-draw';
-import { freezeRoomConfig, freezeRoomExecutionPlan } from './room';
+import {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  roomConfigSchema,
+} from './room';
 
 setupRitewayBun();
 
@@ -134,5 +138,40 @@ test('a strike window and the draw options stay small (PR #472 review)', () => {
       defines(drawCapableBounds),
     ],
     expected: [true, false, false, false, false, true],
+  });
+});
+
+test('a strike window has a floor and pre-round prep a ceiling (PR #472 review)', () => {
+  const draw = (strikeWindowMs: number) =>
+    roomResolutionDrawSchema.safeParse({
+      ...hostDraw(['One', 'Two', 'Three']),
+      strikeWindowMs,
+    }).success;
+  const withDraw = (strikeWindowMs: { min: number; max: number }) =>
+    formatDefinitionSchema.safeParse({
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        resolutionDraw: { ...drawCapableBounds, strikeWindowMs },
+      },
+    }).success;
+  const prep = (durationMs: number) =>
+    roomConfigSchema.safeParse({
+      ...plainRoomConfig,
+      preRoundPrep: { enabled: true, durationMs },
+    }).success;
+  assert({
+    given:
+      'windows of 10 s and 1 ms, a definition allowing 1 ms, and two and three hours of pre-round prep',
+    should:
+      'accept 10 s and two hours, and refuse a window no human could use and prep past the ceiling',
+    actual: [
+      draw(10_000),
+      draw(1),
+      withDraw({ min: 1, max: 60_000 }),
+      prep(7_200_000),
+      prep(10_800_000),
+    ],
+    expected: [true, false, false, true, false],
   });
 });

@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
 import {
   automaticChoice,
@@ -141,7 +142,10 @@ function settleDraw(
     if (!turn || Date.parse(now) < Date.parse(turn.dueAt)) return next;
     const standing = standingPositions(next);
     if (turn.automatic && !seed)
-      throw new Error('An automatic strike needs the draw seed');
+      throw createAppError(
+        'INVARIANT',
+        'An automatic strike needs the draw seed',
+      );
     const strike: ResolutionStrike = {
       ordinal: turn.ordinal,
       position: turn.automatic

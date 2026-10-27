@@ -17,6 +17,12 @@ export const drawSources = ['bank', 'host'] as const;
  * start plus this window, so a bound keeps it a real date (PR #472 review).
  */
 export const MAX_STRIKE_WINDOW_MS = 600_000;
+/** The shortest strike window a human can use: ten seconds. */
+export const MIN_STRIKE_WINDOW_MS = 10_000;
+/** A draw holds between two and twenty resolutions. */
+export const MIN_DRAW_SIZE = 2;
+export const MAX_DRAW_SIZE = 20;
+const drawSizeSchema = z.int().min(MIN_DRAW_SIZE).max(MAX_DRAW_SIZE);
 
 /** An all-bot side strikes this long after its turn opens. */
 export const AUTOMATIC_STRIKE_DELAY_MS = 3_000;
@@ -58,14 +64,14 @@ const frozenDrawSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('bank'), categories: categoriesSchema }),
   z.strictObject({
     kind: z.literal('host'),
-    count: z.int().min(2).max(20),
+    count: drawSizeSchema,
   }),
 ]);
 
 const drawChoice = {
   enabled: z.literal(true),
-  drawSize: z.int().min(2).max(20),
-  strikeWindowMs: z.int().positive().max(MAX_STRIKE_WINDOW_MS),
+  drawSize: drawSizeSchema,
+  strikeWindowMs: z.int().min(MIN_STRIKE_WINDOW_MS).max(MAX_STRIKE_WINDOW_MS),
   firstStriker: debateSideSchema,
 };
 const declined = z.strictObject({ enabled: z.literal(false) });
@@ -213,9 +219,9 @@ export const resolutionDrawManifestSchema = z.strictObject({
     bankSourceSchema,
     z.strictObject({ kind: z.literal('host'), count: z.int().min(2).max(20) }),
   ]),
-  drawSize: z.int().min(2).max(20),
+  drawSize: drawSizeSchema,
   firstStriker: debateSideSchema,
-  strikeWindowMs: z.int().positive().max(MAX_STRIKE_WINDOW_MS),
+  strikeWindowMs: z.int().min(MIN_STRIKE_WINDOW_MS).max(MAX_STRIKE_WINDOW_MS),
   controllers: sideControllersSchema,
   inputCommitment: digestSchema,
 });

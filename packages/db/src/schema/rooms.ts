@@ -118,7 +118,8 @@ export const rooms = pgTable(
     // rules are the Room writer's, rechecked by a deferred trigger.
     check(
       'rooms_fixed_topic_present',
-      sql`${table.topic} is not null or ${table.executionPlan}->'resolutionDraw'->>'enabled' = 'true'`,
+      // Null-safe: a plan with no draw key is a fixed-topic Room.
+      sql`${table.topic} is not null or coalesce(${table.executionPlan}->'resolutionDraw'->>'enabled' = 'true', false)`,
     ),
     versionPositive('rooms', table.version),
     versionPositive('rooms_change', table.changeVersion),

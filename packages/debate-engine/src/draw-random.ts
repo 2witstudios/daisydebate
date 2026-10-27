@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { sha3_256 } from '@noble/hashes/sha3.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 
@@ -28,7 +29,8 @@ export const hexOf = (bytes: Uint8Array) =>
   Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
 export const bytesOf = (hex: string) => {
-  if (!/^(?:[0-9a-f]{2})*$/.test(hex)) throw new Error('Invalid hex');
+  if (!/^(?:[0-9a-f]{2})*$/.test(hex))
+    throw createAppError('INVARIANT', 'Invalid hex');
   return Uint8Array.from(hex.match(/../g) ?? [], (pair) =>
     Number.parseInt(pair, 16),
   );

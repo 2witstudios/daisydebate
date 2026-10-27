@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { crossExModeSchema, interruptionModeSchema } from './format';
+import {
+  crossExModeSchema,
+  interruptionModeSchema,
+  MAX_PRE_ROUND_PREP_MS,
+} from './format';
 import {
   freezeResolutionDraw,
   frozenResolutionDrawSchema,
@@ -16,7 +20,10 @@ const declinedSchema = z.strictObject({ enabled: z.literal(false) });
 
 const preRoundPrepSchema = z.discriminatedUnion('enabled', [
   declinedSchema,
-  z.strictObject({ enabled: z.literal(true), durationMs: z.int().positive() }),
+  z.strictObject({
+    enabled: z.literal(true),
+    durationMs: z.int().positive().max(MAX_PRE_ROUND_PREP_MS),
+  }),
 ]);
 
 const inRoundPrepSchema = z.discriminatedUnion('enabled', [

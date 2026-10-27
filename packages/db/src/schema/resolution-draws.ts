@@ -182,6 +182,11 @@ export const roomResolutionDrawItems = pgTable(
       'room_resolution_draw_items_position_check',
       sql`${table.position} >= 0 and ${table.position} < ${table.drawSize}`,
     ),
+    // Null-safe: a host line has no category; a bank item names one of three.
+    check(
+      'room_resolution_draw_items_category_check',
+      sql`${table.category} is null or ${oneOf(table.category, resolutionCategories)}`,
+    ),
   ],
 );
 

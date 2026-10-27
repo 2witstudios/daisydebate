@@ -17,7 +17,9 @@ ALTER TABLE "formats" ADD CONSTRAINT "formats_catalog_is_publisher_owned" CHECK 
 ALTER TABLE "formats" ADD CONSTRAINT "formats_standard_ids" CHECK ("catalog_role" is distinct from 'standard' or "id" in ('policy', 'value', 'freestyle'));--> statement-breakpoint
 ALTER TABLE "formats" ADD CONSTRAINT "formats_family_for_templates" CHECK (("family" is not null) = coalesce("catalog_role" = 'template', false));--> statement-breakpoint
 ALTER TABLE "formats" ADD CONSTRAINT "formats_family_check" CHECK ("family" is null or "family" in ('policy', 'value', 'parli', 'other'));--> statement-breakpoint
+ALTER TABLE "room_resolution_draw_items" ADD CONSTRAINT "room_resolution_draw_items_category_check" CHECK ("category" is null or "category" in ('policy', 'value', 'fact'));--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_basis_complete" CHECK (("basis_format_id" is null) = ("basis_preset_version" is null));--> statement-breakpoint
+ALTER TABLE "rooms" DROP CONSTRAINT "rooms_fixed_topic_present", ADD CONSTRAINT "rooms_fixed_topic_present" CHECK ("topic" is not null or coalesce("execution_plan"->'resolutionDraw'->>'enabled' = 'true', false));--> statement-breakpoint
 --> Existing One-on-one presets keep ranked play (ranked admission now reads
 --> eligibility); every new preset defaults to ineligible.
 UPDATE "format_presets" SET "ranked_eligible" = true WHERE "format_id" = 'one-on-one';

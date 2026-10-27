@@ -9,12 +9,8 @@ import {
 } from './pre-round-phase';
 import { settleRoom, survivorOf } from './resolution-draw';
 
-import {
-  assemblyOpen,
-  complete,
-  prepFinished,
-  startBlocker,
-} from './room-assembly-facts';
+import { assemblyOpen, complete, startBlocker } from './room-assembly-facts';
+import { prepFinished } from './pre-round-phase';
 import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
 const participantReady = (
   p: Pick<

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "97a0c3ca-cfaf-4ad8-b7db-330a6fcf078b",
+  "id": "406ef6f8-7813-44d2-95c1-49f7186af736",
   "prevIds": [
     "116f008a-0c8a-49f8-a21e-a2126a315380"
   ],
@@ -18188,6 +18188,13 @@
       "table": "room_resolution_draw_items"
     },
     {
+      "value": "\"category\" is null or \"category\" in ('policy', 'value', 'fact')",
+      "name": "room_resolution_draw_items_category_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "room_resolution_draw_items"
+    },
+    {
       "value": "\"source_kind\" in ('bank', 'host')",
       "name": "room_resolution_draws_source_kind_check",
       "entityType": "checks",
@@ -18370,7 +18377,7 @@
       "table": "rooms"
     },
     {
-      "value": "\"topic\" is not null or \"execution_plan\"->'resolutionDraw'->>'enabled' = 'true'",
+      "value": "\"topic\" is not null or coalesce(\"execution_plan\"->'resolutionDraw'->>'enabled' = 'true', false)",
       "name": "rooms_fixed_topic_present",
       "entityType": "checks",
       "schema": "public",

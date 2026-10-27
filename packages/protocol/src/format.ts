@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { debateRoleSchema, debateSideSchema } from './primitives';
-import { drawSources, MAX_STRIKE_WINDOW_MS } from './resolution-draw';
+import {
+  drawSources,
+  MAX_DRAW_SIZE,
+  MAX_STRIKE_WINDOW_MS,
+  MIN_DRAW_SIZE,
+  MIN_STRIKE_WINDOW_MS,
+} from './resolution-draw';
+
+/** The longest prep before a round: two hours, so its end is always a real date. */
+export const MAX_PRE_ROUND_PREP_MS = 7_200_000;
 
 /** Provisional resource budget: bounds expanded seat records and per-seat command work,
  * independent of any league roster policy. Judges consume the same budget. */
@@ -172,6 +181,47 @@ const formatDefinitionShape = z.strictObject({
   }),
 });
 
+/** Room-only bounds every due instant depends on: draw size, strike window, prep. */
+function validateRoomOnlyBounds(
+  definition: z.infer<typeof formatDefinitionShape>,
+  ctx: z.RefinementCtx,
+) {
+  const { resolutionDraw: draw, preRoundPrep } = definition.configurable;
+  const outside = (
+    bound: { readonly min: number; readonly max: number },
+    min: number,
+    max: number,
+  ) => bound.min < min || bound.max > max;
+  for (const [field, bound, min, max, message] of [
+    [
+      'drawSize',
+      draw?.drawSize,
+      MIN_DRAW_SIZE,
+      MAX_DRAW_SIZE,
+      'A draw holds 2 to 20 resolutions',
+    ],
+    [
+      'strikeWindowMs',
+      draw?.strikeWindowMs,
+      MIN_STRIKE_WINDOW_MS,
+      MAX_STRIKE_WINDOW_MS,
+      'A strike window is ten seconds to ten minutes',
+    ],
+  ] as const)
+    if (bound && outside(bound, min, max))
+      ctx.addIssue({
+        code: 'custom',
+        message,
+        path: ['configurable', 'resolutionDraw', field],
+      });
+  if (preRoundPrep && preRoundPrep.durationMs.max > MAX_PRE_ROUND_PREP_MS)
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Prep before the round is at most two hours',
+      path: ['configurable', 'preRoundPrep', 'durationMs'],
+    });
+}
+
 function validateSegmentReferences(
   definition: z.infer<typeof formatDefinitionShape>,
   ctx: z.RefinementCtx,
@@ -211,19 +261,7 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
       });
     validateSpeakingOpportunities(definition, ctx);
     validateSegmentReferences(definition, ctx);
-    const draw = definition.configurable.resolutionDraw;
-    if (draw && (draw.drawSize.min < 2 || draw.drawSize.max > 20))
-      ctx.addIssue({
-        code: 'custom',
-        message: 'A draw holds 2 to 20 resolutions',
-        path: ['configurable', 'resolutionDraw', 'drawSize'],
-      });
-    if (draw && draw.strikeWindowMs.max > MAX_STRIKE_WINDOW_MS)
-      ctx.addIssue({
-        code: 'custom',
-        message: 'A strike window is at most ten minutes',
-        path: ['configurable', 'resolutionDraw', 'strikeWindowMs'],
-      });
+    validateRoomOnlyBounds(definition, ctx);
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,
     );
