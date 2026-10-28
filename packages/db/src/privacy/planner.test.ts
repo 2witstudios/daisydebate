@@ -51,7 +51,6 @@ test('erasure plans only injected configured vendors', () => {
     expected: {
       subject,
       now,
-      adopterIds: [],
       jobs: [
         {
           id: 'cdefghijklmnopqrstuvwxyz',

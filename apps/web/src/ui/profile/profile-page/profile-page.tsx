@@ -12,6 +12,7 @@ import type { BadgeTone } from '../../components/badge/badge-class';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import { MediaPageLink } from '../../round-media/media-page-link';
+import { profileHref } from '../../layout/app-shell/components/destinations';
 import { ProfileActions } from '../profile-actions/profile-actions';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -64,7 +65,7 @@ function Opponents({ entry }: { readonly entry: MatchHistoryEntry }) {
           ) : (
             <>
               <Link
-                href={`/profile/${opponent.label}`}
+                href={profileHref(opponent.label)}
               >{`@${opponent.label}`}</Link>
               {opponent.closed ? ' (closed)' : null}
             </>
@@ -188,7 +189,7 @@ export function ProfilePage({
   /** The viewer's actions toward this member, if any. */
   readonly actions?: ReactNode;
 }) {
-  const base = `/profile/${profile.username}`;
+  const base = profileHref(profile.username);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <ProfileHeader profile={profile} actions={actions} />

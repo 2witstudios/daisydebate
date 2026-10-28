@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
+import { roomResolutionDraws } from './schema/resolution-draws';
 import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
 import { persistRoomMutation } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
@@ -27,7 +28,7 @@ export type RoomClosureTransitions = {
  * titles, topics, resolutions, drawn texts and draw inputs are the
  * competitive record (ADR 0087). The pure transitions come from the engine.
  */
-export const createRoomClosurePrivacyAdopter = (
+export const createRoomAccountClosureAdopter = (
   transitions: RoomClosureTransitions,
 ): PrivacyAdopter => {
   const persist = async (
@@ -84,7 +85,7 @@ export const createRoomClosurePrivacyAdopter = (
           inArray(rooms.id, seatedRooms),
           roomIsOpen(),
           isNull(rooms.prepStartedAt),
-          sql`not exists (select 1 from room_resolution_draws d where d.room_id = ${rooms.id})`,
+          sql`not exists (select 1 from ${roomResolutionDraws} d where d.room_id = ${rooms.id})`,
         ),
       )
       .for('update');
@@ -99,8 +100,9 @@ export const createRoomClosurePrivacyAdopter = (
     id: 'room-closure',
     phase: 'before-auth',
     erase: async (tx, subject, { now }) => {
-      await closeHosted(tx as unknown as Tx, subject.actorId, now);
-      await freeSeats(tx as unknown as Tx, subject.actorId, now);
+      const roomTx = tx as unknown as Tx;
+      await closeHosted(roomTx, subject.actorId, now);
+      await freeSeats(roomTx, subject.actorId, now);
     },
     // Hosted Rooms are public competitive record, not the member's private data.
     export: async () => ({}),

@@ -134,13 +134,18 @@ describe('admitLogLine', () => {
         .scanImports(await Bun.file(new URL(file, import.meta.url)).text())
         .map((entry) => entry.path);
     assert({
-      given: 'the ingest admission and the vocabulary it reads',
+      given: 'the ingest admission and the vocabulary and routes it reads',
       should: 'import nothing but the vocabulary, so pino never loads',
       actual: {
         ingest: await imports('./ingest.ts'),
         vocabulary: await imports('./vocabulary.ts'),
+        routes: await imports('./routes.ts'),
       },
-      expected: { ingest: ['./vocabulary'], vocabulary: [] },
+      expected: {
+        ingest: ['./vocabulary'],
+        vocabulary: ['./routes'],
+        routes: [],
+      },
     });
   });
 });

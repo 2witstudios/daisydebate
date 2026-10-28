@@ -18,7 +18,7 @@ describe('PrivacyPage', () => {
         html.includes('>Private<'),
         html.includes('>Hidden on purpose<'),
         html.includes('Ratings while you judge'),
-        html.includes('Deleted accounts'),
+        html.includes('Closed accounts'),
         html.includes('ADR'),
       ],
       expected: [1, true, true, true, true, true, false],

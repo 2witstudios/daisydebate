@@ -4,9 +4,9 @@ import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import {
-  createRoomClosurePrivacyAdopter,
+  createRoomAccountClosureAdopter,
   type RoomClosureTransitions,
-} from '../room-closure-privacy';
+} from '../room-account-closure';
 import { roundAnalysisPrivacyAdopter } from '../round-analysis-privacy';
 import { roundTranscriptPrivacyAdopter } from '../round-transcript-privacy';
 import { socialPrivacyAdoption } from '../social-privacy-composition';
@@ -22,7 +22,7 @@ import type { PrivacyAdoption } from './planner';
 export const subjectRightsAdoption = (
   rooms: RoomClosureTransitions,
 ): PrivacyAdoption => [
-  createRoomClosurePrivacyAdopter(rooms),
+  createRoomAccountClosureAdopter(rooms),
   ...socialPrivacyAdoption(),
   onboardingPrivacyAdopter,
   accountAgePrivacyAdopter,

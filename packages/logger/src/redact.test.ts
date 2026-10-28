@@ -185,16 +185,16 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       Object.hasOwn(emit({ route: value, path: value }).entry, 'path');
     assert({
       given:
-        'a listed pattern, and concrete URLs naming a member, a Round or a token',
-      should: 'keep the pattern and leave every concrete URL out',
+        'listed patterns, and concrete URLs naming a member, a Round or a token',
+      should: 'keep the patterns and leave every concrete URL out',
       actual: [
         '/reset-password/:token',
+        '/profile/[username]',
         '/profile/alice',
         '/rounds/tz4a98xxat96iws9zmbrgj3a',
         '/reset-password/abc123',
-        '/profile/[username]',
       ].map(kept),
-      expected: [true, false, false, false, false],
+      expected: [true, true, false, false, false],
     });
   });
 

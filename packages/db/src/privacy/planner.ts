@@ -1,6 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { PrivacyAdopter, PrivacySubject } from './contracts';
+import {
+  privacyPhases,
+  type PrivacyAdopter,
+  type PrivacySubject,
+} from './contracts';
 
 export const privacyVendors = [
   'sentry',
@@ -16,7 +20,7 @@ export type PrivacyAdoption = readonly PrivacyAdopter[];
 
 const adopterValid = (adopter: PrivacyAdopter) =>
   adopter.id.trim().length > 0 &&
-  ['before-auth', 'after-close'].includes(adopter.phase) &&
+  privacyPhases.includes(adopter.phase) &&
   typeof adopter.erase === 'function' &&
   typeof adopter.export === 'function';
 
@@ -31,10 +35,7 @@ export function planPrivacyExport(
     !adoption.every(adopterValid)
   )
     throw createAppError('VALIDATION');
-  return {
-    subject: { ...subject },
-    adopterIds: adoption.map((adopter) => adopter.id),
-  };
+  return { subject: { ...subject } };
 }
 export type PrivacyErasureInput = {
   readonly subject: PrivacySubject;

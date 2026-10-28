@@ -3,9 +3,9 @@ import {
   eventRegistry,
   fieldKinds,
   loggableFields,
-  logRoutes,
   type EventName,
 } from './vocabulary';
+import { logRoutes } from './routes';
 
 export { eventRegistry, loggableFields, logRoutes, type EventName };
 

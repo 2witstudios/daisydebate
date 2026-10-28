@@ -121,7 +121,7 @@ export {
   removeUnowedBetaDigests,
 } from './beta-access-testing';
 export { refuseCapacity } from './transaction-admission';
-export { eraseRoomClosureSubject } from './testing-room-closure';
+export { eraseRoomAccountClosure } from './testing-room-account-closure';
 export { refuseFinalSpeech } from './bot-generation-rules';
 
 /** The database boundary's failure wrapper, for composing refusal telemetry across packages. */

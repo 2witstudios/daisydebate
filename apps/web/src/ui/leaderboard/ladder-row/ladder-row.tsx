@@ -130,21 +130,15 @@ export function LadderRow({ row, closed }: LadderRowProps) {
   );
   return (
     <li className="border-t border-border">
-      {row.href === null ? (
-        <div className={className}>
-          <Cells row={row} closed={closed} />
-        </div>
-      ) : (
-        <Link
-          href={row.href}
-          aria-label={rowLabel(row)}
-          aria-current={row.selected ? 'true' : undefined}
-          className={className}
-        >
-          <Cells row={row} closed={closed} />
-          <HoverCard row={row} />
-        </Link>
-      )}
+      <Link
+        href={row.href}
+        aria-label={rowLabel(row)}
+        aria-current={row.selected ? 'true' : undefined}
+        className={className}
+      >
+        <Cells row={row} closed={closed} />
+        <HoverCard row={row} />
+      </Link>
     </li>
   );
 }

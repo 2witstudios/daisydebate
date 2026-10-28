@@ -209,13 +209,14 @@ export const memberProfileReadOperations = ({
         if (member === null) return null;
         // A closed account has no owner left to read it: everyone sees the
         // public subset any unrelated viewer could read before it closed.
-        const account =
-          input.caller === null || member.closed
-            ? null
-            : await sharedAccount(tx, input.caller);
         const scope: HistoryScope = member.closed
           ? 'public'
-          : input.decide(member.actorId, account);
+          : input.decide(
+              member.actorId,
+              input.caller === null
+                ? null
+                : await sharedAccount(tx, input.caller),
+            );
         const groups = await recordGroups(tx, member.actorId, scope);
         const page = await historyPage(tx, {
           actorId: member.actorId,

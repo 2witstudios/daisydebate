@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { eraseRoomClosureSubject } from '@daisy/db/testing';
+import { eraseRoomAccountClosure } from '@daisy/db/testing';
 import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drawRoomAt } from './room-draw.test-support';
@@ -20,7 +20,7 @@ const transitions = { closeRoom, eraseSeats, activeRoomMembers };
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 
 const erase = (f: Fixture, subject: { userId: string; actorId: string }) =>
-  eraseRoomClosureSubject(
+  eraseRoomAccountClosure(
     f.sql,
     transitions,
     subject,

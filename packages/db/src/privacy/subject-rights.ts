@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { RoomClosureTransitions } from '../room-closure-privacy';
+import type { RoomClosureTransitions } from '../room-account-closure';
 import { subjectRightsAdoption } from './adoption';
 import type { PrivacySubject } from './contracts';
 import {

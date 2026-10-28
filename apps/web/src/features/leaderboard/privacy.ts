@@ -96,9 +96,9 @@ export const privacySections: readonly PrivacySection[] = [
         tag: 'blind judging',
       },
       {
-        title: 'Deleted accounts',
-        where: 'Name and image removed. Rating and history stay.',
-        tag: 'tombstone',
+        title: 'Closed accounts',
+        where: 'Username stays, marked closed. Email and image removed.',
+        tag: 'closed',
       },
       {
         title: 'Provisional debaters',

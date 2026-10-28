@@ -26,7 +26,7 @@ export function Podium({ rows, closed }: PodiumProps) {
       {rows.map((row) => (
         <li key={row.key} className="flex">
           <Link
-            href={row.href ?? '#'}
+            href={row.href}
             aria-label={rowLabel(row)}
             className={cn(
               'flex min-w-0 flex-1 flex-col gap-3 rounded-lg border bg-surface p-5 text-ink no-underline shadow-1 hover:no-underline max-compact:p-3',

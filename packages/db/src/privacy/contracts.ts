@@ -1,5 +1,8 @@
 import type { AuthorizationTransaction } from '../authorization';
 
+/** When a step runs: before sign-in rows go, or after the account closes. */
+export const privacyPhases = ['before-auth', 'after-close'] as const;
+
 export type PrivacySubject = {
   readonly userId: string;
   readonly actorId: string;
@@ -18,7 +21,7 @@ export type PrivacyExport = Readonly<
  */
 export type PrivacyAdopter = {
   readonly id: string;
-  readonly phase: 'before-auth' | 'after-close';
+  readonly phase: (typeof privacyPhases)[number];
   readonly erase: (
     tx: AuthorizationTransaction,
     subject: PrivacySubject,

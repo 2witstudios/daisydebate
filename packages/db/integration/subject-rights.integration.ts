@@ -67,13 +67,16 @@ test('closing an account through every feature step keeps the competitive record
       const [beta] =
         await fixture.sql`select count(*)::int as n from account_beta_access where user_id=${subject.userId}`;
       const reclaim = await rejectedBy(() =>
-        fixture.insert('users', { id: createId(), username: subject.userId }),
+        fixture.insert('users', {
+          id: createId(),
+          username: subject.userId.toUpperCase(),
+        }),
       );
       assert({
         given:
           'a member with an email, a bounce suppression, beta access and a played Round',
         should:
-          'delete the email, name, image and beta state, and keep the account row id, username, actor link, suppression hash and resolution, with the username never reclaimable',
+          'delete the email, name, image and beta state, and keep the account row id, username, actor link, suppression hash and resolution, with the username never reclaimable in any casing',
         actual: {
           alreadyErased: result.alreadyErased,
           account,

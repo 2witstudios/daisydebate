@@ -6,7 +6,11 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
-import type { PrivacyExport, PrivacySubject } from './contracts';
+import type {
+  PrivacyAdopter,
+  PrivacyExport,
+  PrivacySubject,
+} from './contracts';
 import {
   planPrivacyErasure,
   planPrivacyExport,
@@ -77,7 +81,7 @@ async function eraseAdopters(
   subject: PrivacySubject,
   now: string,
   adoption: PrivacyAdoption,
-  phase: 'before-auth' | 'after-close',
+  phase: PrivacyAdopter['phase'],
 ) {
   for (const adopter of adoption.filter((item) => item.phase === phase))
     await adopter.erase(tx, subject, { now });
@@ -142,13 +146,14 @@ export async function runPrivacyErasure(
   });
 }
 
+const exportShape = z.record(
+  z.string(),
+  z.array(z.record(z.string(), z.json())),
+);
+
 /** Every adopter returns its own tables as plain JSON rows, never another's. */
 function checkedExport(result: PrivacyExport) {
-  if (
-    !z
-      .record(z.string(), z.array(z.record(z.string(), z.json())))
-      .safeParse(result).success
-  )
+  if (!exportShape.safeParse(result).success)
     throw createAppError('VALIDATION');
   return result;
 }

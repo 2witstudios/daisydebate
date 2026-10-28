@@ -38,8 +38,8 @@ export type LadderRow = {
   /** True while the viewer judges this debater: no rating or rank. */
   readonly masked: boolean;
   readonly selected: boolean;
-  /** Opens the detail; null for a deleted account, which is not a link. */
-  readonly href: string | null;
+  /** Opens the detail; a closed account keeps its link (ADR 0087). */
+  readonly href: string;
 };
 
 export type Champion = {
