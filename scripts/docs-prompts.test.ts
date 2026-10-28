@@ -90,6 +90,32 @@ describe('DOCUMENTATION_PROMPTS', async () => {
   });
 });
 
+describe('merge-routed prompts', async () => {
+  // Merge runs spent 20-30 minutes re-verifying every page on every merge,
+  // so the consult timed out while the run was still going (PR #497).
+  test('scope each run to the pages that cite a changed file', async () => {
+    const merge = ['technical-docs', 'user-docs', 'blog'] as const;
+    const all = (pattern: RegExp) =>
+      merge.every((pipeline) => pattern.test(DOCUMENTATION_PROMPTS[pipeline]));
+    assert({
+      given: 'a prompt a merge routes to',
+      should:
+        'pick pages by their registry source refs, no-op when none match, and fold stale pages into their open task',
+      actual: {
+        pick: all(/only on the pages whose Page Registry source refs include/i),
+        noop: all(/record a no-op run without reading page bodies/i),
+        stale: all(
+          /add this merge to that task instead of reviewing it again/i,
+        ),
+        reviewsUnscoped: /only on the pages whose Page Registry/i.test(
+          DOCUMENTATION_PROMPTS['accuracy-review'],
+        ),
+      },
+      expected: { pick: true, noop: true, stale: true, reviewsUnscoped: false },
+    });
+  });
+});
+
 describe('promptFor', async () => {
   test('returns the versioned prompt for a pipeline', async () => {
     const actual = promptFor('accuracy-review');

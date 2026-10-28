@@ -101,9 +101,8 @@ jobs:
           DOC_BODY: ${{ github.event.pull_request.body }}
           PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
         run: |
-          DOC_CHANGED_FILES="$(git diff --name-only \
-            "${{ github.event.pull_request.base.sha }}" \
-            "${{ github.event.pull_request.merge_commit_sha }}" | paste -sd, -)"
+          DOC_CHANGED_FILES="$(bun scripts/docs-merge-files.ts \
+            "${{ github.event.pull_request.merge_commit_sha }}")"
           export DOC_CHANGED_FILES
           bun scripts/dispatch-docs.ts
       - name: Report the failed dispatch to incidents
