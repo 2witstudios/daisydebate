@@ -1,29 +1,5 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-import {
-  identifierField as id,
-  personalField,
-  plainField as none,
-  secretField,
-  type FieldShape,
-} from './privacy/field-shapes';
-
-const fields: readonly FieldShape[] = [
-  id('round_participant_id'),
-  id('round_id'),
-  none('freeze_revision'),
-  none('status'),
-  none('attempts'),
-  secretField('lease_token_digest'),
-  none('lease_expires_at'),
-  none('model'),
-  personalField('report', true),
-  none('input_tokens'),
-  none('output_tokens'),
-  none('completed_at'),
-  none('created_at'),
-];
-
 /**
  * Round analysis rows (DEC-247): each seat's report is personal and private
  * to that seat's debater, and quotes both sides' speech. Subject erasure
@@ -34,25 +10,7 @@ const fields: readonly FieldShape[] = [
  */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
   id: 'round-analysis',
-  phase: 'after-scrub',
-  fields: fields.map((field) => ({
-    table: 'round_analyses',
-    ...field,
-    storage: 'postgres' as const,
-    owner: 'ANALYSIS',
-    purpose:
-      'Analyse one debater’s performance in a completed Round for that debater (DEC-247)',
-    lawfulBasis: {
-      status: 'pending' as const,
-      decision: 'jc0qcdvpkmqzrelpaesi3pah',
-    },
-    retention: {
-      status: 'approved' as const,
-      decision: 'wx2xw1hckqal97frntq4o7ub',
-      rule: '180 days after the analysis job is created',
-    },
-    erasure: 'delete' as const,
-  })),
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(sql`insert into round_analyses
         (round_id,round_participant_id,freeze_revision,status,attempts,model,completed_at)

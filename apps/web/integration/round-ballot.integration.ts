@@ -266,7 +266,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       actual: () => operation.submit(principal, roundId, first),
       code: 'AUTHORIZATION',
     });
-    await f.sql`update users set username=null,email_verified=false,deleted_at=clock_timestamp() where id=${judges[0]!.userId}`;
+    await f.sql`update users set email_verified=false,deleted_at=clock_timestamp() where id=${judges[0]!.userId}`;
     await assertRejects({
       given: 'an erased assigned judge retries the accepted ballot',
       should: 'refuse canonical erasure before replay',

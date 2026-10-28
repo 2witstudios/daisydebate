@@ -5,10 +5,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { AuthorizationTransaction } from '../authorization';
 import { createMessagingPrivacyAdopter } from '../messaging/privacy';
-import { messagingPrivacyExpectedColumns } from './messaging-declarations';
 import {
-  erasePrivacySubject,
-  exportPrivacySubject,
+  runPrivacyErasure,
+  runPrivacyExport,
   type PrivacyVerificationBinding,
 } from './operations';
 
@@ -21,7 +20,6 @@ const subject = {
 
 function messagingExportDatabase(
   inputFiles: readonly Readonly<Record<string, unknown>>[],
-  includeObjectKey = false,
 ) {
   const dialect = new PgDialect();
   const statements: { sql: string; params: unknown[] }[] = [];
@@ -63,7 +61,7 @@ function messagingExportDatabase(
           .filter((row) => row.owner_actor_id === actorId)
           .map((row) => {
             const projection = { ...row };
-            if (!includeObjectKey) delete projection.object_key;
+            delete projection.object_key;
             return projection;
           });
       }
@@ -95,16 +93,9 @@ test('canonical export accepts the MSG adopter own file projection only', async 
       owner_actor_id: 'cdefghijklmnopqrstuvwxyz',
     },
   ]);
-  const result = await exportPrivacySubject(database, subject, {
-    requiredAdopters: [
-      {
-        id: 'messaging',
-        phase: 'before-auth',
-        expectedColumns: messagingPrivacyExpectedColumns,
-      },
-    ],
-    adopters: [createMessagingPrivacyAdopter()],
-  });
+  const result = await runPrivacyExport(database, subject, [
+    createMessagingPrivacyAdopter(),
+  ]);
   const filesQuery = statements.find((statement) =>
     statement.sql.includes('from messaging_files'),
   );
@@ -138,38 +129,25 @@ test('canonical export accepts the MSG adopter own file projection only', async 
   });
 });
 
-test('canonical export rejects an MSG projection that leaks object_key', async () => {
-  const { database } = messagingExportDatabase([ownFile], true);
-  await assertRejects({
-    given: 'a malformed messaging adopter projection containing object_key',
-    should: 'fail closed through canonical declaration validation',
-    actual: () =>
-      exportPrivacySubject(database, subject, {
-        requiredAdopters: [
-          {
-            id: 'messaging',
-            phase: 'before-auth',
-            expectedColumns: messagingPrivacyExpectedColumns,
-          },
-        ],
-        adopters: [createMessagingPrivacyAdopter()],
-      }),
-    code: 'VALIDATION',
+test('the MSG file export never selects its internal object key', async () => {
+  const { database, statements } = messagingExportDatabase([ownFile]);
+  await runPrivacyExport(database, subject, [createMessagingPrivacyAdopter()]);
+  const filesQuery = statements.find((statement) =>
+    statement.sql.includes('from messaging_files'),
+  );
+  assert({
+    given: 'the messaging step exporting a subject’s own files',
+    should: 'project named columns that exclude object_key',
+    actual: /object_key/.test(filesQuery?.sql ?? 'object_key'),
+    expected: false,
   });
 });
 
 test('canonical export accepts an empty MSG file projection', async () => {
   const { database } = messagingExportDatabase([]);
-  const result = await exportPrivacySubject(database, subject, {
-    requiredAdopters: [
-      {
-        id: 'messaging',
-        phase: 'before-auth',
-        expectedColumns: messagingPrivacyExpectedColumns,
-      },
-    ],
-    adopters: [createMessagingPrivacyAdopter()],
-  });
+  const result = await runPrivacyExport(database, subject, [
+    createMessagingPrivacyAdopter(),
+  ]);
   assert({
     given: 'a subject with no messaging file rows',
     should: 'return the required empty file table projection',
@@ -202,7 +180,7 @@ test('verification cleanup rejects noncanonical bindings before any transaction'
         'noncanonical whitespace or missing verification producer bindings',
       should: 'refuse cleanup instead of leaving pending subject tokens alive',
       actual: () =>
-        erasePrivacySubject(
+        runPrivacyErasure(
           database,
           {
             subject,
@@ -210,7 +188,7 @@ test('verification cleanup rejects noncanonical bindings before any transaction'
             vendors: [],
             jobIds: [],
           },
-          { requiredAdopters: [], adopters: [] },
+          [],
           binding,
         ),
       code: 'VALIDATION',

@@ -3,11 +3,8 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyAdopter,
-} from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
 import {
   bindings,
   now,
@@ -16,11 +13,15 @@ import {
 } from './privacy.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-const adoption = { requiredAdopters: [], adopters: [] };
+const adoption: readonly PrivacyAdopter[] = [];
 test('local erasure is atomic and removes only bound auth subjects', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
-      const result = await erasePrivacySubject(
+      await client.unsafe('update users set username=$1 where id=$2', [
+        `closed${userId.slice(0, 8)}`,
+        userId,
+      ]);
+      const result = await runPrivacyErasure(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
         adoption,
@@ -54,7 +55,7 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         given:
           'subject and unrelated auth tokens, including opaque verification',
         should:
-          'scrub subject, remove auth binding, retain unrelated tokens and actor',
+          'clear private fields, keep the username, remove auth binding, retain unrelated tokens and actor',
         actual: [
           result,
           users[0],
@@ -67,7 +68,7 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         expected: [
           { alreadyErased: false, jobs: [] },
           {
-            username: null,
+            username: `closed${userId.slice(0, 8)}`,
             email: null,
             name: '',
             image: null,
@@ -92,7 +93,6 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
       const early: PrivacyAdopter = {
         id: 'early',
         phase: 'before-auth',
-        fields: [],
         export: async () => ({}),
         erase: async (tx) => {
           await tx.execute(sql`delete from session where user_id=${userId}`);
@@ -101,21 +101,14 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
       const late: PrivacyAdopter = {
         ...early,
         id: 'late',
-        phase: 'after-scrub',
+        phase: 'after-close',
         erase: async () => {
           throw new Error('adopter failed');
         },
       };
-      const adopted = {
-        requiredAdopters: [early, late].map((item) => ({
-          id: item.id,
-          phase: item.phase,
-          expectedColumns: {},
-        })),
-        adopters: [early, late],
-      };
+      const adopted = [early, late];
       await expect(
-        erasePrivacySubject(
+        runPrivacyErasure(
           database,
           { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
           adopted,
@@ -148,7 +141,7 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
 test('export returns only bound subject data and rejects a mismatched principal', async () => {
   await withPrivacySubject(
     async ({ database, userId, actorId, otherId, email }) => {
-      const result = await exportPrivacySubject(
+      const result = await runPrivacyExport(
         database,
         { userId, actorId },
         adoption,
@@ -167,11 +160,7 @@ test('export returns only bound subject data and rejects a mismatched principal'
         given: 'another user ID paired with the subject actor',
         should: 'refuse subject impersonation',
         actual: () =>
-          exportPrivacySubject(
-            database,
-            { userId: otherId, actorId },
-            adoption,
-          ),
+          runPrivacyExport(database, { userId: otherId, actorId }, adoption),
         code: 'AUTHORIZATION',
       });
     },

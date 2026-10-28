@@ -182,7 +182,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
         'private',
       ],
     });
-    await f.sql`update users set username=null, deleted_at=statement_timestamp(),version=version+1 where id=${f.guest.userId}`;
+    await f.sql`update users set deleted_at=statement_timestamp(),version=version+1 where id=${f.guest.userId}`;
     await assertRejects({
       given: 'a seated account becomes erased',
       should: 'mask its Round read despite earlier membership',

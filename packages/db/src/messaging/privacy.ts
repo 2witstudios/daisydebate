@@ -13,13 +13,9 @@ import {
   survivingDms,
 } from './retained-dm';
 import { appendOutboxEvent } from '../outbox';
-import { exportRows } from '../privacy/owned-tables';
+import { exportRows } from '../privacy/export-rows';
 import type { AuthorizationTransaction } from '../authorization';
-import {
-  messagingPrivacyFields,
-  type PrivacyAdopter,
-  type PrivacyExport,
-} from '../privacy';
+import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
@@ -174,7 +170,6 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
   return {
     id: 'messaging',
     phase: 'before-auth',
-    fields: messagingPrivacyFields,
     async erase(tx, subject, context) {
       const now = z.iso.datetime().parse(context.now);
       await lockSubjectMessaging(tx, subject.actorId);

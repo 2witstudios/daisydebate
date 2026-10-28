@@ -35,7 +35,7 @@ test('Presence erases and exports only the member’s own visibility choice', as
       ),
     ],
     expected: [
-      'after-scrub',
+      'after-close',
       [['presence_settings', [actorId]]],
       {
         presence_settings: [

@@ -1,16 +1,4 @@
 export type { PrivacyExport, PrivacyAdopter } from './contracts';
-export { messagingPrivacyFields } from './messaging-declarations';
-export {
-  betaAccessPrivacyAdopter,
-  betaAccessPrivacyExpectedColumns,
-} from './beta-access-declarations';
-export {
-  entitlementGrantPrivacyAdopter,
-  entitlementGrantPrivacyExpectedColumns,
-} from './entitlement-grant-declarations';
-export {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyVerificationBinding,
-} from './operations';
+export type { PrivacyVerificationBinding } from './operations';
+export { erasePrivacySubject, exportPrivacySubject } from './subject-rights';
 export { deliverPrivacyJob } from './vendor-jobs';

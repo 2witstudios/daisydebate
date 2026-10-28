@@ -4,7 +4,11 @@ Status: accepted. Extends [ADR 0019](0019-token-secret-ownership.md) (what
 must never be logged) and [ADR 0029](0029-competitive-schema-foundation.md)
 (the tombstone transaction, which this ADR's erasure planner drives).
 Amended by [ADR 0037](0037-error-tracking-and-product-analytics.md) for the
-vendor surfaces this ADR's classification applies to.
+vendor surfaces this ADR's classification applies to. §1 and §3 are
+superseded by [ADR 0087](0087-compliance-from-obligations.md): there is no
+per-field classification or data inventory, and compliance is recorded per
+data class in [compliance](../operations/compliance.md). §2, §4 and §5
+stand, except that erasure keeps the username (ADR 0087).
 
 ## Context
 
@@ -121,8 +125,7 @@ classified surfaces under §1's rule, not an exception to it — a
 `sensitive` and `secret` values never may. Whether a given payload kind is
 delivered to a browser (the delivery-side rule) or stored only for the
 realtime service's own internal use (`isPayloadStorableOnTopic`), it
-classifies every field before it may exist (see [privacy](../operations/privacy.md)
-for the current split).
+classifies every field before it may exist.
 
 The registry and its gate (`bun privacy`) are PRIV-3's mechanism; this ADR
 fixes the shape the gate enforces.
@@ -202,8 +205,7 @@ user actually agreed to from what the deployment happened to expose.
   `privacy_jobs` table and migration, and the retry worker.
 - PRIV-6 implements the product event registry, the consent banner and
   `consent_record` migration against this ADR's consent model.
-- `docs/operations/privacy.md` is the operator-facing document; this ADR is
-  the rule it points at, not a duplicate of it.
+- `docs/operations/compliance.md` is the operator-facing document (ADR 0087).
 - Any new `sensitive` category needs its own ADR before a column or field
   may use it; none exists today.
 

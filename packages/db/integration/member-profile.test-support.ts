@@ -1,5 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { Fixture } from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
+import { createDatabase, type Database } from '../src';
+import { createAuthorizationSubject } from './authorization.test-support';
+import { withFixture, type Fixture } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
 import { at } from './standings-fixtures';
 
@@ -85,3 +88,73 @@ export const forfeitCommand = (
     },
     'command_id',
   );
+
+const { databaseUrl: url } = requireTestServices(process.env);
+
+/** The owner's scope only for the bound, current member themself. */
+const ownerOnly = (
+  memberActorId: string,
+  account: {
+    readonly actorId: string | null;
+    readonly member: boolean;
+    readonly erased: boolean;
+  } | null,
+) =>
+  account !== null &&
+  account.member &&
+  !account.erased &&
+  account.actorId === memberActorId
+    ? ('owner' as const)
+    : ('public' as const);
+
+export const profileOf = (
+  database: Database,
+  input: {
+    readonly username: string;
+    readonly caller: {
+      readonly userId: string;
+      readonly actorId: string;
+    } | null;
+    readonly before?: string | null;
+    readonly limit?: number;
+  },
+) =>
+  database.readMemberProfile({
+    username: input.username,
+    caller: input.caller,
+    decide: ownerOnly,
+    before: input.before ?? null,
+    limit: input.limit ?? 10,
+  });
+
+/** A profile the test expects to exist. */
+export const present = async <T>(read: Promise<T | null>): Promise<T> => {
+  const value = await read;
+  if (value === null) throw new Error('Expected a member profile');
+  return value;
+};
+
+export const tally = (
+  groups: readonly { role: string; outcome: string | null; rounds: number }[],
+) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
+
+/** A fixture, a database over it and one live member, closed after `run`. */
+export const withProfileFixture = (
+  run: (context: {
+    readonly fixture: Fixture;
+    readonly database: Database;
+    readonly subject: { readonly userId: string; readonly actorId: string };
+  }) => Promise<void>,
+) =>
+  withFixture(url, async (fixture) => {
+    const database = createDatabase({ url, nextActorId: createId });
+    try {
+      await run({
+        fixture,
+        database,
+        subject: await createAuthorizationSubject(fixture),
+      });
+    } finally {
+      await database.close();
+    }
+  });

@@ -30,6 +30,16 @@
   }
 }
 
+/* Whatever the page scrolls into view (keyboard focus, a target link)
+   stops clear of the phone's fixed tab bar, never under it. */
+@media (width < 641px) {
+  :root:has(.grid-shell) {
+    scroll-padding-bottom: calc(
+      var(--spacing-tab-bar) + env(safe-area-inset-bottom)
+    );
+  }
+}
+
 @utility area-rail {
   grid-area: rail;
 }

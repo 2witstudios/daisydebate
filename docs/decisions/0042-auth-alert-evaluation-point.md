@@ -238,7 +238,7 @@ self-approve") — tracked as a follow-up, not built here.
 category `none` under ADR 0036 §1: a timestamp, a bounded count, or a fixed
 enum label (status class, retention target name) — never an email, token,
 IP, or other identifier. `packages/db/src/schema/data-inventory.ts` (the
-single declaration ADR 0036 §3 and privacy.md describe) does not exist yet
+single declaration ADR 0036 §3 described) does not exist
 for any Redis key, including the pre-existing rate-limit and presence
 namespaces; this ADR follows that same not-yet-built state rather than
 introduce a one-off inventory file for only these new keys. When PRIV-3

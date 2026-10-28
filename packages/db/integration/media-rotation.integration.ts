@@ -63,7 +63,7 @@ for (const failure of [
         if (failure !== 'pending')
           await store.settleMediaMutation(mutation, 'succeeded');
         if (failure === 'erased')
-          await f.sql`update users set deleted_at=clock_timestamp(),email=null,username=null,image=null,name='' where id=(select user_id from actors where id=${judge.actorId})`;
+          await f.sql`update users set deleted_at=clock_timestamp(),email=null,image=null,name='' where id=(select user_id from actors where id=${judge.actorId})`;
         const proof = await store.prepareMediaAbsenceProof(claim.fence);
         if (failure === 'terminal')
           await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${roundId}`;

@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fakeSql } from '../index.test-support';
 import { accountAgePrivacyAdopter } from '../account-age';
-import { exportPrivacySubject } from './operations';
+import { runPrivacyExport } from './operations';
 import { deliverPrivacyJob } from './vendor-jobs';
 import type { PrivacyExport } from './contracts';
 
@@ -25,43 +25,25 @@ const input = {
   retryAt: '2026-10-09T00:01:00.000Z',
 };
 
-test('canonical export rejects undeclared tables, columns and non-JSON values', async () => {
+test('canonical export rejects a table another step already exported and non-JSON values', async () => {
   const invalid: unknown[] = [
-    {},
-    { account_age: [], extra: [] },
+    { users: [] },
     { account_age: null },
     { account_age: [{ birth_month: new Date(input.now) }] },
-    { account_age: [{ secret: 'not-exportable' }] },
   ];
   for (const result of invalid) {
     const fake = fakeSql([[account], []]);
     await assertRejects({
-      given: 'an invalid injected adopter projection',
-      should: 'reject before exposing personal data',
+      given: 'an injected step projecting the users table or a non-JSON value',
+      should: 'reject the whole export',
       code: 'VALIDATION',
       actual: () =>
-        exportPrivacySubject(drizzle({ client: fake.client }), subject, {
-          requiredAdopters: [
-            {
-              id: 'account-age',
-              phase: 'after-scrub',
-              expectedColumns: {
-                account_age: [
-                  'user_id',
-                  'birth_month',
-                  'version',
-                  'recorded_at',
-                ],
-              },
-            },
-          ],
-          adopters: [
-            {
-              ...accountAgePrivacyAdopter,
-              export: async () => result as PrivacyExport,
-            },
-          ],
-        }),
+        runPrivacyExport(drizzle({ client: fake.client }), subject, [
+          {
+            ...accountAgePrivacyAdopter,
+            export: async () => result as PrivacyExport,
+          },
+        ]),
     });
   }
 });

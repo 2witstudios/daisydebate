@@ -1,11 +1,8 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  deliverPrivacyJob,
-} from '../privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../privacy/operations';
+import { deliverPrivacyJob } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { admitParticipants } from '../beta-access-testing';
 import { socialPrivacyAdoption } from '../social-privacy-composition';
@@ -98,7 +95,7 @@ export async function createMessagingTestFixture(client: SQL) {
       exportSubject: (subjectActorId: string) => {
         if (![actorId, otherActorId].includes(subjectActorId))
           throw new Error('Fixture actor required');
-        return exportPrivacySubject(
+        return runPrivacyExport(
           drizzle({ client }),
           {
             userId: subjectActorId === actorId ? userId : otherUserId,
@@ -111,7 +108,7 @@ export async function createMessagingTestFixture(client: SQL) {
         if (![actorId, otherActorId].includes(subjectActorId))
           throw new Error('Fixture actor required');
         const subjectUserId = subjectActorId === actorId ? userId : otherUserId;
-        return erasePrivacySubject(
+        return runPrivacyErasure(
           drizzle({ client }),
           {
             subject: { userId: subjectUserId, actorId: subjectActorId },
@@ -119,27 +116,7 @@ export async function createMessagingTestFixture(client: SQL) {
             vendors: typingJobId ? ['messaging-typing'] : [],
             jobIds: typingJobId ? [typingJobId] : [],
           },
-          {
-            requiredAdopters: [
-              ...socialPrivacyAdoption().requiredAdopters,
-              {
-                id: 'account-age',
-                phase: 'after-scrub',
-                expectedColumns: {
-                  account_age: [
-                    'user_id',
-                    'birth_month',
-                    'version',
-                    'recorded_at',
-                  ],
-                },
-              },
-            ],
-            adopters: [
-              ...socialPrivacyAdoption().adopters,
-              accountAgePrivacyAdopter,
-            ],
-          },
+          [...socialPrivacyAdoption(), accountAgePrivacyAdopter],
           [{ purpose: 'sign-in', subject: 'email' }],
         );
       },

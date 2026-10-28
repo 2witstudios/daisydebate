@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ec944507-f8d0-475e-9d31-22d365f8b6ed",
+  "id": "5d9517ad-72d4-4baf-a70e-c0c089bad72b",
   "prevIds": [
     "611fdca8-a827-42ab-aedc-6131385ac6fa"
   ],
@@ -201,12 +201,6 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_actor_states",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "messaging_channel_streams",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3685,45 +3679,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "channel_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_channel_streams"
-    },
-    {
-      "type": "bigint",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "message_sequence",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_channel_streams"
-    },
-    {
-      "type": "bigint",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "change_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_channel_streams"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -3803,6 +3758,32 @@
       "generated": null,
       "identity": null,
       "name": "title_author_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "message_sequence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "change_version",
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_channels"
@@ -15082,23 +15063,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "channel_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "messaging_channels",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "messaging_channel_streams_channel_id_messaging_channels_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_channel_streams"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "title_author_actor_id"
       ],
       "schemaTo": "public",
@@ -17680,16 +17644,6 @@
     },
     {
       "columns": [
-        "channel_id"
-      ],
-      "nameExplicit": false,
-      "name": "messaging_channel_streams_pkey",
-      "schema": "public",
-      "table": "messaging_channel_streams",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -18836,13 +18790,6 @@
       "table": "messaging_actor_states"
     },
     {
-      "value": "\"message_sequence\" between 0 and 9007199254740991 and \"change_version\" between \"message_sequence\" and 9007199254740991",
-      "name": "messaging_channel_streams_counters",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_channel_streams"
-    },
-    {
       "value": "\"kind\" in ('dm', 'private_group')",
       "name": "messaging_channels_kind",
       "entityType": "checks",
@@ -18859,6 +18806,13 @@
     {
       "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group'))",
       "name": "messaging_channels_policy",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "value": "\"message_sequence\" between 0 and 9007199254740991 and \"change_version\" between \"message_sequence\" and 9007199254740991",
+      "name": "messaging_channels_counters",
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_channels"
@@ -20075,7 +20029,7 @@
       "table": "usage_reservations"
     },
     {
-      "value": "\"deleted_at\" is null or (\"email\" is null and \"username\" is null and \"image\" is null and \"name\" = '')",
+      "value": "\"deleted_at\" is null or (\"email\" is null and \"image\" is null and \"name\" = '')",
       "name": "users_tombstone_scrubbed",
       "entityType": "checks",
       "schema": "public",

@@ -21,8 +21,10 @@ export const debating = inArray(roundParticipants.role, [...debateSides]);
 type HistorySeat = {
   readonly role: DebateRole;
   readonly kind: 'human' | 'bot';
-  /** Null for a member who has left Daisy. */
+  /** Null only for a seat with no name on record. */
   readonly label: string | null;
+  /** A member whose account is closed: their name stays on the record (ADR 0087). */
+  readonly closed: boolean;
 };
 
 export type HistoryRow = {
@@ -87,6 +89,7 @@ export async function historyRows(
       role: roundParticipants.role,
       kind: actors.kind,
       username: users.username,
+      closedAt: users.deletedAt,
       botName: sql<
         string | null
       >`coalesce(${botProfiles.name}, ${aiJudgeProfiles.name})`,
@@ -122,6 +125,7 @@ export async function historyRows(
             seat.kind === 'bot'
               ? (seat.botName ?? null)
               : (seat.username ?? null),
+          closed: seat.kind !== 'bot' && seat.closedAt !== null,
         })),
     };
   });
