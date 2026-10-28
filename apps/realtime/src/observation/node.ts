@@ -234,7 +234,10 @@ export function createObservationNode({
           b.permit?.partition === partition &&
           b.permit.disclosureRevision < snap.disclosureRevision,
       );
-      if (stale.length > 0) void admit(s, stale, 'renewal');
+      if (stale.length > 0)
+        void admit(s, stale, 'renewal').catch((error) =>
+          onError('observation.permit', error),
+        );
       await deliver(s, snap);
     })()
       .catch((error) => onError('observation.fetch', error))
@@ -301,7 +304,8 @@ export function createObservationNode({
         partition: permit.partition,
         disclosureRevision: permit.disclosureRevision,
         minimumContentRevision: permit.minimumContentRevision,
-        validForMs: Math.max(1, permit.expiresAt - instant),
+        // Floored: the browser's deadline never outlasts the server permit.
+        validForMs: Math.max(1, Math.floor(permit.expiresAt - instant)),
       });
       const held = s.snapshots.get(permit.partition);
       if (
@@ -403,7 +407,9 @@ export function createObservationNode({
         queueMicrotask(() => {
           const batch = target.joining;
           target.joining = [];
-          void admit(target, batch, 'admission');
+          void admit(target, batch, 'admission').catch((error) =>
+            onError('observation.permit', error),
+          );
         });
       }
       return true;
@@ -430,7 +436,10 @@ export function createObservationNode({
           (b) => b.connection.principal.actorId === actorId,
         );
         for (const binding of affected) binding.permit = null;
-        if (affected.length > 0) void admit(s, affected, 'renewal');
+        if (affected.length > 0)
+          void admit(s, affected, 'renewal').catch((error) =>
+            onError('observation.permit', error),
+          );
       }
     },
     /** A Pub/Sub hint: metadata only; the body is fetched from Redis once. */
@@ -505,7 +514,10 @@ export function createObservationNode({
           )
             due.push(binding);
         }
-        if (due.length > 0) void admit(s, due, 'renewal');
+        if (due.length > 0)
+          void admit(s, due, 'renewal').catch((error) =>
+            onError('observation.permit', error),
+          );
       }
     },
     /** Stops every enqueue at once; restart is a new node incarnation. */

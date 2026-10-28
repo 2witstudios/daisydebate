@@ -25,7 +25,8 @@ function harness({
   viewers?: number;
   decide?: (actorId: string) => PermitDecision;
 } = {}) {
-  let clock = 1_000;
+  // Fractional, like performance.now() in production.
+  let clock = 1_000.25;
   const calls = {
     permits: [] as { principals: number; lane: string }[],
     reads: 0,
@@ -387,5 +388,30 @@ describe('observation node authority', () => {
         { resources: 0, bindings: 0, heldBytes: 0 },
       ],
     });
+  });
+});
+
+test('a fractional fact deadline still yields a whole-millisecond ready', async () => {
+  const h = harness({
+    decide: () => ({
+      status: 'allowed',
+      partition: 'members',
+      disclosureRevision: 1,
+      minimumContentRevision: 0,
+      // A session expiry mapped onto performance.now() is rarely whole.
+      validUntil: 1_000.25 + 3_000.7,
+    }),
+  });
+  h.observeAll();
+  await settle();
+  const ready = h.connections[0]!.frames.find(
+    (frame) => frame.type === 'observation.ready',
+  );
+  assert({
+    given: 'facts that expire at a fractional monotonic instant',
+    should:
+      'promise the browser the floored lifetime, never longer than the permit',
+    actual: ready?.validForMs,
+    expected: 3_000,
   });
 });
