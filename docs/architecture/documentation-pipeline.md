@@ -58,7 +58,10 @@ creation workflow.
    from its first parent, for notify-merge, the replay workflow and
    `docs:reconcile` alike, because the PR's `base.sha` is only its base at
    the last sync and also listed everything main gained since (PR #497: 203
-   files for its own 17). A merge-routed run then works only on the pages
+   files for its own 17). The diff disables rename detection, so a renamed
+   path is listed under its old and its new name and pages citing either
+   side are re-reviewed rather than skipped (ISSUE-860). A merge-routed run
+   then works only on the pages
    whose Page Registry source refs include a changed file, records a no-op
    when none do, and adds the merge to an already-stale page's open review
    task instead of reviewing the page again: runs that re-verified every page

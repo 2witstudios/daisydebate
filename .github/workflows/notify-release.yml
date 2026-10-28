@@ -40,9 +40,9 @@ jobs:
           TAG="${{ github.event.release.tag_name }}"
           PREV="$(git tag --sort=-creatordate | grep -A1 -Fx "$TAG" | tail -1)"
           if [ -n "$PREV" ] && [ "$PREV" != "$TAG" ]; then
-            DOC_CHANGED_FILES="$(git diff --name-only "$PREV" "$GITHUB_SHA" | paste -sd, -)"
+            DOC_CHANGED_FILES="$(git diff --name-only --no-renames "$PREV" "$GITHUB_SHA" | paste -sd, -)"
           else
-            DOC_CHANGED_FILES="$(git diff --name-only "$GITHUB_SHA^" "$GITHUB_SHA" | paste -sd, -)"
+            DOC_CHANGED_FILES="$(git diff --name-only --no-renames "$GITHUB_SHA^" "$GITHUB_SHA" | paste -sd, -)"
           fi
           export DOC_CHANGED_FILES
           bun scripts/dispatch-docs.ts
