@@ -6,6 +6,7 @@ import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startObservationPurges } from './observation-purges';
+import { privacyJobPort, startPrivacyJobs } from './privacy-jobs';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
@@ -183,6 +184,19 @@ const observationPurges = startObservationPurges({
   logger: app.logger,
   timers: workerTimers,
 });
+// ISSUE-833: an erasure's queued vendor deletion jobs are delivered here,
+// retried with backoff and recorded, so no processor copy outlives its job.
+const privacyJobs = startPrivacyJobs({
+  due: (batch) => app.database.duePrivacyJobs(batch),
+  deliver: (job, now, retryAt) =>
+    app.database.deliverPrivacyJob(
+      { jobId: job.id, vendor: job.vendor, now, retryAt },
+      privacyJobPort(app, job.vendor),
+    ),
+  clock: app.clock,
+  logger: app.logger,
+  timers: workerTimers,
+});
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -192,6 +206,7 @@ async function shutdown() {
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
+  const privacyJobsStopped = privacyJobs.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
@@ -223,6 +238,7 @@ async function shutdown() {
         operatorApiStopped,
         filesStopped,
         observationPurgesStopped,
+        privacyJobsStopped,
         availabilityStopped,
         workersStopped,
         mediaRecoveryStopped,

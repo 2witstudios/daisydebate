@@ -11,6 +11,7 @@ type Execute = Pick<BunSQLDatabase, 'execute'>;
 export type DuePrivacyJob = {
   readonly id: string;
   readonly vendor: PrivacyVendor;
+  readonly attempts: number;
 };
 
 const MAX_DUE_BATCH = 128;
@@ -33,12 +34,10 @@ export async function duePrivacyJobs(
     input.limit > MAX_DUE_BATCH
   )
     throw createAppError('VALIDATION');
-  const read = (await database.execute(sql`select id, vendor from privacy_jobs
+  const read =
+    (await database.execute(sql`select id, vendor, attempts from privacy_jobs
     where status = 'pending' and retry_at <= ${input.now}::timestamptz
-    order by retry_at, id limit ${input.limit}`)) as unknown as {
-    id: string;
-    vendor: PrivacyVendor;
-  }[];
+    order by retry_at, id limit ${input.limit}`)) as unknown as DuePrivacyJob[];
   // A row the database checks admit is malformed: refuse before delivery.
   if (
     !read.every(

@@ -14,8 +14,8 @@ const input = {
 test('due jobs are read oldest-first within the limit', async () => {
   const fake = fakeSql([
     [
-      { id: 'abcdefghijklmnopqrstuvwx', vendor: 'posthog' },
-      { id: 'bcdefghijklmnopqrstuvwxy', vendor: 'beehiiv' },
+      { id: 'abcdefghijklmnopqrstuvwx', vendor: 'posthog', attempts: 0 },
+      { id: 'bcdefghijklmnopqrstuvwxy', vendor: 'beehiiv', attempts: 3 },
     ],
   ]);
   const due = await duePrivacyJobs(drizzle({ client: fake.client }), {
@@ -24,11 +24,11 @@ test('due jobs are read oldest-first within the limit', async () => {
   });
   assert({
     given: 'two committed due pending jobs',
-    should: 'return them in the read order with their vendors',
-    actual: due.map((job) => [job.id, job.vendor]),
+    should: 'return them in the read order with their vendors and attempts',
+    actual: due.map((job) => [job.id, job.vendor, job.attempts]),
     expected: [
-      ['abcdefghijklmnopqrstuvwx', 'posthog'],
-      ['bcdefghijklmnopqrstuvwxy', 'beehiiv'],
+      ['abcdefghijklmnopqrstuvwx', 'posthog', 0],
+      ['bcdefghijklmnopqrstuvwxy', 'beehiiv', 3],
     ],
   });
   assert({

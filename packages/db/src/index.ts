@@ -34,6 +34,15 @@ import { createBoundedTransaction } from './bounded-transaction';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { deliverObservationPurges } from './observation-purge-jobs';
 import { duePrivacyJobs } from './privacy/vendor-jobs';
+import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
+import {
+  erasePrivacySubject as runSubjectRightsErasure,
+  exportPrivacySubject as runSubjectRightsExport,
+} from './privacy/subject-rights';
+import type { PrivacyErasureInput } from './privacy/planner';
+import type { PrivacySubject } from './privacy/contracts';
+import type { PrivacyVerificationBinding } from './privacy/operations';
+import type { RoomClosureTransitions } from './room-account-closure';
 import { roundProtectedReads } from './round-protected-reads';
 import type { SQL } from 'bun';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
@@ -206,11 +215,39 @@ export function createDatabase({
         deliverObservationPurges(control, input, port),
       ),
     /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
-    duePrivacyJobs: (
-      input: Parameters<typeof duePrivacyJobs>[1],
-    ) =>
+    duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>
       instrumented(eventSink, 'duePrivacyJobs', () =>
         duePrivacyJobs(control, input),
+      ),
+    /** ISSUE-833: one job claimed, delivered through its port and recorded. */
+    deliverPrivacyJob: (
+      input: Parameters<typeof deliverPrivacyJobImpl>[1],
+      port: Parameters<typeof deliverPrivacyJobImpl>[2],
+    ) =>
+      instrumented(eventSink, 'deliverPrivacyJob', () =>
+        deliverPrivacyJobImpl(control, input, port),
+      ),
+    /**
+     * ISSUE-833: one member's subject rights (ADR 0087) through every
+     * feature's step composed once — erasure closes the account and keeps
+     * the competitive record; export reads it under one lock. Both run on
+     * this package's own handle; the caller supplies the engine's Room
+     * transitions and, for erasure, the verification bindings.
+     */
+    erasePrivacySubject: (
+      input: PrivacyErasureInput,
+      rooms: RoomClosureTransitions,
+      verificationBindings: readonly PrivacyVerificationBinding[],
+    ) =>
+      instrumented(eventSink, 'erasePrivacySubject', () =>
+        runSubjectRightsErasure(control, input, rooms, verificationBindings),
+      ),
+    exportPrivacySubject: (
+      subject: PrivacySubject,
+      rooms: RoomClosureTransitions,
+    ) =>
+      instrumented(eventSink, 'exportPrivacySubject', () =>
+        runSubjectRightsExport(control, subject, rooms),
       ),
     ...authOperations({ database: control, eventSink }),
     ...provisionalRetentionOperations({ database: control, eventSink }),

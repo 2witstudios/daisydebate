@@ -150,7 +150,12 @@ test('exporting a member includes their competitive record and nothing of anothe
       started_at: at(3, 11),
       completed_at: at(3),
     });
-    const judgeSeat = await fixture.seat(judgedRound, 'judge', 0, subject.actorId);
+    const judgeSeat = await fixture.seat(
+      judgedRound,
+      'judge',
+      0,
+      subject.actorId,
+    );
     await fixture.freeze(judgedRound);
     const ballotId = createId();
     await fixture.insert('ballots', {
