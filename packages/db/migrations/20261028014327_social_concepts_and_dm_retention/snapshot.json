@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "2ae0de23-f416-4899-aaf2-583aeb3e3050",
+  "id": "611fdca8-a827-42ab-aedc-6131385ac6fa",
   "prevIds": [
-    "6dd73876-ed3a-4bd5-b3a6-7dd96e05e724"
+    "5bd1ba59-e698-4097-bb58-d912b7a9f3d8"
   ],
   "ddl": [
     {
@@ -18568,6 +18568,13 @@
     {
       "value": "jsonb_typeof(\"config\") = 'object'",
       "name": "format_presets_config_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "format_presets"
+    },
+    {
+      "value": "\"config\" #>> '{resolutionDraw,source,kind}' is distinct from 'host'",
+      "name": "format_presets_bank_draw_only",
       "entityType": "checks",
       "schema": "public",
       "table": "format_presets"
