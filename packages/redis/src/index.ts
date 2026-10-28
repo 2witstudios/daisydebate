@@ -6,10 +6,25 @@ import { createRoomReadinessOperations } from './room-readiness';
 import { createPresenceOperations } from './presence';
 import { createTicketOperations } from './ticket';
 import { createOperatorNonceOperations } from './operator-nonce';
+import { createObservationCacheOperations } from './observation-cache';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
+export {
+  OBSERVATION_BODY_TTL_MS,
+  parseObservationHint,
+  type ObservationHead,
+  type ObservationHint,
+} from './observation-cache';
+export {
+  createObservationSubscriber,
+  dialObservationSubscriber,
+  OBSERVATION_MAX_CHANNELS,
+  type ObservationSubscriber,
+  type ObservationSubscriberState,
+  type SubscriberTransport,
+} from './observation-subscriber';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
 export type RedisEventSink = (
   event: 'redis.command.failed',
@@ -213,6 +228,7 @@ export function createRedis({
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),
     ...createOperatorNonceOperations({ client, namespace, reportFailure }),
+    ...createObservationCacheOperations({ client, namespace, reportFailure }),
     close() {
       client.close();
     },

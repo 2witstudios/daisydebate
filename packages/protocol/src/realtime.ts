@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { topicStringSchema } from './topics';
+import { buildObservationClientMessages } from './observation';
 
 /**
  * Nominal branding (a phantom marker, erased at runtime) so
@@ -122,7 +123,8 @@ export const presenceActivitySchema = z.enum(['active', 'idle']);
 export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
 
 /**
- * The socket accepts exactly these five inbound types (ADR 0031 §4).
+ * The socket accepts exactly these seven inbound types (ADR 0031 §4, and
+ * ADR 0089's observe/unobserve).
  * Commands go over HTTP to `apps/web`; adding a command message here would
  * reopen the attack surface the plan deliberately closed. `id` is present
  * only on messages that expect a reply keyed by that same `id`: `subscribe`,
@@ -166,6 +168,7 @@ export function buildClientMessageSchema(
       type: z.literal('ping'),
       id: realtimeRequestIdSchema,
     }),
+    ...buildObservationClientMessages(envelope, realtimeRequestIdSchema),
   ]);
 }
 

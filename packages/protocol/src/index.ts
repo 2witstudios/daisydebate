@@ -359,3 +359,30 @@ export {
   roundTranscriptReadSchema,
   type RoundTranscriptRead,
 } from './round-transcript';
+
+// Shared resource observation (ADR 0089).
+export {
+  observationResourceKinds,
+  observationResourceSchema,
+  observationResourceKey,
+  parseObservationResourceKey,
+  observationBaseSchema,
+  observationBaseField,
+  observationFrameBytes,
+  observationOverlayBytes,
+  observationWindowItems,
+  observationPermitMs,
+  observationJsonBytes,
+  utf8Bytes,
+} from './observation';
+export type {
+  ObservationBase,
+  ObservationResource,
+  ObservationResourceKind,
+} from './observation';
+export {
+  channelMessageView,
+  channelMessagesWindow,
+  createChannelMessagesProjector,
+} from './messaging/channel-messages';
+export type { ChannelMessageRecord } from './messaging/channel-messages';

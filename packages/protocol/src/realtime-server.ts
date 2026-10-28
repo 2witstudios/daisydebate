@@ -9,6 +9,7 @@ import {
   outboxPayloadSchema,
   isPayloadDeliverableOnTopic,
 } from './realtime-payloads';
+import { buildObservationServerMessages } from './observation';
 
 const envelope = { v: z.literal(ENVELOPE_VERSION) };
 // Existing browser heartbeat IDs are correlation strings, not entity IDs.
@@ -58,5 +59,6 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     ),
   }),
   eventSchema,
+  ...buildObservationServerMessages(envelope, requestId),
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
