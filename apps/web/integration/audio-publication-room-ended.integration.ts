@@ -18,15 +18,22 @@ async function closeIn(order: 'racing' | 'dropped' | 'live') {
   const media = createMediaService({ config: localMediaConfig });
   const room = createId();
   await media.createRoom(room);
-  try {
-    return await publishIn(order, room);
-  } finally {
-    // A cleanup failure never hides the child's own exit (a native crash).
-    await media
+  const cleanup = () =>
+    media
       .exists(room)
-      .then((exists) => (exists ? media.deleteRoom(room) : undefined))
-      .catch(() => undefined);
+      .then((exists) => (exists ? media.deleteRoom(room) : undefined));
+  let outcome: unknown;
+  try {
+    outcome = await publishIn(order, room);
+  } catch (error) {
+    // A cleanup failure never hides the child's own exit (a native crash).
+    await cleanup().catch((cleanupError: unknown) => {
+      throw new AggregateError([error, cleanupError], String(error));
+    });
+    throw error;
   }
+  await cleanup();
+  return outcome;
 }
 
 async function publishIn(order: string, room: string) {

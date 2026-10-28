@@ -45,10 +45,16 @@ export function createBotSeat(input: {
     return polling;
   };
   input.publication.start();
-  input.feed?.start();
-  const timer = input.feed
-    ? input.timers.setInterval(poll, input.pollMs)
-    : null;
+  let timer: unknown = null;
+  try {
+    input.feed?.start();
+    if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
+  } catch (error) {
+    // A seat that fails to start owns nothing it started (ISSUE-789).
+    void input.publication.close().catch(() => undefined);
+    void input.feed?.close().catch(() => undefined);
+    throw error;
+  }
   return {
     pulse: () => {
       input.speaker.wake();

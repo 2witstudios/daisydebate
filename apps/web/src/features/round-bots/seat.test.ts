@@ -109,3 +109,44 @@ test('a speaker that fails to stop still releases the publication', async () => 
     expected: ['rejected', 'publication-close'],
   });
 });
+
+test('a seat whose hearing fails to start closes what it started (ISSUE-789)', () => {
+  const log: string[] = [];
+  const broken = new Error('listener unavailable');
+  let thrown: unknown;
+  try {
+    createBotSeat({
+      control: { pulse: async () => [] },
+      speaker: { wake: () => {}, stop: async () => {} },
+      publication: {
+        start: () => log.push('publication-start'),
+        close: async () => {
+          log.push('publication-close');
+        },
+      },
+      feed: {
+        start: () => {
+          throw broken;
+        },
+        poll: async () => {},
+        close: async () => {
+          log.push('feed-close');
+        },
+      },
+      pollMs: 50,
+      timers: manualTimers().timers,
+      failed: () => {},
+    });
+  } catch (error) {
+    thrown = error;
+  }
+  assert({
+    given: 'a cross-examination seat whose hearing throws as it starts',
+    should: 'close its publication and hearing, then rethrow',
+    actual: { thrown, log },
+    expected: {
+      thrown: broken,
+      log: ['publication-start', 'publication-close', 'feed-close'],
+    },
+  });
+});

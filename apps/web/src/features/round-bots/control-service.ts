@@ -19,8 +19,10 @@ type Owned<C> = {
   ending: Promise<void> | null;
   /** Its pulse found the lease already gone: there is nothing to revoke. */
   lost: boolean;
-  /** Its ending overran and was reported; its late failures are not. */
-  overran: boolean;
+  /** The part of its ending that overran and was reported; that part's late failure is not. */
+  overran: 'stop' | 'pulse' | null;
+  /** Its ending hands its slot to the incoming segment's claim. */
+  handingOff: boolean;
 };
 /** Idle worker control owns receipts even when generation/publication cannot run. */
 export function startBotControlService<C extends Claim>(input: {
@@ -110,7 +112,7 @@ export function startBotControlService<C extends Claim>(input: {
           await entry.control.stop?.();
         } catch (error) {
           // A stop that fails after its overrun was reported is not reported twice.
-          if (!entry.overran) input.failed(error, 'stop');
+          if (entry.overran !== 'stop') input.failed(error, 'stop');
         }
         silenced = true;
         await entry.pending;
@@ -123,9 +125,9 @@ export function startBotControlService<C extends Claim>(input: {
       ]);
       deadline.abort();
       if (outcome === 'late') {
-        entry.overran = true;
         // Names the part still running: the speaker's stop, or the receipt pulse.
         const stage = silenced ? 'pulse' : 'stop';
+        entry.overran = stage;
         input.failed(
           createAppError('INFRASTRUCTURE', `Seat ${stage} overran its ending`),
           stage,
@@ -133,6 +135,9 @@ export function startBotControlService<C extends Claim>(input: {
       }
       if (revoke && !entry.lost) await revokeClaim(entry.claim);
     })().finally(() => {
+      // The slot passes to the incoming claim before it is freed, so the cap
+      // never opens between the release and that claim.
+      if (entry.handingOff) claiming.add(entry.claim.scope.roundParticipantId);
       release(entry);
       endings.delete(ending);
     });
@@ -153,7 +158,7 @@ export function startBotControlService<C extends Claim>(input: {
           return;
         }
         // A pulse that outlived its overrun was already reported as it.
-        if (!entry.overran) input.failed(error, 'pulse');
+        if (entry.overran !== 'pulse') input.failed(error, 'pulse');
       } finally {
         entry.pending = null;
       }
@@ -164,33 +169,38 @@ export function startBotControlService<C extends Claim>(input: {
   const claimFailed = (error: unknown) => {
     if (!isRefusal(error)) input.failed(error, 'claim');
   };
-  /** `handoff`: replaces a seat already counted, so it keeps its slot under the cap. */
+  /** `reserved`: the outgoing ending already holds this seat's slot in `claiming`. */
   const claimTarget = async (
     target: Target,
-    handoff = false,
+    reserved = false,
   ): Promise<void> => {
     const seat = target.roundParticipantId;
     const old = owned.get(seat);
     if (
-      claiming.has(seat) ||
-      old?.ending ||
-      old?.claim.scope.segmentId === target.segmentId
+      !reserved &&
+      (claiming.has(seat) ||
+        old?.ending ||
+        old?.claim.scope.segmentId === target.segmentId)
     )
       return;
     if (old) {
       // The incoming segment is claimed as soon as the ending frees the seat;
       // shutdown waits for that claim like any ending.
-      const handoff: Promise<void> = end(old, true)
+      old.handingOff = true;
+      const chained: Promise<void> = end(old, true)
         .then(() => claimTarget(target, true))
         .catch(claimFailed)
-        .finally(() => endings.delete(handoff));
-      endings.add(handoff);
+        .finally(() => {
+          claiming.delete(seat);
+          endings.delete(chained);
+        });
+      endings.add(chained);
       return;
     }
     // A claim in flight counts too, so a handoff and a scan never exceed the cap.
     if (
       stopped ||
-      (!handoff && owned.size + claiming.size >= input.limits.maxControllers)
+      (!reserved && owned.size + claiming.size >= input.limits.maxControllers)
     )
       return;
     claiming.add(seat);
@@ -215,7 +225,8 @@ export function startBotControlService<C extends Claim>(input: {
         pending: null,
         ending: null,
         lost: false,
-        overran: false,
+        overran: null,
+        handingOff: false,
       };
       owned.set(seat, entry);
     } finally {
