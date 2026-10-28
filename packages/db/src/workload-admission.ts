@@ -49,7 +49,7 @@ const lane = (connections: number, queue: number, maxWaitMs: number) => ({
  * for the process's own maintenance, judging, bot and attendance loops; a
  * bounded writer weighs two connections (work + watchdog).
  */
-const COMPETITIVE = lane(6, 16, 1000);
+const COMPETITIVE = lane(10, 16, 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */
 export const WORKLOAD_PROFILES = {
   web: {
@@ -61,7 +61,7 @@ export const WORKLOAD_PROFILES = {
       audience: lane(2, 32, 250),
       // Auth bursts queue behind the sign-up ceiling, which decides what is
       // shed (AUTH-3.10); a lane refusal must not pre-empt it.
-      control: lane(5, 256, 3000),
+      control: lane(5, 2048, 5000),
     },
   },
   realtime: {

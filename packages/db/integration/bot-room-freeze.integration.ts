@@ -80,7 +80,7 @@ const withBotRoom = (
       });
     const common = {
       database: drizzle({ client: fixture.sql }),
-      commandTransaction: roomCommandTransaction(fixture.sql),
+      commandTransaction: roomCommandTransaction(fixture.sql, 2),
     };
     const input: Parameters<
       ReturnType<typeof roomCommandOperations>['executeRoomCommand']

@@ -241,7 +241,13 @@ export function createDatabase({
       database,
       botAdmission: admission,
       eventSink,
-      commandTransaction: roomCommandTransaction(competitive.client),
+      commandTransaction: roomCommandTransaction(
+        competitive.client,
+        Math.max(
+          1,
+          Math.floor((profile.lanes.competitive?.connections ?? 0) / 2),
+        ),
+      ),
     }),
     ...roundOperations({ database, eventSink }),
     ...roundCommandOperations({ database, eventSink }),
