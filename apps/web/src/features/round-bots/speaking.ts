@@ -3,7 +3,7 @@ import type { Database } from '@daisy/db';
 import { createAudioPublication } from '@daisy/media/audio';
 import { createAudioSubscription } from '@daisy/media/subscription';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import type { ProviderCapacity } from '../round-judging/operations';
+import type { ProviderCall } from '../../server/provider-budget';
 import { createBotGeneration } from './generation';
 import { createBotListening } from './listening';
 import { createBotPublisher } from './publication';
@@ -25,7 +25,7 @@ export function createSpeakingBotControl(input: {
     | 'databaseNow'
   >;
   readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
-  readonly withProvider: ProviderCapacity;
+  readonly withProvider: ProviderCall;
   readonly botToken: (
     scope: BotPublicationScope,
     token: string,

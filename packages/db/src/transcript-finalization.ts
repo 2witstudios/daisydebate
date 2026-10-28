@@ -66,9 +66,9 @@ async function planFrozenJudging(
     sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
   );
   if (!plan.dispatchAiJudges) return;
-  // Canonical bot eligibility requires its profile, as in actorFact; kind alone is insufficient.
+  // The AI judge is eligible by its own profile (ISSUE-750); kind alone is insufficient.
   await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
-    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join bot_profiles b on b.actor_id=a.id
+    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
 }

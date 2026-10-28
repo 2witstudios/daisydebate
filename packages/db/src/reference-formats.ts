@@ -285,11 +285,8 @@ export const referenceBots: ReadonlyArray<{
   },
 ];
 
-/** The AI judge actor every AI-balloted round seats in the judge chair. */
+/** The AI judge actor every AI-balloted round seats in the judge chair; it is not a bot debater (ISSUE-750). */
 export const referenceAiJudge = {
   actorId: 'a1i2j3u4d5g6e7a8i9j0u1d2',
   name: 'The Panel',
-  persona: 'A careful judge that rules only on what the round said.',
-  voice: 'aura-2-thalia-en',
-  difficulty: 'advanced' as const,
 };

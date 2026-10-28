@@ -15,7 +15,14 @@ import type { FormatSelectionFacts } from './format-selection';
 import type { DrawStartFacts } from './pre-round-phase';
 import { preRoundPhase } from './pre-round-phase';
 
-type Target = RoomParticipant & { readonly eligible: boolean };
+type Target = RoomParticipant & {
+  readonly eligible: boolean;
+  /**
+   * Which seat an AI actor may hold (ISSUE-750): a bot debater only a side,
+   * the AI judge only the judge seat. Null for a human.
+   */
+  readonly seatRole: 'debater' | 'judge' | null;
+};
 export type Edges = {
   readonly now: string;
   readonly participantId: string;

@@ -72,17 +72,17 @@ describe('liveView', () => {
     });
   });
 
-  test('coaching off hides prompts and hints', () => {
+  test('prompts off hides prompts and hints', () => {
     const view = speech(
       liveView(
-        { ...defaultConfig, coach: false, hints: false },
+        { ...defaultConfig, prompts: false, hints: false },
         'aff',
         1,
         mockOpponent,
       ),
     );
     assert({
-      given: 'coach prompts and hints off',
+      given: 'practice prompts and hints off',
       should: 'offer neither',
       actual: [view.prompts, view.hint],
       expected: [null, null],

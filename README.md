@@ -2,7 +2,7 @@
 
 Competitive debate with the structure of online chess: ranked debates,
 matchmaking, live play, spectators, judges, ratings, tournaments, and
-recordings — built to eventually host AI debaters, judges, and coaching.
+recordings — built to eventually host AI debaters, AI judges, and post-round analysis.
 
 **Status: production foundation.** Product routes are shells; the
 architecture, boundaries, infrastructure, and verification loops are real.

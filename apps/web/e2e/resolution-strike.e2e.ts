@@ -1,3 +1,4 @@
+import { aiCast } from './support/ai-cast';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -17,7 +18,6 @@ import {
   readyOwnSeat,
   startAdmittedRound,
 } from './support/human-ballot-round';
-import { roomCastChoiceSchema } from '@daisy/protocol';
 
 const SENTINEL = 'E2E-STRIKE-LINE';
 const lines = ['alpha', 'bravo', 'charlie'].map((w) => `${SENTINEL} ${w}`);
@@ -208,10 +208,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
       .map((c: unknown) => roomCatalogChoiceSchema.parse(c))
       .find((c: { formatId: string }) => c.formatId === 'freestyle');
     if (!freestyle) throw new Error('Freestyle missing from the catalog');
-    const bots = catalog.bots
-      .map((bot: unknown) => roomCastChoiceSchema.parse(bot))
-      .filter((bot: { eligible: boolean }) => bot.eligible);
-    expect(bots.length).toBeGreaterThanOrEqual(2);
+    const { debater, aiJudge } = aiCast(catalog);
     const created = await host.context.request.post('/api/rooms', {
       headers: { origin },
       data: {
@@ -245,12 +242,12 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     });
     view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
     view = await assignSeat(host, view, {
-      actorId: bots[0]!.actorId,
+      actorId: debater.actorId,
       role: 'negative',
       slot: 0,
     });
     view = await assignSeat(host, view, {
-      actorId: bots[1]!.actorId,
+      actorId: aiJudge.actorId,
       role: 'judge',
       slot: 0,
     });

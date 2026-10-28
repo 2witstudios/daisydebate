@@ -1,14 +1,14 @@
 import type { OpponentAdapter } from '../../features/train/opponent';
 
-/** Sample coaching for one speech. */
-export type CoachScript = {
+/** Sample practice prompts for one speech. */
+export type PromptScript = {
   readonly prompts: readonly string[];
   readonly hint: string;
   readonly text: string;
 };
 
 /** The account's own speeches, in the order they are given. */
-export const yourScripts: readonly CoachScript[] = [
+export const yourScripts: readonly PromptScript[] = [
   {
     prompts: [
       'State your claim in one sentence',
@@ -38,8 +38,8 @@ export const yourScripts: readonly CoachScript[] = [
   },
 ];
 
-/** Coach prompts for listening turns; the opponent's words come from the adapter. */
-export const listeningScripts: readonly Omit<CoachScript, 'text'>[] = [
+/** Practice prompts for listening turns; the opponent's words come from the adapter. */
+export const listeningScripts: readonly Omit<PromptScript, 'text'>[] = [
   {
     prompts: [
       'Write down each claim it makes',

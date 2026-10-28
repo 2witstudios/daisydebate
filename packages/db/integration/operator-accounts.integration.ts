@@ -106,6 +106,41 @@ describe('operator beta access commands (ADR 0079)', () => {
     });
   });
 
+  test('approval writes the beta entitlement grants and revocation removes them, in the same command (ISSUE-779)', async () => {
+    await withFixture(url, async (fixture) => {
+      const { userId } = await pendingAccount(fixture);
+      const grants = async () =>
+        (
+          await fixture.sql`select entitlement, source from account_entitlement_grants where user_id = ${userId} order by entitlement`
+        ).map((row: { entitlement: string; source: string }) => [
+          row.entitlement,
+          row.source,
+        ]);
+      const pending = await grants();
+      await withDatabase(url, (database) =>
+        database.runBetaAccessCommand(command(userId, 'approved', 1)),
+      );
+      const approved = await grants();
+      await withDatabase(url, (database) =>
+        database.runBetaAccessCommand(command(userId, 'revoked', 2)),
+      );
+      assert({
+        given: 'a pending account approved, then revoked, by operator commands',
+        should:
+          'hold no grant while pending, both beta grants once approved, and none once revoked',
+        actual: { pending, approved, revoked: await grants() },
+        expected: {
+          pending: [],
+          approved: [
+            ['ai_rounds', 'beta'],
+            ['round_analysis', 'beta'],
+          ],
+          revoked: [],
+        },
+      });
+    });
+  });
+
   test('a retry replays, a reused id with another request conflicts, and a stale form conflicts', async () => {
     await withFixture(url, async (fixture) => {
       const { userId } = await pendingAccount(fixture);

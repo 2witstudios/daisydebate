@@ -41,7 +41,6 @@ const input: RoundBallotRead = {
   },
   ballots: [],
   transcript: null,
-  coaching: null,
 };
 const render = (state: 'waiting' | 'open' | 'submitted') =>
   renderToString(

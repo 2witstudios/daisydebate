@@ -121,7 +121,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
       view = (await f.command(who, view, { type: 'claim-seat', role, slot }))
         .view;
     const judge = (await f.operations.castChoices(f.host)).find(
-      (p) => p.eligible,
+      (p) => p.eligible && p.seatRole === 'judge',
     )!;
     view = (
       await f.command(f.host, view, {

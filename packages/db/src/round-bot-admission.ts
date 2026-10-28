@@ -16,6 +16,8 @@ import {
   requireSponsor,
   utcMonth,
 } from './round-bot-admission-rules';
+import { readEntitlementGrants } from './entitlement-grants';
+import type { EntitlementGrant } from '@daisy/protocol';
 
 type Target = { readonly actorId: string; readonly roundId: string };
 type SponsorAccount = Awaited<
@@ -23,10 +25,13 @@ type SponsorAccount = Awaited<
 >[number];
 /**
  * The trusted quota policy (ISSUE-646), injected by composition and applied
- * only to the account fact locked in the admitting transaction. Null admits
- * no AI Round.
+ * only to the account fact locked in the admitting transaction and that
+ * account's own entitlement grants (ISSUE-779). Null admits no AI Round.
  */
-export type AiRoundAllowance = (account: SponsorAccount) => number | null;
+export type AiRoundAllowance = (
+  account: SponsorAccount,
+  grants: readonly EntitlementGrant[],
+) => number | null;
 type Reservation = Target & { readonly id: string };
 /** Acquire before account/Room/Round locks in both admission and billable-call composition. */
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
@@ -51,7 +56,7 @@ function reservationWhere(target: Target) {
   return and(
     eq(usageReservations.actorId, target.actorId),
     eq(usageReservations.roundId, target.roundId),
-    eq(usageReservations.kind, 'ai_practice'),
+    eq(usageReservations.kind, 'ai_round'),
   );
 }
 async function existingReservation(
@@ -96,7 +101,7 @@ export async function refundUnservedPracticeLocked(
 ) {
   await tx.execute(sql`
     update usage_reservations set refunded_at = clock_timestamp()
-    where round_id = ${roundId} and kind = 'ai_practice' and refunded_at is null
+    where round_id = ${roundId} and kind = 'ai_round' and refunded_at is null
       and counted_at is not null
       and not exists (
         select 1 from agent_runs a
@@ -135,7 +140,7 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
 /** The sponsor's AI-round allowance spent this UTC month (DEC-183/DEC-186). */
 const spentAllowance = (actorId: string, period: ReturnType<typeof utcMonth>) =>
   sql`select count(*)::int from usage_reservations u
-    where u.actor_id=${actorId} and u.kind='ai_practice' and u.refunded_at is null
+    where u.actor_id=${actorId} and u.kind='ai_round' and u.refunded_at is null
       and u.reserved_at>=${period.start} and u.reserved_at<${period.end}
       and (u.counted_at is not null
         or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('scheduled','active')))`;
@@ -192,7 +197,10 @@ export function createRoundBotAdmission(input: {
     const now = await roundAgentNow(tx);
     const status = await admissionStatus(tx, {
       actorId: target.actorId,
-      limit: input.allowance(account),
+      limit: input.allowance(
+        account,
+        account ? await readEntitlementGrants(tx, account.userId) : [],
+      ),
       busyCap: input.busyCap,
       now,
       exceptRoundId: target.roundId,
@@ -207,7 +215,7 @@ export function createRoundBotAdmission(input: {
     const id = input.nextId();
     await tx
       .insert(usageReservations)
-      .values({ id, ...target, kind: 'ai_practice', reservedAt: now });
+      .values({ id, ...target, kind: 'ai_round', reservedAt: now });
     return { ...target, id };
   };
   /**
@@ -236,7 +244,10 @@ export function createRoundBotAdmission(input: {
           throw createAppError('AUTHORIZATION');
         return admissionStatus(tx, {
           actorId,
-          limit: input.allowance(account),
+          limit: input.allowance(
+            account,
+            await readEntitlementGrants(tx, account.userId),
+          ),
           busyCap: input.busyCap,
           now: await roundAgentNow(tx),
         });

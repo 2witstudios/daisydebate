@@ -15,7 +15,7 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
   withRoomRuntime(async (f) => {
     // A bot debater spends the host's AI round; an AI judge alone would not (DEC-186).
     const bot = (await f.operations.castChoices(f.host)).find(
-      (p) => p.kind === 'bot',
+      (p) => p.kind === 'bot' && p.seatRole === 'debater',
     )!;
     const botRoom = await f.seatBotOpponent(
       (await f.create()).view,

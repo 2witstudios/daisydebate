@@ -5,9 +5,16 @@ transcript revision. Human-only and zero-judge casts create no artificial bot
 job. Outbox delivery may wake a worker; startup discovery also scans durable
 jobs at the explicitly configured interval, at most 500 ms.
 
-`ROUND_BOT_WORKER_POLICY` is optional validated JSON. It supplies explicit
-models, scan/lease/renewal/call bounds and process resource capacities. Without
-it, job discovery stays inert. Configured application composition requires an
+Each worker has its own optional validated JSON policy (ISSUE-749):
+`ROUND_JUDGING_POLICY` for AI judging (scan/lease/renewal/call bounds and its
+model) and `ROUND_BOT_WORKER_POLICY` for bot debaters (controllers, bounds and
+speech, cross-ex and TTS models). AI judging and live bot speech share one
+competitive provider budget, `COMPETITIVE_PROVIDER_CONCURRENCY`. Without a
+worker's policy and that budget, its discovery stays inert. The AI judge is
+not a bot debater: it has its own `ai_judge_profiles` row and may hold only
+the judge seat, while a `bot_profiles` debater may hold only a side
+(ISSUE-750). Round analysis is a separate product with its own policy and
+budget ([round analysis](round-analysis.md)). Configured application composition requires an
 injected OS-CSPRNG token producer. Only the process edge supplies that producer;
 the database uses the existing bounded transaction and connection pool. The
 busy cap on live bot-debater Rounds and the host AI-round allowance remain
@@ -58,17 +65,12 @@ recovery separately runs every 500 ms and is also stopped before pool closure.
 A provider/model/media failure does not itself create competitive absence or
 forfeit evidence.
 
-## Post-round coaching
+## Competitive provider budget
 
-The coaching worker ([ADR 0071](../decisions/0071-post-round-coaching-pass.md))
-runs beside judging under the same lifecycle and worker policy. It uses the
-judge model and one bounded provider budget. Pure `providerAdmission` caps
-coaching at half that budget (rounded down), and coaching never takes the last
-competitive slot. With one slot, only competitive work runs. Realtime speech
-and TTS keep the existing budget; this reservation protects judging from
-coaching, not from other competitive work. The allocator is process-local,
-not a fleet-wide quota. Coaching cannot monopolize its budget; there is no
-fairness queue or guarantee of eventual judging under arbitrary realtime load.
+The competitive budget is a process-local bound (`server/provider-budget.ts`)
+with no waiting queue, shared by AI judging and live bot speech. It is not a
+fleet-wide quota and guarantees no eventual judging under arbitrary realtime
+load.
 
 Judging reserves admission **before** claiming its durable lease. A full budget
 therefore leaves the job unclaimed for the next scan, rather than stranding it
@@ -81,52 +83,6 @@ the service returns its local reservation without starting execution. Another
 process recovers the job after normal lease expiry, not immediately. Prompt
 durable release would require a separate token-fenced operation; this service
 never clears a lease without fencing.
-
-Coaching is premium (DEC-247). The authorization evaluator owns
-`round.coaching.generate` and `round.coaching.read`. The named
-`accountEntitlements.coaching` fact currently derives only from approved beta
-access and the validated server setting `PREMIUM_BETA_GRANT` (default `true`).
-Launch sets the grant to `false`; billing supplies the future premium source
-through the same entitlement function, without changes to coaching callers.
-That source seam changes premium facts only: launch also needs its own
-canonical participant-admission transition away from beta approval. A future
-paid entitlement does not bypass the current participant gate. Likewise,
-`coaching: true` is an entitlement fact, not full authorization; identity,
-participant admission and an own debating seat still apply. Age eligibility
-belongs to participant admission, which coaching inherits; there is no second
-coaching-specific age rule.
-The AI-round quota does not grant coaching. No billing writer or generic
-flags platform exists here.
-
-Discovery filters out rounds without an entitled human debater, using canonical
-account facts. A bounded cursor advances past denied candidates. Claims reread
-those facts under the account fence before spending an attempt. Each debater
-needs their own current entitlement to read the separate coaching pass. The
-complete existing side-private judge ballot projection, including AI feedback,
-remains available under normal round-read authorization. The official ballot
-is never premium-gated.
-
-Its scan lists candidates: frozen Rounds completed within the window that have
-no pass yet, and every lapsed lease. Whether a candidate is coached is the
-pure decision in `features/round-coaching/policy.ts`. A Round needs coaching
-when it:
-
-- completed within 24 hours;
-- is frozen with at least one line;
-- is not already coached on both sides by a submitted AI ballot;
-- has an entitled human debater.
-
-For each listed Round it works in this order:
-
-1. Inside a provider capacity slot, it claims the Round's `round_feedback`
-   row. The claim applies the decision to facts read under the Round's lock.
-2. It makes one paid call, under a lease that covers the whole call.
-3. It records usage.
-4. It stores both sides' coaching only while that lease holds.
-
-A Round buys at most two calls. A lapsed lease ends the row `failed` when it
-is at the cap or the Round no longer qualifies. Failures log `round.coaching.failed`; a full provider is not a
-failure.
 
 ## Local provider recovery proof
 

@@ -17,6 +17,7 @@ test('claim and leave operate on the caller seat while removal targets the seat 
     role: 'judge' as const,
     slot: 0,
     eligible: true,
+    seatRole: null,
     consentVersion: 0,
     consentCommandId: null,
   };
@@ -93,6 +94,7 @@ test('seat and configuration refusals leave the room intact', () => {
         role: 'judge',
         slot: 0,
         eligible: true,
+        seatRole: 'debater',
         consentVersion: 0,
       },
     },
@@ -119,6 +121,7 @@ test('seat and configuration refusals leave the room intact', () => {
         role: 'affirmative',
         slot: 0,
         eligible: true,
+        seatRole: null,
         consentVersion: 0,
       },
     },
@@ -237,6 +240,7 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
       role: 'judge',
       slot: 0,
       eligible: true,
+      seatRole: 'judge',
       consentVersion: 0,
     },
   });

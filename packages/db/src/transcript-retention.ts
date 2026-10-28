@@ -6,7 +6,6 @@ import {
   type RetentionBatch,
 } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { roundFeedback } from './schema/round-feedback';
 import { utterances } from './schema/utterances';
 
 /**
@@ -19,8 +18,7 @@ export const discardPendingJudgment = sql`status='failed',lease_token_digest=nul
   pending_ballot=null,pending_ballot_agent_run_id=null,pending_ballot_epoch=null,pending_ballot_received_at=null`;
 
 /**
- * DEC-101 transcripts, DEC-89 judging data and their AI coaching (ADR 0071)
- * are kept 180 days; the sweep
+ * DEC-101 transcripts and DEC-89 judging data are kept 180 days; the sweep
  * applies the window. Each call is one bounded autocommitted statement, as in
  * `deleteExpiredBatch`.
  */
@@ -36,18 +34,6 @@ export const transcriptRetention = ({
       deleteExpiredBatch(
         database,
         { table: utterances, key: utterances.id, at: utterances.createdAt },
-        batch,
-      ),
-    ),
-  purgeExpiredRoundFeedback: (batch: RetentionBatch) =>
-    instrumented(eventSink, 'purgeExpiredRoundFeedback', () =>
-      deleteExpiredBatch(
-        database,
-        {
-          table: roundFeedback,
-          key: roundFeedback.roundId,
-          at: roundFeedback.createdAt,
-        },
         batch,
       ),
     ),

@@ -10,7 +10,7 @@ import type {
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { ProviderCapacity } from '../round-judging/operations';
+import type { ProviderCall } from '../../server/provider-budget';
 
 type Producer = ReturnType<typeof createBotPublicationOperations>;
 type Context = Awaited<ReturnType<Producer['beginGeneration']>>;
@@ -85,7 +85,7 @@ const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, characters: 0 };
 export function createBotGeneration(input: {
   readonly store: Store;
   readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
-  readonly withProvider: ProviderCapacity;
+  readonly withProvider: ProviderCall;
   readonly nowMs: () => number;
   readonly maxTokens: number;
 }) {

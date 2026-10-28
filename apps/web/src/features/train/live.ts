@@ -1,7 +1,7 @@
 import {
   listeningScripts,
   yourScripts,
-  type CoachScript,
+  type PromptScript,
 } from '../../ui/mock/train-practice';
 import { motionText, type PracticeConfig } from './practice';
 import type { OpponentAdapter } from './opponent';
@@ -28,7 +28,7 @@ export type SpeechView = {
   readonly verb: string;
   /** Sample transcript: what the speaker has said so far. */
   readonly text: string;
-  /** Null when coaching is off. */
+  /** Null when prompts are off. */
   readonly prompts: readonly string[] | null;
   readonly hint: string | null;
   readonly rows: readonly TurnRow[];
@@ -90,7 +90,7 @@ const prepLabel = (prepMinutes: number): string =>
     : `${formatCountdown(prepMinutes * 60_000)} of ${formatCountdown(prepMinutes * 60_000)}`;
 
 /**
- * The live practice screen for a turn: who speaks, what the coach offers and
+ * The live practice screen for a turn: who speaks, what the prompts offer and
  * where the debate stands. The opponent's words come through `adapter`, which
  * may be unavailable, in which case the practice stops on that turn.
  */
@@ -119,11 +119,11 @@ export function liveView(
   return speechView({ config, side, turns, turn, index, ordinal, text });
 }
 
-const coachFor = (
+const promptsFor = (
   config: PracticeConfig,
-  script: Omit<CoachScript, 'text'> | undefined,
+  script: Omit<PromptScript, 'text'> | undefined,
 ): Pick<SpeechView, 'prompts' | 'hint'> => ({
-  prompts: config.coach ? (script?.prompts ?? []) : null,
+  prompts: config.prompts ? (script?.prompts ?? []) : null,
   hint: config.hints ? (script?.hint ?? null) : null,
 });
 
@@ -157,7 +157,7 @@ function speechView({
     yours,
     verb: yours ? 'You are speaking' : 'The AI debater is speaking',
     text,
-    ...coachFor(config, script),
+    ...promptsFor(config, script),
     rows: rowsFor(turns, turn, false),
     prepLabel: prepLabel(config.rules.prepMinutes),
     youAre: `You are ${side === 'aff' ? 'Aff' : 'Neg'}`,
