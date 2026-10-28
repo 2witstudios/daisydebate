@@ -20,7 +20,12 @@ const transitions = { closeRoom, eraseSeats, activeRoomMembers };
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 
 const erase = (f: Fixture, subject: { userId: string; actorId: string }) =>
-  eraseRoomClosureSubject(f.sql, transitions, subject, new Date().toISOString());
+  eraseRoomClosureSubject(
+    f.sql,
+    transitions,
+    subject,
+    new Date().toISOString(),
+  );
 
 /** Every durable copy of a Room's draw and its Round, as counts and text. */
 const footprint = async (f: Fixture, roomId: string) => {
@@ -54,11 +59,17 @@ const closedAtEachStage = async (f: Fixture, role: 'host' | 'guest') => {
   return { before, after };
 };
 /** The draw's durable copies, without the Room's lifecycle and seats. */
-const copies = (row: Awaited<ReturnType<typeof footprint>>) => {
-  const { status, seats, change_version, ...rest } = row ?? {};
-  void [status, seats, change_version];
-  return rest;
-};
+const copies = (row: Awaited<ReturnType<typeof footprint>>) => ({
+  topic: row?.topic,
+  items: row?.items,
+  draws: row?.draws,
+  roomInputs: row?.room_inputs,
+  roundResolution: row?.round_resolution,
+  roundTexts: row?.round_texts,
+  roundInputs: row?.round_inputs,
+  roundSeeds: row?.round_seeds,
+  evidence: row?.evidence,
+});
 const holds = (value: unknown) => JSON.stringify(value).includes(SENTINEL);
 
 test('closing the host-list author closes their open Rooms and keeps every line on the record', async () => {

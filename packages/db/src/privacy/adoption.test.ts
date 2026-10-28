@@ -25,9 +25,9 @@ const definedAdopterIds = () => {
     .map((file) => readFileSync(join(root, file), 'utf8'))
     .filter((source) => /\)?: PrivacyAdopter\b(?! \|)/.test(source))
     .flatMap((source) =>
-      [
-        ...source.matchAll(/^\s*id: '([a-z-]+)',\s*\n\s*phase: '/gm),
-      ].map((match) => match[1]),
+      [...source.matchAll(/^\s*id: '([a-z-]+)',\s*\n\s*phase: '/gm)].map(
+        (match) => match[1],
+      ),
     )
     .sort();
 };
