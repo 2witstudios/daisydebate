@@ -112,10 +112,12 @@ export type BotMediaPrincipal = {
 };
 /**
  * The bot media request's own claim, under its locks: the live claim, then
- * the floor to publish or a live segment to hear (the same read the
- * projection uses), so a refused request writes nothing. Whether a hearing
- * seat may hear at all is the projection's rule (`mediaHearingSeats`), which
- * every hearing admission also reads.
+ * the floor to publish or a live segment to hear. A live segment has one
+ * definition (`readBotSegmentFloor`), which the projection reads too; here
+ * it refuses inside the binding's transaction, so a refused request writes
+ * nothing. Whether a hearing seat may hear at all (base eligibility) is the
+ * projection's rule (`mediaHearingSeats`), which every hearing admission
+ * also reads.
  */
 export async function verifyBotMediaPrincipal(
   tx: BoundedTransactionContext,

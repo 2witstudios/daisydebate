@@ -305,7 +305,6 @@ export function createMediaWorld(
     holdClaims: (times: number) => {
       busy = times;
     },
-    /** Runs `hook` as the next vendor mutation begins (it may change state or throw). */
     /** A vendor write left unsettled, as an in-flight or unknown outcome. */
     pend: () => void pending.add(nextId()),
     /** The session marked unsafe with every vendor write settled. */

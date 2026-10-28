@@ -17,7 +17,6 @@ import {
 import { identitiesOf, validateConnection } from './subscription-input';
 import {
   createSubscriptionRequests,
-  createTrackSequencer,
   livePublication,
 } from './subscription-requests';
 
@@ -69,19 +68,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     set: (run, ms) => setTimeout(run, ms),
     clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
   });
-  const sequencer = createTrackSequencer();
-  /** A track's new stream opens only once its previous one has fully closed. */
   const start = (
-    track: Track,
-    publication: TrackPublication,
-    participant: RemoteParticipant,
-  ) => {
-    if (publication.sid)
-      sequencer.whenClosed(publication.sid, () =>
-        open(track, publication, participant),
-      );
-  };
-  const open = (
     track: Track,
     publication: TrackPublication,
     participant: RemoteParticipant,
@@ -116,24 +103,22 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       frameSizeMs: 10,
       noiseCancellation: processor,
     }).getReader();
-    const stop = (reason: ClosedTrack['reason']) => {
-      if (finished) return Promise.resolve();
+    /**
+     * The consumer hears the close at once, before the native cancel is
+     * awaited: no frame follows (the processor is closed), and a new stream
+     * for the same track can only start after this close, never before it.
+     */
+    const stop = async (reason: ClosedTrack['reason']) => {
+      if (finished) return;
       finished = true;
       processor.close();
       streams.delete(trackId);
-      const done = (async () => {
-        try {
-          await reader.cancel();
-        } finally {
-          try {
-            input.onTrackClosed({ identity, trackId, reason });
-          } catch {
-            /* Consumer owns recovery; no raw exception enters SDK logs. */
-          }
-        }
-      })();
-      sequencer.closing(trackId, done);
-      return done;
+      try {
+        input.onTrackClosed({ identity, trackId, reason });
+      } catch {
+        /* Consumer owns recovery; no raw exception enters SDK logs. */
+      }
+      await reader.cancel();
     };
     streams.set(trackId, { identity, stop });
     try {

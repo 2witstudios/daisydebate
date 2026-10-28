@@ -4,6 +4,7 @@ import {
 } from './media-participant-binding';
 import {
   verifyBotMediaPrincipal,
+  verifyLockedBotWorker,
   type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
@@ -82,10 +83,9 @@ export function createMediaSessionStore({
       readonly principal: BotMediaPrincipal;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
-      const { scope } = input.principal;
+      const { scope, token } = input.principal;
       return run(async (tx) => {
-        // Judged before binding too, so a refused request writes nothing.
-        await verifyBotMediaPrincipal(tx, input.principal);
+        await verifyLockedBotWorker(tx, scope, token);
         const binding = await bindMediaParticipant(tx, {
           roundId: scope.roundId,
           roundParticipantId: scope.roundParticipantId,
@@ -95,7 +95,8 @@ export function createMediaSessionStore({
           roundId: scope.roundId,
           buildProjection: input.buildProjection,
         });
-        // The post-tick admission rule, the same one the token is signed under.
+        // The post-tick admission rule, the same one the token is signed
+        // under; a refusal rolls the binding back with this transaction.
         await verifyBotMediaPrincipal(tx, input.principal);
         requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;

@@ -21,7 +21,7 @@ const RETRY_MAX_MS = 30000;
  * track arrives), refused, or times out. A refused or timed-out ask, or a
  * held track the SFU drops, is asked again after a pause that doubles to a
  * ceiling; the pause survives an arrival until the track has held for
- * as long as that pause, so a flapping track backs off instead of looping while
+ * the longest pause, so a flapping track backs off instead of looping while
  * a stable one recovers quickly. A pending ask is never repeated, and withdrawing,
  * ending or closing forgets it entirely.
  */
@@ -90,20 +90,20 @@ export function createSubscriptionRequests(timers: Timers) {
     retry,
     /**
      * The track arrived: its answer timeout is moot. Its pause is kept until
-     * it has held for as long as that pause, so a flapping track backs off
+     * it has held for the longest pause (30 s), whatever the pause now is,
+     * so a track that keeps dropping, however briefly it holds, backs off,
      * while a stable one starts again from the first pause.
      */
     subscribed(sid: string) {
       cancel(sid);
       release(sid);
-      const pauseMs = pauses.get(sid);
-      if (closed || pauseMs === undefined) return;
+      if (closed || !pauses.has(sid)) return;
       holds.set(
         sid,
         timers.set(() => {
           holds.delete(sid);
           pauses.delete(sid);
-        }, pauseMs),
+        }, RETRY_MAX_MS),
       );
     },
     /** The publication went away. */
@@ -143,32 +143,4 @@ export function livePublication<P>(
   return inRoom.get(participant.identity) === participant
     ? participant.trackPublications.get(sid)
     : undefined;
-}
-
-/**
- * Orders each track's streams: a new stream for a track starts only once
- * its previous stream has fully closed, so a consumer always sees the old
- * stream's close before the new stream's start, and never loses either.
- */
-export function createTrackSequencer() {
-  const closings = new Map<string, Promise<void>>();
-  return {
-    /** `trackId`'s stream is closing until `done` settles. */
-    closing(trackId: string, done: Promise<unknown>) {
-      const settled: Promise<void> = done.then(
-        () => undefined,
-        () => undefined,
-      );
-      closings.set(trackId, settled);
-      void settled.then(() => {
-        if (closings.get(trackId) === settled) closings.delete(trackId);
-      });
-    },
-    /** Runs `start` now, or once `trackId`'s previous stream has closed. */
-    whenClosed(trackId: string, start: () => void) {
-      const prior = closings.get(trackId);
-      if (prior) void prior.then(start);
-      else start();
-    },
-  };
 }

@@ -17,6 +17,10 @@ import type {
 } from './operation-context';
 import { createMediaMutations } from './mutation';
 
+/** What a vendor mutation's authorization reads, under its locks. */
+type AuthorizeContext = Parameters<
+  Parameters<Store['beginMediaMutation']>[0]['authorize']
+>[0];
 type KnownPublisher = {
   identity: string;
   participantId: string;
@@ -49,12 +53,7 @@ const uncertain = (state: MediaSnapshot) =>
  * `eligible` means it may publish; a bot that only hears is admitted by the
  * projected hearing seats instead.
  */
-const admitsCreator = (
-  context: Parameters<
-    Parameters<Store['beginMediaMutation']>[0]['authorize']
-  >[0],
-  admission: Principal,
-) => {
+const admitsCreator = (context: AuthorizeContext, admission: Principal) => {
   const seat = context.participants.find((seat) =>
     admission.kind === 'human'
       ? seat.actorId === admission.actorId && seat.kind === 'human'
@@ -87,32 +86,48 @@ export function createMediaReconcileRun(
     return proof;
   };
   /**
-   * The refusals of the admission itself, raised where createRoom judges the
-   * caller. Only these reach the caller; a lease or permission race the
-   * reconcile meets for anyone else stays infrastructure, which retries.
+   * Creates the room for `admission`, or returns `{ refused }` when the
+   * admission itself is refused here: its own claim (`ensureBotBinding`) or
+   * this creation's judgement of the caller. Only that refusal reaches the
+   * caller; a lease or permission race met anywhere else stays
+   * infrastructure, which retries.
    */
-  const ownRefusals = new WeakSet<object>();
-  const own = (error: unknown) => {
-    if (isRefusal(error)) ownRefusals.add(error as object);
-    return error;
-  };
-  const createRoom = async (claim: Claim, admission: Principal) => {
+  const createRoom = async (
+    claim: Claim,
+    admission: Principal,
+  ): Promise<
+    { readonly acknowledged: boolean } | { readonly refused: unknown }
+  > => {
     if (admission.kind === 'bot')
-      await input.store
-        .ensureBotBinding({ principal: admission, buildProjection })
-        .catch((error: unknown) => {
-          throw own(error);
+      try {
+        await input.store.ensureBotBinding({
+          principal: admission,
+          buildProjection,
         });
-    return mutate(
-      claim,
-      { kind: 'create', identity: null, payload: {} },
-      (context) => {
-        if (mediaEnded(context) || admissionRevoked(context))
-          throw own(createAppError('CONFLICT'));
-        if (!admitsCreator(context, admission))
-          throw own(createAppError('AUTHORIZATION'));
-      },
-    );
+      } catch (error) {
+        if (isRefusal(error)) return { refused: error };
+        throw error;
+      }
+    let refused: unknown;
+    const refuse = (error: unknown) => {
+      refused = error;
+      return error;
+    };
+    try {
+      return await mutate(
+        claim,
+        { kind: 'create', identity: null, payload: {} },
+        (context) => {
+          if (mediaEnded(context) || admissionRevoked(context))
+            throw refuse(createAppError('CONFLICT'));
+          if (!admitsCreator(context, admission))
+            throw refuse(createAppError('AUTHORIZATION'));
+        },
+      );
+    } catch (error) {
+      if (refused) return { refused };
+      throw error;
+    }
   };
   const knownPublishers = async (claim: Claim) => {
     const current = await input.deadline(
@@ -173,11 +188,7 @@ export function createMediaReconcileRun(
       entry: KnownPublisher,
       grants: RoundMediaGrants,
     ) =>
-    (
-      context: Parameters<
-        Parameters<Store['beginMediaMutation']>[0]['authorize']
-      >[0],
-    ) => {
+    (context: AuthorizeContext) => {
       const fresh = seatGrants(context, entry.participantId, input.nextId);
       if (differs(entry.identity, fresh, grants))
         throw createAppError('CONFLICT', 'Media authority changed');
@@ -213,10 +224,16 @@ export function createMediaReconcileRun(
       entry.grants = grants;
     }
   };
-  const reconcileRoom = async (claim: Claim, admission?: Principal) => {
+  /** Reconciles the room; the admission's own refusal, if met, is returned. */
+  const reconcileRoom = async (
+    claim: Claim,
+    admission?: Principal,
+  ): Promise<{ readonly refused: unknown } | undefined> => {
     if (!(await input.deadline(input.media.exists(claim.roomName)))) {
       if (!admission) return;
-      if (!(await createRoom(claim, admission)).acknowledged) return;
+      const created = await createRoom(claim, admission);
+      if ('refused' in created) return created;
+      if (!created.acknowledged) return;
     }
     const { known, state } = await knownPublishers(claim);
     if (await closeStale(claim, known, state))
@@ -255,12 +272,12 @@ export function createMediaReconcileRun(
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
       } else {
-        await reconcileRoom(claim, admission);
-        held = await runHeld(whileHeld);
+        const refused = await reconcileRoom(claim, admission);
+        if (refused) refusal = refused.refused;
+        else held = await runHeld(whileHeld);
       }
     } catch (error) {
       if (!isRefusal(error)) await unsafe(claim, error);
-      else if (ownRefusals.has(error as object)) refusal = error;
     } finally {
       try {
         const state = await snapshot(claim.roundId);
