@@ -114,11 +114,15 @@ is never assumed to be a participant.
 
 ## Privacy
 
-| Store                                           | Category                                                      | Purpose              | Retention                                | Erasure                                                                                                                                                     |
-| ----------------------------------------------- | ------------------------------------------------------------- | -------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redis `obs:<resource>:cache` bodies             | personal, private (message text and author ids of the window) | shared live delivery | at most 60s TTL, rebuilt from PostgreSQL | content erasure advances the stream revision, so the next build replaces the body; a purge deletes it at once; the TTL is the backstop, never the mechanism |
-| Redis `owner`, `guard`, `interest`, demand keys | identifier (resource id, node incarnation, claim token)       | coordination         | 2-120s TTLs                              | expire                                                                                                                                                      |
-| Pub/Sub hints                                   | identifier (resource id, revisions)                           | metadata only        | not stored                               | none                                                                                                                                                        |
+Under the obligations model ([ADR 0087](0087-compliance-from-obligations.md),
+[compliance](../operations/compliance.md)), the Redis observation body is
+part of the **Messages** data class: a live delivery copy of the latest
+window (message text and author ids), purpose messaging, lawful basis
+contract. It lives at most 60s. Content erasure advances the stream
+revision, so the next build replaces it; a purge deletes it at once; the TTL
+is a backstop, never the mechanism. Claims, guards, interests, demand and
+Pub/Sub hints hold only resource ids, node incarnations, claim tokens and
+revisions, expire within 2 to 120s, and describe no data subject.
 
 No body enters logs; `realtime.observation.unavailable` carries only an
 operation and an error code.
