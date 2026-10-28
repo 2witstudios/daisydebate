@@ -4,6 +4,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
+import { endingDeadline } from '../features/round-bots/ending-deadline';
 import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
@@ -69,17 +70,7 @@ export function startRoundBotWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
-    // A seat's ending is cut off within two renewals of its lease. Speaking
-    // authority itself stays with the lease and media permissions: a speaker
-    // past its lease is refused credit and publish rights (ISSUE-789).
-    overdue: (signal) =>
-      new Promise((resolve) => {
-        const timer = setTimeout(resolve, policy.leaseMs - 2 * policy.renewMs);
-        timer.unref();
-        signal.addEventListener('abort', () => clearTimeout(timer), {
-          once: true,
-        });
-      }),
+    overdue: endingDeadline(policy),
     failed: failure(
       'round.control.failed',
       'round.control',

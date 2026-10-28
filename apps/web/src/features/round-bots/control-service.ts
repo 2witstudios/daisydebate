@@ -48,7 +48,7 @@ export function startBotControlService<C extends Claim>(input: {
    * ending is done, so its timer is cleared.
    */
   readonly overdue: (signal: AbortSignal) => Promise<void>;
-  /** `stage` names the work that failed: pulse, stop, revoke or discover. */
+  /** `stage` names the work that failed: pulse, stop, revoke, claim or discover. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   const owned = new Map<string, Owned<C>>();
@@ -95,7 +95,7 @@ export function startBotControlService<C extends Claim>(input: {
   const end = (entry: Owned<C>, revoke: boolean): Promise<void> => {
     if (entry.ending) return entry.ending;
     const ending = (async () => {
-      let spoken = false,
+      let silenced = false,
         overran = false;
       const stopping = (async () => {
         try {
@@ -104,7 +104,7 @@ export function startBotControlService<C extends Claim>(input: {
           // A stop that fails after its overrun was reported is not reported twice.
           if (!overran) input.failed(error, 'stop');
         }
-        spoken = true;
+        silenced = true;
         await entry.pending;
         return 'ended' as const;
       })();
@@ -117,7 +117,7 @@ export function startBotControlService<C extends Claim>(input: {
       if (outcome === 'late') {
         overran = true;
         // Names the part still running: the speaker's stop, or the receipt pulse.
-        const stage = spoken ? 'pulse' : 'stop';
+        const stage = silenced ? 'pulse' : 'stop';
         input.failed(
           createAppError('INFRASTRUCTURE', `Seat ${stage} overran its ending`),
           stage,
@@ -150,12 +150,17 @@ export function startBotControlService<C extends Claim>(input: {
           void end(entry, false);
           return;
         }
-        input.failed(error, 'pulse');
+        // An ending seat's late pulse was already reported as its overrun.
+        if (!entry.ending) input.failed(error, 'pulse');
       } finally {
         entry.pending = null;
       }
     })();
     return entry.pending;
+  };
+  /** Another controller claiming or rotating the seat first is no fault. */
+  const claimFailed = (error: unknown) => {
+    if (!refusedAuthority(error)) input.failed(error, 'claim');
   };
   const claimTarget = async (target: Target): Promise<void> => {
     const seat = target.roundParticipantId;
@@ -171,18 +176,24 @@ export function startBotControlService<C extends Claim>(input: {
       // shutdown waits for that claim like any ending.
       const handoff: Promise<void> = end(old, true)
         .then(() => claimTarget(target))
-        .catch(() => undefined)
+        .catch(claimFailed)
         .finally(() => endings.delete(handoff));
       endings.add(handoff);
       return;
     }
-    if (stopped || owned.size >= input.limits.maxControllers) return;
+    // A claim in flight counts too, so a handoff and a scan never exceed the cap.
+    if (stopped || owned.size + claiming.size >= input.limits.maxControllers)
+      return;
     claiming.add(seat);
     let entry: Owned<C>;
     try {
       const claim = await input.store.claimRoundBotWorker(target);
       if (stopped) {
-        await input.store.revokeRoundBotWorker(claim.scope, claim.token);
+        await input.store
+          .revokeRoundBotWorker(claim.scope, claim.token)
+          .catch((error: unknown) => {
+            if (!refusedAuthority(error)) input.failed(error, 'revoke');
+          });
         return;
       }
       entry = {
@@ -196,7 +207,8 @@ export function startBotControlService<C extends Claim>(input: {
     } finally {
       claiming.delete(seat);
     }
-    await pulse(entry);
+    // Not awaited: neither discovery nor shutdown waits on a seat's receipts.
+    void pulse(entry);
   };
   const discover = (): Promise<void> => {
     if (stopped || discovering) return discovering ?? Promise.resolve();
@@ -207,11 +219,7 @@ export function startBotControlService<C extends Claim>(input: {
         );
         for (const target of targets) {
           if (stopped) break;
-          try {
-            await claimTarget(target);
-          } catch {
-            /* Another controller may claim or rotate this target first. */
-          }
+          await claimTarget(target).catch(claimFailed);
         }
       } catch (error) {
         input.failed(error, 'discover');
@@ -246,7 +254,6 @@ export function startBotControlService<C extends Claim>(input: {
       // Speakers end at once; a claim still in flight revokes itself.
       for (const entry of [...owned.values()]) void end(entry, true);
       await Promise.allSettled([discovering, ...endings]);
-      await Promise.allSettled([...endings]);
     },
   };
 }

@@ -168,3 +168,96 @@ test('shutdown waits for a claim chained on an ending (ISSUE-789)', async () => 
     expected: ['revoke:first', 'revoke:second', 'shutdown'],
   });
 });
+
+test('a stop that fails after its overrun is reported once, as the overrun (ISSUE-789)', async () => {
+  const { failures, failed } = failureLog();
+  const due = Promise.withResolvers<void>();
+  const stopping = Promise.withResolvers<void>();
+  const fail = Promise.withResolvers<void>();
+  const incoming = Promise.withResolvers<void>();
+  let segment = 'first',
+    deadlines = 0;
+  const { tasks, timers } = manualTimers();
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => [seat('seat', segment)],
+      claimRoundBotWorker: async (target) => ownedClaim(target),
+      revokeRoundBotWorker: async () => {},
+      verifyRoundBotWorker: async () => {},
+    },
+    control: (claim) => ({
+      pulse: async () => {
+        if (claim.scope.segmentId === 'second') incoming.resolve();
+        return [];
+      },
+      stop: async () => {
+        if (claim.scope.segmentId !== 'first') return;
+        stopping.resolve();
+        await fail.promise;
+        throw new Error('The operation was aborted.');
+      },
+    }),
+    limits,
+    timers,
+    overdue: () => (deadlines++ === 0 ? due.promise : neverOverdue()),
+    failed,
+  });
+  await service.started;
+  segment = 'second';
+  await tasks.get(500)!();
+  await within(stopping.promise, 'The outgoing stop');
+  due.resolve();
+  await within(incoming.promise, 'The incoming claim');
+  fail.resolve();
+  await service.stop();
+  assert({
+    given: 'a stop that rejects only after its deadline was reported',
+    should: 'report the overrun and not the late failure',
+    actual: failures.map((failure) => (failure as unknown[])[1]),
+    expected: ['stop'],
+  });
+});
+
+test('claims in flight count against maxControllers, and a failed handoff claim is reported (ISSUE-789)', async () => {
+  const { failures, failed } = failureLog();
+  const claimed: string[] = [];
+  const outage = new Error('pool outage');
+  const handing = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let targets = [seat('rotating', 'first')];
+  const { tasks, timers } = manualTimers();
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => targets,
+      claimRoundBotWorker: async (target) => {
+        if (target.segmentId === 'second') {
+          handing.resolve();
+          await release.promise;
+          throw outage;
+        }
+        claimed.push(target.roundParticipantId);
+        return ownedClaim(target);
+      },
+      revokeRoundBotWorker: async () => {},
+      verifyRoundBotWorker: async () => {},
+    },
+    control: () => ({ pulse: async () => [], stop: async () => {} }),
+    limits: { ...limits, maxControllers: 1 },
+    timers,
+    overdue: neverOverdue,
+    failed,
+  });
+  await service.started;
+  targets = [seat('rotating', 'second'), seat('joining')];
+  await tasks.get(500)!();
+  await within(handing.promise, 'The handoff claim');
+  await tasks.get(500)!();
+  release.resolve();
+  await service.stop();
+  assert({
+    given: 'a scan while a handoff claim is still in flight at the cap',
+    should: 'claim no extra seat, and report the handoff claim that failed',
+    actual: { claimed, failures },
+    expected: { claimed: ['rotating'], failures: [[outage, 'claim']] },
+  });
+});

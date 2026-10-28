@@ -1,5 +1,8 @@
+import { createId } from '@paralleldrive/cuid2';
+import { createMediaService } from '@daisy/media';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { localMediaConfig } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -12,9 +15,20 @@ const PROCESS_DEADLINE_MS = 10_000;
  * runner, where it once crashed Bun in a later suite (ISSUE-789).
  */
 async function closeIn(order: 'racing' | 'dropped' | 'live') {
+  const media = createMediaService({ config: localMediaConfig });
+  const room = createId();
+  await media.createRoom(room);
+  try {
+    return await publishIn(order, room);
+  } finally {
+    if (await media.exists(room)) await media.deleteRoom(room);
+  }
+}
+
+async function publishIn(order: string, room: string) {
   const child = Bun.spawn(
     // The runner's own binary: the proof is about this Bun and rtc-node pair.
-    [process.execPath, 'audio-publication-room-ended-process.ts', order],
+    [process.execPath, 'audio-publication-room-ended-process.ts', order, room],
     {
       cwd: import.meta.dir,
       stdout: 'pipe',
