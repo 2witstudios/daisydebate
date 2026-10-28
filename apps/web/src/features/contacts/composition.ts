@@ -2,7 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { memberHttpBoundary } from '../../server/member-handler';
-import { spendUsernameDiscovery } from '../access/username-discovery';
+import { spendUsernameDiscovery } from '../account/username-discovery';
 import { contactPairFence } from './authorization';
 import { blockContact, blockContactByUsername } from './block';
 import { createContactHandlers } from './handlers';
@@ -32,12 +32,7 @@ export function composeContactRoutes(app: App) {
     blockByUsername: (input, principal) =>
       blockContactByUsername(input, principal, {
         ...dependencies(principal),
-        limitLookup: (actorId) =>
-          spendUsernameDiscovery(
-            app.limiter,
-            actorId,
-            app.contactsPolicy.blocks,
-          ),
+        limitLookup: (actorId) => spendUsernameDiscovery(app.limiter, actorId),
         lookup: (username) => app.database.lookupHumanActorByUsername(username),
       }),
   });

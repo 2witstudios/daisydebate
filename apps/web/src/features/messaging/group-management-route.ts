@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { spendUsernameDiscovery } from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
@@ -21,6 +22,7 @@ export function composeMessagingGroupManagementRoute(app: App) {
       let target: string | null = null;
       if ('memberUsername' in intent) {
         await limit(actor.actorId);
+        await spendUsernameDiscovery(app.limiter, actor.actorId);
         target = await app.database.lookupHumanActorByUsername(
           intent.memberUsername,
         );

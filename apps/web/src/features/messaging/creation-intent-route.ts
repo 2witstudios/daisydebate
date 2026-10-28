@@ -1,7 +1,7 @@
 import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { spendUsernameDiscovery } from '../access/username-discovery';
+import { spendUsernameDiscovery } from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 
 import { resolveMessagingCreationIntent } from './creation-intent';
@@ -30,8 +30,7 @@ export function composeMessagingCreationIntentRoutes(app: App) {
             bounds: social.bounds,
             lookup: (username) =>
               app.database.lookupHumanActorByUsername(username),
-            limit: (actorId) =>
-              spendUsernameDiscovery(app.limiter, actorId, social.abuse),
+            limit: (actorId) => spendUsernameDiscovery(app.limiter, actorId),
           },
         );
         const result = await composeMessagingCreationOperation(app, kind)(

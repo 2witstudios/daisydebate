@@ -20,6 +20,8 @@ import {
 } from './operations';
 import { memberHttpBoundary } from '../../server/member-handler';
 import { contactPairFence } from '../contacts/authorization';
+import { spendUsernameDiscovery } from '../account/username-discovery';
+import { requireMemberActor } from '../access/actor';
 
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
@@ -64,6 +66,16 @@ const friendReads = (
 const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
   readFriendList(principal, friendReads(app, principal));
 
+/** A username lookup that first spends the member's discovery budget. */
+const discoveringLookup =
+  (app: App, principal: AuthorizationPrincipal) => async (name: string) => {
+    await spendUsernameDiscovery(
+      app.limiter,
+      requireMemberActor(principal).actorId,
+    );
+    return app.database.lookupHumanActorByUsername(name);
+  };
+
 /** The operations' ports for the principal: limiter, lookup and fenced store. */
 const friendPorts = (
   app: App,
@@ -74,7 +86,7 @@ const friendPorts = (
   limits: app.contactsPolicy.requests,
   limit: (actorId) =>
     consumeOrThrow(app.limiter, `friends:${actorId}`, FRIEND_RULE),
-  lookup: (name) => app.database.lookupHumanActorByUsername(name),
+  lookup: discoveringLookup(app, principal),
   store: (capability) =>
     app.database.friendStore(contactPairFence({ principal, capability })),
 });
@@ -91,7 +103,7 @@ const challengePorts = (
       challengeRateLimit.key(actorId),
       challengeRateLimit.rule,
     ),
-  lookup: (name) => app.database.lookupHumanActorByUsername(name),
+  lookup: discoveringLookup(app, principal),
   store: (capability) =>
     app.database.friendStore(contactPairFence({ principal, capability })),
 });
