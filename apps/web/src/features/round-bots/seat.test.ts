@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './seat';
 import { manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from '../../lib/deadline.test-support';
+
 setupRitewayBun();
 function harness(withFeed: boolean, speakerStop = async () => undefined) {
   const log: string[] = [];
@@ -107,5 +109,95 @@ test('a speaker that fails to stop still releases the publication', async () => 
     should: 'end the publication anyway, so no participant is left joined',
     actual: [stopped, log.at(-1)],
     expected: ['rejected', 'publication-close'],
+  });
+});
+
+test('a seat whose hearing fails to start closes what it started (ISSUE-789)', async () => {
+  const log: string[] = [];
+  const broken = new Error('listener unavailable');
+  const closeFault = new Error('The operation was aborted.');
+  const failures: unknown[] = [];
+  const feedClosed = Promise.withResolvers<void>();
+  let thrown: unknown;
+  try {
+    createBotSeat({
+      control: { pulse: async () => [] },
+      speaker: { wake: () => {}, stop: async () => {} },
+      publication: {
+        start: () => log.push('publication-start'),
+        // A plain function that throws, not a rejected promise.
+        close: () => {
+          log.push('publication-close');
+          throw closeFault;
+        },
+      },
+      feed: {
+        start: () => {
+          throw broken;
+        },
+        poll: async () => {},
+        close: async () => {
+          log.push('feed-close');
+          feedClosed.resolve();
+        },
+      },
+      pollMs: 50,
+      timers: manualTimers().timers,
+      failed: (error, stage) => failures.push([error, stage]),
+    });
+  } catch (error) {
+    thrown = error;
+  }
+  await within(feedClosed.promise, 'The hearing’s close');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert({
+    given: 'a cross-examination seat whose hearing throws as it starts',
+    should:
+      'rethrow, close its publication and hearing, and report a close that throws',
+    actual: { thrown, log, failures },
+    expected: {
+      thrown: broken,
+      log: ['publication-start', 'publication-close', 'feed-close'],
+      failures: [[closeFault, 'close']],
+    },
+  });
+});
+
+test('a seat that cannot close either part reports both failures (ISSUE-789)', async () => {
+  const publicationFault = new Error('publication close failed');
+  const feedFault = new Error('hearing close failed');
+  const reported = Promise.withResolvers<unknown>();
+  try {
+    createBotSeat({
+      control: { pulse: async () => [] },
+      speaker: { wake: () => {}, stop: async () => {} },
+      publication: {
+        start: () => {},
+        close: async () => {
+          throw publicationFault;
+        },
+      },
+      feed: {
+        start: () => {
+          throw new Error('listener unavailable');
+        },
+        poll: async () => {},
+        close: async () => {
+          throw feedFault;
+        },
+      },
+      pollMs: 50,
+      timers: manualTimers().timers,
+      failed: (error) => reported.resolve(error),
+    });
+  } catch {
+    /* The start failure itself is the first test's concern. */
+  }
+  const error = await within(reported.promise, 'The close report');
+  assert({
+    given: 'a seat whose publication and hearing both fail to close',
+    should: 'report both errors, not only the last',
+    actual: (error as AggregateError).errors,
+    expected: [publicationFault, feedFault],
   });
 });

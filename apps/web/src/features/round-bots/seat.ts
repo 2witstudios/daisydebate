@@ -27,7 +27,10 @@ export function createBotSeat(input: {
   } | null;
   readonly pollMs: number;
   readonly timers: WorkerTimers;
-  /** `stage` is always poll: the bot's hearing failed. */
+  /**
+   * `stage` is poll when the bot's hearing failed, or close when a seat that
+   * failed to start could not close what it had started.
+   */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   let polling: Promise<void> | null = null;
@@ -44,11 +47,33 @@ export function createBotSeat(input: {
     })();
     return polling;
   };
+  /**
+   * Closes what the seat started, its publication and then its hearing,
+   * each attempted, and throws every failure, not only the last.
+   */
+  const closeStarted = async () => {
+    const { publication, feed } = input;
+    const errors: unknown[] = [];
+    for (const close of [() => publication.close(), () => feed?.close()])
+      await Promise.resolve()
+        .then(close)
+        .catch((error: unknown) => errors.push(error));
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1)
+      throw new AggregateError(errors, 'The seat could not close');
+  };
   input.publication.start();
-  input.feed?.start();
-  const timer = input.feed
-    ? input.timers.setInterval(poll, input.pollMs)
-    : null;
+  let timer: unknown = null;
+  try {
+    input.feed?.start();
+    if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
+  } catch (error) {
+    // A seat that fails to start owns nothing it started (ISSUE-789).
+    void closeStarted().catch((closeError: unknown) =>
+      input.failed(closeError, 'close'),
+    );
+    throw error;
+  }
   return {
     pulse: () => {
       input.speaker.wake();
@@ -60,11 +85,7 @@ export function createBotSeat(input: {
       try {
         await input.speaker.stop();
       } finally {
-        try {
-          await input.publication.close();
-        } finally {
-          await input.feed?.close();
-        }
+        await closeStarted();
       }
     },
   };

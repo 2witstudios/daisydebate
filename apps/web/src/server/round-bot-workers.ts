@@ -4,11 +4,12 @@ import type { ErrorReporter } from '@daisy/observability';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
+import { endingDeadline } from '../features/round-bots/ending-deadline';
 import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
+import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 
 /** Bot debaters' own workers: seat control and live speech on the competitive provider budget. */
 export function startRoundBotWorkers(input: {
@@ -26,6 +27,8 @@ export function startRoundBotWorkers(input: {
     'botToken' | 'listenToken' | 'readPeers'
   > | null;
   readonly timers: WorkerTimers;
+  /** Bounds each seat's ending below its lease (ISSUE-789). */
+  readonly deadlineTimer: OneShotTimer;
   readonly reporter?: ErrorReporter;
 }) {
   const { app, policy } = input;
@@ -80,6 +83,7 @@ export function startRoundBotWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
+    overdue: endingDeadline(policy, input.deadlineTimer),
     failed: failure(
       'round.control.failed',
       'round.control',

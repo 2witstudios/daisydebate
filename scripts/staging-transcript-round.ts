@@ -1,6 +1,9 @@
 import { systemId } from '@daisy/clock';
 import {
-  roomCatalogChoiceSchema,
+  foundationSettings,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
+import {
   roomCastChoiceSchema,
   roomViewSchema,
   roundViewSchema,
@@ -8,6 +11,41 @@ import {
 } from '@daisy/protocol';
 import { STAGING_TRANSCRIPT_ORIGIN as origin } from './staging-transcript-contract';
 const createId = () => systemId.next();
+type Cast = { readonly actorId: string; readonly seatRole: string };
+
+/**
+ * The two-speech proof format with an AI judge seat. It is not in the
+ * picker's catalog (FMT-1), so the proof posts it as a custom format.
+ */
+export const stagingProofSelection = () => ({
+  kind: 'custom' as const,
+  competitionType: 'casual' as const,
+  definition: {
+    ...foundationDefinition,
+    seats: { affirmative: 1, negative: 1, judge: 1 },
+  },
+  config: {
+    ...foundationSettings,
+    inRoundPrep: { enabled: false },
+    speechTiming: {
+      countdownMs: 0,
+      segmentDurationOverrides: { AC: 60000, NC: 60000 },
+    },
+  },
+});
+
+/** Two bot debaters for the sides and the AI judge for the judge seat (ISSUE-750). */
+export function stagingProofCast(bots: readonly Cast[]) {
+  const debaters = bots.filter((bot) => bot.seatRole === 'debater');
+  const judge = bots.find((bot) => bot.seatRole === 'judge');
+  if (debaters.length < 2 || !judge)
+    throw new Error('Staging proof catalog unavailable');
+  return [
+    { role: 'affirmative', actorId: debaters[0]!.actorId },
+    { role: 'negative', actorId: debaters[1]!.actorId },
+    { role: 'judge', actorId: judge.actorId },
+  ] as const;
+}
 
 export async function runStagingTranscriptRound(cookie: string) {
   const request = async (path: string, body?: unknown) => {
@@ -21,14 +59,11 @@ export async function runStagingTranscriptRound(cookie: string) {
     return response.json();
   };
   const catalog = await request('/api/rooms/catalog');
-  const choice = catalog.choices
-    .map((value: unknown) => roomCatalogChoiceSchema.parse(value))
-    .find((value: { formatId: string }) => value.formatId === 'foundation');
-  const bots = catalog.bots
-    .map((value: unknown) => roomCastChoiceSchema.parse(value))
-    .filter((value: { eligible: boolean }) => value.eligible);
-  if (!choice || bots.length < 3)
-    throw new Error('Staging proof catalog unavailable');
+  const cast = stagingProofCast(
+    catalog.bots
+      .map((value: unknown) => roomCastChoiceSchema.parse(value))
+      .filter((value: { eligible: boolean }) => value.eligible),
+  );
   let room = roomViewSchema.parse(
     (
       await request('/api/rooms', {
@@ -36,31 +71,16 @@ export async function runStagingTranscriptRound(cookie: string) {
         title: 'Staging transcript provider proof',
         topic: 'Cities should fund transit',
         visibility: 'unlisted',
-        selection: {
-          kind: 'custom',
-          competitionType: 'casual',
-          definition: {
-            ...choice.definition,
-            seats: { affirmative: 1, negative: 1, judge: 1 },
-          },
-          config: {
-            ...choice.defaultConfig,
-            inRoundPrep: { enabled: false },
-            speechTiming: {
-              countdownMs: 0,
-              segmentDurationOverrides: { AC: 60000, NC: 60000 },
-            },
-          },
-        },
+        selection: stagingProofSelection(),
       })
     ).view,
   );
-  for (const [index, role] of ['affirmative', 'negative', 'judge'].entries())
+  for (const { role, actorId } of cast)
     room = roomViewSchema.parse(
       (
         await request(`/api/rooms/${room.id}/commands`, {
           type: 'assign-seat',
-          actorId: bots[index].actorId,
+          actorId,
           role,
           slot: 0,
           commandId: createId(),

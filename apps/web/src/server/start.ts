@@ -7,7 +7,7 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
-import type { WorkerTimers } from '../lib/worker-timers';
+import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
@@ -96,6 +96,12 @@ const workerTimers: WorkerTimers = {
   clearInterval: (handle) =>
     clearInterval(handle as ReturnType<typeof setInterval>),
 };
+/** Process one-shot timers for worker deadlines; `unref` never holds the process open. */
+const oneShotTimer: OneShotTimer = {
+  setTimeout: (run, ms) => setTimeout(run, ms).unref(),
+  clearTimeout: (handle) =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
@@ -123,6 +129,7 @@ const roundWorkers = startRoundWorkers({
       }
     : null,
   timers: workerTimers,
+  deadlineTimer: oneShotTimer,
 });
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
