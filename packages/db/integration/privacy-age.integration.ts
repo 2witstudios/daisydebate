@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountAgePrivacyAdopter } from '../src/account-age';
 import { accountTermsPrivacyAdopter } from '../src/age-step';
-import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
@@ -18,8 +18,8 @@ test('canonical account age adopter exports and erases only this subject in the 
       const subject = { userId, actorId };
       try {
         const adopted = [accountAgePrivacyAdopter];
-        const exported = await exportPrivacySubject(database, subject, adopted);
-        await erasePrivacySubject(
+        const exported = await runPrivacyExport(database, subject, adopted);
+        await runPrivacyErasure(
           database,
           { subject, now, vendors: [], jobIds: [] },
           adopted,
@@ -73,7 +73,7 @@ test('account erasure removes the age step’s birth month and Terms acceptance'
       const subject = { userId, actorId };
       const adopters = [accountAgePrivacyAdopter, accountTermsPrivacyAdopter];
       try {
-        await erasePrivacySubject(
+        await runPrivacyErasure(
           database,
           { subject, now, vendors: [], jobIds: [] },
           adopters,

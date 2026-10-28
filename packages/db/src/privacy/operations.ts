@@ -88,7 +88,7 @@ async function eraseAdopters(
  * erasure. The account closes: its email, name, image and sign-in rows go,
  * its username stays on the competitive record and stays reserved (ADR 0087).
  */
-export async function erasePrivacySubject(
+export async function runPrivacyErasure(
   database: PrivacyDatabase,
   input: PrivacyErasureInput,
   adoption: PrivacyAdoption,
@@ -154,7 +154,7 @@ function checkedExport(result: PrivacyExport) {
 }
 
 /** Locked snapshot: each adopter returns its own subject rows, never arbitrary history. */
-export async function exportPrivacySubject(
+export async function runPrivacyExport(
   database: PrivacyDatabase,
   subject: PrivacySubject,
   adoption: PrivacyAdoption,

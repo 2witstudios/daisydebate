@@ -1,7 +1,4 @@
 export type { PrivacyExport, PrivacyAdopter } from './contracts';
-export {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyVerificationBinding,
-} from './operations';
+export type { PrivacyVerificationBinding } from './operations';
+export { erasePrivacySubject, exportPrivacySubject } from './subject-rights';
 export { deliverPrivacyJob } from './vendor-jobs';

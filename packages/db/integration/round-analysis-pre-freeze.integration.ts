@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { erasePrivacySubject } from '../src/privacy';
+import { runPrivacyErasure } from '../src/privacy/operations';
 import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { withCompletedRound } from './round-analysis.test-support';
@@ -65,7 +65,7 @@ test('canonical erasure during an active Round prevents any round analysis after
           roundTranscriptPrivacyAdopter,
           roundAnalysisPrivacyAdopter,
         ];
-        await erasePrivacySubject(
+        await runPrivacyErasure(
           drizzle({ client }),
           {
             subject: { userId: actor.user_id, actorId: aff.actorId },

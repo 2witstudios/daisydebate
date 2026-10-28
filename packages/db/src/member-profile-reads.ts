@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { DebateRole, RatedOutcome, RoundStatus } from '@daisy/protocol';
-import { and, count, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { debating, historyRows, type HistoryRow } from './member-history-rows';
@@ -27,6 +27,8 @@ type MemberRow = {
   readonly actorId: string;
   readonly username: string;
   readonly memberSince: string;
+  /** A closed account keeps its name and public record (ADR 0087). */
+  readonly closed: boolean;
 };
 
 /** The member's debating Rounds, counted per state, outcome and side. */
@@ -53,7 +55,7 @@ export type MemberProfileRead = {
  */
 const snapshot = { isolationLevel: 'repeatable read' } as const;
 
-/** The live member a username names; a tombstone has no name. */
+/** The member a username names, live or closed: a closed name stays reserved. */
 async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
   const [row] = await tx
     .select({
@@ -61,18 +63,14 @@ async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
       actorId: actors.id,
       username: users.username,
       createdAt: users.createdAt,
+      closedAt: users.deletedAt,
     })
     .from(users)
     .innerJoin(
       actors,
       and(eq(actors.userId, users.id), eq(actors.kind, 'human')),
     )
-    .where(
-      and(
-        sql`lower(${users.username}) = lower(${username})`,
-        isNull(users.deletedAt),
-      ),
-    )
+    .where(sql`lower(${users.username}) = lower(${username})`)
     .limit(1);
   return row?.username
     ? {
@@ -80,6 +78,7 @@ async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
         actorId: row.actorId,
         username: row.username,
         memberSince: row.createdAt.toISOString(),
+        closed: row.closedAt !== null,
       }
     : null;
 }
@@ -181,8 +180,8 @@ export const memberProfileReadOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
-   * A member's profile rows in one repeatable-read snapshot, or null when no live
-   * member holds the name or `before` names no Round in the viewer's list:
+   * A member's profile rows in one repeatable-read snapshot, or null when no
+   * member, live or closed, holds the name or `before` names no Round in the viewer's list:
    * a value, not an error, because the caller may sit in another bundle
    * that cannot recognize this one's errors. The viewer's account is read fresh under the
    * shared account fence in that snapshot, and `decide` maps it, with the
@@ -208,9 +207,15 @@ export const memberProfileReadOperations = ({
       database.transaction(async (tx) => {
         const member = await memberRow(tx, input.username);
         if (member === null) return null;
+        // A closed account has no owner left to read it: everyone sees the
+        // public subset any unrelated viewer could read before it closed.
         const account =
-          input.caller === null ? null : await sharedAccount(tx, input.caller);
-        const scope = input.decide(member.actorId, account);
+          input.caller === null || member.closed
+            ? null
+            : await sharedAccount(tx, input.caller);
+        const scope: HistoryScope = member.closed
+          ? 'public'
+          : input.decide(member.actorId, account);
         const groups = await recordGroups(tx, member.actorId, scope);
         const page = await historyPage(tx, {
           actorId: member.actorId,

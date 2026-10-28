@@ -8,6 +8,16 @@ import { roomIsOpen } from './room-open';
 
 type Mutation = Extract<RoomMutationOutcome, { ok: true }>['mutation'];
 
+/** The engine's pure Room transitions, injected by the caller. */
+export type RoomClosureTransitions = {
+  readonly closeRoom: (room: RoomAssemblyState) => RoomAssemblyState;
+  readonly eraseSeats: (
+    room: RoomAssemblyState,
+    actorId: string,
+  ) => RoomAssemblyState;
+  readonly activeRoomMembers: (room: RoomAssemblyState) => readonly string[];
+};
+
 /**
  * What closing an account does to Rooms, inside the subject-rights
  * transaction and under each Room's row lock; it never goes through the
@@ -17,14 +27,9 @@ type Mutation = Extract<RoomMutationOutcome, { ok: true }>['mutation'];
  * titles, topics, resolutions, drawn texts and draw inputs are the
  * competitive record (ADR 0087). The pure transitions come from the engine.
  */
-export const createRoomClosurePrivacyAdopter = (transitions: {
-  readonly closeRoom: (room: RoomAssemblyState) => RoomAssemblyState;
-  readonly eraseSeats: (
-    room: RoomAssemblyState,
-    actorId: string,
-  ) => RoomAssemblyState;
-  readonly activeRoomMembers: (room: RoomAssemblyState) => readonly string[];
-}): PrivacyAdopter => {
+export const createRoomClosurePrivacyAdopter = (
+  transitions: RoomClosureTransitions,
+): PrivacyAdopter => {
   const persist = async (
     tx: Tx,
     before: RoomAssemblyState,

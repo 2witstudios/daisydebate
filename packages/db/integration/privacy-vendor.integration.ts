@@ -2,11 +2,9 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  erasePrivacySubject,
-  deliverPrivacyJob,
-  type PrivacyAdopter,
-} from '../src/privacy';
+import { runPrivacyErasure } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
+import { deliverPrivacyJob } from '../src/privacy/vendor-jobs';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -18,7 +16,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
     const retryAt = '2026-10-09T18:01:00.000Z';
     const observer = new SQL(databaseUrl, { max: 1 });
     try {
-      const result = await erasePrivacySubject(
+      const result = await runPrivacyErasure(
         database,
         { subject, now, vendors: ['posthog'], jobIds: [jobId] },
         adoption,

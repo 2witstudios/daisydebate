@@ -2,12 +2,8 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyAdopter,
-  type PrivacyExport,
-} from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
+import type { PrivacyAdopter, PrivacyExport } from '../src/privacy/contracts';
 import { bindings, now } from './privacy.test-support';
 import {
   messagingPrivacyAdoption,
@@ -54,12 +50,12 @@ function assertInvitationExport(rows: PrivacyExport[string], actorId: string) {
 test('canonical privacy export composes MSG and age while masking other private data', async () => {
   await withPrivacyMessaging(
     async ({ database, userId, actorId, otherId, otherActorId }) => {
-      const result = await exportPrivacySubject(
+      const result = await runPrivacyExport(
         database,
         { userId, actorId },
         messagingPrivacyAdoption,
       );
-      const peer = await exportPrivacySubject(
+      const peer = await runPrivacyExport(
         database,
         { userId: otherId, actorId: otherActorId },
         messagingPrivacyAdoption,
@@ -113,12 +109,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         jobIds: [createId()],
       };
       await expect(
-        erasePrivacySubject(
-          database,
-          input,
-          [...adopters, late],
-          bindings,
-        ),
+        runPrivacyErasure(database, input, [...adopters, late], bindings),
       ).rejects.toThrow('composed rollback');
       const rolledBack = await client.unsafe(
         'select text from messaging_messages where id=$1',
@@ -153,12 +144,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         ],
         expected: ['Subject contribution', 1, 0],
       });
-      await erasePrivacySubject(
-        database,
-        input,
-        adopters,
-        bindings,
-      );
+      await runPrivacyErasure(database, input, adopters, bindings);
       const survivingSocial = await client.unsafe(
         'select actor_id,kind,result_channel_id from messaging_social_commands where actor_id in ($1,$2)',
         [actorId, otherActorId],

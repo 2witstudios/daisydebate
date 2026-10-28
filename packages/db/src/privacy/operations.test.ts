@@ -6,8 +6,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { AuthorizationTransaction } from '../authorization';
 import { createMessagingPrivacyAdopter } from '../messaging/privacy';
 import {
-  erasePrivacySubject,
-  exportPrivacySubject,
+  runPrivacyErasure,
+  runPrivacyExport,
   type PrivacyVerificationBinding,
 } from './operations';
 
@@ -93,7 +93,9 @@ test('canonical export accepts the MSG adopter own file projection only', async 
       owner_actor_id: 'cdefghijklmnopqrstuvwxyz',
     },
   ]);
-  const result = await exportPrivacySubject(database, subject, [createMessagingPrivacyAdopter()]);
+  const result = await runPrivacyExport(database, subject, [
+    createMessagingPrivacyAdopter(),
+  ]);
   const filesQuery = statements.find((statement) =>
     statement.sql.includes('from messaging_files'),
   );
@@ -129,9 +131,7 @@ test('canonical export accepts the MSG adopter own file projection only', async 
 
 test('the MSG file export never selects its internal object key', async () => {
   const { database, statements } = messagingExportDatabase([ownFile]);
-  await exportPrivacySubject(database, subject, [
-    createMessagingPrivacyAdopter(),
-  ]);
+  await runPrivacyExport(database, subject, [createMessagingPrivacyAdopter()]);
   const filesQuery = statements.find((statement) =>
     statement.sql.includes('from messaging_files'),
   );
@@ -145,7 +145,9 @@ test('the MSG file export never selects its internal object key', async () => {
 
 test('canonical export accepts an empty MSG file projection', async () => {
   const { database } = messagingExportDatabase([]);
-  const result = await exportPrivacySubject(database, subject, [createMessagingPrivacyAdopter()]);
+  const result = await runPrivacyExport(database, subject, [
+    createMessagingPrivacyAdopter(),
+  ]);
   assert({
     given: 'a subject with no messaging file rows',
     should: 'return the required empty file table projection',
@@ -178,7 +180,7 @@ test('verification cleanup rejects noncanonical bindings before any transaction'
         'noncanonical whitespace or missing verification producer bindings',
       should: 'refuse cleanup instead of leaving pending subject tokens alive',
       actual: () =>
-        erasePrivacySubject(
+        runPrivacyErasure(
           database,
           {
             subject,

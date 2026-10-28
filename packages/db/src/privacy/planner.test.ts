@@ -82,11 +82,7 @@ test('invalid vendor IDs and times are refused', async () => {
     await assertRejects({
       given: 'invalid or duplicate erasure inputs',
       should: 'refuse before any local writes',
-      actual: () =>
-        planPrivacyErasure(
-          { ...base, ...change },
-          [],
-        ),
+      actual: () => planPrivacyErasure({ ...base, ...change }, []),
       code: 'VALIDATION',
     });
 });

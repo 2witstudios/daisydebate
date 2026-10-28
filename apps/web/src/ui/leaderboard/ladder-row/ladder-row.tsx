@@ -29,7 +29,7 @@ const numeric = 'tabular-nums';
 
 /** What appears after a pause over a row, or when it takes focus. */
 function HoverCard({ row }: { row: Row }): ReactNode {
-  if (row.masked || row.username === null) return null;
+  if (row.masked) return null;
   return (
     <span
       aria-hidden="true"
@@ -78,7 +78,7 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
             <span
               className={cn(
                 'truncate font-strong',
-                row.username === null && 'text-ink-faint',
+                row.accountClosed && 'text-ink-faint',
               )}
             >
               {displayName(row)}

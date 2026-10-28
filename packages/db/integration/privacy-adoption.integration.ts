@@ -3,11 +3,8 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyAdopter,
-} from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
 import {
   bindings,
   now,
@@ -24,7 +21,7 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         `closed${userId.slice(0, 8)}`,
         userId,
       ]);
-      const result = await erasePrivacySubject(
+      const result = await runPrivacyErasure(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
         adoption,
@@ -111,7 +108,7 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
       };
       const adopted = [early, late];
       await expect(
-        erasePrivacySubject(
+        runPrivacyErasure(
           database,
           { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
           adopted,
@@ -144,7 +141,7 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
 test('export returns only bound subject data and rejects a mismatched principal', async () => {
   await withPrivacySubject(
     async ({ database, userId, actorId, otherId, email }) => {
-      const result = await exportPrivacySubject(
+      const result = await runPrivacyExport(
         database,
         { userId, actorId },
         adoption,
@@ -163,11 +160,7 @@ test('export returns only bound subject data and rejects a mismatched principal'
         given: 'another user ID paired with the subject actor',
         should: 'refuse subject impersonation',
         actual: () =>
-          exportPrivacySubject(
-            database,
-            { userId: otherId, actorId },
-            adoption,
-          ),
+          runPrivacyExport(database, { userId: otherId, actorId }, adoption),
         code: 'AUTHORIZATION',
       });
     },

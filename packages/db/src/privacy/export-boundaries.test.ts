@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fakeSql } from '../index.test-support';
 import { accountAgePrivacyAdopter } from '../account-age';
-import { exportPrivacySubject } from './operations';
+import { runPrivacyExport } from './operations';
 import { deliverPrivacyJob } from './vendor-jobs';
 import type { PrivacyExport } from './contracts';
 
@@ -38,7 +38,7 @@ test('canonical export rejects a table another step already exported and non-JSO
       should: 'reject the whole export',
       code: 'VALIDATION',
       actual: () =>
-        exportPrivacySubject(drizzle({ client: fake.client }), subject, [
+        runPrivacyExport(drizzle({ client: fake.client }), subject, [
           {
             ...accountAgePrivacyAdopter,
             export: async () => result as PrivacyExport,

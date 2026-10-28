@@ -4,7 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fakeSql } from '../index.test-support';
 import { accountAgePrivacyAdopter } from '../account-age';
-import { erasePrivacySubject } from './operations';
+import { runPrivacyErasure } from './operations';
 import type { PrivacyAdopter } from './contracts';
 
 setupRitewayBun();
@@ -43,7 +43,7 @@ const adoption = [before, accountAgePrivacyAdopter];
 
 test('canonical erasure fences before associations and queues vendors after scrub', async () => {
   const fake = fakeSql([[account]]);
-  const result = await erasePrivacySubject(
+  const result = await runPrivacyErasure(
     drizzle({ client: fake.client }),
     input,
     adoption,
@@ -134,7 +134,7 @@ test('erased or foreign subject facts cannot trigger further cleanup or intents'
       },
     ],
   ]);
-  const result = await erasePrivacySubject(
+  const result = await runPrivacyErasure(
     drizzle({ client: already.client }),
     input,
     adoption,
@@ -153,7 +153,7 @@ test('erased or foreign subject facts cannot trigger further cleanup or intents'
       should: 'refuse before any cleanup',
       code: 'AUTHORIZATION',
       actual: () =>
-        erasePrivacySubject(
+        runPrivacyErasure(
           drizzle({ client: fake.client }),
           input,
           adoption,
@@ -173,7 +173,7 @@ test('an adopter failure propagates without progressing to scrub or vendor inten
   const failure = new Error('Injected adopter failure');
   const fake = fakeSql([[account], failure]);
   try {
-    await erasePrivacySubject(
+    await runPrivacyErasure(
       drizzle({ client: fake.client }),
       input,
       adoption,

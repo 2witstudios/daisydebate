@@ -3,7 +3,8 @@ import { sql } from 'drizzle-orm';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AuthorizationTransaction } from '../src/authorization';
-import { erasePrivacySubject, type PrivacyAdopter } from '../src/privacy';
+import { runPrivacyErasure } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { sqlStateOf } from './constraint-helpers';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 
@@ -59,7 +60,7 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     };
     const adopters = [before, after];
     try {
-      await erasePrivacySubject(
+      await runPrivacyErasure(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
         adopters,

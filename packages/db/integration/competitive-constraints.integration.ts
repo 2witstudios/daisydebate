@@ -8,10 +8,10 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 describe('users tombstone (DATA-1.2)', () => {
-  test('a tombstone must be scrubbed of PII', async () => {
+  test('a closed account holds no email, name or image and keeps its reserved username (ADR 0087)', async () => {
     await withFixture(url, async (fixture) => {
       const scrubbed = {
-        username: null,
+        username: `closed${createId().slice(0, 12)}`,
         email: null,
         image: null,
         name: '',
@@ -40,20 +40,25 @@ describe('users tombstone (DATA-1.2)', () => {
       );
       const updateScrubbed = !(await rejected(() =>
         fixture.sql.unsafe(
-          "update users set deleted_at = $2, email = null, username = null, image = null, name = '' where id = $1",
+          "update users set deleted_at = $2, email = null, image = null, name = '' where id = $1",
           [live, at],
         ),
       ));
+      const reclaimed = await fixture.rejectedBy('users', {
+        id: createId(),
+        username: scrubbed.username,
+      });
       assert({
         given: 'inserts and updates that set deleted_at',
         should:
-          'reject any tombstone still holding PII and accept a scrubbed one',
+          'reject a closed account still holding an email or name, accept one that keeps only its username, and never release that username',
         actual: {
           withEmail,
           withName,
           scrubbedAccepted,
           updateWithEmail,
           updateScrubbed,
+          reclaimed,
         },
         expected: {
           withEmail: true,
@@ -61,6 +66,7 @@ describe('users tombstone (DATA-1.2)', () => {
           scrubbedAccepted: true,
           updateWithEmail: true,
           updateScrubbed: true,
+          reclaimed: 'users_username_lower_unique',
         },
       });
     });

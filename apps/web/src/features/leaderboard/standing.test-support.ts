@@ -4,6 +4,7 @@ import type { LadderEntry } from './standing';
 export const entry = (overrides: Partial<LadderEntry> = {}): LadderEntry => ({
   id: 'player',
   username: 'player',
+  accountClosed: false,
   rating: 1500,
   deviation: 60,
   played: 20,

@@ -23,8 +23,9 @@ export type Change =
 
 export type LadderRow = {
   readonly key: string;
-  /** Null for a deleted account. */
-  readonly username: string | null;
+  readonly username: string;
+  /** The account is closed: its name stays on the ladder, marked closed. */
+  readonly accountClosed: boolean;
   readonly rank: number | null;
   readonly rating: number;
   /** The 95% range around the rating: twice its deviation. */

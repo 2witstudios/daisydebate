@@ -62,9 +62,12 @@ function Opponents({ entry }: { readonly entry: MatchHistoryEntry }) {
           ) : opponent.kind === 'bot' ? (
             `${opponent.label} (AI)`
           ) : (
-            <Link
-              href={`/profile/${opponent.label}`}
-            >{`@${opponent.label}`}</Link>
+            <>
+              <Link
+                href={`/profile/${opponent.label}`}
+              >{`@${opponent.label}`}</Link>
+              {opponent.closed ? ' (closed)' : null}
+            </>
           )}
         </span>
       ))}
@@ -163,9 +166,12 @@ export function ProfilePage({
                 {`@${profile.username}`}
               </h1>
               {profile.me ? <Badge tone="accent">You</Badge> : null}
+              {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
             </div>
             <p className="text-base text-ink-muted">
-              {`Member since ${month(profile.memberSince)}`}
+              {profile.closed
+                ? 'This account is closed. Its public rounds stay on the record.'
+                : `Member since ${month(profile.memberSince)}`}
             </p>
           </div>
         </div>
