@@ -119,4 +119,15 @@ describe('documentation workflows', async () => {
       expected: workflows.map(() => ({ script: true, diff: false })),
     });
   });
+
+  test('the release event lists both sides of a renamed file', async () => {
+    const text = workflow('notify-release.yml');
+    assert({
+      given: 'the release notification workflow',
+      should:
+        'diff with --no-renames so pages citing the old name are not skipped (ISSUE-860)',
+      actual: text.includes('--name-only --no-renames'),
+      expected: true,
+    });
+  });
 });
