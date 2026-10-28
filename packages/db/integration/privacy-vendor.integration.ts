@@ -4,7 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import type { PrivacyAdopter } from '../src/privacy/contracts';
-import { deliverPrivacyJob } from '../src/privacy/vendor-jobs';
+import { deliverPrivacyJob } from '../src/privacy';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);

@@ -2,7 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { erasePrivacySubject } from '../src/privacy';
+import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
 import { played } from './member-profile.test-support';
@@ -36,9 +36,24 @@ test('closing an account through every feature step keeps the competitive record
       (await fixture.sql`select resolution from rounds where id=${round.id}`)[0]
         ?.resolution;
     const before = await resolution();
+    const other = await createAuthorizationSubject(fixture);
     try {
+      const database = drizzle({ client: fixture.sql });
+      const exported = await exportPrivacySubject(database, subject, rooms);
+      assert({
+        given:
+          'two members, one exporting their data through every feature step',
+        should:
+          'return their own account and beta rows and nothing of the other member',
+        actual: [
+          exported.users?.map((row) => [row.id, row.email]),
+          exported.account_beta_access?.map((row) => row.user_id),
+          JSON.stringify(exported).includes(other.userId),
+        ],
+        expected: [[[subject.userId, email]], [subject.userId], false],
+      });
       const result = await erasePrivacySubject(
-        drizzle({ client: fixture.sql }),
+        database,
         { subject, now, vendors: [], jobIds: [] },
         rooms,
         bindings,

@@ -2,7 +2,7 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { runPrivacyErasure, runPrivacyExport } from '../privacy/operations';
-import { deliverPrivacyJob } from '../privacy/vendor-jobs';
+import { deliverPrivacyJob } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { admitParticipants } from '../beta-access-testing';
 import { socialPrivacyAdoption } from '../social-privacy-composition';
