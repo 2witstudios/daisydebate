@@ -89,6 +89,7 @@ export function createSpeakingBotControl(input: {
             monotonicNowMs: () => performance.now(),
             playing: speaker.playing,
             onEvent: ({ kind }) => speaker.peer(kind),
+            failed: (error) => input.failed(error, 'listen'),
           })
         : null;
     return createBotSeat({

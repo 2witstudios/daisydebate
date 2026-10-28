@@ -66,6 +66,43 @@ export async function requireBotSpeakingWindow(
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
 /**
+ * The claim's segment is in progress at the server's instant: a listen-only
+ * hearing lives within its segment, as publication lives within a speaking
+ * window.
+ */
+async function requireBotSegmentLive(
+  tx: BoundedTransactionContext,
+  target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
+) {
+  const rows = await tx.execute(sql`select 1 from round_segments s
+    where s.round_id=${target.roundId} and s.id=${target.segmentId}
+      and s.started_at<=clock_timestamp()
+      and clock_timestamp()<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')
+    limit 1`);
+  if (rows.length !== 1)
+    throw createAppError('CONFLICT', 'Bot segment is not live');
+}
+/** A bot seat asking for media: to publish, or (`hearing`) only to listen. */
+export type BotMediaPrincipal = {
+  readonly kind: 'bot';
+  readonly scope: BotPublicationScope;
+  readonly token: string;
+  /**
+   * The seat's own listen-only hearing (ISSUE-764): admitted on its live
+   * claim within its live segment. Only publication needs the floor.
+   */
+  readonly hearing?: true;
+};
+/** The one bot media admission rule: the live claim, then the floor to publish or a live segment to hear. */
+export async function verifyBotMediaPrincipal(
+  tx: BoundedTransactionContext,
+  principal: BotMediaPrincipal,
+) {
+  await verifyLockedBotWorker(tx, principal.scope, principal.token);
+  if (principal.hearing) await requireBotSegmentLive(tx, principal.scope);
+  else await requireBotSpeakingWindow(tx, principal.scope);
+}
+/**
  * Records an authorized window as server credit (DEC-212, DEC-218), extending
  * the seat's run it touches, so a phrase is one row however many windows
  * authorized it. Call only after requireBotSpeakingWindow accepted it. A

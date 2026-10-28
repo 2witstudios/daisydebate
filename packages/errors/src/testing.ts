@@ -24,14 +24,22 @@ const rejectionFrom = (error: unknown): Rejection => {
     : { code: error.code, invariantId: error.invariantId };
 };
 
-/** How `actual` settled: its app-error code, a stray error's name, or none. */
-export async function rejectionOf(actual: () => unknown): Promise<Rejection> {
+/** How `actual` settled, with the app error's message when it was one. */
+async function settle(actual: () => unknown) {
   try {
     await actual();
-    return { code: 'NO_REJECTION' };
+    return { rejection: { code: 'NO_REJECTION' } as Rejection };
   } catch (error) {
-    return rejectionFrom(error);
+    return {
+      rejection: rejectionFrom(error),
+      ...(isAppError(error) ? { message: error.message } : {}),
+    };
   }
+}
+
+/** How `actual` settled: its app-error code, a stray error's name, or none. */
+export async function rejectionOf(actual: () => unknown): Promise<Rejection> {
+  return (await settle(actual)).rejection;
 }
 
 /**
@@ -53,16 +61,7 @@ export async function assertRejects({
   readonly invariantId?: string;
   readonly message?: string;
 }): Promise<void> {
-  let settled: { readonly rejection: Rejection; readonly message?: string };
-  try {
-    await actual();
-    settled = { rejection: { code: 'NO_REJECTION' } };
-  } catch (error) {
-    settled = {
-      rejection: rejectionFrom(error),
-      ...(isAppError(error) ? { message: error.message } : {}),
-    };
-  }
+  const settled = await settle(actual);
   assert({
     given,
     should,

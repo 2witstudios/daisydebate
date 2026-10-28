@@ -236,28 +236,33 @@ refusal nor a full capture fleet deafens a bot Round.
 
 - **Identity.** In a cross-ex claim, the seat's listener
   (`round-bots/listening.ts`) asks the media broker for a listen grant
-  (`botListenToken`). That grant is admitted on the bot's live claim and the
-  media window, under the session's reconcile hold. Unlike publication it
-  needs no speaking window: a bot hears most while its opponent holds the
-  floor.
-  It signs an identity bound to no seat: hidden, subscribe-only, with
-  `canPublish` and `canPublishData` false, for that one room. Reconciliation
-  never grants it a floor. The identity is derived from the seat's own
-  (`round-media/listen-identity.ts`), so a takeover's or a rejoin's listener
-  evicts any earlier connection under it, including a wedged one.
+  (`botListenToken`). One rule admits every bot media request
+  (`verifyBotMediaPrincipal`): the bot's live claim, then the speaking window
+  to publish, or only a live segment to hear, under the session's reconcile
+  hold. Hearing needs no floor, since a bot hears most while its opponent
+  holds it. The grant signs an identity bound to no seat: hidden,
+  subscribe-only, with `canPublish` and `canPublishData` false, for that one
+  room. Reconciliation never grants it a floor. The identity is derived from
+  the seat's own (`round-media/listen-identity.ts`), so a takeover's or a
+  rejoin's listener evicts any earlier connection under it, including a
+  wedged one.
 - **Lifetime.** The listener joins with the seat and ends with it, after the
   publication. A dropped connection (or a failed cleanup) rejoins with a
-  fresh grant after a pause that starts at 1 s and doubles to 30 s; a
-  refused rejoin backs off the same way, since many refusals (a revocation
-  still settling) clear on their own. A Round end or a revoked seat rotates
-  or deletes the vendor room, which drops it, and the claim's admission
-  refuses every rejoin until the claim's own end closes the listener.
+  fresh grant after a pause that starts at 1 s and doubles to 30 s. A refused
+  rejoin is reported (`round.speaking.failed`, stage `listen`) and backs off
+  the same way, since many refusals (a revocation still settling) clear on
+  their own. A Round end or a revoked seat rotates or deletes the vendor
+  room, which drops it, and the admission refuses every rejoin until the
+  claim's own end closes the listener.
 - **Hearing.** It subscribes only its peers' microphones, from the
-  admission's peer list, re-reading the bindings for a peer that binds later. Media grants decide who may publish, so only a seat holding the
-  floor is heard at all. It times each frame with the neutral frame clock
+  admission's peer list, re-reading the bindings for a peer that binds
+  later. A refused or unanswered subscription is asked again after a pause
+  doubling to 30 s (`@daisy/media` `createSubscriptionRequests`). Media
+  grants decide who may publish, so only a seat holding the floor is heard
+  at all. It times each frame with the neutral frame clock
   (`@daisy/media/observation` `createTrackClocks`), calibrated against
-  PostgreSQL time once a second; a read whose round trip exceeds 100 ms is
-  discarded and retried the next second. It feeds the bot's turn-taking
-  (`round-bots/activity.ts`) in memory. Stale, missing or dropped audio is
-  unknown, never silence.
+  PostgreSQL time once a second. A read whose round trip exceeds 100 ms is
+  discarded: retried within 200 ms until a first calibration lands, then
+  the next second. It feeds the bot's turn-taking (`round-bots/activity.ts`)
+  in memory. Stale, missing or dropped audio is unknown, never silence.
 - **No storage.** PCM stays in that process's memory, frame by frame.

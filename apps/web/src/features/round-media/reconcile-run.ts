@@ -66,10 +66,8 @@ export function createMediaReconcileRun(
   const createRoom = async (claim: Claim, admission: Principal) => {
     if (admission.kind === 'bot')
       await input.store.ensureBotBinding({
-        scope: admission.scope,
-        token: admission.token,
+        principal: admission,
         buildProjection,
-        ...(admission.hearing ? { hearing: true as const } : {}),
       });
     return mutate(
       claim,
@@ -83,8 +81,15 @@ export function createMediaReconcileRun(
             : seat.id === admission.scope.roundParticipantId &&
               seat.kind === 'bot',
         );
-        // A human revoked after binding is refused here too (ISSUE-714).
-        if (!seat?.eligible || context.withdrawn.includes(seat.id))
+        // A human revoked after binding is refused here too (ISSUE-714). A
+        // seat's `eligible` means it may publish; a bot that only hears was
+        // admitted on its live claim by ensureBotBinding, under its locks.
+        const hears = admission.kind === 'bot' && admission.hearing === true;
+        if (
+          !seat ||
+          !(hears || seat.eligible) ||
+          context.withdrawn.includes(seat.id)
+        )
           throw createAppError('AUTHORIZATION');
       },
     );

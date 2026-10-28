@@ -165,8 +165,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   };
   /**
    * Only admitted identities' microphones are subscribed: no camera or other
-   * track ever reaches this process (autoSubscribe is off). A refused
-   * subscription is asked again (`createSubscriptionRequests`).
+   * track ever reaches this process (autoSubscribe is off). A refused or
+   * unanswered subscription is asked again (`createSubscriptionRequests`).
    */
   const wanted = (
     publication: RemoteTrackPublication,
@@ -177,9 +177,13 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   const reconcile = (
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
-  ) => {
-    if (!closing)
-      requests.reconcile(publication, wanted(publication, participant));
+  ): void => {
+    if (closing || !publication.sid) return;
+    const sid = publication.sid;
+    requests.reconcile(publication, wanted(publication, participant), () => {
+      const current = participant.trackPublications.get(sid);
+      if (current) reconcile(current, participant);
+    });
   };
   const subscribeWanted = () => {
     for (const participant of room.remoteParticipants.values())
@@ -189,14 +193,20 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   const subscriptionFailed = (
     trackSid: string,
     participant: RemoteParticipant,
-  ) =>
-    requests.failed(trackSid, () => {
+  ) => {
+    if (closing) return;
+    requests.refused(trackSid, () => {
       const publication = participant.trackPublications.get(trackSid);
       if (publication) reconcile(publication, participant);
     });
-  const unpublished = (track: Track, publication: TrackPublication) => {
+  };
+  const unsubscribed = (track: Track, publication: TrackPublication) => {
     if (publication.sid) requests.ended(publication.sid);
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
+  };
+  /** Unpublished before its track arrived: nothing will answer the ask. */
+  const unpublished = (publication: RemoteTrackPublication) => {
+    if (publication.sid) requests.ended(publication.sid);
   };
   const disconnected = () => {
     closing = true;
@@ -217,7 +227,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   room.on(RoomEvent.TrackPublished, reconcile);
   room.on(RoomEvent.TrackSubscriptionFailed, subscriptionFailed);
   room.on(RoomEvent.TrackSubscribed, start);
-  room.on(RoomEvent.TrackUnsubscribed, unpublished);
+  room.on(RoomEvent.TrackUnsubscribed, unsubscribed);
+  room.on(RoomEvent.TrackUnpublished, unpublished);
   room.on(RoomEvent.Disconnected, disconnected);
   const scan = () => {
     for (const participant of room.remoteParticipants.values())
@@ -262,7 +273,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
         room.off(RoomEvent.TrackPublished, reconcile);
         room.off(RoomEvent.TrackSubscriptionFailed, subscriptionFailed);
         room.off(RoomEvent.TrackSubscribed, start);
-        room.off(RoomEvent.TrackUnsubscribed, unpublished);
+        room.off(RoomEvent.TrackUnsubscribed, unsubscribed);
+        room.off(RoomEvent.TrackUnpublished, unpublished);
         room.off(RoomEvent.Disconnected, disconnected);
         await room.disconnect();
         ended.resolve('closed');

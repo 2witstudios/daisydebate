@@ -17,6 +17,8 @@ type Observer = Parameters<typeof createBotAudioActivity>[0];
 const STALE_AFTER_MS = 250;
 /** How often the listener re-reads PostgreSQL time to calibrate its clocks. */
 const CALIBRATE_EVERY_MS = 1000;
+/** Until a first calibration lands, a discarded read is retried this soon. */
+const CALIBRATE_FIRST_RETRY_MS = 200;
 /** A calibration whose round trip is longer than this cannot map frames. */
 const MAX_CALIBRATION_RTT_MS = 100;
 /** A dropped connection is rejoined after a pause that doubles to a ceiling. */
@@ -68,6 +70,8 @@ export function createBotListening(
     readonly subscribe: typeof createAudioSubscription;
     readonly databaseNow: () => Promise<string>;
     readonly monotonicNowMs: () => number;
+    /** A refused or failed join, reported before it backs off. */
+    readonly failed: (error: unknown) => void;
   } & Pick<Observer, 'playing' | 'onEvent'>,
 ) {
   const { scope } = input.claim;
@@ -194,15 +198,21 @@ export function createBotListening(
     if (input.monotonicNowMs() < rejoinAt) return;
     joining = join()
       // Refused (a revocation still settling, a claim taken over) or
-      // unreachable: ask again later, never every poll.
-      .catch(scheduleRejoin)
+      // unreachable: reported, then asked again later, never every poll.
+      .catch((error: unknown) => {
+        input.failed(error);
+        scheduleRejoin();
+      })
       .finally(() => {
         joining = null;
       });
   };
   const calibrate = async () => {
     const sentAtMs = input.monotonicNowMs();
-    if (sentAtMs - calibrationReadAt < CALIBRATE_EVERY_MS) return;
+    const periodMs = calibration
+      ? CALIBRATE_EVERY_MS
+      : CALIBRATE_FIRST_RETRY_MS;
+    if (sentAtMs - calibrationReadAt < periodMs) return;
     calibrationReadAt = sentAtMs;
     const server = Date.parse(await input.databaseNow());
     const receivedAtMs = input.monotonicNowMs();

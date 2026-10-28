@@ -3,10 +3,10 @@ import { createSubscriptionRequests } from './subscription-requests';
 
 setupRitewayBun();
 
-/** One fake publication and timer queue. */
+/** One fake publication and a queue of timers the test fires by hand. */
 const fixture = () => {
   const asks: boolean[] = [];
-  const timers: { run: () => void; ms: number; cleared: boolean }[] = [];
+  const timers: { run: () => void; ms: number; done: boolean }[] = [];
   const publication = {
     sid: 'TR_mic',
     subscribed: false,
@@ -16,72 +16,107 @@ const fixture = () => {
   };
   const requests = createSubscriptionRequests({
     set: (run, ms) => {
-      const timer = { run, ms, cleared: false };
+      const timer = {
+        ms,
+        done: false,
+        run: () => {
+          timer.done = true;
+          run();
+        },
+      };
       timers.push(timer);
       return timer;
     },
     clear: (handle) => {
-      (handle as (typeof timers)[number]).cleared = true;
+      (handle as (typeof timers)[number]).done = true;
     },
   });
-  return { asks, timers, publication, requests };
+  const want = (wanted = true) =>
+    requests.reconcile(publication, wanted, () => want());
+  /** Timers still armed (neither fired nor cleared), by delay. */
+  const live = () =>
+    timers.filter((timer) => !timer.done).map((timer) => timer.ms);
+  return { asks, timers, publication, requests, want, live };
 };
 
 test('a pending subscription is asked for once, and withdrawn once', () => {
-  const { asks, publication, requests } = fixture();
-  requests.reconcile(publication, true);
-  requests.reconcile(publication, true);
-  requests.reconcile(publication, false);
-  requests.reconcile(publication, false);
+  const { asks, want, live } = fixture();
+  want();
+  want();
+  want(false);
+  want(false);
   assert({
     given:
       'a wanted publication reconciled twice before its track arrives, then unwanted twice',
-    should: 'ask once and withdraw once',
-    actual: asks,
-    expected: [true, false],
+    should: 'ask once, withdraw once, and leave no timer armed',
+    actual: { asks, live: live() },
+    expected: { asks: [true, false], live: [] },
   });
 });
 
 test('a refused subscription is asked again after a pause doubling to 30 s, until it arrives', () => {
-  const { asks, timers, publication, requests } = fixture();
-  const retry = () => requests.reconcile(publication, true);
-  requests.reconcile(publication, true);
-  for (let failure = 0; failure < 7; failure++) {
-    requests.failed('TR_mic', retry);
+  const { asks, timers, requests, want, live } = fixture();
+  want();
+  for (let refusal = 0; refusal < 7; refusal++) {
+    requests.refused('TR_mic', () => want());
     timers.at(-1)!.run();
   }
-  requests.failed('TR_mic', retry);
   requests.subscribed('TR_mic');
   assert({
-    given: 'eight refusals of one wanted microphone, then its track arriving',
+    given: 'seven refusals of one wanted microphone, then its track arriving',
     should:
-      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s), and cancel the pending retry once it arrives',
+      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s), and leave no timer once it arrives',
     actual: {
       asks: asks.length,
-      pauses: timers.map((timer) => timer.ms),
-      lastCleared: timers.at(-1)!.cleared,
+      pauses: timers
+        .filter((timer) => timer.ms !== 10000)
+        .map((timer) => timer.ms),
+      live: live(),
     },
     expected: {
       asks: 8,
-      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000],
-      lastCleared: true,
+      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000],
+      live: [],
     },
   });
 });
 
-test('closing cancels every pending retry; an ended track is asked for again', () => {
-  const { asks, timers, publication, requests } = fixture();
-  requests.reconcile(publication, true);
-  requests.failed('TR_mic', () => undefined);
-  requests.close();
-  requests.reconcile(publication, true);
-  requests.ended('TR_mic');
-  requests.reconcile(publication, true);
+test('an ask nothing answers times out and is asked again', () => {
+  const { asks, timers, want } = fixture();
+  want();
+  timers[0]!.run();
+  timers[1]!.run();
+  assert({
+    given: 'an ask with neither its track nor a refusal within 10 s',
+    should: 'count it refused and ask again after the first pause',
+    actual: { asks, delays: timers.map((timer) => timer.ms) },
+    expected: { asks: [true, true], delays: [10000, 1000, 10000] },
+  });
+});
+
+test('a withdrawal, an unpublished track or a close cancels a pending retry', () => {
+  const withdrawn = fixture();
+  withdrawn.want();
+  withdrawn.requests.refused('TR_mic', () => withdrawn.want());
+  withdrawn.want(false);
+  const unpublished = fixture();
+  unpublished.want();
+  unpublished.requests.refused('TR_mic', () => unpublished.want());
+  unpublished.requests.ended('TR_mic');
+  const closed = fixture();
+  closed.want();
+  closed.requests.close();
+  closed.requests.refused('TR_mic', () => closed.want());
+  closed.want();
   assert({
     given:
-      'a refused ask, a close, then a fresh ask, an ended track and a want',
-    should: 'cancel the retry and ask again after the track ended',
-    actual: { cleared: timers[0]!.cleared, asks },
-    expected: { cleared: true, asks: [true, true, true] },
+      'a refused ask then withdrawn, one then unpublished, and a close followed by a late refusal and a want',
+    should: 'leave no timer armed and ask nothing after the close',
+    actual: [
+      withdrawn.live(),
+      unpublished.live(),
+      { live: closed.live(), asks: closed.asks },
+    ],
+    expected: [[], [], { live: [], asks: [true] }],
   });
 });

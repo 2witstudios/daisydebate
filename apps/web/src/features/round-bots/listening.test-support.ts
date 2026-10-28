@@ -40,7 +40,11 @@ export function session(
   }[] = [];
   let joined = Promise.withResolvers<void>();
   const events: string[] = [];
+  /** Each reported join failure, by its message. */
+  const failures: string[] = [];
   const listening = createBotListening({
+    failed: (error) =>
+      failures.push(error instanceof Error ? error.message : String(error)),
     claim: {
       scope,
       token: 'claim-token',
@@ -113,6 +117,7 @@ export function session(
     grants,
     subscriptions,
     events,
+    failures,
     advance: (ms: number) => {
       now += ms;
     },

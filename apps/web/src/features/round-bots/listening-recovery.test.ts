@@ -63,9 +63,17 @@ test('a respondent bot refused its first grant for want of the floor still hears
   await s.joined();
   assert({
     given: 'a cross-ex seat whose first listen grant is refused with CONFLICT',
-    should: 'ask again after its pause and join',
-    actual: { grants: s.grants.length, subscriptions: s.subscriptions.length },
-    expected: { grants: 2, subscriptions: 1 },
+    should: 'report the refusal, ask again after its pause and join',
+    actual: {
+      grants: s.grants.length,
+      subscriptions: s.subscriptions.length,
+      failures: s.failures,
+    },
+    expected: {
+      grants: 2,
+      subscriptions: 1,
+      failures: ['Bot speaking authority changed'],
+    },
   });
 });
 
@@ -107,35 +115,54 @@ test('a transient join failure backs off, doubling to a ceiling, and a failed cl
   });
 });
 
-test('a slow PostgreSQL time read never calibrates the listener, and is retried once a period', async () => {
-  let readMs = 150,
-    reads = 0;
+/** A joined, polled listener whose PostgreSQL time reads take `clock.readMs` and are counted. */
+async function timedReads(readMs: number) {
+  const clock = { readMs, reads: 0 };
   const s = session({
     readMs: () => {
-      reads++;
-      return readMs;
+      clock.reads++;
+      return clock.readMs;
     },
   });
   s.listening.start();
   await s.joined();
   await s.listening.poll();
-  s.speak(['peer-identity']);
+  return { s, clock };
+}
+
+test('a slow first calibration read is retried within 200 ms, never on every poll', async () => {
+  const { s, clock } = await timedReads(150);
   for (let poll = 0; poll < 10; poll++) await s.listening.poll();
-  const slow = { events: [...s.events], reads };
-  readMs = 0;
-  s.advance(1000);
+  s.speak(['peer-identity']);
+  const slow = { events: [...s.events], reads: clock.reads };
+  clock.readMs = 0;
   await s.listening.poll();
   s.speak(['peer-identity'], 20);
   assert({
     given:
-      'a calibration read with a 150 ms round trip, eleven polls within its period, then a prompt read a period later',
+      'a first calibration read with a 150 ms round trip, ten more polls within it, 200 ms of speech, then a prompt read',
     should:
-      'hear nothing and read once while uncalibrated, then hear the peer once the next period calibrates',
-    actual: { slow, events: s.events, reads },
+      'read once and hear nothing while uncalibrated, then hear the peer once the retry calibrates',
+    actual: { slow, events: s.events, reads: clock.reads },
     expected: {
       slow: { events: [], reads: 1 },
       events: [`speech-start:${peer}`],
       reads: 2,
     },
+  });
+});
+
+test('a calibrated listener re-reads PostgreSQL time once a second, however slow the reads', async () => {
+  const { s, clock } = await timedReads(0);
+  clock.readMs = 150;
+  for (let poll = 0; poll < 40; poll++) {
+    s.advance(50);
+    await s.listening.poll();
+  }
+  assert({
+    given: 'a calibrated listener polled every 50 ms for 2 s of slow reads',
+    should: 'read at the start and once each second after, not on every poll',
+    actual: clock.reads,
+    expected: 3,
   });
 });

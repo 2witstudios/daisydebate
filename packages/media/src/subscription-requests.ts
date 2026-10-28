@@ -10,54 +10,76 @@ type Timers = {
   readonly clear: (handle: unknown) => void;
 };
 
-/** A failed subscription is asked again after this, doubling to the ceiling. */
+/** An ask neither answered nor refused within this counts as refused. */
+const ASK_TIMEOUT_MS = 10000;
+/** A refused ask is made again after this, doubling to the ceiling. */
 const RETRY_FIRST_MS = 1000;
 const RETRY_MAX_MS = 30000;
 
 /**
- * Which publications a subscriber has asked for. A pending ask is never
- * repeated, a withdrawn one is withdrawn once, and one the SFU refuses is
- * asked again after a pause that doubles to a ceiling.
+ * Which publications a subscriber has asked for. Every ask is answered (the
+ * track arrives), refused, or times out; a refused or timed-out ask is made
+ * again after a pause that doubles to a ceiling. A pending ask is never
+ * repeated, and withdrawing, ending or closing forgets it entirely.
  */
 export function createSubscriptionRequests(timers: Timers) {
-  const requested = new Set<string>();
-  const retries = new Map<string, { pauseMs: number; handle?: unknown }>();
-  const cancelRetry = (sid: string) => {
-    const retry = retries.get(sid);
-    if (retry?.handle !== undefined) timers.clear(retry.handle);
-    retries.delete(sid);
+  /** Each outstanding ask or retry, by publication sid, with its timer. */
+  const pending = new Map<string, unknown>();
+  /** The next retry pause per sid, kept until the track arrives or ends. */
+  const pauses = new Map<string, number>();
+  let closed = false;
+  const cancel = (sid: string) => {
+    if (pending.has(sid)) timers.clear(pending.get(sid));
+    pending.delete(sid);
+  };
+  const forget = (sid: string) => {
+    cancel(sid);
+    pauses.delete(sid);
+  };
+  const refused = (sid: string, again: () => void) => {
+    if (closed) return;
+    const pauseMs = pauses.get(sid) ?? RETRY_FIRST_MS;
+    pauses.set(sid, Math.min(pauseMs * 2, RETRY_MAX_MS));
+    cancel(sid);
+    pending.set(
+      sid,
+      timers.set(() => {
+        pending.delete(sid);
+        again();
+      }, pauseMs),
+    );
   };
   return {
-    /** Asks for or withdraws `publication` so it matches `want`. */
-    reconcile(publication: Publication, want: boolean) {
+    /**
+     * Asks for or withdraws `publication` so it matches `want`. `again`
+     * re-evaluates the publication when a refused ask is retried.
+     */
+    reconcile(publication: Publication, want: boolean, again: () => void) {
       const sid = publication.sid;
-      if (!sid) return;
-      const asked = publication.subscribed || requested.has(sid);
-      if (want === asked) return;
-      if (asked) {
-        requested.delete(sid);
-        cancelRetry(sid);
-      } else requested.add(sid);
-      publication.setSubscribed(want);
+      if (closed || !sid) return;
+      if (!want) {
+        const asked = publication.subscribed || pending.has(sid);
+        forget(sid);
+        if (asked) publication.setSubscribed(false);
+        return;
+      }
+      if (publication.subscribed || pending.has(sid)) return;
+      publication.setSubscribed(true);
+      pending.set(
+        sid,
+        timers.set(() => refused(sid, again), ASK_TIMEOUT_MS),
+      );
     },
-    /** The track arrived: a pending retry is moot. */
-    subscribed: cancelRetry,
-    /** The track went away: a later want asks again. */
-    ended(sid: string) {
-      requested.delete(sid);
-    },
-    /** The SFU refused the ask: `retry` runs after the pause. */
-    failed(sid: string, retry: () => void) {
-      requested.delete(sid);
-      const pauseMs = retries.get(sid)?.pauseMs ?? RETRY_FIRST_MS;
-      cancelRetry(sid);
-      retries.set(sid, {
-        pauseMs: Math.min(pauseMs * 2, RETRY_MAX_MS),
-        handle: timers.set(retry, pauseMs),
-      });
-    },
+    /** The SFU refused the ask. */
+    refused,
+    /** The track arrived. */
+    subscribed: forget,
+    /** The publication went away. */
+    ended: forget,
     close() {
-      for (const sid of [...retries.keys()]) cancelRetry(sid);
+      closed = true;
+      for (const sid of [...pending.keys()]) forget(sid);
+      pauses.clear();
     },
   };
 }

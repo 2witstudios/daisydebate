@@ -105,9 +105,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
    * to no seat, so reconciliation never grants it a floor. It is derived
    * from the seat's binding, so a takeover's or a rejoin's listener evicts
    * any earlier connection under it (LiveKit admits one connection per
-   * identity). It is admitted on the bot's live claim and the media window,
-   * under this session's reconcile hold, but needs no speaking window: the
-   * bot hears most while it does not hold the floor.
+   * identity). It is admitted on the bot's live claim within its live
+   * segment and the media window, under this session's reconcile hold, but
+   * needs no speaking window: the bot hears most while it does not hold the
+   * floor (`verifyBotMediaPrincipal`).
    */
   const admit = async (roundId: string, principal: Principal) => {
     const hearing = principal.kind === 'bot' && principal.hearing === true;
@@ -118,12 +119,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             caller: callerOf(principal.actorId),
             buildProjection,
           })
-        : await input.store.ensureBotBinding({
-            scope: principal.scope,
-            token: principal.token,
-            buildProjection,
-            ...(hearing ? { hearing: true as const } : {}),
-          });
+        : await input.store.ensureBotBinding({ principal, buildProjection });
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
       if (admissionRevoked(context))

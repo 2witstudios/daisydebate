@@ -10,7 +10,9 @@ export type Claim = Extract<
 >;
 export type Intent = Parameters<Store['beginMediaMutation']>[0]['intent'];
 export type Principal = Parameters<Store['issueMediaToken']>[0]['principal'];
-export type Scope = Parameters<Store['ensureBotBinding']>[0]['scope'];
+export type Scope = Parameters<
+  Store['ensureBotBinding']
+>[0]['principal']['scope'];
 
 export type MediaOperationInput = {
   readonly priority: ReturnType<typeof createAdmissionPriority>;
