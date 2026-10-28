@@ -13,3 +13,7 @@ export const ownedClaim = (target: {
   token: 'memory-only',
   leaseExpiresAt: '2026-10-22T00:00:30Z',
 });
+
+/** Runs every queued microtask, so endings the fakes let finish have settled. */
+export const settled = () =>
+  new Promise<void>((resolve) => setImmediate(resolve));

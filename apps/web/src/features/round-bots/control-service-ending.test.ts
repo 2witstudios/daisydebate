@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { ownedClaim } from './control-service.test-support';
+import { ownedClaim, settled } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -48,9 +48,10 @@ test('a rotation whose stop never settles never holds discovery of other seats (
   await tasks.get(500)!();
   assert({
     given: 'a rotated claim whose speaking work never stops',
-    should: 'keep discovering: the incoming segment and a new seat are claimed',
+    should:
+      'keep discovering other seats, and hold the stopping seat so no second speaker is claimed beside it',
     actual: claimed,
-    expected: ['rotating:first', 'rotating:second', 'joining:s'],
+    expected: ['rotating:first', 'joining:s'],
   });
 });
 
@@ -138,6 +139,8 @@ test('a seat its own pulse already released is not stopped or revoked again by a
   const pulsing = tasks.get(3000)!();
   segment = 'second';
   await Promise.all([pulsing, tasks.get(500)!()]);
+  await settled();
+  await tasks.get(500)!();
   await service.stop();
   assert({
     given: 'a pulse that loses its authority while the seat rotates',
@@ -149,4 +152,59 @@ test('a seat its own pulse already released is not stopped or revoked again by a
       failures: [],
     },
   });
+});
+
+test('a rotation stops its speaker at once, even while a receipt pulse hangs, and reports a failed revoke (ISSUE-789)', async () => {
+  const { failures, failed } = failureLog();
+  const log: string[] = [];
+  const revokeFault = new Error('pool outage');
+  const hung = Promise.withResolvers<void>();
+  let segment = 'first',
+    hang = false;
+  const { tasks, timers } = manualTimers();
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => [seat('seat', segment)],
+      claimRoundBotWorker: async (target) => ownedClaim(target),
+      revokeRoundBotWorker: async (scope) => {
+        log.push(`revoke:${scope.segmentId}`);
+        if (scope.segmentId === 'first') throw revokeFault;
+      },
+      verifyRoundBotWorker: async () => {},
+    },
+    control: (claim) => ({
+      pulse: async () => {
+        if (hang) await hung.promise;
+        return [];
+      },
+      stop: async () => {
+        log.push(`stop:${claim.scope.segmentId}`);
+      },
+    }),
+    limits,
+    timers,
+    failed,
+  });
+  await service.started;
+  hang = true;
+  void tasks.get(3000)!();
+  segment = 'second';
+  await tasks.get(500)!();
+  await settled();
+  const stoppedWhileHung = [...log];
+  hung.resolve();
+  await settled();
+  assert({
+    given:
+      'a rotation while the outgoing claim’s receipt pulse hangs, then a revoke the pool refuses',
+    should:
+      'stop the speaker before the pulse settles, revoke after it, and report the refused revoke',
+    actual: { stoppedWhileHung, log, failures },
+    expected: {
+      stoppedWhileHung: ['stop:first'],
+      log: ['stop:first', 'revoke:first'],
+      failures: [[revokeFault, 'revoke']],
+    },
+  });
+  await service.stop();
 });

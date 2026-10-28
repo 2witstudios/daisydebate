@@ -8,6 +8,16 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 const FRAMES = 5;
+const DROP_DEADLINE_MS = 10_000;
+
+/** The server's drop of a deleted room, or a named failure past the deadline. */
+const dropped = (signal: Promise<void>) =>
+  Promise.race([
+    signal,
+    Bun.sleep(DROP_DEADLINE_MS).then(() => {
+      throw new Error('Room deletion never disconnected the publication');
+    }),
+  ]);
 
 /** A native publication that sent a few frames into a fresh room. */
 async function publishing() {
@@ -47,7 +57,7 @@ test('a native publication closes when its room is deleted, before the drop arri
 test('a native publication closes after its deleted room dropped it (ISSUE-789)', async () => {
   const { media, room, publication } = await publishing();
   await media.deleteRoom(room);
-  await publication.disconnected;
+  await dropped(publication.disconnected);
   assert({
     given: 'a bot publication the server already disconnected',
     should: 'close without a refusal and report the samples it sent',

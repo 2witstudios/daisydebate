@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { ownedClaim } from './control-service.test-support';
+import { ownedClaim, settled } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -62,7 +62,6 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   const { failures, failed } = failureLog();
   const log: string[] = [];
   const stopFault = new Error('The operation was aborted.');
-  const revokedFirst = Promise.withResolvers<void>();
   let segment = 'first',
     leased = false;
   const { tasks, timers } = manualTimers();
@@ -82,7 +81,6 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
       revokeRoundBotWorker: async (scope) => {
         leased = false;
         log.push(`revoke:${scope.segmentId}`);
-        if (scope.segmentId === 'first') revokedFirst.resolve();
       },
       verifyRoundBotWorker: async () => {},
     },
@@ -99,7 +97,7 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   await service.started;
   segment = 'second';
   await tasks.get(500)!();
-  await revokedFirst.promise;
+  await settled();
   await tasks.get(500)!();
   await service.stop();
   assert({
@@ -212,6 +210,8 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
   const during = tasks.get(3000)!();
   release.resolve();
   await Promise.all([rotation, during]);
+  await settled();
+  await tasks.get(500)!();
   await tasks.get(3000)!();
   await service.stop();
   assert({

@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
-import { ownedClaim } from './control-service.test-support';
+import { ownedClaim, settled } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -105,6 +105,8 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
   });
   await service.started;
   segment = 'second';
+  await tasks[0]!();
+  await settled();
   await tasks[0]!();
   await service.stop();
   assert({
