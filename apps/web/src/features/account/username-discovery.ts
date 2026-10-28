@@ -1,3 +1,4 @@
+import type { App } from '../../server/app';
 import {
   consumeWindowsOrThrow,
   type RateLimiter,
@@ -5,8 +6,10 @@ import {
 } from '../../server/rate-limit';
 
 /**
- * Username discovery's own budget (DEC-251's per-account windows): how many
- * usernames one member may turn into actors, whatever feature asks.
+ * Username discovery's own budget: DEC-251's per-account windows, fixed and
+ * not deployment-tunable. `MESSAGING_POLICY` and `CONTACTS_POLICY` tighten
+ * only their own command budgets, never how many usernames a member may
+ * resolve.
  */
 export const usernameDiscoveryWindows: readonly RateRule[] = Object.freeze([
   { max: 10, windowSeconds: 10 },
@@ -14,15 +17,34 @@ export const usernameDiscoveryWindows: readonly RateRule[] = Object.freeze([
   { max: 600, windowSeconds: 3_600 },
 ]);
 
+/** Resolves one username for a member, or null when no member holds it. */
+export type DiscoverActor = (
+  actorId: string,
+  username: string,
+) => Promise<string | null>;
+
 /**
- * Spends one lookup from the member's `username-discovery:<actor>` budget.
- * Every feature that resolves a username (a DM or group request, a block, a
- * friendship or a challenge) spends it before the lookup, besides its own
- * command budget, so adding a feature never adds a probe budget.
+ * The one username port: every lookup first spends one unit of the member's
+ * `username-discovery:<actor>` budget, so a feature (a DM or group request,
+ * a block, a friendship or a challenge) can neither skip it nor add a probe
+ * budget, and a batch of names spends once per name.
  */
-export const spendUsernameDiscovery = (limiter: RateLimiter, actorId: string) =>
-  consumeWindowsOrThrow(
-    limiter,
-    `username-discovery:${actorId}`,
-    usernameDiscoveryWindows,
+export const discoverActor =
+  (
+    limiter: RateLimiter,
+    lookup: (username: string) => Promise<string | null>,
+  ): DiscoverActor =>
+  async (actorId, username) => {
+    await consumeWindowsOrThrow(
+      limiter,
+      `username-discovery:${actorId}`,
+      usernameDiscoveryWindows,
+    );
+    return lookup(username);
+  };
+
+/** The app's username port over its limiter and actor directory. */
+export const appDiscoverActor = (app: Pick<App, 'limiter' | 'database'>) =>
+  discoverActor(app.limiter, (username) =>
+    app.database.lookupHumanActorByUsername(username),
   );

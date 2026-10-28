@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
-const positiveInteger = z.number().int().positive().safe();
+/** A positive safe integer, the shape of every policy count and length. */
+export const positiveIntegerSchema = z.number().int().positive().safe();
 
 /** A policy override's rate windows: up to four, each its own length. */
 export const rateWindowsSchema = z
   .array(
-    z.strictObject({ max: positiveInteger, windowSeconds: positiveInteger }),
+    z.strictObject({
+      max: positiveIntegerSchema,
+      windowSeconds: positiveIntegerSchema,
+    }),
   )
   .nonempty()
   .max(4)

@@ -127,7 +127,7 @@ test('blocking yourself, or a command naming the blocker, is refused', async () 
   });
 });
 
-test('a block by username spends discovery, then refuses an unknown name like any denied pair', async () => {
+test('a block by username resolves through the discovery port, then refuses an unknown name like any denied pair', async () => {
   const calls: unknown[] = [];
   const byName = (lookup: (name: string) => Promise<string | null>) =>
     blockContactByUsername(
@@ -135,12 +135,9 @@ test('a block by username spends discovery, then refuses an unknown name like an
       principal,
       {
         ...dependencies(fakeStore(null, calls), calls),
-        lookup: async (name) => {
-          calls.push(['lookup', name]);
+        discover: async (actorId, name) => {
+          calls.push(['discover', actorId, name]);
           return lookup(name);
-        },
-        limitLookup: async (actorId) => {
-          calls.push(['discovery', actorId]);
         },
       },
     );
@@ -148,13 +145,12 @@ test('a block by username spends discovery, then refuses an unknown name like an
   assert({
     given: 'a block of a known username',
     should:
-      'spend discovery before the lookup, then block the proposed actor through the fence',
-    actual: [found, calls.slice(0, 3)],
+      'resolve the name as the caller, then block the proposed actor through the fence',
+    actual: [found, calls.slice(0, 2)],
     expected: [
       { blocked: true, revision: 5 },
       [
-        ['discovery', me],
-        ['lookup', 'peer'],
+        ['discover', me, 'peer'],
         [
           'input',
           { actorId: me, userId: principal.userId, memberActorIds: [me, them] },

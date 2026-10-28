@@ -180,8 +180,11 @@ fixtures must be recreated by their owner, never assigned an inferred author.
 
 ## Public username intent discovery
 
-The account adapter exposes `lookupHumanActorByUsername(input)` for native DM
-initiation. The single portable `parseUsername` rule validates and normalizes
+The account adapter exposes `lookupHumanActorByUsername(input)`. Every feature
+reaches it only through the one username port (`discoverActor`,
+`features/account/username-discovery.ts`): DM and group requests, blocks,
+friendships and challenges each spend the member's shared
+`username-discovery:<actor>` budget once per name first (ADR 0072). The single portable `parseUsername` rule validates and normalizes
 the input before database I/O. Discovery returns only an actor ID bound to an
 existing human account with verified email and no deletion tombstone, or null.
 It returns no account profile, age, session or contact entitlement. The messaging

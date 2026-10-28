@@ -55,7 +55,8 @@ const harness = ({
     dependencies: {
       ...friendTestPorts(now),
       limit: async () => {},
-      lookup: async (name: string) => (name === 'bea' ? them : null),
+      discover: async (_actorId: string, name: string) =>
+        name === 'bea' ? them : null,
       store,
     },
   };

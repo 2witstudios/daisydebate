@@ -1,44 +1,61 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  spendUsernameDiscovery,
-  usernameDiscoveryWindows,
-} from './username-discovery';
+import { discoverActor, usernameDiscoveryWindows } from './username-discovery';
 
 setupRitewayBun();
 
-test('every username lookup drains the one discovery budget under its own windows', async () => {
-  const counters = new Map<string, number>();
-  const rules = new Set<string>();
+test('every username lookup spends one unit of the one discovery budget first', async () => {
+  const calls: unknown[] = [];
   const limiter = {
-    consume: async (
-      key: string,
-      rule: { max: number; windowSeconds: number },
-    ) => {
-      counters.set(key, (counters.get(key) ?? 0) + 1);
-      rules.add(JSON.stringify([key, rule]));
-      return { allowed: counters.get(key)! <= rule.max, retryAfterSeconds: 0 };
+    consume: async (key: string, rule: unknown) => {
+      calls.push(['spend', key, rule]);
+      return { allowed: true, retryAfterSeconds: 0 };
     },
   };
+  const discover = discoverActor(limiter, async (username) => {
+    calls.push(['lookup', username]);
+    return username === 'ada' ? 'b'.repeat(24) : null;
+  });
   const actorId = 'a'.repeat(24);
-  // A DM request by username and a block by username, from the same member.
-  await spendUsernameDiscovery(limiter, actorId);
-  await spendUsernameDiscovery(limiter, actorId);
+  const spend = usernameDiscoveryWindows.map((rule) => [
+    'spend',
+    `username-discovery:${actorId}:${rule.windowSeconds}`,
+    rule,
+  ]);
+  const answers = [
+    await discover(actorId, 'ada'),
+    await discover(actorId, 'nobody'),
+  ];
   assert({
-    given: 'two lookups from different features by one member',
+    given: 'two lookups by one member, a known name then an unknown one',
     should:
-      'count both against the same counters, each checked against discovery’s one window set',
-    actual: [
-      [...counters.entries()],
-      rules.size,
-      usernameDiscoveryWindows.length,
-    ],
+      'spend discovery’s own windows before each lookup, once per name, and answer the actor or null',
+    actual: [answers, calls],
     expected: [
-      usernameDiscoveryWindows.map((rule) => [
-        `username-discovery:${actorId}:${rule.windowSeconds}`,
-        2,
-      ]),
-      usernameDiscoveryWindows.length,
-      3,
+      ['b'.repeat(24), null],
+      [...spend, ['lookup', 'ada'], ...spend, ['lookup', 'nobody']],
     ],
+  });
+});
+
+test('a refused discovery spend never reaches the directory', async () => {
+  const looked: string[] = [];
+  const discover = discoverActor(
+    { consume: async () => ({ allowed: false, retryAfterSeconds: 60 }) },
+    async (username) => {
+      looked.push(username);
+      return null;
+    },
+  );
+  let code = '';
+  try {
+    await discover('a'.repeat(24), 'ada');
+  } catch (error) {
+    code = (error as { code?: string }).code ?? '';
+  }
+  assert({
+    given: 'a member whose discovery budget is spent',
+    should: 'refuse as rate limited before any lookup',
+    actual: [code, looked],
+    expected: ['RATE_LIMIT', []],
   });
 });

@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { optionalJsonConfig } from './json-config';
-import { rateWindowsSchema } from './rate-windows';
-
-const positiveInteger = z.number().int().positive().safe();
+import { positiveIntegerSchema, rateWindowsSchema } from './rate-windows';
 
 /**
  * DEC-251 overrides a deployment may set to tighten the budgets Contacts
@@ -15,10 +13,10 @@ export const contactsPolicyConfig = optionalJsonConfig(
   z.strictObject({
     requests: z
       .strictObject({
-        daily: positiveInteger.optional(),
-        unrelatedHourly: positiveInteger.optional(),
-        declinesToBlock: positiveInteger.optional(),
-        declineBlockMs: positiveInteger.optional(),
+        daily: positiveIntegerSchema.optional(),
+        unrelatedHourly: positiveIntegerSchema.optional(),
+        declinesToBlock: positiveIntegerSchema.optional(),
+        declineBlockMs: positiveIntegerSchema.optional(),
       })
       .optional(),
     blocks: rateWindowsSchema.optional(),

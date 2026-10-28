@@ -1,4 +1,5 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type { DiscoverActor } from '../account/username-discovery';
 import type { Clock } from '@daisy/clock';
 import type { FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -23,7 +24,8 @@ export const challengeRateLimit = {
 export type ChallengeOperationDependencies = {
   readonly clock: Clock;
   readonly limit: (actorId: string) => Promise<void>;
-  readonly lookup: (username: string) => Promise<string | null>;
+  /** The one username port: it spends discovery before each lookup. */
+  readonly discover: DiscoverActor;
   readonly store: (capability: ChallengeCapability) => FriendStore;
 };
 
@@ -42,7 +44,7 @@ export async function changeChallenge(
 ): Promise<Omit<ChallengeCommandResult, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
-  const otherActorId = await dependencies.lookup(input.username);
+  const otherActorId = await dependencies.discover(actorId, input.username);
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');
   // A challenge is authorized by its own capabilities (no block either way

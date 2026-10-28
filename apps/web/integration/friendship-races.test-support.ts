@@ -28,7 +28,7 @@ export const friendChange =
       ids: { next: createId },
       limits: dec251ContactsPolicy.requests,
       limit: async () => {},
-      lookup: (name) => database.lookupHumanActorByUsername(name),
+      discover: (_actorId, name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>
         database.friendStore(contactPairFence({ principal, capability })),
     });

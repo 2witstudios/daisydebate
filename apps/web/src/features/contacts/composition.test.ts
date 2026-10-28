@@ -1,10 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId } from '@daisy/clock';
 import type { ContactStore } from '@daisy/db/contacts';
-import { betaMessagingPolicy } from '../messaging/beta-policy';
-import { createMessagingUnitApp } from '../messaging/messaging-app.test-support';
-import { signedMessagingAuth } from '../messaging/signed-messaging.test-support';
-import { usernameDiscoveryWindows } from '../account/username-discovery';
+import {
+  discoverySpends,
+  openRecordedMember,
+} from '../account/username-discovery.test-support';
+import { dec251ContactsPolicy } from './request-policy';
 import { composeContactRoutes } from './composition';
 
 setupRitewayBun();
@@ -12,17 +12,7 @@ setupRitewayBun();
 const me = 'a'.repeat(24),
   them = 'b'.repeat(24);
 
-test('a block by username spends discovery, then Contacts’ own block budget', async () => {
-  const { auth, cookie } = await signedMessagingAuth(
-    me,
-    'contacts-composition@daisy.example.com',
-  );
-  const app = createMessagingUnitApp({
-    clock: fixedClock('2026-10-28T03:00:00.000Z'),
-    ids: sequentialId('contacts-composition'),
-    messagingPolicy: betaMessagingPolicy,
-  });
-  const spent: string[] = [];
+test('a block by username spends discovery under its own windows, then Contacts’ own block budget', async () => {
   const stored: string[] = [];
   const store: ContactStore = {
     withContacts: async (_input, work) => {
@@ -37,62 +27,67 @@ test('a block by username spends discovery, then Contacts’ own block budget', 
       });
     },
   };
-  const routes = (known: boolean) =>
-    composeContactRoutes({
-      ...app,
-      auth: () => auth,
-      limiter: {
-        consume: async (key) => {
-          spent.push(key);
-          return { allowed: true, retryAfterSeconds: 0 };
+  const open = (known: boolean) =>
+    openRecordedMember(
+      me,
+      `contacts-${String(known)}@daisy.example.com`,
+      composeContactRoutes,
+      {
+        database: {
+          contactStore: () => store,
+          lookupHumanActorByUsername: async () => (known ? them : null),
         },
       },
-      database: {
-        ...app.database,
-        contactStore: () => store,
-        lookupHumanActorByUsername: async () => (known ? them : null),
-      },
-    });
-  const origin = auth.config.PUBLIC_APP_URL;
-  const post = () =>
-    new Request(`${origin}/api/contacts/username`, {
-      method: 'POST',
-      headers: { cookie, origin, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        version: 1,
-        requestId: 'r'.repeat(24),
-        username: 'peer',
-        blocked: true,
-      }),
-    });
-  const discovery = usernameDiscoveryWindows.map(
-    (rule) => `username-discovery:${me}:${rule.windowSeconds}`,
-  );
+    );
+  const body = {
+    version: 1,
+    requestId: 'r'.repeat(24),
+    username: 'peer',
+    blocked: true,
+  };
+  const known = await open(true);
+  const unknown = await open(false);
   try {
-    const known = await routes(true).blockByUsername(post());
-    const afterKnown = [...spent];
-    spent.length = 0;
-    stored.length = 0;
-    const unknown = await routes(false).blockByUsername(post());
+    const knownStatus = (
+      await known.routes.blockByUsername(
+        known.post('/api/contacts/username', body),
+      )
+    ).status;
+    const storedAfterKnown = stored.splice(0);
+    const unknownStatus = (
+      await unknown.routes.blockByUsername(
+        unknown.post('/api/contacts/username', body),
+      )
+    ).status;
     assert({
       given: 'a block of a known username, then of an unknown one',
       should:
-        'spend discovery then the block budget for the first, and only discovery for the second, which reaches no store',
-      actual: [known.status, afterKnown, unknown.status, spent, stored],
+        'spend discovery’s own windows then the block budget for the first, and only discovery for the second, which reaches no store',
+      actual: [
+        knownStatus,
+        known.spent,
+        storedAfterKnown,
+        unknownStatus,
+        unknown.spent,
+        stored,
+      ],
       expected: [
         200,
         [
-          ...discovery,
-          `contacts:block:${me}:10`,
-          `contacts:block:${me}:60`,
-          `contacts:block:${me}:3600`,
+          ...discoverySpends(me),
+          ...dec251ContactsPolicy.blocks.map((rule) => [
+            `contacts:block:${me}:${rule.windowSeconds}`,
+            rule,
+          ]),
         ],
+        ['frame'],
         403,
-        discovery,
+        discoverySpends(me),
         [],
       ],
     });
   } finally {
-    await app.close();
+    await known.close();
+    await unknown.close();
   }
 });

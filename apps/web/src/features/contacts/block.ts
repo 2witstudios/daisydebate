@@ -9,6 +9,7 @@ import {
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 import { contactCommandDigest } from './digest';
+import type { DiscoverActor } from '../account/username-discovery';
 
 export type ContactBlockDependencies = {
   readonly store: ContactStore;
@@ -61,22 +62,21 @@ export async function blockContact(
 }
 
 /**
- * A block by username: the name is looked up after the lookup budget is
- * spent, an unknown name refuses like any other unauthorized pair, and the
- * proposed actor goes through the same fenced block.
+ * A block by username: the name is resolved through the one username port
+ * (which spends discovery first), an unknown name refuses like any other
+ * unauthorized pair, and the proposed actor goes through the same fenced
+ * block.
  */
 export async function blockContactByUsername(
   input: unknown,
   principal: AuthorizationPrincipal,
   dependencies: ContactBlockDependencies & {
-    readonly lookup: (username: string) => Promise<string | null>;
-    readonly limitLookup: (actorId: string) => Promise<void>;
+    readonly discover: DiscoverActor;
   },
 ) {
   const { actorId } = requireMemberActor(principal);
   const command = parseValidated(contactBlockUsernameSchema, input);
-  await dependencies.limitLookup(actorId);
-  const otherActorId = await dependencies.lookup(command.username);
+  const otherActorId = await dependencies.discover(actorId, command.username);
   if (otherActorId === null) throw createAppError('AUTHORIZATION');
   return blockContact(
     {

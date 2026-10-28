@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { spendUsernameDiscovery } from '../account/username-discovery';
+import { appDiscoverActor } from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
@@ -22,10 +22,10 @@ export function composeMessagingGroupIssuanceRoute(app: App) {
       );
 
       await limit(actor.actorId);
-      await spendUsernameDiscovery(app.limiter, actor.actorId);
+      const discover = appDiscoverActor(app);
       const invitedActorIds: string[] = [];
       for (const username of intent.invitedUsernames) {
-        const id = await app.database.lookupHumanActorByUsername(username);
+        const id = await discover(actor.actorId, username);
         if (id === null) throw createAppError('AUTHORIZATION');
         invitedActorIds.push(id);
       }

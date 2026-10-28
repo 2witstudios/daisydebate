@@ -1,4 +1,5 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type { DiscoverActor } from '../account/username-discovery';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { SocialRequestLimits } from '@daisy/db';
 import type {
@@ -36,7 +37,8 @@ export type FriendOperationDependencies = {
   /** DEC-251: a friend request spends the shared social request budgets. */
   readonly limits: SocialRequestLimits;
   readonly limit: (actorId: string) => Promise<void>;
-  readonly lookup: (username: string) => Promise<string | null>;
+  /** The one username port: it spends discovery before each lookup. */
+  readonly discover: DiscoverActor;
   /** The social store behind the authorize fence for this capability. */
   readonly store: (capability: FriendCapability) => FriendStore;
 };
@@ -66,7 +68,7 @@ export async function changeFriendship(
 ): Promise<Omit<FriendCommandResult, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
-  const otherActorId = await dependencies.lookup(username);
+  const otherActorId = await dependencies.discover(actorId, username);
   if (!otherActorId) throw createAppError('NOT_FOUND');
   if (otherActorId === actorId) throw refusalError('self');
   try {

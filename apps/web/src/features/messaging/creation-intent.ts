@@ -6,6 +6,7 @@ import {
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
+import type { DiscoverActor } from '../account/username-discovery';
 
 /** Username discovery produces proposed IDs only; the existing transaction still authorizes creation. */
 export async function resolveMessagingCreationIntent(
@@ -14,8 +15,7 @@ export async function resolveMessagingCreationIntent(
   principal: AuthorizationPrincipal,
   dependencies: {
     readonly bounds: MessagingSocialBounds;
-    readonly lookup: (username: string) => Promise<string | null>;
-    readonly limit: (actorId: string) => Promise<void>;
+    readonly discover: DiscoverActor;
   },
 ) {
   const { actorId } = requireMemberActor(principal);
@@ -24,14 +24,13 @@ export async function resolveMessagingCreationIntent(
     kind === 'dm'
       ? parseValidated(schemas.requestUsername, input)
       : parseValidated(schemas.createGroupUsernames, input);
-  await dependencies.limit(actorId);
   const names =
     'recipientUsername' in command
       ? [command.recipientUsername]
       : command.invitedUsernames;
   const actors: string[] = [];
   for (const name of names) {
-    const found = await dependencies.lookup(name);
+    const found = await dependencies.discover(actorId, name);
     if (found === null) throw createAppError('AUTHORIZATION');
     actors.push(found);
   }

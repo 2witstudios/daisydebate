@@ -65,7 +65,7 @@ const harness = ({
       limit: async (actorId: string) => {
         limited.push(actorId);
       },
-      lookup: async (username: string) =>
+      discover: async (_actorId: string, username: string) =>
         username === 'ada' ? them : username === 'me' ? me : null,
       store,
     },
