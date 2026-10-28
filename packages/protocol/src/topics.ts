@@ -9,17 +9,16 @@ import { idSchema } from './primitives';
 const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
 
 /**
- * The one topic-family vocabulary: the five families realtime delivers on.
+ * The one topic-family vocabulary: the families realtime delivers on.
  * A family is a topic's first segment, plus its third when it has one
- * (`debate:<id>:presence` is `debate:presence`). Every other string is
+ * (`round:<id>:presence` is `round:presence`). Every other string is
  * refused by `parseTopic` at the trust boundary. The outbox storage rule
  * (realtime-payloads.ts) is keyed by it.
  */
 const topicFamilies = [
   'room',
-  'debate',
-  'debate:presence',
-  'debate:chat',
+  'round',
+  'round:presence',
   'user:inbox',
   'standings',
   'channel',
@@ -33,7 +32,7 @@ type ParsedTopic =
         TopicFamily,
         'user:inbox' | 'standings' | 'channel' | 'room'
       >;
-      readonly debateId: string;
+      readonly roundId: string;
     }
   | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
@@ -72,7 +71,7 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
   if (family.data === 'room') return { family: 'room', roomId: key };
   return family.data === 'user:inbox'
     ? { family: 'user:inbox', actorId: key }
-    : { family: family.data, debateId: key };
+    : { family: family.data, roundId: key };
 }
 
 /**
@@ -100,9 +99,9 @@ export const topicStringSchema = z
 export const buildUserInboxTopic = (actorId: string): string =>
   `user:${idSchema.parse(actorId)}:inbox`;
 
-/** The `debate:<id>` family (RT-2.3b's first consumer). */
-export const buildDebateTopic = (debateId: string): string =>
-  `debate:${idSchema.parse(debateId)}`;
+/** A Round's public doorbell topic (phase and transcript changes). */
+export const buildRoundTopic = (roundId: string): string =>
+  `round:${idSchema.parse(roundId)}`;
 
 /** Persistent messaging authorization boundary (ADR 0060). */
 export const buildChannelTopic = (channelId: string): string =>

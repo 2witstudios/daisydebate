@@ -2,7 +2,7 @@ import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { cursorSchema, heartbeatMs } from './realtime';
 import {
-  buildDebateTopic,
+  buildRoundTopic,
   buildUserInboxTopic,
   parseTopic,
   topicStringSchema,
@@ -36,16 +36,14 @@ describe('topic grammar', () => {
       given: 'a topic of every family',
       should: 'parse to the matching family and ids',
       actual: [
-        parseTopic(`debate:${id}`),
-        parseTopic(`debate:${id}:presence`),
-        parseTopic(`debate:${id}:chat`),
+        parseTopic(`round:${id}`),
+        parseTopic(`round:${id}:presence`),
         parseTopic(buildUserInboxTopic(id)),
         parseTopic('standings:2026'),
       ],
       expected: [
-        { family: 'debate', debateId: id },
-        { family: 'debate:presence', debateId: id },
-        { family: 'debate:chat', debateId: id },
+        { family: 'round', roundId: id },
+        { family: 'round:presence', roundId: id },
         { family: 'user:inbox', actorId: id },
         { family: 'standings', season: '2026' },
       ],
@@ -54,17 +52,21 @@ describe('topic grammar', () => {
 
   test('rejects non-cuid2 segments and unknown shapes', () => {
     const rejected = [
-      'debate:not-a-cuid2',
-      'debate:0f0e6d1c-2b3a-4455-9a8b-7c6d5e4f3a21',
-      `debate:${id}:unknown-suffix`,
+      'round:not-a-cuid2',
+      'round:0f0e6d1c-2b3a-4455-9a8b-7c6d5e4f3a21',
+      // The retired names: the debate family and the producer-less chat family (ISSUE-763).
+      `debate:${id}`,
+      `debate:${id}:presence`,
+      `round:${id}:chat`,
+      `round:${id}:unknown-suffix`,
       `user:${id}`,
       `user:${id}:outbox`,
       'user:not-a-cuid2:inbox',
       'standings:',
       'season:2026',
-      'debate:',
+      'round:',
       '',
-      `debate:${id}:presence:extra`,
+      `round:${id}:presence:extra`,
     ];
     assert({
       given: 'topic strings with bad ids or unrecognized shapes',
@@ -80,14 +82,14 @@ describe('topic grammar', () => {
     );
   });
 
-  test('the debate topic builder round-trips through the parser and throws on a non-cuid2 segment (RT-2.3b)', () => {
+  test('the Round topic builder round-trips through the parser and throws on a non-cuid2 segment (RT-2.3b)', () => {
     assert({
-      given: 'a debate id',
-      should: 'build a topic the parser accepts back as the debate family',
-      actual: parseTopic(buildDebateTopic(id)),
-      expected: { family: 'debate', debateId: id },
+      given: 'a Round id',
+      should: 'build a topic the parser accepts back as the round family',
+      actual: parseTopic(buildRoundTopic(id)),
+      expected: { family: 'round', roundId: id },
     });
-    expect(() => buildDebateTopic('not-a-cuid2')).toThrow(
+    expect(() => buildRoundTopic('not-a-cuid2')).toThrow(
       'Invalid string: must match pattern',
     );
   });

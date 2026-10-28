@@ -401,7 +401,7 @@ so a future approved audience producer can extend that policy alone.
 The read reuses ordered `utterances`, explicit `transcript_segments` states and
 the immutable freeze marker. Its revision follows capture independently of
 competitive Round version, with one additional revision at freeze. Text append,
-stream seal and freeze transactionally append a `debate.transcript-changed`
+stream seal and freeze transactionally append a `round.transcript-changed`
 doorbell to the existing Round topic. It contains only the Round id and the
 transcript revision. The viewer refetches the protected read on that doorbell
 and reconnect/visibility recovery; clients without a connected socket use a

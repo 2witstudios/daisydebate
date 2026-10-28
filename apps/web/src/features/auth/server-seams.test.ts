@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { Logger } from '@daisy/logger';
 import { logsLeakSecrets } from './log-leaks';
-import type { AuthRateLimiter } from './abuse/rate-limit';
+import type { RateLimiter } from '../../server/rate-limit';
 import {
   authTestEnv,
   composeAuthServer,
@@ -24,7 +24,7 @@ const recordingLogger = (entries: Entry[]): Logger => ({
 });
 
 const compose = (overrides: {
-  limiter?: AuthRateLimiter;
+  limiter?: RateLimiter;
   deliveryFailure?: Error;
 }) => {
   const sent: EmailMessage[] = [];

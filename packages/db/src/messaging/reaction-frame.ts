@@ -71,7 +71,7 @@ export function channelReactionFrame(
       await authorize('read');
       const [message] = await tx.execute(sql`
         select id from messaging_messages where id=${parsed.data} and channel_id=${scope.channelId}
-          and text is not null and removed_at is null for update
+          and text is not null and removed_at is null
       `);
       if (message?.id !== parsed.data) throw createAppError('NOT_FOUND');
       return result({ messageId: parsed.data }, false, true);

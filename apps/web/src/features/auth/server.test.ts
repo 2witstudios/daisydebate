@@ -85,7 +85,7 @@ describe('auth server composition', () => {
     assert({
       given: 'a composed auth server',
       should:
-        'expose config, actor and beta access lookups, instance, limiter, logger, clock, settled and pendingWork, and no test-only mail seam',
+        "expose config, actor and beta access lookups, instance, logger, clock, settled and pendingWork, and no test-only mail seam (the rate limiter is the app's, not auth's)",
       actual: Object.keys(composeAuthServer()).sort(),
       expected: [
         'clock',
@@ -93,7 +93,6 @@ describe('auth server composition', () => {
         'getActorByUserId',
         'getParticipationByUserId',
         'instance',
-        'limiter',
         'logger',
         'pendingWork',
         'settled',

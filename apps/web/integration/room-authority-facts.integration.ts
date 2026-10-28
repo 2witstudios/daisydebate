@@ -1,6 +1,6 @@
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import { withRoomRuntime } from './room-runtime.test-support';
 import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -133,7 +133,7 @@ test('minimal Round authority facts authorize only the persisted private cast', 
     });
     const phaseRows = await f.sql`
       select kind, version, payload from outbox
-      where topic=${buildDebateTopic(roundId)} order by seq
+      where topic=${buildRoundTopic(roundId)} order by seq
     `;
     assert({
       given: 'the Room launch that created this private Round',
@@ -141,10 +141,10 @@ test('minimal Round authority facts authorize only the persisted private cast', 
       actual: phaseRows,
       expected: [
         {
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           version: 1,
           payload: {
-            kind: 'debate.phase-changed',
+            kind: 'round.phase-changed',
             ids: [roundId],
             entityVersion: 1,
           },

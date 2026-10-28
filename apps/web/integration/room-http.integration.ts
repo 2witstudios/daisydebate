@@ -5,7 +5,7 @@ import {
   isNamedSeat,
   roomViewSchema,
   roundViewSchema,
-  buildDebateTopic,
+  buildRoundTopic,
 } from '@daisy/protocol';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
@@ -182,7 +182,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
           select id from rounds where room_id=${roomId}
         `;
         if (round)
-          await sql`delete from outbox where topic=${buildDebateTopic(round.id)}`;
+          await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
         await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
         await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from room_commands where room_id=${roomId}`;

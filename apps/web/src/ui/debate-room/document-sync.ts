@@ -1,4 +1,4 @@
-import { sameDocumentHtml } from '../../features/debate-room/documents/document-lines';
+import { sameDocumentHtml } from '../../features/documents/document-lines';
 import type {
   FolderId,
   TemplateId,

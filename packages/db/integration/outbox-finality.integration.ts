@@ -40,7 +40,7 @@ test('an open transaction in another database holds back the drain, and the fina
   const client = new SQL(url, { max: 1 });
   const drizzleClient = drizzle({ client });
   const foreign = await openForeignTransaction();
-  const topic = `debate:${createId()}`;
+  const topic = `round:${createId()}`;
   const drainedForTopic = async () =>
     (await drainOutbox(drizzleClient, OUTBOX_ORIGIN, 500)).filter(
       (row) => row.topic === topic,
@@ -87,7 +87,7 @@ test('an open transaction in another database holds back the drain, and the fina
 test('a finality wait that outlives its deadline names the transactions holding it back', async () => {
   const client = new SQL(url, { max: 1 });
   const foreign = await openForeignTransaction();
-  const topic = `debate:${createId()}`;
+  const topic = `round:${createId()}`;
   try {
     const txid = await insertRow(client, topic);
     const message = await waitForOutboxFinality(client, txid, {

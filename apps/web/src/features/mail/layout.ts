@@ -1,5 +1,5 @@
 import { EMAIL_BRAND_PALETTE } from './brand-palette';
-import { escapeHtml } from './escape';
+import { escapeHtml } from '../../lib/escape-html';
 
 /**
  * Content model every template fills in. One `url` per message: the single

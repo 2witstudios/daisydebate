@@ -273,9 +273,9 @@ topic.
 
 ### 6. Payload policy
 
-- **Public topics carried through the outbox** (`debate:<id>`,
+- **Public topics carried through the outbox** (`round:<id>`,
   `standings:<season>`) carry doorbells only: ids, `kind` and `entityVersion`.
-  Never user content, names or text. `debate:<id>:presence` is a public
+  Never user content, names or text. `round:<id>:presence` is a public
   topic too, but it carries no outbox payload at all: presence is never
   written to the outbox (ADR 0033 §1) and is delivered instead as the
   `presence.changed` server message (ADR 0031 §6), which names no `kind`
@@ -283,7 +283,7 @@ topic.
 - **Owner-only topics** (`user:<id>:inbox`) may carry small typed deltas, since
   only the owner can subscribe.
 - The doorbell kind names, exactly (`@daisy/protocol`'s outbox payload schema):
-  `debate.phase-changed` (the `debate:<id>` family) and
+  `round.phase-changed` (the `round:<id>` family) and
   `standings.updated` (the `standings:<season>` family). The owner-only
   inbox delta kind is `user.notification-delivered` (the `user:<id>:inbox`
   family; its content is NOTIF-1's later epic).

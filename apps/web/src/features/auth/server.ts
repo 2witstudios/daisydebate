@@ -51,8 +51,8 @@ import {
   clientIpOptions,
   createRateLimitGate,
   createSignUpCeiling,
-  type AuthRateLimiter,
 } from './abuse/rate-limit';
+import { type RateLimiter } from '../../server/rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 
@@ -75,7 +75,7 @@ const composeBetterAuth = (dependencies: {
   readonly recipientSubkey: string;
   readonly database: BetterAuthOptions['database'];
   readonly deliver: Deliver;
-  readonly limiter: AuthRateLimiter;
+  readonly limiter: RateLimiter;
   readonly ledger: DeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
@@ -244,7 +244,7 @@ const composeBetterAuth = (dependencies: {
 
 /**
  * Only what production callers read off the result: the app's routes and
- * pages (`server/app.ts` composes it) use `config`, `instance`, `limiter`,
+ * pages (`server/app.ts` composes it) use `config`, `instance`,
  * `clock` and `logger`, and the app's close waits on `settled`. Mail delivery, `database`, `ledger` and `ids` stay
  * internal to composition; tests reach delivery through a real auth
  * request.
@@ -257,7 +257,6 @@ export type AuthServer = {
   readonly getParticipationByUserId: (userId: string) => Promise<Participation>;
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
-  readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
   /** Resolves once work handed off past an answer has finished (ISSUE-185). */
@@ -286,7 +285,7 @@ export function createAuthServer<
   readonly recipientSubkey: string;
   readonly database: Database;
   readonly emailSender: EmailSender;
-  readonly limiter: AuthRateLimiter;
+  readonly limiter: RateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
@@ -348,7 +347,6 @@ export function createAuthServer<
         dependencies.revokeSessionUnlessAddressHeld,
       afterResponse,
     }),
-    limiter: dependencies.limiter,
     logger: dependencies.logger,
     clock: dependencies.clock,
     settled: afterResponse.settled,

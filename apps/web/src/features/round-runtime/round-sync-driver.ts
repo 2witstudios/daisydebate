@@ -1,4 +1,4 @@
-import { buildDebateTopic, type RoundView } from '@daisy/protocol';
+import { buildRoundTopic, type RoundView } from '@daisy/protocol';
 import type { Scheduler } from '../realtime/connection-store';
 import {
   createResourceSyncDriver,
@@ -28,7 +28,7 @@ export type RoundSync = ResourceSync<RoundView>;
 export const seedRoundSync = (round: RoundView, at: number): RoundSync =>
   seedResourceSync(roundIdentity, round, at);
 
-/** Resource sync for a live round (ADR 0066): its `debate:<id>` doorbell and read. */
+/** Resource sync for a live round (ADR 0066): its `round:<id>` doorbell and read. */
 export function createRoundSyncDriver({
   seed,
   read,
@@ -59,8 +59,8 @@ export function createRoundSyncDriver({
     ...(onConnectionOpen ? { onConnectionOpen } : {}),
     doorbell: (subscribed, signal) =>
       attachVersionDoorbell({
-        topic: buildDebateTopic(seed.value.id),
-        kind: 'debate.phase-changed',
+        topic: buildRoundTopic(seed.value.id),
+        kind: 'round.phase-changed',
         id: seed.value.id,
         connection: subscribed,
         signal,

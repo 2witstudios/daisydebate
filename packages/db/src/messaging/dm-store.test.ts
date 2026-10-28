@@ -30,7 +30,7 @@ test('request preview exposes introduction only after fresh dedicated read and s
   await assertRejects({
     given: 'request fact disappears after locking',
     should: 'mask absence without falling back to discovery facts',
-    actual: () => store.withChannel(f.scope, (frame) => frame.readRequest()),
+    actual: () => store.readRequest(f.scope),
     code: 'NOT_FOUND',
   });
   assert({
@@ -134,29 +134,36 @@ test('request decisions require observation and matching operation before writes
 test('dedicated request authority loss refuses before introduction or receipt access', async () => {
   const f = channelWire([]);
   const fact = f.fact;
-  const denied = channelWire([[{ fact }], [{ fact }]]);
-  const store = createMessagingDmStore({
-    database: denied.database,
-    authorize: () => async () => {
-      throw createAppError('AUTHORIZATION');
-    },
+  const refusing = () => async () => {
+    throw createAppError('AUTHORIZATION');
+  };
+  const preview = channelWire([[{ fact }]]);
+  await assertRejects({
+    given: 'revoked dedicated request authority',
+    should: 'refuse the preview under the shared fences',
+    actual: () =>
+      createMessagingDmStore({
+        database: preview.database,
+        authorize: refusing,
+      }).readRequest(preview.scope),
+    code: 'AUTHORIZATION',
   });
-  await store.withChannel(denied.scope, async (frame) => {
-    for (const operation of [
-      () => frame.readRequest(),
-      () => frame.readDecisionState({ requestId, decision: 'cancel' }),
-    ])
-      await assertRejects({
-        given: 'revoked dedicated request authority',
-        should: 'refuse preview and retry state',
-        actual: operation,
-        code: 'AUTHORIZATION',
-      });
+  const retry = channelWire([[{ fact }]]);
+  await createMessagingDmStore({
+    database: retry.database,
+    authorize: refusing,
+  }).withChannel(retry.scope, async (frame) => {
+    await assertRejects({
+      given: 'revoked dedicated request authority',
+      should: 'refuse retry state',
+      actual: () => frame.readDecisionState({ requestId, decision: 'cancel' }),
+      code: 'AUTHORIZATION',
+    });
   });
   assert({
     given: 'dedicated request refusal',
     should: 'read only minimal channel facts and counters',
-    actual: denied.queries.some(
+    actual: [...preview.queries, ...retry.queries].some(
       (q) =>
         q.query.includes('from "messaging_dm_pairs"') ||
         q.query.includes('from "messaging_social_commands"'),
@@ -221,12 +228,27 @@ test('fresh request preview projects only the dedicated request fields', async (
     given: 'current request-read authority',
     should:
       'return introduction and request timestamp without history or pair membership',
-    actual: await store.withChannel(f.scope, (frame) => frame.readRequest()),
+    actual: await store.readRequest(f.scope),
     expected: {
       channelId: f.scope.channelId,
       senderActorId: f.scope.actorId,
       introduction: 'Private request',
       requestedAt: now,
     },
+  });
+  assert({
+    given: 'a request preview',
+    should:
+      'take the shared account and channel fences, never the exclusive ones',
+    actual: [
+      f.queries.some((q) =>
+        q.query.includes('daisy_authorization_read_accounts_v2('),
+      ),
+      f.queries.some((q) =>
+        q.query.includes('daisy_messaging_channel_read_fence('),
+      ),
+      f.queries.some((q) => q.query.includes('daisy_messaging_channel_fence(')),
+    ],
+    expected: [true, true, false],
   });
 });

@@ -1,13 +1,5 @@
 import { formatCountdown, formatSeconds } from '../../../lib/clock-display';
-
-export type DebateMark = 'aff' | 'neg' | 'extend' | 'dropped' | 'new';
-export const debateMarks: readonly DebateMark[] = [
-  'aff',
-  'neg',
-  'extend',
-  'dropped',
-  'new',
-];
+import { escapeHtml } from '../../../lib/escape-html';
 
 export type Side = 'aff' | 'neg';
 
@@ -47,14 +39,6 @@ export type TemplateContext = {
   /** The speech the round has reached; plans start after it. */
   readonly currentIndex?: number;
 };
-
-/** Text for an HTML document, with markup characters escaped. */
-export const escapeHtml = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 
 const paragraph = (value = '') => `<p>${escapeHtml(value)}</p>`;
 const heading = (level: 1 | 2, value: string) =>

@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import {
   runMessagingHandler,
   messagingHttpBoundary,
@@ -55,7 +55,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
           clock: app.clock,
           limit: (actorId: string) =>
             consumeOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:social:${actorId}`,
               social.abuse,
             ),

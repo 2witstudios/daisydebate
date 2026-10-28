@@ -3,7 +3,7 @@ import { startRoundMaintenance } from './service';
 import { createAppError } from '@daisy/errors';
 setupRitewayBun();
 
-type Ports = Parameters<typeof startRoundMaintenance<number>>[0];
+type Ports = Parameters<typeof startRoundMaintenance>[0];
 const ports = (): Ports => ({
   discover: async () => [],
   tick: async () => {},

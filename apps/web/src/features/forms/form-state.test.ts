@@ -3,10 +3,10 @@ import {
   accept,
   field,
   formValues,
-  mockFormUnavailable,
+  formUnavailable,
   refuse,
   refused,
-} from './form';
+} from './form-state';
 
 setupRitewayBun();
 
@@ -55,7 +55,7 @@ describe('answers', () => {
     assert({
       given: 'a post the server never answered',
       should: 'keep the values and say to try again',
-      actual: mockFormUnavailable(posted({ name: 'x' })),
+      actual: formUnavailable(posted({ name: 'x' })),
       expected: {
         values: { name: 'x' },
         error: 'Something went wrong. Try again.',

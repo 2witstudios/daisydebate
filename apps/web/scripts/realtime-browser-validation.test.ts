@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import {
   buildChannelTopic,
-  buildDebateTopic,
+  buildRoundTopic,
   buildRoomTopic,
   buildUserInboxTopic,
 } from '@daisy/protocol';
@@ -60,8 +60,8 @@ test('actual browser frame bundle validates after dynamic-code permission change
       payload: { kind: 'room.changed', ids: [id], entityVersion: 1 },
     },
     {
-      topic: buildDebateTopic(id),
-      payload: { kind: 'debate.phase-changed', ids: [id], entityVersion: 1 },
+      topic: buildRoundTopic(id),
+      payload: { kind: 'round.phase-changed', ids: [id], entityVersion: 1 },
     },
     {
       topic: buildChannelTopic(id),

@@ -4,7 +4,7 @@ import { createRedis } from '@daisy/redis';
 import { createBoundedTestClient } from '@daisy/redis/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createSignUpCeiling } from '../src/features/auth/abuse/rate-limit';
-import { createAuthRateLimiter } from '../src/features/auth/abuse/redis-limiter';
+import { createRateLimiter } from '../src/server/rate-limit';
 import { createAccountFlows } from './auth-account-helpers';
 import { createSecondInstances, elapse } from './auth-rate-limit-helpers';
 import { createTestApp, testRedisUrl } from './fixtures';
@@ -75,11 +75,11 @@ test('configured UTC-day ceiling is atomic across real Redis clients and resets 
   };
   const first = createSignUpCeiling({
     ...dependencies,
-    limiter: dayApp.app.auth().limiter,
+    limiter: dayApp.app.limiter,
   });
   const second = createSignUpCeiling({
     ...dependencies,
-    limiter: createAuthRateLimiter(otherRedis),
+    limiter: createRateLimiter(otherRedis),
   });
   const sameDay = await Promise.all([first(), second()]);
   const excess = await first();

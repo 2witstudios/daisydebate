@@ -21,7 +21,7 @@ import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
-import { createAuthRateLimiter } from '../features/auth/abuse/redis-limiter';
+import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/mail/webhook';
@@ -133,6 +133,9 @@ export function createApp({
     record: (input: Parameters<typeof database.recordEmailDelivery>[0]) =>
       database.recordEmailDelivery(input),
   };
+  // The application's one rate limiter: auth's gates and every feature that
+  // throttles share it (ISSUE-766), never reaching it through auth.
+  const limiter = createRateLimiter(redis);
   const composeAuth = (): AuthServer => {
     const authConfig = readAuth();
     return createAuthServer({
@@ -143,7 +146,7 @@ export function createApp({
       recipientSubkey: deriveRecipientSubkey(readMail().RECIPIENT_HASH_SECRET),
       database: database.authAdapter,
       emailSender: emailSender(readMail()),
-      limiter: createAuthRateLimiter(redis),
+      limiter,
       ledger,
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
@@ -204,6 +207,8 @@ export function createApp({
         clock,
       }))(purpose);
     },
+    /** The shared atomic rate limiter (Redis-backed, fails closed). */
+    limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
     /** The mail transport's configuration (ISSUE-780), validated on first use. */

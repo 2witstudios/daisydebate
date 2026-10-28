@@ -3,7 +3,7 @@ import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db/profile';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   readJson,
@@ -20,7 +20,7 @@ type OnboardingDependencies = {
   readonly origin: () => string;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly clock: Clock;
   /**
    * Stores one step for the session's own account, refusing (AUTHORIZATION,

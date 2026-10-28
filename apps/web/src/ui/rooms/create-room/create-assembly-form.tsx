@@ -3,7 +3,7 @@
 import { FormatTemplatePicker } from './format-template-picker';
 
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
-import { formValues } from '../../../features/mock-form/form';
+import { formValues } from '../../../features/forms/form-state';
 import { FormError, FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';

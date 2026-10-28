@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../../server/app';
-import { consumeOrThrow } from '../../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../../server/rate-limit';
 import { requireMessagingAuthorization } from '../authorization';
 import { messagingHttpBoundary } from '../handler-boundary';
 import { messagingSocialAuthorizationFence } from '../social-authorization';
@@ -72,7 +72,7 @@ const friendPorts = (
 ): FriendOperationDependencies => ({
   clock: app.clock,
   limit: (actorId) =>
-    consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
+    consumeOrThrow(app.limiter, `friends:${actorId}`, FRIEND_RULE),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
     app.database.messagingSocialStore(
@@ -103,7 +103,7 @@ export function composeFriendRoutes(app: App) {
         // Its own bucket: toggling visibility never spends friend changes.
         limit: (actorId) =>
           consumeOrThrow(
-            app.auth().limiter,
+            app.limiter,
             `friends-presence:${actorId}`,
             FRIEND_RULE,
           ),

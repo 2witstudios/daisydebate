@@ -10,7 +10,8 @@ import {
   appendWorkspaceDocument,
   type TabsState,
 } from '../../features/debate-room/workspace';
-import type { RoomAction, PageTone } from './room-state';
+import type { RoomAction } from './room-state';
+import type { PageTone } from '../document-editor/document-editor';
 
 type State = {
   readonly documents: readonly WorkspaceDocument[];

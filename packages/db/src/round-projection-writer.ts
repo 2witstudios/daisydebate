@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
-import { runtimeCheckpointSchema, buildDebateTopic } from '@daisy/protocol';
+import { runtimeCheckpointSchema, buildRoundTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
@@ -23,11 +23,11 @@ export async function appendRoundPhaseChanged(
   entityVersion: number,
 ): Promise<void> {
   await appendOutboxEvent(tx, {
-    topic: buildDebateTopic(roundId),
-    kind: 'debate.phase-changed',
+    topic: buildRoundTopic(roundId),
+    kind: 'round.phase-changed',
     version: 1,
     payload: {
-      kind: 'debate.phase-changed',
+      kind: 'round.phase-changed',
       ids: [roundId],
       entityVersion,
     },

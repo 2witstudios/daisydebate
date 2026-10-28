@@ -1,5 +1,5 @@
+import { escapeHtml } from '../../lib/escape-html';
 import {
-  escapeHtml,
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,

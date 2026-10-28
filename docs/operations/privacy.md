@@ -58,8 +58,8 @@ needs no separate storage entry — and two different exposure surfaces ride
 it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
-  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
-  `debate.transcript-changed` on `debate`, `standings.updated` on `standings`, and `user.notification-delivered` on
+  `@daisy/protocol` with the first `event` sender): `round.phase-changed` on `round`,
+  `round.transcript-changed` on `round`, `standings.updated` on `standings`, and `user.notification-delivered` on
   `user:inbox`. The Round and standings doorbells carry only ids and a projected competitive
   state (`identifier`/`none`). `user.notification-delivered` also carries
   `notificationType` (a controlled vocabulary string, category `none` —
@@ -333,7 +333,7 @@ current implementation status.
 
 ### Transcript invalidation
 
-`debate.transcript-changed` carries `kind` (none), `ids` (identifier, the Round
+`round.transcript-changed` carries `kind` (none), `ids` (identifier, the Round
 invalidation target) and `entityVersion` (none, the transcript revision), with no
 text, track, speaker or judge identity. Purpose: refetch the current protected
 transcript after capture or closure. Storage: the existing PostgreSQL outbox,
