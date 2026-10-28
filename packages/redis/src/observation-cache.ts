@@ -60,10 +60,19 @@ return 1
 /** Opens a build: returns the purge generation the publication must still match. */
 const beginBuildScript = defineScript(`
 if redis.call('GET', KEYS[1]) ~= ARGV[1] or redis.call('GET', KEYS[2]) ~= ARGV[2] then return -1 end
+local epoch = redis.call('GET', KEYS[5]) or '0'
 if redis.call('HGET', KEYS[3], 'incarnation') ~= ARGV[1] then
   redis.call('DEL', KEYS[4])
   redis.call('HSET', KEYS[3], 'incarnation', ARGV[1])
   redis.call('HSETNX', KEYS[3], 'purge', '0')
+  redis.call('HSETNX', KEYS[3], 'epoch', epoch)
+end
+if redis.call('HGET', KEYS[3], 'epoch') ~= epoch then
+  -- An erasure purge happened since this guard last built: every earlier
+  -- build's generation is now stale, and no earlier body survives.
+  redis.call('DEL', KEYS[4])
+  redis.call('HINCRBY', KEYS[3], 'purge', 1)
+  redis.call('HSET', KEYS[3], 'epoch', epoch)
 end
 redis.call('PEXPIRE', KEYS[3], ARGV[3])
 return tonumber(redis.call('HGET', KEYS[3], 'purge'))
@@ -76,6 +85,7 @@ return tonumber(redis.call('HGET', KEYS[3], 'purge'))
 const publishScript = defineScript(`
 if redis.call('GET', KEYS[1]) ~= ARGV[1] or redis.call('GET', KEYS[2]) ~= ARGV[2] then return 0 end
 if redis.call('HGET', KEYS[3], 'incarnation') ~= ARGV[1] or redis.call('HGET', KEYS[3], 'purge') ~= ARGV[3] then return 0 end
+if redis.call('HGET', KEYS[3], 'epoch') ~= (redis.call('GET', KEYS[5]) or '0') then return 0 end
 local p = ARGV[4]
 local disclosure = redis.call('HGET', KEYS[4], 'disclosure:' .. p)
 local revision = redis.call('HGET', KEYS[4], 'revision:' .. p)
@@ -101,6 +111,11 @@ redis.call('PEXPIRE', KEYS[1], ARGV[3])
 redis.call('DEL', KEYS[2])
 redis.call('PUBLISH', ARGV[1], ARGV[2])
 return purge
+`);
+const advanceEpochScript = defineScript(`
+local epoch = redis.call('INCR', KEYS[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[1])
+return epoch
 `);
 /** One body read, valid only under the current incarnation's guard. */
 const readScript = defineScript(`
@@ -219,6 +234,8 @@ export function createObservationKeys(namespace: string) {
     redisKey(namespace, 'obs', observationResourceKey(resource), part);
   return {
     sentinel: redisKey(namespace, 'obs', 'incarnation'),
+    /** Advanced by every erasure purge; a build begun under an older value never publishes. */
+    erasureEpoch: redisKey(namespace, 'obs', 'erasure-epoch'),
     demand: redisKey(namespace, 'obs', 'demand'),
     demandExpiry: redisKey(namespace, 'obs', 'demand-expiry'),
     owner: (resource: ObservationResource) => resourceKey(resource, 'owner'),
@@ -381,6 +398,7 @@ export function createObservationCacheOperations({
             keys.owner(input.resource),
             keys.guard(input.resource),
             keys.cache(input.resource),
+            keys.erasureEpoch,
           ],
           [
             segment(input.incarnation),
@@ -417,6 +435,7 @@ export function createObservationCacheOperations({
             keys.owner(base.resource),
             keys.guard(base.resource),
             keys.cache(base.resource),
+            keys.erasureEpoch,
           ],
           [
             segment(input.incarnation),
@@ -464,6 +483,14 @@ export function createObservationCacheOperations({
       let purged = 0;
       try {
         await client.connect();
+        // First fence every build begun before this purge, cached body or
+        // not; then delete every body that exists.
+        await client.send('EVAL', [
+          advanceEpochScript,
+          '1',
+          keys.erasureEpoch,
+          String(SENTINEL_TTL_MS * 24),
+        ]);
         do {
           const [next, found] = (await client.send('SCAN', [
             cursor,

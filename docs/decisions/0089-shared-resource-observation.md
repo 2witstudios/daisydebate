@@ -4,8 +4,9 @@ Status: accepted (platform-capacity slice, G7 of the
 [Platform plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/hf54ezcwy7d61m9463q20a1i);
 [slice plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wgm0p7u42u55700dbkfqqexu) §3E;
 source of truth: the [architecture repair plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/b8yv71h2bc9pbfmbgsm2n2pe) §4).
-Amends [ADR 0008](0008-redis-ephemeral.md), [ADR 0031](0031-realtime-service.md)
-and [ADR 0032](0032-transactional-outbox-delivery.md). Runs on the lanes of
+Amends [ADR 0008](0008-redis-ephemeral.md), [ADR 0031](0031-realtime-service.md),
+[ADR 0032](0032-transactional-outbox-delivery.md) and
+[ADR 0060](0060-persistent-authorized-messaging-channels.md). Runs on the lanes of
 [ADR 0088](0088-database-workload-admission.md).
 
 ## Context

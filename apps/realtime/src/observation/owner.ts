@@ -163,6 +163,9 @@ export function createObservationOwner({
           disclosureRevision: projection.disclosureRevision,
         };
         entry.builtAt = now();
+        // Progress, not lag: a completed build restarts the budget; the next
+        // tick re-arms it only if the header is still ahead.
+        entry.dirtySince = null;
       }
     } catch (error) {
       onError('observation.build', error);

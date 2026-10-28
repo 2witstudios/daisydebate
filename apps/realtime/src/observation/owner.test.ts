@@ -300,3 +300,69 @@ test('lapsed demand purges the resource bodies before ownership ends', async () 
     expected: [[r.id], 0],
   });
 });
+
+test('a busy resource whose builds keep completing keeps its owner past the progress budget', async () => {
+  const r = resourceOf(1);
+  const shared = fleet([r]);
+  let clock = 0;
+  let revision = 1;
+  let releases = 0;
+  const worker = createObservationOwner({
+    token: 'busy',
+    candidateIncarnation: 'inc',
+    now: () => clock,
+    cache: {
+      ...shared.cache,
+      releaseObservation: async (resource, token) => {
+        releases++;
+        return shared.cache.releaseObservation(resource, token);
+      },
+    },
+    resources: defineObservableResources([
+      {
+        kind: 'channel-messages',
+        readHeaders: async (ids) =>
+          new Map(
+            ids.map((id) => [
+              id,
+              { contentRevision: revision, disclosureRevision: 1 },
+            ]),
+          ),
+        project: async () => ({
+          partition: 'members',
+          contentRevision: revision,
+          disclosureRevision: 1,
+          body: {},
+        }),
+        evaluatePermits: async () => [],
+        parseBody: (body) => body,
+      },
+    ]),
+  });
+  const published: number[] = [];
+  for (let tick = 0; tick < 40; tick++) {
+    clock = tick * 100;
+    await worker.tick();
+    await settle();
+    published.push(shared.published.get(observationResourceKey(r)) ?? 0);
+    revision++; // A new message lands before every next tick.
+  }
+  assert({
+    given: 'one write per 100ms tick for 4s, with every build completing',
+    should: 'never give up ownership and publish every revision',
+    actual: {
+      releases,
+      everyTick: published.every((value, index) => value === index + 1),
+      owned: worker.stats().owned,
+      owner: [...shared.owners.values()],
+      lastPublished: published.at(-1),
+    },
+    expected: {
+      releases: 0,
+      everyTick: true,
+      owned: 1,
+      owner: ['busy'],
+      lastPublished: 40,
+    },
+  });
+});

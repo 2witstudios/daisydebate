@@ -28,6 +28,24 @@ async function demanded(
   return incarnation;
 }
 
+/** One demanded resource, claimed by a fresh owner with a build begun. */
+async function ownedBuild(redis: Redis, r: ReturnType<typeof resource>) {
+  const incarnation = await demanded(redis, [r], 'node-a');
+  const token = createId();
+  await redis.claimObservation({
+    resource: r,
+    incarnation,
+    token,
+    leaseMs: 2000,
+  });
+  const purge = await redis.beginObservationBuild({
+    resource: r,
+    incarnation,
+    token,
+  });
+  return { incarnation, token, purge };
+}
+
 test('observation: only the claim holder publishes, forward only within a base (ADR 0089)', () =>
   withRedis(url, async ({ redis }) => {
     const r = resource();
@@ -109,19 +127,7 @@ test('observation: only the claim holder publishes, forward only within a base (
 test('observation: a purge deletes bodies and fences out a build started before it', () =>
   withRedis(url, async ({ redis }) => {
     const r = resource();
-    const incarnation = await demanded(redis, [r], 'node-a');
-    const token = createId();
-    await redis.claimObservation({
-      resource: r,
-      incarnation,
-      token,
-      leaseMs: 2000,
-    });
-    const before = await redis.beginObservationBuild({
-      resource: r,
-      incarnation,
-      token,
-    });
+    const { incarnation, token, purge: before } = await ownedBuild(redis, r);
     await redis.publishObservation({
       base: base(r),
       incarnation,
@@ -397,3 +403,58 @@ test('observation: the erasure purge leaves no readable cached body and fences b
       expected: { purged: 2, bodies: [null, null], late: 'refused' },
     });
   }));
+
+for (const shape of ['never published', 'body expired'] as const)
+  test(`observation: the erasure purge fences a build begun before it whose body is ${shape} (ISSUE-852)`, () =>
+    withRedis(url, async ({ redis, raw, key }) => {
+      const r = resource();
+      const { incarnation, token, purge: purge } = await ownedBuild(redis, r);
+      if (shape === 'body expired') {
+        await redis.publishObservation({
+          base: base(r),
+          incarnation,
+          token,
+          purgeGeneration: purge!,
+          contentRevision: 1,
+          body: '{}',
+        });
+        await raw.del(key('obs', `channel-messages_${r.id}`, 'cache'));
+      }
+      await redis.purgeAllObservations();
+      const late = await redis.publishObservation({
+        base: base(r),
+        incarnation,
+        token,
+        purgeGeneration: purge!,
+        contentRevision: 2,
+        body: '{"text":"pre-erasure build"}',
+      });
+      const fresh = await redis.beginObservationBuild({
+        resource: r,
+        incarnation,
+        token,
+      });
+      const rebuilt = await redis.publishObservation({
+        base: base(r),
+        incarnation,
+        token,
+        purgeGeneration: fresh!,
+        contentRevision: 3,
+        body: '{"text":"post-erasure build"}',
+      });
+      assert({
+        given: `a build begun before an erasure purge, its body ${shape}`,
+        should:
+          'refuse the pre-erasure build and leave nothing readable, while a build begun after the purge installs',
+        actual: {
+          late,
+          rebuilt,
+          read: (await redis.readObservation(r, 'members'))?.body,
+        },
+        expected: {
+          late: 'refused',
+          rebuilt: 'installed',
+          read: '{"text":"post-erasure build"}',
+        },
+      });
+    }));
