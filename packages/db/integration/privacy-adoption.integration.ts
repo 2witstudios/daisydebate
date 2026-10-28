@@ -101,7 +101,7 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
       const late: PrivacyAdopter = {
         ...early,
         id: 'late',
-        phase: 'after-scrub',
+        phase: 'after-close',
         erase: async () => {
           throw new Error('adopter failed');
         },

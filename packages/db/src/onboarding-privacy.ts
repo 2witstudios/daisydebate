@@ -12,7 +12,7 @@ import {
  */
 export const onboardingPrivacyAdopter: PrivacyAdopter = {
   id: 'onboarding',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from ${memberInterests} where user_id=${subject.userId}`,

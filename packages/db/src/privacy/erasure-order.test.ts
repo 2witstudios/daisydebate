@@ -41,7 +41,7 @@ const before: PrivacyAdopter = {
 };
 const adoption = [before, accountAgePrivacyAdopter];
 
-test('canonical erasure fences before associations and queues vendors after scrub', async () => {
+test('canonical erasure fences before associations and queues vendors after closing the account', async () => {
   const fake = fakeSql([[account]]);
   const result = await runPrivacyErasure(
     drizzle({ client: fake.client }),
@@ -54,7 +54,7 @@ test('canonical erasure fences before associations and queues vendors after scru
     given:
       'configured adopters and producer-bound email/user/passkey challenges',
     should:
-      'lock first, remove associations/tokens, scrub, erase age, then persist intent',
+      'lock first, remove associations/tokens, close the account, erase age, then persist intent',
     actual: [
       result.alreadyErased,
       result.jobs.length,
@@ -72,7 +72,7 @@ test('canonical erasure fences before associations and queues vendors after scru
                   : query.startsWith('delete from "passkey"')
                     ? 'passkey'
                     : query.startsWith('update users')
-                      ? 'scrub'
+                      ? 'close'
                       : query.startsWith('delete from "account_age"')
                         ? 'age'
                         : 'intent',
@@ -90,7 +90,7 @@ test('canonical erasure fences before associations and queues vendors after scru
         'session',
         'account',
         'passkey',
-        'scrub',
+        'close',
         'age',
         'intent',
       ],
@@ -169,7 +169,7 @@ test('erased or foreign subject facts cannot trigger further cleanup or intents'
   }
 });
 
-test('an adopter failure propagates without progressing to scrub or vendor intents', async () => {
+test('an adopter failure propagates without closing the account or queuing vendor intents', async () => {
   const failure = new Error('Injected adopter failure');
   const fake = fakeSql([[account], failure]);
   try {

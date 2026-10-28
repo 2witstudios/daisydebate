@@ -9,7 +9,7 @@ const subject = {
   actorId: 'bcdefghijklmnopqrstuvwxy',
 };
 const now = '2026-10-09T18:00:00.000Z';
-const step = (id: string, phase = 'after-scrub'): PrivacyAdopter =>
+const step = (id: string, phase = 'after-close'): PrivacyAdopter =>
   ({
     id,
     phase,

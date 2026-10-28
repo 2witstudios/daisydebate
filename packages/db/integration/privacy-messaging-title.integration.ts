@@ -119,7 +119,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
         const before = await snapshot();
         const late: PrivacyAdopter = {
           id: 'title-rollback-probe',
-          phase: 'after-scrub',
+          phase: 'after-close',
           export: async () => ({}),
           erase: async () => {
             throw new Error('title rollback');

@@ -31,7 +31,7 @@ test('canonical account age adopter exports and erases only this subject in the 
         );
         assert({
           given:
-            'two age subjects and a configured canonical after-scrub adopter',
+            'two age subjects and a configured canonical after-close adopter',
           should:
             'export only requesting birthmonth and delete only that source',
           actual: [exported.account_age, [...remaining]],

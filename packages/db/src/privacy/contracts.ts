@@ -18,7 +18,7 @@ export type PrivacyExport = Readonly<
  */
 export type PrivacyAdopter = {
   readonly id: string;
-  readonly phase: 'before-auth' | 'after-scrub';
+  readonly phase: 'before-auth' | 'after-close';
   readonly erase: (
     tx: AuthorizationTransaction,
     subject: PrivacySubject,

@@ -4,7 +4,7 @@ import type { PrivacyAdopter } from './privacy/contracts';
 /** Erasure deletes the subject's grants; export returns them. */
 export const entitlementGrantPrivacyAdopter: PrivacyAdopter = {
   id: 'entitlement-grants',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from account_entitlement_grants where user_id = ${subject.userId}`,

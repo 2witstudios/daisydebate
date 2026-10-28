@@ -77,7 +77,7 @@ async function eraseAdopters(
   subject: PrivacySubject,
   now: string,
   adoption: PrivacyAdoption,
-  phase: 'before-auth' | 'after-scrub',
+  phase: 'before-auth' | 'after-close',
 ) {
   for (const adopter of adoption.filter((item) => item.phase === phase))
     await adopter.erase(tx, subject, { now });
@@ -132,7 +132,7 @@ export async function runPrivacyErasure(
       name = '', email_verified = false, deleted_at = ${plan.now}::timestamptz,
       updated_at = ${plan.now}::timestamptz, version = version + 1
       where id = ${plan.subject.userId}`);
-    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-scrub');
+    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
     for (const job of plan.jobs)
       await tx.execute(sql`insert into privacy_jobs
       (id, subject_ref, vendor, status, attempts, created_at, retry_at)

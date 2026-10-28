@@ -33,7 +33,7 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
       Object.keys(result),
     ],
     expected: [
-      'after-scrub',
+      'after-close',
       ['friend_challenges', 'friendships'],
       ['friendships', 'friend_challenges'],
     ],

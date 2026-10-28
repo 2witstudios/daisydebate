@@ -16,7 +16,7 @@ export type PrivacyAdoption = readonly PrivacyAdopter[];
 
 const adopterValid = (adopter: PrivacyAdopter) =>
   adopter.id.trim().length > 0 &&
-  ['before-auth', 'after-scrub'].includes(adopter.phase) &&
+  ['before-auth', 'after-close'].includes(adopter.phase) &&
   typeof adopter.erase === 'function' &&
   typeof adopter.export === 'function';
 

@@ -8,7 +8,7 @@ const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 /** Friends' subject rights (ADR 0072): the subject's pairs and challenges. */
 export const friendsPrivacyAdopter: PrivacyAdopter = {
   id: 'friends',
-  phase: 'after-scrub',
+  phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
     await tx.execute(

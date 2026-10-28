@@ -41,7 +41,7 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     const after: PrivacyAdopter = {
       ...before,
       id: 'scrub-probe',
-      phase: 'after-scrub',
+      phase: 'after-close',
       erase: async (tx) => {
         const rows = await tx.execute(
           sql`select email,email_verified,version,deleted_at is not null as erased from users where id=${userId}`,

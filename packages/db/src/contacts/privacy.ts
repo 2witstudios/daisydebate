@@ -12,7 +12,7 @@ const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
  */
 export const contactsPrivacyAdopter: PrivacyAdopter = {
   id: 'contacts',
-  phase: 'after-scrub',
+  phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
     for (const statement of [

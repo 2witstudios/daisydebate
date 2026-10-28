@@ -29,7 +29,7 @@ export async function loadAccountAgeSource(
 
 export const accountAgePrivacyAdopter: PrivacyAdopter = {
   id: 'account-age',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from ${accountAge} where user_id=${subject.userId}`,

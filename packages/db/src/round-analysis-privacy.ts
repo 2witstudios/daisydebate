@@ -10,7 +10,7 @@ import type { PrivacyAdopter } from './privacy/contracts';
  */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
   id: 'round-analysis',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(sql`insert into round_analyses
         (round_id,round_participant_id,freeze_revision,status,attempts,model,completed_at)

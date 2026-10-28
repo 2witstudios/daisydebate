@@ -96,7 +96,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
       const adopters = messagingPrivacyAdoption;
       const late: PrivacyAdopter = {
         id: 'rollback-probe',
-        phase: 'after-scrub',
+        phase: 'after-close',
         export: async () => ({}),
         erase: async () => {
           throw new Error('composed rollback');

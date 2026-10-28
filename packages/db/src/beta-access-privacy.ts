@@ -10,7 +10,7 @@ import type { PrivacyAdopter } from './privacy/contracts';
  */
 export const betaAccessPrivacyAdopter: PrivacyAdopter = {
   id: 'beta-access',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from mail_intents where recipient_user_id = ${subject.userId}`,

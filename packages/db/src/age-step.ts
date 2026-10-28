@@ -136,7 +136,7 @@ export const ageStepOperations = ({
 /** The Terms acceptance is exported to its member and deleted with the account (DEC-244). */
 export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   id: 'account-terms',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from ${accountTerms} where user_id=${subject.userId}`,

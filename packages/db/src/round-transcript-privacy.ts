@@ -14,7 +14,7 @@ const seatedBy = (actorId: string) =>
  */
 export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
   id: 'round-transcript',
-  phase: 'after-scrub',
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(sql`delete from utterances
       where (round_participant_id,round_id) in (${seatedBy(subject.actorId)})`);
