@@ -22,7 +22,7 @@ import { FormError } from '../components/form-field/form-field';
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
 const unanswered: RoundFormState = { values: {} };
-function CommandForm({
+export function CommandForm({
   intent,
   commandId,
   version,
@@ -49,10 +49,12 @@ function CommandForm({
         name="commandId"
         value={preserved.commandId ?? commandId}
       />
+      {/* A confirmation confirms the round the debater sees now; only an
+          unacknowledged attempt replays its original version (ISSUE-838). */}
       <input
         type="hidden"
         name="expectedVersion"
-        value={preserved.expectedVersion ?? version}
+        value={confirmation ? version : (preserved.expectedVersion ?? version)}
       />
       <input type="hidden" name="type" value={intent.type} />
       {intent.participantId ? (

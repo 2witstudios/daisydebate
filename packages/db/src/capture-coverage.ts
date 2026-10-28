@@ -2,137 +2,123 @@ export type CaptureInterval = {
   readonly start: number;
   readonly end: number | null;
 };
-/** How far a required interval's opening and close may move to captured frames. */
+/** How far an authority window's capture may start late and end early. */
 export type CoverageEdges = {
+  /** Its first stretch, before speech began: the speaker has not yet heard the grant (DEC-218). */
   readonly openMs: number;
+  /** Its last stretch, after speech ended: a yield reaches the server late (DEC-220). */
   readonly closeMs: number;
   /**
-   * The tolerance at the authority's terminal close, for a bot's credited
-   * windows only (DEC-212, ISSUE-806). A human's grants have none, so a
-   * microphone that dies before a final grant still seals partial.
+   * The last stretch before the authority's terminal close, for a bot's
+   * credited windows only (DEC-212, ISSUE-806): the speaker cannot see the
+   * cutoff, so its last windows may open after its final frame. A human's
+   * grants have none, so a microphone that dies before a final grant still
+   * seals partial.
    */
   readonly terminalCloseMs?: number;
 };
-const validRange = ({ start, end }: CaptureInterval) =>
-  Number.isFinite(start) &&
-  end !== null &&
-  Number.isFinite(end) &&
-  end >= start;
+type Range = { readonly start: number; readonly end: number };
 
-function covered(
-  required: CaptureInterval,
-  observed: readonly CaptureInterval[],
-) {
-  let frontier = required.start;
-  for (const observation of observed) {
-    if (observation.start > frontier) break;
-    frontier = Math.max(frontier, observation.end!);
-    if (frontier >= required.end!) return true;
+const validRange = (range: CaptureInterval): range is Range =>
+  Number.isFinite(range.start) &&
+  range.end !== null &&
+  Number.isFinite(range.end) &&
+  range.end >= range.start;
+
+/** Contiguous capture: overlapping or touching observations merged, in order. */
+function captureRuns(observed: readonly Range[]): Range[] {
+  const runs: Range[] = [];
+  for (const { start, end } of [...observed].sort(
+    (a, b) => a.start - b.start,
+  )) {
+    const last = runs.at(-1);
+    if (last && start <= last.end)
+      runs[runs.length - 1] = {
+        start: last.start,
+        end: Math.max(last.end, end),
+      };
+    else runs.push({ start, end });
   }
-  return false;
+  return runs;
 }
+
+const overlaps = (a: Range, b: Range) => a.start < b.end && a.end > b.start;
+const covers = (runs: readonly Range[], { start, end }: Range) =>
+  end <= start || runs.some((run) => run.start <= start && run.end >= end);
 
 /**
- * The time a 'complete' stream must cover (DEC-218). Each authority interval,
- * a human's speaking grant or a bot's credited publication window, is required
- * from its first captured frame when that arrives within the open tolerance,
- * else from its opening, so a dead microphone stays partial; and until its last
- * captured frame when that ends within the close tolerance, else until its
- * close, since speech stops before a yield reaches the server (DEC-220).
- * For a bot's credited windows only, within the terminal close tolerance of
- * the authority's terminal close, nothing after the stream's final frame is
- * required, in whichever window it falls (ISSUE-806).
+ * The instant from which the terminal zone is forgiven, or null: speech
+ * ended there when a capture run carrying credited speech reaches into it.
  */
-export function requiredCoverage(input: {
-  readonly authority: readonly CaptureInterval[];
-  readonly observed: readonly CaptureInterval[];
-  readonly tolerance: CoverageEdges;
-}): CaptureInterval[] {
-  const finalFrame = terminalFrame(input);
-  return input.authority
-    .map((interval) => edgeCoverage(interval, input))
-    .map(({ start, end }) =>
-      finalFrame === null || end === null
-        ? { start, end }
-        : { start, end: Math.min(end, Math.max(start, finalFrame)) },
-    );
-}
-
-/** One authority interval, its edges moved to captured frames within the tolerances. */
-function edgeCoverage(
-  { start, end }: CaptureInterval,
-  input: {
-    readonly observed: readonly CaptureInterval[];
-    readonly tolerance: CoverageEdges;
-  },
-): CaptureInterval {
-  const { openMs, closeMs } = input.tolerance;
-  const first = input.observed
-    .map((observation) => observation.start)
-    .filter(
-      (frame) =>
-        frame >= start &&
-        frame <= start + openMs &&
-        (end === null || frame < end),
-    );
-  const last = input.observed
-    .map((observation) => observation.end!)
-    .filter((frame) => end !== null && frame > start && frame >= end - closeMs);
-  return {
-    start: first.length > 0 ? Math.min(...first) : start,
-    end: last.length > 0 ? Math.min(end!, Math.max(...last)) : end,
-  };
-}
-
-/**
- * The stream's final captured frame when the authority's terminal close (the
- * segment cutoff) forgives what follows it, else null. Speech stops before
- * the close reaches the server (DEC-220), and a bot's speech is credited as
- * short windows (DEC-212), so its last window may open after the final frame.
- * Within the close tolerance of the terminal close, nothing after that frame
- * is required, whichever window it falls in (ISSUE-806). The frame must lie
- * inside the authority span: frames that all precede a grant forgive nothing.
- */
-function terminalFrame(input: {
-  readonly authority: readonly CaptureInterval[];
-  readonly observed: readonly CaptureInterval[];
-  readonly tolerance: CoverageEdges;
-}): number | null {
-  const { terminalCloseMs } = input.tolerance;
-  if (
-    terminalCloseMs === undefined ||
-    !input.authority.length ||
-    input.authority.some((a) => a.end === null)
+function terminalZone(
+  windows: readonly Range[],
+  runs: readonly Range[],
+  terminalCloseMs: number | undefined,
+): number | null {
+  if (terminalCloseMs === undefined) return null;
+  const from = Math.max(...windows.map((w) => w.end)) - terminalCloseMs;
+  return runs.some(
+    (run) => run.end >= from && windows.some((w) => overlaps(run, w)),
   )
-    return null;
-  const opened = Math.min(...input.authority.map((a) => a.start));
-  const close = Math.max(...input.authority.map((a) => a.end!));
-  const frames = input.observed
-    .map((observation) => observation.end)
-    .filter((end): end is number => end !== null && Number.isFinite(end));
-  if (!frames.length) return null;
-  const final = Math.max(...frames);
-  return final > opened && final >= close - terminalCloseMs ? final : null;
+    ? from
+    : null;
 }
 
-/** Coverage is producer evidence, independent of transcript text or lease ownership. */
+/**
+ * Where speech began in a window: the first capture run inside its open zone,
+ * else its opening, so a dead microphone stays partial (DEC-218).
+ */
+function speechBegan(w: Range, runs: readonly Range[], openMs: number) {
+  const run = runs.find(
+    (r) => r.end > w.start && r.start <= w.start + openMs && r.start < w.end,
+  );
+  return run ? Math.max(w.start, run.start) : w.start;
+}
+
+/**
+ * Whether every authority window, a human's speaking grant or a bot's credited
+ * publication window, is captured (DEC-218): one contiguous capture run from
+ * where speech began until it reaches into the close zone, where speech ended
+ * (DEC-220), and at least one frame inside the window, so a dead microphone
+ * stays partial however short the window. For a bot, once capture of its
+ * credited speech reaches the terminal zone, nothing in that zone is required
+ * (ISSUE-806). The close and terminal zones are fixed, so more captured
+ * evidence near the cutoff never turns complete into partial (ISSUE-807).
+ * Coverage is producer evidence, independent of transcript text or lease
+ * ownership.
+ */
 export function hasCompleteCaptureCoverage(input: {
-  readonly required: readonly CaptureInterval[];
+  readonly authority: readonly CaptureInterval[];
   readonly observed: readonly CaptureInterval[];
+  readonly tolerance: CoverageEdges;
   readonly storedChunks: number;
   readonly expectedChunks: number;
 }): boolean {
+  const { authority, observed, tolerance } = input;
   if (
     !Number.isSafeInteger(input.storedChunks) ||
     input.storedChunks < 0 ||
     input.storedChunks !== input.expectedChunks ||
-    !input.required.every(validRange) ||
-    !input.observed.every(validRange)
+    !authority.every(validRange) ||
+    !observed.every(validRange)
   )
     return false;
-  const required = input.required.filter(({ start, end }) => end! > start);
-  const observed = [...input.observed].sort((a, b) => a.start - b.start);
-  return (
-    required.length > 0 && required.every((grant) => covered(grant, observed))
-  );
+  const windows = authority.filter((w) => w.end > w.start);
+  if (!windows.length) return false;
+  const runs = captureRuns(observed);
+  const terminal = terminalZone(windows, runs, tolerance.terminalCloseMs);
+  return windows.every((w) => {
+    const forgivenFrom = Math.min(
+      w.end - tolerance.closeMs,
+      terminal ?? Infinity,
+    );
+    const required = {
+      start: speechBegan(w, runs, tolerance.openMs),
+      end: forgivenFrom,
+    };
+    const framed =
+      (terminal !== null && w.start >= terminal) ||
+      runs.some((run) => overlaps(run, w));
+    return framed && covers(runs, required);
+  });
 }

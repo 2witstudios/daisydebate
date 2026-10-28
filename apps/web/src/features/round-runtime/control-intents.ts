@@ -134,15 +134,28 @@ export function roundControlIntents(
     );
   if (!self) return [];
   if (view.status !== 'active' || view.checkpoint === null) return [];
-  return activeIntents(
-    view,
-    roundPositionAt({
-      round: view,
-      rules: view.rules,
-      segments: view.segments,
-      checkpoint: view.checkpoint,
-      nowMs,
-    }),
-    self,
+  const position = roundPositionAt({
+    round: view,
+    rules: view.rules,
+    segments: view.segments,
+    checkpoint: view.checkpoint,
+    nowMs,
+  });
+  const intents = activeIntents(view, position, self);
+  return persistedPhase(view, position)
+    ? intents
+    : intents.map((intent) => ({ ...intent, enabled: false }));
+}
+
+/**
+ * Whether the server has persisted the open segment the Round's clock shows.
+ * The clock may display a transition the instant it is due, but a command
+ * carries the version this view observed, so acting before the server's tick
+ * reaches the view is refused as stale (ISSUE-838).
+ */
+function persistedPhase(view: RoundView, position: RoundPosition) {
+  const persisted = view.segments.find((s) => s.endedAt === null);
+  return (
+    (persisted?.sequence ?? null) === (position.openSegment?.sequence ?? null)
   );
 }

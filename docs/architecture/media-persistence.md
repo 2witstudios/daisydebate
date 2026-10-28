@@ -297,16 +297,20 @@ add no utterance or revision; conflicting bodies fail. Full closed uncertainty
 windows must fit actual historical grants and actual segment bounds. Coverage
 observations are trusted server evidence, not text presence or lease possession.
 A complete seal requires a closed timeline, matching committed chunk count and
-continuous observation coverage of the required time. Otherwise closure is
-partial. A human's required time is each nonempty grant, from its first
-observed frame when that arrives within the join tolerance of the grant's
-opening (a microphone cannot publish before its grant), else from the opening.
-A bot's required time is its credited publication windows (DEC-212), from its
-first observed frame within relay tolerance; silence outside them is not
-speech (DEC-218). Each required interval ends at its last observed frame when
-that ends within relay tolerance of its close, since speech stops before a
-yield reaches the server (DEC-220), else at the close. Gaps inside the required
-time stay partial. Both tolerances are injected policy
+observed coverage of every authority window. Otherwise closure is partial. A
+human's authority is each nonempty grant; a bot's is its credited publication
+windows (DEC-212), since silence outside them is not speech (DEC-218). Each
+window is complete when every instant outside its two forgiven zones is
+captured and at least one captured frame falls inside it, so a dead
+microphone stays partial however short the window. The open zone is its first
+join tolerance for a human (a microphone cannot publish before its grant) or
+relay tolerance for a bot; the close zone is its last relay tolerance, since
+speech stops before a yield reaches the server (DEC-220). A bot cannot see the
+segment cutoff, so its last windows may open after its final frame: once a
+capture run carrying its credited speech reaches the last relay tolerance
+before the cutoff, that whole terminal zone is forgiven (ISSUE-806). A human's
+grants have no terminal zone. Every forgiveness is a fixed zone, so more
+captured evidence never turns complete into partial (ISSUE-807). Both tolerances are injected policy
 (`coverageTolerance`, which web composition sets to
 `CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
 `@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by
