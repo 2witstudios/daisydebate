@@ -44,8 +44,9 @@ needs.
 6. **Profiles.** web = competitive 10 (1s wait, the ISSUE-508 wait-out; Room
    preparation, which can wait on external consent inside its transaction,
    takes at most half and refuses excess at once) /
-   social 4 / audience 2 / control 5 (queue 2,048, 5s, so auth bursts
-   reach the sign-up ceiling that decides what is shed), plus 1 dedicated (22). realtime =
+   social 4 / audience 2 / control 10 (queue 4,096, 30s, a backstop only; AUTH-3.10's flood throughput was proven on
+   10 connections, so auth bursts
+   reach the sign-up ceiling that decides what is shed), plus 1 dedicated (27). realtime =
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves

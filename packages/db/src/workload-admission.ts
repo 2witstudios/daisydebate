@@ -59,9 +59,10 @@ export const WORKLOAD_PROFILES = {
       competitive: COMPETITIVE,
       social: lane(4, 16, 100),
       audience: lane(2, 32, 250),
-      // Auth bursts queue behind the sign-up ceiling, which decides what is
-      // shed (AUTH-3.10); a lane refusal must not pre-empt it.
-      control: lane(5, 2048, 5000),
+      // Auth bursts queue behind the sign-up ceiling and network limits,
+      // which decide what is shed (AUTH-3.10, proven on 10 connections). The
+      // count and age here are a backstop, never the shedding mechanism.
+      control: lane(10, 4096, 30_000),
     },
   },
   realtime: {
