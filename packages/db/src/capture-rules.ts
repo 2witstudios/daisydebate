@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import { captureDigest } from './capture-input';
 import {
   hasCompleteCaptureCoverage,
-  requiredCoverage,
   type CaptureInterval,
   type CoverageEdges,
 } from './capture-coverage';
@@ -146,7 +145,7 @@ export function sealAction(
 
 /**
  * Complete only with this epoch's own evidence, every stored chunk counted and
- * full coverage of the required time (DEC-218); a new worker cannot recover
+ * full coverage of the authority windows (DEC-218); a new worker cannot recover
  * old PCM.
  */
 export function sealState(input: {
@@ -174,12 +173,9 @@ export function sealState(input: {
     input.observations.every((row) => row.epoch === input.epoch) &&
     input.storedChunks === input.chunks.count &&
     hasCompleteCaptureCoverage({
-      required: requiredCoverage({
-        authority: input.authority,
-        observed,
-        tolerance: input.tolerance,
-      }),
+      authority: input.authority,
       observed,
+      tolerance: input.tolerance,
       storedChunks: input.storedChunks,
       expectedChunks: input.expectedChunks,
     });

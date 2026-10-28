@@ -1,5 +1,8 @@
 import type { AuthorityResources } from './authorization';
-import { authorizationPrincipal as principal } from './authorization.test-support';
+import {
+  authorizationPrincipal as principal,
+  refuseAllReading,
+} from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildRoundTopic } from '@daisy/protocol';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
@@ -68,6 +71,7 @@ for (const mode of [
       },
     } as unknown as AuthorityResources;
     const result = await createRealtimeAuthorization({
+      readingPolicy: refuseAllReading,
       resources,
       now: () => elapsed,
     }).authorizeTopic(principal, buildRoundTopic(resource.roundId));

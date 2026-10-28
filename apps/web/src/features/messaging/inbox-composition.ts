@@ -1,4 +1,3 @@
-import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import type { Database } from '@daisy/db';
 import type {
   MessagingCollectionAuthorizationFact,
@@ -14,8 +13,8 @@ import {
 } from './authorization-fence';
 import { readMessagingInboxSummary } from '@daisy/db/messaging';
 import {
-  readMessagingInbox,
-  inspectMessagingInboxAssociation,
+  decideMessagingInboxCandidate,
+  messagingInboxEntries,
   messagingInboxView,
   summarizeMessagingInboxEntry,
   type MessagingInboxEntry,
@@ -29,19 +28,6 @@ export function composeMessagingInbox(input: {
   readonly readingPolicy: MessagingReadingPolicy;
 }) {
   const actor = requireMemberActor(input.principal);
-  const store = input.database.messagingInboxStore(
-    async ({ scope, account }) => {
-      requireAuthorization({
-        principal: input.principal,
-        capability: 'channel.inbox.read',
-        resource: {
-          kind: 'messaging_collection',
-          actorId: scope.actorId,
-        } satisfies MessagingCollectionAuthorizationFact,
-        context: { account, now: input.clock.now() },
-      });
-    },
-  );
   const inspectChannel = (channelId: string): Promise<MessagingInboxEntry> =>
     input.database.messagingChannelAuthority(
       { ...actor, channelId },
@@ -63,30 +49,39 @@ export function composeMessagingInbox(input: {
         );
       },
     );
-  const inspect = (channelId: string): Promise<MessagingInboxEntry> =>
-    inspectMessagingInboxAssociation(channelId, {
-      channel: () => inspectChannel(channelId),
-      invitation: () =>
-        composeMessagingGroupInvitationStore(input).withInvitation(
-          {
-            ...actor,
-            channelId,
-            inviteeActorId: actor.actorId,
-            operation: 'read',
-          },
-          async (frame) => {
-            await frame.preview();
-          },
-        ),
-    });
+  /** One bounded transaction per page; the decision is pure over its fenced facts. */
+  const read = async (page: {
+    readonly limit: number;
+    readonly after?: string;
+  }) => {
+    const now = input.clock.now();
+    const result = await input.database.messagingInboxPage(
+      { ...actor, ...page, now },
+      {
+        collection: (account) =>
+          requireAuthorization({
+            principal: input.principal,
+            capability: 'channel.inbox.read',
+            resource: {
+              kind: 'messaging_collection',
+              actorId: actor.actorId,
+            } satisfies MessagingCollectionAuthorizationFact,
+            context: { account, now },
+          }),
+        decide: (candidate, ageOf) =>
+          decideMessagingInboxCandidate(candidate, ageOf, { ...input, now }),
+        summaryOf: (decision) => decision.summary,
+      },
+    );
+    return {
+      entries: messagingInboxEntries(result.entries),
+      nextAfter: result.nextAfter,
+    };
+  };
   return {
     /** One channel's entry under the same fresh authority as the inbox. */
     entry: inspectChannel,
-    read: (page: { readonly limit: number; readonly after?: string }) =>
-      readMessagingInbox(page, {
-        candidates: (query) => store.candidates({ ...actor, ...query }),
-        inspect,
-      }),
+    read,
     status: (channelId: string) =>
       input.database.messagingChannelAuthority(
         { ...actor, channelId },

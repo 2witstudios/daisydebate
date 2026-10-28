@@ -122,3 +122,15 @@ test('flat command fields reject duplicates, claimed actors and fractional versi
     expected: [true, true, true],
   });
 });
+test('the segment a control acts on is form state, never part of the command (ISSUE-838)', () => {
+  const entries = [...formOf('interrupt')];
+  assert({
+    given: 'a command form carrying the open segment it was rendered for',
+    should: 'parse the same envelope as without it',
+    actual: roundCommandFields([...entries, ['segment', '1']] as [
+      string,
+      unknown,
+    ][]),
+    expected: roundCommandFields(entries as [string, unknown][]),
+  });
+});

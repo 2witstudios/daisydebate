@@ -22,6 +22,7 @@ export type MessagingInboxSummary = {
 
 const timestamp = z.iso.datetime();
 const rowSchema = z.object({
+  channelId: idSchema,
   title: z.string().nullable(),
   counterpart: z.string().nullable(),
   createdAt: timestamp,
@@ -55,9 +56,8 @@ function requestSummary(
   found: SummaryRow,
   actorId: string,
   title: string | null,
-): MessagingInboxSummary {
-  if (found.requestSender === null || found.requestedAt === null)
-    throw createAppError('NOT_FOUND');
+): MessagingInboxSummary | null {
+  if (found.requestSender === null || found.requestedAt === null) return null;
   const fromSelf = found.requestSender === actorId;
   return {
     title,
@@ -102,39 +102,67 @@ export async function readMessagingInboxSummary(
   tx: AuthorizationTransaction,
   input: SummaryInput,
 ): Promise<MessagingInboxSummary> {
-  if (!validInput(input)) throw createAppError('VALIDATION');
-  const messages = input.content === 'messages';
+  const [summary] = await readMessagingInboxSummaries(tx, input.actorId, [
+    input,
+  ]);
+  if (!summary) throw createAppError('NOT_FOUND');
+  return summary;
+}
+
+/**
+ * The same summaries for many channels of one reader in one statement, in
+ * input order; a channel or request that vanished is null at its index.
+ */
+export async function readMessagingInboxSummaries(
+  tx: AuthorizationTransaction,
+  actorId: string,
+  inputs: readonly Omit<SummaryInput, 'actorId'>[],
+): Promise<readonly (MessagingInboxSummary | null)[]> {
+  if (!inputs.every((input) => validInput({ ...input, actorId })))
+    throw createAppError('VALIDATION');
+  if (inputs.length === 0) return [];
+  const wanted = inputs.map((input) => ({
+    channel_id: input.channelId,
+    counterpart: input.counterpartActorId,
+    messages: input.content === 'messages',
+  }));
   const rows = await tx.execute(sql`
-    select c.title as "title",
+    select c.id as "channelId", c.title as "title",
       (select u.username from public.actors a join public.users u on u.id = a.user_id
-        where a.id = ${input.counterpartActorId}::text and u.deleted_at is null) as "counterpart",
+        where a.id = w.counterpart and u.deleted_at is null) as "counterpart",
       ${iso('c.created_at')} as "createdAt",
       last.text as "lastText", last.author_actor_id as "lastAuthor",
       ${iso('last.created_at')} as "lastAt",
-      (${messages} and exists (select 1 from public.messaging_messages m
-        where m.channel_id = c.id and m.author_actor_id <> ${input.actorId}
+      (w.messages and exists (select 1 from public.messaging_messages m
+        where m.channel_id = c.id and m.author_actor_id <> ${actorId}
         and m.removed_at is null and m.sequence > coalesce((select s.read_sequence
           from public.messaging_actor_states s
-          where s.channel_id = c.id and s.actor_id = ${input.actorId}), 0))) as "unread",
-      case when ${messages} then null else p.introduction end as "introduction",
-      case when ${messages} then null else p.request_sender_actor_id end as "requestSender",
-      case when ${messages} then null else ${iso('p.requested_at')} end as "requestedAt"
-    from public.messaging_channels c
+          where s.channel_id = c.id and s.actor_id = ${actorId}), 0))) as "unread",
+      case when w.messages then null else p.introduction end as "introduction",
+      case when w.messages then null else p.request_sender_actor_id end as "requestSender",
+      case when w.messages then null else ${iso('p.requested_at')} end as "requestedAt"
+    from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb)
+      as w(channel_id text, counterpart text, messages boolean)
+    join public.messaging_channels c on c.id = w.channel_id
     left join public.messaging_dm_pairs p on p.channel_id = c.id
     left join lateral (select m.text, m.author_actor_id, m.created_at
       from public.messaging_messages m
-      where ${messages} and m.channel_id = c.id and m.removed_at is null
+      where w.messages and m.channel_id = c.id and m.removed_at is null
       order by m.sequence desc limit 1) last on true
-    where c.id = ${input.channelId}
   `);
-  if (rows.length === 0) throw createAppError('NOT_FOUND');
-  const row = rowSchema.safeParse(rows[0]);
-  if (!row.success) throw createAppError('INFRASTRUCTURE');
-  const title =
-    input.counterpartActorId === null ? row.data.title : row.data.counterpart;
-  return (messages ? conversationSummary : requestSummary)(
-    row.data,
-    input.actorId,
-    title,
-  );
+  const found = new Map<string, SummaryRow>();
+  for (const raw of rows) {
+    const row = rowSchema.safeParse(raw);
+    if (!row.success) throw createAppError('INFRASTRUCTURE');
+    found.set(row.data.channelId, row.data);
+  }
+  return inputs.map((input) => {
+    const row = found.get(input.channelId);
+    if (!row) return null;
+    const title =
+      input.counterpartActorId === null ? row.title : row.counterpart;
+    return input.content === 'messages'
+      ? conversationSummary(row, actorId, title)
+      : requestSummary(row, actorId, title);
+  });
 }

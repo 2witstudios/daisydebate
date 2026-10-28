@@ -55,3 +55,19 @@ test('a pending retry is busy and cannot be sent twice', () => {
     expected: [true, true, true],
   });
 });
+
+test('the retry posts exactly the fields the debater sent, its segment included (ISSUE-838)', () => {
+  const html = render({
+    values: { ...original, confirmed: 'true', segment: '0' },
+    unacknowledged: true,
+  });
+  assert({
+    given: 'an unacknowledged confirmed yield sent from segment 0',
+    should: 'offer a retry carrying the same segment and confirmation',
+    actual: [
+      html.includes('name="segment" value="0"'),
+      html.includes('name="confirmed" value="true"'),
+    ],
+    expected: [true, true],
+  });
+});

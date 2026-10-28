@@ -297,16 +297,23 @@ add no utterance or revision; conflicting bodies fail. Full closed uncertainty
 windows must fit actual historical grants and actual segment bounds. Coverage
 observations are trusted server evidence, not text presence or lease possession.
 A complete seal requires a closed timeline, matching committed chunk count and
-continuous observation coverage of the required time. Otherwise closure is
-partial. A human's required time is each nonempty grant, from its first
-observed frame when that arrives within the join tolerance of the grant's
-opening (a microphone cannot publish before its grant), else from the opening.
-A bot's required time is its credited publication windows (DEC-212), from its
-first observed frame within relay tolerance; silence outside them is not
-speech (DEC-218). Each required interval ends at its last observed frame when
-that ends within relay tolerance of its close, since speech stops before a
-yield reaches the server (DEC-220), else at the close. Gaps inside the required
-time stay partial. Both tolerances are injected policy
+observed coverage of every authority window. Otherwise closure is partial. A
+human's authority is each nonempty grant; a bot's is its credited publication
+windows (DEC-212), since silence outside them is not speech (DEC-218). Each
+window needs one contiguous capture run from where speech began to where it
+ended, and at least one captured frame inside it, so a dead microphone stays
+partial however short the window. Speech began at the first captured frame
+within the open tolerance of the window's opening (join tolerance for a
+human, whose microphone cannot publish before its grant; relay for a bot),
+else at the opening. It ended at the end of the last capture run reaching
+within relay tolerance of the window's close, since speech stops before a
+yield reaches the server (DEC-220), else at the close; a capture restart after
+the window never moves it. A gap between those two instants stays partial. A
+bot cannot see the segment cutoff, so its last windows may open after its
+final frame: once a capture run carrying its credited speech reaches the last
+relay tolerance before the cutoff, nothing in that fixed terminal zone is
+required (ISSUE-806), so more captured evidence near the cutoff never turns
+complete into partial (ISSUE-807). A human's grants have no terminal zone. Both tolerances are injected policy
 (`coverageTolerance`, which web composition sets to
 `CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
 `@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by

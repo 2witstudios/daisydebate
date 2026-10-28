@@ -1,5 +1,8 @@
 import type { AuthorityResources } from './authorization';
-import { authorizationPrincipal as principal } from './authorization.test-support';
+import {
+  authorizationPrincipal as principal,
+  refuseAllReading,
+} from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildRoomTopic } from '@daisy/protocol';
 import { createRealtimeAuthorization } from './authorization';
@@ -24,6 +27,7 @@ for (const account of [null, { revision: 9 }])
         'a current session followed by a missing or revised Room account fact',
       should: 'deny before evaluating or returning a Room subscription grant',
       actual: await createRealtimeAuthorization({
+        readingPolicy: refuseAllReading,
         resources,
         now: () => 0,
       }).authorizeTopic(principal, buildRoomTopic('r'.repeat(24))),

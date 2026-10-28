@@ -3,6 +3,7 @@ import { OUTBOX_ORIGIN, type OutboxPosition } from '@daisy/db/outbox';
 import { serveRealtime } from './serve';
 import { deferred } from './outbox-drain.test-support';
 import { fakeApp } from './serve.test-support';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 
@@ -23,6 +24,7 @@ describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
     }) as typeof Bun.serve;
 
     const settled = serveRealtime({
+      readingPolicy: refuseAllReading,
       resources,
       port: 0,
       sink: () => {},
@@ -85,6 +87,7 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
     }) as typeof Bun.serve;
     try {
       const running = await serveRealtime({
+        readingPolicy: refuseAllReading,
         resources,
         port: 0,
         sink: () => {},
@@ -137,6 +140,7 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
     readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
   });
   const running = await serveRealtime({
+    readingPolicy: refuseAllReading,
     resources,
     port: 0,
     timers: {
@@ -173,6 +177,7 @@ for (const tls of [undefined, { key: 'fixture-key', cert: 'fixture-cert' }])
   test(`native listener preserves explicit TLS presence ${Boolean(tls)}`, async () => {
     let options: object = {};
     const running = await serveRealtime({
+      readingPolicy: refuseAllReading,
       resources: fakeApp({
         listenOutbox: async () => ({ unlisten: async () => {} }),
         readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,

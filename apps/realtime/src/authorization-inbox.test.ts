@@ -2,6 +2,7 @@ import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createRealtimeAuthorization } from './authorization';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 const principal = {
@@ -49,6 +50,7 @@ test('own inbox subscribes only through current canonical account authority', as
       },
     } as unknown as AuthorityResources;
     const authorization = createRealtimeAuthorization({
+      readingPolicy: refuseAllReading,
       resources,
       now: () => Date.parse(instant),
     });
