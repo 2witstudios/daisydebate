@@ -126,6 +126,9 @@ export function laneClient(
     get(target, property, receiver) {
       if (Object.hasOwn(members, property)) return members[property];
       if (property === PASSED) return Reflect.get(target, property, receiver);
+      // Absent, not refusing: a lane client is no thenable (an async function
+      // may return it) and has no symbol protocol (disposal, coercion).
+      if (property === 'then' || typeof property === 'symbol') return undefined;
       return unsupported(property);
     },
   });

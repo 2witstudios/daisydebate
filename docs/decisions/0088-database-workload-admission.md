@@ -44,7 +44,8 @@ needs.
    reservation is admitted. The handle is an allowlist: the tagged query,
    `unsafe`, `begin`/`transaction` and `reserve` are admitted, `options`
    is read through for Drizzle, and every other member (LISTEN, NOTIFY,
-   close, distributed transactions, anything Bun adds later) is refused. Process
+   close, distributed transactions, anything Bun adds later) is refused;
+   `then` and symbol keys are absent, so the handle is not a thenable. Process
    lifetime connections (LISTEN subscriptions, the availability election
    session) are a separate `dedicated` allocation in the profile.
 6. **Profiles.** web = competitive 10 (1s wait, the ISSUE-508 wait-out; Room

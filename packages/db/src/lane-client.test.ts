@@ -160,6 +160,7 @@ test('every Bun SQL member is either admitted through the lane or refused', () =
   );
   const reach = (member: PropertyKey) => {
     const value: unknown = Reflect.get(client, member);
+    if (value === undefined) return 'refused';
     if (typeof value !== 'function') return 'value';
     try {
       (value as () => unknown)();
@@ -266,5 +267,31 @@ test('two networks queued on one lane are served alternately', async () => {
     should: 'serve the other network second, not behind the whole flood',
     actual: served,
     expected: ['flood-1', 'other-1', 'flood-2', 'flood-3'],
+  });
+});
+
+test('a lane client is not a thenable and has no symbol members', async () => {
+  const script = scriptedPool();
+  const client = laneClient(
+    script.pool,
+    createLaneGate('social', { connections: 1, queue: 0, maxWaitMs: 1 }),
+  );
+  const returned = await (async () => client)();
+  assert({
+    given: 'a lane client returned from an async function, and its symbol keys',
+    should:
+      'resolve to the client itself and expose no then, async disposal or coercion',
+    actual: {
+      same: returned === client,
+      then: Reflect.get(client, 'then'),
+      dispose: Reflect.get(client, Symbol.asyncDispose),
+      primitive: Reflect.get(client, Symbol.toPrimitive),
+    },
+    expected: {
+      same: true,
+      then: undefined,
+      dispose: undefined,
+      primitive: undefined,
+    },
   });
 });
