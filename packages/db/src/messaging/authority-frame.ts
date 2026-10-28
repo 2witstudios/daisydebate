@@ -8,6 +8,7 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
+import { channelObservationReads } from './observation-reads';
 type Scope = {
   readonly channelId: string;
   readonly actorId: string;
@@ -211,6 +212,8 @@ export function createMessagingChannelCohortAuthority(
       readonly tx: AuthorizationTransaction;
       readonly accounts: AuthorityFrame['accounts'];
       readonly factFor: (actorId: string) => MessagingChannelFact;
+      /** The stream's content revision this read sees: the viewers' content floor. */
+      readonly contentRevision: number;
     }) => Promise<T>,
   ): Promise<T> => {
     const [first, ...rest] = input.viewers;
@@ -225,9 +228,16 @@ export function createMessagingChannelCohortAuthority(
         { channelId: input.channelId, ...first },
         async ({ fact, accounts }) => {
           const facts = await viewerFacts(tx, fact, [first.actorId, ...others]);
+          const header = (
+            await channelObservationReads(tx).readChannelObservationHeaders([
+              input.channelId,
+            ])
+          ).get(input.channelId);
+          if (!header) throw createAppError('NOT_FOUND');
           return work({
             tx,
             accounts,
+            contentRevision: header.contentRevision,
             factFor: (actorId) => {
               const own = facts.get(actorId);
               if (!own) throw createAppError('INVARIANT');

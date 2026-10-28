@@ -188,3 +188,115 @@ describe('observation owner fleet cardinality', () => {
     });
   });
 });
+
+test('a hung projection gives up ownership behind healthy headers, and its late result is fenced', async () => {
+  const r = resourceOf(1);
+  const shared = fleet([r]);
+  let clock = 0;
+  let header = { contentRevision: 1, disclosureRevision: 1 };
+  const hung = Promise.withResolvers<null>();
+  let builds = 0;
+  const make = (token: string, project: () => Promise<unknown>) =>
+    createObservationOwner({
+      token,
+      candidateIncarnation: 'inc',
+      now: () => clock,
+      cache: shared.cache,
+      resources: defineObservableResources([
+        {
+          kind: 'channel-messages',
+          readHeaders: async (ids) => new Map(ids.map((id) => [id, header])),
+          project: project as never,
+          evaluatePermits: async () => [],
+          parseBody: (body) => body,
+        },
+      ]),
+    });
+  const stuck = make('stuck', () => hung.promise);
+  const successor = make('successor', async () => {
+    builds++;
+    return { partition: 'members', ...header, body: {} };
+  });
+  await stuck.tick();
+  await settle();
+  header = { contentRevision: 2, disclosureRevision: 1 };
+  for (const at of [500, 1_000, 2_001]) {
+    clock = at;
+    await stuck.tick();
+  }
+  await settle();
+  const released = shared.owners.size;
+  for (let tick = 0; tick < 5; tick++) await successor.tick();
+  await settle();
+  hung.resolve(null);
+  await settle();
+  assert({
+    given: 'a projection that never settles while header reads keep succeeding',
+    should:
+      'stop renewing and release after the 2s progress budget, let a successor claim and publish, and refuse the hung build any late effect',
+    actual: {
+      released,
+      owner: [...shared.owners.values()],
+      successorBuilt: builds > 0,
+      published: shared.published.get(observationResourceKey(r)),
+    },
+    expected: {
+      released: 0,
+      owner: ['successor'],
+      successorBuilt: true,
+      published: 2,
+    },
+  });
+});
+
+test('lapsed demand purges the resource bodies before ownership ends', async () => {
+  const r = resourceOf(1);
+  const shared = fleet([r]);
+  let demand = true;
+  const purged: string[] = [];
+  const worker = createObservationOwner({
+    token: 't',
+    candidateIncarnation: 'inc',
+    now: () => 0,
+    cache: {
+      ...shared.cache,
+      claimObservation: async (input) =>
+        demand ? shared.cache.claimObservation(input) : 'idle',
+      purgeObservation: async (resource) => {
+        purged.push(resource.id);
+        return 1;
+      },
+    },
+    resources: defineObservableResources([
+      {
+        kind: 'channel-messages',
+        readHeaders: async (ids) =>
+          new Map(
+            ids.map((id) => [
+              id,
+              { contentRevision: 1, disclosureRevision: 1 },
+            ]),
+          ),
+        project: async () => ({
+          partition: 'members',
+          contentRevision: 1,
+          disclosureRevision: 1,
+          body: {},
+        }),
+        evaluatePermits: async () => [],
+        parseBody: (body) => body,
+      },
+    ]),
+  });
+  await worker.tick();
+  await settle();
+  demand = false;
+  await worker.tick();
+  assert({
+    given: 'an owned resource whose last node interest lapsed',
+    should:
+      'purge its cached bodies and stop owning it, so no body outlives observation',
+    actual: [purged, worker.stats().owned],
+    expected: [[r.id], 0],
+  });
+});

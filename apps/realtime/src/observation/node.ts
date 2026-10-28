@@ -91,6 +91,8 @@ type ResourceState = {
   readonly fetching: Map<string, Promise<void>>;
   /** Joins waiting for this tick's one batched admission read. */
   joining: Binding[];
+  /** Advanced by every purge: a read or send begun before it delivers nothing. */
+  epoch: number;
 };
 
 /**
@@ -155,6 +157,8 @@ export function createObservationNode({
   function deliverOne(s: ResourceState, binding: Binding, snap: Snapshot) {
     if (
       !current(s, binding) ||
+      // A purge or a newer body replaced it while the fanout was yielding.
+      s.snapshots.get(snap.partition) !== snap ||
       !mayEnqueue({
         serving,
         generation: binding.generation,
@@ -193,9 +197,11 @@ export function createObservationNode({
   function fetch(s: ResourceState, partition: string): Promise<void> {
     const pending = s.fetching.get(partition);
     if (pending) return pending;
+    const epoch = s.epoch;
     const work = (async () => {
       const stored = await cache.readObservation(s.resource, partition);
-      if (!stored || states.get(s.key) !== s) return;
+      // A body read before a purge is never shown after it.
+      if (!stored || states.get(s.key) !== s || s.epoch !== epoch) return;
       const held = s.snapshots.get(partition);
       if (
         held &&
@@ -241,7 +247,10 @@ export function createObservationNode({
       await deliver(s, snap);
     })()
       .catch((error) => onError('observation.fetch', error))
-      .finally(() => s.fetching.delete(partition));
+      .finally(() => {
+        // Only its own entry: a purge may already have started a fresh fetch.
+        if (s.fetching.get(partition) === work) s.fetching.delete(partition);
+      });
     s.fetching.set(partition, work);
     return work;
   }
@@ -374,6 +383,7 @@ export function createObservationNode({
           snapshots: new Map(),
           fetching: new Map(),
           joining: [],
+          epoch: 0,
         };
         states.set(key, s);
         void subscriber
@@ -447,8 +457,10 @@ export function createObservationNode({
       const s = states.get(observationResourceKey(resource));
       if (!s) return;
       if (hint.kind === 'purged') {
+        s.epoch++;
         for (const held of s.snapshots.values()) heldBytes -= held.text.length;
         s.snapshots.clear();
+        s.fetching.clear();
         for (const partition of partitionsOf(s)) void fetch(s, partition);
         return;
       }

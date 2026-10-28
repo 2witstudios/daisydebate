@@ -118,9 +118,20 @@ Under the obligations model ([ADR 0087](0087-compliance-from-obligations.md),
 [compliance](../operations/compliance.md)), the Redis observation body is
 part of the **Messages** data class: a live delivery copy of the latest
 window (message text and author ids), purpose messaging, lawful basis
-contract. It lives at most 60s. Content erasure advances the stream
-revision, so the next build replaces it; a purge deletes it at once; the TTL
-is a backstop, never the mechanism. Claims, guards, interests, demand and
+contract. It lives at most 60s. Erasure is fenced at four points:
+
+- content erasure advances the stream revision, so the owner's next build
+  overwrites the body (one header tick);
+- admission and renewal carry the current stream revision as the content
+  floor, so a body built before the erasure is never sent to a viewer
+  admitted after it;
+- an owner whose demand lapses purges the bodies, so no body outlives its
+  observation;
+- a purge advances each node's local epoch, so a body read or a fanout
+  begun before it delivers nothing after it.
+
+The TTL is a backstop, never the mechanism. A durable, confirmed purge job
+on erasure (beside the `messaging-typing` vendor job) is ISSUE-852. Claims, guards, interests, demand and
 Pub/Sub hints hold only resource ids, node incarnations, claim tokens and
 revisions, expire within 2 to 120s, and describe no data subject.
 

@@ -49,6 +49,12 @@ export type ObservationOwnerBounds = {
   readonly builds: number;
   /** A cached body is rebuilt at least this often so its 60s TTL never lapses under interest. */
   readonly refreshMs: number;
+  /**
+   * Snapshot progress has its own age budget: a resource dirty this long
+   * without a completed build stops renewing, so a hung projection cannot
+   * pin ownership behind healthy header reads (repair plan §4).
+   */
+  readonly progressMs: number;
 };
 const defaultObservationOwnerBounds: ObservationOwnerBounds = {
   owned: 1_024,
@@ -56,12 +62,15 @@ const defaultObservationOwnerBounds: ObservationOwnerBounds = {
   leaseMs: 2_000,
   builds: 2,
   refreshMs: 30_000,
+  progressMs: 2_000,
 };
 type Owned = {
   readonly resource: ObservationResource;
   built: ObservationHeader | null;
   builtAt: number;
   building: boolean;
+  /** When the header first ran ahead of the last completed build; null when current. */
+  dirtySince: number | null;
 };
 
 /**
@@ -124,7 +133,13 @@ export function createObservationOwner({
         return;
       }
       const projection = await definition.project(entry.resource.id);
-      if (closed || incarnation !== at) return;
+      // A build that outlived its ownership publishes nothing.
+      if (
+        closed ||
+        incarnation !== at ||
+        owned.get(observationResourceKey(entry.resource)) !== entry
+      )
+        return;
       if (projection === null) {
         await cache.purgeObservation(entry.resource);
         drop(observationResourceKey(entry.resource));
@@ -180,6 +195,24 @@ export function createObservationOwner({
       if (closed || incarnation !== at) return;
       for (const entry of entries) {
         const key = observationResourceKey(entry.resource);
+        const header = headers.get(entry.resource.id);
+        const newer =
+          header !== undefined &&
+          (entry.built === null ||
+            header.disclosureRevision > entry.built.disclosureRevision ||
+            header.contentRevision > entry.built.contentRevision);
+        if (!newer) entry.dirtySince = null;
+        else entry.dirtySince ??= now();
+        if (
+          entry.dirtySince !== null &&
+          now() - entry.dirtySince > bounds.progressMs
+        ) {
+          // No snapshot progress: give the resource up. A build still
+          // running keeps its executor slot until it settles, and its late
+          // result is fenced (not owned here, and no longer the claim holder).
+          drop(key);
+          continue;
+        }
         const claim = await cache
           .claimObservation({
             resource: entry.resource,
@@ -191,11 +224,18 @@ export function createObservationOwner({
             onError('observation.claim', error);
             return 'taken' as const;
           });
+        if (claim === 'idle') {
+          // No node wants it any more: no body outlives its observation.
+          await cache
+            .purgeObservation(entry.resource)
+            .catch((error) => onError('observation.purge', error));
+          drop(key);
+          continue;
+        }
         if (claim !== 'owned') {
           drop(key);
           continue;
         }
-        const header = headers.get(entry.resource.id);
         if (!header) {
           // Deleted: purge its bodies and stop owning it.
           await cache
@@ -204,12 +244,8 @@ export function createObservationOwner({
           drop(key);
           continue;
         }
-        const newer =
-          entry.built === null ||
-          header.disclosureRevision > entry.built.disclosureRevision ||
-          header.contentRevision > entry.built.contentRevision ||
-          now() - entry.builtAt >= bounds.refreshMs;
-        if (newer && !entry.building && building < bounds.builds)
+        const due = newer || now() - entry.builtAt >= bounds.refreshMs;
+        if (due && !entry.building && building < bounds.builds)
           void build(entry, at);
       }
     }
@@ -248,6 +284,7 @@ export function createObservationOwner({
                 built: null,
                 builtAt: 0,
                 building: false,
+                dirtySince: null,
               });
           }
         }

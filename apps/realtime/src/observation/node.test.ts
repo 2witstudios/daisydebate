@@ -34,6 +34,7 @@ function harness({
     subscribes: 0,
     yields: 0,
   };
+  const gate = { closed: false, waiting: [] as ((value: unknown) => void)[] };
   const stored = new Map<
     string,
     { disclosureRevision: number; contentRevision: number; body: string }
@@ -62,7 +63,11 @@ function harness({
     cache: {
       readObservation: async (_r, partition) => {
         calls.reads++;
-        return stored.get(partition) ?? null;
+        // Snapshot the store now; a gated read answers it later.
+        const answer = stored.get(partition) ?? null;
+        if (gate.closed)
+          await new Promise((resolve) => gate.waiting.push(resolve));
+        return answer;
       },
       readObservationHeads: async (entries) =>
         entries.map(() => ({
@@ -87,6 +92,7 @@ function harness({
       now: () => clock,
       yieldNow: async () => {
         calls.yields++;
+        await onYield();
       },
     }),
   });
@@ -105,10 +111,16 @@ function harness({
     };
     return { connection, frames };
   });
+  let onYield: () => Promise<void> | void = () => {};
   return {
     node,
     calls,
     store,
+    gate,
+    setOnYield: (hook: () => Promise<void> | void) => {
+      onYield = hook;
+    },
+    clear: () => stored.clear(),
     connections,
     advance: (ms: number) => {
       clock += ms;
@@ -413,5 +425,61 @@ test('a fractional fact deadline still yields a whole-millisecond ready', async 
       'promise the browser the floored lifetime, never longer than the permit',
     actual: ready?.validForMs,
     expected: 3_000,
+  });
+});
+
+describe('observation node purge fence', () => {
+  const published = (contentRevision: number) =>
+    ({
+      kind: 'published',
+      partition: 'members',
+      disclosureRevision: 1,
+      contentRevision,
+    }) as const;
+  test('a body read before a purge is never sent after it', async () => {
+    const h = harness();
+    h.observeAll();
+    await settle();
+    h.store(3);
+    h.gate.closed = true;
+    h.node.hint(resource, published(3));
+    await settle();
+    h.clear();
+    h.node.hint(resource, { kind: 'purged' });
+    h.gate.closed = false;
+    for (const release of h.gate.waiting.splice(0)) release(undefined);
+    await settle();
+    assert({
+      given: 'a delayed pre-purge body read that resolves after the purge',
+      should: 'send nothing from it',
+      actual: h.types(0),
+      expected: ['observation.ready'],
+    });
+  });
+  test('a fanout yielding across a purge stops sending the purged body', async () => {
+    const h = harness({ viewers: 300 });
+    h.observeAll();
+    await settle();
+    let purged = false;
+    h.setOnYield(() => {
+      if (purged) return;
+      purged = true;
+      // A real purge deletes the Redis bodies before its hint.
+      h.clear();
+      h.node.hint(resource, { kind: 'purged' });
+    });
+    h.store(4);
+    h.node.hint(resource, published(4));
+    await settle();
+    const sent = h.connections.filter(({ frames }) =>
+      frames.some((frame) => frame.type === 'observation.snapshot'),
+    ).length;
+    assert({
+      given: "300 viewers and a purge arriving at the fanout's first yield",
+      should:
+        'stop at the yield: only the first slice of 128 got the purged body',
+      actual: sent,
+      expected: 128,
+    });
   });
 });

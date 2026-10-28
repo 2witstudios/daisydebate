@@ -95,7 +95,14 @@ export function channelMessagesResource({
       try {
         return await reads.messagingChannelCohortAuthority(
           { channelId: id, viewers: principals },
-          async ({ tx, accounts: current, factFor }) => {
+          // The content floor: a body older than what this read can see
+          // (built before an erasure, say) is never sent to these viewers.
+          async ({
+            tx,
+            accounts: current,
+            factFor,
+            contentRevision: floor,
+          }) => {
             const accounts = await loadAccountPolicyFacts({
               accounts: current,
               now: clock.now(),
@@ -125,9 +132,7 @@ export function channelMessagesResource({
                       status: 'allowed',
                       partition: CHANNEL_MESSAGES_PARTITION,
                       disclosureRevision: fact.revision,
-                      // The browser applies snapshots monotonically from its own
-                      // server-rendered revision, so admission sets no floor.
-                      minimumContentRevision: 0,
+                      minimumContentRevision: floor,
                       validUntil: viewer.validUntil,
                     }
                   : { status: 'denied' },
