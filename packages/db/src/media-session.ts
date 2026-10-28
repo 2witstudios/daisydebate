@@ -95,8 +95,11 @@ export function createMediaSessionStore({
           roundId: scope.roundId,
           buildProjection: input.buildProjection,
         });
-        // The post-tick admission rule, the same one the token is signed
-        // under; a refusal rolls the binding back with this transaction.
+        // The tick may have moved the segment or the claim, so the whole
+        // admission rule (claim included) is judged again after it, the same
+        // one the token is signed under; a refusal rolls the binding back
+        // with this transaction. The claim check before it only spares a
+        // dead claim the tick.
         await verifyBotMediaPrincipal(tx, input.principal);
         requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;

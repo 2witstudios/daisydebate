@@ -125,7 +125,8 @@ export function createMediaReconcileRun(
         },
       );
     } catch (error) {
-      if (refused) return { refused };
+      // Only that very refusal; a fault after it (rollback, abort) stays a fault.
+      if (refused !== undefined && error === refused) return { refused };
       throw error;
     }
   };

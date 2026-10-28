@@ -118,7 +118,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       } catch {
         /* Consumer owns recovery; no raw exception enters SDK logs. */
       }
-      await reader.cancel();
+      // An errored stream rejects its cancel; the track is already closed.
+      await reader.cancel().catch(() => undefined);
     };
     streams.set(trackId, { identity, stop });
     try {
