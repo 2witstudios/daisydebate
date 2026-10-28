@@ -7,6 +7,7 @@ import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
 import { testNamespace } from '@daisy/redis/testing';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createRealtimeApp } from '../src/app';
 import { startObservationRuntime } from '../src/observation/runtime';
 import type { ObservationConnection } from '../src/observation/node';
@@ -177,7 +178,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
     runtime?.close();
     for (const id of sessionIds)
       await admin`delete from session where id=${id}`;
-    await admin`delete from outbox where kind='session.revoked' and topic in (${`user:${fixture.actorId}:inbox`}, ${`user:${fixture.otherActorId}:inbox`})`;
+    await admin`delete from outbox where kind='session.revoked' and topic in (${buildUserInboxTopic(fixture.actorId)}, ${buildUserInboxTopic(fixture.otherActorId)})`;
     await fixture.cleanup();
     await resources.close();
     await admin.close();
