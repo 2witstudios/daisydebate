@@ -1,11 +1,12 @@
+import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildChannelTopic } from '@daisy/protocol';
 import type { ChannelAuthorizationFact } from '@daisy/auth/authorization';
-import type { RealtimeApp } from './app';
 import {
   createRealtimeAuthorization,
   type RealtimeReadingPolicy,
 } from './authorization';
+import type { RealtimeApp } from './app';
 import { productionServeOptions } from './production';
 import { refuseAllReading } from './authorization.test-support';
 
@@ -131,7 +132,7 @@ for (const mode of [
           return work({ tx, fact, accounts: [account, peer] });
         },
       },
-    } as unknown as RealtimeApp;
+    } as unknown as AuthorityResources;
     const auth = createRealtimeAuthorization({
       resources,
       now: () => Date.parse(instant),
@@ -142,7 +143,8 @@ for (const mode of [
               mode === 'production-policy'
                 ? // start.ts's own composition, not a copy of its policy value.
                   productionServeOptions({
-                    resources,
+                    // Its reading policy reads no resource.
+                    resources: {} as RealtimeApp,
                     port: 0,
                     hostname: '127.0.0.1',
                     trustedProxies: [],

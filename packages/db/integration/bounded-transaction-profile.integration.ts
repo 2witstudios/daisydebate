@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -12,8 +13,7 @@ const { databaseUrl } = requireTestServices(process.env);
 test('the attendance execution slice exposes the first setup receipt and fits recovery before2s', async () =>
   withPool(async (client) => {
     const run = createBoundedTransaction({
-      client,
-      maxConnections: 4,
+      lane: testLane(client, 4),
       now: performance.now,
       executionMs: 900,
     });
@@ -55,8 +55,7 @@ test(
         const [backend] = await holder`select pg_backend_pid() as pid`;
         await holder`select id from rounds where id=${roundId} for update`;
         const run = createBoundedTransaction({
-          client,
-          maxConnections: 4,
+          lane: testLane(client, 4),
           now: performance.now,
           executionMs: 900,
         });

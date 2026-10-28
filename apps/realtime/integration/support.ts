@@ -45,7 +45,6 @@ export async function bootServer(
       REALTIME_ALLOWED_ORIGINS: testOrigin,
     },
     clock: systemClock,
-    ids: systemId,
   });
   const { server, drain, close } = await serveRealtime({
     readingPolicy: refuseAllReading,

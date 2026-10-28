@@ -1,3 +1,5 @@
+import type { SQL } from 'bun';
+import { testLane } from '../src/testing-lane';
 import { createId } from '@paralleldrive/cuid2';
 import { admitParticipants } from '../src/beta-access-testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -20,14 +22,11 @@ export const mediaTestTick: LockedRoundTickInput['buildProjection'] = ({
   segmentCloses: [],
   effects: [],
 });
-export const mediaTestStore = (
-  client: Parameters<typeof createBoundedTransaction>[0]['client'],
-) =>
+export const mediaTestStore = (client: SQL) =>
   createMediaSessionStore({
     database: drizzle({ client }),
     run: createBoundedTransaction({
-      client,
-      maxConnections: 10,
+      lane: testLane(client, 10),
       now: performance.now,
     }),
     nextId: createId,

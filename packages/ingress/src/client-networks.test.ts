@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { clientNetworks } from './client-networks';
+import { clientNetworks, fairnessNetwork } from './client-networks';
 
 setupRitewayBun();
 
@@ -130,4 +130,45 @@ describe('clientNetworks (AUTH-3.10)', () => {
         expected,
       });
     });
+});
+
+describe('fairnessNetwork (ADR 0088)', () => {
+  test('a client is keyed by its widest network, never its own address', () => {
+    assert({
+      given: 'an IPv4 client, an IPv6 client and an IPv4-mapped IPv6 client',
+      should: 'name the /24, the /48 and the embedded IPv4 /24',
+      actual: [
+        fairnessNetwork('203.0.113.9'),
+        fairnessNetwork('2001:db8:12ab:34cd::1'),
+        fairnessNetwork('::ffff:198.51.100.7'),
+      ],
+      expected: ['203.0.113.0/24', '2001:0db8:12ab::/48', '198.51.100.0/24'],
+    });
+  });
+
+  test('addresses in one network share a key; another network does not', () => {
+    assert({
+      given: 'two IPv6 clients in one /48 and one in another /48',
+      should: 'key the first two together and the third apart',
+      actual: [
+        fairnessNetwork('2001:db8:1:1::1'),
+        fairnessNetwork('2001:db8:1:ff00::2'),
+        fairnessNetwork('2001:db8:2::1'),
+      ],
+      expected: [
+        '2001:0db8:0001::/48',
+        '2001:0db8:0001::/48',
+        '2001:0db8:0002::/48',
+      ],
+    });
+  });
+
+  test('no client, or one in no network, has no key', () => {
+    assert({
+      given: 'no client, a non-address and the IPv6 loopback',
+      should: 'return undefined for each, so it queues under the shared key',
+      actual: [null, 'not-an-ip', '::1'].map(fairnessNetwork),
+      expected: [undefined, undefined, undefined],
+    });
+  });
 });

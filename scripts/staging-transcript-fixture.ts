@@ -16,7 +16,6 @@ export async function transcriptProofFixture(
   const database = createDatabase({
     url,
     nextActorId: createId,
-    maxConnections: 1,
   });
   try {
     await sql`insert into users (id,email,email_verified) values (${createId()},${email},true) on conflict (email) do nothing`;

@@ -43,7 +43,7 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 - Database and Redis adapters accept provider-neutral injected event sinks and
   emit `db.query.failed` or `redis.command.failed` with the operation name when
   an external query or command fails. They rethrow the original failure and do
-  not depend on the logger package. Known transaction-admission refusals mean
+  not depend on the logger package. Known workload-admission refusals mean
   work never ran: the DB boundary instead emits `db.capacity.refused` with
   only the operation name. Identity survives bounded native error cause
   wrappers; code/message lookalikes, unsupported cause links and execution

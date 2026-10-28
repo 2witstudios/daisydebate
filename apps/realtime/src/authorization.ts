@@ -12,7 +12,8 @@ import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
 import { parseTopic } from '@daisy/protocol';
-import type { RealtimeApp } from './app';
+import type { Clock } from '@daisy/clock';
+import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { SocketPrincipal } from './registry';
 
 export type RealtimeReadingPolicy = (input: {
@@ -23,6 +24,11 @@ export type RealtimeReadingPolicy = (input: {
 export type SubscriptionAuthority = {
   readonly revision: string;
   readonly validUntil: number;
+};
+/** One lane's authority reads (admission or renewal, ADR 0088) and the clock. */
+export type AuthorityResources = {
+  readonly clock: Clock;
+  readonly database: RealtimeAuthorityReads;
 };
 const fingerprint = (value: unknown) =>
   createHash('sha3-256').update(JSON.stringify(value)).digest('hex');
@@ -35,7 +41,7 @@ export function createRealtimeAuthorization({
   now,
   readingPolicy,
 }: {
-  readonly resources: RealtimeApp;
+  readonly resources: AuthorityResources;
   readonly now: () => number;
   /**
    * Required: channel authorization needs reading evidence, so a composition
@@ -119,8 +125,8 @@ export function createRealtimeAuthorization({
   async function authorizeAudience(
     principal: SocketPrincipal,
     projection:
-      | ReturnType<RealtimeApp['database']['readRoomAuthorizationFacts']>
-      | ReturnType<RealtimeApp['database']['readRoundAuthorizationFacts']>,
+      | ReturnType<RealtimeAuthorityReads['readRoomAuthorizationFacts']>
+      | ReturnType<RealtimeAuthorityReads['readRoundAuthorizationFacts']>,
     accountRevision: number,
     base: readonly unknown[],
     bound: number,

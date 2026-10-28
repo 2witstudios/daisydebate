@@ -1,3 +1,4 @@
+import { WORKLOAD_PROFILES } from '@daisy/db';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createReadinessHandler } from '../src/server/readiness';
@@ -10,6 +11,15 @@ import { assertRejects } from '@daisy/errors/testing';
 import { isNamedSeat } from '@daisy/protocol';
 const services = requireTestServices(process.env);
 setupRitewayBun();
+
+/** The web profile with a competitive lane of `connections`, for small-pool proofs. */
+const competitiveOnly = (connections: number) => ({
+  ...WORKLOAD_PROFILES.web,
+  lanes: {
+    ...WORKLOAD_PROFILES.web.lanes,
+    competitive: { connections, queue: 16, maxWaitMs: 1000 },
+  },
+});
 test('Room command admission leaves default-pool readiness capacity during paused preparation', async () => {
   await withRoomRuntime(async (f) => {
     const view = await f.assemble();
@@ -98,7 +108,7 @@ test('Room command reservation aborts while the actual pool is already occupied'
         expected: false,
       });
     },
-    { client, maxConnections: 2 },
+    { client, profile: competitiveOnly(2) },
   );
 });
 
@@ -122,7 +132,7 @@ test('Room command admission releases permits after repeated preparation refusal
       });
       await f.consent(f.guest, view, 'unready');
     },
-    { maxConnections: 2 },
+    { profile: competitiveOnly(2) },
   );
 });
 
@@ -196,7 +206,7 @@ for (const failure of ['redis', 'disconnect'] as const)
           expected: [false, true],
         });
       },
-      { maxConnections: 2 },
+      { profile: competitiveOnly(2) },
     );
   });
 
@@ -267,6 +277,6 @@ test('a deliberately single-slot Room adapter remains usable with bounded admiss
         expected: view.id,
       });
     },
-    { maxConnections: 1 },
+    { profile: competitiveOnly(1) },
   );
 });

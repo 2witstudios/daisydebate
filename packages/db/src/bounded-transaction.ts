@@ -12,13 +12,15 @@ import {
   transactionContext,
   type BoundedTransactionContext,
 } from './transaction-context';
-import { createTransactionAdmission } from './transaction-admission';
+import type { Lane } from './workload';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
 } from './transaction-watchdog';
 
 const TRANSACTION_MS = 3000;
+/** A writer's work connection plus the watchdog that can terminate it. */
+const WRITER_CONNECTIONS = 2;
 type TransactionReceipt = TransactionMetadata;
 type TransactionOptions = {
   readonly lifecycle?: TransactionLifecycle;
@@ -58,7 +60,10 @@ class TransactionAttempt {
   private lifecycleClosed = false;
 
   constructor(
+    /** The lane's own pool, lent while this writer holds its two slots. */
     private readonly client: SQL,
+    /** The admitted lane client a later recovery reserves through. */
+    private readonly laneClient: SQL,
     private readonly now: () => number,
     private readonly executionMs: number,
     private readonly lifecycle: TransactionLifecycle | undefined,
@@ -186,7 +191,7 @@ class TransactionAttempt {
           recovery: 'pending',
           cause: error,
           settlement: transactionSettlement({
-            client: this.client,
+            client: this.laneClient,
             backend: this.backend,
             absent,
             now: this.now,
@@ -262,22 +267,21 @@ class TransactionAttempt {
   }
 }
 
-/** One existing pool; two reservations per admitted writer retain recovery capacity. */
+/**
+ * A writer on one lane (the competitive lane, ADR 0088): it is admitted for
+ * two connections, its work and its watchdog, and holds both until the
+ * attempt settles, recovery included.
+ */
 export function createBoundedTransaction({
-  client,
-  maxConnections,
+  lane,
   now,
   executionMs = TRANSACTION_MS,
-  admissionWaitMs,
 }: {
-  readonly client: SQL;
-  readonly maxConnections: number;
+  readonly lane: Pick<Lane, 'client' | 'withSlots'>;
   /** Monotonic milliseconds, injected by the composition root. */
   readonly now: () => number;
   /** Execution slice including reservations/setup/commit; recovery may need another1000ms. */
   readonly executionMs?: number;
-  /** The longest a writer queues for a slot; nothing has run when it is refused. */
-  readonly admissionWaitMs?: number | undefined;
 }): BoundedTransaction {
   if (
     !Number.isSafeInteger(executionMs) ||
@@ -285,10 +289,6 @@ export function createBoundedTransaction({
     executionMs > TRANSACTION_MS
   )
     throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-  const { admit, leave } = createTransactionAdmission({
-    maxConnections,
-    waitMs: admissionWaitMs,
-  });
   return async <T>(
     run: TransactionWork<T>,
     options?: TransactionOptions,
@@ -296,16 +296,14 @@ export function createBoundedTransaction({
     const slice = options?.executionMs ?? executionMs;
     if (!Number.isSafeInteger(slice) || slice < 1 || slice > executionMs)
       throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-    await admit();
-    try {
-      return await new TransactionAttempt(
-        client,
+    return lane.withSlots(WRITER_CONNECTIONS, (pool) =>
+      new TransactionAttempt(
+        pool,
+        lane.client,
         now,
         slice,
         options?.lifecycle,
-      ).run(run);
-    } finally {
-      leave();
-    }
+      ).run(run),
+    );
   };
 }

@@ -21,7 +21,7 @@ function remember(
 
 test('sampler crash takeover and delayed actual outbox delivery remain observable', async () => {
   const client = new SQL(databaseUrl, { max: 5 });
-  const ops = availabilityOperations(client);
+  const ops = availabilityOperations(client, client);
   const first = ops.availabilitySampler(),
     second = ops.availabilitySampler();
   const web = createId(),
@@ -117,6 +117,7 @@ test('speech evidence retains incoming outage recovery, not just the preceding s
     });
     const samples = await availabilityOperations(
       client,
+      client,
     ).readAvailabilitySamples('2100-01-01T00:00:01.500Z');
     assert({
       given: 'outage then only one recovery sample before speech opens',
@@ -141,6 +142,7 @@ test('speech evidence starts at the latest recovery samples before the speech, n
     });
     const samples = await availabilityOperations(
       client,
+      client,
     ).readAvailabilitySamples('2100-01-02T23:59:59.500Z');
     assert({
       given:
@@ -162,7 +164,7 @@ test('speech evidence starts at the latest recovery samples before the speech, n
 
 test('PG-time leases and elected same-session sampler preserve real availability evidence', async () => {
   const client = new SQL(databaseUrl, { max: 6 });
-  const ops = availabilityOperations(client);
+  const ops = availabilityOperations(client, client);
   const first = ops.availabilitySampler();
   const second = ops.availabilitySampler();
   const sampled: string[] = [];

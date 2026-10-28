@@ -10,6 +10,7 @@ import {
 } from '../features/auth/abuse/client-ip';
 import { createApp } from './app';
 import { createProductionServer } from './server-wiring';
+import { createRequestNetwork } from './request-network';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 
 setupRitewayBun();
@@ -27,6 +28,8 @@ async function serveProduction(
 ) {
   const state = { draining: false };
   const seen: Array<{ ip: unknown; idHash: unknown }> = [];
+  const networks: Array<string | undefined> = [];
+  const requestNetwork = createRequestNetwork();
   const events: string[] = [];
   const logger: Logger = {
     log: (event) => void events.push(event),
@@ -41,9 +44,11 @@ async function serveProduction(
         },
       }),
       isDraining: () => state.draining,
+      requestNetwork,
       logger,
     },
     handle: async (request, response) => {
+      networks.push(requestNetwork.current());
       seen.push({
         ip: request.headers[CLIENT_IP_HEADER],
         idHash: request.headers[CLIENT_ID_HASH_HEADER],
@@ -63,7 +68,7 @@ async function serveProduction(
       server.closeAllConnections();
       server.close(() => resolve());
     });
-  return { state, seen, events, get, close };
+  return { state, seen, networks, events, get, close };
 }
 
 /** A /proc/net/route whose one default route goes via 127.0.0.1 (host-order hex). */
@@ -99,6 +104,22 @@ describe('createProductionServer (AUTH-3.8 start.ts wiring, ISSUE-158)', () => {
           },
         ],
       },
+    });
+  });
+
+  test("runs each request inside its resolved client network, the database lanes' fairness key (ADR 0088)", async () => {
+    const { networks, get, close } = await serveProduction(['127.0.0.1']);
+    await get({ 'x-forwarded-for': '198.51.100.7' });
+    await get({ 'x-forwarded-for': '2001:db8:7::9' });
+    await get();
+    await close();
+    assert({
+      given:
+        'requests through a trusted proxy from an IPv4 client, an IPv6 client, and the loopback proxy itself',
+      should:
+        "run each handler inside its client's network, never the address itself",
+      actual: networks,
+      expected: ['198.51.100.0/24', '2001:0db8:0007::/48', '127.0.0.0/24'],
     });
   });
 

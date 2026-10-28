@@ -13,11 +13,12 @@ import {
 /** Connection/role probes for doctor, startup and health checks over the owned pool. */
 export const databaseHealthOperations = ({
   database,
-  client,
+  dedicated,
   eventSink,
 }: {
   readonly database: BunSQLDatabase;
-  readonly client: SQL;
+  /** LISTEN probes need a connection outside every lane. */
+  readonly dedicated: SQL;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async health() {
@@ -40,7 +41,7 @@ export const databaseHealthOperations = ({
   },
   async checkListen() {
     return instrumented(eventSink, 'checkListen', async () => {
-      await probeListen(client);
+      await probeListen(dedicated);
       return true;
     });
   },

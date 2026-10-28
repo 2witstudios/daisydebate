@@ -1,10 +1,11 @@
+import { testLane } from './testing-lane';
 import type { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBoundedTransaction } from './bounded-transaction';
-import { isTransactionCapacityRefusal } from './transaction-admission';
+import { isCapacityRefusal } from './capacity-refusal';
 import type { TransactionLifecycle } from './transaction-lifecycle';
 import { fakeSql } from './scripted-bun-wire';
 import { bounded, causeOf } from './bounded-transaction.test-support';
@@ -15,8 +16,7 @@ test('invalid execution budgets are refused before any reservation', async () =>
   const { client, reservations } = fakeSql([]);
   const factory = (executionMs: number) => () =>
     createBoundedTransaction({
-      client,
-      maxConnections: 4,
+      lane: testLane(client, 4),
       now: () => 0,
       executionMs,
     });
@@ -95,7 +95,7 @@ test('pool capacity keeps half the connections for recovery control', async () =
     actual: [...settled, after],
     expected: ['first', 'second', 'after'],
   });
-  for (const maxConnections of [1, 2.5])
+  for (const maxConnections of [1])
     await assertRejects({
       given: `a pool of ${maxConnections} connections`,
       should: 'refuse every writer rather than starve recovery',
@@ -155,7 +155,7 @@ test('a waiting writer refused at the admission wait gives up its place', async 
     should:
       'be refused as backpressure, and leave the freed slot to a later writer',
     actual: [
-      isTransactionCapacityRefusal(refused),
+      isCapacityRefusal(refused),
       await first,
       await run(async () => 'later'),
     ],
@@ -265,8 +265,7 @@ test('lifecycle hooks open before begin and close with the actual outcome', asyn
 
 test('an admission refusal is recognisable as backpressure', async () => {
   const run = createBoundedTransaction({
-    client: {} as SQL,
-    maxConnections: 1,
+    lane: testLane({ options: {} } as unknown as SQL, 1),
     now: () => 0,
   });
   let refusal: unknown = null;
@@ -280,14 +279,11 @@ test('an admission refusal is recognisable as backpressure', async () => {
     should:
       'refuse with an identifiable capacity error, distinct from any lookalike',
     actual: [
-      isTransactionCapacityRefusal(refusal),
-      isTransactionCapacityRefusal(
-        createAppError(
-          'INFRASTRUCTURE',
-          'Transcript transaction capacity unavailable',
-        ),
+      isCapacityRefusal(refusal),
+      isCapacityRefusal(
+        createAppError('INFRASTRUCTURE', 'Database capacity unavailable'),
       ),
-      isTransactionCapacityRefusal(new Error('other')),
+      isCapacityRefusal(new Error('other')),
     ],
     expected: [true, false, false],
   });

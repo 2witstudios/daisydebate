@@ -13,7 +13,6 @@ const maintenanceStore = (client: SQL) =>
   createDatabase({
     url: databaseUrl,
     client,
-    maxConnections: 4,
     nextActorId: createId,
   });
 

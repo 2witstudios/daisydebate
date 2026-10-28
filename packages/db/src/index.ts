@@ -33,8 +33,7 @@ import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
-import { SQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
+import type { SQL } from 'bun';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
 import {
   subscribeRealtimeHints,
@@ -69,7 +68,13 @@ import { socialRequestRetention } from './contacts/request-budget';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { RUNTIME_SESSION } from './session-bounds';
+import { createWorkload, dialDedicated, dialLanes } from './workload';
+import { WORKLOAD_PROFILES, type WorkloadProfile } from './workload-admission';
+export {
+  WORKLOAD_PROFILES,
+  type WorkloadLane,
+  type WorkloadProfile,
+} from './workload-admission';
 export type { DatabaseEventSink } from './instrumented';
 export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
@@ -77,23 +82,27 @@ export type {
   ProvisionalMailCleanup,
 } from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
+export {
+  createRealtimeDatabase,
+  type RealtimeAuthorityReads,
+  type RealtimeDatabase,
+} from './realtime-database';
 
 /**
- * Composes the auth, format, room, round, utterance, ballot, agent,
- * document, actor, email and outbox areas over one connection pool
- * (ISSUE-8 AC1): every area receives only the opaque Drizzle handle and
- * the event sink, never the raw client, and returns records, not rows.
- * The competitive kernel persists what the caller's domain decisions
- * resolve — the composition root (the app) injects the engine.
+ * Composes every area over one admission owner (ADR 0088): each area
+ * receives the opaque Drizzle handle of the lane its work belongs to and
+ * the event sink, never a raw client, and returns records, not rows.
+ * Competitive work (Rounds, Rooms, media, judging, bots) has its own lane;
+ * social, audience and control traffic cannot take its connections. The
+ * competitive kernel persists what the caller's domain decisions resolve —
+ * the composition root (the app) injects the engine.
  */
-/** Connections in one process's pool unless a caller asks for another size. */
-export const DEFAULT_MAX_CONNECTIONS = 10;
-
 export function createDatabase({
   url,
-  maxConnections = DEFAULT_MAX_CONNECTIONS,
+  profile = WORKLOAD_PROFILES.web,
   eventSink,
   client: injectedClient,
+  fairnessKey,
   nextActorId,
   botAdmission,
   judging,
@@ -101,7 +110,8 @@ export function createDatabase({
   roundAnalysis,
 }: {
   url: string;
-  maxConnections?: number;
+  /** The process's lane reservations; web unless a caller asks for another. */
+  profile?: WorkloadProfile;
   /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
   botAdmission?: BotAdmissionOptions | undefined;
   judging?: JudgingOptions | undefined;
@@ -109,23 +119,28 @@ export function createDatabase({
   /** Round analysis's own jobs (DEC-247); absent, none run. */
   roundAnalysis?: RoundAnalysisOptions | undefined;
   eventSink?: DatabaseEventSink;
-  /** Overrides dialing `url`; tests inject a scripted client at this seam. */
+  /** Overrides dialing `url` for every lane; tests inject a scripted client at this seam. */
   client?: SQL;
+  /** The current request's fairness key (its client network). */
+  fairnessKey?: () => string | undefined;
   /** Required cuid2 source for onboarding actors and durable Round usage IDs. */
   nextActorId: () => string;
 }) {
-  const client =
-    injectedClient ??
-    new SQL(url, {
-      max: maxConnections,
-      connectionTimeout: 3,
-      idleTimeout: 20,
-      connection: RUNTIME_SESSION,
-    });
-  const database = drizzle({ client });
+  const workload = createWorkload({
+    profile,
+    connect: injectedClient ? () => injectedClient : dialLanes(url),
+    fairnessKey,
+  });
+  const competitive = workload.lane('competitive');
+  const { database } = competitive;
+  const social = workload.lane('social').database;
+  const audience = workload.lane('audience').database;
+  const controlLane = workload.lane('control');
+  const control = controlLane.database;
+  const dedicated =
+    injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
   const transcriptTransaction = createBoundedTransaction({
-    client,
-    maxConnections,
+    lane: competitive,
     now: performance.now,
   });
   const { admission, operations: botAdmissionOperations } =
@@ -155,50 +170,62 @@ export function createDatabase({
       run: transcriptTransaction,
       nextId: nextActorId,
     }),
-    ...availabilityOperations(client),
+    ...availabilityOperations(controlLane.client, dedicated),
     readUnratedAttendanceForfeits: (
       input: Parameters<typeof readUnratedAttendanceForfeits>[1],
     ) => readUnratedAttendanceForfeits(database, input),
-    ...databaseHealthOperations({ database, client, eventSink }),
+    ...databaseHealthOperations({
+      database: control,
+      dedicated,
+      eventSink,
+    }),
     /**
-     * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
-     * raw client only `createDatabase` holds, never handed out as the
-     * opaque Drizzle handle other operations receive.
+     * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3) on the
+     * owner's dedicated connections, outside every lane and never handed out.
      */
     listenOutbox(handlers: OutboxListenHandlers) {
-      return subscribeOutbox(client, handlers);
+      return subscribeOutbox(dedicated, handlers);
     },
-    /** Validated transient hints over the same pool; durable drain is independent. */
+    /** Validated transient hints over a dedicated connection; durable drain is independent. */
     listenRealtimeHints(handlers: RealtimeHintHandlers) {
-      return subscribeRealtimeHints(client, handlers);
+      return subscribeRealtimeHints(dedicated, handlers);
     },
     async close() {
-      await client.close({ timeout: 5 });
+      await workload.close();
+      if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });
     },
-    ...authOperations({ database, eventSink }),
-    ...provisionalRetentionOperations({ database, eventSink }),
-    ...authorizationSessionOperations({ database }),
-    ...emailDeliveryOperations({ database, eventSink }),
-    ...mailIntentOperations({ database, eventSink }),
-    ...betaAccessOperations({ database, eventSink }),
-    ...operatorAccountOperations({ database, eventSink }),
-    ...actorOperations({ database, eventSink }),
-    ...messagingOperations(database, contactReactions),
-    ...friendshipReadOperations({ database, eventSink }),
-    ...presenceSettingOperations({ database, eventSink }),
+    ...authOperations({ database: control, eventSink }),
+    ...provisionalRetentionOperations({ database: control, eventSink }),
+    ...authorizationSessionOperations({ database: control }),
+    ...emailDeliveryOperations({ database: control, eventSink }),
+    ...mailIntentOperations({ database: control, eventSink }),
+    ...betaAccessOperations({ database: control, eventSink }),
+    ...operatorAccountOperations({ database: control, eventSink }),
+    ...actorOperations({ database: control, eventSink }),
+    ...messagingOperations(social, contactReactions),
+    ...friendshipReadOperations({ database: social, eventSink }),
+    ...presenceSettingOperations({ database: social, eventSink }),
     friendStore: (authorize: ContactAuthorizationFence) =>
-      createFriendStore({ database, authorize, reactions: contactReactions }),
+      createFriendStore({
+        database: social,
+        authorize,
+        reactions: contactReactions,
+      }),
     /** Contacts' own commands (blocks), with every registered reaction. */
     contactStore: (authorize: ContactAuthorizationFence) =>
-      createContactStore({ database, authorize, reactions: contactReactions }),
-    ...retainedConversationOperations({ database, eventSink }),
-    ...outboxOperations({ database, eventSink }),
-    ...transcriptRetention({ database, eventSink }),
-    ...roundAnalysisRetention({ database, eventSink }),
-    ...socialRequestRetention({ database, eventSink }),
+      createContactStore({
+        database: social,
+        authorize,
+        reactions: contactReactions,
+      }),
+    ...retainedConversationOperations({ database: social, eventSink }),
+    ...outboxOperations({ database: control, eventSink }),
+    ...transcriptRetention({ database: control, eventSink }),
+    ...roundAnalysisRetention({ database: control, eventSink }),
+    ...socialRequestRetention({ database: social, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
-        readOutboxRetentionBoundary(database),
+        readOutboxRetentionBoundary(control),
       ),
     readOutboxCatchup: (
       topic: string,
@@ -207,14 +234,20 @@ export function createDatabase({
       limit?: number,
     ) =>
       instrumented(eventSink, 'readOutboxCatchup', () =>
-        readOutboxCatchup(database, topic, since, through, limit),
+        readOutboxCatchup(control, topic, since, through, limit),
       ),
-    ...formatOperations({ database, eventSink }),
+    ...formatOperations({ database: audience, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission: admission,
       eventSink,
-      commandTransaction: roomCommandTransaction(client, maxConnections),
+      commandTransaction: roomCommandTransaction(
+        competitive.client,
+        Math.max(
+          1,
+          Math.floor((profile.lanes.competitive?.connections ?? 0) / 2),
+        ),
+      ),
     }),
     ...roundOperations({ database, eventSink }),
     ...roundCommandOperations({ database, eventSink }),
@@ -228,10 +261,10 @@ export function createDatabase({
       mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
-    ...onboardingOperations({ database, eventSink }),
-    ...ageStepOperations({ database, eventSink }),
-    ...standingsOperations({ database, eventSink }),
-    ...memberProfileReadOperations({ database, eventSink }),
+    ...onboardingOperations({ database: control, eventSink }),
+    ...ageStepOperations({ database: control, eventSink }),
+    ...standingsOperations({ database: audience, eventSink }),
+    ...memberProfileReadOperations({ database: audience, eventSink }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
@@ -243,7 +276,7 @@ export function createDatabase({
       ),
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
-      claimUsername(database, input, nextActorId, eventSink),
+      claimUsername(control, input, nextActorId, eventSink),
   };
 }
 export type Database = ReturnType<typeof createDatabase>;

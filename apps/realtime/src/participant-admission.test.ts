@@ -7,6 +7,13 @@ import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 
+/** One fake authority for both the admission and renewal lanes. */
+const bothLanes = <T>(reads: T) => ({ admission: reads, renewal: reads });
+const lane = (app: RealtimeApp) => ({
+  clock: app.clock,
+  database: app.database.admission,
+});
+
 /** ADR 0075: realtime admission is participant access on a live session. */
 const now = '2026-10-09T00:00:00.000Z';
 const later = '2026-10-09T01:00:00.000Z';
@@ -67,7 +74,7 @@ const sessionReader = (account: unknown) =>
         sessionId: principal.sessionId,
       }),
     },
-    database: {
+    database: bothLanes({
       resolveRealtimeSession: async () => ({
         ...principal,
         expiresAt: later,
@@ -78,7 +85,7 @@ const sessionReader = (account: unknown) =>
         expiresAt: later,
         account,
       }),
-    },
+    }),
   }) as unknown as RealtimeApp;
 
 const delivery = (resources: RealtimeApp) =>
@@ -116,7 +123,7 @@ test('principal validation keeps a socket only while it holds participant access
     variants.map(([, account]) =>
       createRealtimeAuthorization({
         readingPolicy: refuseAllReading,
-        resources: sessionReader(account),
+        resources: lane(sessionReader(account)),
         now: () => Date.parse(now),
       }).validatePrincipal(principal),
     ),

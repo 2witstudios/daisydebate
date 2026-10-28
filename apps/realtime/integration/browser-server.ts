@@ -1,9 +1,9 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { systemClock, systemId } from '@daisy/clock';
+import { systemClock } from '@daisy/clock';
 import { SQL } from 'bun';
-import { createDatabase } from '@daisy/db';
+import { createRealtimeDatabase } from '@daisy/db';
 import {
   messagingTestReading,
   messagingTestGroupReading,
@@ -85,16 +85,14 @@ try {
   await runtimeClient.close();
   throw new Error('Realtime browser runtime role unavailable');
 }
-const runtimeDatabase = createDatabase({
+const runtimeDatabase = createRealtimeDatabase({
   url: runtimeUrl,
   client: runtimeClient,
-  nextActorId: () => systemId.next(),
 });
 const resources = createRealtimeApp({
   database: runtimeDatabase,
   env: process.env,
   clock: systemClock,
-  ids: systemId,
 });
 const runtime = await serveRealtime({
   resources,

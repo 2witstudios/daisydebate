@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -30,8 +31,7 @@ test(
         return connection;
       };
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       try {
@@ -114,8 +114,7 @@ test(
         client.reserve(),
       ]);
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       try {
@@ -168,8 +167,7 @@ test(
       const entered = Promise.withResolvers<number>();
       const resume = Promise.withResolvers<void>();
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       const work = run(async (tx) => {
@@ -221,8 +219,7 @@ test('a detached callback cannot write after cancellation and disposal', async (
       const resume = Promise.withResolvers<void>();
       const resumed = Promise.withResolvers<boolean>();
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       const attempt = run(async (tx, signal) => {

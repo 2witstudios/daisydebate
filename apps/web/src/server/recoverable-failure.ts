@@ -1,4 +1,4 @@
-import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
+import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isAppError } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
 import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
@@ -93,7 +93,7 @@ export const workerFailures =
       logger: app.logger,
       reporter,
       nextId: () => app.ids.next(),
-      isCapacity: isTransactionCapacityRefusal,
+      isCapacity: isCapacityRefusal,
       event,
       operation,
       message,

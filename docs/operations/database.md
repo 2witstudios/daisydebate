@@ -16,7 +16,7 @@ Run `bun db:migrate` with DATABASE_URL locally. In production the runner reads `
 
 **A writer's own abort reads as a dropped client (ISSUE-809).** When a bounded transaction exceeds its budget, it closes its writer connection with the transaction still open, rather than return an uncertain writer to the pool. PostgreSQL then logs `unexpected EOF on client connection with an open transaction`. When that line appears for several writers in the same second, look for what stalled every round trip (database CPU, the network path), not for a network fault at that instant. On Fly, runtime apps dial Postgres directly over 6PN (`<db-app>.internal:5432`), never through Fly Proxy (`.flycast`); see [deploy-staging](deploy-staging.md).
 
-Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. `bun slot:up` writes and migrates this checkout's test database; `bun slot:up` also writes TEST_REDIS_URL: the slot's own Redis database (main 1, a worktree `2 + its port block`), where every integration test uses its own `t3-` namespace; the runner refuses any other database before it deletes anything (ADR 0034). Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per instance: sum of instance pool limits plus migrations/admin capacity must remain below PostgreSQL max_connections.
+Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. `bun slot:up` writes and migrates this checkout's test database; `bun slot:up` also writes TEST_REDIS_URL: the slot's own Redis database (main 1, a worktree `2 + its port block`), where every integration test uses its own `t3-` namespace; the runner refuses any other database before it deletes anything (ADR 0034). Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per process profile (ADR 0088): web holds 27 connections (competitive 10, social 4, audience 2, control 10, 1 dedicated) and realtime 7 (admission 1, renewal 2, control 1, 3 dedicated); the media worker's read-only `daisy_media_worker` pool holds 2, outside any profile until ISSUE-854. The sum over replicas plus migrations/admin capacity must remain below PostgreSQL max_connections.
 
 **The migration owner (ADR 0080).** Staging and production migrate as a
 least-privilege owner, `daisy_migrator` on staging: `NOSUPERUSER NOCREATEDB
@@ -101,8 +101,8 @@ Inject a monotonic millisecond clock. The callback receives a runtime-enforced
 access and manual transaction/session controls are refused; refusal poisons the
 attempt even if the callback catches it. Each admitted attempt reserves a watchdog
 connection before its writer; the 3,000 ms whole budget includes pool acquisition,
-setup, locks, callback and commit. Admission uses at most half the configured
-pool capacity in writers, with two connections per attempt. Callbacks perform
+setup, locks, callback and commit. Writers are admitted on the competitive lane (ADR 0088),
+weighing two connections per attempt. Callbacks perform
 only database work and deterministic computation; provider calls run afterward.
 
 The writer sets local statement, lock and idle transaction timeouts to 2,000 ms.

@@ -1,5 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
+import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
 import { publicationStopError, type PublicationStop } from '@daisy/media/audio';
@@ -161,7 +161,7 @@ export function createBotSpeaker(input: {
     // A spent voice budget or an answered segment cannot clear: stop.
     if (isFinalBotSpeechRefusal(error)) return void (finished = true);
     // Pool backpressure is a deferral: the next wake resumes at the refused step.
-    if (isTransactionCapacityRefusal(error)) {
+    if (isCapacityRefusal(error)) {
       if (crossEx) owed = true;
       return input.failed(error, stage);
     }

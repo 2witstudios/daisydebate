@@ -1,28 +1,32 @@
 import type { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql/postgres';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { Tx } from './room-command-facts';
 import { RUNTIME_SESSION } from './session-bounds';
+import { createLaneGate } from './workload-admission';
 
-/** Room preparation shares the existing pool, with no queued admission waiters. */
-export function roomCommandTransaction(client: SQL, maxConnections: number) {
-  if (!Number.isSafeInteger(maxConnections) || maxConnections < 1)
-    throw createAppError('VALIDATION', 'Invalid database pool capacity');
-  const limit = Math.max(1, Math.floor(maxConnections / 2));
-  let active = 0;
+/**
+ * Room preparation on the competitive lane (ADR 0088). It may wait on
+ * external consent while holding its transaction, so it takes at most
+ * `budget` of the lane's connections (half), leaving the rest to Round
+ * writers, and excess is refused at once, before any SQL, with the
+ * capacity family.
+ */
+export function roomCommandTransaction(competitive: SQL, budget: number) {
+  const gate = createLaneGate('competitive', {
+    connections: budget,
+    queue: 0,
+    maxWaitMs: 1,
+  });
   return async <T>(run: (tx: Tx) => Promise<T>): Promise<T> => {
-    if (active >= limit)
-      throw createAppError(
-        'INFRASTRUCTURE',
-        'Room command capacity unavailable',
-      );
-    active += 1;
+    const leave = await gate.admit();
     try {
-      const reserved = await client
+      const reserved = await competitive
         .reserve({
           signal: AbortSignal.timeout(RUNTIME_SESSION.lock_timeout),
         })
         .catch((error: unknown) => {
+          if (isAppError(error)) throw error;
           throw createAppError(
             'INFRASTRUCTURE',
             'Room connection unavailable',
@@ -35,7 +39,7 @@ export function roomCommandTransaction(client: SQL, maxConnections: number) {
         reserved.release();
       }
     } finally {
-      active -= 1;
+      leave();
     }
   };
 }
