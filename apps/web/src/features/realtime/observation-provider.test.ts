@@ -9,7 +9,7 @@ import {
 setupRitewayBun();
 const id = 'c'.repeat(24);
 const resource = { kind: 'channel-messages', id } as const;
-type Body = { readonly revision: number };
+type Body = { readonly revision: number; readonly tag?: string };
 const descriptor: ObservationDescriptor<Body> = {
   resource,
   parse: (body) =>
@@ -75,7 +75,7 @@ function harness() {
       validForMs: 4700,
       ...extra,
     } as unknown as ServerMessage);
-  const snapshot = (revision: number, disclosureRevision = 1) =>
+  const snapshot = (revision: number, disclosureRevision = 1, tag?: string) =>
     receive({
       v: 1,
       type: 'observation.snapshot',
@@ -83,7 +83,7 @@ function harness() {
       partition: 'members',
       disclosureRevision,
       contentRevision: revision,
-      body: { revision },
+      body: tag === undefined ? { revision } : { revision, tag },
     } as unknown as ServerMessage);
   const stateFrame = (requestId: string, generation: number, value: string) =>
     receive({
@@ -229,6 +229,60 @@ describe('observation provider', () => {
         'unobserve once, release every connection listener and notify nobody',
       actual: [h.sent, h.listeners(), notified, h.provider.size()],
       expected: [['observe:r1', 'unobserve:r2'], 0, 0, 0],
+    });
+  });
+});
+
+describe('observation provider and server renders', () => {
+  test('a newer server render beats an older body', () => {
+    const h = harness();
+    const held = h.provider.observe(descriptor, { revision: 5 }, () => {});
+    held.offer({ revision: 6 });
+    const pending = held.view();
+    h.ready('r1', 1);
+    h.snapshot(6);
+    held.offer({ revision: 4 });
+    const live = held.view();
+    h.snapshot(7);
+    assert({
+      given:
+        'a send whose server render (revision 6) lands before any snapshot, then an older render, then a newer snapshot',
+      should:
+        'show the newer render, ignore the older one, and keep applying newer snapshots',
+      actual: [pending, live, held.view()],
+      expected: [
+        { status: 'pending', body: { revision: 6 } },
+        { status: 'live', body: { revision: 6 } },
+        { status: 'live', body: { revision: 7 } },
+      ],
+    });
+  });
+  test('a hidden view takes no server render', () => {
+    const h = harness();
+    const held = h.provider.observe(descriptor, null, () => {});
+    h.ready('r1', 1);
+    h.stateFrame('r1', 1, 'denied');
+    held.offer({ revision: 9 });
+    assert({
+      given: 'denied access and then a server render',
+      should: 'stay hidden: only a new permit restores content',
+      actual: held.view(),
+      expected: { status: 'hidden', body: null },
+    });
+  });
+  test('monotonic within a base, not across bases', () => {
+    const h = harness();
+    const held = h.provider.observe(descriptor, null, () => {});
+    h.ready('r1', 1);
+    h.snapshot(5);
+    h.ready('r1', 2, { disclosureRevision: 2 });
+    h.snapshot(5, 2, 'new-base');
+    assert({
+      given:
+        'a rebased permit and the new base snapshot at an equal content revision',
+      should: 'apply the new base snapshot',
+      actual: held.view(),
+      expected: { status: 'live', body: { revision: 5, tag: 'new-base' } },
     });
   });
 });

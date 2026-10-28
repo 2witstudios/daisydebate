@@ -125,6 +125,14 @@ export function createObservationProvider({
     if (frame.generation < entry.generation) return;
     entry.generation = frame.generation;
     if (frame.type === 'observation.ready') {
+      // Monotonicity holds within one base: a new base starts its revisions
+      // afresh, while its last body stays shown until that base's snapshot.
+      if (
+        entry.base !== null &&
+        (entry.base.partition !== frame.partition ||
+          entry.base.disclosureRevision !== frame.disclosureRevision)
+      )
+        entry.revision = -1;
       entry.base = {
         partition: frame.partition,
         disclosureRevision: frame.disclosureRevision,
@@ -167,6 +175,7 @@ export function createObservationProvider({
       listener: () => void,
     ): {
       readonly view: () => ObservationView<Body>;
+      readonly offer: (body: Body) => void;
       readonly release: () => void;
     } {
       const key = observationResourceKey(descriptor.resource);
@@ -191,6 +200,17 @@ export function createObservationProvider({
       held?.listeners.add(listener);
       let released = false;
       return {
+        /**
+         * A newer server-rendered body (after a send or navigation) replaces
+         * an older one; never a hidden view, never backwards.
+         */
+        offer(body: Body) {
+          if (!held || released || held.view.status === 'hidden') return;
+          const revision = descriptor.revisionOf(body);
+          if (held.view.body !== null && revision <= held.revision) return;
+          held.revision = revision;
+          set(held, { status: held.view.status, body });
+        },
         view: () =>
           (held?.view ?? {
             status: 'pending',

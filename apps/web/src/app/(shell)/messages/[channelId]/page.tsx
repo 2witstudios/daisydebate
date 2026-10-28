@@ -20,7 +20,6 @@ import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
-import { MarkConversationRead } from '../../../../ui/messaging/mark-read';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
@@ -85,10 +84,7 @@ export default async function ConversationPage({
           ) : null}
           {readThrough === null ? null : (
             <>
-              <MarkConversationRead
-                channelId={id.data}
-                sequence={readThrough}
-              />
+              {/* With JavaScript the live history marks what it shows. */}
               <noscript>
                 <form action={markReadAction.bind(null, id.data, readThrough)}>
                   <button type="submit" className="text-accent underline">

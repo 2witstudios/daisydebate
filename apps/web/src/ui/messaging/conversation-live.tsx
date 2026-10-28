@@ -5,7 +5,11 @@ import { createBrowserTypingReader } from './typing-browser';
 import { tabConnection } from '../../features/realtime/browser-adapters';
 import { useRealtime } from '../../features/realtime/use-realtime';
 import { channelMessages } from '../../features/messaging/channel-messages';
-import type { MessagingConversation } from '../../features/messaging/conversation';
+import {
+  readThroughSequence,
+  type MessagingConversation,
+} from '../../features/messaging/conversation';
+import { MarkConversationRead } from './mark-read';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
 import { MessageHistory } from './message-history';
 
@@ -53,10 +57,19 @@ export function ConversationLive({
         This conversation is no longer available to you.
       </p>
     );
+  const shown = view.body ?? history;
+  // What is on screen is what is read: a live message advances the cursor too.
+  const readThrough = readThroughSequence(shown, {
+    searching: false,
+    paging: false,
+  });
   return (
     <>
+      {readThrough === null ? null : (
+        <MarkConversationRead channelId={channelId} sequence={readThrough} />
+      )}
       <MessageHistory
-        history={view.body ?? history}
+        history={shown}
         actorId={actorId}
         otherAuthor={otherAuthor}
       />
