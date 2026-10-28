@@ -47,9 +47,6 @@ const presenceTracker = (
 const listenerTls = (tls: Bun.TLSOptions | undefined) =>
   tls === undefined ? {} : { tls };
 
-const readerPolicy = (readingPolicy: RealtimeReadingPolicy | undefined) =>
-  readingPolicy === undefined ? {} : { readingPolicy };
-
 async function completeShutdown(work: readonly Promise<unknown>[]) {
   const shutdown = await Promise.allSettled(work);
   if (shutdown.some((result) => result.status === 'rejected'))
@@ -88,7 +85,12 @@ export async function serveRealtime({
   readonly tls?: Bun.TLSOptions;
   readonly sink?: OutboxRowsSink;
   readonly now?: () => number;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  /**
+   * Required: channel authorization needs reading evidence, so a composition
+   * without a policy would refuse every channel subscription. Tests that do
+   * not exercise channels pass `refuseAllReading` explicitly.
+   */
+  readonly readingPolicy: RealtimeReadingPolicy;
   readonly trustedProxies?: readonly string[];
   /** This instance's id and its connection-id source for presence leases (ADR 0072). */
   readonly presence?: {
@@ -124,7 +126,7 @@ export async function serveRealtime({
     resources,
     timers: scheduler,
     now,
-    ...readerPolicy(readingPolicy),
+    readingPolicy,
     publish: (topic, frame) => {
       if (!server || server.publish(topic, JSON.stringify(frame)) <= 0)
         throw new Error('Realtime recipient unavailable');
@@ -144,16 +146,15 @@ export async function serveRealtime({
     ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
-  observing =
-    observation && readingPolicy
-      ? startObservationRuntime({
-          resources,
-          readingPolicy,
-          timers: scheduler,
-          now,
-          nextId: observation.nextId,
-        })
-      : null;
+  observing = observation
+    ? startObservationRuntime({
+        resources,
+        readingPolicy,
+        timers: scheduler,
+        now,
+        nextId: observation.nextId,
+      })
+    : null;
   const { fetch, websocket } = createRealtimeServer({
     resources: {
       ...resources,

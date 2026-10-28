@@ -43,7 +43,12 @@ export function createRealtimeAuthorization({
 }: {
   readonly resources: AuthorityResources;
   readonly now: () => number;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  /**
+   * Required: channel authorization needs reading evidence, so a composition
+   * without a policy would refuse every channel subscription. Tests that do
+   * not exercise channels pass `refuseAllReading` explicitly.
+   */
+  readonly readingPolicy: RealtimeReadingPolicy;
 }) {
   const deadline = (expiry: string) =>
     now() + Math.max(0, Date.parse(expiry) - Date.parse(resources.clock.now()));
@@ -175,7 +180,7 @@ export function createRealtimeAuthorization({
           fact,
           accounts,
           principal,
-          ...(readingPolicy ? { readingPolicy } : {}),
+          readingPolicy,
           clock: resources.clock,
           deadline,
         });
@@ -222,13 +227,13 @@ export function decideChannelViewer({
   readonly fact: ChannelAuthorizationFact;
   readonly accounts: readonly SocialAccountFact[];
   readonly principal: SocketPrincipal;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  readonly readingPolicy: RealtimeReadingPolicy;
   readonly clock: { readonly now: () => string };
   readonly deadline: (expiry: string) => number;
 }) {
   if (!current || !participantAccess(current.account)) return null;
   const instant = clock.now();
-  const reading = readingPolicy?.({ channel: fact, accounts, now: instant });
+  const reading = readingPolicy({ channel: fact, accounts, now: instant });
   const decision = authorize({
     principal: { kind: 'user', ...principal },
     capability: 'channel.subscribe',

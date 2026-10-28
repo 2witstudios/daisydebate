@@ -28,7 +28,12 @@ export function createRealtimeDelivery({
   readonly resources: RealtimeApp;
   readonly now: () => number;
   readonly publish: (topic: string, frame: ServerMessage) => void;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  /**
+   * Required: channel authorization needs reading evidence, so a composition
+   * without a policy would refuse every channel subscription. Tests that do
+   * not exercise channels pass `refuseAllReading` explicitly.
+   */
+  readonly readingPolicy: RealtimeReadingPolicy;
 }) {
   // Subscribes and renewals read on separate lanes (ADR 0088), so an
   // admission wave cannot consume the capacity renewals need.
@@ -36,7 +41,7 @@ export function createRealtimeDelivery({
     createRealtimeAuthorization({
       resources: { clock: resources.clock, database },
       now,
-      ...(readingPolicy ? { readingPolicy } : {}),
+      readingPolicy,
     });
   const authority = authorityOn(resources.database.admission);
   const renewal = authorityOn(resources.database.renewal);

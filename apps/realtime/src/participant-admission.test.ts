@@ -3,6 +3,7 @@ import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
 import { createRealtimeDelivery } from './delivery';
 import { liveParticipantSession } from './participant-session';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 
@@ -89,6 +90,7 @@ const sessionReader = (account: unknown) =>
 
 const delivery = (resources: RealtimeApp) =>
   createRealtimeDelivery({
+    readingPolicy: refuseAllReading,
     resources,
     now: () => 0,
     publish: () => {},
@@ -120,6 +122,7 @@ test('principal validation keeps a socket only while it holds participant access
   const viaAuthorization = await Promise.all(
     variants.map(([, account]) =>
       createRealtimeAuthorization({
+        readingPolicy: refuseAllReading,
         resources: lane(sessionReader(account)),
         now: () => Date.parse(now),
       }).validatePrincipal(principal),
