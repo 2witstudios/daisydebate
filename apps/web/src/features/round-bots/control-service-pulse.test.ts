@@ -2,18 +2,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
 import {
+  failureStages,
   neverOverdue,
   ownedClaim,
+  seat,
   within,
 } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
-
-const seat = (segmentId: string) => ({
-  roundId: 'seat',
-  roundParticipantId: 'seat',
-  segmentId,
-});
 
 /**
  * A rotation while the outgoing claim's receipt pulse is in flight, which
@@ -25,16 +21,18 @@ async function rotateDuringFailingPulse(overrun: boolean) {
   const reject = Promise.withResolvers<void>();
   const due = Promise.withResolvers<void>();
   const incoming = Promise.withResolvers<void>();
+  const checked = Promise.withResolvers<void>();
   let segment = 'first',
     failing = false,
     deadlines = 0;
   const { tasks, timers } = manualTimers();
   const service = startBotControlService({
     store: {
-      scanRoundBotWorkers: async () => [seat(segment)],
+      scanRoundBotWorkers: async () => [seat('seat', segment)],
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {
+        if (failing) checked.resolve();
         throw createAppError('INFRASTRUCTURE', 'pool reset');
       },
     },
@@ -69,11 +67,11 @@ async function rotateDuringFailingPulse(overrun: boolean) {
     reject.resolve();
     await within(incoming.promise, 'The incoming claim');
   }
+  // The late pulse's lease check ran; one turn later its catch has settled.
+  await within(checked.promise, 'The late pulse’s lease check');
+  await new Promise((resolve) => setImmediate(resolve));
   await service.stop();
-  return failures.map((failure) => [
-    ((failure as unknown[])[0] as Error).message,
-    (failure as unknown[])[1],
-  ]);
+  return failureStages(failures);
 }
 
 test('a pulse that fails during an ending that finishes in time is reported (ISSUE-789)', async () => {

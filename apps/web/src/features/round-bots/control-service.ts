@@ -21,7 +21,7 @@ type Owned<C> = {
   lost: boolean;
   /** The part of its ending that overran and was reported; that part's late failure is not. */
   overran: 'stop' | 'pulse' | null;
-  /** Its ending hands its slot to the incoming segment's claim. */
+  /** A rotation's chained claim, not the ending, releases this seat. */
   handingOff: boolean;
 };
 /** Idle worker control owns receipts even when generation/publication cannot run. */
@@ -135,10 +135,7 @@ export function startBotControlService<C extends Claim>(input: {
       }
       if (revoke && !entry.lost) await revokeClaim(entry.claim);
     })().finally(() => {
-      // The slot passes to the incoming claim before it is freed, so the cap
-      // never opens between the release and that claim.
-      if (entry.handingOff) claiming.add(entry.claim.scope.roundParticipantId);
-      release(entry);
+      if (!entry.handingOff) release(entry);
       endings.delete(ending);
     });
     endings.add(ending);
@@ -169,38 +166,38 @@ export function startBotControlService<C extends Claim>(input: {
   const claimFailed = (error: unknown) => {
     if (!isRefusal(error)) input.failed(error, 'claim');
   };
-  /** `reserved`: the outgoing ending already holds this seat's slot in `claiming`. */
-  const claimTarget = async (
-    target: Target,
-    reserved = false,
-  ): Promise<void> => {
+  /** Seats owned or being claimed: the count `maxControllers` bounds. */
+  const seatsHeld = () => new Set([...owned.keys(), ...claiming]).size;
+  const claimTarget = async (target: Target): Promise<void> => {
     const seat = target.roundParticipantId;
     const old = owned.get(seat);
     if (
-      !reserved &&
-      (claiming.has(seat) ||
-        old?.ending ||
-        old?.claim.scope.segmentId === target.segmentId)
+      claiming.has(seat) ||
+      old?.ending ||
+      old?.claim.scope.segmentId === target.segmentId
     )
       return;
-    if (old) {
-      // The incoming segment is claimed as soon as the ending frees the seat;
-      // shutdown waits for that claim like any ending.
-      old.handingOff = true;
-      const chained: Promise<void> = end(old, true)
-        .then(() => claimTarget(target, true))
-        .catch(claimFailed)
-        .finally(() => {
-          claiming.delete(seat);
-          endings.delete(chained);
-        });
-      endings.add(chained);
-      return;
-    }
-    // A claim in flight counts too, so a handoff and a scan never exceed the cap.
+    if (!old) return claimSeat(target);
+    // The outgoing claim stays owned until the incoming one settles, so its
+    // slot is never free between them; shutdown waits for the chain.
+    old.handingOff = true;
+    const chained: Promise<void> = end(old, true)
+      .then(
+        () => claimSeat(target).catch(claimFailed),
+        (error: unknown) => input.failed(error, 'stop'),
+      )
+      .finally(() => {
+        release(old);
+        endings.delete(chained);
+      });
+    endings.add(chained);
+  };
+  /** Claims a seat no live claim holds, counting a seat it replaces once. */
+  const claimSeat = async (target: Target): Promise<void> => {
+    const seat = target.roundParticipantId;
     if (
       stopped ||
-      (!reserved && owned.size + claiming.size >= input.limits.maxControllers)
+      seatsHeld() + (owned.has(seat) ? 0 : 1) > input.limits.maxControllers
     )
       return;
     claiming.add(seat);

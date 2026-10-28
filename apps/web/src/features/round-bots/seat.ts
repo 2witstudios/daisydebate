@@ -27,7 +27,10 @@ export function createBotSeat(input: {
   } | null;
   readonly pollMs: number;
   readonly timers: WorkerTimers;
-  /** `stage` is always poll: the bot's hearing failed. */
+  /**
+   * `stage` is poll when the bot's hearing failed, or close when a seat that
+   * failed to start could not close what it had started.
+   */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   let polling: Promise<void> | null = null;
@@ -51,8 +54,11 @@ export function createBotSeat(input: {
     if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
   } catch (error) {
     // A seat that fails to start owns nothing it started (ISSUE-789).
-    void input.publication.close().catch(() => undefined);
-    void input.feed?.close().catch(() => undefined);
+    for (const close of [input.publication.close, input.feed?.close])
+      if (close)
+        void Promise.resolve()
+          .then(close)
+          .catch((closeError: unknown) => input.failed(closeError, 'close'));
     throw error;
   }
   return {

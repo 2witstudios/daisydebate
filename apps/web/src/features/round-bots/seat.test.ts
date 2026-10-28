@@ -110,9 +110,12 @@ test('a speaker that fails to stop still releases the publication', async () => 
   });
 });
 
-test('a seat whose hearing fails to start closes what it started (ISSUE-789)', () => {
+test('a seat whose hearing fails to start closes what it started (ISSUE-789)', async () => {
   const log: string[] = [];
   const broken = new Error('listener unavailable');
+  const closeFault = new Error('The operation was aborted.');
+  const failures: unknown[] = [];
+  const feedClosed = Promise.withResolvers<void>();
   let thrown: unknown;
   try {
     createBotSeat({
@@ -122,6 +125,7 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', (
         start: () => log.push('publication-start'),
         close: async () => {
           log.push('publication-close');
+          throw closeFault;
         },
       },
       feed: {
@@ -131,22 +135,27 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', (
         poll: async () => {},
         close: async () => {
           log.push('feed-close');
+          feedClosed.resolve();
         },
       },
       pollMs: 50,
       timers: manualTimers().timers,
-      failed: () => {},
+      failed: (error, stage) => failures.push([error, stage]),
     });
   } catch (error) {
     thrown = error;
   }
+  await feedClosed.promise;
+  await new Promise((resolve) => setImmediate(resolve));
   assert({
     given: 'a cross-examination seat whose hearing throws as it starts',
-    should: 'close its publication and hearing, then rethrow',
-    actual: { thrown, log },
+    should:
+      'rethrow, close its publication and hearing, and report a failed close',
+    actual: { thrown, log, failures },
     expected: {
       thrown: broken,
       log: ['publication-start', 'publication-close', 'feed-close'],
+      failures: [[closeFault, 'close']],
     },
   });
 });

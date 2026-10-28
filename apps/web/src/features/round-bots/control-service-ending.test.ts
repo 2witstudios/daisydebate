@@ -4,17 +4,13 @@ import { startBotControlService } from './control-service';
 import {
   neverOverdue,
   ownedClaim,
+  seat,
   within,
 } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };
-const seat = (id: string, segmentId = 's') => ({
-  roundId: id,
-  roundParticipantId: id,
-  segmentId,
-});
 
 test('a rotation whose stop never settles never holds discovery of other seats (ISSUE-789)', async () => {
   const { failed } = failureLog();

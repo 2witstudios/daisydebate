@@ -1,19 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startBotControlService } from './control-service';
 import {
+  failureStages,
   neverOverdue,
   ownedClaim,
+  seat,
   within,
 } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };
-const seat = (id: string, segmentId = 's') => ({
-  roundId: id,
-  roundParticipantId: id,
-  segmentId,
-});
 
 test('a stop that overruns its deadline is reported, and the seat is revoked and claimed again (ISSUE-789)', async () => {
   const { failures, failed } = failureLog();
@@ -117,10 +114,7 @@ test('an ending whose receipt pulse overruns blames the pulse, not the stop (ISS
     given:
       'an ending whose speaker stopped but whose receipt pulse hangs past the deadline',
     should: 'report the overrun once, as the pulse',
-    actual: failures.map((failure) => [
-      ((failure as unknown[])[0] as Error).message,
-      (failure as unknown[])[1],
-    ]),
+    actual: failureStages(failures),
     expected: [['Seat pulse overran its ending', 'pulse']],
   });
 });

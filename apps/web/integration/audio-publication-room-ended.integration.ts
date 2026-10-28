@@ -28,7 +28,10 @@ async function closeIn(order: 'racing' | 'dropped' | 'live') {
   } catch (error) {
     // A cleanup failure never hides the child's own exit (a native crash).
     await cleanup().catch((cleanupError: unknown) => {
-      throw new AggregateError([error, cleanupError], String(error));
+      throw new AggregateError(
+        [error, cleanupError],
+        `${(error as Error).message}; room cleanup also failed: ${(cleanupError as Error).message}`,
+      );
     });
     throw error;
   }

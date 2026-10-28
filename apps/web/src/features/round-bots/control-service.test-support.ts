@@ -30,3 +30,17 @@ export function within<T>(promise: Promise<T>, what: string, ms = 1_000) {
     }),
   ]).finally(() => clearTimeout(timer));
 }
+
+/** A seat target whose Round and seat share one id. */
+export const seat = (id: string, segmentId = 's') => ({
+  roundId: id,
+  roundParticipantId: id,
+  segmentId,
+});
+
+/** Each recorded failure as [message, stage]. */
+export const failureStages = (failures: readonly unknown[]) =>
+  failures.map((failure) => {
+    const [error, stage] = failure as [Error, string];
+    return [error.message, stage];
+  });
