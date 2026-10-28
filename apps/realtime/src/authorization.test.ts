@@ -6,7 +6,8 @@ import {
   createRealtimeAuthorization,
   type RealtimeReadingPolicy,
 } from './authorization';
-import { realtimeReadingPolicy } from './reading-policy';
+import { productionServeOptions } from './production';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 const principal = {
@@ -135,11 +136,19 @@ for (const mode of [
       resources,
       now: () => Date.parse(instant),
       ...(mode === 'missing-policy'
-        ? {}
+        ? { readingPolicy: refuseAllReading }
         : {
             readingPolicy:
               mode === 'production-policy'
-                ? realtimeReadingPolicy
+                ? // start.ts's own composition, not a copy of its policy value.
+                  productionServeOptions({
+                    resources,
+                    port: 0,
+                    hostname: '127.0.0.1',
+                    trustedProxies: [],
+                    instanceId: 'i'.repeat(24),
+                    nextId: () => 'n'.repeat(24),
+                  }).readingPolicy
                 : approvedTestReading,
           }),
     });

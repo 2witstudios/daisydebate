@@ -3,6 +3,7 @@ import { OUTBOX_ORIGIN } from '@daisy/db/outbox';
 import { serveRealtime } from './serve';
 import { fakeApp } from './serve.test-support';
 import { deferred } from './outbox-drain.test-support';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 const timers = {
@@ -16,6 +17,7 @@ test('native server waits for the existing-pool transient LISTEN acknowledgement
   let served = 0;
   let stopped = 0;
   const opening = serveRealtime({
+    readingPolicy: refuseAllReading,
     port: 0,
     timers,
     resources: fakeApp({
@@ -56,6 +58,7 @@ for (const failure of ['hint-listen', 'serve', 'shutdown'] as const)
     let refused = false;
     try {
       const runtime = await serveRealtime({
+        readingPolicy: refuseAllReading,
         port: 0,
         timers,
         resources: fakeApp({

@@ -14,6 +14,7 @@ import { openAuthorityPeer } from './authority-peer.test-support';
 import { roundAudienceFixture } from './round-audience.test-support';
 import { observeNativeServe } from './paused-reader.test-support';
 import { notifyOutbox, waitFor } from './support';
+import { refuseAllReading } from '../src/authorization.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -33,6 +34,7 @@ test('two actual instances consume durable access and session revocations withou
       fixture.resources.clock,
     );
     replica = await serveRealtime({
+      readingPolicy: refuseAllReading,
       resources: replicaResources,
       serve: observe,
       port: 0,

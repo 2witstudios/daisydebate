@@ -8,6 +8,7 @@ import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
 import type { RealtimeReadingPolicy } from '../src/authorization';
 import { testOrigin } from './support';
+import { refuseAllReading } from '../src/authorization.test-support';
 
 /** Durable isolated identity; authority always comes from the actual session/account readers. */
 export async function socketAuthorityFixture(
@@ -45,7 +46,7 @@ export async function socketAuthorityFixture(
     runtime = await serveRealtime({
       resources,
       ...(serve ? { serve } : {}),
-      ...(readingPolicy ? { readingPolicy } : {}),
+      readingPolicy: readingPolicy ?? refuseAllReading,
       port: 0,
       hostname: '127.0.0.1',
       now: () => elapsed,

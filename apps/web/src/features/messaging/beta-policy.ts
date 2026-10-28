@@ -94,12 +94,6 @@ export function tightenMessagingValues(
 }
 
 /**
- * DEC-251 posting: admitted (beta approved) participants aged 16 or over,
- * within one age band. ADR 0061 allows no cross-band contact without a
- * separately approved guardian policy, so 16-17 and adult never meet.
- */
-
-/**
  * Beta defaults DEC-251 leaves open, approved by the orchestrator [749] and
  * recorded on the DEC-251 page: this reaction set, 8-unit reactions, typing
  * refetched every 3 s for at most 2 actors (DMs only while groups are off),

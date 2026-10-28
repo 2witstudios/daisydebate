@@ -6,6 +6,7 @@ import { testNamespace } from '@daisy/redis/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
+import { refuseAllReading } from '../src/authorization.test-support';
 
 export const testOrigin = 'https://realtime.integration.test';
 const testServices = requireTestServices(process.env);
@@ -47,6 +48,7 @@ export async function bootServer(
     ids: systemId,
   });
   const { server, drain, close } = await serveRealtime({
+    readingPolicy: refuseAllReading,
     resources,
     port: 0,
     hostname: '127.0.0.1',

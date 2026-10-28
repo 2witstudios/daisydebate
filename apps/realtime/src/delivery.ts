@@ -27,12 +27,17 @@ export function createRealtimeDelivery({
   readonly resources: RealtimeApp;
   readonly now: () => number;
   readonly publish: (topic: string, frame: ServerMessage) => void;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  /**
+   * Required: channel authorization needs reading evidence, so a composition
+   * without a policy would refuse every channel subscription. Tests that do
+   * not exercise channels pass `refuseAllReading` explicitly.
+   */
+  readonly readingPolicy: RealtimeReadingPolicy;
 }) {
   const authority = createRealtimeAuthorization({
     resources,
     now,
-    ...(readingPolicy ? { readingPolicy } : {}),
+    readingPolicy,
   });
   const tuning = resources.transport ?? {
     maxPerIp: 20,
