@@ -33,6 +33,7 @@ import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { deliverObservationPurges } from './observation-purge-jobs';
+import { duePrivacyJobs } from './privacy/vendor-jobs';
 import { roundProtectedReads } from './round-protected-reads';
 import type { SQL } from 'bun';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
@@ -203,6 +204,13 @@ export function createDatabase({
     ) =>
       instrumented(eventSink, 'deliverObservationPurges', () =>
         deliverObservationPurges(control, input, port),
+      ),
+    /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
+    duePrivacyJobs: (
+      input: Parameters<typeof duePrivacyJobs>[1],
+    ) =>
+      instrumented(eventSink, 'duePrivacyJobs', () =>
+        duePrivacyJobs(control, input),
       ),
     ...authOperations({ database: control, eventSink }),
     ...provisionalRetentionOperations({ database: control, eventSink }),

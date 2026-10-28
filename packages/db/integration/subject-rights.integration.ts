@@ -7,6 +7,8 @@ import { createAuthorizationSubject } from './authorization.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
 import { played } from './member-profile.test-support';
 import { bindings, now } from './privacy.test-support';
+import { validConfig, validRules } from './round-fixtures';
+import { at, change, rating, season } from './standings-fixtures';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -106,5 +108,129 @@ test('closing an account through every feature step keeps the competitive record
     } finally {
       await fixture.sql`delete from email_suppression where recipient_hash=${recipientHash}`;
     }
+  });
+});
+
+test('exporting a member includes their competitive record and nothing of another member (ISSUE-833)', async () => {
+  await withFixture(url, async (fixture) => {
+    const subject = await createAuthorizationSubject(fixture);
+    const other = await createAuthorizationSubject(fixture);
+    const seasonId = await season(fixture, 'active', at(1));
+    const formatId = await fixture.format();
+    const mine = await played(fixture, {
+      member: subject.actorId,
+      side: 'affirmative',
+      outcome: 'affirmative',
+      day: 2,
+    });
+    const theirs = await played(fixture, {
+      member: other.actorId,
+      side: 'affirmative',
+      outcome: 'negative',
+      day: 2,
+    });
+    const hostedRoom = createId();
+    await fixture.insert('rooms', {
+      id: hostedRoom,
+      host_actor_id: subject.actorId,
+      title: 'Mine',
+      topic: 'Motion',
+      visibility: 'public',
+      format_id: formatId,
+      format_version: 1,
+      competition_type: 'casual',
+      config: validConfig,
+      execution_plan: {},
+      rules_snapshot: validRules,
+      status: 'assembling',
+    });
+    const judgedRound = await fixture.round({
+      status: 'completed',
+      outcome: 'affirmative',
+      started_at: at(3, 11),
+      completed_at: at(3),
+    });
+    const judgeSeat = await fixture.seat(judgedRound, 'judge', 0, subject.actorId);
+    await fixture.freeze(judgedRound);
+    const ballotId = createId();
+    await fixture.insert('ballots', {
+      id: ballotId,
+      judge_participant_id: judgeSeat.id,
+      round_id: judgedRound,
+      freeze_revision: 1,
+      rubric_version: 'speaker-10@1',
+      winner: 'affirmative',
+      scores: {},
+      reason: 'Mine',
+      status: 'submitted',
+      submitted_at: at(3),
+    });
+    await rating(fixture, {
+      actorId: subject.actorId,
+      formatId,
+      seasonId,
+      ladder: 'ranked',
+      rating: 1520,
+    });
+    await change(fixture, {
+      roundId: mine.id,
+      actorId: subject.actorId,
+      formatId,
+      seasonId,
+      ladder: 'ranked',
+      before: 1500,
+      after: 1520,
+      occurredAt: at(3),
+    });
+    await rating(fixture, {
+      actorId: other.actorId,
+      formatId,
+      seasonId,
+      ladder: 'ranked',
+      rating: 1490,
+    });
+    await change(fixture, {
+      roundId: theirs.id,
+      actorId: other.actorId,
+      formatId,
+      seasonId,
+      ladder: 'ranked',
+      before: 1500,
+      after: 1490,
+      occurredAt: at(3),
+    });
+    const database = drizzle({ client: fixture.sql });
+    const exported = await exportPrivacySubject(database, subject, rooms);
+    const ids = (
+      rows?: readonly Readonly<Record<string, unknown>>[],
+    ): unknown[] => (rows ?? []).map((row) => row.id);
+    assert({
+      given:
+        'two members with played Rounds, ratings and one judged ballot, one exporting',
+      should:
+        'export the hosted Rooms, the Round seats, the Rounds sat and judged, the ballots and the ratings, and nothing of the other member',
+      actual: {
+        rooms: ids(exported.rooms),
+        rounds: ids(exported.rounds),
+        roundSeats: (exported.round_participants ?? []).map(
+          (row) => row.actor_id,
+        ),
+        ballots: ids(exported.ballots),
+        ratingActors: (exported.ratings ?? []).map((row) => row.actor_id),
+        changeActors: (exported.rating_changes ?? []).map(
+          (row) => row.actor_id,
+        ),
+        leaksOtherMember: JSON.stringify(exported).includes(other.actorId),
+      },
+      expected: {
+        rooms: [hostedRoom],
+        rounds: [mine.id, judgedRound],
+        roundSeats: [subject.actorId, subject.actorId],
+        ballots: [ballotId],
+        ratingActors: [subject.actorId],
+        changeActors: [subject.actorId],
+        leaksOtherMember: false,
+      },
+    });
   });
 });
