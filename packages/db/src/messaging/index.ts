@@ -56,3 +56,8 @@ export {
   readMessagingInboxSummary,
   type MessagingInboxSummary,
 } from './inbox-summary';
+export type {
+  MessagingInboxCandidate,
+  MessagingInboxPage,
+  MessagingInboxPolicy,
+} from './inbox-page';

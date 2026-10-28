@@ -45,14 +45,37 @@ export async function groupInvitationFacts(
     scope.channelId,
     inviterActorId,
   );
+  if (!inviter) throw createAppError('NOT_FOUND');
+  const invitation = groupInvitationFact(channel, inviter, row, contacts);
+  return {
+    row,
+    invitation:
+      scope.expectedGeneration === undefined
+        ? invitation
+        : { ...invitation, expectedGeneration: scope.expectedGeneration },
+  };
+}
+/** The invitation fact from already-read channel, inviter and row facts. */
+export function groupInvitationFact(
+  channel: MessagingChannelFact,
+  inviter: MessagingChannelFact,
+  row: {
+    readonly channelId: string;
+    readonly invitedByActorId: string;
+    readonly inviteeActorId: string;
+    readonly generation: number;
+    readonly state: string;
+  },
+  contacts: MessagingGroupInvitationFact['contactPairs'],
+): MessagingGroupInvitationFact {
   if (
     channel.authority.kind !== 'private_group' ||
-    inviter?.authority.kind !== 'private_group'
+    inviter.authority.kind !== 'private_group'
   )
     throw createAppError('NOT_FOUND');
   const state = stateSchema.safeParse(row.state);
   if (!state.success) throw createAppError('INFRASTRUCTURE');
-  const invitation: MessagingGroupInvitationFact = {
+  return {
     kind: 'group_invitation',
     channel: {
       channelId: channel.channelId,
@@ -65,20 +88,16 @@ export async function groupInvitationFacts(
     },
     invitation: {
       channelId: row.channelId,
-      inviterActorId,
+      inviterActorId: row.invitedByActorId,
       inviteeActorId: row.inviteeActorId,
       generation: row.generation,
       state: state.data,
     },
     inviterGrant: {
-      actorId: inviterActorId,
+      actorId: row.invitedByActorId,
       role: inviter.authority.role,
       generation: inviter.authority.generation,
     },
     contactPairs: contacts,
-    ...(scope.expectedGeneration === undefined
-      ? {}
-      : { expectedGeneration: scope.expectedGeneration }),
   };
-  return { row, invitation };
 }

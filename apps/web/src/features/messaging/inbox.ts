@@ -1,5 +1,18 @@
+import type {
+  MessagingInboxCandidate,
+  MessagingInboxPage,
+  MessagingInboxPolicy,
+  MessagingInboxSummary,
+} from '@daisy/db/messaging';
+import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { isAppError } from '@daisy/errors';
-import type { MessagingInboxSummary } from '@daisy/db/messaging';
+import { requireMemberActor } from '../access/actor';
+import {
+  messagingAuthorizationInput,
+  type MessagingFenceOptions,
+} from './authorization-fence';
+import { groupInvitationAuthorizationInput } from './group-invitation-composition';
 import {
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
@@ -112,53 +125,86 @@ const byAttention = (a: MessagingInboxEntry, b: MessagingInboxEntry) =>
     ? Number(b.kind === 'incoming_invitation') -
       Number(a.kind === 'incoming_invitation')
     : b.activityAt.localeCompare(a.activityAt);
-export async function readMessagingInbox(
-  input: { readonly limit: number; readonly after?: string },
-  port: {
-    readonly candidates: (input: {
-      readonly limit: number;
-      readonly after?: string;
-    }) => Promise<readonly string[]>;
-    readonly inspect: (channelId: string) => Promise<MessagingInboxEntry>;
-  },
-) {
-  const candidates = await port.candidates(input);
-  const entries: MessagingInboxEntry[] = [];
-  for (const channelId of candidates) {
-    try {
-      entries.push(await port.inspect(channelId));
-    } catch (error) {
-      if (
-        !isAppError(error) ||
-        !['AUTHORIZATION', 'NOT_FOUND', 'CONFLICT'].includes(error.code)
-      )
-        throw error;
-    }
-  }
-  return {
-    entries: entries.sort(byAttention),
-    nextAfter:
-      candidates.length === input.limit ? (candidates.at(-1) ?? null) : null,
+type InboxDecision = {
+  readonly kind: MessagingInboxEntry['kind'];
+  readonly summary: {
+    readonly counterpartActorId: string | null;
+    readonly content: 'messages' | 'introduction';
+  } | null;
+};
+const refused = (error: unknown, codes: readonly string[]) => {
+  if (!isAppError(error) || !codes.includes(error.code)) throw error;
+  return null;
+};
+/**
+ * One candidate's entry under the reader's own channel grant, else a distinct
+ * minimal invitation grant, else nothing. Pure over the page's fenced facts;
+ * outages are never read as an omitted entry.
+ */
+export async function decideMessagingInboxCandidate(
+  candidate: MessagingInboxCandidate,
+  ageOf: Parameters<MessagingInboxPolicy<InboxDecision>['decide']>[1],
+  options: MessagingFenceOptions & { readonly now: string },
+): Promise<InboxDecision | null> {
+  const { principal, now } = options;
+  const scope = {
+    ...requireMemberActor(principal),
+    channelId: candidate.channelId,
   };
+  if (candidate.channel)
+    try {
+      const { fact } = candidate.channel;
+      const view = messagingInboxView(fact.authority, scope.actorId);
+      const accounts = await loadAccountPolicyFacts({
+        accounts: candidate.channel.accounts,
+        now,
+        readAgeFact: async (account) => ageOf(account),
+      });
+      requireAuthorization({
+        ...messagingAuthorizationInput(scope, fact, { accounts, now }, options),
+        capability: view.capability,
+      });
+      return {
+        kind: view.kind,
+        summary: {
+          counterpartActorId: view.counterpartActorId,
+          content: view.content,
+        },
+      };
+    } catch (error) {
+      refused(error, ['AUTHORIZATION', 'NOT_FOUND']);
+    }
+  if (!candidate.invitation) return null;
+  try {
+    requireAuthorization(
+      groupInvitationAuthorizationInput({
+        principal,
+        scope,
+        operation: 'read',
+        facts: {
+          invitation: candidate.invitation.fact,
+          accounts: candidate.invitation.accounts,
+        },
+        now,
+      }),
+    );
+    return { kind: 'incoming_invitation', summary: null };
+  } catch (error) {
+    return refused(error, ['AUTHORIZATION', 'NOT_FOUND', 'CONFLICT']);
+  }
 }
 
-/** A denied history grant may still have a distinct minimal invitation grant; outages never do. */
-export async function inspectMessagingInboxAssociation(
-  channelId: string,
-  port: {
-    readonly channel: () => Promise<MessagingInboxEntry>;
-    readonly invitation: () => Promise<void>;
-  },
-): Promise<MessagingInboxEntry> {
-  try {
-    return await port.channel();
-  } catch (error) {
-    if (
-      !isAppError(error) ||
-      !['AUTHORIZATION', 'NOT_FOUND'].includes(error.code)
-    )
-      throw error;
-  }
-  await port.invitation();
-  return { channelId, kind: 'incoming_invitation' };
+/** The page's DTOs: invitations lead, then newest activity first. */
+export function messagingInboxEntries(
+  page: MessagingInboxPage<InboxDecision>['entries'],
+): MessagingInboxEntry[] {
+  return page
+    .flatMap(({ channelId, decision, summary }): MessagingInboxEntry[] => {
+      if (decision.kind === 'incoming_invitation')
+        return [{ channelId, kind: 'incoming_invitation' }];
+      return summary
+        ? [summarizeMessagingInboxEntry(channelId, decision.kind, summary)]
+        : [];
+    })
+    .sort(byAttention);
 }

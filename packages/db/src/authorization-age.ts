@@ -9,7 +9,7 @@ type AgeInput = {
   readonly accountRevision: number;
   readonly now: string;
 };
-type AgeFact =
+export type AuthorizationAgeFact =
   | { readonly state: 'unknown' }
   | {
       readonly state: 'known';
@@ -27,7 +27,7 @@ function isoDeadline(value: unknown) {
 }
 function knownBand(
   value: unknown,
-): value is Extract<AgeFact, { state: 'known' }>['band'] {
+): value is Extract<AuthorizationAgeFact, { state: 'known' }>['band'] {
   return (
     value === 'under-13' ||
     value === '13-15' ||
@@ -53,7 +53,7 @@ function projection(
   row: Record<string, unknown>,
   input: AgeInput,
   instant: Date,
-): AgeFact {
+): AuthorizationAgeFact {
   const deadline = new Date(instant);
   deadline.setUTCDate(1);
   deadline.setUTCMonth(deadline.getUTCMonth() + 1);
@@ -81,7 +81,7 @@ function projection(
 export async function loadAuthorizationAgeFact(
   tx: AuthorizationTransaction,
   input: AgeInput,
-): Promise<AgeFact> {
+): Promise<AuthorizationAgeFact> {
   const instant = checkedInstant(input);
   const rows =
     await tx.execute(sql`select * from public.daisy_authorization_age(
@@ -90,4 +90,35 @@ export async function loadAuthorizationAgeFact(
   if (rows.length !== 1 || typeof rows[0] !== 'object' || rows[0] === null)
     return { state: 'unknown' };
   return projection(rows[0] as Record<string, unknown>, input, instant);
+}
+
+/**
+ * Many accounts' age facts in one statement on the caller's transaction,
+ * which must already hold their account fences; in input order.
+ */
+export async function loadAuthorizationAgeFacts(
+  tx: AuthorizationTransaction,
+  inputs: readonly AgeInput[],
+): Promise<readonly AuthorizationAgeFact[]> {
+  const instants = inputs.map(checkedInstant);
+  if (inputs.length === 0) return [];
+  const wanted = inputs.map((input, i) => ({
+    i,
+    user_id: input.userId,
+    actor_id: input.actorId,
+    revision: input.accountRevision,
+    checked_at: input.now,
+  }));
+  const rows = await tx.execute(sql`
+    select w.i as "index", age.* from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb)
+      as w(i integer, user_id text, actor_id text, revision integer, checked_at timestamptz)
+    cross join lateral public.daisy_authorization_age(w.user_id, w.actor_id, w.revision, w.checked_at) as age
+    order by w.i`);
+  const byIndex = new Map(
+    (rows as Record<string, unknown>[]).map((row) => [row.index, row]),
+  );
+  return inputs.map((input, i) => {
+    const row = byIndex.get(i);
+    return row ? projection(row, input, instants[i]!) : { state: 'unknown' };
+  });
 }

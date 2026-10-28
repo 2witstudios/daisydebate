@@ -9,6 +9,7 @@ const actorId = 'a'.repeat(24),
   otherActorId = 'b'.repeat(24),
   channelId = 'c'.repeat(24);
 const row = {
+  channelId,
   title: null,
   counterpart: 'kelvin',
   createdAt: '2026-10-01T10:00:00.000Z',
@@ -134,7 +135,10 @@ test('a pending request summarizes only its introduction', async () => {
   assert({
     given: 'the request summary query',
     should: 'never select message history',
-    actual: incoming.statements[0]?.params.includes(false),
+    actual: incoming.statements[0]?.params.some(
+      (param) =>
+        typeof param === 'string' && param.includes('"messages":false'),
+    ),
     expected: true,
   });
 });
