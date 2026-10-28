@@ -2,7 +2,7 @@ import type { Database } from '@daisy/db';
 import type { RoundView } from '@daisy/protocol';
 import { rateDebate } from '@daisy/debate-engine';
 import { ratingStanding } from './standing';
-import { summarizeStandings } from '../leaderboard/summarize-standings';
+import { readRatingStandings } from './read';
 
 export type RoundRating = {
   readonly label: string;
@@ -11,6 +11,7 @@ export type RoundRating = {
   readonly delta: number | null;
   readonly win: number | null;
   readonly loss: number | null;
+  readonly hidden?: boolean;
 };
 export type RoundRatingsView = {
   readonly ladder: string;
@@ -33,26 +34,23 @@ export async function readRoundRatings(
 ): Promise<RoundRatingsView | null> {
   const { round, now } = input;
   if (round.ladderId === null) return null;
-  if (
-    input.viewerActorId &&
-    (await store.readRatingBlindings(input.viewerActorId)).length > 0 &&
-    round.participants.some(
-      (p) =>
-        !('anonymous' in p) &&
-        p.actorId === input.viewerActorId &&
-        p.role === 'judge',
-    )
-  )
-    return null;
-  const seasons = await store.listLadderSeasons();
-  const read = await store.readStandings({
+  const published = await readRatingStandings(store, {
     ladder: round.ladderId,
-    seasonIds: seasons.map((s) => s.id),
+    seasonId: null,
+    now,
+    ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
   });
-  const postings = read.changes.filter((c) => c.roundId === round.id);
+  if (!published)
+    return {
+      ladder: round.ladderId,
+      season: 'No active season',
+      rows: [],
+      pending: false,
+    };
+  const postings = published.postings.filter((c) => c.roundId === round.id);
   const season =
-    seasons.find((s) => s.id === postings[0]?.seasonId) ??
-    seasons.find((s) => s.status === 'active');
+    published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
+    published.seasons.find((s) => s.status === 'active');
   if (!season)
     return {
       ladder: round.ladderId,
@@ -60,9 +58,7 @@ export async function readRoundRatings(
       rows: [],
       pending: false,
     };
-  const summaries = summarizeStandings(read, now).filter(
-    (s) => s.seasonId === season.id,
-  );
+  const summaries = published.summaries.filter((s) => s.seasonId === season.id);
   const seats = round.participants.filter(
     (p) => p.role !== 'judge' && !('anonymous' in p),
   );
@@ -106,10 +102,26 @@ export async function readRoundRatings(
       postings.length === 0,
     rows: seats.flatMap((seat) => {
       if (!('actorId' in seat)) return [];
+      if (published.blindedActorIds.includes(seat.actorId))
+        return [
+          {
+            label: seat.label,
+            rating: null,
+            provisional: false,
+            delta: null,
+            win: null,
+            loss: null,
+            hidden: true,
+          },
+        ];
       const current = standing(seat.actorId);
       const posted = postings.find((p) => p.actorId === seat.actorId);
       const view = current
-        ? ratingStanding(current, current.lastRatedAt, now)
+        ? ratingStanding(
+            current,
+            current.lastRatedAt,
+            season.status === 'closed' ? season.endsAt! : now,
+          )
         : null;
       const side = seat.role === 'affirmative' ? 'affirmative' : 'negative';
       const winning = side === 'affirmative' ? winA : winN;

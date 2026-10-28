@@ -1,7 +1,7 @@
 import type { SearchParams } from '../access/decision';
-import { rankEntries } from './standing';
+import { rankRatingEntries } from '../ratings/rank';
 import { toRow } from './ladder-rows';
-import type { LadderData, LadderRow } from './ladder-view';
+import type { LadderData, LadderRow, LadderViewer } from './ladder-view';
 import { defaultQuery } from './query';
 import {
   isClosed,
@@ -48,12 +48,16 @@ export type SeasonsView = {
 };
 
 /** A season's overview, its champion and top ten, from its ladder entries. */
-export function buildSeasonsView(data: LadderData, now: string): SeasonsView {
+export function buildSeasonsView(
+  data: LadderData,
+  now: string,
+  viewer: LadderViewer | null = null,
+): SeasonsView {
   const { season } = data;
   const closed = isClosed(season);
   const query = { ...defaultQuery, season: season.id };
-  const context = { season, query, viewer: null, mine: undefined };
-  const top = rankEntries(data.entries)
+  const context = { season, query, viewer, mine: undefined };
+  const top = rankRatingEntries(data.entries)
     .filter((entry) => !entry.provisional)
     .slice(0, SNAPSHOT_SIZE)
     .map((entry) => toRow(entry, context));

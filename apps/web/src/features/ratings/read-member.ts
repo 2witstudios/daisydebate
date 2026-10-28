@@ -1,7 +1,6 @@
 import type { Database } from '@daisy/db';
 import { ratingLadders } from '@daisy/protocol';
 import type { RatingLadder } from '@daisy/protocol';
-import { rankEntries } from '../leaderboard/standing';
 export type MemberStanding = {
   readonly ladder: RatingLadder;
   readonly season: string;
@@ -9,7 +8,7 @@ export type MemberStanding = {
   readonly provisional: boolean;
   readonly hidden: boolean;
 };
-import { readLadder } from '../leaderboard/read-leaderboard';
+import { readRatingStandings } from './read';
 
 /** The same published data/policy as leaderboard, with one injected read instant. */
 export async function readMemberStandings(
@@ -25,23 +24,22 @@ export async function readMemberStandings(
 ): Promise<readonly MemberStanding[]> {
   const reads = await Promise.all(
     ratingLadders.map(async (ladder): Promise<MemberStanding | null> => {
-      const read = await readLadder(store, {
+      const read = await readRatingStandings(store, {
         seasonId: null,
         ladder,
         now: input.now,
-        username: input.username,
         ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
       });
       if (!read) return null;
-      const entry = rankEntries(read.data.entries).find(
+      const entry = (read.entriesBySeason[read.season.id] ?? []).find(
         (e) => e.username === input.username,
       );
       return {
         ladder,
-        season: read.data.season.name,
-        rating: entry?.rating ?? null,
+        season: read.season.name,
+        rating: entry ? Math.round(entry.rating) : null,
         provisional: entry?.provisional ?? false,
-        hidden: read.viewer?.blinded.includes(input.username) ?? false,
+        hidden: entry ? read.blindedActorIds.includes(entry.id) : false,
       };
     }),
   );

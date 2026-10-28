@@ -1,5 +1,4 @@
-import { processApp } from '../../../../../server/process-app';
-import { readRoundRatings } from '../../../../../features/ratings/read-round';
+import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
@@ -126,13 +125,7 @@ export default async function RoundRoomPage({
       <LiveRoundRoom
         attendanceSlot={
           <>
-            <RoundRatings
-              view={await readRoundRatings(processApp().database, {
-                round: result.round,
-                now: processApp().clock.now(),
-                viewerActorId: actorId,
-              })}
-            />
+            <RoundRatings view={await requestRoundRatings(result.round)} />
             <RoundNativeAttendance
               view={result.round}
               state={await readPersistedAttendance(id)}

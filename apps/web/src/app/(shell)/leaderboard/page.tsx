@@ -4,9 +4,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
 import { parseLadderQuery } from '../../../features/leaderboard/query';
-import { readLadder } from '../../../features/leaderboard/read-leaderboard';
-import { processApp } from '../../../server/process-app';
-import { requestIdentity } from '../../../lib/request-session';
+import { requestLadder } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
@@ -18,17 +16,11 @@ export default async function LeaderboardPage({
   searchParams: Promise<SearchParams>;
 }) {
   const query = parseLadderQuery(await searchParams);
-  const identity = await requestIdentity();
-  const username = identity.state === 'member' ? identity.username : null;
   const now = systemClock.now();
-  const read = await readLadder(processApp().database, {
+  const read = await requestLadder({
     seasonId: query.season,
     ladder: query.ladder,
     now,
-    username,
-    ...(identity.state === 'member' && identity.principal.actorId
-      ? { viewerActorId: identity.principal.actorId }
-      : {}),
   });
   if (!read)
     return (

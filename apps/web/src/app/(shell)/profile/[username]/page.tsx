@@ -1,5 +1,4 @@
-import { processApp } from '../../../../server/process-app';
-import { readMemberStandings } from '../../../../features/ratings/read-member';
+import { requestMemberStandings } from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
@@ -41,15 +40,7 @@ export default async function ProfileRoute({
   // Round the viewer may list. Either way there is no such page.
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
-  const identity = await requestIdentity();
-  const app = processApp();
-  const standings = await readMemberStandings(app.database, {
-    username: profile.username,
-    now: app.clock.now(),
-    ...(identity.state === 'member' && identity.principal.actorId
-      ? { viewerActorId: identity.principal.actorId }
-      : {}),
-  });
+  const standings = await requestMemberStandings(profile.username);
   return (
     <>
       <MemberStandings standings={standings} />

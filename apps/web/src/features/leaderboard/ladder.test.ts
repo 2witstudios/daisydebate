@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PAGE_SIZE } from './ladder-view';
-import { entry } from './standing.test-support';
+import { entry } from '../ratings/standing.test-support';
 import { closedSeason, field, ladder } from './ladder.test-support';
 
 setupRitewayBun();

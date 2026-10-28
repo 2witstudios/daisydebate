@@ -1,11 +1,10 @@
 import type { Database } from '@daisy/db';
 import type { RatingLadder } from '@daisy/protocol';
-import { ratingStanding } from '../ratings/standing';
+import { readRatingStandings } from '../ratings/read';
 import type { RatingPoint } from './history';
 import type { LadderData, LadderViewer } from './ladder-view';
 import type { Season } from './season';
-import { rankEntries, type RankedEntry } from './standing';
-import { summarizeStandings } from './summarize-standings';
+import { rankRatingEntries, type RankedRatingEntry } from '../ratings/rank';
 
 export type LadderRead = {
   readonly data: LadderData;
@@ -14,7 +13,7 @@ export type LadderRead = {
 export type DebaterRead = {
   readonly seasonsPlayed: readonly {
     readonly season: Season;
-    readonly entry: RankedEntry | null;
+    readonly entry: RankedRatingEntry | null;
   }[];
   readonly points: readonly RatingPoint[];
 };
@@ -37,43 +36,11 @@ export async function readLadder(
 ): Promise<
   (LadderRead & { readonly debater: (username: string) => DebaterRead }) | null
 > {
-  const records = await store.listLadderSeasons();
-  const seasons: readonly Season[] = records.map((s) => ({
-    id: s.id,
-    name: s.name,
-    startsAt: s.startsAt,
-    endsAt: s.endsAt,
-    status: s.status === 'closed' ? 'closed' : 'active',
-  }));
-  const season =
-    seasons.find((s) => s.id === input.seasonId) ??
-    seasons.find((s) => s.status === 'active') ??
-    seasons[0];
-  if (!season) return null;
-  const read = await store.readStandings({
-    ladder: input.ladder,
-    seasonIds: seasons.map((s) => s.id),
-  });
-  const blinded = input.viewerActorId
-    ? await store.readRatingBlindings(input.viewerActorId)
-    : [];
-  const summaries = summarizeStandings(
-    read,
-    new Date(Date.parse(input.now) - 7 * 86_400_000).toISOString(),
-  );
+  const published = await readRatingStandings(store, input);
+  if (!published) return null;
+  const { season, seasons, summaries } = published;
   const entriesFor = (seasonId: string) =>
-    summaries
-      .filter((s) => s.seasonId === seasonId && s.username !== null)
-      .map((s) => ({
-        id: s.actorId,
-        username: s.username!,
-        accountClosed: s.accountClosed,
-        ...ratingStanding(s, s.lastRatedAt, input.now),
-        played: s.played,
-        wins: s.wins,
-        weekChange: Math.round(s.weekChange),
-        seasonChange: Math.round(s.seasonChange),
-      }));
+    published.entriesBySeason[seasonId] ?? [];
   return {
     data: {
       season,
@@ -87,16 +54,14 @@ export async function readLadder(
         ? null
         : {
             username: input.username,
-            blinded: read.ratings
-              .filter((r) => blinded.includes(r.actorId))
-              .flatMap((r) => (r.username ? [r.username] : [])),
+            blinded: published.blindedUsernames,
           },
     debater: (username) => {
       const summary = summaries.find(
         (s) => s.seasonId === season.id && s.username === username,
       );
       const changes = summary
-        ? read.changes
+        ? published.postings
             .filter(
               (c) => c.actorId === summary.actorId && c.seasonId === season.id,
             )
@@ -127,10 +92,10 @@ export async function readLadder(
                     ? ('won' as const)
                     : ('lost' as const),
               opponent:
-                read.ratings.find(
+                summaries.find(
                   (r) =>
                     r.actorId ===
-                    read.changes.find(
+                    published.postings.find(
                       (other) =>
                         other.roundId === c.roundId &&
                         other.actorId !== c.actorId,
@@ -143,7 +108,7 @@ export async function readLadder(
         seasonsPlayed: seasons.map((s) => ({
           season: s,
           entry:
-            rankEntries(entriesFor(s.id)).find(
+            rankRatingEntries(entriesFor(s.id)).find(
               (e) => e.username === username,
             ) ?? null,
         })),

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { entry } from './standing.test-support';
+import { entry } from '../ratings/standing.test-support';
 import { field, ladder } from './ladder.test-support';
 
 setupRitewayBun();

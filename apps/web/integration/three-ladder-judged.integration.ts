@@ -8,12 +8,8 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import {
-  everyoneReady,
-  fixtureBallot,
-  playOut,
-} from './round-judging.test-support';
-import { strikeStanding } from './room-draw.test-support';
+import { fixtureBallot, playOut } from './round-judging.test-support';
+import { readyRatedRoom } from './rated-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
@@ -36,66 +32,7 @@ for (const ladder of ratingLadders)
             const season = await withSeasons(databaseUrl, (s) =>
               s.activateBetaSeason({ id: seasonId }),
             );
-            const [preset] =
-              await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
-            let room = await f.assemble({
-              topic:
-                ladder === 'freestyle'
-                  ? null
-                  : 'Cities should make transit free',
-              selection: {
-                kind: 'ranked',
-                formatId: ladder,
-                formatVersion: preset!.format_version,
-                presetVersion: preset!.version,
-              },
-            });
-            if (judgeKind === 'human')
-              room = (
-                await f.command(f.outsider, room, {
-                  type: 'claim-seat',
-                  role: 'judge',
-                  slot: 0,
-                })
-              ).view;
-            else
-              room = (
-                await f.command(f.host, room, {
-                  type: 'assign-seat',
-                  role: 'judge',
-                  slot: 0,
-                  actorId: (await f.aiJudge()).actorId,
-                })
-              ).view;
-            room = await everyoneReady(
-              f,
-              room,
-              judgeKind === 'human'
-                ? [f.host, f.guest, f.outsider]
-                : [f.host, f.guest],
-            );
-            if (ladder === 'freestyle') {
-              room = (
-                await f.command(f.host, room, { type: 'start-pre-round' })
-              ).view;
-              for (
-                let ordinal = 0;
-                ordinal < (room.resolutionDraw?.drawSize ?? 1) - 1;
-                ordinal++
-              ) {
-                const who = ordinal % 2 === 0 ? f.guest : f.host;
-                room = (
-                  await strikeStanding(
-                    f,
-                    await f.operations.view(who, room.id),
-                    who,
-                    ordinal,
-                  )
-                ).view;
-              }
-              await f.sql`update rooms set prep_started_at=clock_timestamp()-interval '21 minutes' where id=${room.id}`;
-              room = await f.operations.view(f.host, room.id);
-            }
+            const room = await readyRatedRoom(f, ladder, judgeKind);
             ({ roundId } = await startRuntimeRound(f, room));
             await playOut(f, roundId, true);
             const frozen = await finalizeAsWeb(f, roundId);

@@ -7,8 +7,8 @@ import {
 } from './ladder-view';
 import { defaultQuery, type LadderQuery } from './query';
 import type { Season } from './season';
-import type { LadderEntry } from './standing';
-import { entry } from './standing.test-support';
+import type { RatingEntry } from '../ratings/rank';
+import { entry } from '../ratings/standing.test-support';
 
 export const NOW = '2026-09-30T12:00:00.000Z';
 
@@ -29,7 +29,7 @@ export const closedSeason: Season = {
 };
 
 /** `count` established debaters rated 1700 down by ten each. */
-export const field = (count: number, prefix = 'p'): readonly LadderEntry[] =>
+export const field = (count: number, prefix = 'p'): readonly RatingEntry[] =>
   Array.from({ length: count }, (_, i) =>
     entry({
       id: `${prefix}${String(i).padStart(3, '0')}`,
@@ -39,7 +39,7 @@ export const field = (count: number, prefix = 'p'): readonly LadderEntry[] =>
   );
 
 export const dataFor = (
-  entries: readonly LadderEntry[],
+  entries: readonly RatingEntry[],
   season: Season = activeSeason,
 ): LadderData => ({
   season,
@@ -50,7 +50,7 @@ export const dataFor = (
 });
 
 export const ladder = (
-  entries: readonly LadderEntry[],
+  entries: readonly RatingEntry[],
   query: Partial<LadderQuery> = {},
   viewer: LadderViewer | null = null,
   season: Season = activeSeason,

@@ -192,7 +192,8 @@ async function rateOnce(
     .from(seasons)
     .where(eq(seasons.status, 'active'))
     .for('share');
-  const seasonId = season?.id ?? null;
+  if (!season) throw createAppError('CONFLICT', 'No season is active');
+  const seasonId = season.id;
   // Two-int advisory namespace59090 belongs to ratings, disjoint from the
   // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
   // a hash collision only serializes unrelated ladder/actor pairs.

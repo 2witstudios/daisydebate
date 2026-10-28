@@ -13,7 +13,7 @@ import {
   defaultQuery,
   type LadderQuery,
 } from '../../features/leaderboard/query';
-import { entry } from '../../features/leaderboard/standing.test-support';
+import { entry } from '../../features/ratings/standing.test-support';
 import { Leaderboard } from './leaderboard';
 
 setupRitewayBun();

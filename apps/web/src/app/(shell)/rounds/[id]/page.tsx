@@ -1,5 +1,4 @@
-import { processApp } from '../../../../server/process-app';
-import { readRoundRatings } from '../../../../features/ratings/read-round';
+import { requestRoundRatings } from '../../../../lib/request-session';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
 import type { Metadata } from 'next';
@@ -84,14 +83,7 @@ export default async function RoundPage({
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
-        <RoundRatings
-          view={await readRoundRatings(processApp().database, {
-            round: result.round,
-            now: processApp().clock.now(),
-            viewerActorId:
-              identity.state === 'member' ? identity.principal.actorId : null,
-          })}
-        />
+        <RoundRatings view={await requestRoundRatings(result.round)} />
         {ballots ? <RoundResult view={ballots} /> : null}
         {analysis ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />

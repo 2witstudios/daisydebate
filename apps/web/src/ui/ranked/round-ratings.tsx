@@ -20,9 +20,11 @@ export function RoundRatings({
           <div key={row.label}>
             <dt>{row.label}</dt>
             <dd>
-              {row.rating === null
-                ? 'Unrated'
-                : `${row.rating}${row.provisional ? ' · Provisional' : ''}`}
+              {row.hidden
+                ? 'Hidden while judging'
+                : row.rating === null
+                  ? 'Unrated'
+                  : `${row.rating}${row.provisional ? ' · Provisional' : ''}`}
               {row.delta === null
                 ? ''
                 : ` (${row.delta > 0 ? '+' : ''}${row.delta})`}

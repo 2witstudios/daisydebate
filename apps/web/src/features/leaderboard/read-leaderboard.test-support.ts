@@ -6,7 +6,7 @@ import {
 import type { RatingPoint } from './history';
 import type { LadderData, LadderViewer } from './ladder-view';
 import { isClosed, type Season } from './season';
-import { rankEntries, type RankedEntry } from './standing';
+import { rankRatingEntries, type RankedRatingEntry } from '../ratings/rank';
 
 /**
  * The leaderboard's read seams. There is no backend yet, so each returns the
@@ -42,7 +42,7 @@ export function readLadder(
     (other) => Number(other.id) === Number(season.id) - 1,
   );
   const champion = before
-    ? rankEntries(sampleEntries(before.id, username)).find(
+    ? rankRatingEntries(sampleEntries(before.id, username)).find(
         (entry) => entry.rank === 1,
       )
     : undefined;
@@ -69,7 +69,7 @@ export function readLadder(
 type SeasonPlayed = {
   readonly season: Season;
   /** The debater's ranked line that season, or null if they did not play. */
-  readonly entry: RankedEntry | null;
+  readonly entry: RankedRatingEntry | null;
 };
 
 export type DebaterRead = {
@@ -88,7 +88,7 @@ export function readDebater(
   const seasonsPlayed = sampleSeasons(now).map((season): SeasonPlayed => ({
     season,
     entry:
-      rankEntries(sampleEntries(season.id, viewer)).find(
+      rankRatingEntries(sampleEntries(season.id, viewer)).find(
         (row) => row.username === username,
       ) ?? null,
   }));
