@@ -200,3 +200,65 @@ delete sessions, and what each one costs:
 `TRUNCATE session` fires no row or statement delete trigger: use `DELETE`
 for any reset that must close live sockets. A database reset that recreates
 the schema drops the trigger with it; migrations recreate it.
+
+## Three-ladder rollout and beta Season 1
+
+Before applying `20261028224402_three_rating_ladders`, an authorized operator
+runs `bun packages/db/scripts/rating-preflight.ts` from the reviewed checkout
+with `DATABASE_URL` supplied by the existing environment's credential channel.
+It opens a read-only transaction, reports counts and every incoming/outgoing
+constraint of the affected competitive aggregates, and refuses any existing
+standings, postings, rated Room/preset or rated Round/ladder reference. No rows,
+identifiers or credentials are printed. Human production preflight occurs
+**before migration**, independently of the later RATE-H.1 activation gate.
+A nonzero count requires a concrete disposition decision; never relabel,
+reset, delete or edit a migration journal to proceed.
+
+The reviewed sequence is three_rating_ladders, frozen_round_finalization,
+finalization_reference_integrity, freeze_membership_transaction,
+round_finalization_aggregate_lifecycle, finalization_deferred_references (their
+committed timestamp order). The first folder refuses before DDL. Subsequent
+folders add immutable terminal provenance and its aggregate lifecycle. The
+migrator applies each folder transactionally. Shared applied migration names
+and bytes are never renamed in a retained journal.
+
+Beta uses the existing main-after-green-CI staging workflow, migrator first,
+then the web/runtime image from the same commit. See
+[staging deployment](deploy-staging.md). The parent coordinates authorized
+execution; builders do not merge or access production. Before activation,
+verify workflow `DEPLOY_SHA`, image `GIT_COMMIT` and the health response deployment metadata agree with
+the eligible merged candidate. A branch image or an unreviewed newer main tip
+is not the approved operation.
+
+On that deployed staging web image, the authorized operator runs:
+
+```sh
+fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts activate-beta'
+fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts list'
+```
+
+The image includes the command; it uses the existing `daisy_web` runtime
+`DATABASE_URL`, never migration-owner credentials. Record the returned cuid2
+ID, status, actual UTC database start instant and `beta-season-1` activation
+key (verify the key with an authorized read). Run activate-beta again and
+verify exactly the same ID/start/status, unchanged standing/ledger counts and
+no new season. An existing closed Season 1 is returned closed; it is never
+reopened. Any competing season refuses. No start date can be supplied.
+
+Authorized beta checks cover Freestyle, Policy and Value: native opt-in setup,
+selected resolution/strike freeze, eligible human/AI judged and forfeit result,
+one matching ledger pair, actor+ladder+season projection, exact leaderboard,
+profile and Round figures, provisional state and judge blinding. Check empty
+ladders truthfully before any results. Save scrubbed evidence on the existing
+slice plan. Actual live activation/standing/UI evidence remains open under
+RATE-5 until this operation occurs after deployment; isolated proofs and code
+merge-readiness do not claim it.
+
+If preflight refuses, stop migration and obtain explicit disposition. If a
+migration fails, retain its transactional failure evidence and repair forward;
+do not reset or change journal rows. If deployment/version verification fails,
+stop before activation and use the existing deploy incident process. If
+activation times out, inspect/list and retry the identical command: never
+close/open or roll over to compensate. Once competitive data commits, preserve
+it and repair forward. Future rollover and carry-over require DEC-111 resolution;
+RATE-H.1 still gates the first production activation.

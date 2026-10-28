@@ -99,6 +99,7 @@ const completedRound = async (
     competitionType?: CompetitionType;
     outcome?: string;
     minute?: number;
+    terminalEvidence?: boolean;
   },
 ) => {
   const id = createId();
@@ -124,7 +125,7 @@ const completedRound = async (
   });
   await fixture.participant(id, 'affirmative', 0, input.affirmative);
   await fixture.participant(id, 'negative', 0, input.negative);
-  if (ranked) {
+  if (ranked && input.terminalEvidence !== false) {
     const commandId = createId();
     await fixture.insert(
       'round_commands',

@@ -23,6 +23,7 @@ export const minute = (n: number) =>
   new Date(Date.UTC(2026, 9, 5, 12, n)).toISOString();
 
 type RoundInput = {
+  readonly ladder?: 'freestyle' | 'policy' | 'value';
   readonly affirmative: string;
   readonly negative: string;
   /** `ladderId` null marks an unrated (casual) round. */
@@ -82,6 +83,7 @@ export async function arena(
   };
 
   const round = async (input: RoundInput) => {
+    const formatId = input.ladder ?? 'freestyle';
     const id = createId();
     rounds.push(id);
     const status = input.status ?? 'completed';

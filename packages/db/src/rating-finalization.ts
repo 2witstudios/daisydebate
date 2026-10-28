@@ -1,3 +1,4 @@
+import { unresolvedAttendance } from './attendance-settlement';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -22,5 +23,6 @@ export const finalizedRatingInput = sql`
       join round_finalization_ballots m on m.round_id=z.round_id
       join ballots b on b.id=m.ballot_id and b.round_id=z.round_id and b.freeze_revision=z.freeze_revision
       join round_transcript_freezes f on f.round_id=z.round_id and f.revision=z.freeze_revision
-      where z.round_id=r.id and f.completeness='complete')
+      where z.round_id=r.id and f.completeness='complete'
+        and not (${unresolvedAttendance(sql`r.id`, sql`r.completed_at`)}))
   )`;

@@ -2,7 +2,8 @@
 
 Status: accepted product direction (owner instruction, 2026-10-28;
 [DEC-265](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/mtujpjaqvweg38z5iv7b0eod)).
-Implementation pending. Amends the ladder vocabulary in [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md)
+Implemented by the ratings slice; deployed beta activation evidence remains a
+post-deploy acceptance item. Amends the ladder vocabulary in [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md)
 and reconciles the ratedness authority in [ADR 0058](0058-one-round-model.md).
 Calculation calibration still open under DEC-111 is not accepted by this record.
 
@@ -84,20 +85,70 @@ season operation in this documentation change. Production activation retains
 its human sign-off requirement. Exact deployment composition and proof belong
 in the implementation plan.
 
-## Delivery boundary and remaining decisions
+## Admission and beta policy (delegated DEC-266)
 
-The owner requested state, decisions and ADR reconciliation first. Detailed
-tasks, schema/migration design and implementation follow in a later pass,
-probably using opencode agents. This pass spawns no implementation agents
-and changes no runtime behavior, schema, season or production data.
+Rated play is explicit opt-in; casual is the default. Stable catalog IDs
+`freestyle`, `policy`, `value` map identically to ladder IDs. Admission requires
+the current approved eligible preset, one human on each debating side, and
+exactly one human or existing system AI deciding judge. Custom formats, bot
+debaters, panels and league/tournament pools are excluded. Policy and Value keep
+the existing resolution freeze; Freestyle keeps shared strike/draw/prep setup.
 
-The next planning pass must resolve DEC-111 season floor/provisional
-calibration, ranked admission and judge eligibility, canonical presets and
-format mapping, remaining Freestyle journey gaps, and anti-abuse boundaries.
-A full matchmaking queue is a separate scope decision, not an implied
-prerequisite for posting ratings. Existing queue acceptance intent remains
-preserved. Season 1 beta activation is in scope; first production activation
-still requires the owner (RATE-H.1).
+Widened RD >110 selects provisional beta display at full precision. The
+calibration table and deterministic boundary/inactivity proof live in the slice
+plan. This is delegated beta policy, not optimal empirical calibration or a
+claim of personal owner selection. DEC-266 remains open for owner confirmation.
+DEC-111's future rollover floor remains unresolved; rollover and prior-season
+carry-over refuse. Confirmed initial parameters and glicko2-v1 are unchanged.
+
+## Terminal provenance and recovery
+
+Shared Round owns `round_finalizations` and its exact consumed ballot membership.
+Every terminal producer passes its validated nonterminal-to-terminal transition;
+a later no-op cannot create missing provenance. References bind original command,
+resulting version and optional transcript freeze. Genuine pre-freeze forfeits
+and abandonment permit no freeze and empty ballots. Membership is captured by
+the authoritative finalizer's filtering in the same transaction. Later ballot
+voiding does not replace the finalized outcome or membership.
+
+References are immutable competitive-record provenance, retained with Round.
+Aggregate deletion cascades them; direct deletion of a consumed ballot is
+restricted with deferred references to allow aggregate cascade ordering.
+Erasure preserves the competitive record and username under ADR0087.
+
+Ratings scans durable eligible outcomes with bounded keyset pages, advances past
+per-row failures and restarts from the beginning on the next pass. Discovery and
+transactional posting share finalized-input and attendance-settlement predicates.
+Posting rechecks under the Round fence; discovery alone never authorizes writing.
+Failures use the existing scrubbed worker reporter without Round IDs in logs.
+
+## Lock order and writer interoperation
+
+Posting acquires Round NO KEY UPDATE, active season SHARE, then its own
+`pg_advisory_xact_lock(59090, hashtext(ladder || ':' || actor))` resources. Actual
+int32 keys are deduplicated and numerically sorted before acquisition and before
+loading standings or last-post state. Scope excludes season because DEC-119
+orders an actor's ladder postings across seasons. Hash collisions cause extra
+serialization only. PostgreSQL's two-int advisory resources are disjoint from
+single-bigint command locks; a seed alone would not establish that namespace.
+
+Existing writers acquire authorization accounts before Round. Ratings acquires
+no shared account/actor row lock after Round and never mutates accounts, so it
+cannot reverse that fence. Season close takes its season row without later
+Round/rating locks. Activation takes its own `(59091,1)` transaction lock and no
+Round/rating locks. Real PostgreSQL tests observe blocked lock chains for
+erasure/post and close/post, plus overlapping first inserts and swapped sides.
+
+## Delivery boundary
+
+One backend and UI PR carries RATE-4, RATE-5, RATE-6 and ISSUE-435. Code merge
+readiness includes isolated proofs and the operator handoff; actual beta
+activation and verified live standing/UI evidence remain open after eligible
+main deployment. RATE-H.1 and human production migration preflight precede
+production data actions. Builders never merge or access production.
+
+A full matchmaking queue is separate from this slice; existing queue intent is
+preserved. The existing shared setup is the rated entry path.
 
 ## Consequences
 

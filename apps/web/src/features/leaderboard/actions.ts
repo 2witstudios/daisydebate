@@ -1,7 +1,6 @@
 /**
- * Where each leaderboard action goes. There is no backend yet, so each
- * points at the nearest existing route and does nothing else: no fake
- * mutation. The real operations replace these destinations here only.
+ * Published destinations for leaderboard actions. Selected ladder/season links
+ * are shaped with seasonsHref by the display.
  */
 export const leaderboardDestinations = {
   findMatch: '/ranked',

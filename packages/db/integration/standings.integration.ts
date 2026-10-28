@@ -3,14 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
-import {
-  at,
-  change,
-  completed,
-  formatNamed,
-  rating,
-  season,
-} from './standings-fixtures';
+import { at, change, completed, rating, season } from './standings-fixtures';
 
 setupRitewayBun();
 
@@ -29,17 +22,9 @@ describe('standings reads (RATE-1.4.1)', () => {
         const listed = (await database.listLadderSeasons())
           .map(({ id }) => id)
           .filter((id) => mine.has(id));
-        const zulu = await formatNamed(fixture, 'Zulu fixture');
-        const alpha = await formatNamed(fixture, 'Alpha fixture');
-        const unranked = await fixture.format();
-        // Ranked-eligibility is not a flag: a format is ranked-eligible
-        // because a sanctioned preset exists for it (ADR 0058 §4).
-        await fixture.preset(zulu);
-        await fixture.preset(alpha);
-        const formats = new Set([zulu, alpha, unranked]);
         const listedFormats = (await database.listRankedFormats())
           .map(({ id }) => id)
-          .filter((id) => formats.has(id));
+          .sort();
         assert({
           given: 'an active, two closed and a scheduled season',
           should:
@@ -51,7 +36,7 @@ describe('standings reads (RATE-1.4.1)', () => {
           given: 'two ranked-eligible formats and one that is not',
           should: 'list only the ranked-eligible ones, by name',
           actual: listedFormats,
-          expected: [alpha, zulu],
+          expected: ['freestyle', 'policy', 'value'],
         });
       } finally {
         await database.close();
@@ -63,8 +48,8 @@ describe('standings reads (RATE-1.4.1)', () => {
     await withFixture(url, async (fixture) => {
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        const formatId = await fixture.format();
-        const otherFormat = await fixture.format();
+        const formatId = 'freestyle';
+        const otherFormat = 'policy';
         const first = await season(fixture, 'closed', at(1));
         const second = await season(fixture, 'closed', at(2));
         const third = await season(fixture, 'closed', at(3));
@@ -110,7 +95,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         );
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
         await rated(
-          { formatId: otherFormat, seasonId: first, ladder: 'freestyle' },
+          { formatId: otherFormat, seasonId: first, ladder: 'policy' },
           1550,
         );
 

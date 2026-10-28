@@ -1,10 +1,10 @@
 import type { Database } from '@daisy/db';
 import type { RoundView } from '@daisy/protocol';
 import { rateDebate } from '@daisy/debate-engine';
-import { ratingStanding } from './standing';
+import { ratingClassification, ratingStanding } from './standing';
 import { readRatingStandings } from './read';
 
-export type RoundRating = {
+type RoundRating = {
   readonly label: string;
   readonly rating: number | null;
   readonly provisional: boolean;
@@ -132,7 +132,9 @@ export async function readRoundRatings(
           rating: posted
             ? Math.round(posted.ratingAfter)
             : (view?.rating ?? null),
-          provisional: view?.provisional ?? false,
+          provisional: posted
+            ? ratingClassification(posted.deviationAfter) === 'provisional'
+            : (view?.provisional ?? false),
           delta: posted
             ? Math.round(posted.ratingAfter - posted.ratingBefore)
             : null,

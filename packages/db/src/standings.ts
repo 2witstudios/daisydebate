@@ -123,6 +123,9 @@ export const standingsOperations = ({
           and(
             eq(formatPresets.formatId, formats.id),
             isNull(formatPresets.supersededAt),
+            eq(formatPresets.rankedEligible, true),
+            eq(formatPresets.formatVersion, formats.currentVersion),
+            inArray(formats.id, ['freestyle', 'policy', 'value']),
           ),
         )
         .orderBy(asc(formats.name)),

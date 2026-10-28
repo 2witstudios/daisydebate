@@ -10,7 +10,7 @@ export type RatingReadStore = Pick<
   Database,
   'listLadderSeasons' | 'readStandings' | 'readRatingBlindings'
 >;
-export type RatingSeason = {
+type RatingSeason = {
   readonly id: string;
   readonly name: string;
   readonly startsAt: string;

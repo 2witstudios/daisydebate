@@ -1,3 +1,4 @@
+import { parseLadderQuery } from '../../../../features/leaderboard/query';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
@@ -17,9 +18,11 @@ export default async function SeasonsRoute({
   searchParams: Promise<SearchParams>;
 }) {
   const now = systemClock.now();
+  const params = await searchParams;
+  const { ladder } = parseLadderQuery(params);
   const read = await requestLadder({
-    seasonId: parseSeasonsQuery(await searchParams),
-    ladder: 'freestyle',
+    seasonId: parseSeasonsQuery(params),
+    ladder,
     now,
   });
   if (!read)
@@ -30,5 +33,5 @@ export default async function SeasonsRoute({
       </div>
     );
   const { data, viewer } = read;
-  return <SeasonsPage view={buildSeasonsView(data, now, viewer)} />;
+  return <SeasonsPage view={buildSeasonsView(data, now, viewer, ladder)} />;
 }

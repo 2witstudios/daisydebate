@@ -26,6 +26,34 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       ],
       expected: [first, 'Season 1', true],
     });
+    const actorId = await f.actor();
+    await f.insert(
+      'ratings',
+      {
+        actor_id: actorId,
+        ladder: 'policy',
+        season_id: first.id,
+        rating: 1666.125,
+        deviation: 108.75,
+        volatility: 0.06,
+        version: 7,
+      },
+      'actor_id',
+    );
+    const before =
+      await f.sql`select to_jsonb(r) as state from ratings r where actor_id=${actorId}`;
+    const activeRetry = await withSeasons(url, (s) =>
+      s.activateBetaSeason({ id: createId() }),
+    );
+    assert({
+      given: 'an active Season1 with a real populated standing',
+      should: 'preserve season identity and every standing field on retry',
+      actual: [
+        activeRetry,
+        await f.sql`select to_jsonb(r) as state from ratings r where actor_id=${actorId}`,
+      ],
+      expected: [first, before],
+    });
     await withSeasons(url, (s) =>
       s.closeSeason({
         id: first.id,
@@ -48,6 +76,13 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
         ).length,
       ],
       expected: [first.id, first.startsAt, 'closed', 1],
+    });
+    assert({
+      given: 'a closed-season activation retry',
+      should: 'also preserve the competitive standing unchanged',
+      actual:
+        await f.sql`select to_jsonb(r) as state from ratings r where actor_id=${actorId}`,
+      expected: before,
     });
   });
 });

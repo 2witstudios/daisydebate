@@ -99,3 +99,19 @@ describe('buildSeasonsView', () => {
     });
   });
 });
+
+test('season navigation preserves the selected independent ladder', () => {
+  const data = readLadder(null, NOW, null).data;
+  const view = buildSeasonsView(data, NOW, null, 'policy');
+  assert({
+    given: 'a Policy season overview',
+    should: 'label the ladder and preserve it in chips, detail and return URLs',
+    actual: [
+      view.ladderLabel,
+      view.chips.every((c) => c.href.includes('ladder=policy')),
+      view.ladderHref.includes('ladder=policy'),
+      view.snapshot.every((r) => r.href.includes('ladder=policy')),
+    ],
+    expected: ['Policy', true, true, true],
+  });
+});

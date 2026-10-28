@@ -1,5 +1,6 @@
-import Link from 'next/link';
 import { leaderboardDestinations } from '../../features/leaderboard/actions';
+import Link from 'next/link';
+import { seasonsHref } from '../../features/leaderboard/seasons';
 import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
 import { ladderHref, type LadderQuery } from '../../features/leaderboard/query';
@@ -66,8 +67,10 @@ export function Leaderboard({
           aria-label="About the ladder"
           className="flex gap-4 text-sm font-strong"
         >
-          <Link href={leaderboardDestinations.seasons}>Seasons</Link>
-          <Link href={leaderboardDestinations.howRatingWorks}>
+          <Link href={seasonsHref(view.season.id, query.ladder)}>Seasons</Link>
+          <Link
+            href={`${seasonsHref(view.season.id, query.ladder)}#how-rating-works`}
+          >
             How ratings work
           </Link>
         </nav>

@@ -91,7 +91,9 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
       </header>
       <section className={card}>
         <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
-        <h2 className="font-display text-2xl font-bold">{view.label}</h2>
+        <h2 className="font-display text-2xl font-bold">
+          {view.ladderLabel} · {view.label}
+        </h2>
         <p className="text-base text-ink-muted">{view.dates}</p>
         <progress
           value={view.percent}

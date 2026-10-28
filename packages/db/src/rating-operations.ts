@@ -167,8 +167,8 @@ async function rateOnce(
     throw createAppError('CONFLICT', 'rating-input-not-finalized');
   const [forfeit] =
     await tx.execute(sql`select r.id from rounds r where r.id=${roundId}
-    and (exists(select 1 from round_attendance_adjudications a where a.round_id=r.id and a.decision='forfeit')
-      or exists(select 1 from round_commands c where c.round_id=r.id and c.type='forfeit'))`);
+    and (exists(select 1 from round_attendance_adjudications a join round_finalizations z on z.round_id=a.round_id and z.command_id=a.command_id where a.round_id=r.id and a.decision='forfeit')
+      or exists(select 1 from round_commands c join round_finalizations z on z.round_id=c.round_id and z.command_id=c.command_id where c.round_id=r.id and c.type='forfeit'))`);
   if (!forfeit)
     await assertRoundAttendanceSettled(tx, {
       roundId,
