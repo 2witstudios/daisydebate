@@ -249,11 +249,15 @@ refusal nor a full capture fleet deafens a bot Round.
 - **Lifetime.** The listener joins with the seat and ends with it, after the
   publication. A dropped connection (or a failed cleanup) rejoins with a
   fresh grant after a pause that starts at 1 s and doubles to 30 s. A refused
-  rejoin backs off
-  the same way, since many refusals (a revocation still settling) clear on
-  their own. A Round end or a revoked seat rotates or deletes the vendor
-  room, which drops it, and the admission refuses every rejoin until the
-  claim's own end closes the listener.
+  rejoin backs off the same way, since many refusals (a revocation still
+  settling) clear on their own. An unexpected join failure is reported as
+  `round.hearing.failed` (`round.hearing.join`); a routine refusal
+  (`CONFLICT`, `AUTHORIZATION`) is reported only once it persists, every
+  fifth join in a row. A Round end or a revoked seat rotates or deletes the
+  vendor room, which drops it, and the admission refuses every rejoin until
+  the claim's own end closes the listener. Both the token and room creation
+  admit a hearing seat only from the projected hearing seats
+  (`mediaHearingSeats`: base eligibility, a live claim, a live segment).
 - **Hearing.** It subscribes only its peers' microphones, from the
   admission's peer list, re-reading the bindings for a peer that binds
   later. A refused or unanswered subscription is asked again after a pause

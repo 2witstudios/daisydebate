@@ -124,6 +124,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
       if (admissionRevoked(context))
         throw createAppError('CONFLICT', 'Round media admission is closed');
+      // A hearing grant rests on the projected hearing seats, the same fact
+      // room creation reads: base eligibility, a live claim, a live segment.
+      if (hearing && !context.hearing.includes(context.participantId))
+        throw createAppError('AUTHORIZATION');
       const grants = seatGrants(context, context.participantId, input.nextId);
       const identity = hearing
         ? listenIdentity(context.binding.identity)
@@ -198,15 +202,27 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
-    // The reconcile refused or cleaned up and never reached the issue. Read
-    // as the human caller, so one revoked meanwhile is refused as such.
+    throw await notIssued(roundId, principal);
+  };
+  /**
+   * Why the reconcile refused or cleaned up and never reached the issue.
+   * Read as the human caller, so one revoked meanwhile is refused as such; a
+   * hearing seat the projection no longer admits was refused, not failed.
+   */
+  const notIssued = async (roundId: string, principal: Principal) => {
     const after = await snapshot(
       roundId,
       principal.kind === 'human' ? principal.actorId : undefined,
     );
     if (admissionRevoked(after))
-      throw createAppError('CONFLICT', 'Round media admission is closed');
-    throw createAppError('INFRASTRUCTURE');
+      return createAppError('CONFLICT', 'Round media admission is closed');
+    if (
+      principal.kind === 'bot' &&
+      principal.hearing &&
+      !after.hearing.includes(principal.scope.roundParticipantId)
+    )
+      return createAppError('AUTHORIZATION');
+    return createAppError('INFRASTRUCTURE');
   };
   /**
    * Runs `work` while this caller's own reconcile holds the session, so a

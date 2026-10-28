@@ -15,7 +15,10 @@ import {
   AudioFrameProcessor,
   type RawAudioFrame,
 } from './audio-frame-processor';
-import { createSubscriptionRequests } from './subscription-requests';
+import {
+  createSubscriptionRequests,
+  livePublication,
+} from './subscription-requests';
 
 type ClosedTrack = {
   readonly identity: string;
@@ -194,9 +197,11 @@ export async function createAudioSubscription(input: SubscriptionInput) {
    * still in the room: a departed participant keeps its stale publications.
    */
   const again = (participant: RemoteParticipant, sid: string) => {
-    if (room.remoteParticipants.get(participant.identity) !== participant)
-      return requests.ended(sid);
-    const publication = participant.trackPublications.get(sid);
+    const publication = livePublication(
+      room.remoteParticipants,
+      participant,
+      sid,
+    );
     if (publication) reconcile(publication, participant);
     else requests.ended(sid);
   };
@@ -205,18 +210,21 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     participant: RemoteParticipant,
   ) => {
     if (closing) return;
-    requests.refused(trackSid, () => again(participant, trackSid));
+    requests.retry(trackSid, () => again(participant, trackSid));
   };
-  /** Unsubscribed while still published (a permission refresh): ask again if still wanted. */
+  /**
+   * Unsubscribed while still published (a permission refresh): asked again
+   * after the sid's pause if still wanted, never at once, so a flapping
+   * track backs off and the old stream has closed before a new one starts.
+   */
   const unsubscribed = (
     track: Track,
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) => {
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
-    if (!publication.sid) return;
-    requests.ended(publication.sid);
-    again(participant, publication.sid);
+    const sid = publication.sid;
+    if (sid) requests.retry(sid, () => again(participant, sid));
   };
   /** Unpublished before its track arrived: nothing will answer the ask. */
   const unpublished = (publication: RemoteTrackPublication) => {

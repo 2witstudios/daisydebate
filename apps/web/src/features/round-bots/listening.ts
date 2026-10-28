@@ -1,5 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isAppError } from '@daisy/errors';
+import { isRefusal } from '@daisy/errors';
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createBotAudioActivity } from './activity';
@@ -25,11 +25,8 @@ const MAX_CALIBRATION_RTT_MS = 100;
 /** A dropped connection is rejoined after a pause that doubles to a ceiling. */
 const REJOIN_FIRST_MS = 1000;
 const REJOIN_MAX_MS = 30000;
-
-/** A routine admission refusal: expected while a claim settles, never a fault. */
-const refusal = (error: unknown) =>
-  isAppError(error) &&
-  (error.code === 'CONFLICT' || error.code === 'AUTHORIZATION');
+/** A refusal that persists this many joins in a row is reported (then every this many). */
+const REPORT_REFUSALS_EVERY = 5;
 
 /** The listen grant: a hidden, subscribe-only identity in the claim's media session, and its peers. */
 type ListenGrant = {
@@ -99,6 +96,8 @@ export function createBotListening(
   let joining: Promise<void> | null = null;
   let rejoinAt = -Infinity;
   let rejoinPauseMs = REJOIN_FIRST_MS;
+  /** Consecutive refused joins since the last successful one. */
+  let refusals = 0;
   let peersReadAt = -Infinity;
   let closed = false;
 
@@ -188,6 +187,7 @@ export function createBotListening(
     }
     subscription = opened;
     rejoinPauseMs = REJOIN_FIRST_MS;
+    refusals = 0;
     // Dropped (a rotated or deleted room, a lost connection), cleanly or
     // with a failed cleanup: no frame arrives, so the next polls expire every
     // peer to unknown until a rejoin hears it again.
@@ -204,13 +204,16 @@ export function createBotListening(
     if (input.monotonicNowMs() < rejoinAt) return;
     joining = join()
       // Refused (a revocation still settling, a claim taken over) or
-      // unreachable: reported, then asked again later, never every poll.
+      // unreachable: asked again later, never every poll. An unexpected
+      // failure is reported; a routine refusal only once it persists.
       .catch((error: unknown) => {
         // Back off first, so a failing reporter never turns this into a
         // join on every poll, nor into an unhandled rejection.
         scheduleRejoin();
+        if (isRefusal(error) && ++refusals % REPORT_REFUSALS_EVERY !== 0)
+          return;
         try {
-          if (!refusal(error)) input.failed(error);
+          input.failed(error);
         } catch {
           /* The reporter's own fault never stops the hearing. */
         }

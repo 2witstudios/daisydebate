@@ -1,14 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { isAppError } from '@daisy/errors';
+import { isRefusal } from '@daisy/errors';
 import type { RoundCommandAuthority } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
 import { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';
-import {
-  requireBotSegmentLive,
-  requireBotSpeakingWindow,
-} from './bot-publication-context';
+import { readBotSegmentFloor } from './bot-publication-context';
 
 type Participants = RoundCommandAuthority['participants'];
 type Publication = {
@@ -19,16 +16,13 @@ type Publication = {
   readonly floor: boolean;
 };
 
-/** An admission refusal: the seat simply holds no such media fact now. */
-const refused = (error: unknown) =>
-  isAppError(error) && ['CONFLICT', 'AUTHORIZATION'].includes(error.code);
 /** Whether `check` admits, a refusal reading as false. */
-const admits = async (check: () => Promise<void>) => {
+const admits = async (check: () => Promise<unknown>) => {
   try {
     await check();
     return true;
   } catch (error) {
-    if (refused(error)) return false;
+    if (isRefusal(error)) return false;
     throw error;
   }
 };
@@ -65,17 +59,11 @@ export async function readMediaBotLeases(
       roundParticipantId: seat.id,
       segmentId: claim.segmentId,
     };
-    const live = await admits(async () => {
-      await verifyBotWorkerPrincipalLocked(
-        tx,
-        { kind: 'agent', ...claim },
-        roundId,
-      );
-      await requireBotSegmentLive(tx, target);
-    });
-    if (!live) continue;
-    const floor = await admits(() => requireBotSpeakingWindow(tx, target));
-    facts.push({ ...claim, floor });
+    const verified = await admits(() =>
+      verifyBotWorkerPrincipalLocked(tx, { kind: 'agent', ...claim }, roundId),
+    );
+    const segment = verified ? await readBotSegmentFloor(tx, target) : null;
+    if (segment) facts.push({ ...claim, floor: segment.floor });
   }
   return facts;
 }

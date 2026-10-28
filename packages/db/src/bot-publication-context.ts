@@ -27,6 +27,9 @@ export type PublicationWindow = {
  * and within its duration. The one definition of a live segment, for
  * publication's speaking window and hearing alike.
  */
+/** Speaking interval `i` is open over [`before`, `after`]. */
+const intervalOpen = (before: SQL, after: SQL) =>
+  sql`i.started_at<=${before} and (i.ended_at is null or ${after}<i.ended_at)`;
 const segmentInProgress = (before: SQL, after: SQL) =>
   sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')`;
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
@@ -66,7 +69,7 @@ export async function requireBotSpeakingWindow(
   const rows = await tx.execute(sql`select 1 from round_speaking_intervals i
     join round_segments s on s.id=i.segment_id and s.round_id=i.round_id
     where i.round_id=${target.roundId} and i.segment_id=${target.segmentId} and i.round_participant_id=${target.roundParticipantId}
-      and i.started_at<=${before} and (i.ended_at is null or ${after}<i.ended_at)
+      and ${intervalOpen(before, after)}
       and ${segmentInProgress(before, after)}
       and ${after}<=clock_timestamp() limit 1`);
   if (rows.length !== 1)
@@ -77,7 +80,7 @@ export async function requireBotSpeakingWindow(
  * hearing lives within its segment, as publication lives within a speaking
  * window.
  */
-export async function requireBotSegmentLive(
+async function requireBotSegmentLive(
   tx: BoundedTransactionContext,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
@@ -87,6 +90,28 @@ export async function requireBotSegmentLive(
       and ${segmentInProgress(now, now)} limit 1`);
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot segment is not live');
+}
+/**
+ * The claim's segment and floor in one read, for the media projection:
+ * `null` when the segment is not live, else whether the seat holds an open
+ * speaking interval in it now.
+ */
+export async function readBotSegmentFloor(
+  tx: BoundedTransactionContext,
+  target: Pick<
+    BotPublicationScope,
+    'roundId' | 'roundParticipantId' | 'segmentId'
+  >,
+) {
+  const now = sql`clock_timestamp()`;
+  const [row] =
+    await tx.execute(sql`select exists(select 1 from round_speaking_intervals i
+      where i.round_id=s.round_id and i.segment_id=s.id and i.round_participant_id=${target.roundParticipantId}
+        and ${intervalOpen(now, now)}) as floor
+    from round_segments s
+    where s.round_id=${target.roundId} and s.id=${target.segmentId}
+      and ${segmentInProgress(now, now)} limit 1`);
+  return row ? { floor: (row as { floor: boolean }).floor === true } : null;
 }
 /** A bot seat asking for media: to publish, or (`hearing`) only to listen. */
 export type BotMediaPrincipal = {

@@ -78,6 +78,26 @@ test('a respondent bot refused its first grant for want of the floor still hears
   });
 });
 
+test('a refusal that persists is reported once every five joins', async () => {
+  const s = session({
+    refuse: () => createAppError('AUTHORIZATION', 'Bot claim changed'),
+  });
+  s.listening.start();
+  for (let poll = 0; poll < 60; poll++) {
+    s.advance(5000);
+    await s.listening.poll();
+    await Promise.resolve();
+  }
+  assert({
+    given:
+      'a listen grant refused with AUTHORIZATION on every join for 5 minutes',
+    should:
+      'report it on the fifth and tenth refusal only, never on each back-off',
+    actual: { reported: s.failures.length, asked: s.grants.length },
+    expected: { reported: 2, asked: 14 },
+  });
+});
+
 test('a transient join failure backs off, doubling to a ceiling, and a failed cleanup counts as a drop', async () => {
   let failures = 3;
   const s = session({

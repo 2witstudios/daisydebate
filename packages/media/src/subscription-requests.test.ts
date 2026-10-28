@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createSubscriptionRequests } from './subscription-requests';
+import {
+  createSubscriptionRequests,
+  livePublication,
+} from './subscription-requests';
 
 setupRitewayBun();
 
@@ -58,7 +61,7 @@ test('a refused subscription is asked again after a pause doubling to 30 s, unti
   const { asks, timers, requests, want, live } = fixture();
   want();
   for (let refusal = 0; refusal < 7; refusal++) {
-    requests.refused('TR_mic', () => want());
+    requests.retry('TR_mic', () => want());
     timers.at(-1)!.run();
   }
   requests.subscribed('TR_mic');
@@ -97,16 +100,16 @@ test('an ask nothing answers times out and is asked again', () => {
 test('a withdrawal, an unpublished track or a close cancels a pending retry', () => {
   const withdrawn = fixture();
   withdrawn.want();
-  withdrawn.requests.refused('TR_mic', () => withdrawn.want());
+  withdrawn.requests.retry('TR_mic', () => withdrawn.want());
   withdrawn.want(false);
   const unpublished = fixture();
   unpublished.want();
-  unpublished.requests.refused('TR_mic', () => unpublished.want());
+  unpublished.requests.retry('TR_mic', () => unpublished.want());
   unpublished.requests.ended('TR_mic');
   const closed = fixture();
   closed.want();
   closed.requests.close();
-  closed.requests.refused('TR_mic', () => closed.want());
+  closed.requests.retry('TR_mic', () => closed.want());
   closed.want();
   assert({
     given:
@@ -121,13 +124,61 @@ test('a withdrawal, an unpublished track or a close cancels a pending retry', ()
   });
 });
 
-test('a stray refusal for a publication never asked for arms nothing', () => {
-  const { requests, live } = fixture();
-  requests.refused('TR_other', () => undefined);
+test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again', () => {
+  const { asks, timers, requests, want } = fixture();
+  requests.retry('TR_mic', () => want());
+  timers[0]!.run();
   assert({
-    given: 'a refusal for a sid with no outstanding ask',
-    should: 'arm no retry',
-    actual: live(),
-    expected: [],
+    given: 'a subscription failure for a sid with no outstanding ask',
+    should: 'ask again after the first pause',
+    actual: { first: timers[0]!.ms, asks },
+    expected: { first: 1000, asks: [true] },
+  });
+});
+
+test('a held track the SFU keeps dropping is asked again after a pause that grows across arrivals', () => {
+  const { timers, publication, requests, want } = fixture();
+  const arrive = () => {
+    publication.subscribed = true;
+    requests.subscribed('TR_mic');
+  };
+  const drop = () => {
+    publication.subscribed = false;
+    requests.retry('TR_mic', () => want());
+  };
+  want();
+  for (let flap = 0; flap < 3; flap++) {
+    arrive();
+    drop();
+    timers.at(-1)!.run();
+  }
+  assert({
+    given: 'a microphone that arrives and is dropped three times',
+    should: 'ask again after 1 s, 2 s, then 4 s, never at once',
+    actual: timers
+      .filter((timer) => timer.ms !== 10000)
+      .map((timer) => timer.ms),
+    expected: [1000, 2000, 4000],
+  });
+});
+
+test('a retry finds a publication only on the participant still in the room', () => {
+  const publication = { sid: 'TR_mic' };
+  const present = {
+    identity: 'peer',
+    trackPublications: new Map([['TR_mic', publication]]),
+  };
+  const departed = { ...present };
+  const inRoom = new Map([['peer', present]]);
+  assert({
+    given:
+      'the present participant, and a departed one under the same identity',
+    should: 'return the live publication, and nothing for the departed one',
+    actual: [
+      livePublication(inRoom, present, 'TR_mic'),
+      livePublication(inRoom, departed, 'TR_mic'),
+      livePublication(inRoom, present, 'TR_gone'),
+    ],
+    expected: [publication, undefined, undefined],
   });
 });

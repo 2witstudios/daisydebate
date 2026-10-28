@@ -1,4 +1,4 @@
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isRefusal } from '@daisy/errors';
 import {
   changedMediaGrants,
   type RoundMediaGrants,
@@ -235,11 +235,7 @@ export function createMediaReconcileRun(
         held = await runHeld(whileHeld);
       }
     } catch (error) {
-      if (
-        !isAppError(error) ||
-        !['CONFLICT', 'AUTHORIZATION'].includes(error.code)
-      )
-        await unsafe(claim, error);
+      if (!isRefusal(error)) await unsafe(claim, error);
     } finally {
       try {
         const state = await snapshot(claim.roundId);
