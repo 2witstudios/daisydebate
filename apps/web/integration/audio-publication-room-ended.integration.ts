@@ -13,7 +13,8 @@ const PROCESS_DEADLINE_MS = 10_000;
  */
 async function closeIn(order: 'racing' | 'dropped' | 'live') {
   const child = Bun.spawn(
-    ['bun', 'audio-publication-room-ended-process.ts', order],
+    // The runner's own binary: the proof is about this Bun and rtc-node pair.
+    [process.execPath, 'audio-publication-room-ended-process.ts', order],
     {
       cwd: import.meta.dir,
       stdout: 'pipe',

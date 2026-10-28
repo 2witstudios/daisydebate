@@ -2,7 +2,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
-import { neverOverdue, ownedClaim } from './control-service.test-support';
+import {
+  neverOverdue,
+  ownedClaim,
+  within,
+} from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -113,7 +117,7 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
   segment = 'second';
   await tasks[0]!();
   // The incoming claim follows the ending and pulses once it is owned.
-  await incoming.promise;
+  await within(incoming.promise, 'The incoming claim');
   await service.stop();
   assert({
     given: 'a claim rotated to a new segment and then shutdown',

@@ -40,26 +40,34 @@ async function dropped(signal: Promise<void>) {
 const media = createMediaService({ config: localMediaConfig });
 const room = createId();
 await media.createRoom(room);
-const publication = await createAudioPublication({
-  url: 'ws://127.0.0.1:7880',
-  token: await media.joinToken({
-    room,
-    identity: createId(),
-    publish: ['microphone'],
-    subscribe: false,
-    capture: false,
-  }),
-  trackName: createId(),
-  sampleRate: 24000,
-  channels: 1,
-  monotonicNowMs: () => performance.now(),
-});
-for (let frame = 0; frame < FRAMES; frame++)
-  await publication.capture10ms(new Int16Array(240));
-if (order !== 'live') await media.deleteRoom(room);
-if (order === 'dropped') await dropped(publication.disconnected);
-const usable = publication.usable();
-const closed = await publication.close();
-if (order === 'live') await media.deleteRoom(room);
-process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`);
+let deleted = false;
+try {
+  const publication = await createAudioPublication({
+    url: 'ws://127.0.0.1:7880',
+    token: await media.joinToken({
+      room,
+      identity: createId(),
+      publish: ['microphone'],
+      subscribe: false,
+      capture: false,
+    }),
+    trackName: createId(),
+    sampleRate: 24000,
+    channels: 1,
+    monotonicNowMs: () => performance.now(),
+  });
+  for (let frame = 0; frame < FRAMES; frame++)
+    await publication.capture10ms(new Int16Array(240));
+  if (order !== 'live') {
+    await media.deleteRoom(room);
+    deleted = true;
+  }
+  if (order === 'dropped') await dropped(publication.disconnected);
+  const usable = publication.usable();
+  const closed = await publication.close();
+  process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`);
+} finally {
+  // A failed ordering never leaves its room behind.
+  if (!deleted) await media.deleteRoom(room);
+}
 process.exit(0);

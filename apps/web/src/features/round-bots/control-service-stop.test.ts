@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { neverOverdue, ownedClaim } from './control-service.test-support';
+import {
+  neverOverdue,
+  ownedClaim,
+  within,
+} from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -103,7 +107,7 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   await service.started;
   segment = 'second';
   await tasks.get(500)!();
-  await incoming.promise;
+  await within(incoming.promise, 'The incoming claim');
   await service.stop();
   assert({
     given: 'a segment rotation whose old publication fails to close',
@@ -218,7 +222,11 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
   await stopping.promise;
   const during = tasks.get(3000)!();
   release.resolve();
-  await Promise.all([rotation, during, incoming.promise]);
+  await Promise.all([
+    rotation,
+    during,
+    within(incoming.promise, 'The incoming claim'),
+  ]);
   await tasks.get(3000)!();
   await service.stop();
   assert({

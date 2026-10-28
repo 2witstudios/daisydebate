@@ -43,10 +43,11 @@ export function startBotControlService<C extends Claim>(input: {
   };
   readonly timers: WorkerTimers;
   /**
-   * Settles when a seat's ending has run too long. The composition sets it
-   * below the lease, so a stop never outlives its seat's lease (ISSUE-789).
+   * Settles when a seat's ending has run too long, so a stop that never
+   * answers cannot keep its seat dark (ISSUE-789); `signal` aborts once the
+   * ending is done, so its timer is cleared.
    */
-  readonly overdue: () => Promise<void>;
+  readonly overdue: (signal: AbortSignal) => Promise<void>;
   /** `stage` names the work that failed: pulse, stop, revoke or discover. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -94,21 +95,34 @@ export function startBotControlService<C extends Claim>(input: {
   const end = (entry: Owned<C>, revoke: boolean): Promise<void> => {
     if (entry.ending) return entry.ending;
     const ending = (async () => {
+      let spoken = false,
+        overran = false;
       const stopping = (async () => {
         try {
           await entry.control.stop?.();
         } catch (error) {
-          input.failed(error, 'stop');
+          // A stop that fails after its overrun was reported is not reported twice.
+          if (!overran) input.failed(error, 'stop');
         }
+        spoken = true;
         await entry.pending;
-        return 'stopped' as const;
+        return 'ended' as const;
       })();
-      const late = input.overdue().then(() => 'late' as const);
-      if ((await Promise.race([stopping, late])) === 'late')
+      const deadline = new AbortController();
+      const outcome = await Promise.race([
+        stopping,
+        input.overdue(deadline.signal).then(() => 'late' as const),
+      ]);
+      deadline.abort();
+      if (outcome === 'late') {
+        overran = true;
+        // Names the part still running: the speaker's stop, or the receipt pulse.
+        const stage = spoken ? 'pulse' : 'stop';
         input.failed(
-          createAppError('INFRASTRUCTURE', 'Seat stop overran its deadline'),
-          'stop',
+          createAppError('INFRASTRUCTURE', `Seat ${stage} overran its ending`),
+          stage,
         );
+      }
       if (revoke && !entry.lost)
         await input.store
           .revokeRoundBotWorker(entry.claim.scope, entry.claim.token)
@@ -153,10 +167,13 @@ export function startBotControlService<C extends Claim>(input: {
     )
       return;
     if (old) {
-      // The incoming segment is claimed as soon as the ending frees the seat.
-      void end(old, true)
+      // The incoming segment is claimed as soon as the ending frees the seat;
+      // shutdown waits for that claim like any ending.
+      const handoff: Promise<void> = end(old, true)
         .then(() => claimTarget(target))
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => endings.delete(handoff));
+      endings.add(handoff);
       return;
     }
     if (stopped || owned.size >= input.limits.maxControllers) return;
@@ -226,13 +243,9 @@ export function startBotControlService<C extends Claim>(input: {
       stopped = true;
       input.timers.clearInterval(scanTimer);
       input.timers.clearInterval(pulseTimer);
-      // Speakers end at once; a seat claimed by the scan in flight, after it.
-      const endOwned = () => {
-        for (const entry of [...owned.values()]) void end(entry, true);
-      };
-      endOwned();
-      await Promise.allSettled([discovering]);
-      endOwned();
+      // Speakers end at once; a claim still in flight revokes itself.
+      for (const entry of [...owned.values()]) void end(entry, true);
+      await Promise.allSettled([discovering, ...endings]);
       await Promise.allSettled([...endings]);
     },
   };

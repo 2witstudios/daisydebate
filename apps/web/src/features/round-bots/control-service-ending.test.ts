@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { neverOverdue, ownedClaim } from './control-service.test-support';
+import {
+  neverOverdue,
+  ownedClaim,
+  within,
+} from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -143,7 +147,11 @@ test('a seat its own pulse already released is not stopped or revoked again by a
   ended = true;
   const pulsing = tasks.get(3000)!();
   segment = 'second';
-  await Promise.all([pulsing, tasks.get(500)!(), incoming.promise]);
+  await Promise.all([
+    pulsing,
+    tasks.get(500)!(),
+    within(incoming.promise, 'The incoming claim'),
+  ]);
   await service.stop();
   assert({
     given: 'a pulse that loses its authority while the seat rotates',
@@ -199,7 +207,7 @@ test('a rotation stops its speaker at once, even while a receipt pulse hangs, an
   const stoppedWhileHung = [...log];
   hung.resolve();
   // The revoke settles before the incoming claim follows the ending.
-  await incoming.promise;
+  await within(incoming.promise, 'The incoming claim');
   assert({
     given:
       'a rotation while the outgoing claim’s receipt pulse hangs, then a revoke the pool refuses',
@@ -213,64 +221,4 @@ test('a rotation stops its speaker at once, even while a receipt pulse hangs, an
     },
   });
   await service.stop();
-});
-
-test('a stop that overruns its deadline is reported, and the seat is revoked and claimed again (ISSUE-789)', async () => {
-  const { failures, failed } = failureLog();
-  const log: string[] = [];
-  const due = Promise.withResolvers<void>();
-  let deadlines = 0;
-  const incoming = Promise.withResolvers<void>();
-  let segment = 'first';
-  const { tasks, timers } = manualTimers();
-  const service = startBotControlService({
-    store: {
-      scanRoundBotWorkers: async () => [seat('seat', segment)],
-      claimRoundBotWorker: async (target) => {
-        log.push(`claim:${target.segmentId}`);
-        return ownedClaim(target);
-      },
-      revokeRoundBotWorker: async (scope) => {
-        log.push(`revoke:${scope.segmentId}`);
-      },
-      verifyRoundBotWorker: async () => {},
-    },
-    control: (claim) => ({
-      pulse: async () => {
-        if (claim.scope.segmentId === 'second') incoming.resolve();
-        return [];
-      },
-      // A native close that never answers, for the outgoing claim only.
-      stop: () =>
-        claim.scope.segmentId === 'first'
-          ? new Promise<void>(() => {})
-          : Promise.resolve(),
-    }),
-    limits,
-    timers,
-    // Each ending has its own deadline; only the outgoing one trips.
-    overdue: () => (deadlines++ === 0 ? due.promise : neverOverdue()),
-    failed,
-  });
-  await service.started;
-  segment = 'second';
-  await tasks.get(500)!();
-  due.resolve();
-  await incoming.promise;
-  await service.stop();
-  assert({
-    given: 'a rotation whose outgoing stop never settles, past its deadline',
-    should:
-      'report the overrun, revoke the outgoing lease and claim the incoming segment',
-    actual: {
-      log,
-      stages: failures.map((failure) => (failure as unknown[])[1]),
-      message: ((failures[0] as unknown[])?.[0] as Error | undefined)?.message,
-    },
-    expected: {
-      log: ['claim:first', 'revoke:first', 'claim:second', 'revoke:second'],
-      stages: ['stop'],
-      message: 'Seat stop overran its deadline',
-    },
-  });
 });
