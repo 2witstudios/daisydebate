@@ -92,14 +92,13 @@ automatically.
   sub-agent.
 - **Plan compliance.** Extract each "Given X, should Y" criterion from the
   slice plan's task list and mark it PASS, FAIL or PARTIAL against the diff.
-- **Privacy and telemetry.** Check the diff against
-  [ADR 0036](../decisions/0036-privacy-by-design.md) and
+- **Compliance and telemetry.** Check the diff against
+  [compliance](../operations/compliance.md) and
   [ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md):
-  - Every new log field, database or Redis column, `outbox.payload` kind,
-    realtime topic payload field and analytics event is classified.
-  - No `personal`, `sensitive` or `secret` value reaches a log, an error
-    report or an analytics event.
-  - Every new personal-data column has a retention and erasure rule.
+  - A new data class, purpose, processor or retention period updates the
+    compliance page in the same PR.
+  - No personal value reaches a log, an error report or an analytics event.
+  - Erasure keeps the competitive record ([ADR 0087](../decisions/0087-compliance-from-obligations.md)).
   - New client-side tracking declares a consent category.
 - **Spectating is coming.** Never assume only participants read a Room or a
   Round.
