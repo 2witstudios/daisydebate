@@ -26,6 +26,7 @@ export function CommandForm({
   intent,
   commandId,
   version,
+  segment,
   post,
   answer,
   pending,
@@ -34,13 +35,20 @@ export function CommandForm({
   readonly intent: RoundControlIntent;
   readonly commandId: string;
   readonly version: number;
+  /** The persisted open segment this control acts on ('' between segments). */
+  readonly segment: string;
   readonly post: (form: FormData) => void;
   readonly answer: RoundFormState;
   readonly pending: boolean;
   readonly control: string;
 }) {
-  const preserved = answer.values.type === intent.type ? answer.values : {};
-  const confirmation = answer.confirmation && preserved.type === intent.type;
+  // A confirmation belongs to the segment it was asked in: once another
+  // segment opens, the press starts afresh rather than end the new one.
+  const asked =
+    answer.values.type === intent.type &&
+    (!answer.confirmation || answer.values.segment === segment);
+  const preserved = asked ? answer.values : {};
+  const confirmation = answer.confirmation && asked;
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
       <input type="hidden" name="version" value="1" />
@@ -57,6 +65,7 @@ export function CommandForm({
         value={confirmation ? version : (preserved.expectedVersion ?? version)}
       />
       <input type="hidden" name="type" value={intent.type} />
+      <input type="hidden" name="segment" value={segment} />
       {intent.participantId ? (
         <input
           type="hidden"
@@ -125,6 +134,9 @@ export function RoundCommandActions({
           intent={intent}
           commandId={ids[intent.type]}
           version={view.version}
+          segment={String(
+            view.segments.find((s) => s.endedAt === null)?.sequence ?? '',
+          )}
           post={post}
           answer={answer}
           pending={pending}

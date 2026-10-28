@@ -76,13 +76,26 @@ function speechBegan(w: Range, runs: readonly Range[], openMs: number) {
 }
 
 /**
+ * Where speech ended in a window: the end of the last capture run reaching
+ * into its close zone, never past the window, else its close (DEC-220). A run
+ * that starts after the window, such as a capture restart, never moves it.
+ */
+function speechEnded(w: Range, runs: readonly Range[], closeMs: number) {
+  const run = runs
+    .filter(
+      (r) => r.start < w.end && r.end > w.start && r.end >= w.end - closeMs,
+    )
+    .at(-1);
+  return run ? Math.min(w.end, run.end) : w.end;
+}
+
+/**
  * Whether every authority window, a human's speaking grant or a bot's credited
  * publication window, is captured (DEC-218): one contiguous capture run from
- * where speech began until it reaches into the close zone, where speech ended
- * (DEC-220), and at least one frame inside the window, so a dead microphone
- * stays partial however short the window. For a bot, once capture of its
- * credited speech reaches the terminal zone, nothing in that zone is required
- * (ISSUE-806). The close and terminal zones are fixed, so more captured
+ * where speech began to where it ended (DEC-220), and at least one frame
+ * inside the window, so a dead microphone stays partial however short the
+ * window. For a bot, once capture of its credited speech reaches the terminal
+ * zone, nothing in that fixed zone is required (ISSUE-806), so more captured
  * evidence near the cutoff never turns complete into partial (ISSUE-807).
  * Coverage is producer evidence, independent of transcript text or lease
  * ownership.
@@ -108,13 +121,12 @@ export function hasCompleteCaptureCoverage(input: {
   const runs = captureRuns(observed);
   const terminal = terminalZone(windows, runs, tolerance.terminalCloseMs);
   return windows.every((w) => {
-    const forgivenFrom = Math.min(
-      w.end - tolerance.closeMs,
-      terminal ?? Infinity,
-    );
     const required = {
       start: speechBegan(w, runs, tolerance.openMs),
-      end: forgivenFrom,
+      end: Math.min(
+        speechEnded(w, runs, tolerance.closeMs),
+        terminal ?? Infinity,
+      ),
     };
     const framed =
       (terminal !== null && w.start >= terminal) ||

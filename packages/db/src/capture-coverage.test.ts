@@ -132,6 +132,25 @@ test('a window shorter than its zones still needs a captured frame inside it', (
   });
 });
 
+test('a dropout before the last frame of a grant shorter than its close zone stays partial (DEC-220)', () => {
+  assert({
+    given:
+      'a 1 s human grant captured at its start and again from 600 ms, missing 200–600 ms, and the same grant fully captured',
+    should: 'seal the dropout partial and the full capture complete',
+    actual: [
+      complete([range(0, 1000)], [range(0, 200), range(600, 1000)], {
+        openMs: 4000,
+        closeMs: 1000,
+      }),
+      complete([range(0, 1000)], [range(0, 200), range(200, 1000)], {
+        openMs: 4000,
+        closeMs: 1000,
+      }),
+    ],
+    expected: [false, true],
+  });
+});
+
 test('a capture restart after speech ended inside the close zone keeps the window complete (#493)', () => {
   assert({
     given:
@@ -234,23 +253,27 @@ const arbitraryRanges = (next: (below: number) => number, count: number) =>
     return range(start, start + 1 + next(4_000));
   });
 
-test('captured evidence added near the cutoff never flips complete to partial (ISSUE-807)', () => {
+test('captured evidence added in a bot’s terminal zone never flips complete to partial (ISSUE-807)', () => {
   const next = generator(0x5eed807);
   const flips: string[] = [];
   for (let i = 0; i < 4_000; i++) {
     const authority = arbitraryRanges(next, 1 + next(4));
     const observed = arbitraryRanges(next, next(5));
-    const tolerance =
-      i % 2 === 0
-        ? { openMs: next(2_000), closeMs: next(2_000) }
-        : {
-            openMs: next(2_000),
-            closeMs: next(2_000),
-            terminalCloseMs: next(2_000),
-          };
-    // Past every open zone: evidence that cannot move where speech began.
-    const after = Math.max(...authority.map((w) => w.start)) + tolerance.openMs;
-    const start = after + next(4_000);
+    // A bot's tolerances as coverageAuthority sets them: one relay latency.
+    const relayMs = 1 + next(2_000);
+    const tolerance = {
+      openMs: relayMs,
+      closeMs: relayMs,
+      terminalCloseMs: relayMs,
+    };
+    const close = Math.max(...authority.map((w) => w.end!));
+    // Inside the terminal zone, and past every open zone: evidence that
+    // cannot move where speech began.
+    const from = Math.max(
+      close - tolerance.terminalCloseMs,
+      Math.max(...authority.map((w) => w.start)) + tolerance.openMs,
+    );
+    const start = from + next(Math.max(1, close - from + 500));
     const extra = range(start, start + 1 + next(2_000));
     if (
       complete(authority, observed, tolerance) &&
@@ -260,7 +283,7 @@ test('captured evidence added near the cutoff never flips complete to partial (I
   }
   assert({
     given:
-      '4,000 seeded authority, evidence and tolerance cases, each with one extra observation past every open zone',
+      '4,000 seeded bot windows, evidence and tolerances, each with one extra observation inside the terminal zone',
     should: 'never seal partial where less evidence sealed complete',
     actual: flips.slice(0, 3),
     expected: [],

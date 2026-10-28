@@ -19,6 +19,7 @@ const expectedVersion = (answer: Parameters<typeof CommandForm>[0]['answer']) =>
         intent={intent}
         commandId={'c'.repeat(24)}
         version={3}
+        segment="1"
         post={() => undefined}
         answer={answer}
         pending={false}
@@ -52,5 +53,38 @@ test('a confirmation confirms the round the debater sees now (ISSUE-838)', () =>
       }),
     ],
     expected: ['3', '2'],
+  });
+});
+
+const confirming = (asked: string) =>
+  renderToStaticMarkup(
+    <CommandForm
+      intent={intent}
+      commandId={'n'.repeat(24)}
+      version={7}
+      segment="2"
+      post={() => undefined}
+      answer={{
+        values: {
+          type: 'yield',
+          expectedVersion: '5',
+          commandId: 'c'.repeat(24),
+          segment: asked,
+        },
+        confirmation: true,
+      }}
+      pending={false}
+      control="control"
+    />,
+  ).includes('Confirm end speech');
+
+test('a confirmation asked in one segment never ends the next (ISSUE-838)', () => {
+  assert({
+    given:
+      'an End speech confirmation asked in segment 1 while the debater now holds segment 2, and one asked in segment 2',
+    should:
+      'offer a fresh End speech for the stale one and Confirm for the current one',
+    actual: [confirming('1'), confirming('2')],
+    expected: [false, true],
   });
 });
