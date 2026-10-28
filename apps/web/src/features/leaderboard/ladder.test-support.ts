@@ -59,6 +59,7 @@ export const ladder = (
 export const rowFixture = (overrides: Partial<LadderRow> = {}): LadderRow => ({
   key: 'k',
   username: 'ada',
+  accountClosed: false,
   rank: 4,
   rating: 1650,
   range: 120,

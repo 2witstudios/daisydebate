@@ -94,7 +94,7 @@ test('account authorization locks fence erasure and return fresh durable members
       });
     });
     await db.execute(
-      sql`update users set username=null,email=null,image=null,name='',deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`,
+      sql`update users set email=null,image=null,name='',deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`,
     );
     assert({
       given: 'the same persisted session after account erasure',

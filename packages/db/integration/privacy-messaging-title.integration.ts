@@ -2,15 +2,11 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyAdopter,
-} from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { rejectedBy } from './constraint-helpers';
 import { bindings, now } from './privacy.test-support';
 import {
-  messagingRequiredAdopters as requiredAdopters,
   messagingPrivacyAdoption,
   withPrivacyMessaging,
 } from './privacy-messaging.test-support';
@@ -71,17 +67,10 @@ test('canonical title erasure retains peer manager data and rolls back all local
             expected: constraint,
           });
         }
-        const adoption = {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        };
+        const adoption = messagingPrivacyAdoption;
         const subject = { userId, actorId };
-        const exported = await exportPrivacySubject(
-          database,
-          subject,
-          adoption,
-        );
-        const peer = await exportPrivacySubject(
+        const exported = await runPrivacyExport(database, subject, adoption);
+        const peer = await runPrivacyExport(
           database,
           { userId: otherId, actorId: otherActorId },
           adoption,
@@ -130,8 +119,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
         const before = await snapshot();
         const late: PrivacyAdopter = {
           id: 'title-rollback-probe',
-          phase: 'after-scrub',
-          fields: [],
+          phase: 'after-close',
           export: async () => ({}),
           erase: async () => {
             throw new Error('title rollback');
@@ -139,18 +127,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
         };
         const input = { subject, now, vendors: [], jobIds: [] };
         await expect(
-          erasePrivacySubject(
-            database,
-            input,
-            {
-              requiredAdopters: [
-                ...requiredAdopters,
-                { id: late.id, phase: late.phase, expectedColumns: {} },
-              ],
-              adopters: [...adoption.adopters, late],
-            },
-            bindings,
-          ),
+          runPrivacyErasure(database, input, [...adoption, late], bindings),
         ).rejects.toThrow('title rollback');
         assert({
           given:
@@ -160,7 +137,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
           actual: await snapshot(),
           expected: before,
         });
-        await erasePrivacySubject(database, input, adoption, bindings);
+        await runPrivacyErasure(database, input, adoption, bindings);
         const [owned] = await client.unsafe(
           'select title,title_author_actor_id,change_version::int as version,lifecycle from messaging_channels where id=$1',
           [authoredId],

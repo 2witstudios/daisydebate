@@ -40,26 +40,18 @@ describe('changeText', () => {
 describe('row labels', () => {
   test('text parts', () => {
     assert({
-      given: 'an established row and a deleted provisional row',
+      given: 'an established row and a closed account’s row',
       should: 'format name, record, rating and rank',
       actual: [
         displayName(row()),
-        displayName(row({ username: null })),
+        displayName(row({ accountClosed: true })),
         recordText(row()),
         ratingText(row()),
         ratingText(row({ provisional: true })),
         rankText(row()),
         rankText(row({ rank: null })),
       ],
-      expected: [
-        '@ada',
-        '[deleted debater]',
-        '12–5',
-        '1650',
-        '1650?',
-        '4',
-        '–',
-      ],
+      expected: ['@ada', '@ada (closed)', '12–5', '1650', '1650?', '4', '–'],
     });
   });
 
@@ -75,17 +67,17 @@ describe('row labels', () => {
 
   test('accessible names', () => {
     assert({
-      given: 'an established, a provisional and a deleted row',
+      given: 'an established, a provisional and a closed account’s row',
       should: 'name who they are and where they stand',
       actual: [
         rowLabel(row()),
         rowLabel(row({ provisional: true, rank: null })),
-        rowLabel(row({ username: null })),
+        rowLabel(row({ accountClosed: true })),
       ],
       expected: [
         '@ada, rank 4, rating 1650',
         '@ada, provisional, rating 1650',
-        'Deleted debater, rank 4, rating 1650',
+        '@ada (closed), rank 4, rating 1650',
       ],
     });
   });

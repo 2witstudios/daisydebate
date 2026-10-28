@@ -75,7 +75,7 @@ test('realtime uses minimal account facts and the erasure fence without raw prof
       actual: refused,
       expected: ['42501', '42501', '22023', '22023', '22023'],
     });
-    await fixture.sql`update users set username=null,email_verified=false,deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`;
+    await fixture.sql`update users set email_verified=false,deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`;
     await fixture.sql.begin(async (client) => {
       await client`set local role daisy_realtime`;
       assert({

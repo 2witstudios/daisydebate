@@ -21,20 +21,10 @@ import {
 } from '../src/schema/messaging-messages';
 import { now, withPrivacySubject } from './privacy.test-support';
 
-export const messagingRequiredAdopters = [
-  ...socialPrivacyAdoption().requiredAdopters,
-  {
-    id: 'account-age',
-    phase: 'after-scrub' as const,
-    expectedColumns: {
-      account_age: ['user_id', 'birth_month', 'version', 'recorded_at'],
-    },
-  },
+export const messagingPrivacyAdoption = [
+  ...socialPrivacyAdoption(),
+  accountAgePrivacyAdopter,
 ];
-export const messagingPrivacyAdoption = {
-  requiredAdopters: messagingRequiredAdopters,
-  adopters: [...socialPrivacyAdoption().adopters, accountAgePrivacyAdopter],
-};
 
 /** Composes real MSG-owned tables through Drizzle; no alternative contact backend. */
 export async function withPrivacyMessaging(

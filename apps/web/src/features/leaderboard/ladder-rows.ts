@@ -15,8 +15,7 @@ const change = (entry: LadderEntry, closed: boolean): Change => {
 const needle = (q: string): string => q.toLowerCase().replace(/^@/, '');
 
 export const matchesSearch = (entry: RankedEntry, q: string): boolean =>
-  q === '' ||
-  (entry.username !== null && entry.username.toLowerCase().includes(needle(q)));
+  q === '' || entry.username.toLowerCase().includes(needle(q));
 
 /** The entries that satisfy the status filter and the search. */
 export const applyFilters = (
@@ -48,14 +47,14 @@ export type RowContext = {
  */
 export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
   const { query, viewer, mine } = context;
-  const masked =
-    entry.username !== null && (viewer?.blinded ?? []).includes(entry.username);
+  const masked = (viewer?.blinded ?? []).includes(entry.username);
   const base = {
     key: entry.id,
     username: entry.username,
+    accountClosed: entry.accountClosed,
     me: mine !== undefined && entry.id === mine.id,
-    selected: entry.username !== null && entry.username === query.debater,
-    href: entry.username === null ? null : debaterHref(query, entry.username),
+    selected: entry.username === query.debater,
+    href: debaterHref(query, entry.username),
     masked,
   };
   if (masked)

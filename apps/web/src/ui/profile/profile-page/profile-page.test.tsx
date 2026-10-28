@@ -11,7 +11,7 @@ const entry = (overrides: Partial<MatchHistoryEntry>): MatchHistoryEntry => ({
   completedAt: '2026-10-20T12:00:00.000Z',
   resolution: 'This house would ban homework',
   side: 'affirmative',
-  opponents: [{ kind: 'human', label: 'debater-b' }],
+  opponents: [{ kind: 'human', label: 'debater-b', closed: false }],
   result: 'win',
   forfeit: false,
   judges: 'ai',
@@ -23,6 +23,7 @@ const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
   version: 1,
   username: 'debater-a',
   memberSince: '2026-09-14T00:00:00.000Z',
+  closed: false,
   me: false,
   record: { wins: 3, losses: 1, draws: 0 },
   history: [entry({})],
@@ -100,8 +101,8 @@ describe('ProfilePage', () => {
             result: 'loss',
             forfeit: true,
             opponents: [
-              { kind: 'bot', label: 'Socrates' },
-              { kind: 'human', label: null },
+              { kind: 'bot', label: 'Socrates', closed: false },
+              { kind: 'human', label: 'gone-debater', closed: true },
             ],
           }),
           entry({ roundId: 'b'.repeat(24), result: 'draw', judges: 'mixed' }),
@@ -109,18 +110,36 @@ describe('ProfilePage', () => {
       }),
     );
     assert({
-      given: 'a forfeited loss against a bot and a former member, and a draw',
+      given: 'a forfeited loss against a bot and a closed account, and a draw',
       should:
-        'show draws in the record, the forfeit, the AI opponent and the former member',
+        'show draws in the record, the forfeit, the AI opponent and the closed account by name',
       actual: [
         html.includes('Draws'),
         html.includes('>Lost<'),
         html.includes('By forfeit'),
         html.includes('Socrates (AI)'),
-        html.includes('Former member'),
+        /@gone-debater<\/a> \(closed\)/.test(html),
         html.includes('AI and human judges'),
       ],
       expected: [true, true, true, true, true, true],
+    });
+  });
+
+  test('a closed account', () => {
+    const html = render(profile({ closed: true }));
+    assert({
+      given: 'a closed account seen by anyone',
+      should:
+        'keep its name and public record, mark it closed and offer no actions',
+      actual: [
+        html.includes('>@debater-a<'),
+        html.includes('>Closed<'),
+        html.includes('This account is closed'),
+        html.includes('Member since'),
+        html.includes('aria-label="Record"'),
+        html.includes(`href="/rounds/${'r'.repeat(24)}"`),
+      ],
+      expected: [true, true, true, false, true, true],
     });
   });
 

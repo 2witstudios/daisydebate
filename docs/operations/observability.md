@@ -5,8 +5,8 @@ exporters belong to deployment, not the repository. Error tracking and
 product analytics are the deliberate exception:
 [ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md) ships
 in-repo Sentry and PostHog adapters that stay inert without their
-deploy-time keys — see [privacy](privacy.md) for the classification and
-consent rules those adapters must follow. Any other vendor SDK still
+deploy-time keys — see [compliance](compliance.md) for the consent rules
+those adapters must follow. Any other vendor SDK still
 requires its own ADR before it may be added.
 
 ## Source of truth
@@ -65,7 +65,7 @@ Security page reads it through a read-only role
 - **Delivery.** The stream is at-most-once, and inserts are
   retry-idempotent, so counts are lower bounds. The page shows the
   shipper's heartbeat as coverage before any count.
-- **Retention.** 28 days on receipt time (privacy.md, "Operational logs").
+- **Retention.** 28 days on receipt time ([compliance](compliance.md), "Operational logs").
 - **Production.** Production uses its own Fly org and its own pipeline,
   rolled out by the owner.
 

@@ -23,8 +23,10 @@ import { toSeasonRecord, type SeasonRecord } from './season-record';
 type StandingRating = {
   readonly seasonId: string;
   readonly actorId: string;
-  /** Null once the account is deleted (tombstoned). */
+  /** Null for an actor with no account. */
   readonly username: string | null;
+  /** The account is closed; its name stays on the ladder (ADR 0087). */
+  readonly accountClosed: boolean;
   readonly rating: number;
   readonly deviation: number;
 };
@@ -128,6 +130,7 @@ export const standingsOperations = ({
               seasonId: ratings.seasonId,
               actorId: ratings.actorId,
               username: users.username,
+              closedAt: users.deletedAt,
               rating: ratings.rating,
               deviation: ratings.deviation,
             })
@@ -173,9 +176,10 @@ export const standingsOperations = ({
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
       );
       return {
-        ratings: ratingRows.map((row) => ({
+        ratings: ratingRows.map(({ closedAt, ...row }) => ({
           ...row,
           username: row.username ?? null,
+          accountClosed: closedAt !== null,
         })),
         changes: changeRows.map((row) => ({
           ...row,

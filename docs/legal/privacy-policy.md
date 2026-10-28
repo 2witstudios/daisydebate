@@ -116,7 +116,7 @@ You can ask to access, correct, export or delete your personal data, to restrict
 
 Today you can end sessions and manage passkeys and your sign-in email in Settings. For anything else, including deleting your account or getting a copy of your data, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
 
-When an account is deleted we remove your email address, username, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends and the transcripts of what you said. Results you took part in remain as an anonymous entry so other people’s records stay correct. Room titles, topics and resolutions you wrote, documents you created in debate rooms, and the written reasons on ballots you judged are not yet removed with the account; you can ask us to remove them. [COUNSEL: confirm whether this partial erasure may be disclosed as is until PRIV-4 and ISSUE-383 complete it.]
+When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages and the transcripts of what you said. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. We keep them because other members’ records depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
 
 While your beta access is pending or withdrawn you can still reduce your own footprint, as the terms of service describe under “The beta and the waiting list”.
 
@@ -128,13 +128,12 @@ When we change this policy we update the version at the top of the page and, for
 
 ## Notes for the owner and counsel (not part of the policy)
 
-The draft describes the beta as the code behaves on main after #471, not as docs/operations/privacy.md plans it. These notes are for the owner and counsel and are never published. Gaps found while drafting, each tracked:
+The draft describes the beta as the code behaves on main after #471, not as a plan describes it. These notes are for the owner and counsel and are never published. Gaps found while drafting, each tracked:
 
-- **No deletion or export entry point.** Erasure and export are implemented in `packages/db/src/privacy` but nothing calls them, so requests must go by email until [PRIV-4 — Given a data subject request, should export personal data and erase it atomically with durable asynchronous vendor erasure](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/njiorsf64z4iqjm2dbfa3zuu) ships an operator or self-service path. The draft says so in an [OWNER] placeholder.
+- **No deletion or export entry point.** Erasure and export are implemented in `packages/db/src/privacy` but nothing calls them, so requests must go by email until [ISSUE-833](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/sjd7whfx0gua2orgd508j5rd) ships an operator or self-service path. Erasure keeps the username and competitive record (ADR 0087, DEC-261); the policy must say so. The draft says so in an [OWNER] placeholder.
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **docs/operations/privacy.md drift** (consent_record, Sentry, PostHog and beehiiv shown as present): [ISSUE-723](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/x4aizi3bsyz8ru2dzr9ypcpq).
 - **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), error tracking (Sentry), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.

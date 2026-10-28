@@ -63,7 +63,7 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
       ],
       expected: [[segmentId], seat.id, [seat.id], [], []],
     });
-    await fixture.sql`update users set deleted_at=statement_timestamp(),username=null where id=${userId}`;
+    await fixture.sql`update users set deleted_at=statement_timestamp() where id=${userId}`;
     await assertRejects({
       given: 'same cached principal after canonical erasure',
       should: 'refuse target discovery from fresh account facts',

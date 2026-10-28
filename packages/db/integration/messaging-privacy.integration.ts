@@ -27,7 +27,7 @@ test('messaging rights erase subject associations atomically and preserve other 
   const adopter = createMessagingPrivacyAdopter();
   // Erasure composes every social adopter: Contacts, not Messaging, ends the pair (B5).
   const eraseSocial = async (tx: Parameters<typeof adopter.erase>[0]) => {
-    for (const social of socialPrivacyAdoption().adopters)
+    for (const social of socialPrivacyAdoption())
       await social.erase(tx, subject, { now });
   };
   try {

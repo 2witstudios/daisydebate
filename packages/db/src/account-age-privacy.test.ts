@@ -13,7 +13,7 @@ const ageDatabase = (responses: unknown[][]) =>
     throw new Error('Unexpected age query');
   });
 
-test('age adopter binds own export/delete under the approved age-step policy', async () => {
+test('age adopter binds own export and delete to its subject', async () => {
   const subject = { userId: input.userId, actorId: 'a'.repeat(24) };
   const fixture = ageDatabase([
     [],
@@ -47,25 +47,5 @@ test('age adopter binds own export/delete under the approved age-step policy', a
       },
       [input.userId, input.userId, input.userId],
     ],
-  });
-  assert({
-    given: 'the owner’s age-step decision (DEC-244)',
-    should:
-      'classify the birth month under legal obligation and contract, kept for the life of the account',
-    actual: accountAgePrivacyAdopter.fields.map(
-      ({ lawfulBasis, retention }) => [lawfulBasis, retention],
-    ),
-    expected: Array.from({ length: 4 }, () => [
-      {
-        status: 'approved' as const,
-        decision: 'cnl34yx54fgtuxwvekobc657',
-        rule: 'legal obligation and contract',
-      },
-      {
-        status: 'approved' as const,
-        decision: 'cnl34yx54fgtuxwvekobc657',
-        rule: 'life of the account',
-      },
-    ]),
   });
 });

@@ -103,7 +103,7 @@ export const openDm = async (databaseUrl: string) => {
   const erase = (who: typeof subject) =>
     database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [who.actorId], { maxActors: 1 });
-      for (const adopter of socialPrivacyAdoption().adopters)
+      for (const adopter of socialPrivacyAdoption())
         await adopter.erase(tx, who, { now });
     });
   const close = async () => {

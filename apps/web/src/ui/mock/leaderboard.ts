@@ -12,8 +12,8 @@ const SEASON_DAYS = 28;
 const STARTING_RATING = 1500;
 const STARTING_DEVIATION = 350;
 const FIELD = 240;
-/** The deleted account's place in every season (shows as a tombstone). */
-const DELETED_AT = 17;
+/** The closed account's place in every season (its name shows, marked closed). */
+const CLOSED_AT = 17;
 
 const daysFrom = (now: string, days: number): string =>
   new Date(Date.parse(now) + days * DAY_MS).toISOString();
@@ -87,7 +87,8 @@ const generated = (season: number): readonly LadderEntry[] =>
     const seasonChange = Math.round((varying() - 0.4) * 44);
     return {
       id: `${season}-${i}`,
-      username: i === DELETED_AT ? null : sampleUsername(i),
+      username: sampleUsername(i),
+      accountClosed: i === CLOSED_AT,
       rating,
       deviation,
       played,
@@ -113,6 +114,7 @@ export function sampleEntries(
     {
       id: `${season}-viewer`,
       username: viewer,
+      accountClosed: false,
       rating: line.rating,
       deviation: line.played < 10 ? 170 : 62,
       played: line.played,

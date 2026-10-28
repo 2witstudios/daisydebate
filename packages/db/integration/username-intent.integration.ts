@@ -26,7 +26,7 @@ test('public username intent follows verified human binding and account erasure'
     await fixture.sql`update actors set kind='bot',version=version+1 where id=${actorId}`;
     actual.push(await database.lookupHumanActorByUsername(userId));
     await fixture.sql`update actors set kind='human',version=version+1 where id=${actorId}`;
-    await fixture.sql`update users set username=null,email_verified=false,deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`;
+    await fixture.sql`update users set email_verified=false,deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${userId}`;
     actual.push(await database.lookupHumanActorByUsername(userId));
     assert({
       given:

@@ -29,14 +29,16 @@ const numeric = 'tabular-nums';
 
 /** What appears after a pause over a row, or when it takes focus. */
 function HoverCard({ row }: { row: Row }): ReactNode {
-  if (row.masked || row.username === null) return null;
+  if (row.masked) return null;
   return (
     <span
       aria-hidden="true"
       className="pointer-events-none invisible absolute top-full left-16 z-10 flex w-rail flex-col gap-2 rounded-lg border border-border-strong bg-surface-raised p-4 text-left opacity-0 shadow-3 transition-opacity delay-500 duration-120 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 max-compact:hidden"
     >
       <span className="min-w-0">
-        <span className="block truncate text-base font-bold">{`@${row.username}`}</span>
+        <span className="block truncate text-base font-bold">
+          {displayName(row)}
+        </span>
         <span className="block text-sm text-ink-muted">
           {row.provisional ? 'Provisional' : 'Established'}
         </span>
@@ -78,7 +80,7 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
             <span
               className={cn(
                 'truncate font-strong',
-                row.username === null && 'text-ink-faint',
+                row.accountClosed && 'text-ink-faint',
               )}
             >
               {displayName(row)}
@@ -130,21 +132,15 @@ export function LadderRow({ row, closed }: LadderRowProps) {
   );
   return (
     <li className="border-t border-border">
-      {row.href === null ? (
-        <div className={className}>
-          <Cells row={row} closed={closed} />
-        </div>
-      ) : (
-        <Link
-          href={row.href}
-          aria-label={rowLabel(row)}
-          aria-current={row.selected ? 'true' : undefined}
-          className={className}
-        >
-          <Cells row={row} closed={closed} />
-          <HoverCard row={row} />
-        </Link>
-      )}
+      <Link
+        href={row.href}
+        aria-label={rowLabel(row)}
+        aria-current={row.selected ? 'true' : undefined}
+        className={className}
+      >
+        <Cells row={row} closed={closed} />
+        <HoverCard row={row} />
+      </Link>
     </li>
   );
 }

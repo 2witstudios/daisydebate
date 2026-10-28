@@ -63,17 +63,13 @@ describe('LadderRow', () => {
     });
   });
 
-  test('a deleted account', () => {
-    const html = render({ username: null, href: null });
+  test('a closed account', () => {
+    const html = render({ accountClosed: true });
     assert({
-      given: 'a deleted account',
-      should: 'show the tombstone name, keep the rating and not be a link',
-      actual: [
-        html.includes('[deleted debater]'),
-        html.includes('1650'),
-        html.includes('<a '),
-      ],
-      expected: [true, true, false],
+      given: 'a closed account',
+      should: 'show its name marked closed and keep the rating',
+      actual: [html.includes('@ada (closed)'), html.includes('1650')],
+      expected: [true, true],
     });
   });
 

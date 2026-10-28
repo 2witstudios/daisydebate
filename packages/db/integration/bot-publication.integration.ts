@@ -136,7 +136,7 @@ test('expired leases and erased human accounts cannot authorize a bot run', asyn
       code: 'CONFLICT',
     });
     const next = await operations.claimWorker(target);
-    await fixture.sql`update users set username=null,email=null,image=null,name='',deleted_at=clock_timestamp() where id=${userId}`;
+    await fixture.sql`update users set email=null,image=null,name='',deleted_at=clock_timestamp() where id=${userId}`;
     await assertRejects({
       given: 'an erased human participant after admission',
       should: 'fail current authority closed',
