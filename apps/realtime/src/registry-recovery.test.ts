@@ -118,18 +118,18 @@ test('a denial on one topic leaves another topic attached', async () => {
 });
 
 test('access.revoked ends exactly the named subscription on its request', async () => {
-  const { buildDebateTopic, buildUserInboxTopic } =
+  const { buildRoundTopic, buildUserInboxTopic } =
     await import('@daisy/protocol');
   const revoked = 'f'.repeat(24);
   const kept = 'g'.repeat(24);
   const f = fixture();
   await f.registry.subscribe(f.connection, {
     id: 'revoked',
-    topic: buildDebateTopic(revoked),
+    topic: buildRoundTopic(revoked),
   });
   await f.registry.subscribe(f.connection, {
     id: 'kept',
-    topic: buildDebateTopic(kept),
+    topic: buildRoundTopic(kept),
   });
   const actorId = f.connection.principal.actorId;
   f.registry.sink([
@@ -158,7 +158,7 @@ test('access.revoked ends exactly the named subscription on its request', async 
     },
     expected: {
       errors: ['AUTHORIZATION:revoked'],
-      topics: [buildDebateTopic(kept)],
+      topics: [buildRoundTopic(kept)],
     },
   });
 });

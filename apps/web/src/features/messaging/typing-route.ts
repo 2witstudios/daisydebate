@@ -10,7 +10,7 @@ import {
 
 import { composeMessagingTyping } from './typing-operations';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { runMemberHandler } from '../../server/member-handler';
 import { requireMemberActor } from '../access/actor';
 export function composeMessagingTypingRoutes(app: App) {
@@ -23,7 +23,7 @@ export function composeMessagingTypingRoutes(app: App) {
       ),
       signal: (actorId) =>
         consumeWindowsOrThrow(
-          app.auth().limiter,
+          app.limiter,
           `messaging:typing-signal:${actorId}`,
           policy.limits.typing,
         ),

@@ -2,7 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { memberHttpBoundary } from '../../server/member-handler';
 import { createPresenceHandlers } from './handlers';
 import { setPresenceHidden } from './setting';
@@ -31,7 +31,7 @@ export function composePresenceRoutes(app: App) {
         clock: app.clock,
         limit: (actorId) =>
           consumeOrThrow(
-            app.auth().limiter,
+            app.limiter,
             `presence:${actorId}`,
             PRESENCE_RULE,
           ),

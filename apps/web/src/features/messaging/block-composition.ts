@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { blockMessagingContact } from './block';
 import { contactPairFence } from '../contacts/authorization';
 
@@ -13,7 +13,7 @@ export function composeMessagingBlockOperation(app: App) {
       clock: app.clock,
       limit: (actorId) =>
         consumeWindowsOrThrow(
-          app.auth().limiter,
+          app.limiter,
           `messaging:social:${actorId}`,
           social.abuse,
         ),

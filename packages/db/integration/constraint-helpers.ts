@@ -11,7 +11,7 @@ import {
   admitParticipants,
   removeUnowedBetaDigests,
 } from '../src/beta-access-testing';
-import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -275,7 +275,7 @@ export class Fixture {
     // Remove only this fixture's topics before deleting their owning rows.
     for (const roundId of this.tracked.get('rounds') ?? [])
       await this
-        .sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
+        .sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
     // A beta revocation or session end pushes a control row to the actor's
     // inbox topic (ADR 0075); it goes with the fixture's actors too.
     for (const actorId of this.tracked.get('actors') ?? [])

@@ -1,6 +1,6 @@
 import { authorizationPrincipal as principal } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
 import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
@@ -70,7 +70,7 @@ for (const mode of [
     const result = await createRealtimeAuthorization({
       resources,
       now: () => elapsed,
-    }).authorizeTopic(principal, buildDebateTopic(resource.roundId));
+    }).authorizeTopic(principal, buildRoundTopic(resource.roundId));
     assert({
       given:
         'actual minimal Round projection port and canonical round.read evaluation',

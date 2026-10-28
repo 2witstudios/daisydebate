@@ -92,7 +92,9 @@ export function channelFileFrame(
           eq(messagingFiles.channelId, channelId),
         ),
       )
-      .for('update');
+      // An owner's change locks the row; an access read only excludes
+      // maintenance writers, so readers of one file never serialize.
+      .for(owned ? 'update' : 'share');
     if (
       !row ||
       (owned && row.ownerActorId !== input.actorId) ||

@@ -3,8 +3,8 @@ import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
-import type { AuthRateLimiter } from '../../auth/abuse/rate-limit';
-import { consumeOrThrow } from '../../auth/abuse/rate-limit';
+import type { RateLimiter } from '../../../server/rate-limit';
+import { consumeOrThrow } from '../../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
@@ -18,14 +18,14 @@ import {
   type DocumentPrincipal,
 } from './document-operations';
 import { documentTemplates, type TemplateId } from './documents';
-import { DOCUMENT_MAX_BYTES } from './normalize-html';
+import { DOCUMENT_MAX_BYTES } from '../../documents/normalize-html';
 
 /** Document routes bind their authenticated principal at the HTTP boundary. */
 type Dependencies = {
   readonly logger: Logger;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly getActorByUserId: (
     userId: string,
   ) => Promise<{ readonly id: string } | null>;

@@ -3,8 +3,10 @@
 import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
-import type { PageTone } from '../../debate-room/room-state';
-import { DocumentEditor } from '../../debate-room/editor/document-editor';
+import {
+  DocumentEditor,
+  type PageTone,
+} from '../../document-editor/document-editor';
 import { prepDestinations } from '../../../features/prep/actions';
 import {
   briefOutline,

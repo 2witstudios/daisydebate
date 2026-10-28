@@ -6,7 +6,7 @@ import {
 } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { consumeWindowsOrThrow, type RateRule } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
 import { requestMessagingDm } from './request';
@@ -37,7 +37,7 @@ export function composeMessagingSocialRoutes(app: App) {
       social = policy.social;
     const limit = (actorId: string) =>
       consumeWindowsOrThrow(
-        app.auth().limiter,
+        app.limiter,
         `messaging:social:${actorId}`,
         social.abuse,
       );

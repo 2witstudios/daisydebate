@@ -1,7 +1,7 @@
 import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 
 import { resolveMessagingCreationIntent } from './creation-intent';
@@ -43,7 +43,7 @@ export function composeMessagingCreationIntentRoutes(app: App) {
               app.database.lookupHumanActorByUsername(username),
             limit: (actorId) =>
               consumeWindowsOrThrow(
-                app.auth().limiter,
+                app.limiter,
                 `messaging:discovery:${actorId}`,
                 social.abuse,
               ),

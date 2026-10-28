@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 
 import { changeMessagingReaction, readMessagingReactions } from './reactions';
 import { messagingReactionFence } from './reaction-fence';
@@ -50,7 +50,7 @@ export function composeMessagingReactionRoute(app: App) {
           store: store(principal),
           limit: (actorId) =>
             consumeWindowsOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:reaction:${actorId}`,
               policy.limits.reactions,
             ),

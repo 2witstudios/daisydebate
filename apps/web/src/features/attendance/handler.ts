@@ -6,7 +6,7 @@ import {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from '@daisy/protocol';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
@@ -24,7 +24,7 @@ type HandlerDeps = {
   readonly getActorByUserId: (
     userId: string,
   ) => Promise<{ readonly id: string } | null>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly checkIn: (
     principal: { readonly kind: 'human'; readonly actorId: string },
     roundId: string,

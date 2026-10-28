@@ -3,7 +3,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { ticketSchema } from '@daisy/protocol';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   requireSameOrigin,
@@ -26,7 +26,7 @@ type TicketDependencies = {
   readonly identify: (request: Request) => Promise<Identity>;
   /** The caller's own durable session id, resolved from the same cookies. */
   readonly sessionId: (headers: Headers) => Promise<string | null>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly getActorByUserId: (
     userId: string,
   ) => Promise<{ readonly id: string } | null>;

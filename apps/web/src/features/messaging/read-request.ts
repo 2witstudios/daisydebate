@@ -20,8 +20,8 @@ export async function readMessagingDmRequest(
     createMessagingSocialSchemas(dependencies.bounds).previewDm,
     input,
   );
-  return dependencies.store.withChannel(
-    { ...actor, channelId: command.channelId },
-    (frame) => frame.readRequest(),
-  );
+  return dependencies.store.readRequest({
+    ...actor,
+    channelId: command.channelId,
+  });
 }

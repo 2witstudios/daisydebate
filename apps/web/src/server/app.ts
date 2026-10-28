@@ -19,7 +19,7 @@ import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/auth/mail/mail';
-import { createAuthRateLimiter } from '../features/auth/abuse/redis-limiter';
+import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/auth/mail/webhook';
@@ -138,6 +138,9 @@ export function createApp({
     record: (input: Parameters<typeof database.recordEmailDelivery>[0]) =>
       database.recordEmailDelivery(input),
   };
+  // The application's one rate limiter: auth's gates and every feature that
+  // throttles share it (ISSUE-766), never reaching it through auth.
+  const limiter = createRateLimiter(redis);
   const composeAuth = (): AuthServer => {
     const authConfig = readAuth();
     return createAuthServer({
@@ -147,7 +150,7 @@ export function createApp({
       config: authConfig,
       database: database.authAdapter,
       emailSender: emailSender(authConfig),
-      limiter: createAuthRateLimiter(redis),
+      limiter,
       ledger,
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
@@ -220,6 +223,8 @@ export function createApp({
         clock,
       }));
     },
+    /** The shared atomic rate limiter (Redis-backed, fails closed). */
+    limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
     /**

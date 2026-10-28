@@ -6,7 +6,7 @@ import {
   messagingDmPairs,
   messagingSocialCommands,
 } from '../schema/messaging-social';
-import { withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingChannel } from './channel-frame';
 import { readMessagingChannelFact } from './social';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import {
@@ -36,6 +36,25 @@ export function createMessagingDmStore({
   readonly authorize: MessagingDmFence;
 }): MessagingDmStore {
   return {
+    readRequest: (scope) =>
+      readMessagingChannel(database, scope, async ({ tx, accounts }) => {
+        const fact = await readMessagingChannelFact(
+          tx,
+          scope.channelId,
+          scope.actorId,
+        );
+        if (!fact || fact.authority.kind !== 'dm')
+          throw createAppError('NOT_FOUND');
+        await authorize('read')(tx, scope, { fact, accounts });
+        // The preview projects sender, introduction and time, never more.
+        const row = await readRequestRow(tx, scope.channelId);
+        return {
+          channelId: row.channelId,
+          senderActorId: row.requestSenderActorId,
+          introduction: row.introduction,
+          requestedAt: row.requestedAt.toISOString(),
+        };
+      }),
     withChannel: (scope, work) =>
       withMessagingChannel(
         database,
@@ -52,30 +71,13 @@ export function createMessagingDmStore({
               throw createAppError('NOT_FOUND');
             return fact;
           };
-          const currentRequest = async () => {
-            const [row] = await tx
-              .select()
-              .from(messagingDmPairs)
-              .where(eq(messagingDmPairs.channelId, scope.channelId));
-            if (!row) throw createAppError('NOT_FOUND');
-            return row;
-          };
+          const currentRequest = () => readRequestRow(tx, scope.channelId);
           const fresh = async (mode: Parameters<MessagingDmFence>[0]) => {
             const fact = await currentFact();
             await authorize(mode)(tx, scope, { fact, accounts });
             return fact;
           };
           return work({
-            async readRequest() {
-              await fresh('read');
-              const row = await currentRequest();
-              return {
-                channelId: row.channelId,
-                senderActorId: row.requestSenderActorId,
-                introduction: row.introduction,
-                requestedAt: row.requestedAt.toISOString(),
-              };
-            },
             async readDecisionState(command) {
               validateDecision(command);
               const fact = await currentFact();
@@ -167,6 +169,18 @@ export function createMessagingDmStore({
         },
       ),
   };
+}
+/** The one read of a DM pair's request row, for the preview and decisions. */
+async function readRequestRow(
+  tx: Pick<BunSQLDatabase, 'select'>,
+  channelId: string,
+) {
+  const [row] = await tx
+    .select()
+    .from(messagingDmPairs)
+    .where(eq(messagingDmPairs.channelId, channelId));
+  if (!row) throw createAppError('NOT_FOUND');
+  return row;
 }
 function validateDecision(command: DecisionCommand) {
   if (

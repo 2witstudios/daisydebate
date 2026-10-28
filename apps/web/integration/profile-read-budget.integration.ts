@@ -9,7 +9,7 @@ setupRitewayBun();
 const { app } = createTestApp();
 
 test('server-render profile reads consume a real shared Redis budget before PostgreSQL', async () => {
-  const limiter = app.auth().limiter;
+  const limiter = app.limiter;
   let reads = 0;
   const store = {
     readMemberProfile: async (

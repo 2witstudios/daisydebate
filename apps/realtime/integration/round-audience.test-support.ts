@@ -1,7 +1,7 @@
 import type { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { validRules } from '@daisy/db/testing';
-import { buildDebateTopic, type DebateRole } from '@daisy/protocol';
+import { buildRoundTopic, type DebateRole } from '@daisy/protocol';
 
 /** Administrative fixture writes persist facts; production canonical readers decide. */
 export function roundAudienceFixture(client: SQL, actorId: string) {
@@ -17,7 +17,7 @@ export function roundAudienceFixture(client: SQL, actorId: string) {
       ids.push(id);
       if (role)
         await client`insert into round_participants(id,round_id,actor_id,role,slot) values(${systemId.next()},${id},${actorId},${role},0)`;
-      return { id, topic: buildDebateTopic(id) };
+      return { id, topic: buildRoundTopic(id) };
     },
     async close() {
       for (const id of ids) {

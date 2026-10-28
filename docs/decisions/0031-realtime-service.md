@@ -127,12 +127,11 @@ absent from the table is refused, and so is a decision that fails or cannot
 run (fail closed). `@daisy/db`'s read models settle the facts a rule needs;
 the table names the rule.
 
-| Topic family                          | `authorizeSubscribe` rule                                                                                                                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `debate:<id>`, `debate:<id>:presence` | `authorize(debate.read)` on the debate: a public or unlisted debate is open to every ticket holder, and a private debate to its creator and the seated                                     |
-| `debate:<id>:chat`                    | `authorize(debate.read)`, and for a `private` debate the seated fact as well, so a creator who is not seated is refused (the "seated roles only" narrowing; the chat epic may redefine it) |
-| `user:<actorId>:inbox`                | `authorizeInbox`: the owning actor only, matched against the connecting ticket's `actorId` (never a `users.id`)                                                                            |
-| `standings:<seasonId>`                | open to every ticket holder, because the ladder is public; the topic is keyed by the season's cuid2 id, not a slug                                                                         |
+| Topic family                        | `authorizeSubscribe` rule                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `round:<id>`, `round:<id>:presence` | `authorize(debate.read)` on the debate: a public or unlisted debate is open to every ticket holder, and a private debate to its creator and the seated |
+| `user:<actorId>:inbox`              | `authorizeInbox`: the owning actor only, matched against the connecting ticket's `actorId` (never a `users.id`)                                        |
+| `standings:<seasonId>`              | open to every ticket holder, because the ladder is public; the topic is keyed by the season's cuid2 id, not a slug                                     |
 
 `unlisted` is a listing flag, not access control: an unlisted debate is left
 out of listings, but anyone who has its id may read it and subscribe to it.
@@ -181,18 +180,18 @@ Every message in both directions is a JSON text frame
 
 Server messages, exactly:
 
-| `type`              | Fields beyond `{v, type}`    | Purpose                                                                                                                                                                                                                                                             |
-| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `subscribed`        | `{id, topic, position}`      | acknowledges `subscribe`; `position` is the outbox cursor to catch up from                                                                                                                                                                                          |
-| `unsubscribed`      | `{id, topic}`                | acknowledges `unsubscribe`                                                                                                                                                                                                                                          |
-| `resync_required`   | `{id, topic}`                | the requested `since` fell before the retained range; reload over HTTP                                                                                                                                                                                              |
-| `error`             | `{id?, code, message}`       | a request-scoped or connection-scoped error                                                                                                                                                                                                                         |
-| `pong`              | `{id}`                       | answers `ping`                                                                                                                                                                                                                                                      |
-| `event`             | `{topic, position, payload}` | an outbox row fanned out to a subscriber; `payload.kind` is one of the doorbell or inbox kind names ADR 0032 §6 lists                                                                                                                                               |
-| `presence.changed`  | `{topic}`                    | the presence doorbell (ADR 0033 §1): a `debate:<id>:presence` topic's projected value changed. No `position`: presence is never written to the outbox, so there is nothing to carry beyond the topic, and the client always refetches the projected value over HTTP |
-| `ready`             | none                         | `hello` succeeded                                                                                                                                                                                                                                                   |
-| `revoked`           | none                         | `session.revoked`, or the 60 s revalidation found the session gone                                                                                                                                                                                                  |
-| `server.restarting` | none                         | SIGTERM drain                                                                                                                                                                                                                                                       |
+| `type`              | Fields beyond `{v, type}`    | Purpose                                                                                                                                                                                                                                                            |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `subscribed`        | `{id, topic, position}`      | acknowledges `subscribe`; `position` is the outbox cursor to catch up from                                                                                                                                                                                         |
+| `unsubscribed`      | `{id, topic}`                | acknowledges `unsubscribe`                                                                                                                                                                                                                                         |
+| `resync_required`   | `{id, topic}`                | the requested `since` fell before the retained range; reload over HTTP                                                                                                                                                                                             |
+| `error`             | `{id?, code, message}`       | a request-scoped or connection-scoped error                                                                                                                                                                                                                        |
+| `pong`              | `{id}`                       | answers `ping`                                                                                                                                                                                                                                                     |
+| `event`             | `{topic, position, payload}` | an outbox row fanned out to a subscriber; `payload.kind` is one of the doorbell or inbox kind names ADR 0032 §6 lists                                                                                                                                              |
+| `presence.changed`  | `{topic}`                    | the presence doorbell (ADR 0033 §1): a `round:<id>:presence` topic's projected value changed. No `position`: presence is never written to the outbox, so there is nothing to carry beyond the topic, and the client always refetches the projected value over HTTP |
+| `ready`             | none                         | `hello` succeeded                                                                                                                                                                                                                                                  |
+| `revoked`           | none                         | `session.revoked`, or the 60 s revalidation found the session gone                                                                                                                                                                                                 |
+| `server.restarting` | none                         | SIGTERM drain                                                                                                                                                                                                                                                      |
 
 ### 7. Heartbeat: application `ping` every 15 s
 
@@ -386,9 +385,9 @@ the realtime PostgreSQL role, not by the import graph.
 
 [ADR 0048](0048-authorization-core.md) replaces section 5's per-family table
 and the sentences that said the registry "performs no authorization of its
-own" and is "owned as data by `@daisy/protocol`". All five topic families
-(`debate`, `debate:presence`, `debate:chat`, `user:inbox`, `standings`) are
-decided by `authorizeSubscribe`, so `debate:<id>` and `debate:<id>:presence`
+own" and is "owned as data by `@daisy/protocol`". All topic families
+(`room`, `round`, `round:presence`, `user:inbox`, `standings`, `channel`) are
+decided by `authorizeSubscribe`, so `round:<id>` and `round:<id>:presence`
 no longer depend on "any signed-in member" alone, and `standings` is open to
 every ticket holder and is keyed by season id. The registry
 calls `authorizeSubscribe` through the shared composition. The topic

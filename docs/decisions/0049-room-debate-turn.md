@@ -146,15 +146,16 @@ in the room before the start, which is what tabulation reads.
   (ADR 0032). Its subscribe rule is `authorize(room.read)`, decided from rows
   loaded by `@daisy/db` exactly like the debate rules, so ADR 0031's table
   gains a row and nothing else changes. `room:<id>:presence` mirrors
-  `debate:<id>:presence`.
+  `round:<id>:presence`.
 - New capabilities `room.create`, `room.join` and `room.read` with resource
   kind `room` (vocabulary owned by `@daisy/protocol`). An unranked room is
   created under `room.create`, replacing the `unranked` resource kind of
   `debate.create`. A ranked room is created under `debate.create` on
   `ranked`, which ADR 0048 allows to any user with an actor; nothing in this
   record changes that rule. `debate.read` is unchanged.
-- `debate:<id>` topics begin at start. Room chat is `room:<id>:chat`; its
-  persistence belongs to the chat epic. `debate:<id>:chat` stays reserved.
+- `round:<id>` topics begin at start. Room chat is `room:<id>:chat`; its
+  persistence belongs to the chat epic. In-Round chat is a messaging channel
+  kind (ADR 0060), not a topic family (ISSUE-763).
 
 ### 8. The LiveKit "room" is a media session
 

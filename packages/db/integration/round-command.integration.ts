@@ -74,7 +74,7 @@ test('concurrent identical commands commit once and replay before stale-version 
         should: 'write one audit row and one phase doorbell',
         actual: {
           commands: await fixture.count('round_commands', 'round_id', roundId),
-          outbox: await fixture.count('outbox', 'topic', `debate:${roundId}`),
+          outbox: await fixture.count('outbox', 'topic', `round:${roundId}`),
         },
         expected: { commands: 1, outbox: 1 },
       });

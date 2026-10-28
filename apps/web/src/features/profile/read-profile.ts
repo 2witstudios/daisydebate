@@ -1,4 +1,4 @@
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import type { Identity } from '@daisy/auth';
 import {
   authorize,
@@ -91,7 +91,7 @@ export async function readProfile(
   {
     store,
     limiter,
-  }: { readonly store: ProfileStore; readonly limiter: AuthRateLimiter },
+  }: { readonly store: ProfileStore; readonly limiter: RateLimiter },
   input: {
     readonly identity: Identity;
     readonly username: string;

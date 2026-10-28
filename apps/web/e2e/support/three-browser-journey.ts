@@ -271,7 +271,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
         [],
         expect.arrayContaining(
           ['affirmative', 'negative'].map(
-            (side) => `${side} debate:${first.roundId}`,
+            (side) => `${side} round:${first.roundId}`,
           ),
         ),
       ]);

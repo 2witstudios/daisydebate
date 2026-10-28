@@ -29,11 +29,11 @@ const pendingDecision = () => {
     calls: string[];
   } = { receipt: null, state: 'pending', calls: [] };
   const store: MessagingDmStore = {
+    readRequest: async () => {
+      throw new Error('Decision must not read introduction');
+    },
     withChannel: async (_scope, work) =>
       work({
-        readRequest: async () => {
-          throw new Error('Decision must not read introduction');
-        },
         readDecisionState: async () => ({
           channelId: command.channelId,
           state: world.state,

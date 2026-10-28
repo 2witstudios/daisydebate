@@ -7,8 +7,9 @@ import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import type { TabsState } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { DocumentEditor } from './editor/document-editor';
-import type { RoomAction, PageTone } from './room-state';
+import { DocumentEditor } from '../document-editor/document-editor';
+import type { RoomAction } from './room-state';
+import type { PageTone } from '../document-editor/document-editor';
 
 /** Whether the open files are stored; null where nothing saves. */
 export type SaveState = 'saved' | 'saving' | 'unsaved';

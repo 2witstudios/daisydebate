@@ -23,7 +23,7 @@ import { messagingTypingSchemas } from '@daisy/protocol';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { identify } from '../../lib/identity';
-import { consumeWindowsOrThrow, type RateRule } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
@@ -112,7 +112,7 @@ export function composeMessagingRoutes(app: App) {
             clock: app.clock,
             limit: async (actorId) =>
               consumeWindowsOrThrow(
-                app.auth().limiter,
+                app.limiter,
                 `messaging:send:${actorId}`,
                 policy.limits.actorSend,
               ),
@@ -141,7 +141,7 @@ export function composeMessagingRoutes(app: App) {
           ids: app.ids,
           limit: (actorId) =>
             consumeWindowsOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:send:${actorId}`,
               policy.limits.actorSend,
             ),

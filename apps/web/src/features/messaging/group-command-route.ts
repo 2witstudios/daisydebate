@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 
 import type { MessagingRuntimePolicy } from './composition';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
@@ -32,7 +32,7 @@ export function messagingGroupCommandRoute(
       social,
       limit: (actorId: string) =>
         consumeWindowsOrThrow(
-          app.auth().limiter,
+          app.limiter,
           `messaging:social:${actorId}`,
           social.abuse,
         ),

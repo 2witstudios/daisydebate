@@ -17,12 +17,6 @@ type Decision = {
   readonly decision: MessagingDmDecision;
 };
 export type MessagingDmFrame = {
-  readRequest(): Promise<{
-    readonly channelId: string;
-    readonly senderActorId: string;
-    readonly introduction: string | null;
-    readonly requestedAt: string;
-  }>;
   readDecisionState(command: Decision): Promise<{
     readonly channelId: string;
     readonly state: string;
@@ -42,6 +36,15 @@ export type MessagingDmFrame = {
   }>;
 };
 export type MessagingDmStore = {
+  /** The request preview under the shared fences (MSG-2.1-arch1). */
+  readRequest(
+    input: Parameters<MessagingChannelStore['withChannel']>[0],
+  ): Promise<{
+    readonly channelId: string;
+    readonly senderActorId: string;
+    readonly introduction: string | null;
+    readonly requestedAt: string;
+  }>;
   withChannel<T>(
     input: Parameters<MessagingChannelStore['withChannel']>[0],
     work: (frame: MessagingDmFrame) => Promise<T>,

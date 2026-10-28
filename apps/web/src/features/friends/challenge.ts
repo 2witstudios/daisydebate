@@ -1,5 +1,5 @@
 import { friendListSchema, parseUsername } from '@daisy/protocol';
-import type { MockFormState } from '../mock-form/form';
+import type { FormState } from '../forms/form-state';
 import { casualSelection, defaultChoice } from '../rooms/format-browser';
 import { readRoomTemplates, type RoomTemplate } from '../rooms/read-catalog';
 
@@ -113,7 +113,7 @@ export async function challengeFriend({
   readonly create: (
     form: FormData,
     beforeMoveOn: (roomId: string) => Promise<string | void>,
-  ) => Promise<MockFormState>;
+  ) => Promise<FormState>;
 }): Promise<ChallengeAnswer> {
   const friend = parseUsername(form.get('username'));
   if (!friend.ok || !(await isFriend(routes.friends, friend.username)))

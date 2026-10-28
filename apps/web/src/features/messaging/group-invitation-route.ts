@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 
 import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import {
@@ -55,7 +55,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
           clock: app.clock,
           limit: (actorId: string) =>
             consumeWindowsOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:social:${actorId}`,
               social.abuse,
             ),

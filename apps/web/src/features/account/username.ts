@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
 import type { UsernameClaim } from '@daisy/db/profile';
 import { z } from 'zod';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
@@ -20,7 +20,7 @@ type UsernameDependencies = {
   readonly origin: () => string;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly claim: (input: {
     userId: string;
     username: string;

@@ -22,15 +22,12 @@ test('the inbox and a conversation’s entry spend the one DEC-251 read budget',
   // A spent budget: the unreachable database must never be asked.
   const routes = composeMessagingRoutes({
     ...app,
-    auth: () => ({
-      ...auth,
-      limiter: {
-        consume: async (key, rule) => {
-          spent.push([key, rule]);
-          return { allowed: false, retryAfterSeconds: 60 };
-        },
+    limiter: {
+      consume: async (key, rule) => {
+        spent.push([key, rule]);
+        return { allowed: false, retryAfterSeconds: 60 };
       },
-    }),
+    },
   });
   const origin = auth.config.PUBLIC_APP_URL;
   const get = (path: string) =>
@@ -78,15 +75,12 @@ test('a spent typing budget never refuses content reads', async () => {
   // unreachable database, which answers 503 rather than 429).
   const routes = composeMessagingRoutes({
     ...app,
-    auth: () => ({
-      ...auth,
-      limiter: {
-        consume: async (key) => ({
-          allowed: !key.startsWith('messaging:typing:'),
-          retryAfterSeconds: 60,
-        }),
-      },
-    }),
+    limiter: {
+      consume: async (key) => ({
+        allowed: !key.startsWith('messaging:typing:'),
+        retryAfterSeconds: 60,
+      }),
+    },
   });
   const origin = auth.config.PUBLIC_APP_URL;
   const channelId = 'c'.repeat(24);

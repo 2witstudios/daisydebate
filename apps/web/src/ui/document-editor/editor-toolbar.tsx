@@ -5,17 +5,17 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import {
   debateMarks,
   type DebateMark,
-} from '../../../features/debate-room/documents/documents';
+} from '../../features/documents/debate-mark';
 import {
   pageColumnChoices,
   pageLayoutOf,
   parsePageColumns,
   portrait,
   type PageLayout,
-} from '../../../features/debate-room/documents/page-layout';
-import { cn } from '../../cn';
-import { Icon, type IconName } from '../../components/icon/icon';
-import type { PageTone } from '../room-state';
+} from '../../features/documents/page-layout';
+import { cn } from '../cn';
+import { Icon, type IconName } from '../components/icon/icon';
+import type { PageTone } from './document-editor';
 import {
   stepTextSize,
   textSizes,

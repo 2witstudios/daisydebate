@@ -3,7 +3,10 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { buildChannelTopic, serverMessageSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from '../authorization';
-import { withLockedMessagingAuthority } from './authority-frame';
+import {
+  restartingRead,
+  withSharedMessagingAuthority,
+} from './authority-frame';
 import { readMessagingChannelFact } from './social';
 /** Lossy aggregate invalidation only: no durable cursor or actor/content fields. */
 async function notifyMessagingTyping(
@@ -19,11 +22,16 @@ async function notifyMessagingTyping(
     sql`select pg_notify('daisy_realtime_hints',${JSON.stringify(frame)})`,
   );
 }
-/** Same sorted account -> pair -> channel fence; each peer's own grant is read after waits. */
+/**
+ * Same sorted account -> pair -> channel order under shared fences: typing
+ * writes no rows (its leases are Redis, its hint a notification), so peers
+ * typing in one channel never serialize (MSG-2.1-arch1). Each peer's own
+ * grant is read after the waits.
+ */
 export function createMessagingTypingStore(database: BunSQLDatabase) {
-  type Scope = Parameters<typeof withLockedMessagingAuthority>[1];
+  type Scope = Parameters<typeof withSharedMessagingAuthority>[1];
   type Authority = Parameters<
-    Parameters<typeof withLockedMessagingAuthority>[2]
+    Parameters<typeof withSharedMessagingAuthority>[2]
   >[0];
   type Frame = Authority & {
     readonly channels: readonly {
@@ -39,8 +47,8 @@ export function createMessagingTypingStore(database: BunSQLDatabase) {
   ): Promise<T> => {
     if (!Number.isSafeInteger(maxActors) || maxActors < 1 || maxActors > 65535)
       throw createAppError('VALIDATION');
-    return database.transaction((tx) =>
-      withLockedMessagingAuthority(tx, scope, async (authority) => {
+    return restartingRead(database, (tx) =>
+      withSharedMessagingAuthority(tx, scope, async (authority) => {
         if (authority.accounts.length > maxActors)
           throw createAppError('INFRASTRUCTURE');
         const actors =

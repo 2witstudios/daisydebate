@@ -5,7 +5,7 @@ import { createUsernameHandler } from './username';
 import {
   allowEvery,
   type ConsumeStub,
-} from '../auth/abuse/limiter.test-support';
+} from '../../server/rate-limit.test-support';
 
 setupRitewayBun();
 

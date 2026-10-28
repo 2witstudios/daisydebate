@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ENVELOPE_VERSION,
   buildChannelTopic,
-  buildDebateTopic,
+  buildRoundTopic,
 } from '@daisy/protocol';
 import {
   createConnectionStore,
@@ -125,7 +125,7 @@ test('a ticket answered after disposal cannot open, send or schedule', async () 
   store.subscribe(() => (notified += 1));
   store.onMessage(() => (notified += 1));
   store.onDiagnostic(() => (notified += 1));
-  store.subscribeTopic(buildDebateTopic('d'.repeat(24)), () => (notified += 1));
+  store.subscribeTopic(buildRoundTopic('d'.repeat(24)), () => (notified += 1));
   store.close();
   assert({
     given:

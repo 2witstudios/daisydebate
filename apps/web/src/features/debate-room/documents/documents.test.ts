@@ -6,11 +6,11 @@ import {
   nextOwnSpeech,
   renameDocument,
   uniqueTitle,
-  escapeHtml,
   updateDocumentHtml,
   type SpeechSlot,
   type TemplateContext,
 } from './documents';
+import { escapeHtml } from '../../../lib/escape-html';
 
 setupRitewayBun();
 

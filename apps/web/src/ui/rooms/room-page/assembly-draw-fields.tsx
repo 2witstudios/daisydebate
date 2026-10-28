@@ -1,5 +1,5 @@
 import type { RoomView } from '@daisy/protocol';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { FormState } from '../../../features/forms/form-state';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { DurationField, PrepToggle } from './assembly-settings-controls';
 
@@ -14,7 +14,7 @@ export function DrawFields({
   disabled,
 }: {
   readonly view: RoomView;
-  readonly state: MockFormState;
+  readonly state: FormState;
   readonly disabled: boolean;
 }) {
   const capability = view.definition.configurable.resolutionDraw;

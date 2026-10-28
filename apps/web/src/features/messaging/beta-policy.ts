@@ -3,7 +3,7 @@ import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { MessagingPolicyOverride } from '@daisy/config';
 import { tightenOnly } from '../../server/tighten-only';
 import { messagingBetaLimits } from '@daisy/protocol';
-import type { RateRule } from '../auth/abuse/rate-limit';
+import type { RateRule } from '../../server/rate-limit';
 import type { MessagingRuntimePolicy } from './composition';
 
 type Windows = readonly RateRule[];

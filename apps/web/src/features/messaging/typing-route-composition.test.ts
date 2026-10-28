@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { allowEvery } from '../../server/rate-limit.test-support';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { createMessagingUnitApp } from './messaging-app.test-support';
 import { messagingUnitPolicy } from './typing.test-support';
@@ -75,6 +76,7 @@ test('signed-in app typing routes bind the principal and current account fence b
   const bound: typeof app = {
     ...app,
     auth: () => auth,
+    limiter: { consume: allowEvery },
     database: {
       ...app.database,
       messagingTypingStore: async (scope, budget, work) => {

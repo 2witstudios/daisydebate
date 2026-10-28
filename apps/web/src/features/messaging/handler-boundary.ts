@@ -1,7 +1,7 @@
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { handleOperation, readJson } from '../../server/http';
 import {
   memberHttpBoundary,
@@ -34,7 +34,7 @@ export function readMessagingScope(
  */
 export const consumeMessagingRead = (app: App, actorId: string) =>
   consumeWindowsOrThrow(
-    app.auth().limiter,
+    app.limiter,
     `messaging:read:${actorId}`,
     app.messagingPolicy.limits.read,
   );
@@ -46,7 +46,7 @@ export const consumeMessagingRead = (app: App, actorId: string) =>
  */
 export const consumeTypingTraffic = (app: App, actorId: string) =>
   consumeWindowsOrThrow(
-    app.auth().limiter,
+    app.limiter,
     `messaging:typing:${actorId}`,
     app.messagingPolicy.limits.read,
   );

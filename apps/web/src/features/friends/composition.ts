@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 import { createFriendHandlers } from './handlers';
@@ -78,7 +78,7 @@ const friendPorts = (
   ids: app.ids,
   limits: app.contactsPolicy.requests,
   limit: (actorId) =>
-    consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
+    consumeOrThrow(app.limiter, `friends:${actorId}`, FRIEND_RULE),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
     app.database.friendStore(contactPairFence({ principal, capability })),
@@ -92,7 +92,7 @@ const challengePorts = (
   clock: app.clock,
   limit: (actorId) =>
     consumeOrThrow(
-      app.auth().limiter,
+      app.limiter,
       challengeRateLimit.key(actorId),
       challengeRateLimit.rule,
     ),
