@@ -8,6 +8,7 @@ import {
   type DocumentationEvent,
   type DocumentPipeline,
 } from './docs-pipeline';
+import { mergeChangedFiles } from './docs-merge-files';
 import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
 import { runRecordsFromSheet, type SheetRow } from './docs-runs-sheet';
 import { extractTaskIds } from './notify-drive';
@@ -29,7 +30,6 @@ export type MergedPullRequest = {
   readonly mergedBy: string | null;
   readonly repository: string;
   readonly baseRef: string;
-  readonly baseSha: string;
   readonly mergeCommitSha: string;
   readonly mergedAt: string;
   readonly fork: boolean;
@@ -163,17 +163,6 @@ const gh = (args: readonly string[]): string =>
     timeout: 120_000,
   });
 
-const changedFilesBetween = (
-  base: string,
-  merge: string,
-): readonly string[] => {
-  const diff = execFileSync('git', ['diff', '--name-only', base, merge], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  return parseChangedFiles(diff);
-};
-
 type GhPullRequest = {
   id: number;
   number: number;
@@ -184,7 +173,7 @@ type GhPullRequest = {
   merge_commit_sha: string | null;
   user: { login: string } | null;
   merged_by: { login: string } | null;
-  base: { ref: string; sha: string };
+  base: { ref: string };
   head: { repo: { fork: boolean } | null };
 };
 
@@ -219,7 +208,6 @@ function listMergedPullRequests(
             mergedBy: pullRequest.merged_by?.login ?? null,
             repository,
             baseRef: pullRequest.base.ref,
-            baseSha: pullRequest.base.sha,
             mergeCommitSha: pullRequest.merge_commit_sha,
             mergedAt: pullRequest.merged_at,
             fork: pullRequest.head.repo?.fork ?? true,
@@ -229,17 +217,14 @@ function listMergedPullRequests(
   );
 }
 
-// Diffed exactly as notify-merge.yml does (base.sha..merge_commit_sha), and
-// only for merges inside the window, so an old base outside a shallow
-// checkout never has to exist locally.
+// Listed exactly as notify-merge.yml lists them (docs-merge-files), and only
+// for merges inside the window, so an old merge outside a shallow checkout
+// never has to exist locally.
 const withChangedFiles = (
   pullRequest: PullRequestMetadata,
 ): MergedPullRequest => ({
   ...pullRequest,
-  changedFiles: changedFilesBetween(
-    pullRequest.baseSha,
-    pullRequest.mergeCommitSha,
-  ),
+  changedFiles: mergeChangedFiles(pullRequest.mergeCommitSha, root),
 });
 
 type RowsPage = {

@@ -26,7 +26,6 @@ const mergedPullRequest = (
   mergedBy: '2witstudios',
   repository: REPOSITORY,
   baseRef: 'main',
-  baseSha: 'base000',
   mergeCommitSha: 'merge007',
   mergedAt: '2026-09-20T00:00:00.000Z',
   fork: false,

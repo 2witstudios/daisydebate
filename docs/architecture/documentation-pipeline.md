@@ -53,8 +53,17 @@ creation workflow.
    filtered `read_sheet`, write the run row by address without reading the
    sheet, read the diff of only the files the pages cite, find review tasks
    by search, and keep a task title to one line of at most 200 characters.
-   The Documentation Agent's system prompt agrees with it. A consult runs an
-   agent, so it is never retried in-process.
+   The Documentation Agent's system prompt agrees with it. A merge's changed
+   files are its own: `scripts/docs-merge-files.ts` diffs the merge commit
+   from its first parent, for notify-merge, the replay workflow and
+   `docs:reconcile` alike, because the PR's `base.sha` is only its base at
+   the last sync and also listed everything main gained since (PR #497: 203
+   files for its own 17). A merge-routed run then works only on the pages
+   whose Page Registry source refs include a changed file, records a no-op
+   when none do, and adds the merge to an already-stale page's open review
+   task instead of reviewing the page again: runs that re-verified every page
+   on every merge took 20 to 30 minutes and outlived their consult. A consult
+   runs an agent, so it is never retried in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
    and the answer can be lost on its way back. On a dropped connection or a
