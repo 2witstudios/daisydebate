@@ -1,5 +1,8 @@
 import { requireTestServices } from '@daisy/config';
-import { eraseRoomAccountClosure } from '@daisy/db/testing';
+import {
+  eraseRoomAccountClosure,
+  exportRoomAccountClosure,
+} from '@daisy/db/testing';
 import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drawRoomAt } from './room-draw.test-support';
@@ -127,6 +130,44 @@ test('closing the host of a launched bank draw rewrites nothing', async () => {
       should: 'leave the Room and its Round exactly as they were',
       actual: after,
       expected: before,
+    });
+  });
+});
+
+test('a host exports the resolution lists they wrote, and nobody else’s', async () => {
+  await withRoomRuntime(async (f) => {
+    const listed = await drawRoomAt(f, 'ready', host);
+    const banked = await drawRoomAt(f, 'ready', bank);
+    const own = await exportRoomAccountClosure(
+      f.sql,
+      transitions,
+      listed.cast.host,
+    );
+    const bankHost = await exportRoomAccountClosure(
+      f.sql,
+      transitions,
+      banked.cast.host,
+    );
+    const guest = await exportRoomAccountClosure(
+      f.sql,
+      transitions,
+      listed.cast.guest,
+    );
+    assert({
+      given:
+        'a host-list Room, a bank-draw Room by another host, and a seated guest',
+      should:
+        'export the list to its own host only, nothing for a bank draw, and nothing to the guest',
+      actual: [own, bankHost, guest],
+      expected: [
+        {
+          room_resolution_lists: [
+            { room_id: listed.view.id, resolutions: lines },
+          ],
+        },
+        { room_resolution_lists: [] },
+        { room_resolution_lists: [] },
+      ],
     });
   });
 });

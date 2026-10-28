@@ -20,3 +20,13 @@ export const eraseRoomAccountClosure = (
   drizzle({ client }).transaction((tx) =>
     createRoomAccountClosureAdopter(transitions).erase(tx, subject, { now }),
   );
+
+/** Runs the same step's export for one subject, in its own transaction. */
+export const exportRoomAccountClosure = (
+  client: SQL,
+  transitions: RoomClosureTransitions,
+  subject: PrivacySubject,
+) =>
+  drizzle({ client }).transaction((tx) =>
+    createRoomAccountClosureAdopter(transitions).export(tx, subject),
+  );
