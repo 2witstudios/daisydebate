@@ -278,7 +278,12 @@ export function createObservationCacheOperations({
   readonly reportFailure: (operation: string) => void;
 }) {
   const keys = createObservationKeys(namespace);
-  const run = async (operation: string, script: string, k: string[], a: string[]) => {
+  const run = async (
+    operation: string,
+    script: string,
+    k: string[],
+    a: string[],
+  ) => {
     try {
       await client.connect();
       return await client.send('EVAL', [script, String(k.length), ...k, ...a]);
@@ -288,8 +293,9 @@ export function createObservationCacheOperations({
     }
   };
   const batches = <T>(items: readonly T[]) =>
-    Array.from({ length: Math.ceil(items.length / OBSERVATION_BATCH) }, (_, i) =>
-      items.slice(i * OBSERVATION_BATCH, (i + 1) * OBSERVATION_BATCH),
+    Array.from(
+      { length: Math.ceil(items.length / OBSERVATION_BATCH) },
+      (_, i) => items.slice(i * OBSERVATION_BATCH, (i + 1) * OBSERVATION_BATCH),
     );
   return {
     /**

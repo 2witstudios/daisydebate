@@ -22,10 +22,7 @@ type Timers = {
   readonly clearTimeout: (handle: unknown) => void;
 };
 export type ObservationSubscriberState =
-  | 'connecting'
-  | 'synchronized'
-  | 'lost'
-  | 'closed';
+  'connecting' | 'synchronized' | 'lost' | 'closed';
 /** One process's channel ceiling: its node's resource interests. */
 export const OBSERVATION_MAX_CHANNELS = 1_024;
 const BACKOFF_MS = [250, 500, 1_000, 2_000, 5_000] as const;
@@ -51,7 +48,10 @@ export function createObservationSubscriber({
   readonly namespace: string;
   /** Dials a fresh dedicated connection; never the command client. */
   readonly open: () => SubscriberTransport;
-  readonly onHint: (resource: ObservationResource, hint: ObservationHint) => void;
+  readonly onHint: (
+    resource: ObservationResource,
+    hint: ObservationHint,
+  ) => void;
   readonly onSynchronized: () => void;
   readonly onLost: () => void;
   readonly timers?: Timers;
@@ -150,4 +150,6 @@ export const dialObservationSubscriber =
     });
     return client as unknown as SubscriberTransport;
   };
-export type ObservationSubscriber = ReturnType<typeof createObservationSubscriber>;
+export type ObservationSubscriber = ReturnType<
+  typeof createObservationSubscriber
+>;

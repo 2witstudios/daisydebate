@@ -115,7 +115,8 @@ export function buildObservationClientMessages<V extends number>(
  * Server → client. `ready` binds a permit generation to a base and a minimum
  * content revision; `snapshot` replaces the window monotonically within that
  * base; `state` reports denial, unavailability, degradation or revocation.
- * A frame of an older generation is stale and ignored by the provider.
+ * A `ready` or `state` of an older generation is stale and ignored by the
+ * provider; a snapshot applies only to the current `ready`'s base.
  */
 export function buildObservationServerMessages<V extends number>(
   envelope: { readonly v: z.ZodLiteral<V> },
@@ -137,9 +138,12 @@ export function buildObservationServerMessages<V extends number>(
       validForMs: z.number().int().min(1).max(observationPermitMs),
       overlay: observationOverlaySchema.optional(),
     }),
+    // No generation: one encoded snapshot serves every permitted viewer; the
+    // server's synchronous enqueue check is what binds it to a permit.
     z
       .strictObject({
-        ...bound,
+        ...envelope,
+        resource: observationResourceSchema,
         type: z.literal('observation.snapshot'),
         partition: observationPartitionSchema,
         disclosureRevision: revision,

@@ -70,7 +70,6 @@ describe('observation messages at the socket boundary', () => {
     v: 1,
     type: 'observation.snapshot',
     resource,
-    generation: 3,
     partition: 'members',
     disclosureRevision: 2,
     contentRevision: 9,

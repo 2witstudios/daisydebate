@@ -3,7 +3,10 @@ import {
   createObservationSubscriber,
   type SubscriberTransport,
 } from './observation-subscriber';
-import { createObservationKeys, parseObservationHint } from './observation-cache';
+import {
+  createObservationKeys,
+  parseObservationHint,
+} from './observation-cache';
 
 setupRitewayBun();
 const id = 'a'.repeat(24);
@@ -33,7 +36,8 @@ function harness() {
           return channels.length;
         },
         unsubscribe: async () => {},
-        deliver: (message: string, channel: string) => listener(message, channel),
+        deliver: (message: string, channel: string) =>
+          listener(message, channel),
         fail: () => connection.onclose?.(new Error('lost')),
       };
       connections.push(connection);
@@ -75,7 +79,13 @@ describe('observation subscriber', () => {
         'drop hints while lost, resubscribe every channel on one new connection and report synchronization again',
       actual: [events, connections[1]!.channels],
       expected: [
-        ['synchronized', 'hint:true:published', 'lost', 'synchronized', 'hint:true:published'],
+        [
+          'synchronized',
+          'hint:true:published',
+          'lost',
+          'synchronized',
+          'hint:true:published',
+        ],
         [keys.hint(resource)],
       ],
     });
@@ -86,7 +96,10 @@ describe('observation subscriber', () => {
     subscriber.start();
     await settle();
     connections[0]!.deliver('{"kind":"published"}', keys.hint(resource));
-    connections[0]!.deliver(published, keys.hint({ kind: 'channel-messages', id: 'b'.repeat(24) }));
+    connections[0]!.deliver(
+      published,
+      keys.hint({ kind: 'channel-messages', id: 'b'.repeat(24) }),
+    );
     connections[0]!.deliver(published, 'other:v1:obs:x:hint');
     assert({
       given: 'a malformed hint, an unobserved resource and a foreign channel',
@@ -116,7 +129,9 @@ test('observation hints are metadata only', () => {
     should: 'parse only the exact shapes',
     actual: [
       parseObservationHint(published),
-      parseObservationHint(JSON.stringify({ ...JSON.parse(published), body: 'x' })),
+      parseObservationHint(
+        JSON.stringify({ ...JSON.parse(published), body: 'x' }),
+      ),
       parseObservationHint('{"kind":"purged"}'),
       parseObservationHint('nope'),
     ],
