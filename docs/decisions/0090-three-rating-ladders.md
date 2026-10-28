@@ -49,10 +49,13 @@ Sanctioned configuration constructs eligible rated Rounds through the
 existing shared Room/ Round path and pins format provenance. Readers cannot
 infer a pool from a mutable format label, Room state or UI choice.
 
-The detailed design must define canonical format-to-ladder mapping,
-constraints and the exact rating key. The old `(actor, format, season,
-ladder)` key must not accidentally create additional pools per revision or
-template. No generic Ranked compatibility pool survives implementation.
+The standing key is `(actor, ladder, season)`: one individual standing in
+each ladder per season. Format and pinned rules remain Round provenance,
+not another rating dimension. Detailed design must define the canonical
+format-to-ladder mapping and constraints. Future team play does not
+automatically create separate pools; its participant-update policy is
+resolved when team play is selected. No generic Ranked compatibility pool
+survives implementation.
 
 ### One idempotent posting policy
 
@@ -68,6 +71,19 @@ millisecond after the latest applicable posting if necessary, preserving
 sequential Glicko updates independent of the order in which results post.
 No new formula, tiers or calibration is introduced here.
 
+### Season 1 is the beta season
+
+The owner selected Season 1 as the beta season in the same discussion.
+Deliver the rating rollout with that season opened for all three ladders.
+Activation must be explicit and idempotent: retries or redeploys cannot
+create a second season, reset standings or roll over a season. The season
+starts at the actual activation instant, not at documentation time.
+
+This selects beta activation as part of implementation; it does not run a
+season operation in this documentation change. Production activation retains
+its human sign-off requirement. Exact deployment composition and proof belong
+in the implementation plan.
+
 ## Delivery boundary and remaining decisions
 
 The owner requested state, decisions and ADR reconciliation first. Detailed
@@ -80,7 +96,8 @@ calibration, ranked admission and judge eligibility, canonical presets and
 format mapping, remaining Freestyle journey gaps, and anti-abuse boundaries.
 A full matchmaking queue is a separate scope decision, not an implied
 prerequisite for posting ratings. Existing queue acceptance intent remains
-preserved. The first production season still requires the owner (RATE-H.1).
+preserved. Season 1 beta activation is in scope; first production activation
+still requires the owner (RATE-H.1).
 
 ## Consequences
 
