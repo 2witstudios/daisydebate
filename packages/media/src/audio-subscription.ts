@@ -1,5 +1,4 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import {
   AudioStream,
   dispose,
@@ -15,8 +14,10 @@ import {
   AudioFrameProcessor,
   type RawAudioFrame,
 } from './audio-frame-processor';
+import { identitiesOf, validateConnection } from './subscription-input';
 import {
   createSubscriptionRequests,
+  createTrackSequencer,
   livePublication,
 } from './subscription-requests';
 
@@ -39,34 +40,6 @@ type SubscriptionInput = {
   }) => void;
   readonly onTrackClosed: (track: ClosedTrack) => void;
 };
-const identitiesOf = (values: readonly string[]) => {
-  if (
-    values.length > 508 ||
-    values.some((value) => !idSchema.safeParse(value).success)
-  )
-    throw createAppError(
-      'VALIDATION',
-      'Invalid subscription participant scope',
-    );
-  return new Set(values);
-};
-
-const validateConnection = (url: string, token: string) => {
-  try {
-    const parsed = new URL(url);
-    if (
-      !['ws:', 'wss:'].includes(parsed.protocol) ||
-      parsed.username ||
-      parsed.password
-    )
-      throw new Error('Invalid endpoint');
-  } catch {
-    throw createAppError('VALIDATION', 'Invalid subscription endpoint');
-  }
-  if (typeof token !== 'string' || token.length === 0 || token.length > 16384)
-    throw createAppError('VALIDATION', 'Invalid subscription credential');
-};
-
 const connectionClosed = new WeakSet<object>();
 /** The refusal of a connection LiveKit (or close) has already closed. */
 export function subscriptionClosed() {
@@ -96,7 +69,19 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     set: (run, ms) => setTimeout(run, ms),
     clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
   });
+  const sequencer = createTrackSequencer();
+  /** A track's new stream opens only once its previous one has fully closed. */
   const start = (
+    track: Track,
+    publication: TrackPublication,
+    participant: RemoteParticipant,
+  ) => {
+    if (publication.sid)
+      sequencer.whenClosed(publication.sid, () =>
+        open(track, publication, participant),
+      );
+  };
+  const open = (
     track: Track,
     publication: TrackPublication,
     participant: RemoteParticipant,
@@ -131,23 +116,24 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       frameSizeMs: 10,
       noiseCancellation: processor,
     }).getReader();
-    const stop = async (reason: ClosedTrack['reason']) => {
-      if (finished) return;
+    const stop = (reason: ClosedTrack['reason']) => {
+      if (finished) return Promise.resolve();
       finished = true;
       processor.close();
       streams.delete(trackId);
-      try {
-        await reader.cancel();
-      } finally {
-        // A newer stream for the same track (re-subscribed while this one
-        // was cancelling) owns the consumer's state: never close it.
-        if (!streams.has(trackId))
+      const done = (async () => {
+        try {
+          await reader.cancel();
+        } finally {
           try {
             input.onTrackClosed({ identity, trackId, reason });
           } catch {
             /* Consumer owns recovery; no raw exception enters SDK logs. */
           }
-      }
+        }
+      })();
+      sequencer.closing(trackId, done);
+      return done;
     };
     streams.set(trackId, { identity, stop });
     try {
@@ -227,11 +213,10 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   ) => {
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
     const sid = publication.sid;
-    if (!sid) return;
-    // Our own withdrawal also unsubscribes: only a still-wanted track asks again.
-    if (wanted(publication, participant))
-      requests.retry(sid, () => again(participant, sid));
-    else requests.ended(sid);
+    if (sid)
+      requests.unsubscribed(sid, wanted(publication, participant), () =>
+        again(participant, sid),
+      );
   };
   /** Unpublished before its track arrived: nothing will answer the ask. */
   const unpublished = (publication: RemoteTrackPublication) => {

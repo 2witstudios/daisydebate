@@ -96,8 +96,9 @@ test('a bot claim without the floor is refused publication but still hears (ISSU
     await assertRejects({
       given: "the claim's segment ended",
       should:
-        'refuse to sign: the projected hearing seats admit a claim only within its live segment',
-      code: 'AUTHORIZATION',
+        'refuse to sign, writing nothing: hearing lives within its live segment',
+      code: 'CONFLICT',
+      message: 'Bot segment is not live',
       actual: () => media.botListenToken(claim.scope, claim.token),
     });
   }, botControlOptions);

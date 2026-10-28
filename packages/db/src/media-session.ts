@@ -4,7 +4,6 @@ import {
 } from './media-participant-binding';
 import {
   verifyBotMediaPrincipal,
-  verifyLockedBotWorker,
   type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
@@ -83,9 +82,10 @@ export function createMediaSessionStore({
       readonly principal: BotMediaPrincipal;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
-      const { scope, token } = input.principal;
+      const { scope } = input.principal;
       return run(async (tx) => {
-        await verifyLockedBotWorker(tx, scope, token);
+        // Judged before binding too, so a refused request writes nothing.
+        await verifyBotMediaPrincipal(tx, input.principal);
         const binding = await bindMediaParticipant(tx, {
           roundId: scope.roundId,
           roundParticipantId: scope.roundParticipantId,

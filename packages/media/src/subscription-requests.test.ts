@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createSubscriptionRequests,
+  createTrackSequencer,
   livePublication,
 } from './subscription-requests';
 
@@ -48,14 +49,17 @@ const fixture = () => {
     publication.subscribed = false;
     requests.retry('TR_mic', () => want());
   };
-  /** Asks, then `times` arrivals each dropped and asked again after its pause. */
+  /** Asks, then `times` arrivals each dropped and asked again after its pause; the pauses waited. */
   const flap = (times: number) => {
+    const waited: number[] = [];
     want();
     for (let round = 0; round < times; round++) {
       arrive();
       drop();
+      waited.push(timers.at(-1)!.ms);
       timers.at(-1)!.run();
     }
+    return waited;
   };
   return {
     asks,
@@ -88,25 +92,21 @@ test('a pending subscription is asked for once, and withdrawn once', () => {
 test('a refused subscription is asked again after a pause doubling to 30 s, until it arrives', () => {
   const { asks, timers, requests, want, live } = fixture();
   want();
+  const pauses: number[] = [];
   for (let refusal = 0; refusal < 7; refusal++) {
     requests.retry('TR_mic', () => want());
+    pauses.push(timers.at(-1)!.ms);
     timers.at(-1)!.run();
   }
   requests.subscribed('TR_mic');
   assert({
     given: 'seven refusals of one wanted microphone, then its track arriving',
     should:
-      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s), and once it arrives arm only the 30 s hold that forgets its pause',
-    actual: {
-      asks: asks.length,
-      pauses: timers
-        .filter((timer) => timer.ms !== 10000)
-        .map((timer) => timer.ms),
-      live: live(),
-    },
+      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s); once it arrives, only the hold that forgets its pause stays armed',
+    actual: { asks: asks.length, pauses, live: live() },
     expected: {
       asks: 8,
-      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000],
+      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000],
       live: [30000],
     },
   });
@@ -165,19 +165,63 @@ test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again',
 });
 
 test('a held track the SFU keeps dropping is asked again after a pause that grows across arrivals', () => {
-  const { timers, flap } = fixture();
-  flap(3);
+  const { flap } = fixture();
   assert({
     given: 'a microphone that arrives and is dropped three times',
     should: 'ask again after 1 s, 2 s, then 4 s, never at once',
-    actual: timers
-      .filter((timer) => timer.ms !== 10000 && timer.ms !== 30000)
-      .map((timer) => timer.ms),
+    actual: flap(3),
     expected: [1000, 2000, 4000],
   });
 });
 
-test('a track that has held for 30 s starts again from the first pause', () => {
+test('an unsubscription asks again only for a still-wanted track', () => {
+  const dropped = fixture();
+  dropped.want();
+  dropped.arrive();
+  dropped.requests.unsubscribed('TR_mic', true, () => dropped.want());
+  const withdrawn = fixture();
+  withdrawn.want();
+  withdrawn.arrive();
+  withdrawn.want(false);
+  withdrawn.requests.unsubscribed('TR_mic', false, () => withdrawn.want());
+  assert({
+    given:
+      'a held track the SFU dropped while still wanted, and one we withdrew ourselves',
+    should: 'arm a 1 s retry for the first and nothing for the second',
+    actual: [dropped.live(), withdrawn.live()],
+    expected: [[1000], []],
+  });
+});
+
+test("a track's new stream starts only after its old stream has closed", async () => {
+  const sequencer = createTrackSequencer();
+  const events: string[] = [];
+  const close = Promise.withResolvers<void>();
+  sequencer.closing(
+    'TR_mic',
+    close.promise.then(() => void events.push('old closed')),
+  );
+  sequencer.whenClosed('TR_mic', () => events.push('new started'));
+  sequencer.whenClosed('TR_other', () => events.push('other started'));
+  const beforeClose = [...events];
+  close.resolve();
+  await close.promise;
+  await Promise.resolve();
+  await Promise.resolve();
+  assert({
+    given:
+      "a new stream for a track whose old stream is still closing, and another track's stream",
+    should:
+      'start the other track at once, and the new stream only after the old close',
+    actual: { beforeClose, events },
+    expected: {
+      beforeClose: ['other started'],
+      events: ['other started', 'old closed', 'new started'],
+    },
+  });
+});
+
+test('a track that has held for as long as its pause starts again from the first pause', () => {
   const { timers, arrive, drop, flap } = fixture();
   flap(3);
   arrive();
@@ -185,7 +229,7 @@ test('a track that has held for 30 s starts again from the first pause', () => {
   drop();
   assert({
     given:
-      'a microphone that flapped three times, then held for 30 s and dropped',
+      'a microphone that flapped three times, then held for its 8 s pause and dropped',
     should: 'ask again after 1 s, not the grown pause',
     actual: timers.at(-1)!.ms,
     expected: 1000,

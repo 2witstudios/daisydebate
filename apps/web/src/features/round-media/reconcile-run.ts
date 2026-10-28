@@ -43,6 +43,29 @@ const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
 const uncertain = (state: MediaSnapshot) =>
   Boolean(state.session.unsafeAt || state.unresolved);
 
+/**
+ * Whether the room's creation admits `admission`'s own seat. A human
+ * revoked after binding is refused here too (ISSUE-714). A seat's
+ * `eligible` means it may publish; a bot that only hears is admitted by the
+ * projected hearing seats instead.
+ */
+const admitsCreator = (
+  context: Parameters<
+    Parameters<Store['beginMediaMutation']>[0]['authorize']
+  >[0],
+  admission: Principal,
+) => {
+  const seat = context.participants.find((seat) =>
+    admission.kind === 'human'
+      ? seat.actorId === admission.actorId && seat.kind === 'human'
+      : seat.id === admission.scope.roundParticipantId && seat.kind === 'bot',
+  );
+  if (!seat || context.withdrawn.includes(seat.id)) return false;
+  return admission.kind === 'bot' && admission.hearing
+    ? context.hearing.includes(seat.id)
+    : seat.eligible;
+};
+
 export function createMediaReconcileRun(
   input: MediaOperationInput,
   buildProjection: Parameters<Store['readMediaSession']>[0]['buildProjection'],
@@ -63,33 +86,31 @@ export function createMediaReconcileRun(
       return null;
     return proof;
   };
+  /**
+   * The refusals of the admission itself, raised where createRoom judges the
+   * caller. Only these reach the caller; a lease or permission race the
+   * reconcile meets for anyone else stays infrastructure, which retries.
+   */
+  const ownRefusals = new WeakSet<object>();
+  const own = (error: unknown) => {
+    if (isRefusal(error)) ownRefusals.add(error as object);
+    return error;
+  };
   const createRoom = async (claim: Claim, admission: Principal) => {
     if (admission.kind === 'bot')
-      await input.store.ensureBotBinding({
-        principal: admission,
-        buildProjection,
-      });
+      await input.store
+        .ensureBotBinding({ principal: admission, buildProjection })
+        .catch((error: unknown) => {
+          throw own(error);
+        });
     return mutate(
       claim,
       { kind: 'create', identity: null, payload: {} },
       (context) => {
         if (mediaEnded(context) || admissionRevoked(context))
-          throw createAppError('CONFLICT');
-        const seat = context.participants.find((seat) =>
-          admission.kind === 'human'
-            ? seat.actorId === admission.actorId && seat.kind === 'human'
-            : seat.id === admission.scope.roundParticipantId &&
-              seat.kind === 'bot',
-        );
-        // A human revoked after binding is refused here too (ISSUE-714). A
-        // seat's `eligible` means it may publish; a bot that only hears is
-        // admitted by the projected hearing eligibility instead.
-        const admitted =
-          admission.kind === 'bot' && admission.hearing
-            ? context.hearing.includes(seat?.id ?? '')
-            : seat?.eligible === true;
-        if (!seat || !admitted || context.withdrawn.includes(seat.id))
-          throw createAppError('AUTHORIZATION');
+          throw own(createAppError('CONFLICT'));
+        if (!admitsCreator(context, admission))
+          throw own(createAppError('AUTHORIZATION'));
       },
     );
   };
@@ -214,9 +235,9 @@ export function createMediaReconcileRun(
    * One reconcile under `claim`. `whileHeld` runs after a successful
    * reconcile and before the lease is released, so no other reconcile can
    * change the session in between (ISSUE-534); its own failure reaches the
-   * caller after the release and never marks the session unsafe. A refusal
-   * (`isRefusal`) the reconcile met is returned, not thrown, so a caller
-   * that needed it can say why it was refused.
+   * caller after the release and never marks the session unsafe. The
+   * admission's own refusal, if the reconcile met one, is returned, not
+   * thrown, so the caller can say why it was refused.
    */
   return async (
     claim: Claim,
@@ -238,8 +259,8 @@ export function createMediaReconcileRun(
         held = await runHeld(whileHeld);
       }
     } catch (error) {
-      if (isRefusal(error)) refusal = error;
-      else await unsafe(claim, error);
+      if (!isRefusal(error)) await unsafe(claim, error);
+      else if (ownRefusals.has(error as object)) refusal = error;
     } finally {
       try {
         const state = await snapshot(claim.roundId);

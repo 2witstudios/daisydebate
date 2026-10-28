@@ -98,6 +98,33 @@ test('a refusal that persists is reported once every five joins', async () => {
   });
 });
 
+test('an unexpected failure breaks a run of refusals', async () => {
+  const outcomes = [
+    ...Array<'refuse'>(4).fill('refuse'),
+    'fail',
+    ...Array<'refuse'>(4).fill('refuse'),
+  ];
+  const s = session({
+    refuse: () => {
+      const next = outcomes.shift();
+      if (next === 'refuse') return createAppError('CONFLICT', 'Busy');
+      return next === 'fail' ? new Error('media unreachable') : undefined;
+    },
+  });
+  s.listening.start();
+  while (outcomes.length) {
+    s.advance(30_000);
+    await s.listening.poll();
+    await Promise.resolve();
+  }
+  assert({
+    given: 'four refusals, one unexpected failure, then four more refusals',
+    should: 'report only the unexpected failure: neither run reached five',
+    actual: s.failures,
+    expected: ['media unreachable'],
+  });
+});
+
 test('a transient join failure backs off, doubling to a ceiling, and a failed cleanup counts as a drop', async () => {
   let failures = 3;
   const s = session({

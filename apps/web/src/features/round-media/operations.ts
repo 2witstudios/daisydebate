@@ -105,10 +105,11 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
    * to no seat, so reconciliation never grants it a floor. It is derived
    * from the seat's binding, so a takeover's or a rejoin's listener evicts
    * any earlier connection under it (LiveKit admits one connection per
-   * identity). It is admitted on the bot's live claim within its live
-   * segment and the media window, under this session's reconcile hold, but
-   * needs no speaking window: the bot hears most while it does not hold the
-   * floor (`verifyBotMediaPrincipal`).
+   * identity). Its claim and live segment are checked under the claim's
+   * locks (`verifyBotMediaPrincipal`), and the projected hearing seats
+   * (`mediaHearingSeats`, checked in `sign`) decide whether the seat may
+   * hear, under this session's reconcile hold. It needs no speaking window:
+   * the bot hears most while it does not hold the floor.
    */
   const admit = async (roundId: string, principal: Principal) => {
     const hearing = principal.kind === 'bot' && principal.hearing === true;
@@ -207,8 +208,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   /**
    * Why the reconcile never reached the issue: a human caller revoked
    * meanwhile is refused as such (read as that caller); otherwise the
-   * refusal the reconcile itself met; otherwise it cleaned up, which is
-   * infrastructure.
+   * admission's own refusal the reconcile met; otherwise a race or a
+   * cleanup, which is infrastructure and retried.
    */
   const notIssued = async (
     roundId: string,

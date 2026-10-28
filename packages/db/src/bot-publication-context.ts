@@ -111,16 +111,20 @@ export type BotMediaPrincipal = {
   readonly hearing?: true;
 };
 /**
- * The bot media request's own claim, under its locks: the live claim, and
- * the floor to publish. Whether a hearing seat may hear is the projection's
- * one rule (`mediaHearingSeats`), which every hearing admission reads.
+ * The bot media request's own claim, under its locks: the live claim, then
+ * the floor to publish or a live segment to hear (the same read the
+ * projection uses), so a refused request writes nothing. Whether a hearing
+ * seat may hear at all is the projection's rule (`mediaHearingSeats`), which
+ * every hearing admission also reads.
  */
 export async function verifyBotMediaPrincipal(
   tx: BoundedTransactionContext,
   principal: BotMediaPrincipal,
 ) {
   await verifyLockedBotWorker(tx, principal.scope, principal.token);
-  if (!principal.hearing) await requireBotSpeakingWindow(tx, principal.scope);
+  if (!principal.hearing) return requireBotSpeakingWindow(tx, principal.scope);
+  if (!(await readBotSegmentFloor(tx, principal.scope)))
+    throw createAppError('CONFLICT', 'Bot segment is not live');
 }
 /**
  * Records an authorized window as server credit (DEC-212, DEC-218), extending

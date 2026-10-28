@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createRoundMediaOperations } from './operations';
 import { createMediaWorld } from './media-world.test-support';
@@ -262,5 +263,35 @@ test('recovery reports a session it cannot read without stopping the scan', asyn
     should: 'report the failure to the error tracker',
     actual: world.reported.length > reported,
     expected: true,
+  });
+});
+
+test("an admission refused at room creation carries its own refusal; another's race stays retryable", async () => {
+  const ended: ReturnType<typeof createMediaWorld> = createMediaWorld({
+    status: 'active',
+    beforeFirstMutation: () => ended.end(),
+  });
+  const raced = createMediaWorld({
+    status: 'active',
+    beforeFirstMutation: () => {
+      throw createAppError('CONFLICT', 'Media reconciliation lease changed');
+    },
+  });
+  const admit = (world: ReturnType<typeof createMediaWorld>) =>
+    createRoundMediaOperations(world.input).session(
+      world.roundId,
+      world.seats[0].actorId,
+    );
+  await assertRejects({
+    given: 'the Round ending as the caller’s room is created',
+    should: 'refuse with the admission’s own CONFLICT',
+    code: 'CONFLICT',
+    actual: () => admit(ended),
+  });
+  await assertRejects({
+    given: 'a reconcile lease race as the room is created',
+    should: 'stay INFRASTRUCTURE, which a client retries',
+    code: 'INFRASTRUCTURE',
+    actual: () => admit(raced),
   });
 });
