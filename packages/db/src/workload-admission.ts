@@ -59,7 +59,9 @@ export const WORKLOAD_PROFILES = {
       competitive: COMPETITIVE,
       social: lane(4, 16, 100),
       audience: lane(2, 32, 250),
-      control: lane(5, 32, 1000),
+      // Auth bursts queue behind the sign-up ceiling, which decides what is
+      // shed (AUTH-3.10); a lane refusal must not pre-empt it.
+      control: lane(5, 256, 3000),
     },
   },
   realtime: {

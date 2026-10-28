@@ -42,7 +42,8 @@ needs.
    lifetime connections (LISTEN subscriptions, the availability election
    session) are a separate `dedicated` allocation in the profile.
 6. **Profiles.** web = competitive 6 (1s wait, the ISSUE-508 wait-out) /
-   social 4 / audience 2 / control 5, plus 1 dedicated (18). realtime =
+   social 4 / audience 2 / control 5 (queue 256, 3s, so auth bursts
+   reach the sign-up ceiling that decides what is shed), plus 1 dedicated (18). realtime =
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves
