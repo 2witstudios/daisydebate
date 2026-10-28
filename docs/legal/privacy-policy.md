@@ -128,13 +128,12 @@ When we change this policy we update the version at the top of the page and, for
 
 ## Notes for the owner and counsel (not part of the policy)
 
-The draft describes the beta as the code behaves on main after #471, not as docs/operations/privacy.md plans it. These notes are for the owner and counsel and are never published. Gaps found while drafting, each tracked:
+The draft describes the beta as the code behaves on main after #471, not as a plan describes it. These notes are for the owner and counsel and are never published. Gaps found while drafting, each tracked:
 
-- **No deletion or export entry point.** Erasure and export are implemented in `packages/db/src/privacy` but nothing calls them, so requests must go by email until [PRIV-4 — Given a data subject request, should export personal data and erase it atomically with durable asynchronous vendor erasure](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/njiorsf64z4iqjm2dbfa3zuu) ships an operator or self-service path. The draft says so in an [OWNER] placeholder.
+- **No deletion or export entry point.** Erasure and export are implemented in `packages/db/src/privacy` but nothing calls them, so requests must go by email until [ISSUE-833](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/sjd7whfx0gua2orgd508j5rd) ships an operator or self-service path. Erasure keeps the username and competitive record (ADR 0087, DEC-261); the policy must say so. The draft says so in an [OWNER] placeholder.
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **docs/operations/privacy.md drift** (consent_record, Sentry, PostHog and beehiiv shown as present): [ISSUE-723](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/x4aizi3bsyz8ru2dzr9ypcpq).
 - **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), error tracking (Sentry), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.

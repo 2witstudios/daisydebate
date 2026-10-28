@@ -59,9 +59,9 @@ SUSPECTED (what would confirm it).
 
 <CODE — criterion> · PASS | FAIL | PARTIAL · code path:line · test path:line
 
-### Privacy & telemetry
+### Compliance & telemetry
 
-<findings, or "no new log field, column, payload kind, topic field or event">
+<findings, or "no new data class, purpose, processor, retention, log field or event">
 
 ### Verdict
 
