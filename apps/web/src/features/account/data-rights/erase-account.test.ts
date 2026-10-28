@@ -127,6 +127,55 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
   });
 });
 
+test('a waitlisted account keeps its own erasure right (ISSUE-833 review B1)', async () => {
+  const calls: unknown[] = [];
+  const waitlisted = {
+    state: 'waitlisted' as const,
+    username: 'tester',
+    reason: 'revoked' as const,
+    principal: member.principal,
+  };
+  const response = await createEraseAccountHandler({
+    logger: silentLogger,
+    origin: () => origin,
+    identify: async () => waitlisted,
+    limiter: allowedLimiter,
+    clock: fixedClock(now),
+    eraseSubject: async (subject, at) => {
+      calls.push({ subject, at });
+      return { alreadyErased: false };
+    },
+  })(
+    request(
+      { origin, 'content-type': 'application/x-www-form-urlencoded' },
+      'confirm=on',
+    ),
+  );
+  assert({
+    given:
+      'an authenticated account whose beta access was revoked, erasing with confirmation',
+    should:
+      'run the erasure for exactly its own session subject and 303 to the closed notice, no-store',
+    actual: [
+      calls,
+      response.status,
+      response.headers.get('location'),
+      response.headers.get('cache-control'),
+    ],
+    expected: [
+      [
+        {
+          subject: { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) },
+          at: now,
+        },
+      ],
+      303,
+      `/sign-in?${ACCOUNT_CLOSED_QUERY}=1`,
+      'no-store',
+    ],
+  });
+});
+
 test('an engine refusal is a fixed section notice, never its internals', async () => {
   const response = await createEraseAccountHandler({
     logger: silentLogger,

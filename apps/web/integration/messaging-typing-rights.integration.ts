@@ -5,6 +5,7 @@ import { createMessagingTestFixture } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { composeMessagingTyping } from '../src/features/messaging/typing-operations';
+import { exportSubjectData } from '../src/features/account/data-rights/composition';
 import { loadAccountPolicyFacts } from '../src/features/authorization/account-policy-facts';
 import { messagingRoutePolicy } from './messaging-route.test-support';
 import { createTestApp } from './fixtures';
@@ -230,3 +231,54 @@ for (const writeFirst of [true, false]) {
     }
   });
 }
+
+test('the composed export joins the real typing snapshot under its own key, subject-isolated both ways (ISSUE-833 review M1)', async () => {
+  const app = createTestApp(),
+    client = new SQL(databaseUrl),
+    fixture = await createMessagingTestFixture(client);
+  const lease = {
+    version: 1 as const,
+    channelId: fixture.channelId,
+    actorId: fixture.actorId,
+    authorityRevision: 1,
+    relationshipRevision: 1,
+    accountRevision: 1,
+    ageRevision: 1,
+    policyRevision: 1,
+    expiresAt: fixture.now,
+  };
+  const peer = { ...lease, actorId: fixture.otherActorId };
+  const subject = { userId: fixture.userId, actorId: fixture.actorId };
+  try {
+    await app.app.redis.writeTypingLease(lease, 60000);
+    await app.app.redis.writeTypingLease(peer, 60000);
+    const exported = await exportSubjectData(app.app)(subject);
+    const peerExported = await exportSubjectData(app.app)({
+      userId: fixture.otherUserId ?? fixture.userId,
+      actorId: fixture.otherActorId,
+    });
+    assert({
+      given:
+        'a real database composition and live Redis leases for the subject and an unrelated actor',
+      should:
+        'join the subject own strict leases under the distinct typing key beside the database tables, and never answer another account lease',
+      actual: [
+        exported.messaging_typing_leases,
+        Object.keys(exported).includes('users'),
+        peerExported.messaging_typing_leases,
+      ],
+      expected: [[lease], true, []],
+    });
+  } finally {
+    try {
+      await Promise.all(
+        [fixture.actorId, fixture.otherActorId].map((actor) =>
+          app.app.redis.eraseSubjectTyping(actor),
+        ),
+      );
+      await fixture.cleanup();
+    } finally {
+      await client.close();
+    }
+  }
+});

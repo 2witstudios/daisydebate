@@ -116,7 +116,6 @@ test('exporting a member includes their competitive record and nothing of anothe
     const subject = await createAuthorizationSubject(fixture);
     const other = await createAuthorizationSubject(fixture);
     const seasonId = await season(fixture, 'active', at(1));
-    const formatId = await fixture.format();
     const mine = await played(fixture, {
       member: subject.actorId,
       side: 'affirmative',
@@ -129,6 +128,14 @@ test('exporting a member includes their competitive record and nothing of anothe
       outcome: 'negative',
       day: 2,
     });
+    // A rating change posts to its round's own format (the composite FK),
+    // so each side reads the format its played Round resolved against.
+    const roundFormat = async (roundId: string) =>
+      (
+        await fixture.sql`select format_id as "formatId" from rounds where id=${roundId}`
+      )[0].formatId as string;
+    const formatId = await roundFormat(mine.id);
+    const otherFormat = await roundFormat(theirs.id);
     const hostedRoom = createId();
     await fixture.insert('rooms', {
       id: hostedRoom,
@@ -189,7 +196,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     });
     await rating(fixture, {
       actorId: other.actorId,
-      formatId,
+      formatId: otherFormat,
       seasonId,
       ladder: 'ranked',
       rating: 1490,
@@ -197,7 +204,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     await change(fixture, {
       roundId: theirs.id,
       actorId: other.actorId,
-      formatId,
+      formatId: otherFormat,
       seasonId,
       ladder: 'ranked',
       before: 1500,

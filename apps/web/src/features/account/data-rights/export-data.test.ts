@@ -127,22 +127,57 @@ test('cross-origin, anonymous and rate-limited exports are refused with fixed no
   void back;
 });
 
-test('a waitlisted account cannot ask for member data rights', async () => {
-  let exports = 0;
+test('a waitlisted account keeps its own data rights (ISSUE-833 review B1)', async () => {
+  const subjects: unknown[] = [];
   const response = await createExportDataHandler({
     logger: silentLogger,
     origin: () => origin,
     identify: async () => waitlisted,
     limiter: allowedLimiter,
-    exportSubject: async () => {
-      exports += 1;
+    exportSubject: async (subject) => {
+      subjects.push(subject);
       return exported;
     },
   })(request({ origin }));
   assert({
-    given: 'a signed-in waitlisted account posting the export form',
-    should: 'refuse without running the export',
-    actual: [response.status, response.headers.get('location'), exports],
-    expected: [303, `/settings?${EXPORT_DATA_QUERY}=refused`, 0],
+    given:
+      'an authenticated account whose beta access is pending or revoked, exporting',
+    should:
+      'run the export for exactly its own session subject and answer no-store',
+    actual: [subjects, response.status, response.headers.get('cache-control')],
+    expected: [
+      [{ userId: 'u'.repeat(24), actorId: 'a'.repeat(24) }],
+      200,
+      'no-store',
+    ],
+  });
+});
+
+test('the download and the refusals are never cacheable (ISSUE-833 review, minor)', async () => {
+  const ok = await createExportDataHandler({
+    logger: silentLogger,
+    origin: () => origin,
+    identify: async () => member,
+    limiter: allowedLimiter,
+    exportSubject: async () => exported,
+  })(request({ origin }));
+  const refused = await createExportDataHandler({
+    logger: silentLogger,
+    origin: () => origin,
+    identify: async () => ({
+      state: 'anonymous',
+      principal: { kind: 'anonymous' },
+    }),
+    limiter: allowedLimiter,
+    exportSubject: async () => exported,
+  })(request({ origin }));
+  assert({
+    given: 'a successful download and a refused export',
+    should: 'carry Cache-Control: no-store on both',
+    actual: [
+      ok.headers.get('cache-control'),
+      refused.headers.get('cache-control'),
+    ],
+    expected: ['no-store', 'no-store'],
   });
 });
