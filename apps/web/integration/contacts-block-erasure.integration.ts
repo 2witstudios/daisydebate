@@ -5,7 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 
-import { blockMessagingContact } from '../src/features/messaging/block';
+import { blockContact } from '../src/features/contacts/block';
 import { contactPairFence } from '../src/features/contacts/authorization';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -51,7 +51,6 @@ for (const [blockFirst, noDm] of [
     const dependencies = {
       store,
       clock,
-      bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
       limit: async () => {},
     };
     const erase = async (): Promise<void> => {
@@ -64,11 +63,7 @@ for (const [blockFirst, noDm] of [
           fixture.channelId,
         ]);
       if (blockFirst) {
-        const blocking = blockMessagingContact(
-          command,
-          principal,
-          dependencies,
-        );
+        const blocking = blockContact(command, principal, dependencies);
         await entered.promise;
         const probe = new SQL(databaseUrl, { max: 1 });
         try {
@@ -104,7 +99,7 @@ for (const [blockFirst, noDm] of [
             'peer erasure committed before a new block materializes its absent pair',
           should:
             'deny through canonical current counterparts and roll back the default association',
-          actual: () => blockMessagingContact(command, principal, dependencies),
+          actual: () => blockContact(command, principal, dependencies),
           code: 'AUTHORIZATION',
         });
       }

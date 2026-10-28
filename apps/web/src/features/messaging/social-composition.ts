@@ -13,7 +13,6 @@ import { requestMessagingDm } from './request';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
-import { composeMessagingBlockOperation } from './block-composition';
 import { memberHttpBoundary } from '../../server/member-handler';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
@@ -30,7 +29,7 @@ export type MessagingSocialRuntimePolicy = {
 export function composeMessagingSocialRoutes(app: App) {
   const run = (
     request: Request,
-    kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
+    kind: 'request' | 'decide' | 'preview' | 'status',
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
@@ -80,7 +79,6 @@ export function composeMessagingSocialRoutes(app: App) {
           store: dm(principal),
           bounds: social.bounds,
         }),
-      block: composeMessagingBlockOperation(app),
     });
     return kind === 'preview' || kind === 'status'
       ? handlers[kind](request, channelId!)
@@ -91,7 +89,6 @@ export function composeMessagingSocialRoutes(app: App) {
       run(request, 'status', channelId),
     requestDm: (request: Request) => run(request, 'request'),
     decideDm: (request: Request) => run(request, 'decide'),
-    blockContact: (request: Request) => run(request, 'block'),
     requestPreview: (request: Request, channelId: string) =>
       run(request, 'preview', channelId),
   };

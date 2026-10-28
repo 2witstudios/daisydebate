@@ -8,7 +8,7 @@ import {
   type openMessagingFixture,
 } from './messaging-fixture.test-support';
 import { changeFriendship } from '../src/features/friends/operations';
-import { blockMessagingContact } from '../src/features/messaging/block';
+import { blockContact as blockOperation } from '../src/features/contacts/block';
 import { contactPairFence } from '../src/features/contacts/authorization';
 import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
@@ -40,7 +40,7 @@ export const blockContact = (
   principal: AuthorizationPrincipal,
   otherActorId: string,
 ) =>
-  blockMessagingContact(
+  blockOperation(
     { version: 1, requestId: createId(), otherActorId, blocked: true },
     principal,
     blockDependencies(opened, principal),

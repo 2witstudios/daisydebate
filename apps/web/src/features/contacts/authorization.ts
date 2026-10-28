@@ -2,18 +2,11 @@ import type {
   AuthorizationPrincipal,
   ContactAuthorizationFact,
   ContactPairAuthorizationFact,
+  ContactPairCapability,
 } from '@daisy/auth/authorization';
 import type { ContactAuthorizationFence } from '@daisy/db/contacts';
 import { createAppError } from '@daisy/errors';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
-
-/** The capabilities decided on one contact pair (ADR 0061, ADR 0072). */
-export type ContactPairCapability =
-  | 'social.block'
-  | 'social.friend.request'
-  | 'social.friend.end'
-  | 'social.challenge.send'
-  | 'social.challenge.decline';
 
 /**
  * The fence for one command on one contact pair: the principal must be the

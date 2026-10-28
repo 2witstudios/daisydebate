@@ -26,7 +26,6 @@ const harness = (identity: unknown = member) => {
       } as const;
     },
     list: async () => ({
-      hidden: false,
       friends: [],
       incoming: [],
       outgoing: [],
@@ -138,7 +137,6 @@ test('the list read answers the member’s own list', async () => {
       200,
       {
         version: 1,
-        hidden: false,
         friends: [],
         incoming: [],
         outgoing: [],

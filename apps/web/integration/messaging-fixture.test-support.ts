@@ -17,7 +17,7 @@ export async function openMessagingFixture(databaseUrl: string) {
   return { client, fixture, database, principal };
 }
 
-/** The real block dependencies: its bounds, clock and fenced store. */
+/** The real block dependencies: its clock, budget and fenced store. */
 export const blockDependencies = (
   {
     database,
@@ -30,7 +30,6 @@ export const blockDependencies = (
 ) => {
   const clock = { now: () => fixture.now };
   return {
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
     clock,
     limit: async () => {},
     store: database.contactStore(

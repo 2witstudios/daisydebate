@@ -72,13 +72,21 @@ export function contactSafetyAllowed(
  * way and both accounts current members; a challenge's accepted friendship
  * and open room are checked under the same lock.
  */
-const pairCapabilities: Readonly<Record<string, 'exit' | 'ask'>> = {
+const pairCapabilities = {
   'social.block': 'exit',
   'social.friend.end': 'exit',
   'social.challenge.decline': 'exit',
   'social.friend.request': 'ask',
   'social.challenge.send': 'ask',
-};
+} as const satisfies Readonly<Record<string, 'exit' | 'ask'>>;
+
+/** The capabilities decided on one contact pair (ADR 0061, ADR 0072). */
+export type ContactPairCapability = keyof typeof pairCapabilities;
+
+const isPairCapability = (
+  capability: string,
+): capability is ContactPairCapability =>
+  Object.hasOwn(pairCapabilities, capability);
 
 /** The one contact-pair decision, from the capability's kind. */
 export const contactPairAllowed = (
@@ -87,9 +95,12 @@ export const contactPairAllowed = (
   pair: ContactAuthorizationFact,
   context: AuthorizationInput['context'],
 ): boolean => {
-  const kind = pairCapabilities[capability];
-  if (kind === undefined || !contactSafetyAllowed(actorId, pair, context))
+  if (
+    !isPairCapability(capability) ||
+    !contactSafetyAllowed(actorId, pair, context)
+  )
     return false;
+  const kind = pairCapabilities[capability];
   return (
     kind === 'exit' ||
     (!pair.blocked &&

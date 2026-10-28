@@ -25,8 +25,7 @@ export function createMessagingReadOperations({
     channelId: string,
     principal: AuthorizationPrincipal,
     work: (frame: MessagingReadFrame) => Promise<T>,
-  ) =>
-    store.readChannel({ channelId, ...requireMemberActor(principal) }, work);
+  ) => store.readChannel({ channelId, ...requireMemberActor(principal) }, work);
   const write = <T>(
     channelId: string,
     principal: AuthorizationPrincipal,

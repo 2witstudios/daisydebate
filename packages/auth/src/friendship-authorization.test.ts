@@ -145,20 +145,28 @@ test('a member reads only their own friend collection', () => {
   });
 });
 
-test('a member updates only their own presence setting', () => {
-  const update = (actorId: string, erased = false) =>
-    authorize({
-      principal: { kind: 'user', userId: 'a', actorId: 'a' },
-      capability: 'social.presence.update',
-      resource: { kind: 'presence_setting', actorId },
-      context: { account: { ...adultAccount('a').account, erased } },
-    }).allow;
-  assert({
-    given: 'their own setting, another actor’s, and their own when erased',
-    should: 'allow only the current member’s own',
-    actual: [update('a'), update('b'), update('a', true)],
-    expected: [true, false, false],
-  });
+test('a member reads and updates only their own presence setting', () => {
+  const decide =
+    (capability: 'social.presence.read' | 'social.presence.update') =>
+    (actorId: string, erased = false) =>
+      authorize({
+        principal: { kind: 'user', userId: 'a', actorId: 'a' },
+        capability,
+        resource: { kind: 'presence_setting', actorId },
+        context: { account: { ...adultAccount('a').account, erased } },
+      }).allow;
+  for (const capability of [
+    'social.presence.read',
+    'social.presence.update',
+  ] as const) {
+    const allow = decide(capability);
+    assert({
+      given: `${capability} on their own setting, another actor’s, and their own when erased`,
+      should: 'allow only the current member’s own',
+      actual: [allow('a'), allow('b'), allow('a', true)],
+      expected: [true, false, false],
+    });
+  }
   assert({
     given: 'the presence capability on the messaging inbox collection',
     should: 'deny it: presence has its own resource (S5)',

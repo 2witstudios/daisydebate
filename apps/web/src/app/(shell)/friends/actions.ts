@@ -6,7 +6,6 @@ import { systemId } from '@daisy/clock';
 import {
   challengeCommandResultSchema,
   friendCommandResultSchema,
-  presenceSettingResultSchema,
 } from '@daisy/protocol';
 import {
   challengeDeclinedNotice,
@@ -15,10 +14,7 @@ import {
   friendRefusalNotice,
   friendRouteFor,
   parseFriendForm,
-  presenceFormUnavailable,
-  presenceNotice,
   type FriendFormState,
-  type PresenceFormState,
   type FriendIntent,
 } from '../../../features/friends/forms';
 import { challengeFriend } from '../../../features/friends/challenge';
@@ -34,7 +30,6 @@ const routes = {
   challenge: processRoute((all) => all.friends.challenge),
   declineChallenge: processRoute((all) => all.friends.declineChallenge),
 };
-const presenceRoute = processRoute((all) => all.presence.set);
 const friendList = processRoute((all) => all.friends.list);
 const createRoom = processRoute((all) => all.rooms.create);
 const roomCatalog = processRoute((all) => all.rooms.catalog);
@@ -113,35 +108,6 @@ export async function challengeAction(
         beforeMoveOn,
       ),
   });
-}
-
-/**
- * The member's own online-status choice: the same route a script would
- * call, in process with this request's headers.
- */
-export async function presenceAction(
-  _previous: PresenceFormState,
-  form: FormData,
-): Promise<PresenceFormState> {
-  const hidden = form.get('hidden') === 'true';
-  try {
-    const response = await inProcessFetch(
-      presenceRoute,
-      new Headers(await headers()),
-    )('/api/presence', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version: 1, hidden }),
-    });
-    const result = presenceSettingResultSchema.safeParse(
-      response.ok ? await response.json() : null,
-    );
-    if (!result.success) return presenceFormUnavailable();
-    revalidatePath('/friends');
-    return { notice: presenceNotice(result.data.hidden) };
-  } catch {
-    return presenceFormUnavailable();
-  }
 }
 
 /** The notice for a declined challenge, or null when its reply is not one. */

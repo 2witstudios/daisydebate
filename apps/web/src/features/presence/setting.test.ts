@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fixedClock } from '@daisy/clock';
-import { setPresenceHidden } from './setting';
+import { readPresenceSetting, setPresenceHidden } from './setting';
 
 setupRitewayBun();
 
@@ -49,6 +49,34 @@ test('setPresenceHidden', async () => {
         limit: async () => {},
         write: async () => true,
       }),
+    code: 'AUTHENTICATION',
+  });
+});
+
+test('readPresenceSetting', async () => {
+  const scopes: unknown[] = [];
+  assert({
+    given: 'a member reading their own setting',
+    should: 'read only their own scope and answer their choice',
+    actual: [
+      await readPresenceSetting(principal, {
+        read: async (scope) => {
+          scopes.push(scope);
+          return true;
+        },
+      }),
+      scopes,
+    ],
+    expected: [
+      { hidden: true },
+      [{ userId: principal.userId, actorId: principal.actorId }],
+    ],
+  });
+  await assertRejects({
+    given: 'a visitor',
+    should: 'refuse as authentication',
+    actual: () =>
+      readPresenceSetting({ kind: 'anonymous' }, { read: async () => true }),
     code: 'AUTHENTICATION',
   });
 });

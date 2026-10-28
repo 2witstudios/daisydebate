@@ -7,6 +7,7 @@ const authorizationCapabilities = [
   'social.friend.list',
   'social.challenge.send',
   'social.challenge.decline',
+  'social.presence.read',
   'social.presence.update',
   'channel.retained.read',
   'channel.retained.delete',

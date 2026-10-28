@@ -21,7 +21,6 @@ export function createMessagingSocialHandlers(dependencies: {
   readonly bounds: MessagingSocialBounds;
   readonly request: Operation;
   readonly decide: Operation;
-  readonly block: Operation;
   readonly preview: Operation;
   readonly status: Operation;
 }) {
@@ -29,13 +28,12 @@ export function createMessagingSocialHandlers(dependencies: {
   const outputs = {
     request: schemas.dmResult,
     decide: schemas.closedDmResult,
-    block: schemas.blockResult,
     preview: schemas.previewDmResult,
     status: schemas.dmResult,
   };
   const run = (
     request: Request,
-    kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
+    kind: 'request' | 'decide' | 'preview' | 'status',
     readInput: () => Promise<unknown>,
   ) =>
     runMemberHandler(dependencies, request, {
@@ -67,8 +65,6 @@ export function createMessagingSocialHandlers(dependencies: {
       run(request, 'decide', () =>
         readJson(request, dependencies.maxBodyBytes),
       ),
-    block: (request: Request) =>
-      run(request, 'block', () => readJson(request, dependencies.maxBodyBytes)),
     status: (request: Request, channelId: string) =>
       run(request, 'status', async () => ({ version: 1, channelId })),
     preview: (request: Request, channelId: string) =>

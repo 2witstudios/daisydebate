@@ -5,11 +5,11 @@ import {
   type FormAction,
 } from '../form-action/form-action';
 import { Button } from '../components/button/button';
-import { DraftNotice } from './draft-notice';
+import { DraftNotice } from '../messaging/draft-notice';
 import {
   blockFormUnavailable,
   type BlockFormState,
-} from '../../features/messaging/forms/block-form';
+} from '../../features/contacts/block-form';
 export function ContactBlockForm({
   requestId,
   action,

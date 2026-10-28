@@ -33,6 +33,7 @@ export {
   ageAdmitted,
   participantAccess,
 } from './participant-access';
+export type { ContactPairCapability } from './authorization-contact';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,

@@ -104,43 +104,13 @@ test('social decisions bind a versioned request to its resource', () => {
   });
 });
 
-test('safety block commands cannot forge the blocking actor or durable facts', () => {
-  const command = {
-    version: 1,
-    requestId,
-    otherActorId: actorId,
-    blocked: true,
-  };
-  assert({
-    given: 'an explicit participant safety choice',
-    should:
-      'validate the subject actor and boolean without channel or age claims',
-    actual: schemas.block.safeParse(command).success,
-    expected: true,
-  });
-  for (const patch of [
-    { blocked: 'true' },
-    { blockerActorId: actorId },
-    { ageBand: 'adult' },
-    { revision: 1 },
-  ])
-    assert({
-      given: JSON.stringify(patch),
-      should: 'refuse caller-supplied authority',
-      actual: schemas.block.safeParse({ ...command, ...patch }).success,
-      expected: false,
-    });
-});
-
 test('username commands normalize discovery intent and forbid extra authority fields', () => {
-  for (const key of ['requestUsername', 'blockUsername'] as const) {
+  for (const key of ['requestUsername'] as const) {
     const base = {
       version: 1,
       requestId,
       recipientUsername: 'Peer_Name',
-      ...(key === 'blockUsername'
-        ? { blocked: true }
-        : { introduction: ' Exact intro ' }),
+      introduction: ' Exact intro ',
     };
     assert({
       given: key,

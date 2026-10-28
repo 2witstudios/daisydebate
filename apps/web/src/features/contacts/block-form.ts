@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { formRequestId } from './form-scope';
-import { singleFormField } from '../../../server/form-field';
+import { singleFormField } from '../../server/form-field';
 export type BlockFormState = {
   readonly requestId: string;
   readonly username: string;
   readonly notice?: string;
 };
+/** The native block form's one command: a username and the choice. */
 export function parseBlockForm(input: unknown) {
   if (!(input instanceof FormData)) throw createAppError('VALIDATION');
   const read = (key: string) => singleFormField(input, key);
@@ -17,14 +17,17 @@ export function parseBlockForm(input: unknown) {
   return {
     version: 1 as const,
     requestId: requestId.data,
-    recipientUsername: read('username'),
+    username: read('username'),
     blocked: decision === 'block',
   };
 }
 export function blockFormUnavailable(input: FormData): BlockFormState {
   const username = input.get('username');
   return {
-    requestId: formRequestId(input),
+    requestId:
+      typeof input.get('requestId') === 'string'
+        ? String(input.get('requestId'))
+        : '',
     username: typeof username === 'string' ? username : '',
     notice: 'Could not change this contact. Your username is kept; try again.',
   };

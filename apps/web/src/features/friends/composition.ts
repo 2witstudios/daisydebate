@@ -52,11 +52,6 @@ const friendReads = (
       scope,
       ownFence(principal, 'social.friend.list'),
     ),
-  hidden: (scope) =>
-    app.database.readPresenceHidden(
-      scope,
-      ownFence(principal, 'social.friend.list'),
-    ),
   presence: async (actorIds) =>
     new Map(
       [...(await app.redis.readActorsPresence(actorIds))].map(

@@ -1,10 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { FriendList } from '@daisy/protocol';
-import type {
-  FriendFormState,
-  PresenceFormState,
-} from '../../../features/friends/forms';
+import type { FriendFormState } from '../../../features/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
@@ -12,7 +9,7 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import type { FormAction } from '../../form-action/form-action';
 import { profileHref } from '../../layout/app-shell/components/destinations';
-import { AddFriendForm, FriendButtonForm, PresenceForm } from '../friend-forms';
+import { AddFriendForm, FriendButtonForm } from '../friend-forms';
 import { friendsLede, presenceLabel } from '../friends';
 
 type Action = FormAction<FriendFormState>;
@@ -121,14 +118,15 @@ export function FriendsPage({
   friendAction,
   challengeAction,
   message,
-  presenceAction,
+  presence,
 }: {
   readonly list: FriendList | null;
   readonly friendAction: Action;
   readonly challengeAction: Action;
   /** The Message control for one friend; each carries its own request. */
   readonly message: (username: string) => ReactNode;
-  readonly presenceAction: FormAction<PresenceFormState>;
+  /** Presence's own control for the member's status, when it could be read. */
+  readonly presence: ReactNode;
 }) {
   return (
     <ReadingPage>
@@ -220,9 +218,9 @@ export function FriendsPage({
           </ul>
         </Section>
       ) : null}
-      {list ? (
+      {presence ? (
         <Section id="friends-status" title="Your status">
-          <PresenceForm action={presenceAction} hidden={list.hidden} />
+          {presence}
         </Section>
       ) : null}
       <Section id="friends-add" title="Add a friend">

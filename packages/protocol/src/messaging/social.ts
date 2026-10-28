@@ -29,11 +29,6 @@ export const messagingGroupInvitationResultSchema = z.strictObject({
   state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
 });
 
-export const messagingContactBlockResultSchema = z.strictObject({
-  version: z.literal(1),
-  blocked: z.boolean(),
-  revision: z.number().int().positive().safe(),
-});
 /**
  * A channel's lifecycle. `retained` is a DM whose other member was erased:
  * only its survivor's own rows remain, readable by them alone (DEC-126).
@@ -77,17 +72,6 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       senderActorId: idSchema,
       introduction: messagingTextSchema(bounds.introductionUnits).nullable(),
       requestedAt: z.iso.datetime(),
-    }),
-    blockResult: messagingContactBlockResultSchema,
-    blockUsername: z.strictObject({
-      ...command,
-      recipientUsername,
-      blocked: z.boolean(),
-    }),
-    block: z.strictObject({
-      ...command,
-      otherActorId: idSchema,
-      blocked: z.boolean(),
     }),
     requestDm: z.strictObject({
       ...command,

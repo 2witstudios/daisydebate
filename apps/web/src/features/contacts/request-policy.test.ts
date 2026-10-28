@@ -26,6 +26,19 @@ test('the shipped Contacts policy carries DEC-251’s social request budget, fro
   });
 });
 
+test('blocking spends Contacts’ own budget, the DEC-251 send windows', () => {
+  assert({
+    given: 'the composed Contacts policy',
+    should: 'allow 10 contact changes in 10 s, 30 a minute and 600 an hour',
+    actual: dec251ContactsPolicy.blocks,
+    expected: [
+      { max: 10, windowSeconds: 10 },
+      { max: 30, windowSeconds: 60 },
+      { max: 600, windowSeconds: 3_600 },
+    ],
+  });
+});
+
 test('a CONTACTS_POLICY override may only tighten DEC-251', async () => {
   const tightened = tightenContactsPolicy(dec251ContactsPolicy, {
     requests: { daily: 10, declineBlockMs: 3_000_000_000 },

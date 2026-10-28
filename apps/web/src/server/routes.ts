@@ -8,6 +8,7 @@ import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
 import { composePresenceRoutes } from '../features/presence/composition';
+import { composeContactRoutes } from '../features/contacts/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -77,6 +78,7 @@ export function createRoutes(app: App) {
     messaging: composeMessagingRoutes(app),
     friends: composeFriendRoutes(app),
     presence: composePresenceRoutes(app),
+    contacts: composeContactRoutes(app),
     rounds: {
       read: rooms.roundRead,
       ...composeRoundRoutes(app),

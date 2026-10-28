@@ -15,7 +15,7 @@ test('native safety forms bind exact username, operation and request identity', 
       expected: {
         version: 1,
         requestId: 'r'.repeat(24),
-        recipientUsername: 'peer_one',
+        username: 'peer_one',
         blocked: decision === 'block',
       },
     });

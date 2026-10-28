@@ -234,7 +234,6 @@ test('readFriendList', async () => {
         challengedAt: now,
       },
     ],
-    hidden: async () => true,
     presence: async (ids) => {
       asked.push(ids);
       return new Map([
@@ -250,7 +249,6 @@ test('readFriendList', async () => {
     should: 'list online first, then away, then offline, and split requests',
     actual: list,
     expected: {
-      hidden: true,
       friends: [
         { username: 'zed', presence: 'online' },
         { username: 'cat', presence: 'away' },

@@ -241,7 +241,6 @@ export {
 export {
   messagingGroupInvitationResultSchema,
   messagingGroupCreationResultSchema,
-  messagingContactBlockResultSchema,
 } from './messaging/social';
 export { parseUsername } from './username';
 
@@ -337,6 +336,11 @@ export {
   presenceSettingResultSchema,
   presenceSettingSchema,
 } from './presence-setting';
+export {
+  contactBlockResultSchema,
+  contactBlockSchema,
+  contactBlockUsernameSchema,
+} from './contacts';
 export type {
   ChallengeCommandResult,
   FriendCommandResult,

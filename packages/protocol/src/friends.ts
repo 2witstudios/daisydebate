@@ -57,8 +57,6 @@ const count = z.number().int().nonnegative().safe();
 
 export const friendListSchema = z.strictObject({
   version: z.literal(1),
-  /** Whether the reader hides their own online status from friends. */
-  hidden: z.boolean(),
   friends: z.array(
     z.strictObject({
       username: z.string(),

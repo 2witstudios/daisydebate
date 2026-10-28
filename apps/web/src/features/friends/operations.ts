@@ -117,11 +117,6 @@ export type FriendReadDependencies = {
     readonly userId: string;
     readonly actorId: string;
   }) => Promise<readonly FriendChallengeRow[]>;
-  /** Whether the reader hides their own status, behind the same decision. */
-  readonly hidden: (scope: {
-    readonly userId: string;
-    readonly actorId: string;
-  }) => Promise<boolean>;
   /** Each actor's presence; only friends are ever asked about. */
   readonly presence: (
     actorIds: readonly string[],
@@ -150,10 +145,9 @@ export async function readFriendList(
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
-  const [rows, challenges, hidden] = await Promise.all([
+  const [rows, challenges] = await Promise.all([
     dependencies.list({ userId, actorId }),
     dependencies.challenges({ userId, actorId }),
-    dependencies.hidden({ userId, actorId }),
   ]);
   const accepted = rows.filter((row) => row.state === 'accepted');
   // A friend who hides their status is offline to everyone (ADR 0072): their
@@ -171,7 +165,6 @@ export async function readFriendList(
       )
       .map(({ username, requestedAt }) => ({ username, requestedAt }));
   return {
-    hidden,
     friends: accepted
       .map((row) => ({
         username: row.username,

@@ -12,7 +12,7 @@ import { composeMessagingDmStore } from '../src/features/messaging/dm-compositio
 import { decideMessagingDm } from '../src/features/messaging/decide-request';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
 import { sendMessagingMessage } from '../src/features/messaging/send';
-import { blockMessagingContact } from '../src/features/messaging/block';
+import { blockContact } from '../src/features/contacts/block';
 import { contactPairFence } from '../src/features/contacts/authorization';
 import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
@@ -98,7 +98,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
     });
     const result = await decideMessagingDm(command, recipient, dependencies);
     const message = await send();
-    await blockMessagingContact(
+    await blockContact(
       {
         version: 1,
         requestId: createId(),
@@ -107,7 +107,6 @@ test('real DM recipient accept opens history/post and binds closed retry through
       },
       sender,
       {
-        bounds,
         clock,
         limit: async () => {},
         store: database.contactStore(

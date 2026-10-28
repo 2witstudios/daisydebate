@@ -28,3 +28,17 @@ export async function setPresenceHidden(
     ),
   };
 }
+
+/** The member's own presence setting, read behind their own decision. */
+export async function readPresenceSetting(
+  principal: AuthorizationPrincipal,
+  dependencies: {
+    readonly read: (scope: {
+      readonly userId: string;
+      readonly actorId: string;
+    }) => Promise<boolean>;
+  },
+): Promise<{ readonly hidden: boolean }> {
+  const { actorId, userId } = requireMemberActor(principal);
+  return { hidden: await dependencies.read({ userId, actorId }) };
+}

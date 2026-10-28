@@ -22,6 +22,7 @@ test('the inbox and a conversation’s entry spend the one DEC-251 read budget',
   // A spent budget: the unreachable database must never be asked.
   const routes = composeMessagingRoutes({
     ...app,
+    auth: () => auth,
     limiter: {
       consume: async (key, rule) => {
         spent.push([key, rule]);
@@ -75,6 +76,7 @@ test('a spent typing budget never refuses content reads', async () => {
   // unreachable database, which answers 503 rather than 429).
   const routes = composeMessagingRoutes({
     ...app,
+    auth: () => auth,
     limiter: {
       consume: async (key) => ({
         allowed: !key.startsWith('messaging:typing:'),

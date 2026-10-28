@@ -6,7 +6,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
-import { blockMessagingContact } from '../src/features/messaging/block';
+import { blockContact } from '../src/features/contacts/block';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -30,8 +30,8 @@ test('same-transaction participant safety controls require no age or posting pol
       fixture.otherUserId,
     ]);
     const choices = await Promise.all([
-      blockMessagingContact(command, principal, dependencies),
-      blockMessagingContact(command, principal, dependencies),
+      blockContact(command, principal, dependencies),
+      blockContact(command, principal, dependencies),
     ]);
     const [durable] = await sql.unsafe(
       `select revision::int,(select count(*)::int from contact_commands where actor_id=$1) as receipts,(select count(*)::int from outbox where payload->>'channelId'=$2) as bells from contact_pairs where low_actor_id=$3 and high_actor_id=$4`,
@@ -54,14 +54,10 @@ test('same-transaction participant safety controls require no age or posting pol
       given: 'a changed choice under a consumed request',
       should: 'refuse conflicting safety retry',
       actual: () =>
-        blockMessagingContact(
-          { ...command, blocked: false },
-          principal,
-          dependencies,
-        ),
+        blockContact({ ...command, blocked: false }, principal, dependencies),
       code: 'CONFLICT',
     });
-    const unblocked = await blockMessagingContact(
+    const unblocked = await blockContact(
       { ...command, requestId: createId(), blocked: false },
       principal,
       dependencies,
@@ -76,7 +72,7 @@ test('same-transaction participant safety controls require no age or posting pol
     await assertRejects({
       given: 'an erased caller retrying an accepted block request',
       should: 'refuse before reading the receipt or reintroducing authority',
-      actual: () => blockMessagingContact(command, principal, dependencies),
+      actual: () => blockContact(command, principal, dependencies),
       code: 'AUTHORIZATION',
     });
   } finally {

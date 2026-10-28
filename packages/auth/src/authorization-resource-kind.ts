@@ -13,6 +13,7 @@ export function validResourceKind(
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'social.friend.list': 'friend_collection',
+    'social.presence.read': 'presence_setting',
     'social.presence.update': 'presence_setting',
     'channel.retained.read': 'messaging_collection',
     'channel.retained.delete': 'messaging_collection',
