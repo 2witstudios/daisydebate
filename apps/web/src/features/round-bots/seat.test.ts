@@ -148,8 +148,8 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
   } catch (error) {
     thrown = error;
   }
+  // The publication's close is reported before the hearing's close runs.
   await within(feedClosed.promise, 'The hearing’s close');
-  await new Promise((resolve) => setImmediate(resolve));
   assert({
     given: 'a cross-examination seat whose hearing throws as it starts',
     should:
@@ -171,7 +171,7 @@ function failingSeat(input: {
   const publicationFault = new Error('publication close failed');
   const feedFault = new Error('hearing close failed');
   const reported: unknown[] = [];
-  const feedClosed = Promise.withResolvers<void>();
+  const bothReported = Promise.withResolvers<void>();
   const build = () =>
     createBotSeat({
       control: { pulse: async () => [] },
@@ -191,15 +191,16 @@ function failingSeat(input: {
         start: input.feedStart ?? (() => {}),
         poll: async () => {},
         close: async () => {
-          feedClosed.resolve();
           throw feedFault;
         },
       },
       pollMs: 50,
       timers: manualTimers().timers,
-      failed: (error, stage) => reported.push([error, stage]),
+      failed: (error, stage) => {
+        if (reported.push([error, stage]) === 2) bothReported.resolve();
+      },
     });
-  return { build, reported, feedClosed, publicationFault, feedFault };
+  return { build, reported, bothReported, publicationFault, feedFault };
 }
 
 test('a seat that cannot close either part reports each failure with its own error (ISSUE-789)', async () => {
@@ -213,8 +214,7 @@ test('a seat that cannot close either part reports each failure with its own err
   } catch {
     /* The start failure itself is the first test's concern. */
   }
-  await within(seat.feedClosed.promise, 'The hearing’s close');
-  await new Promise((resolve) => setImmediate(resolve));
+  await within(seat.bothReported.promise, 'Both close reports');
   assert({
     given: 'a seat whose publication and hearing both fail to close',
     should: 'report both, each on its own, so each keeps its code',

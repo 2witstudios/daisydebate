@@ -30,6 +30,8 @@ export function createBotSeat(input: {
   /**
    * `stage` is poll when the bot's hearing failed, or close when the seat
    * could not close what it had started, on stop or after a failed start.
+   * It must never throw (the worker sink guards itself), so every close is
+   * attempted and a stop keeps the speaker's own error.
    */
   readonly failed: (error: unknown, stage: string) => void;
 }) {

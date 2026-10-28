@@ -127,21 +127,22 @@ export function startBotControlService<C extends Claim>(input: {
         return 'ended' as const;
       })();
       const deadline = new AbortController();
-      let outcome: 'ended' | 'late';
-      try {
-        outcome = await Promise.race([
-          stopping,
-          // A deadline that cannot be kept counts as already passed.
-          Promise.resolve()
-            .then(() => input.overdue(deadline.signal))
-            .then(
-              () => 'late' as const,
-              () => 'late' as const,
-            ),
-        ]);
-      } finally {
-        deadline.abort();
-      }
+      const outcome = await Promise.race([
+        stopping,
+        Promise.resolve()
+          .then(() => input.overdue(deadline.signal))
+          .then(
+            () => 'late' as const,
+            // A deadline that cannot be kept ends the seat as an overrun would,
+            // but it reports its own error: nothing overran, so a stop failure
+            // that comes later is still reported.
+            (error: unknown) => {
+              failed(error, 'stop');
+              return 'unkept' as const;
+            },
+          ),
+      ]);
+      deadline.abort();
       if (outcome === 'late') {
         // Names the part still running: the speaker's stop, or the receipt pulse.
         const stage = silenced ? 'pulse' : 'stop';
@@ -153,7 +154,8 @@ export function startBotControlService<C extends Claim>(input: {
       }
       if (revoke && !entry.lost) await revokeClaim(entry.claim);
     })()
-      // An ending never rejects: its one failure is reported here, once.
+      // Defence only: every step above guards itself while `failed` keeps its
+      // never-throws contract, so nothing reaches this; an ending never rejects.
       .catch((error: unknown) => failed(error, 'stop'))
       .finally(() => {
         if (!entry.handingOff) release(entry);
