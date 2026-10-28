@@ -227,6 +227,15 @@ export function createObservationKeys(namespace: string) {
     interest: (resource: ObservationResource) =>
       resourceKey(resource, 'interest'),
     hint: (resource: ObservationResource) => resourceKey(resource, 'hint'),
+    /** The resource a cache key names, or null for a foreign key. */
+    cacheResource(key: string): ObservationResource | null {
+      const prefix = redisKey(namespace, 'obs') + ':';
+      const suffix = ':cache';
+      if (!key.startsWith(prefix) || !key.endsWith(suffix)) return null;
+      return parseObservationResourceKey(
+        key.slice(prefix.length, -suffix.length),
+      );
+    },
     /** The resource a hint channel names, or null for a foreign channel. */
     hintResource(channel: string): ObservationResource | null {
       const prefix = redisKey(namespace, 'obs') + ':';
@@ -441,6 +450,49 @@ export function createObservationCacheOperations({
           ],
         ),
       );
+    },
+    /**
+     * The erasure purge (ISSUE-852): every cached observation body in the
+     * namespace is purged and its guard fenced, so no copy that predates the
+     * erasure stays readable or can still be installed. Resolves only after
+     * every purge Redis acknowledged; any failure rejects, and the durable job
+     * retries the whole sweep. Returns how many resources it purged.
+     */
+    async purgeAllObservations(): Promise<number> {
+      const pattern = `${redisKey(namespace, 'obs')}:*:cache`;
+      let cursor = '0';
+      let purged = 0;
+      try {
+        await client.connect();
+        do {
+          const [next, found] = (await client.send('SCAN', [
+            cursor,
+            'MATCH',
+            pattern,
+            'COUNT',
+            '500',
+          ])) as [string, string[]];
+          for (const key of found) {
+            const resource = keys.cacheResource(key);
+            if (!resource) continue;
+            await client.send('EVAL', [
+              purgeScript,
+              '2',
+              keys.guard(resource),
+              keys.cache(resource),
+              keys.hint(resource),
+              JSON.stringify({ kind: 'purged' } satisfies ObservationHint),
+              String(OBSERVATION_GUARD_TTL_MS),
+            ]);
+            purged++;
+          }
+          cursor = next;
+        } while (cursor !== '0');
+      } catch (error) {
+        reportFailure('purgeAllObservations');
+        throw error;
+      }
+      return purged;
     },
     async readObservation(
       resource: ObservationResource,

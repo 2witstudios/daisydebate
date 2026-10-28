@@ -5,6 +5,7 @@ import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
+import { startObservationPurges } from './observation-purges';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
@@ -173,6 +174,15 @@ const fileMaintenance = fileRuntime?.maintenance
       timers: workerTimers,
     })
   : null;
+// ISSUE-852: an erasure's queued observation purge is delivered, retried and
+// recorded here, so no cached copy of erased content outlives its job.
+const observationPurges = startObservationPurges({
+  deliver: app.database.deliverObservationPurges,
+  purgeAll: () => app.redis.purgeAllObservations(),
+  clock: app.clock,
+  logger: app.logger,
+  timers: workerTimers,
+});
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -181,6 +191,7 @@ async function shutdown() {
   const betaMailStopped = betaMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
+  const observationPurgesStopped = observationPurges.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
@@ -211,6 +222,7 @@ async function shutdown() {
         betaMailStopped,
         operatorApiStopped,
         filesStopped,
+        observationPurgesStopped,
         availabilityStopped,
         workersStopped,
         mediaRecoveryStopped,

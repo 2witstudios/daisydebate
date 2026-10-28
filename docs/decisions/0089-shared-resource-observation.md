@@ -132,8 +132,20 @@ contract. It lives at most 60s. Erasure is fenced at four points:
 - a purge advances each node's local epoch, so a body read or a fanout
   begun before it delivers nothing after it.
 
-The TTL is a backstop, never the mechanism. A durable, confirmed purge job
-on erasure (beside the `messaging-typing` vendor job) is ISSUE-852. Claims, guards, interests, demand and
+The confirmed path is a durable job (ISSUE-852), in the vendor-deletion job
+pattern of `privacy_jobs`:
+
+- a member's erasure (the messaging privacy step) upserts one
+  `observation_purge_jobs` row in the erasure transaction itself;
+- a short-interval web worker (`apps/web/src/server/observation-purges.ts`)
+  purges every cached observation body and fences every guard
+  (`purgeAllObservations`). It then marks the jobs it read `succeeded`, and
+  only after Redis confirms;
+- a failure keeps them `pending` with exponential backoff (1s doubling to 5
+  minutes), so a Redis outage or a restart loses no job;
+- a re-erasure committed during a purge stays pending for the next one.
+
+The TTL is a backstop, never the mechanism. Claims, guards, interests, demand and
 Pub/Sub hints hold only resource ids, node incarnations, claim tokens and
 revisions, expire within 2 to 120s, and describe no data subject.
 

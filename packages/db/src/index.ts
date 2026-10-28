@@ -32,6 +32,7 @@ import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
+import { deliverObservationPurges } from './observation-purge-jobs';
 import { roundProtectedReads } from './round-protected-reads';
 import type { SQL } from 'bun';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
@@ -195,6 +196,14 @@ export function createDatabase({
       await workload.close();
       if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });
     },
+    /** ISSUE-852: due observation purge jobs, delivered with one confirmed cache purge. */
+    deliverObservationPurges: (
+      input: Parameters<typeof deliverObservationPurges>[1],
+      port: Parameters<typeof deliverObservationPurges>[2],
+    ) =>
+      instrumented(eventSink, 'deliverObservationPurges', () =>
+        deliverObservationPurges(control, input, port),
+      ),
     ...authOperations({ database: control, eventSink }),
     ...provisionalRetentionOperations({ database: control, eventSink }),
     ...authorizationSessionOperations({ database: control }),

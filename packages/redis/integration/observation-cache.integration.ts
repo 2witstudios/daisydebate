@@ -344,3 +344,56 @@ test('observation: one subscriber connection receives published hints for observ
       subscriber.close();
     }
   }));
+
+test('observation: the erasure purge leaves no readable cached body and fences builds begun before it (ISSUE-852)', () =>
+  withRedis(url, async ({ redis }) => {
+    const resources = [resource(), resource()];
+    const incarnation = await demanded(redis, resources, 'node-a');
+    const token = createId();
+    const begun: number[] = [];
+    for (const r of resources) {
+      await redis.claimObservation({
+        resource: r,
+        incarnation,
+        token,
+        leaseMs: 2000,
+      });
+      const purge = await redis.beginObservationBuild({
+        resource: r,
+        incarnation,
+        token,
+      });
+      begun.push(purge!);
+      await redis.publishObservation({
+        base: base(r),
+        incarnation,
+        token,
+        purgeGeneration: purge!,
+        contentRevision: 3,
+        body: '{"text":"erased later"}',
+      });
+    }
+    const purged = await redis.purgeAllObservations();
+    const late = await redis.publishObservation({
+      base: base(resources[0]!),
+      incarnation,
+      token,
+      purgeGeneration: begun[0]!,
+      contentRevision: 4,
+      body: '{"text":"pre-erasure build"}',
+    });
+    assert({
+      given:
+        'two cached bodies, an erasure purge, then a build that began before it',
+      should:
+        'purge both, leave nothing readable, and refuse the pre-erasure build',
+      actual: {
+        purged,
+        bodies: await Promise.all(
+          resources.map((r) => redis.readObservation(r, 'members')),
+        ),
+        late,
+      },
+      expected: { purged: 2, bodies: [null, null], late: 'refused' },
+    });
+  }));

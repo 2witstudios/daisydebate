@@ -1,6 +1,7 @@
 import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
@@ -189,6 +190,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const abandoned = await retainSurvivorDms(tx, subject.actorId, dms, now);
       await eraseAssociations(tx, subject.actorId, versions);
       await deleteAbandonedChannels(tx, abandoned);
+      // Cached observation copies of what was just erased are purged by a
+      // durable, retried job queued in this same transaction (ISSUE-852).
+      await queueObservationPurge(tx, subject.userId, now);
     },
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);
