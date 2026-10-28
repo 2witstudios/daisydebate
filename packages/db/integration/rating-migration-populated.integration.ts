@@ -77,6 +77,47 @@ test(
           await f.sql`select * from drizzle.__drizzle_migrations order by id`,
       });
       const before = await snapshot();
+      const preflight = Bun.spawn(
+        [
+          process.execPath,
+          new URL('../scripts/rating-preflight.ts', import.meta.url).pathname,
+        ],
+        { env: { DATABASE_URL: scratch.url }, stdout: 'pipe', stderr: 'pipe' },
+      );
+      const [exitCode, output] = await Promise.all([
+        preflight.exited,
+        new Response(preflight.stdout).json(),
+      ]);
+      assert({
+        given:
+          'the exact operator preflight command against the populated predecessor database',
+        should:
+          'refuse with only counts/catalog metadata and preserve the complete database state',
+        actual: {
+          exitCode,
+          counts: output.counts,
+          refusal: output.disposition.startsWith('REFUSE:'),
+          includesMembership: output.dependents.some(
+            (d: { constraint: string }) =>
+              d.constraint === 'rating_changes_participant_fk',
+          ),
+          state: await snapshot(),
+        },
+        expected: {
+          exitCode: 1,
+          counts: {
+            standings: 1,
+            postings: 1,
+            rated_rounds: 1,
+            rated_rooms: 0,
+            seasons: 1,
+          },
+          refusal: true,
+          includesMembership: true,
+          state: before,
+        },
+      });
+
       let refused = false;
       try {
         await scratch.migrate((folder) => folder <= migration);
