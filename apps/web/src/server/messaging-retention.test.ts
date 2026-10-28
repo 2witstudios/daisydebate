@@ -20,10 +20,10 @@ test('no retention target deletes messaging content by age (DEC-126, DEC-251)', 
   assert({
     given: 'the production retention targets',
     should:
-      'touch no message, channel or reaction: messages live until their author deletes them or is erased, and only spent DEC-251 decline blocks expire',
+      'touch no message, channel or reaction: messages live until their author deletes them or is erased; only spent DEC-251 decline blocks and request rows past the budget day expire',
     actual: targets
       .filter(({ name }) => /messag|channel|reaction|social/i.test(name))
       .map(({ name }) => name),
-    expected: ['retention.social_declines'],
+    expected: ['retention.social_declines', 'retention.social_requests'],
   });
 });

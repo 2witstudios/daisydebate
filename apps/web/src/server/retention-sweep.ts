@@ -70,6 +70,7 @@ export function retentionTargets({
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundAnalyses: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -206,6 +207,20 @@ export function retentionTargets({
       maxBatches: 20,
       purge: ({ now, limit }) =>
         database.purgeExpiredSocialDeclines({ before: cutoff(now, 0), limit }),
+    },
+    /**
+     * DEC-251: the request budget looks back one day at most, so an older
+     * request row is never counted again.
+     */
+    {
+      name: 'retention.social_requests',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredSocialRequests({
+          before: cutoff(now, DAY_MS),
+          limit,
+        }),
     },
     /**
      * ADR 0033: the online set's lapsed members, which reads filter but

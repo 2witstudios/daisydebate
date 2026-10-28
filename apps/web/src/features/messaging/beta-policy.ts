@@ -1,7 +1,7 @@
 import { socialMemberReading } from '@daisy/auth/social-reading';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { MessagingPolicyOverride } from '@daisy/config';
-import { createAppError } from '@daisy/errors';
+import { tightenOnly } from '../../server/tighten-only';
 import { messagingBetaLimits } from '@daisy/protocol';
 import type { RateRule } from '../auth/abuse/rate-limit';
 import type { MessagingRuntimePolicy } from './composition';
@@ -51,15 +51,7 @@ export const dec251MessagingValues: MessagingBetaValues = freeze({
   fileBytes: 10_000_000,
 });
 
-const refuse = (field: string): never => {
-  throw createAppError(
-    'VALIDATION',
-    `MESSAGING_POLICY.${field} would loosen DEC-251`,
-  );
-};
-
-const atMost = (field: string, floor: number, value: number | undefined) =>
-  value === undefined ? floor : value <= floor ? value : refuse(field);
+const { refuse, atMost } = tightenOnly('MESSAGING_POLICY');
 
 /** The same window lengths, each allowing no more than the floor's. */
 const tighterWindows = (

@@ -57,6 +57,9 @@ export function createContactStore({
                   ? rows[0]!.lowBlocksHigh
                   : rows[0]!.highBlocksLow
                 : null,
+            // Request ids are per concept: Contacts' receipts never collide
+            // with Messaging's, so one id reused for a block and a DM request
+            // is two commands, not a conflict.
             async readReceipt(requestId) {
               await refresh();
               if (!idSchema.safeParse(requestId).success)

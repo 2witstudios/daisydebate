@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import type { ContactPairKey, ContactReactions } from './reactions';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
-import { socialRequestDeclines } from '../schema/contacts';
+import { socialRequestDeclines, socialRequests } from '../schema/contacts';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
@@ -80,7 +80,7 @@ export async function refuseDeclineBlock(
  * Whether no registered relation (an accepted friendship, an accepted DM)
  * holds for the pair: Contacts asks its consumers and names none of them.
  */
-const related = (
+const unrelated = (
   relations: ContactReactions['relations'],
   pair: ContactPairKey,
 ) =>
@@ -124,7 +124,7 @@ export async function spendSocialRequest(
   }>(
     await tx.execute(sql`select
       ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
-      ${related(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
+      ${unrelated(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
       (select count(*)::int from social_requests
         where actor_id=${actorId}
           and created_at > ${at(now - DAY_MS)}::timestamptz) as "daily",
@@ -200,10 +200,11 @@ export async function clearSocialDeclines(tx: Tx, a: string, b: string) {
 }
 
 /**
- * DEC-251 retention: a decline row past its `expires_at` neither counts nor
- * blocks, so the sweep deletes it, in `deleteExpiredBatch`'s bounded batches.
+ * DEC-251 retention, in `deleteExpiredBatch`'s bounded batches: a decline
+ * row past its `expires_at` neither counts nor blocks, and a request older
+ * than the budget's day (the caller's cutoff) is never counted again.
  */
-export const socialDeclineRetention = ({
+export const socialRequestRetention = ({
   database,
   eventSink,
 }: {
@@ -221,6 +222,18 @@ export const socialDeclineRetention = ({
             socialRequestDeclines.requesterActorId,
           ],
           at: socialRequestDeclines.expiresAt,
+        },
+        batch,
+      ),
+    ),
+  purgeExpiredSocialRequests: (batch: RetentionBatch) =>
+    instrumented(eventSink, 'purgeExpiredSocialRequests', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: socialRequests,
+          key: [socialRequests.actorId, socialRequests.requestId],
+          at: socialRequests.createdAt,
         },
         batch,
       ),

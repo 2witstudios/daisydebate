@@ -22,6 +22,13 @@ JavaScript only enhances it.
   string or a notice. A refusal comes back as action state, which renders
   the typed value again and the notice with it. Success moves on with a
   redirect to a page that needs nothing from the form.
+- An action with no typed input (only arguments bound with `.bind`) has
+  no value to render again, so it may report a refusal by redirecting
+  with a fixed `?notice=<key>`. The key is a constant the feature exports.
+  It carries no form value, and the page compares it with that constant and
+  renders a fixed sentence, never text from the URL. Rooms'
+  `command-refused` and messaging's `read-unavailable` (`markReadAction`)
+  work this way.
 - The server re-validates everything the browser sends back, including
   arguments bound with `.bind`: they round-trip through the page and are
   untrusted. The action runs the same gates as the equivalent API route:

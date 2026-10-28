@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { socialDeclineRetention } from '../src/contacts/request-budget';
+import { socialRequestRetention } from '../src/contacts/request-budget';
 import {
   friendCommand,
   openPairStore,
@@ -224,7 +224,7 @@ test('the retention sweep deletes a decline row only once it has expired (DEC-25
   withPair(async ({ store, answerer, declined }) => {
     const { client, database } = store;
     await declined([0, 1, 2]);
-    const { purgeExpiredSocialDeclines } = socialDeclineRetention({ database });
+    const { purgeExpiredSocialDeclines } = socialRequestRetention({ database });
     const kept = await purgeExpiredSocialDeclines({
       before: day(30),
       limit: 500,
@@ -241,5 +241,26 @@ test('the retention sweep deletes a decline row only once it has expired (DEC-25
         'keep the live block, then delete the row once 30 days have passed since its last decline',
       actual: [kept, blocked, swept, await declinesOf(client, answerer[0])],
       expected: [0, [{ count: 0, blocked: true }], 1, []],
+    });
+  }));
+
+test('the retention sweep deletes request rows the day-long budget can no longer count (DEC-251)', () =>
+  withPair(async ({ store, asker, declined }) => {
+    const { client, database } = store;
+    await declined([0, 1, 2]);
+    const { purgeExpiredSocialRequests } = socialRequestRetention({ database });
+    const swept = await purgeExpiredSocialRequests({
+      before: day(1.5),
+      limit: 500,
+    });
+    const left = (await client.unsafe(
+      'select created_at from social_requests where actor_id=$1 order by created_at',
+      [asker[0]],
+    )) as { created_at: Date }[];
+    assert({
+      given: 'requests on days 0, 1 and 2, swept with a cutoff of day 1.5',
+      should: 'delete only the two older than the cutoff',
+      actual: [swept, left.map((row) => row.created_at.toISOString())],
+      expected: [2, [day(2)]],
     });
   }));

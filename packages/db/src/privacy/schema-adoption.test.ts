@@ -294,7 +294,7 @@ test('Contacts, Friends and Presence each declare exactly their own tables (B5)'
       'contact_commands:pending:njiorsf64z4iqjm2dbfa3zuu',
       'contact_pairs:pending:njiorsf64z4iqjm2dbfa3zuu',
       'social_request_declines:approved:dvkpb5wjay835m0xrgq1iz6v',
-      'social_requests:pending:njiorsf64z4iqjm2dbfa3zuu',
+      'social_requests:approved:xidjgsvnu3spoaa35dzzkkn5',
     ],
   });
 });

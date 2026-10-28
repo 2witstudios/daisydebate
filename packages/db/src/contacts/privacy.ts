@@ -54,19 +54,30 @@ const purposes: Readonly<Record<string, string>> = {
 export const contactsPrivacyExpectedColumns =
   ownedTableExpectedColumns(contactsColumns);
 
-/** DEC-251 sets the decline window; every other table awaits its decision. */
+const retentions: Readonly<
+  Record<string, { readonly decision: string; readonly rule: string }>
+> = {
+  social_request_declines: {
+    decision: 'dvkpb5wjay835m0xrgq1iz6v',
+    rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
+  },
+  social_requests: {
+    decision: 'xidjgsvnu3spoaa35dzzkkn5',
+    rule: 'once older than the 24-hour request budget window (DEC-259), or sooner on erasure',
+  },
+};
+
+/** DEC-251 sets the request and decline windows; other tables await theirs. */
 export const contactsPrivacyFields = ownedTablePrivacyFields({
   owner: 'CONTACTS',
   columns: contactsColumns,
   purpose: (table) => purposes[table]!,
-  retention: (table) =>
-    table === 'social_request_declines'
-      ? {
-          status: 'approved',
-          decision: 'dvkpb5wjay835m0xrgq1iz6v',
-          rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
-        }
-      : { status: 'pending', decision: 'njiorsf64z4iqjm2dbfa3zuu' },
+  retention: (table) => {
+    const approved = retentions[table];
+    return approved === undefined
+      ? { status: 'pending', decision: 'njiorsf64z4iqjm2dbfa3zuu' }
+      : { status: 'approved', ...approved };
+  },
 });
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];

@@ -1,6 +1,6 @@
 import type { ContactsPolicyOverride } from '@daisy/config';
 import type { SocialRequestLimits } from '@daisy/db';
-import { createAppError } from '@daisy/errors';
+import { tightenOnly } from '../../server/tighten-only';
 
 /** The social request budget every deployed app runs (DEC-251). */
 export type ContactsPolicy = {
@@ -23,16 +23,7 @@ export const dec251ContactsPolicy: ContactsPolicy = Object.freeze({
   }),
 });
 
-const refuse = (field: string): never => {
-  throw createAppError(
-    'VALIDATION',
-    `CONTACTS_POLICY.${field} would loosen DEC-251`,
-  );
-};
-const atMost = (field: string, floor: number, value: number | undefined) =>
-  value === undefined ? floor : value <= floor ? value : refuse(field);
-const atLeast = (field: string, floor: number, value: number | undefined) =>
-  value === undefined ? floor : value >= floor ? value : refuse(field);
+const { atMost, atLeast } = tightenOnly('CONTACTS_POLICY');
 
 /**
  * The policy an app runs: `policy` with the deployment's overrides. Each may

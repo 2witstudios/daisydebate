@@ -1,13 +1,15 @@
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
 import { presenceHiddenOf } from '../presence/settings';
-import { readOwnCollection, type OwnCollectionFence } from '../authorization';
+import {
+  readOwnCollection,
+  requireOwnScope,
+  type OwnCollectionFence,
+} from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { roomIsOpen } from '../room-open';
 
@@ -29,15 +31,6 @@ type FriendshipListScope = {
   readonly actorId: string;
 };
 
-/** Refuses a scope that is not two well-formed ids before any query. */
-const requireScope = (scope: FriendshipListScope) => {
-  if (
-    !idSchema.safeParse(scope.userId).success ||
-    !idSchema.safeParse(scope.actorId).success
-  )
-    throw createAppError('VALIDATION');
-};
-
 /**
  * One member's own friendships and requests with each counterpart's current
  * username, after `authorize` passes on the reader's locked account. Erased,
@@ -49,7 +42,7 @@ export async function listFriendships(
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly FriendshipRow[]> {
-  requireScope(scope);
+  requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, (tx) =>
     readRows(tx, scope.actorId),
   );
@@ -72,11 +65,7 @@ export async function listFriendChallenges(
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly FriendChallengeRow[]> {
-  if (
-    !idSchema.safeParse(scope.userId).success ||
-    !idSchema.safeParse(scope.actorId).success
-  )
-    throw createAppError('VALIDATION');
+  requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const rows = (await tx.execute(sql`
       select c.room_id as "roomId", u.username, rooms.title,

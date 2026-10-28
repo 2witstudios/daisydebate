@@ -93,18 +93,14 @@ ALTER TABLE "social_requests" ADD CONSTRAINT "social_requests_counterpart_actor_
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_XzNb7mYFXBhe_fkey" FOREIGN KEY ("channel_id") REFERENCES "messaging_channels"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "messaging_retained_authors" ADD CONSTRAINT "messaging_retained_authors_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_lifecycle", ADD CONSTRAINT "messaging_channels_lifecycle" CHECK ("lifecycle" in ('active', 'archived', 'retained'));--> statement-breakpoint
--- DEC-251's request budget moves to Contacts: existing DM and friend requests carry over (unrelated was never recorded, so false).
+-- DEC-251's request budget moves to Contacts: existing DM requests carry over (unrelated was never recorded, so false).
 INSERT INTO "social_requests" ("actor_id","request_id","counterpart_actor_id","kind","unrelated","created_at")
-SELECT "actor_id","request_id","counterpart_actor_id",CASE "kind" WHEN 'dm.request' THEN 'dm' ELSE 'friend' END,false,"created_at"
+SELECT "actor_id","request_id","counterpart_actor_id",'dm',false,"created_at"
 FROM "messaging_social_commands"
-WHERE "kind" IN ('dm.request','friend.request') AND "counterpart_actor_id" IS NOT NULL AND "counterpart_actor_id" <> "actor_id";--> statement-breakpoint
--- A block receipt is a Contacts command (S6), so a replayed block still finds its result.
-INSERT INTO "contact_commands" ("actor_id","request_id","counterpart_actor_id","kind","digest","created_at")
-SELECT "actor_id","request_id","counterpart_actor_id",'contact.block',"digest","created_at"
-FROM "messaging_social_commands"
-WHERE "kind" = 'dm.block' AND "counterpart_actor_id" IS NOT NULL AND "digest" IS NOT NULL;--> statement-breakpoint
--- Neither a friend request nor a block is a messaging command.
-DELETE FROM "messaging_social_commands" WHERE "kind" IN ('friend.request','dm.block');--> statement-breakpoint
+WHERE "kind" = 'dm.request' AND "counterpart_actor_id" IS NOT NULL AND "counterpart_actor_id" <> "actor_id";--> statement-breakpoint
+-- A block is a Contacts command (S6). Pre-ship (ADR 0023), its old receipts
+-- are not carried: a retried block simply applies again.
+DELETE FROM "messaging_social_commands" WHERE "kind" = 'dm.block';--> statement-breakpoint
 ALTER TABLE "messaging_social_commands" DROP CONSTRAINT "messaging_social_commands_kind", ADD CONSTRAINT "messaging_social_commands_kind" CHECK ("kind" in ('dm.request', 'dm.decide', 'group.create', 'group.invite', 'group.decide', 'group.remove', 'group.leave', 'group.transfer', 'group.archive'));--> statement-breakpoint
 -- The channel fence names the renamed contact pair table (plpgsql resolves names when it runs).
 CREATE OR REPLACE FUNCTION public.daisy_messaging_channel_fence(

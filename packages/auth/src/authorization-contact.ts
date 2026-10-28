@@ -66,55 +66,33 @@ export function contactSafetyAllowed(
 }
 
 /**
- * Friendship (ADR 0072) rides the same pair fence. Ending a friendship or
- * declining a request is a safety exit, open even across a block; asking or
- * accepting needs both accounts current members and no block either way.
+ * The contact-pair capabilities (ADR 0072). An exit (blocking, ending a
+ * friendship, declining a challenge) is a safety action, open even across
+ * a block. An ask (a friend request, a challenge) also needs no block either
+ * way and both accounts current members; a challenge's accepted friendship
+ * and open room are checked under the same lock.
  */
-function friendshipAllowed(
-  actorId: string,
-  capability: string,
-  pair: ContactAuthorizationFact,
-  context: AuthorizationInput['context'],
-): boolean {
-  if (!contactSafetyAllowed(actorId, pair, context)) return false;
-  if (capability === 'social.friend.end') return true;
-  return (
-    capability === 'social.friend.request' &&
-    !pair.blocked &&
-    (context.contactAccounts ?? []).every((account) => account.member)
-  );
-}
+const pairCapabilities: Readonly<Record<string, 'exit' | 'ask'>> = {
+  'social.block': 'exit',
+  'social.friend.end': 'exit',
+  'social.challenge.decline': 'exit',
+  'social.friend.request': 'ask',
+  'social.challenge.send': 'ask',
+};
 
-/**
- * A friend challenge (ADR 0072) rides the pair fence on its own terms:
- * declining is a safety exit, open even across a block; sending needs both
- * accounts current members and no block either way. The accepted
- * friendship and the open room are checked under the same lock.
- */
-function challengeAllowed(
-  actorId: string,
-  capability: string,
-  pair: ContactAuthorizationFact,
-  context: AuthorizationInput['context'],
-): boolean {
-  if (!contactSafetyAllowed(actorId, pair, context)) return false;
-  if (capability === 'social.challenge.decline') return true;
-  return (
-    capability === 'social.challenge.send' &&
-    !pair.blocked &&
-    (context.contactAccounts ?? []).every((account) => account.member)
-  );
-}
-
-/** The one contact-pair decision: a block's safety rule, a challenge's, or friendship's. */
+/** The one contact-pair decision, from the capability's kind. */
 export const contactPairAllowed = (
   actorId: string,
   capability: string,
   pair: ContactAuthorizationFact,
   context: AuthorizationInput['context'],
-): boolean =>
-  capability === 'social.block'
-    ? contactSafetyAllowed(actorId, pair, context)
-    : capability.startsWith('social.challenge.')
-      ? challengeAllowed(actorId, capability, pair, context)
-      : friendshipAllowed(actorId, capability, pair, context);
+): boolean => {
+  const kind = pairCapabilities[capability];
+  if (kind === undefined || !contactSafetyAllowed(actorId, pair, context))
+    return false;
+  return (
+    kind === 'exit' ||
+    (!pair.blocked &&
+      (context.contactAccounts ?? []).every((account) => account.member))
+  );
+};

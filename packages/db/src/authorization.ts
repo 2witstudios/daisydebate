@@ -53,6 +53,18 @@ export type OwnCollectionFence<S> = (input: {
   readonly account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
 }) => Promise<void>;
 
+/** Refuses an own scope that is not two well-formed ids, before any query. */
+export const requireOwnScope = (scope: {
+  readonly userId: string;
+  readonly actorId: string;
+}) => {
+  if (
+    !idSchema.safeParse(scope.userId).success ||
+    !idSchema.safeParse(scope.actorId).success
+  )
+    throw createAppError('VALIDATION');
+};
+
 /**
  * One actor's read of their own collection: lock their account, let the
  * caller's decision run on it, then read in the same transaction.

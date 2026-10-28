@@ -258,8 +258,9 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.pending_ballots',
             'retention.round_analyses',
             'retention.social_declines',
+            'retention.social_requests',
           ],
-          failuresByTarget: Array.from({ length: 16 }, () => 1),
+          failuresByTarget: Array.from({ length: 17 }, () => 1),
           lastSuccessWithinSweep: true,
         },
       });

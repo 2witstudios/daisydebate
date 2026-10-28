@@ -1,24 +1,17 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import { presenceSettings } from '../schema/presence';
-import { readOwnCollection, type OwnCollectionFence } from '../authorization';
+import {
+  readOwnCollection,
+  requireOwnScope,
+  type OwnCollectionFence,
+} from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 
 /** The member whose own presence setting is read or written. */
 type PresenceScope = {
   readonly userId: string;
   readonly actorId: string;
-};
-
-/** Refuses a scope that is not two well-formed ids before any query. */
-const requireScope = (scope: PresenceScope) => {
-  if (
-    !idSchema.safeParse(scope.userId).success ||
-    !idSchema.safeParse(scope.actorId).success
-  )
-    throw createAppError('VALIDATION');
 };
 
 /**
@@ -35,7 +28,7 @@ export function readPresenceHidden(
   scope: PresenceScope,
   authorize: OwnCollectionFence<PresenceScope>,
 ): Promise<boolean> {
-  requireScope(scope);
+  requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const [row] = await tx
       .select({ hidden: presenceSettings.hidden })
@@ -52,7 +45,7 @@ export function writePresenceHidden(
   input: { readonly hidden: boolean; readonly now: string },
   authorize: OwnCollectionFence<PresenceScope>,
 ): Promise<boolean> {
-  requireScope(scope);
+  requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
     await tx

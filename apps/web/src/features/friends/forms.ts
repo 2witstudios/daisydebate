@@ -76,11 +76,11 @@ export const friendFormUnavailable = (form: FormData): FriendFormState => ({
   notice: 'Could not reach Daisy. Your entry is kept; try again.',
 });
 
-/** The confirmation for a change that went through. */
 /** What a member reads after declining a friend's challenge. */
 export const challengeDeclinedNotice = (username: string) =>
   `Declined @${username}'s challenge.`;
 
+/** The confirmation for a change that went through. */
 export function friendDoneNotice(
   intent: Exclude<FriendIntent, 'decline-challenge'>,
   username: string,
