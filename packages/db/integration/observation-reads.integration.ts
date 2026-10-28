@@ -42,7 +42,7 @@ async function append(
   );
 }
 
-test('observation reads run as daisy_realtime through daisy_projection only (ADR 0089)', async () => {
+test('observation reads run as daisy_realtime through the SECURITY DEFINER reads only (ADR 0089)', async () => {
   const client = new SQL(databaseUrl);
   const fixture = await createMessagingTestFixture(client);
   try {

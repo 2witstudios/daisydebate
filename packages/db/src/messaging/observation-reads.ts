@@ -17,8 +17,8 @@ const iso = (value: unknown) =>
     : (value instanceof Date ? value : new Date(String(value))).toISOString();
 
 /**
- * Channel observation reads (ADR 0089), through the `daisy_projection`
- * SECURITY DEFINER functions only: the realtime role holds EXECUTE, never a
+ * Channel observation reads (ADR 0089), through two SECURITY DEFINER
+ * functions only (`daisy_observation_channel_*`): the realtime role holds EXECUTE, never a
  * grant on message content. Headers go on the `headers` lane, windows on
  * `projection`; the composition root decides which pool each one gets.
  */

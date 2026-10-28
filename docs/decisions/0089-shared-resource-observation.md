@@ -47,11 +47,13 @@ is never assumed to be a participant.
    newer snapshot even while more changes are pending. Fleet header work is
    one query per owning process per tick, independent of viewers and of
    fanout nodes.
-5. **Projection role.** Content reaches realtime only through two
-   `SECURITY DEFINER` functions owned by the `NOLOGIN` role
-   `daisy_projection`, which holds exactly the columns they disclose.
+5. **Projection reads.** Content reaches realtime only through two
+   `SECURITY DEFINER` functions that disclose exactly the window's columns
+   (`daisy_observation_channel_headers`, `daisy_observation_channel_messages`).
    `daisy_realtime` has EXECUTE on them and still no table grant on
-   message content. The window is read in one statement, so its body and
+   message content. Like every other `daisy_*` read they belong to the
+   migration owner: ADR 0080 forbids a migration that changes ownership or
+   needs a new cluster role, so no separate projection role exists. The window is read in one statement, so its body and
    revisions agree. The same mapper (`createChannelMessagesProjector`)
    serves authorized HTTP history and snapshots: at most 50 messages and
    the 128KiB frame budget, never truncating a message, continuing after

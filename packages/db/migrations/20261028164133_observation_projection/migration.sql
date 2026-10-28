@@ -1,24 +1,9 @@
 -- ADR 0089: shared resource observation reads, channel messages first.
--- daisy_projection is a NOLOGIN role that owns exactly two SECURITY DEFINER
--- reads and holds only the columns they disclose. daisy_realtime gains
--- EXECUTE on them, never a table grant: the gateway's authorization role
--- still cannot read message content directly.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'daisy_projection') THEN
-    CREATE ROLE daisy_projection NOLOGIN;
-  END IF;
-END
-$$;
---> statement-breakpoint
-GRANT USAGE ON SCHEMA public TO daisy_projection;
---> statement-breakpoint
-GRANT SELECT (channel_id, change_version) ON public.messaging_channel_streams TO daisy_projection;
---> statement-breakpoint
-GRANT SELECT (id, authority_revision) ON public.messaging_channels TO daisy_projection;
---> statement-breakpoint
-GRANT SELECT (id, channel_id, author_actor_id, sequence, change_version, text, reply_to_message_id, created_at, edited_at, removed_at) ON public.messaging_messages TO daisy_projection;
---> statement-breakpoint
+-- Two SECURITY DEFINER reads disclose exactly the window's columns.
+-- daisy_realtime gains EXECUTE on them, never a table grant: the gateway's
+-- authorization role still cannot read message content directly. Like every
+-- other daisy_* read they belong to the migration owner (ADR 0080: no
+-- migration changes ownership or needs a new cluster role).
 -- The owner's batched header read: one indexed MVCC statement for every
 -- owned channel, no locks, no outbox finality predicate. A missing id is a
 -- deleted channel. At most 1,024 ids per call.
@@ -73,10 +58,6 @@ AS $observation_channel_messages$
   WHERE s.channel_id = requested_channel_id
   ORDER BY m.sequence DESC NULLS LAST;
 $observation_channel_messages$;
---> statement-breakpoint
-ALTER FUNCTION public.daisy_observation_channel_headers(text[]) OWNER TO daisy_projection;
---> statement-breakpoint
-ALTER FUNCTION public.daisy_observation_channel_messages(text, integer) OWNER TO daisy_projection;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_observation_channel_headers(text[]) FROM PUBLIC;
 --> statement-breakpoint
