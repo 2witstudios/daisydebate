@@ -31,7 +31,7 @@ export function withFileProofTransaction<T>(
       sql`select low_actor_id from contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`,
     );
     const rows = await tx.execute(
-      sql`select id, change_version from messaging_channels where id=${channelId} for update`,
+      sql`select c.id, s.change_version from messaging_channels c join messaging_channel_streams s on s.channel_id=c.id where c.id=${channelId} for update of c`,
     );
     return work(tx, {
       channelId,

@@ -1,10 +1,24 @@
 import type { AuthorizationTransaction } from '../authorization';
 import { invalidateMessagingInboxes } from './inbox-change';
-import { and, asc, desc, eq, gt, lt, lte, isNull, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  lt,
+  lte,
+  isNull,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingMessages } from '../schema/messaging-messages';
-import { messagingActorStates } from '../schema/messaging-channels';
+import {
+  messagingActorStates,
+  messagingChannelStreams,
+} from '../schema/messaging-channels';
 import { messageRecord } from './message-record';
 import type { MessagingCounters } from './records';
 
@@ -16,14 +30,79 @@ const requireOrder = (order: number) => {
   if (!Number.isSafeInteger(order) || order < 0)
     throw createAppError('VALIDATION');
 };
-/** Transaction is already fenced; the port enforces the protected-read guard. */
+type PageRow = {
+  readonly message: typeof messagingMessages.$inferSelect | null;
+  readonly changeVersion: number;
+};
+/** Pure: a history page from one statement's rows (descending sequence). */
+export function historyPage(
+  rows: readonly PageRow[],
+  limit: number,
+  channelId: string,
+) {
+  const found = rows.flatMap((row) => (row.message ? [row.message] : []));
+  const page = found.slice(0, limit).map(messageRecord);
+  return {
+    messages: page,
+    changeVersion: rows[0]!.changeVersion,
+    nextBefore:
+      found.length > limit
+        ? { channelId, sequence: page.at(-1)!.sequence }
+        : null,
+  };
+}
+/** Pure: a changes page from one statement's rows (ascending change version). */
+export function changesPage(
+  rows: readonly PageRow[],
+  limit: number,
+  after: number,
+  channelId: string,
+) {
+  const changeVersion = rows[0]!.changeVersion;
+  if (after > changeVersion) throw createAppError('VALIDATION');
+  const found = rows.flatMap((row) => (row.message ? [row.message] : []));
+  const page = found.slice(0, limit).map(messageRecord);
+  return {
+    messages: page,
+    changeVersion,
+    nextAfter: {
+      channelId,
+      changeVersion:
+        found.length > limit ? page.at(-1)!.changeVersion : changeVersion,
+    },
+  };
+}
+
+/**
+ * Transaction is already fenced; the port enforces the protected-read guard.
+ * A page reads its stream high-water mark and its rows in one statement, so
+ * both come from one MVCC snapshot while writers share the fences (§3B).
+ */
 export function channelReadFrame(
   tx: Pick<BunSQLDatabase, 'select' | 'insert'> & AuthorizationTransaction,
   input: { readonly channelId: string; readonly actorId: string },
   counters: MessagingCounters,
   authorize: () => Promise<void>,
 ) {
-  const channel = eq(messagingMessages.channelId, input.channelId);
+  const page = (filter: SQL | undefined) =>
+    tx
+      .select({
+        message: messagingMessages,
+        changeVersion: messagingChannelStreams.changeVersion,
+      })
+      .from(messagingChannelStreams)
+      .leftJoin(
+        messagingMessages,
+        and(
+          eq(messagingMessages.channelId, messagingChannelStreams.channelId),
+          filter,
+        ),
+      )
+      .where(eq(messagingChannelStreams.channelId, input.channelId));
+  const required = <T extends readonly unknown[]>(rows: T) => {
+    if (rows.length === 0) throw createAppError('NOT_FOUND');
+    return rows;
+  };
   return {
     async history({
       limit,
@@ -42,34 +121,22 @@ export function channelReadFrame(
         (typeof query !== 'string' || query.trim().length === 0)
       )
         throw createAppError('VALIDATION');
-      const rows = await tx
-        .select()
-        .from(messagingMessages)
-        .where(
-          and(
-            channel,
-            query === undefined
-              ? undefined
-              : and(
-                  isNull(messagingMessages.removedAt),
-                  sql`strpos(lower(${messagingMessages.text}), lower(${query})) > 0`,
-                ),
-            before === undefined
-              ? undefined
-              : lt(messagingMessages.sequence, before),
-          ),
-        )
+      const rows = await page(
+        and(
+          query === undefined
+            ? undefined
+            : and(
+                isNull(messagingMessages.removedAt),
+                sql`strpos(lower(${messagingMessages.text}), lower(${query})) > 0`,
+              ),
+          before === undefined
+            ? undefined
+            : lt(messagingMessages.sequence, before),
+        ),
+      )
         .orderBy(desc(messagingMessages.sequence))
         .limit(limit + 1);
-      const page = rows.slice(0, limit).map(messageRecord);
-      return {
-        messages: page,
-        changeVersion: counters.changeVersion,
-        nextBefore:
-          rows.length > limit
-            ? { channelId: input.channelId, sequence: page.at(-1)!.sequence }
-            : null,
-      };
+      return historyPage(required(rows), limit, input.channelId);
     },
     async changes({
       limit,
@@ -81,31 +148,18 @@ export function channelReadFrame(
       await authorize();
       requirePageLimit(limit);
       requireOrder(after);
-      if (after > counters.changeVersion) throw createAppError('VALIDATION');
-      const rows = await tx
-        .select()
-        .from(messagingMessages)
-        .where(
-          and(
-            channel,
-            gt(messagingMessages.changeVersion, after),
-            lte(messagingMessages.changeVersion, counters.changeVersion),
+      const rows = await page(
+        and(
+          gt(messagingMessages.changeVersion, after),
+          lte(
+            messagingMessages.changeVersion,
+            messagingChannelStreams.changeVersion,
           ),
-        )
+        ),
+      )
         .orderBy(asc(messagingMessages.changeVersion))
         .limit(limit + 1);
-      const page = rows.slice(0, limit).map(messageRecord);
-      return {
-        messages: page,
-        changeVersion: counters.changeVersion,
-        nextAfter: {
-          channelId: input.channelId,
-          changeVersion:
-            rows.length > limit
-              ? page.at(-1)!.changeVersion
-              : counters.changeVersion,
-        },
-      };
+      return changesPage(required(rows), limit, after, input.channelId);
     },
     async markRead(sequence: number) {
       await authorize();

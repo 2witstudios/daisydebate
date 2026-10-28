@@ -11,10 +11,32 @@ then locks the canonical DM pair and channel. Membership is reread after waits;
 a changed actor set refuses the operation. The application injects the canonical
 account and policy composition, keeping raw birth data outside messaging.
 Protected reads and writes reevaluate that composition while the locks remain
-held, including after limiter waits and before receipt replay.
+held and before receipt replay.
+
+A send or author edit first runs a lock-free preflight under the shared read
+fences: a request key that already has a receipt is a replay and never spends
+the limiter. Otherwise the Redis limiter runs before the write transaction,
+never inside a database fence, and the transaction then repeats the receipt
+lookup before any write (MSG-2.2-arch1).
 
 Message sequence orders creation. Change version orders content changes and
-reconnect reads. History pages are descending by sequence; reconnect pages are
+reconnect reads. Both live on the channel stream (`messaging_channel_streams`),
+apart from the channel's authority row and its `authority_revision`. Every
+content writer (send, edit, removal, reactions, files, social authority changes
+and erasure) advances them only through `appendStream`, which allocates the
+writer's whole plan or refuses it and writes the counters once.
+
+Content writers (send, edit, removal, reactions, file posts) and read state
+(the read marker, preferences) take the same SHARE account, pair and channel
+fences as readers, in the same order, so peer writers, readers and other
+channels with the same members never wait on each other's authority fence. A
+content writer then locks its channel's stream row before any other content
+row: same-channel appends are ordered there, and its counters are exact for
+the whole transaction. Authority changes (membership, decisions, erasure) keep
+the exclusive fences, so a revocation waits for in-flight content and content
+started after it sees the revoked cast. A history or changes page reads the
+stream's high-water mark and its rows in one statement, one MVCC snapshot;
+readers never lock the stream row (MSG-2.2-arch1). History pages are descending by sequence; reconnect pages are
 ascending by current message change version. Removed content is represented by
 a minimal unavailable marker. Read cursors advance monotonically and cannot
 exceed committed channel sequence. Marking read does not follow the channel or

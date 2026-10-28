@@ -33,6 +33,10 @@ test('canonical title erasure retains peer manager data and rolls back all local
           [authoredId, actorId],
         );
         await client.unsafe(
+          'insert into messaging_channel_streams(channel_id) values($1)',
+          [authoredId],
+        );
+        await client.unsafe(
           "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$3)",
           [authoredId, otherActorId, now],
         );
@@ -99,7 +103,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
         });
         const snapshot = async () => {
           const channels = await client.unsafe(
-            'select id,title,title_author_actor_id,change_version::int,lifecycle from messaging_channels where id in ($1,$2) order by id',
+            'select c.id,c.title,c.title_author_actor_id,s.change_version::int,c.lifecycle from messaging_channels c join messaging_channel_streams s on s.channel_id=c.id where c.id in ($1,$2) order by c.id',
             [authoredId, groupId],
           );
           const local = await client.unsafe(
@@ -139,7 +143,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
         });
         await runPrivacyErasure(database, input, adoption, bindings);
         const [owned] = await client.unsafe(
-          'select title,title_author_actor_id,change_version::int as version,lifecycle from messaging_channels where id=$1',
+          'select c.title,c.title_author_actor_id,s.change_version::int as version,c.lifecycle from messaging_channels c join messaging_channel_streams s on s.channel_id=c.id where c.id=$1',
           [authoredId],
         );
         const grants = await client.unsafe(

@@ -27,8 +27,6 @@ const row = (lifecycle: string) => [
   lifecycle,
   'Private title',
   inviter,
-  0,
-  3,
   1,
   now,
 ];

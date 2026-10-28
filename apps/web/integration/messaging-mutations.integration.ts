@@ -74,7 +74,7 @@ test('canonical message mutations serialize retries and scrub removed retry fing
       await connection.unsafe(
         `select message_sequence::int as sequence,change_version::int as version,
     (select count(*)::int from messaging_receipts where channel_id=$1) as receipts,
-    (select count(*)::int from outbox where payload->>'channelId'=$1) as bells from messaging_channels where id=$1`,
+    (select count(*)::int from outbox where payload->>'channelId'=$1) as bells from messaging_channel_streams where channel_id=$1`,
         [fixture.channelId],
       )
     )[0];

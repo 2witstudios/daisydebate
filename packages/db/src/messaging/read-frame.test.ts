@@ -3,7 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { channelReadFrame } from './read-frame';
+import { changesPage, channelReadFrame, historyPage } from './read-frame';
 setupRitewayBun();
 const channelId = 'c'.repeat(24),
   actorId = 'a'.repeat(24);
@@ -20,12 +20,17 @@ const row = (sequence: number, changeVersion: number) => [
   null,
   null,
 ];
+/** One statement's row: the message, then the stream's change version (§3B). */
+const pageRow = (sequence: number, changeVersion: number, current = 8) => [
+  ...row(sequence, changeVersion),
+  current,
+];
 
 test('protected history and changes preserve bounded pagination and authority-only cursor advancement', async () => {
   const { client, queries } = fakeSql([
-    [row(3, 4), row(2, 3), row(1, 2)],
-    [row(2, 6), row(3, 7)],
-    [row(3, 7)],
+    [pageRow(3, 4), pageRow(2, 3), pageRow(1, 2)],
+    [pageRow(2, 6), pageRow(3, 7)],
+    [pageRow(3, 7)],
     [[3]],
     [[1n, '9']], // the reader's own inbox doorbell (ISSUE-603)
   ]);
@@ -71,6 +76,7 @@ test('protected history and changes preserve bounded pagination and authority-on
     actual: [
       queries[0]?.query.includes('strpos(lower('),
       queries[0]?.params.includes(channelId),
+      queries[0]?.query.includes('from "messaging_channel_streams"'),
       queries[3]?.query.includes(
         'where "messaging_actor_states"."read_sequence" <',
       ),
@@ -78,7 +84,32 @@ test('protected history and changes preserve bounded pagination and authority-on
         .split('do update set')[1]
         ?.includes('notification_level'),
     ],
-    expected: [true, true, true, false],
+    expected: [true, true, true, true, false],
+  });
+});
+test('a page takes its high-water mark from the same statement as its rows (MSG-2.2-arch1)', async () => {
+  const empty = [{ message: null, changeVersion: 5 }];
+  await assertRejects({
+    given: 'a changes cursor beyond the snapshot’s high-water mark',
+    should: 'refuse the future cursor',
+    actual: async () => changesPage(empty, 2, 6, channelId),
+    code: 'VALIDATION',
+  });
+  assert({
+    given: 'a channel with no message in the snapshot',
+    should: 'answer the snapshot’s own version with an empty page',
+    actual: [
+      historyPage(empty, 2, channelId),
+      changesPage(empty, 2, 5, channelId),
+    ],
+    expected: [
+      { messages: [], changeVersion: 5, nextBefore: null },
+      {
+        messages: [],
+        changeVersion: 5,
+        nextAfter: { channelId, changeVersion: 5 },
+      },
+    ],
   });
 });
 test('each channel read refuses fresh authority loss before driver access', async () => {
@@ -122,7 +153,6 @@ test('malformed cursor and page inputs refuse before driver access, and absent m
     () => frame.history({ limit: 65536 }),
     () => frame.history({ limit: 1, before: -1 }),
     () => frame.history({ limit: 1, query: ' ' }),
-    () => frame.changes({ limit: 1, after: 9 }),
     () => frame.changes({ limit: 1, after: 0.5 }),
     () => frame.markRead(4),
   ];

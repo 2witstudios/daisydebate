@@ -8,7 +8,15 @@ const requestId = 'r'.repeat(24),
   messageId = 'm'.repeat(24);
 
 test('send frame binds receipt to current command and commits one thin bell with monotonic counters', async () => {
-  const f = channelWire([[], [], [], [], [[1, '5']], []]);
+  const f = channelWire([
+    [],
+    [{ messageSequence: 0, changeVersion: 1 }],
+    [],
+    [],
+    [],
+    [[1, '5']],
+    [],
+  ]);
   let authorizationCalls = 0;
   const store = createMessagingStore({
     database: f.database,
@@ -83,9 +91,17 @@ test('send frame binds receipt to current command and commits one thin bell with
   assert({
     given: 'the successful write',
     should:
-      'persist message, receipt and channel counter before one content-free bell, then read whose inboxes to ring (ISSUE-603)',
-    actual: f.queries.slice(6).map((q) => q.query.trim().split(/\s/)[0]),
-    expected: ['insert', 'insert', 'update', 'insert', 'select', 'select'],
+      'allocate on the locked stream row, persist message and receipt before one content-free bell, then read whose inboxes to ring (ISSUE-603)',
+    actual: f.queries.slice(7).map((q) => q.query.trim().split(/\s/)[0]),
+    expected: [
+      'select',
+      'update',
+      'insert',
+      'insert',
+      'insert',
+      'select',
+      'select',
+    ],
   });
 });
 test('send frame refuses fresh authority loss and malformed command without inspecting private receipts', async () => {
@@ -139,8 +155,8 @@ test('send frame refuses fresh authority loss and malformed command without insp
   });
   assert({
     given: 'both boundary refusals',
-    should: 'perform only the five canonical authority/counter reads',
+    should: 'perform only the six canonical authority/stream reads',
     actual: [f.queries.length, available.queries.length],
-    expected: [5, 5],
+    expected: [6, 6],
   });
 });

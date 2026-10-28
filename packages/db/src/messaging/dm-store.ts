@@ -6,7 +6,10 @@ import {
   messagingDmPairs,
   messagingSocialCommands,
 } from '../schema/messaging-social';
-import { readMessagingChannel, withMessagingChannel } from './channel-frame';
+import {
+  readMessagingChannel,
+  withMessagingAuthorityChange,
+} from './channel-frame';
 import { readMessagingChannelFact } from './social';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import {
@@ -56,7 +59,7 @@ export function createMessagingDmStore({
         };
       }),
     withChannel: (scope, work) =>
-      withMessagingChannel(
+      withMessagingAuthorityChange(
         database,
         scope,
         async ({ tx, channel, accounts }) => {

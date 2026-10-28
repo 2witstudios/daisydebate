@@ -8,6 +8,7 @@ import {
   type MessagingReactionPolicy,
 } from '@daisy/protocol';
 import { appendOutboxEvent } from '../outbox';
+import { appendStream } from './stream';
 import type {
   MessagingReactionAssociation,
   MessagingReactionCommand,
@@ -102,7 +103,6 @@ export function channelReactionFrame(
           tx,
           scope.channelId,
           command.messageId,
-          changeVersion,
         );
       }
       await tx.execute(sql`
@@ -184,20 +184,14 @@ async function advanceReactionVersion(
   tx: Tx,
   channelId: string,
   messageId: string,
-  previous: number,
 ) {
-  const next = previous + 1;
-  if (!Number.isSafeInteger(next) || previous < 0)
-    throw createAppError('CONFLICT');
-  const channels = await tx.execute(sql`
-    update messaging_channels set change_version=${next} where id=${channelId} and change_version=${previous}
-    returning id
-  `);
-  if (channels.length !== 1 || channels[0]?.id !== channelId)
-    throw createAppError('CONFLICT');
+  const { changeVersion: next } = await appendStream(tx, channelId, {
+    messages: 0,
+    changes: 1,
+  });
   const messages = await tx.execute(sql`
     update messaging_messages set change_version=${next} where id=${messageId} and channel_id=${channelId}
-      and change_version <= ${previous} returning id
+      and change_version < ${next} returning id
   `);
   if (messages.length !== 1 || messages[0]?.id !== messageId)
     throw createAppError('CONFLICT');

@@ -16,7 +16,7 @@ test('scoped history orders sequence independently from change version and bound
   const messages = [createId(), createId(), createId()];
   try {
     await client.unsafe(
-      'update messaging_channels set message_sequence=3,change_version=5 where id=$1',
+      'update messaging_channel_streams set message_sequence=3,change_version=5 where channel_id=$1',
       [f.channelId],
     );
     for (let i = 0; i < messages.length; i++)

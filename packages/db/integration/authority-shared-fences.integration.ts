@@ -143,6 +143,10 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
         "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
         [channelId],
       );
+      await client.unsafe(
+        'insert into messaging_channel_streams(channel_id) values($1)',
+        [channelId],
+      );
       const readGroup = (sql: SQL) =>
         sql`select public.daisy_messaging_channel_read_fence(${channelId}, null, null) as fenced`;
       const lockGroup = (sql: SQL) =>
@@ -172,7 +176,7 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
     const messageId = createId();
     try {
       await client.unsafe(
-        'update messaging_channels set message_sequence=1,change_version=1 where id=$1',
+        'update messaging_channel_streams set message_sequence=1,change_version=1 where channel_id=$1',
         [f.channelId],
       );
       await client.unsafe(
@@ -213,6 +217,10 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
     try {
       await client.unsafe(
         "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
+        [groupId],
+      );
+      await client.unsafe(
+        'insert into messaging_channel_streams(channel_id) values($1)',
         [groupId],
       );
       await client.unsafe(

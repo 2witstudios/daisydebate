@@ -61,6 +61,8 @@ test('request decisions require observation and matching operation before writes
     // An acceptance clears the pair's declines (DEC-251).
     [],
     [],
+    [{ messageSequence: 0, changeVersion: 1 }],
+    [],
     [[1, '7']],
     [],
     [],

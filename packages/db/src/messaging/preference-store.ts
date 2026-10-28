@@ -2,7 +2,10 @@ import type { AuthorizationTransaction } from '../authorization';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { MessagingAuthorizationFence } from './records';
-import { withLockedMessagingAuthority } from './authority-frame';
+import {
+  restartingRead,
+  withSharedMessagingAuthority,
+} from './authority-frame';
 import { channelPreferenceFrame } from './preference-frame';
 import {
   clearOwnMessagingPreference,
@@ -25,8 +28,9 @@ export function createMessagingPreferenceStore(
       tx: AuthorizationTransaction,
     ) => Promise<T>,
   ) =>
-    database.transaction((tx) =>
-      withLockedMessagingAuthority(tx, scope, (authority) =>
+    // Read state is the actor's own row: shared fences, like reads (MSG-2.2-arch1).
+    restartingRead(database, (tx) =>
+      withSharedMessagingAuthority(tx, scope, (authority) =>
         work(
           channelPreferenceFrame(tx, scope, (operation) =>
             authorize[operation](tx, scope, authority),

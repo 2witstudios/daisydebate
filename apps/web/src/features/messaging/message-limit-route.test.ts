@@ -36,6 +36,10 @@ const deployedSend = () => {
       sendMessagingMessage(input, principal, {
         bounds: betaMessagingPolicy.bounds,
         store: {
+          readChannel: async () => {
+            reached.push('authorize');
+            throw createAppError('AUTHORIZATION');
+          },
           withChannel: async (_scope, work) =>
             work({
               authorize: async () => {

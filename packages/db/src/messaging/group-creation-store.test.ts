@@ -40,6 +40,7 @@ test('creation persists only after observing absent receipt and fresh account/pa
     [],
     [],
     [],
+    [],
     [[1, '9']],
     [],
     [[2, '9']],
@@ -108,7 +109,7 @@ test('creation persists only after observing absent receipt and fresh account/pa
     actual: [
       result,
       fences,
-      inserts.map((q) => q.query.match(/insert into "([^"]+)"/)?.[1]),
+      inserts.map((q) => q.query.match(/insert into "?([a-z_]+)/)?.[1]),
       bells,
     ],
     expected: [
@@ -117,6 +118,7 @@ test('creation persists only after observing absent receipt and fresh account/pa
       [
         'contact_pairs',
         'messaging_channels',
+        'messaging_channel_streams',
         'messaging_group_grants',
         'messaging_group_invitations',
         'messaging_social_commands',
@@ -140,8 +142,8 @@ test('creation persists only after observing absent receipt and fresh account/pa
       queries[1]?.query.includes('daisy_authorization_accounts'),
       queries[3]?.query.includes('for update'),
       queries[3]?.params,
-      inserts[3]?.params.includes(peerId),
-      inserts[5]?.params.includes(peerId),
+      inserts[4]?.params.includes(peerId),
+      inserts[6]?.params.includes(peerId),
     ],
     expected: [true, true, [actorId, peerId], true, true],
   });
