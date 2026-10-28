@@ -219,14 +219,13 @@ transport, JSON, schema-field or parser-class, and endpoint-binding error names.
 It never exposes rejected values, exception messages or bearer tickets, and
 does not relax the production content security policy.
 
-Contact safety has a native username form for block and unblock, available from
-the inbox. Both username and actor-ID routes use the same canonical safety
-operation: current subject and counterpart accounts, ordered pair fences and
-fresh participant authorization remain mandatory, while age/admission/read/post
-policies are not prerequisites. Unblocking grants neither request acceptance
-nor content access. Refused sends keep draft text and command identity; native
-browser controls exercise a blocked refusal followed by an authorized retry
-once the pair is unblocked.
+Blocking belongs to Contacts, not Messaging (ADR 0072): the native "Contact
+safety" form, reached from the inbox, posts to Contacts' own
+`/api/contacts/username` route, and `/api/contacts/block` takes an actor ID.
+Messaging only honors the pair's block when it authorizes a DM. A refused send
+keeps its draft text and command identity, and native browser controls
+exercise a blocked refusal followed by an authorized retry once the pair is
+unblocked.
 
 Private-group membership commands use one native username-intent route and the
 same transactional provider as application operations. Revoke and archive use

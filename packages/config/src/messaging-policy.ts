@@ -1,18 +1,9 @@
 import { z } from 'zod';
 import { optionalJsonConfig } from './json-config';
+import { rateWindowsSchema } from './rate-windows';
 
 const positiveInteger = z.number().int().positive().safe();
-const windows = z
-  .array(
-    z.strictObject({ max: positiveInteger, windowSeconds: positiveInteger }),
-  )
-  .nonempty()
-  .max(4)
-  .refine(
-    (rules) =>
-      new Set(rules.map((rule) => rule.windowSeconds)).size === rules.length,
-    { message: 'Each window needs its own length' },
-  );
+const windows = rateWindowsSchema;
 
 /**
  * DEC-251 overrides a deployment may set to tighten the beta messaging

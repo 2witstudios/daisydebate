@@ -8,7 +8,7 @@ import {
   friendCommand,
   openPairStore,
   socialLimits,
-} from './messaging-pair-store.test-support';
+} from './contact-pair-store.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -244,7 +244,7 @@ test('the retention sweep deletes a decline row only once it has expired (DEC-25
     });
   }));
 
-test('the retention sweep deletes request rows the day-long budget can no longer count (DEC-251)', () =>
+test('the retention sweep deletes request rows the day-long budget can no longer count (DEC-259)', () =>
   withPair(async ({ store, asker, declined }) => {
     const { client, database } = store;
     await declined([0, 1, 2]);

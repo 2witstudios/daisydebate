@@ -7,7 +7,7 @@ import { Fixture } from './constraint-helpers';
 import {
   friendCommand,
   openPairStore,
-} from './messaging-pair-store.test-support';
+} from './contact-pair-store.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);

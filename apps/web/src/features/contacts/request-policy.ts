@@ -26,7 +26,8 @@ export const dec251ContactsPolicy: ContactsPolicy = Object.freeze({
     declinesToBlock: 3,
     declineBlockMs: 30 * DAY_MS,
   }),
-  // DEC-251's send windows, spent in Contacts' own `contacts:block` bucket.
+  // Contacts' own block budget, set at DEC-251's send windows; it tightens
+  // through CONTACTS_POLICY, never with Messaging's send policy.
   blocks: Object.freeze([
     { max: 10, windowSeconds: 10 },
     { max: 30, windowSeconds: 60 },
@@ -34,7 +35,7 @@ export const dec251ContactsPolicy: ContactsPolicy = Object.freeze({
   ]),
 });
 
-const { atMost, atLeast } = tightenOnly('CONTACTS_POLICY');
+const { atMost, atLeast, windows } = tightenOnly('CONTACTS_POLICY');
 
 /**
  * The policy an app runs: `policy` with the deployment's overrides. Each may
@@ -45,11 +46,11 @@ export function tightenContactsPolicy(
   policy: ContactsPolicy,
   override: ContactsPolicyOverride | undefined,
 ): ContactsPolicy {
-  if (override?.requests === undefined) return policy;
+  if (override === undefined) return policy;
   const floor = policy.requests,
-    next = override.requests;
+    next = override.requests ?? {};
   return Object.freeze({
-    blocks: policy.blocks,
+    blocks: Object.freeze(windows('blocks', policy.blocks, override.blocks)),
     requests: Object.freeze({
       daily: atMost('requests.daily', floor.daily, next.daily),
       unrelatedHourly: atMost(

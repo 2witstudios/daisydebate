@@ -1,7 +1,7 @@
 import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeWindowsOrThrow } from '../../server/rate-limit';
+import { spendUsernameDiscovery } from '../access/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 
 import { resolveMessagingCreationIntent } from './creation-intent';
@@ -31,11 +31,7 @@ export function composeMessagingCreationIntentRoutes(app: App) {
             lookup: (username) =>
               app.database.lookupHumanActorByUsername(username),
             limit: (actorId) =>
-              consumeWindowsOrThrow(
-                app.limiter,
-                `messaging:discovery:${actorId}`,
-                social.abuse,
-              ),
+              spendUsernameDiscovery(app.limiter, actorId, social.abuse),
           },
         );
         const result = await composeMessagingCreationOperation(app, kind)(

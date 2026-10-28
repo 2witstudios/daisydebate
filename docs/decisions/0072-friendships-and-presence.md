@@ -29,7 +29,9 @@ fence (accounts, then the pair, then a channel).
    owns blocking: `features/contacts` serves `POST /api/contacts/block` and
    `POST /api/contacts/username` on its own contract (`contactBlockSchema`,
    version 1), digest, `contact_commands` receipt and `contacts:block`
-   budget. Presence owns the member's own setting: `GET` and
+   budget. A block by username first spends the members' one shared
+   `username-discovery:<actor>` budget, the same one a DM request by
+   username spends, so a feature never adds a probe budget. Presence owns the member's own setting: `GET` and
    `POST /api/presence` (`social.presence.read` and
    `social.presence.update` on the `presence_setting` resource), and the
    friend list carries no setting of its own. `friendships` holds one row per asked or accepted

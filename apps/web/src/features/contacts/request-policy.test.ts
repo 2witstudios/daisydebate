@@ -74,3 +74,39 @@ test('a CONTACTS_POLICY override may only tighten DEC-251', async () => {
       code: 'VALIDATION',
     });
 });
+
+test('a CONTACTS_POLICY override may only tighten the block windows', async () => {
+  const tightened = tightenContactsPolicy(dec251ContactsPolicy, {
+    blocks: [
+      { max: 5, windowSeconds: 10 },
+      { max: 30, windowSeconds: 60 },
+      { max: 100, windowSeconds: 3_600 },
+    ],
+  });
+  assert({
+    given: 'fewer blocks per window and no request override',
+    should: 'apply the windows and keep the request budget as shipped',
+    actual: [tightened.blocks, tightened.requests],
+    expected: [
+      [
+        { max: 5, windowSeconds: 10 },
+        { max: 30, windowSeconds: 60 },
+        { max: 100, windowSeconds: 3_600 },
+      ],
+      dec251ContactsPolicy.requests,
+    ],
+  });
+  await assertRejects({
+    given: 'more blocks in ten seconds',
+    should: 'refuse the whole policy at boot rather than clamp it',
+    actual: async () =>
+      tightenContactsPolicy(dec251ContactsPolicy, {
+        blocks: [
+          { max: 11, windowSeconds: 10 },
+          { max: 30, windowSeconds: 60 },
+          { max: 600, windowSeconds: 3_600 },
+        ],
+      }),
+    code: 'VALIDATION',
+  });
+});

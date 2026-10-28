@@ -44,3 +44,52 @@ test('a refused override names its prefixed field', () => {
     expected: 'POLICY.max would loosen DEC-251',
   });
 });
+
+test('windows tighten each window’s count and keep the window lengths', async () => {
+  const { windows } = tightenOnly('POLICY');
+  const floor = [
+    { max: 10, windowSeconds: 10 },
+    { max: 30, windowSeconds: 60 },
+  ];
+  assert({
+    given: 'no override, then fewer per window',
+    should: 'keep the floor, then take the tighter counts',
+    actual: [
+      windows('w', floor, undefined),
+      windows('w', floor, [
+        { max: 30, windowSeconds: 60 },
+        { max: 5, windowSeconds: 10 },
+      ]),
+    ],
+    expected: [
+      floor,
+      [
+        { max: 5, windowSeconds: 10 },
+        { max: 30, windowSeconds: 60 },
+      ],
+    ],
+  });
+  for (const [given, value] of [
+    [
+      'a larger count',
+      [
+        { max: 11, windowSeconds: 10 },
+        { max: 30, windowSeconds: 60 },
+      ],
+    ],
+    ['a missing window', [{ max: 10, windowSeconds: 10 }]],
+    [
+      'a different window',
+      [
+        { max: 10, windowSeconds: 10 },
+        { max: 30, windowSeconds: 61 },
+      ],
+    ],
+  ] as const)
+    await assertRejects({
+      given,
+      should: 'refuse it rather than clamp it',
+      actual: async () => windows('w', floor, value),
+      code: 'VALIDATION',
+    });
+});

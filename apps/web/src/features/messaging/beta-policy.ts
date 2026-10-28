@@ -51,23 +51,7 @@ export const dec251MessagingValues: MessagingBetaValues = freeze({
   fileBytes: 10_000_000,
 });
 
-const { refuse, atMost } = tightenOnly('MESSAGING_POLICY');
-
-/** The same window lengths, each allowing no more than the floor's. */
-const tighterWindows = (
-  field: string,
-  floor: Windows,
-  value: Windows | undefined,
-): Windows => {
-  if (value === undefined) return floor;
-  if (value.length !== floor.length) return refuse(field);
-  return floor.map((rule) => {
-    const next = value.find((row) => row.windowSeconds === rule.windowSeconds);
-    return next
-      ? { ...rule, max: atMost(field, rule.max, next.max) }
-      : refuse(field);
-  });
-};
+const { atMost, windows: tighterWindows } = tightenOnly('MESSAGING_POLICY');
 
 /**
  * Applies a deployment's overrides to `floor`. Each may only tighten: a
@@ -171,7 +155,7 @@ function composeBetaMessagingPolicy(
         batchActors: messagingBetaLimits.batchActors,
       },
       creation: betaDmPolicy,
-      // Decisions and blocks share the per-account send ceiling.
+      // DM and group decisions share the per-account send ceiling.
       abuse: values.send,
     },
   };
