@@ -6,6 +6,7 @@ import {
   createRealtimeAuthorization,
   type RealtimeReadingPolicy,
 } from './authorization';
+import { realtimeReadingPolicy } from './reading-policy';
 
 setupRitewayBun();
 const principal = {
@@ -81,6 +82,7 @@ const approvedTestReading: RealtimeReadingPolicy = ({
 });
 for (const mode of [
   'approved-test',
+  'production-policy',
   'missing-policy',
   'expired-session',
   'changed-account',
@@ -134,7 +136,12 @@ for (const mode of [
       now: () => Date.parse(instant),
       ...(mode === 'missing-policy'
         ? {}
-        : { readingPolicy: approvedTestReading }),
+        : {
+            readingPolicy:
+              mode === 'production-policy'
+                ? realtimeReadingPolicy
+                : approvedTestReading,
+          }),
     });
     const result = await auth.authorizeTopic(
       principal,
@@ -149,7 +156,10 @@ for (const mode of [
       expected: {
         frames: 1,
         queries: 4,
-        deadline: mode === 'approved-test' ? Date.parse(expiry) : null,
+        deadline:
+          mode === 'approved-test' || mode === 'production-policy'
+            ? Date.parse(expiry)
+            : null,
       },
     });
   });

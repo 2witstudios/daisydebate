@@ -6,6 +6,7 @@ import {
 import { createRealtimeApp } from './app';
 import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
+import { realtimeReadingPolicy } from './reading-policy';
 import { startRealtimeServiceLease } from './service-lease';
 import { readFile } from 'node:fs/promises';
 import {
@@ -52,6 +53,7 @@ const { close, drain } = await serveRealtime({
   hostname,
   trustedProxies,
   presence: { instanceId, nextId: () => systemId.next() },
+  readingPolicy: realtimeReadingPolicy,
 });
 const lease = startRealtimeServiceLease({
   instanceId,
