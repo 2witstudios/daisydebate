@@ -2,15 +2,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { expect } from 'bun:test';
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import { mergeChangedFiles } from './docs-merge-files';
 
 setupRitewayBun();
 
-// A repository where main moves on after the branch was cut, so the PR's
-// recorded base.sha is older than the merge's first parent.
-const repositoryWithStaleBase = () => {
+const initRepository = () => {
   const cwd = mkdtempSync(join(tmpdir(), 'docs-merge-files-'));
   const git = (...args: string[]) =>
     execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -22,6 +21,19 @@ const repositoryWithStaleBase = () => {
   git('init', '-q', '-b', 'main');
   git('config', 'user.email', 'test@example.test');
   git('config', 'user.name', 'test');
+  return {
+    cwd,
+    git,
+    commit,
+    cleanup: () => rmSync(cwd, { recursive: true, force: true }),
+  };
+};
+
+// A repository where main moves on after the branch was cut, so the PR's
+// recorded base.sha is older than the merge's first parent.
+const repositoryWithStaleBase = () => {
+  const repo = initRepository();
+  const { git, commit } = repo;
   commit('base.md', 'base');
   const baseSha = git('rev-parse', 'HEAD');
   git('checkout', '-q', '-b', 'slice');
@@ -29,12 +41,20 @@ const repositoryWithStaleBase = () => {
   git('checkout', '-q', 'main');
   commit('other.md', 'merged meanwhile');
   git('merge', '-q', '--no-ff', '-m', 'merge slice', 'slice');
-  return {
-    cwd,
-    baseSha,
-    mergeSha: git('rev-parse', 'HEAD'),
-    cleanup: () => rmSync(cwd, { recursive: true, force: true }),
-  };
+  return { ...repo, baseSha, mergeSha: git('rev-parse', 'HEAD') };
+};
+
+// A merge whose only change is a rename of a path pages may cite (ISSUE-860).
+const repositoryWithRename = () => {
+  const repo = initRepository();
+  const { git, commit } = repo;
+  commit('old.md', 'cited content');
+  git('checkout', '-q', '-b', 'slice');
+  git('mv', 'old.md', 'new.md');
+  git('commit', '-q', '-m', 'rename old.md to new.md');
+  git('checkout', '-q', 'main');
+  git('merge', '-q', '--no-ff', '-m', 'merge rename', 'slice');
+  return { ...repo, mergeSha: git('rev-parse', 'HEAD') };
 };
 
 describe('mergeChangedFiles', async () => {
@@ -61,19 +81,24 @@ describe('mergeChangedFiles', async () => {
     }
   });
 
-  test('refuses anything but a commit sha', async () => {
-    let message = '';
+  test('lists both sides of a renamed file', async () => {
+    const repo = repositoryWithRename();
     try {
-      mergeChangedFiles('--output=/tmp/x');
-    } catch (error) {
-      message = (error as Error).message;
+      assert({
+        given: 'a merge that git mv renames a cited path',
+        should: 'list the old and the new name (ISSUE-860)',
+        actual: mergeChangedFiles(repo.mergeSha, repo.cwd),
+        expected: ['new.md', 'old.md'],
+      });
+    } finally {
+      repo.cleanup();
     }
-    assert({
-      given: 'an option-shaped argument',
-      should: 'throw before running git',
-      actual: message,
-      expected: 'A merge commit must be a 40-character hex sha',
-    });
+  });
+
+  test('refuses anything but a commit sha', async () => {
+    expect(() => mergeChangedFiles('--output=/tmp/x')).toThrow(
+      'A merge commit must be a 40-character hex sha',
+    );
   });
 });
 
