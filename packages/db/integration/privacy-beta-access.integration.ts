@@ -1,25 +1,13 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  betaAccessPrivacyAdopter,
-  betaAccessPrivacyExpectedColumns,
-} from '../src/privacy';
+import { betaAccessPrivacyAdopter } from '../src/beta-access-privacy';
 import { exportThenErase, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
 
-const adoption = {
-  requiredAdopters: [
-    {
-      id: betaAccessPrivacyAdopter.id,
-      phase: betaAccessPrivacyAdopter.phase,
-      expectedColumns: betaAccessPrivacyExpectedColumns,
-    },
-  ],
-  adopters: [betaAccessPrivacyAdopter],
-};
+const adoption = [betaAccessPrivacyAdopter];
 
 test('erasure removes beta state and owed mail; export carries the beta fields', async () => {
   await withPrivacySubject(async ({ client, database, userId, actorId }) => {

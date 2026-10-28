@@ -32,10 +32,6 @@ const before: PrivacyAdopter = {
   ...accountAgePrivacyAdopter,
   id: 'test-associations',
   phase: 'before-auth',
-  fields: accountAgePrivacyAdopter.fields.map((field) => ({
-    ...field,
-    table: 'test_associations',
-  })),
   erase: async (tx, value) => {
     await tx.execute(
       sql`delete from test_associations where actor_id=${value.actorId}`,
@@ -43,18 +39,7 @@ const before: PrivacyAdopter = {
   },
   export: async () => ({ test_associations: [] }),
 };
-const adoption = {
-  requiredAdopters: [before, accountAgePrivacyAdopter].map(
-    ({ id, phase, fields }) => ({
-      id,
-      phase,
-      expectedColumns: {
-        [fields[0]!.table]: fields.map(({ column }) => column),
-      },
-    }),
-  ),
-  adopters: [before, accountAgePrivacyAdopter],
-};
+const adoption = [before, accountAgePrivacyAdopter];
 
 test('canonical erasure fences before associations and queues vendors after scrub', async () => {
   const fake = fakeSql([[account]]);
@@ -110,6 +95,16 @@ test('canonical erasure fences before associations and queues vendors after scru
         'intent',
       ],
     ],
+  });
+  assert({
+    given: 'the account row the erasure closes',
+    should:
+      'clear its email, name and image and keep its username on the record (ADR 0087)',
+    actual: [
+      /email = null/.test(queries[8] ?? ''),
+      /username/.test(queries[8] ?? ''),
+    ],
+    expected: [true, false],
   });
   assert({
     given: 'bound JSON challenges and a durable vendor intent',

@@ -119,27 +119,7 @@ export async function createMessagingTestFixture(client: SQL) {
             vendors: typingJobId ? ['messaging-typing'] : [],
             jobIds: typingJobId ? [typingJobId] : [],
           },
-          {
-            requiredAdopters: [
-              ...socialPrivacyAdoption().requiredAdopters,
-              {
-                id: 'account-age',
-                phase: 'after-scrub',
-                expectedColumns: {
-                  account_age: [
-                    'user_id',
-                    'birth_month',
-                    'version',
-                    'recorded_at',
-                  ],
-                },
-              },
-            ],
-            adopters: [
-              ...socialPrivacyAdoption().adopters,
-              accountAgePrivacyAdopter,
-            ],
-          },
+          [...socialPrivacyAdoption(), accountAgePrivacyAdopter],
           [{ purpose: 'sign-in', subject: 'email' }],
         );
       },

@@ -9,23 +9,30 @@ const subject = {
   actorId: 'bcdefghijklmnopqrstuvwxy',
 };
 const now = '2026-10-09T18:00:00.000Z';
-const config = {
-  requiredAdopters: [
-    { id: 'messaging', phase: 'before-auth' as const, expectedColumns: {} },
-  ],
-  adopters: [] as PrivacyAdopter[],
-};
-test('missing cleanup/export adoption fails before executing', async () => {
-  for (const actual of [
-    () => planPrivacyExport(subject, config),
-    () => planPrivacyErasure({ subject, now, vendors: [], jobIds: [] }, config),
+const step = (id: string, phase = 'after-scrub'): PrivacyAdopter =>
+  ({
+    id,
+    phase,
+    erase: async () => {},
+    export: async () => ({}),
+  }) as PrivacyAdopter;
+test('a duplicate or malformed adopter fails before executing', async () => {
+  for (const adoption of [
+    [step('messaging'), step('messaging')],
+    [step(' ')],
+    [step('messaging', 'whenever')],
   ])
-    await assertRejects({
-      given: 'a configured messaging producer with no adopter',
-      should: 'refuse a partial privacy operation',
-      actual,
-      code: 'VALIDATION',
-    });
+    for (const actual of [
+      () => planPrivacyExport(subject, adoption),
+      () =>
+        planPrivacyErasure({ subject, now, vendors: [], jobIds: [] }, adoption),
+    ])
+      await assertRejects({
+        given: 'two steps with one id, a blank id or an unknown phase',
+        should: 'refuse the privacy operation',
+        actual,
+        code: 'VALIDATION',
+      });
 });
 test('erasure plans only injected configured vendors', () => {
   const result = planPrivacyErasure(
@@ -35,7 +42,7 @@ test('erasure plans only injected configured vendors', () => {
       vendors: ['posthog'],
       jobIds: ['cdefghijklmnopqrstuvwxyz'],
     },
-    { requiredAdopters: [], adopters: [] },
+    [],
   );
   assert({
     given: 'one configured vendor, injected ID and time',
@@ -78,7 +85,7 @@ test('invalid vendor IDs and times are refused', async () => {
       actual: () =>
         planPrivacyErasure(
           { ...base, ...change },
-          { requiredAdopters: [], adopters: [] },
+          [],
         ),
       code: 'VALIDATION',
     });

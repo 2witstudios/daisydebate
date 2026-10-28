@@ -54,7 +54,7 @@ test('typing erasure joins the canonical durable vendor intent planner', () => {
       vendors: ['messaging-typing'],
       jobIds: ['j'.repeat(24)],
     },
-    { requiredAdopters: [], adopters: [] },
+    [],
   );
   assert({
     given: 'a configured typing store',
@@ -164,28 +164,6 @@ test('invalid subjects refuse before pool I/O and external failures stay structu
     should: 'report a structured failure so the existing job retries',
     actual: () => port.erase(subject.userId),
     code: 'INFRASTRUCTURE',
-  });
-});
-
-test('typing inventory matches the exact serialized producer, not fictional schema columns', () => {
-  const declaration = fixture().port.declaration;
-  assert({
-    given: 'the portable lease schema and canonical Redis declaration',
-    should: 'declare every actual field and retain policy holds',
-    actual: [
-      Object.keys(declaration.fields).sort(),
-      declaration.storage,
-      declaration.lawfulBasis.status,
-      declaration.retention.status,
-      declaration.key.exportable,
-    ],
-    expected: [
-      Object.keys(messagingTypingSchemas.lease.shape).sort(),
-      'redis',
-      'pending',
-      'pending',
-      false,
-    ],
   });
 });
 

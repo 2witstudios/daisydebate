@@ -28,9 +28,11 @@ export const users = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
     /**
-     * Tombstone (ADR 0029): account deletion scrubs PII and sets this instead
-     * of deleting the row, so competitive history keeps its actor. The CHECK
-     * makes a tombstone with PII unrepresentable.
+     * Tombstone (ADR 0029, ADR 0087): closing an account deletes its private
+     * data and sets this instead of deleting the row, so competitive history
+     * keeps its actor and username. The CHECK makes a closed account holding
+     * an email, image or name unrepresentable; the username stays, and the
+     * unique index keeps it reserved.
      */
     deletedAt: timestampColumn('deleted_at'),
   },
@@ -46,7 +48,7 @@ export const users = pgTable(
       .where(sql`${table.username} is null and ${table.deletedAt} is null`),
     check(
       'users_tombstone_scrubbed',
-      sql`${table.deletedAt} is null or (${table.email} is null and ${table.username} is null and ${table.image} is null and ${table.name} = '')`,
+      sql`${table.deletedAt} is null or (${table.email} is null and ${table.image} is null and ${table.name} = '')`,
     ),
     versionPositive('users', table.version),
   ],

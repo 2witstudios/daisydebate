@@ -1,10 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacySubject } from './contracts';
-import {
-  validatePrivacyAdoption,
-  type PrivacyExpectedColumns,
-} from '@daisy/protocol/privacy';
 
 export const privacyVendors = [
   'sentry',
@@ -15,58 +11,29 @@ export const privacyVendors = [
   'messaging-typing',
 ] as const;
 export type PrivacyVendor = (typeof privacyVendors)[number];
-export type PrivacyAdoption = {
-  readonly requiredAdopters: readonly {
-    readonly id: string;
-    readonly phase: PrivacyAdopter['phase'];
-    readonly expectedColumns: PrivacyExpectedColumns;
-  }[];
-  readonly adopters: readonly PrivacyAdopter[];
-};
-function checkAdopter(
-  requirement: PrivacyAdoption['requiredAdopters'][number],
-  adopter: PrivacyAdopter | undefined,
-) {
-  if (
-    !requirement.id.trim() ||
-    !adopter ||
-    adopter.phase !== requirement.phase ||
-    !['before-auth', 'after-scrub'].includes(adopter.phase) ||
-    typeof adopter.erase !== 'function' ||
-    typeof adopter.export !== 'function' ||
-    validatePrivacyAdoption(requirement.expectedColumns, adopter.fields)
-      .problems.length > 0
-  )
-    throw createAppError('VALIDATION');
-}
+/** Every feature's subject-rights step, in the order they run. */
+export type PrivacyAdoption = readonly PrivacyAdopter[];
+
+const adopterValid = (adopter: PrivacyAdopter) =>
+  adopter.id.trim().length > 0 &&
+  ['before-auth', 'after-scrub'].includes(adopter.phase) &&
+  typeof adopter.erase === 'function' &&
+  typeof adopter.export === 'function';
+
 export function planPrivacyExport(
   subject: PrivacySubject,
   adoption: PrivacyAdoption,
 ) {
   if (
     !idSchema.safeParse(subject.userId).success ||
-    !idSchema.safeParse(subject.actorId).success
+    !idSchema.safeParse(subject.actorId).success ||
+    new Set(adoption.map((adopter) => adopter.id)).size !== adoption.length ||
+    !adoption.every(adopterValid)
   )
     throw createAppError('VALIDATION');
-  const expected = adoption.requiredAdopters;
-  const actual = adoption.adopters;
-  if (
-    new Set(expected.map((item) => item.id)).size !== expected.length ||
-    new Set(actual.map((item) => item.id)).size !== actual.length ||
-    actual.length !== expected.length
-  )
-    throw createAppError('VALIDATION');
-  for (const requirement of expected) {
-    checkAdopter(
-      requirement,
-      actual.find((item) => item.id === requirement.id),
-    );
-  }
-  // Local subject rights do not approve collection: pending basis/retention
-  // remain activation holds. Explicit erasure/export rules are still required.
   return {
     subject: { ...subject },
-    adopterIds: expected.map((item) => item.id),
+    adopterIds: adoption.map((adopter) => adopter.id),
   };
 }
 export type PrivacyErasureInput = {

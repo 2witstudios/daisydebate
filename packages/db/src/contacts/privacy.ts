@@ -1,83 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import {
-  exportRows,
-  ownedTableExpectedColumns,
-  ownedTablePrivacyFields,
-} from '../privacy/owned-tables';
-
-const contactsColumns = {
-  contact_pairs: {
-    identifier: [],
-    personal: [
-      'low_actor_id',
-      'high_actor_id',
-      'low_blocks_high',
-      'high_blocks_low',
-    ],
-    none: ['revision'],
-  },
-  contact_commands: {
-    identifier: ['request_id'],
-    personal: ['actor_id', 'counterpart_actor_id', 'digest'],
-    none: ['kind', 'created_at'],
-  },
-  social_requests: {
-    identifier: ['request_id'],
-    personal: ['actor_id', 'counterpart_actor_id', 'unrelated'],
-    none: ['kind', 'created_at'],
-  },
-  social_request_declines: {
-    identifier: [],
-    personal: [
-      'decliner_actor_id',
-      'requester_actor_id',
-      'low_actor_id',
-      'high_actor_id',
-      'declined_count',
-      'last_declined_at',
-      'blocked_until',
-      'expires_at',
-    ],
-    none: [],
-  },
-} as const;
-
-const purposes: Readonly<Record<string, string>> = {
-  contact_pairs: 'Member pair blocks and lock order',
-  contact_commands: 'Contact command dedupe',
-  social_requests: 'Social request budget',
-  social_request_declines: 'Social request decline block',
-};
-
-export const contactsPrivacyExpectedColumns =
-  ownedTableExpectedColumns(contactsColumns);
-
-/**
- * DEC-251 sets the decline window. The request window awaits the owner's
- * DEC-259 (its sweep already deletes rows the budget can no longer count);
- * every other table awaits its own decision.
- */
-export const contactsPrivacyFields = ownedTablePrivacyFields({
-  owner: 'CONTACTS',
-  columns: contactsColumns,
-  purpose: (table) => purposes[table]!,
-  retention: (table) =>
-    table === 'social_request_declines'
-      ? {
-          status: 'approved',
-          decision: 'dvkpb5wjay835m0xrgq1iz6v',
-          rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
-        }
-      : {
-          status: 'pending',
-          decision:
-            table === 'social_requests'
-              ? 'xidjgsvnu3spoaa35dzzkkn5'
-              : 'njiorsf64z4iqjm2dbfa3zuu',
-        },
-});
+import { exportRows } from '../privacy/export-rows';
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
@@ -89,7 +13,6 @@ const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 export const contactsPrivacyAdopter: PrivacyAdopter = {
   id: 'contacts',
   phase: 'after-scrub',
-  fields: contactsPrivacyFields,
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
     for (const statement of [

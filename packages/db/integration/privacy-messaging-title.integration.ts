@@ -10,7 +10,6 @@ import {
 import { rejectedBy } from './constraint-helpers';
 import { bindings, now } from './privacy.test-support';
 import {
-  messagingRequiredAdopters as requiredAdopters,
   messagingPrivacyAdoption,
   withPrivacyMessaging,
 } from './privacy-messaging.test-support';
@@ -71,10 +70,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
             expected: constraint,
           });
         }
-        const adoption = {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        };
+        const adoption = messagingPrivacyAdoption;
         const subject = { userId, actorId };
         const exported = await exportPrivacySubject(
           database,
@@ -131,7 +127,6 @@ test('canonical title erasure retains peer manager data and rolls back all local
         const late: PrivacyAdopter = {
           id: 'title-rollback-probe',
           phase: 'after-scrub',
-          fields: [],
           export: async () => ({}),
           erase: async () => {
             throw new Error('title rollback');
@@ -142,13 +137,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
           erasePrivacySubject(
             database,
             input,
-            {
-              requiredAdopters: [
-                ...requiredAdopters,
-                { id: late.id, phase: late.phase, expectedColumns: {} },
-              ],
-              adopters: [...adoption.adopters, late],
-            },
+            [...adoption, late],
             bindings,
           ),
         ).rejects.toThrow('title rollback');

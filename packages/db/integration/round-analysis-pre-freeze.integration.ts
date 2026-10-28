@@ -65,17 +65,6 @@ test('canonical erasure during an active Round prevents any round analysis after
           roundTranscriptPrivacyAdopter,
           roundAnalysisPrivacyAdopter,
         ];
-        const expectedColumns = (adopter: (typeof adopters)[number]) =>
-          Object.fromEntries(
-            [...new Set(adopter.fields.map((field) => field.table))].map(
-              (table) => [
-                table,
-                adopter.fields
-                  .filter((field) => field.table === table)
-                  .map((field) => field.column),
-              ],
-            ),
-          );
         await erasePrivacySubject(
           drizzle({ client }),
           {
@@ -84,14 +73,7 @@ test('canonical erasure during an active Round prevents any round analysis after
             vendors: [],
             jobIds: [],
           },
-          {
-            requiredAdopters: adopters.map((adopter) => ({
-              id: adopter.id,
-              phase: adopter.phase,
-              expectedColumns: expectedColumns(adopter),
-            })),
-            adopters,
-          },
+          adopters,
           bindings,
         );
         erasedWhileActive = state.status === 'active' && !state.frozen;

@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { eraseRoomDrawSubject } from '@daisy/db/testing';
+import { eraseRoomClosureSubject } from '@daisy/db/testing';
 import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drawRoomAt } from './room-draw.test-support';
@@ -8,7 +8,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const SENTINEL = 'SENTINEL-ERASED-LINE';
+const SENTINEL = 'SENTINEL-HOST-LINE';
 const lines = [1, 2, 3, 4, 5].map((n) => `${SENTINEL} ${n}`);
 const host = { kind: 'host' as const, resolutions: lines };
 const bank = {
@@ -20,7 +20,7 @@ const transitions = { closeRoom, eraseSeats, activeRoomMembers };
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 
 const erase = (f: Fixture, subject: { userId: string; actorId: string }) =>
-  eraseRoomDrawSubject(f.sql, transitions, subject, new Date().toISOString());
+  eraseRoomClosureSubject(f.sql, transitions, subject, new Date().toISOString());
 
 /** Every durable copy of a Room's draw and its Round, as counts and text. */
 const footprint = async (f: Fixture, roomId: string) => {
@@ -39,82 +39,83 @@ const footprint = async (f: Fixture, roomId: string) => {
     from rooms r where r.id = ${roomId}`;
   return row;
 };
-/** A ready, a mid-strike and a launched host-list draw, one role erased in each. */
-const erasedAtEachStage = async (f: Fixture, role: 'host' | 'guest') => {
+/** A ready, a mid-strike and a launched host-list draw, one role closed in each. */
+const closedAtEachStage = async (f: Fixture, role: 'host' | 'guest') => {
   const rooms = [];
   for (const stage of ['ready', 'striking', 'launched'] as const)
     rooms.push(await drawRoomAt(f, stage, host));
+  const before = await Promise.all(
+    rooms.map(({ view }) => footprint(f, view.id)),
+  );
   for (const { cast } of rooms) await erase(f, cast[role]);
-  return Promise.all(rooms.map(({ view }) => footprint(f, view.id)));
+  const after = await Promise.all(
+    rooms.map(({ view }) => footprint(f, view.id)),
+  );
+  return { before, after };
+};
+/** The draw's durable copies, without the Room's lifecycle and seats. */
+const copies = (row: Awaited<ReturnType<typeof footprint>>) => {
+  const { status, seats, change_version, ...rest } = row ?? {};
+  void [status, seats, change_version];
+  return rest;
 };
 const holds = (value: unknown) => JSON.stringify(value).includes(SENTINEL);
 
-test('erasing the host-list author scrubs every copy of their lines at every stage', async () => {
+test('closing the host-list author closes their open Rooms and keeps every line on the record', async () => {
   await withRoomRuntime(async (f) => {
-    const [r, s, l] = await erasedAtEachStage(f, 'host');
+    const { before, after } = await closedAtEachStage(f, 'host');
+    const [r, s, l] = after;
     assert({
       given:
         'the author of a ready, a mid-strike and a launched host-list draw',
       should:
-        'close the open Rooms and leave no line of theirs in any Room or Round copy',
-      actual: [r.status, s.status, l.status, [r, s, l].some(holds)],
-      expected: ['closed', 'closed', 'started', false],
+        'close the open Rooms and leave the launched one started (ADR 0087)',
+      actual: [r?.status, s?.status, l?.status, after.every(holds)],
+      expected: ['closed', 'closed', 'started', true],
     });
     assert({
-      given: 'the mid-strike and launched Rooms',
+      given: 'every Room and Round copy of the draw',
       should:
-        'keep the draw proof, placeholder the drawn texts and delete the private inputs',
-      actual: [
-        [s.draws, s.room_inputs, s.items?.startsWith('Removed resolution')],
-        [l.draws, l.room_inputs, l.round_inputs, l.round_texts, l.round_seeds],
-        [l.evidence, l.round_resolution?.startsWith('Removed resolution')],
-        l.topic === l.round_resolution,
-      ],
-      expected: [[1, 0, true], [1, 0, 0, 0, 1], [true, true], true],
+        'keep the drawn texts, private inputs, seeds and debated resolution unchanged',
+      actual: after.map(copies),
+      expected: before.map(copies),
     });
   });
 });
 
-test('erasing a seated player removes their seats only before any pre-round and deletes draw inputs', async () => {
+test('closing a seated player frees their seats only before any pre-round and keeps the draw', async () => {
   await withRoomRuntime(async (f) => {
-    const [r, s, l] = await erasedAtEachStage(f, 'guest');
+    const { before, after } = await closedAtEachStage(f, 'guest');
     assert({
       given: 'the Negative of a ready, a mid-strike and a launched draw',
-      should:
-        'remove the unbegun seat, keep begun seats, delete private inputs and keep the host-authored texts',
-      actual: [
-        [r.seats, r.status],
-        [s.seats, s.room_inputs, s.items?.split('|').length],
-        [l.round_inputs, l.round_texts, l.round_seeds, l.evidence],
-      ],
+      should: 'remove the unbegun seat and keep begun seats',
+      actual: after.map((row) => [row?.seats, row?.status]),
       expected: [
         [1, 'assembling'],
-        [2, 0, 5],
-        [0, 5, 1, true],
+        [before[1]?.seats, before[1]?.status],
+        [before[2]?.seats, before[2]?.status],
       ],
+    });
+    assert({
+      given: 'every Room and Round copy of the draw',
+      should: 'leave each one unchanged',
+      actual: after.map(copies),
+      expected: before.map(copies),
     });
   });
 });
 
-test('a bank draw keeps Daisy-authored texts when its host is erased', async () => {
+test('closing the host of a launched bank draw rewrites nothing', async () => {
   await withRoomRuntime(async (f) => {
     const launched = await drawRoomAt(f, 'launched', bank);
     const before = await footprint(f, launched.view.id);
     await erase(f, launched.cast.host);
     const after = await footprint(f, launched.view.id);
     assert({
-      given: 'a launched bank draw whose host is erased',
-      should:
-        'keep the bank texts and the debated resolution and leave the Room unrewritten, deleting only the seated host’s private inputs',
-      actual: [
-        after.items === before.items,
-        after.round_texts,
-        after.round_resolution === before.round_resolution,
-        after.round_inputs,
-        // PR #472 review: nothing host-written, so no rewrite and no change signal.
-        after.change_version === before.change_version,
-      ],
-      expected: [true, 5, true, 0, true],
+      given: 'a launched bank draw whose host is closed',
+      should: 'leave the Room and its Round exactly as they were',
+      actual: after,
+      expected: before,
     });
   });
 });

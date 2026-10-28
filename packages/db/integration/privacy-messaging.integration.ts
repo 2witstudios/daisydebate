@@ -10,7 +10,6 @@ import {
 } from '../src/privacy';
 import { bindings, now } from './privacy.test-support';
 import {
-  messagingRequiredAdopters as requiredAdopters,
   messagingPrivacyAdoption,
   withPrivacyMessaging,
 } from './privacy-messaging.test-support';
@@ -58,18 +57,12 @@ test('canonical privacy export composes MSG and age while masking other private 
       const result = await exportPrivacySubject(
         database,
         { userId, actorId },
-        {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        },
+        messagingPrivacyAdoption,
       );
       const peer = await exportPrivacySubject(
         database,
         { userId: otherId, actorId: otherActorId },
-        {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        },
+        messagingPrivacyAdoption,
       );
       assertSocialExport(result, peer, actorId);
       const contact = result.contact_pairs?.[0] ?? {};
@@ -104,11 +97,10 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
       ownMessageId,
       otherMessageId,
     }) => {
-      const adopters = messagingPrivacyAdoption.adopters;
+      const adopters = messagingPrivacyAdoption;
       const late: PrivacyAdopter = {
         id: 'rollback-probe',
         phase: 'after-scrub',
-        fields: [],
         export: async () => ({}),
         erase: async () => {
           throw new Error('composed rollback');
@@ -124,13 +116,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         erasePrivacySubject(
           database,
           input,
-          {
-            requiredAdopters: [
-              ...requiredAdopters,
-              { id: late.id, phase: late.phase, expectedColumns: {} },
-            ],
-            adopters: [...adopters, late],
-          },
+          [...adopters, late],
           bindings,
         ),
       ).rejects.toThrow('composed rollback');
@@ -170,7 +156,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
       await erasePrivacySubject(
         database,
         input,
-        { requiredAdopters, adopters },
+        adopters,
         bindings,
       );
       const survivingSocial = await client.unsafe(

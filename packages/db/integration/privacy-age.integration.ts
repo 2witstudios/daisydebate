@@ -1,7 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { accountAgePrivacyAdopter } from '../src/account-age';
 import { accountTermsPrivacyAdopter } from '../src/age-step';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
@@ -9,16 +8,6 @@ import { bindings, now, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
-const requiredAdopters = [
-  {
-    id: 'account-age',
-    phase: 'after-scrub' as const,
-    expectedColumns: {
-      account_age: ['user_id', 'birth_month', 'version', 'recorded_at'],
-    },
-  },
-];
-
 test('canonical account age adopter exports and erases only this subject in the caller transaction', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
@@ -28,22 +17,7 @@ test('canonical account age adopter exports and erases only this subject in the 
       );
       const subject = { userId, actorId };
       try {
-        await assertRejects({
-          given: 'configured durable age producer with no cleanup adopter',
-          should: 'refuse partial erasure',
-          actual: () =>
-            erasePrivacySubject(
-              database,
-              { subject, now, vendors: [], jobIds: [] },
-              { requiredAdopters, adopters: [] },
-              bindings,
-            ),
-          code: 'VALIDATION',
-        });
-        const adopted = {
-          requiredAdopters,
-          adopters: [accountAgePrivacyAdopter],
-        };
+        const adopted = [accountAgePrivacyAdopter];
         const exported = await exportPrivacySubject(database, subject, adopted);
         await erasePrivacySubject(
           database,
@@ -102,19 +76,7 @@ test('account erasure removes the age step’s birth month and Terms acceptance'
         await erasePrivacySubject(
           database,
           { subject, now, vendors: [], jobIds: [] },
-          {
-            requiredAdopters: [
-              ...requiredAdopters,
-              {
-                id: 'account-terms',
-                phase: 'after-scrub' as const,
-                expectedColumns: {
-                  account_terms: ['user_id', 'terms_version', 'accepted_at'],
-                },
-              },
-            ],
-            adopters,
-          },
+          adopters,
           bindings,
         );
         const remaining = async (table: string) =>

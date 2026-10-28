@@ -16,10 +16,14 @@ import {
 } from './privacy.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-const adoption = { requiredAdopters: [], adopters: [] };
+const adoption: readonly PrivacyAdopter[] = [];
 test('local erasure is atomic and removes only bound auth subjects', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
+      await client.unsafe('update users set username=$1 where id=$2', [
+        `closed${userId.slice(0, 8)}`,
+        userId,
+      ]);
       const result = await erasePrivacySubject(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
@@ -54,7 +58,7 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         given:
           'subject and unrelated auth tokens, including opaque verification',
         should:
-          'scrub subject, remove auth binding, retain unrelated tokens and actor',
+          'clear private fields, keep the username, remove auth binding, retain unrelated tokens and actor',
         actual: [
           result,
           users[0],
@@ -67,7 +71,7 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         expected: [
           { alreadyErased: false, jobs: [] },
           {
-            username: null,
+            username: `closed${userId.slice(0, 8)}`,
             email: null,
             name: '',
             image: null,
@@ -92,7 +96,6 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
       const early: PrivacyAdopter = {
         id: 'early',
         phase: 'before-auth',
-        fields: [],
         export: async () => ({}),
         erase: async (tx) => {
           await tx.execute(sql`delete from session where user_id=${userId}`);
@@ -106,14 +109,7 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
           throw new Error('adopter failed');
         },
       };
-      const adopted = {
-        requiredAdopters: [early, late].map((item) => ({
-          id: item.id,
-          phase: item.phase,
-          expectedColumns: {},
-        })),
-        adopters: [early, late],
-      };
+      const adopted = [early, late];
       await expect(
         erasePrivacySubject(
           database,

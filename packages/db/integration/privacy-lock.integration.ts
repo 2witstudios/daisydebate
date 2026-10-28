@@ -17,7 +17,6 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     const before: PrivacyAdopter = {
       id: 'lock-probe',
       phase: 'before-auth',
-      fields: [],
       export: async () => ({}),
       erase: async (tx) => {
         firstTx = tx;
@@ -63,14 +62,7 @@ test('subject account is locked before cleanup and adopters share the erasure tr
       await erasePrivacySubject(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
-        {
-          requiredAdopters: adopters.map((item) => ({
-            id: item.id,
-            phase: item.phase,
-            expectedColumns: {},
-          })),
-          adopters,
-        },
+        adopters,
         bindings,
       );
       assert({

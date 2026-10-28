@@ -3,8 +3,6 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { DEC_244 } from './account-age';
-import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
@@ -135,37 +133,10 @@ export const ageStepOperations = ({
   },
 });
 
-const accountTermsPrivacyFields: readonly PrivacyFieldDeclaration[] = [
-  'user_id',
-  'terms_version',
-  'accepted_at',
-].map((column) => ({
-  table: 'account_terms',
-  column,
-  category: column === 'user_id' ? 'identifier' : 'personal',
-  ...(column === 'user_id' ? {} : { visibility: 'private' as const }),
-  storage: 'postgres',
-  owner: 'WAIT',
-  purpose: 'Which Terms version the member accepted, and when',
-  lawfulBasis: {
-    status: 'approved',
-    decision: DEC_244,
-    rule: 'legal obligation and contract',
-  },
-  retention: {
-    status: 'approved',
-    decision: DEC_244,
-    rule: 'life of the account',
-  },
-  erasure: 'delete',
-  exportable: true,
-}));
-
 /** The Terms acceptance is exported to its member and deleted with the account (DEC-244). */
 export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   id: 'account-terms',
   phase: 'after-scrub',
-  fields: accountTermsPrivacyFields,
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from ${accountTerms} where user_id=${subject.userId}`,
