@@ -33,15 +33,26 @@ async function publishing() {
   return { media, room, publication };
 }
 
-test('a native publication whose room the server deleted still closes (ISSUE-789)', async () => {
+test('a native publication closes when its room is deleted, before the drop arrives (ISSUE-789)', async () => {
   const { media, room, publication } = await publishing();
   await media.deleteRoom(room);
-  // No wait for the drop to arrive: close races it, as a claim's stop does.
   assert({
-    given: 'Round cleanup deleting the room under a live bot publication',
+    given: 'Round cleanup deleting the room, with close racing the drop',
     should: 'close without a refusal and report the samples it sent',
     actual: await publication.close(),
     expected: { consumedSamples: FRAMES * 240 },
+  });
+});
+
+test('a native publication closes after its deleted room dropped it (ISSUE-789)', async () => {
+  const { media, room, publication } = await publishing();
+  await media.deleteRoom(room);
+  await publication.disconnected;
+  assert({
+    given: 'a bot publication the server already disconnected',
+    should: 'close without a refusal and report the samples it sent',
+    actual: [publication.usable(), await publication.close()],
+    expected: [false, { consumedSamples: FRAMES * 240 }],
   });
 });
 

@@ -62,19 +62,27 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   const { failures, failed } = failureLog();
   const log: string[] = [];
   const stopFault = new Error('The operation was aborted.');
-  let segment = 'first';
+  const revokedFirst = Promise.withResolvers<void>();
+  let segment = 'first',
+    leased = false;
   const { tasks, timers } = manualTimers();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [
         { roundId: 'round', roundParticipantId: 'seat', segmentId: segment },
       ],
+      // The seat's one claim row refuses a new claim while a lease is live.
       claimRoundBotWorker: async (target) => {
+        if (leased)
+          throw createAppError('CONFLICT', 'Publication already claimed');
+        leased = true;
         log.push(`claim:${target.segmentId}`);
         return ownedClaim(target);
       },
       revokeRoundBotWorker: async (scope) => {
+        leased = false;
         log.push(`revoke:${scope.segmentId}`);
+        if (scope.segmentId === 'first') revokedFirst.resolve();
       },
       verifyRoundBotWorker: async () => {},
     },
@@ -90,6 +98,8 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   });
   await service.started;
   segment = 'second';
+  await tasks.get(500)!();
+  await revokedFirst.promise;
   await tasks.get(500)!();
   await service.stop();
   assert({
