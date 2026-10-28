@@ -28,8 +28,10 @@ export function createBotSeat(input: {
   readonly pollMs: number;
   readonly timers: WorkerTimers;
   /**
-   * `stage` is poll when the bot's hearing failed, or close when a seat that
-   * failed to start could not close what it had started.
+   * `stage` is poll when the bot's hearing failed, or close when the seat
+   * could not close what it had started, on stop or after a failed start.
+   * It must never throw (the worker sink guards itself), so every close is
+   * attempted and a stop keeps the speaker's own error.
    */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -48,19 +50,17 @@ export function createBotSeat(input: {
     return polling;
   };
   /**
-   * Closes what the seat started, its publication and then its hearing,
-   * each attempted, and throws every failure, not only the last.
+   * Closes what the seat started, its publication and then its hearing.
+   * Each close is attempted, and each failure is reported on its own (stage
+   * close) with its own code; it never throws, so a stop keeps the speaker's
+   * own error (ISSUE-789).
    */
   const closeStarted = async () => {
     const { publication, feed } = input;
-    const errors: unknown[] = [];
     for (const close of [() => publication.close(), () => feed?.close()])
       await Promise.resolve()
         .then(close)
-        .catch((error: unknown) => errors.push(error));
-    if (errors.length === 1) throw errors[0];
-    if (errors.length > 1)
-      throw new AggregateError(errors, 'The seat could not close');
+        .catch((error: unknown) => input.failed(error, 'close'));
   };
   input.publication.start();
   let timer: unknown = null;
@@ -69,9 +69,7 @@ export function createBotSeat(input: {
     if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
   } catch (error) {
     // A seat that fails to start owns nothing it started (ISSUE-789).
-    void closeStarted().catch((closeError: unknown) =>
-      input.failed(closeError, 'close'),
-    );
+    void closeStarted();
     throw error;
   }
   return {

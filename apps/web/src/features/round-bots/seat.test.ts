@@ -148,8 +148,8 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
   } catch (error) {
     thrown = error;
   }
+  // The publication's close is reported before the hearing's close runs.
   await within(feedClosed.promise, 'The hearing’s close');
-  await new Promise((resolve) => setImmediate(resolve));
   assert({
     given: 'a cross-examination seat whose hearing throws as it starts',
     should:
@@ -163,14 +163,24 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
   });
 });
 
-test('a seat that cannot close either part reports both failures (ISSUE-789)', async () => {
+/** A seat whose speaker stop and closes fail as given; reports are collected. */
+function failingSeat(input: {
+  readonly feedStart?: () => void;
+  readonly speakerFault?: Error;
+}) {
   const publicationFault = new Error('publication close failed');
   const feedFault = new Error('hearing close failed');
-  const reported = Promise.withResolvers<unknown>();
-  try {
+  const reported: unknown[] = [];
+  const bothReported = Promise.withResolvers<void>();
+  const build = () =>
     createBotSeat({
       control: { pulse: async () => [] },
-      speaker: { wake: () => {}, stop: async () => {} },
+      speaker: {
+        wake: () => {},
+        stop: async () => {
+          if (input.speakerFault) throw input.speakerFault;
+        },
+      },
       publication: {
         start: () => {},
         close: async () => {
@@ -178,9 +188,7 @@ test('a seat that cannot close either part reports both failures (ISSUE-789)', a
         },
       },
       feed: {
-        start: () => {
-          throw new Error('listener unavailable');
-        },
+        start: input.feedStart ?? (() => {}),
         poll: async () => {},
         close: async () => {
           throw feedFault;
@@ -188,16 +196,55 @@ test('a seat that cannot close either part reports both failures (ISSUE-789)', a
       },
       pollMs: 50,
       timers: manualTimers().timers,
-      failed: (error) => reported.resolve(error),
+      failed: (error, stage) => {
+        if (reported.push([error, stage]) === 2) bothReported.resolve();
+      },
     });
+  return { build, reported, bothReported, publicationFault, feedFault };
+}
+
+test('a seat that cannot close either part reports each failure with its own error (ISSUE-789)', async () => {
+  const seat = failingSeat({
+    feedStart: () => {
+      throw new Error('listener unavailable');
+    },
+  });
+  try {
+    seat.build();
   } catch {
     /* The start failure itself is the first test's concern. */
   }
-  const error = await within(reported.promise, 'The close report');
+  await within(seat.bothReported.promise, 'Both close reports');
   assert({
     given: 'a seat whose publication and hearing both fail to close',
-    should: 'report both errors, not only the last',
-    actual: (error as AggregateError).errors,
-    expected: [publicationFault, feedFault],
+    should: 'report both, each on its own, so each keeps its code',
+    actual: seat.reported,
+    expected: [
+      [seat.publicationFault, 'close'],
+      [seat.feedFault, 'close'],
+    ],
+  });
+});
+
+test('a seat stop keeps the speaker’s own error when closing also fails (ISSUE-789)', async () => {
+  const speakerFault = new Error('speaker stop failed');
+  const seat = failingSeat({ speakerFault });
+  let thrown: unknown;
+  try {
+    await seat.build().stop();
+  } catch (error) {
+    thrown = error;
+  }
+  assert({
+    given: 'a stop whose speaker and both closes fail',
+    should: 'reject with the speaker’s error and report each close failure',
+    actual: { thrown, reported: seat.reported },
+    expected: {
+      thrown: speakerFault,
+      reported: [
+        [seat.publicationFault, 'close'],
+        [seat.feedFault, 'close'],
+      ],
+    },
   });
 });
