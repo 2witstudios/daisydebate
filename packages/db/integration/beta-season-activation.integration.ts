@@ -11,6 +11,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
   await withFixture(url, async (f) => {
     const ids = [createId(), createId()];
     ids.forEach((id) => f.track('seasons', id));
+    const [started] = await f.sql`select clock_timestamp() as at`;
     const results = await Promise.all(
       ids.map((id) => withSeasons(url, (s) => s.activateBetaSeason({ id }))),
     );
@@ -22,7 +23,8 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       actual: [
         results[1],
         first.name,
-        Date.parse(first.startsAt) <= new Date(bounds!.now).getTime(),
+        Date.parse(first.startsAt) >= new Date(started!.at).getTime() &&
+          Date.parse(first.startsAt) <= new Date(bounds!.now).getTime(),
       ],
       expected: [first, 'Season 1', true],
     });

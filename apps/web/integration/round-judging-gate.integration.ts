@@ -1,8 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
+import { submitHumanBallot } from './round-judging.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   assembleJudgedRoom,
@@ -96,24 +95,14 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
     const frozen = await finalizeAsWeb(f, roundId);
     await seedSettledAttendanceLedger(f, roundId);
     const round = (await f.store.getRound(roundId))!;
-    const [human, ai] = [f.outsider.actorId, bot.actorId].map(
-      (actorId) => round.participants.find((p) => p.actorId === actorId)!.id,
+    const ai = round.participants.find((p) => p.actorId === bot.actorId)!.id;
+    await submitHumanBallot(
+      f,
+      roundId,
+      f.outsider.actorId,
+      1,
+      fixtureBallot('The negative answered the decisive clash.', 'negative'),
     );
-    await createRoundBallotOperations({
-      store: f.store,
-      nextBallotId: createId,
-      nextSegmentId: createId,
-    }).submit({ kind: 'human', actorId: f.outsider.actorId }, roundId, {
-      version: 1,
-      commandId: createId(),
-      expectedVersion: round.version,
-      judgeParticipantId: human!,
-      freezeRevision: 1,
-      ballot: fixtureBallot(
-        'The negative answered the decisive clash.',
-        'negative',
-      ),
-    });
     await finalizeByMaintenance(f, roundId);
     const done = (await f.store.getRound(roundId))!;
     const [receipt] =

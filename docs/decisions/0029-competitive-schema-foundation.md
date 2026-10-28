@@ -12,6 +12,10 @@ into one baseline, `debates.format`/`created_by` are `format_id` and
 reference their seat by `judge_actor_id`, and `db:seed` no longer writes
 formats.
 
+Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
+standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.
+Format and revision remain Round/ledger provenance, never another standing pool.
+
 ## Context
 
 Until now `debates` held its participants inside the `snapshot` jsonb,

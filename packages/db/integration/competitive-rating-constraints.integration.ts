@@ -64,10 +64,9 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
 
   test('ratings hold bounded Glicko-2 state and nothing derivable', async () => {
     await withFixture(url, async (fixture) => {
-      const { actorId, formatId, seasonId } = await rated(fixture);
+      const { actorId, seasonId } = await rated(fixture);
       const rating = (overrides: Record<string, unknown>) => ({
         actor_id: actorId,
-        format_id: formatId,
         season_id: seasonId,
         ladder: 'freestyle',
         rating: 1500,
@@ -129,7 +128,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       assert({
         given: 'rating rows at and beyond the Glicko-2 bounds',
         should:
-          'accept one bounded row per (actor, format, season, ladder), reject the rest, the retired quick ladder (DEC-238) and unknown ladders, and store no derived columns',
+          'accept one bounded row per (actor, ladder, season), reject the rest, the retired quick ladder (DEC-238) and unknown ladders, and store no derived columns',
         actual: {
           tooHigh,
           negative,
@@ -146,7 +145,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           ),
           leaderboard: (
             await indexDefinition(fixture, 'ratings_leaderboard_idx')
-          )?.includes('(format_id, season_id, ladder, rating DESC'),
+          )?.includes('(season_id, ladder, rating DESC'),
         },
         expected: {
           tooHigh: true,

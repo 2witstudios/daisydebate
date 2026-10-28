@@ -7,8 +7,7 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import { readyRatedRoom } from './rated-room.test-support';
-import { createRatingSweep } from '../src/features/ratings/sweep';
+import { readyRatedRoom, recoverRatedResults } from './rated-room.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -42,15 +41,7 @@ for (const ladder of ratingLadders)
             },
           },
         );
-        const sweep = () =>
-          createRatingSweep({
-            database: f.store,
-            ids: { next: createId },
-            onFailure: (_id, error) => {
-              throw error;
-            },
-          })({ limit: 64 });
-        await Promise.all([sweep(), sweep()]);
+        await recoverRatedResults(f);
         const [source] =
           await f.sql`select command_id,freeze_revision from round_finalizations where round_id=${roundId}`;
         const ledger =

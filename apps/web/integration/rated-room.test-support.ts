@@ -1,3 +1,5 @@
+import { createId } from '@paralleldrive/cuid2';
+import { createRatingSweep } from '../src/features/ratings/sweep';
 import type { RatingLadder } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
@@ -63,4 +65,18 @@ export async function readyRatedRoom(
     room = await f.operations.view(f.host, room.id);
   }
   return room;
+}
+
+/** Exercise duplicate delivery plus a fresh sweep over durable rating discovery. */
+export async function recoverRatedResults(f: Fixture) {
+  const sweep = () =>
+    createRatingSweep({
+      database: f.store,
+      ids: { next: createId },
+      onFailure: (_id, error) => {
+        throw error;
+      },
+    })({ limit: 64 });
+  await Promise.all([sweep(), sweep()]);
+  await sweep();
 }

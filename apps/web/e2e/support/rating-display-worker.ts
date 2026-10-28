@@ -2,13 +2,17 @@ import { SQL } from 'bun';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import { validRules } from '@daisy/db/testing';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingLadders, idSchema } from '@daisy/protocol';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
 // Fixture-backed rendering proof, distinct from real terminal-producer journeys.
-const { username } = z
-  .object({ username: z.string().regex(/^[a-z0-9-]{1,40}$/) })
+const { username, rooms } = z
+  .object({
+    username: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    rooms: z
+      .array(z.object({ ladder: z.enum(ratingLadders), id: idSchema }))
+      .length(3),
+  })
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
 const sql = new SQL(url, { max: 1 });
@@ -29,7 +33,7 @@ try {
     const id = createId(),
       command = createId();
     await sql.begin(async (tx) => {
-      await tx`insert into rounds(id,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,outcome,ladder_id,started_at,completed_at) values(${id},'Fixture display proof','ranked',${ladder},1,1,${validRules},'completed','affirmative',${ladder},clock_timestamp(),clock_timestamp())`;
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,outcome,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed','affirmative',${ladder},clock_timestamp(),clock_timestamp() from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
       for (const [role, actor] of [
         ['affirmative', member.id],
         ['negative', opponent],

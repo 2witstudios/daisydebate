@@ -42,18 +42,16 @@ export default async function ProfileRoute({
   if (profile === null) notFound();
   const standings = await requestMemberStandings(profile.username);
   return (
-    <>
-      <MemberStandings standings={standings} />
-      <ProfilePage
-        profile={profile}
-        paged={query.data.before !== undefined}
-        actions={
-          profile.me || profile.closed
-            ? null
-            : await friendActionsFor(profile.username)
-        }
-      />
-    </>
+    <ProfilePage
+      ratings={<MemberStandings standings={standings} />}
+      profile={profile}
+      paged={query.data.before !== undefined}
+      actions={
+        profile.me || profile.closed
+          ? null
+          : await friendActionsFor(profile.username)
+      }
+    />
   );
 }
 

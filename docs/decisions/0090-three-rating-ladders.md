@@ -9,12 +9,11 @@ Calculation calibration still open under DEC-111 is not accepted by this record.
 
 ## Context
 
-Rounds, judging and ballots already share a durable competitive result. The
-rating foundation has Glicko-2, a ledger and season operations, but judged
-ranked results do not yet post ratings (ISSUE-435), and ranked screens still
-use sample data. The owner has selected ratings for delivery now with three
-ladders: Freestyle, Policy and Value. This replaces the after-beta deferral
-and the single generic Ranked pool; it does not claim delivery.
+Rounds, judging and ballots share one durable competitive result. Ratings
+consumes the immutable terminal provenance of that result, posts Glicko-2
+changes transactionally and publishes shared standing output. Freestyle,
+Policy and Value have independent actor+ladder+season standings. Beta Season 1
+activation remains an explicit post-deploy acceptance item.
 
 DEC-238's task status is Confirmed, although its page retained an older
 blocked reconciliation. It names frozen `ladder_id` as ratedness authority.
@@ -33,8 +32,7 @@ league and tournament ladders are not selected.
 One rating feature owns calculation policy, ledger writes and standing
 projections. It consumes the authoritative finalized Round result, including
 eligible human- or AI-judged outcomes and forfeits. It does not reconstruct
-ballots or create a second outcome. Judge eligibility for ranked admission
-must be resolved explicitly during detailed design; sharing the outcome
+ballots or create a second outcome. Ranked admission is bounded by delegated DEC-266 below; sharing the outcome
 contract is not permission to admit any cast.
 
 Leaderboard, profile and Room displays read this feature's published output.
@@ -52,8 +50,8 @@ infer a pool from a mutable format label, Room state or UI choice.
 
 The standing key is `(actor, ladder, season)`: one individual standing in
 each ladder per season. Format and pinned rules remain Round provenance,
-not another rating dimension. Detailed design must define the canonical
-format-to-ladder mapping and constraints. Future team play does not
+not another rating dimension. The canonical IDs map identically to ladder IDs and are constrained at the
+Round boundary. Future team play does not
 automatically create separate pools; its participant-update policy is
 resolved when team play is selected. No generic Ranked compatibility pool
 survives implementation.

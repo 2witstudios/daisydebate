@@ -1,0 +1,1 @@
+CREATE INDEX "round_finalization_ballots_membership_idx" ON "round_finalization_ballots" ("ballot_id","round_id","freeze_revision");

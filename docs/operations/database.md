@@ -216,7 +216,8 @@ reset, delete or edit a migration journal to proceed.
 
 The reviewed sequence is three_rating_ladders, frozen_round_finalization,
 finalization_reference_integrity, freeze_membership_transaction,
-round_finalization_aggregate_lifecycle, finalization_deferred_references (their
+round_finalization_aggregate_lifecycle, finalization_deferred_references,
+finalization_membership_index (their
 committed timestamp order). The first folder refuses before DDL. Subsequent
 folders add immutable terminal provenance and its aggregate lifecycle. The
 migrator applies each folder transactionally. Shared applied migration names
@@ -242,8 +243,22 @@ The image includes the command; it uses the existing `daisy_web` runtime
 ID, status, actual UTC database start instant and `beta-season-1` activation
 key (verify the key with an authorized read). Run activate-beta again and
 verify exactly the same ID/start/status, unchanged standing/ledger counts and
-no new season. An existing closed Season 1 is returned closed; it is never
-reopened. Any competing season refuses. No start date can be supplied.
+no new season. Compare the full standing rows before and after the retry in the
+authorized local operator session, not only their counts; publish scrubbed proof.
+These nonmutating verification queries run in a read-only transaction:
+
+```sql
+BEGIN READ ONLY;
+SELECT id, name, activation_key, starts_at, ends_at, status, version
+FROM seasons ORDER BY starts_at, id;
+SELECT ladder, season_id, count(*) FROM ratings GROUP BY ladder, season_id;
+SELECT ladder, season_id, count(*) FROM rating_changes GROUP BY ladder, season_id;
+SELECT actor_id, ladder, season_id, rating, deviation, volatility, version
+FROM ratings ORDER BY actor_id, ladder, season_id;
+COMMIT;
+```
+
+An existing closed Season 1 is returned closed; it is never reopened. Any competing season refuses. No start date can be supplied.
 
 Authorized beta checks cover Freestyle, Policy and Value: native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,

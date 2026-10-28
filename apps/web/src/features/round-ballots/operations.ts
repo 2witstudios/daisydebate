@@ -69,11 +69,8 @@ export function prepareRoundBallotSubmission(
         }),
       );
       const projection = createRoundRuntime({
+        ...context.round,
         round: context.round,
-        rules: context.round.rules,
-        participants: context.round.participants,
-        checkpoint: context.round.checkpoint,
-        segments: context.round.segments,
         nextSegmentId: input.nextSegmentId,
       }).execute({
         command: { type: 'complete', outcome },

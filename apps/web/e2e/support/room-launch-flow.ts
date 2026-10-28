@@ -92,7 +92,9 @@ export async function submitCreateRoom(
   if (!selected) throw new Error('Required actual format template is missing');
   await templates.selectOption(selected);
   await form.getByLabel('Room name', { exact: true }).fill(title);
-  await form.getByLabel('Resolution').fill('Proof cities should fund transit');
+  await form
+    .getByLabel('Resolution')
+    .fill(formatId === 'freestyle' ? '' : 'Proof cities should fund transit');
   await form.getByLabel('Who can join').selectOption('public');
   await form.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);

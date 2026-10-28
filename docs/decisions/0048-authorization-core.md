@@ -9,6 +9,10 @@ Amends [ADR 0030](0030-effective-rules-and-growth-paths.md),
 section. Decisions marked open at the end were made on the owner's behalf and
 stay open until the owner confirms or overrules them.
 
+Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
+standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.
+Format and revision remain Round/ledger provenance, never another standing pool.
+
 ## Context
 
 Daisy launches with two kinds of play: ranked play on Daisy's own ladder, and

@@ -7,7 +7,7 @@ import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
 
 test('native no-JavaScript rated entry preserves canonical ladder setup for all three ladders', async ({
   browser,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   await new Promise<void>((resolve, reject) =>
     execFile(
@@ -26,9 +26,15 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
   );
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await openPage(context, 'native rated setup');
+  const capture = async (label: string) => {
+    const path = testInfo.outputPath(`${label}.png`);
+    await page.screenshot({ path, fullPage: true });
+    await testInfo.attach(label, { path, contentType: 'image/png' });
+  };
   try {
     await resetRateLimits(page.request);
     const member = await signUpMember(page.request);
+    const rooms: { ladder: string; id: string }[] = [];
     for (const ladder of ['freestyle', 'policy', 'value']) {
       await page.goto('/play/room');
       await expect(page.getByLabel('Rating', { exact: true })).toHaveValue(
@@ -41,6 +47,7 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
         ladder,
       );
       try {
+        rooms.push({ ladder, id: room.id });
         expect(room.competitionType).toBe('ranked');
         expect(room.formatId).toBe(ladder);
         await expect(page.getByRole('heading').first()).toBeVisible();
@@ -77,25 +84,31 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
             ? reject(new Error('Rating display fixture refused'))
             : resolve(JSON.parse(output)),
       );
-      child.stdin?.end(JSON.stringify({ username: member.username }));
+      child.stdin?.end(JSON.stringify({ username: member.username, rooms }));
     });
     for (const row of evidence) {
       await page.goto(
         `/leaderboard?ladder=${row.ladder}&status=everyone&q=${member.username}`,
       );
       await expect(
-        page.getByText(String(row.rating), { exact: true }).first(),
+        page.getByRole('link', {
+          name: `@${member.username}, provisional, rating ${row.rating}`,
+          exact: true,
+        }),
       ).toBeVisible();
+      await capture(`${row.ladder}-leaderboard`);
       await page.goto(`/profile/${member.username}`);
       const ratings = page.getByRole('region', {
         name: 'Ratings',
         exact: true,
       });
       await expect(ratings).toContainText(`${row.rating} · Provisional`);
+      await capture(`${row.ladder}-profile`);
       await page.goto(`/rounds/${row.roundId}`);
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
       ).toContainText(`${row.rating} · Provisional (+${row.delta})`);
+      await capture(`${row.ladder}-round-rating`);
     }
   } finally {
     await context.close();

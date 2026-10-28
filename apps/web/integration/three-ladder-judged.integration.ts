@@ -8,13 +8,15 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import { fixtureBallot, playOut } from './round-judging.test-support';
-import { readyRatedRoom } from './rated-room.test-support';
+import {
+  fixtureBallot,
+  playOut,
+  submitHumanBallot,
+} from './round-judging.test-support';
+import { readyRatedRoom, recoverRatedResults } from './rated-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
-import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import { createRatingSweep } from '../src/features/ratings/sweep';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../src/features/ratings/read-member';
 import { readRoundRatings } from '../src/features/ratings/read-round';
@@ -49,25 +51,12 @@ for (const ladder of ratingLadders)
                 outcome,
               );
               if (judgeKind === 'human') {
-                const round = (await f.store.getRound(roundId))!;
-                const seat = round.participants.find(
-                  (p) => p.role === 'judge',
-                )!;
-                await createRoundBallotOperations({
-                  store: f.store,
-                  nextBallotId: createId,
-                  nextSegmentId: createId,
-                }).submit(
-                  { kind: 'human', actorId: f.outsider.actorId },
+                await submitHumanBallot(
+                  f,
                   roundId,
-                  {
-                    version: 1,
-                    commandId: createId(),
-                    expectedVersion: round.version,
-                    judgeParticipantId: seat.id,
-                    freezeRevision: frozen.freeze.revision,
-                    ballot,
-                  },
+                  f.outsider.actorId,
+                  frozen.freeze.revision,
+                  ballot,
                 );
               } else {
                 const target = (await f.store.scanRoundJudgingJobs(64)).find(
@@ -101,16 +90,7 @@ for (const ladder of ratingLadders)
               const candidates = await f.store.readUnratedRatingRounds({
                 limit: 64,
               });
-              const sweep = () =>
-                createRatingSweep({
-                  database: f.store,
-                  ids: { next: createId },
-                  onFailure: (_id, error) => {
-                    throw error;
-                  },
-                })({ limit: 64 });
-              await Promise.all([sweep(), sweep()]);
-              await sweep();
+              await recoverRatedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;
               const projection =

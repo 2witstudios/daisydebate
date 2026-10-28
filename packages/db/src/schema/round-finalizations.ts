@@ -81,6 +81,11 @@ export const roundFinalizationBallots = pgTable(
         roundFinalizations.freezeRevision,
       ],
     }).onDelete('cascade'),
+    index('round_finalization_ballots_membership_idx').on(
+      table.ballotId,
+      table.roundId,
+      table.freezeRevision,
+    ),
     foreignKey({
       name: 'round_finalization_ballots_membership_fk',
       columns: [table.ballotId, table.roundId, table.freezeRevision],
