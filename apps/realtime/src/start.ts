@@ -6,6 +6,7 @@ import {
 import { createRealtimeApp } from './app';
 import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
+import { productionServeOptions } from './production';
 import { startRealtimeServiceLease } from './service-lease';
 import { readFile } from 'node:fs/promises';
 import {
@@ -46,13 +47,16 @@ if (gatewayUnresolved)
     'No single default gateway was found, so no proxy is trusted for it',
   );
 const instanceId = systemId.next();
-const { close, drain } = await serveRealtime({
-  resources,
-  port,
-  hostname,
-  trustedProxies,
-  presence: { instanceId, nextId: () => systemId.next() },
-});
+const { close, drain } = await serveRealtime(
+  productionServeOptions({
+    resources,
+    port,
+    hostname,
+    trustedProxies,
+    instanceId,
+    nextId: () => systemId.next(),
+  }),
+);
 const lease = startRealtimeServiceLease({
   instanceId,
   renew: resources.database.renewServiceInstance,

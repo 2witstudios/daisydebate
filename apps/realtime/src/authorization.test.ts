@@ -6,6 +6,8 @@ import {
   createRealtimeAuthorization,
   type RealtimeReadingPolicy,
 } from './authorization';
+import { productionServeOptions } from './production';
+import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 const principal = {
@@ -81,6 +83,7 @@ const approvedTestReading: RealtimeReadingPolicy = ({
 });
 for (const mode of [
   'approved-test',
+  'production-policy',
   'missing-policy',
   'expired-session',
   'changed-account',
@@ -133,8 +136,21 @@ for (const mode of [
       resources,
       now: () => Date.parse(instant),
       ...(mode === 'missing-policy'
-        ? {}
-        : { readingPolicy: approvedTestReading }),
+        ? { readingPolicy: refuseAllReading }
+        : {
+            readingPolicy:
+              mode === 'production-policy'
+                ? // start.ts's own composition, not a copy of its policy value.
+                  productionServeOptions({
+                    resources,
+                    port: 0,
+                    hostname: '127.0.0.1',
+                    trustedProxies: [],
+                    instanceId: 'i'.repeat(24),
+                    nextId: () => 'n'.repeat(24),
+                  }).readingPolicy
+                : approvedTestReading,
+          }),
     });
     const result = await auth.authorizeTopic(
       principal,
@@ -149,7 +165,10 @@ for (const mode of [
       expected: {
         frames: 1,
         queries: 4,
-        deadline: mode === 'approved-test' ? Date.parse(expiry) : null,
+        deadline:
+          mode === 'approved-test' || mode === 'production-policy'
+            ? Date.parse(expiry)
+            : null,
       },
     });
   });
