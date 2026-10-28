@@ -38,7 +38,7 @@ export function startBotControlService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  /** `stage` names the work that failed: pulse or discover. */
+  /** `stage` names the work that failed: pulse, stop or discover. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   const owned = new Map<string, Owned<C>>();
@@ -64,6 +64,20 @@ export function startBotControlService<C extends Claim>(input: {
       );
     }
   };
+  /**
+   * Ends a seat's speaking work. A stop that fails (a native publication
+   * whose room is already gone) is reported, never thrown: it must not keep
+   * a lease from being released or halt every other seat's heartbeat
+   * (ISSUE-789).
+   */
+  const stopSeat = async (entry: Owned<C>) => {
+    try {
+      await entry.control.stop?.();
+    } catch (error) {
+      input.failed(error, 'stop');
+    }
+  };
+  /** Settles once the pulse is done; it never rejects. */
   const pulse = (entry: Owned<C>): Promise<void> => {
     if (entry.pending) return entry.pending;
     entry.pending = (async () => {
@@ -72,7 +86,7 @@ export function startBotControlService<C extends Claim>(input: {
       } catch (error) {
         if (await authorityLost(entry)) {
           owned.delete(entry.claim.scope.roundParticipantId);
-          await entry.control.stop?.();
+          await stopSeat(entry);
           // Authority ended (Round completed or claim rotated): a release, not a fault.
           return;
         }
@@ -88,7 +102,7 @@ export function startBotControlService<C extends Claim>(input: {
     if (old?.claim.scope.segmentId === target.segmentId) return;
     if (old) {
       await old.pending;
-      await old.control.stop?.();
+      await stopSeat(old);
       await input.store.revokeRoundBotWorker(old.claim.scope, old.claim.token);
       owned.delete(target.roundParticipantId);
     }
@@ -129,11 +143,14 @@ export function startBotControlService<C extends Claim>(input: {
     })();
     return discovering;
   };
+  /** One heartbeat in flight; it always clears, so the next tick pulses again. */
   const heartbeat = (): Promise<void> => {
     if (stopped || pulsing) return pulsing ?? Promise.resolve();
-    pulsing = Promise.all([...owned.values()].map(pulse)).then(() => {
-      pulsing = null;
-    });
+    pulsing = Promise.all([...owned.values()].map(pulse))
+      .then(() => undefined)
+      .finally(() => {
+        pulsing = null;
+      });
     return pulsing;
   };
   const scanTimer = input.timers.setInterval(discover, input.limits.scanMs);
@@ -149,7 +166,7 @@ export function startBotControlService<C extends Claim>(input: {
       await Promise.allSettled(
         [...owned.values()].map(async (entry) => {
           await entry.pending;
-          await entry.control.stop?.();
+          await stopSeat(entry);
           await input.store.revokeRoundBotWorker(
             entry.claim.scope,
             entry.claim.token,
