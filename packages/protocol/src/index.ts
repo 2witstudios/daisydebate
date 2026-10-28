@@ -153,11 +153,10 @@ export {
   heartbeatMs,
   cursorSchema,
   presenceActivitySchema,
-  presenceStatuses,
   clientMessageSchema,
   ticketSchema,
 } from './realtime';
-export type { PresenceActivity, PresenceStatus } from './realtime';
+export type { PresenceActivity } from './realtime';
 
 export {
   roomCreateSchema,
@@ -185,14 +184,21 @@ export type {
 } from './room-contract';
 
 // Persistent messaging contracts; bounds come from the owning policy.
-export { createMessagingCoreSchemas } from './messaging/core';
+export {
+  createMessagingCoreSchemas,
+  messagingBetaLimits,
+} from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
 export {
   createMessagingSocialSchemas,
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
+  messagingChannelLifecycles,
 } from './messaging/social';
-export type { MessagingSocialBounds } from './messaging/social';
+export type {
+  MessagingChannelLifecycle,
+  MessagingSocialBounds,
+} from './messaging/social';
 export type {
   RoomAssemblyState,
   RoomConsent,
@@ -239,11 +245,11 @@ export {
 export {
   messagingGroupInvitationResultSchema,
   messagingGroupCreationResultSchema,
-  messagingContactBlockResultSchema,
 } from './messaging/social';
 export { parseUsername } from './username';
 
 export { messagingPreferenceSchemas } from './messaging/preferences';
+export { messagingRetainedSchemas } from './messaging/retained';
 export { messagingTypingSchemas } from './messaging/typing';
 
 export {
@@ -322,14 +328,25 @@ export {
 } from './member-profile';
 
 export {
+  challengeCommandResultSchema,
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
+  friendPresences,
   friendshipStates,
   onlineCountsSchema,
-  presenceSettingResultSchema,
 } from './friends';
+export {
+  presenceSettingResultSchema,
+  presenceSettingSchema,
+} from './presence-setting';
+export {
+  contactBlockResultSchema,
+  contactBlockSchema,
+  contactBlockUsernameSchema,
+} from './contacts';
 export type {
+  ChallengeCommandResult,
   FriendCommandResult,
   FriendList,
   FriendPresence,

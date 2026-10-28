@@ -4,12 +4,11 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   erasePrivacySubject,
   exportPrivacySubject,
-  messagingPrivacyExpectedColumns,
   deliverPrivacyJob,
 } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
-import { createMessagingPrivacyAdopter } from './privacy';
 import { admitParticipants } from '../beta-access-testing';
+import { socialPrivacyAdoption } from '../social-privacy-composition';
 
 /** Isolated integration data only; never collection or production policy authority. */
 export async function createMessagingTestFixture(client: SQL) {
@@ -22,6 +21,14 @@ export async function createMessagingTestFixture(client: SQL) {
   const now = '2026-10-09T18:00:00.000Z';
   const cleanup = async () => {
     await client.unsafe(
+      'delete from social_requests where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
+    await client.unsafe(
+      'delete from contact_commands where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
+    await client.unsafe(
       'delete from messaging_social_commands where actor_id in ($1,$2)',
       [actorId, otherActorId],
     );
@@ -29,7 +36,7 @@ export async function createMessagingTestFixture(client: SQL) {
       channelId,
     ]);
     await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
     );
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
@@ -97,16 +104,7 @@ export async function createMessagingTestFixture(client: SQL) {
             userId: subjectActorId === actorId ? userId : otherUserId,
             actorId: subjectActorId,
           },
-          {
-            requiredAdopters: [
-              {
-                id: 'messaging',
-                phase: 'before-auth',
-                expectedColumns: messagingPrivacyExpectedColumns,
-              },
-            ],
-            adopters: [createMessagingPrivacyAdopter()],
-          },
+          socialPrivacyAdoption(),
         );
       },
       eraseSubject: async (subjectActorId: string, typingJobId?: string) => {
@@ -123,11 +121,7 @@ export async function createMessagingTestFixture(client: SQL) {
           },
           {
             requiredAdopters: [
-              {
-                id: 'messaging',
-                phase: 'before-auth',
-                expectedColumns: messagingPrivacyExpectedColumns,
-              },
+              ...socialPrivacyAdoption().requiredAdopters,
               {
                 id: 'account-age',
                 phase: 'after-scrub',
@@ -142,7 +136,7 @@ export async function createMessagingTestFixture(client: SQL) {
               },
             ],
             adopters: [
-              createMessagingPrivacyAdopter(),
+              ...socialPrivacyAdoption().adopters,
               accountAgePrivacyAdopter,
             ],
           },
@@ -172,7 +166,7 @@ export async function seedMessagingTestDm(
 ) {
   const [low, high] = [actorId, otherActorId].sort();
   await client.unsafe(
-    'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
+    'insert into contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
     [low, high],
   );
   await client.unsafe(

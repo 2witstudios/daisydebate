@@ -29,11 +29,24 @@ import { createSendMail } from '../features/mail/send-mail';
 import { deriveRecipientSubkey } from '../features/mail/recipient-key';
 import type { Deliver, MailPurpose } from '../features/mail/types';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
+import {
+  parseMessagingFileLimits,
+  parseMessagingPolicyLimits,
+} from '../features/messaging/beta-limits';
+import { tightenMessagingPolicy } from '../features/messaging/beta-policy';
+import {
+  dec251ContactsPolicy,
+  tightenContactsPolicy,
+} from '../features/contacts/request-policy';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
-  readonly messagingPolicy?: MessagingRuntimePolicy;
+  /**
+   * The messaging policy this app runs: `betaMessagingPolicy` (DEC-251) in
+   * every deployment. `MESSAGING_POLICY` may only tighten it.
+   */
+  readonly messagingPolicy: MessagingRuntimePolicy;
   /** Explicit attachment vendors/budgets; principal-bound stores are composed per operation. */
   readonly messagingFiles?: MessagingFileRuntime;
   /** Raw environment, validated here and nowhere else. */
@@ -171,6 +184,9 @@ export function createApp({
     });
   };
   let aiVoice: OpenRouter | undefined;
+  const policy = parseMessagingPolicyLimits(
+    tightenMessagingPolicy(messagingPolicy, config.MESSAGING_POLICY),
+  );
   const drainState = createDrainState([database, redis]);
   return {
     config,
@@ -179,8 +195,15 @@ export function createApp({
       NODE_ENV: config.NODE_ENV,
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
-    messagingPolicy: messagingPolicy ?? null,
-    messagingFiles: messagingFiles ?? null,
+    messagingPolicy: policy,
+    /** DEC-251's social request budget; `CONTACTS_POLICY` may only tighten it. */
+    contactsPolicy: tightenContactsPolicy(
+      dec251ContactsPolicy,
+      config.CONTACTS_POLICY,
+    ),
+    messagingFiles: messagingFiles
+      ? parseMessagingFileLimits(messagingFiles, policy)
+      : null,
     clock,
     ids,
     logger,

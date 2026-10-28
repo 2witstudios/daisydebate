@@ -16,6 +16,7 @@ import {
 } from './messaging-columns';
 import { createdAtColumn, oneOf } from './columns';
 import { actors } from './actors';
+import { messagingChannelLifecycles } from '@daisy/protocol';
 
 /** Social foundation only; contextual kinds arrive with their real producer. */
 export const messagingChannels = pgTable(
@@ -51,7 +52,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_lifecycle',
-      oneOf(table.lifecycle, ['active', 'archived']),
+      oneOf(table.lifecycle, messagingChannelLifecycles),
     ),
     check(
       'messaging_channels_policy',

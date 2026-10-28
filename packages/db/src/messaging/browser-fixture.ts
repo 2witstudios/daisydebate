@@ -43,7 +43,7 @@ export async function cleanupMessagingBrowserData(
   await client.begin(async (tx) => {
     const userIds = accounts.map((account) => account.userId).sort();
     await tx`select id from users where id=any(${tx.array(userIds, 'text')}::text[]) order by id for update`;
-    await tx`select low_actor_id from messaging_contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[]) order by low_actor_id,high_actor_id for update`;
+    await tx`select low_actor_id from contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[]) order by low_actor_id,high_actor_id for update`;
     await tx`select id from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[]) order by id for update`;
     const [foreign] =
       await tx`select exists(select 1 from messaging_channels c where c.id=any(${tx.array(channelIds, 'text')}::text[]) and not ((c.kind='dm' and exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id and p.low_actor_id=any(${tx.array(actors, 'text')}::text[]) and p.high_actor_id=any(${tx.array(actors, 'text')}::text[]))) or (c.kind='private_group' and exists(select 1 from messaging_social_commands s where s.result_channel_id=c.id and s.kind='group.create' and s.actor_id=any(${tx.array(actors, 'text')}::text[])))))
@@ -56,9 +56,11 @@ export async function cleanupMessagingBrowserData(
     if (foreign?.present !== false)
       throw new Error('Messaging browser cleanup foreign contribution refused');
     await tx`delete from messaging_social_commands where actor_id=any(${tx.array(actors, 'text')}::text[])`;
+    await tx`delete from contact_commands where actor_id=any(${tx.array(actors, 'text')}::text[]) or counterpart_actor_id=any(${tx.array(actors, 'text')}::text[])`;
+    await tx`delete from social_requests where actor_id=any(${tx.array(actors, 'text')}::text[]) or counterpart_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from messaging_files where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and owner_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[])`;
-    await tx`delete from messaging_contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[])`;
+    await tx`delete from contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from outbox where topic=any(${tx.array(
       channels.map((id) => `channel:${id}`),
       'text',

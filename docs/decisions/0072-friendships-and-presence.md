@@ -17,8 +17,30 @@ fence (accounts, then the pair, then a channel).
 
 ## Decision
 
-1. **Friendship is a messaging-social producer, not a second relationship
-   store.** `messaging_friendships` holds one row per asked or accepted
+1. **Friendship is a Social capability over the shared contact pair, not a
+   second relationship store.** _Amended 2026-10-27 (#479, ISSUE-754):_
+   Friends, challenges and presence have their own homes, apart from
+   Messaging: tables `friendships`, `friend_challenges` and
+   `presence_settings`; db modules `friends/` (a `FriendStore` and
+   `FriendFrame`) and `presence/`; web features `features/friends` and
+   `features/presence`. They sit over the Contacts base (`contact_pairs`,
+   the `withContactPairs` fence, `social_requests` and
+   `social_request_declines`), which Messaging also uses. Contacts also
+   owns blocking: `features/contacts` serves `POST /api/contacts/block` and
+   `POST /api/contacts/username` on its own contract (`contactBlockSchema`,
+   version 1), digest, `contact_commands` receipt and `contacts:block`
+   budget. Both block routes run the same safety operation: current
+   subject and counterpart accounts, the ordered pair fence and fresh
+   participant authorization are mandatory, while age, admission, reading
+   and posting policies are not prerequisites, so a member can always block.
+   Every username lookup (a DM or group request, a block, a friendship or a
+   challenge) first spends the member's one `username-discovery:<actor>`
+   budget, which owns its own windows (`usernameDiscoveryWindows`), besides
+   the feature's own command budget, so a feature never adds a probe budget. Its windows are DEC-251's and are not deployment-tunable: `MESSAGING_POLICY` and `CONTACTS_POLICY` tighten only their own command budgets. Every caller reaches the directory through one port, `discoverActor`, which spends once per name, so a batch of names spends once each. A username request may name at most `usernameDiscoveryBatch` members (the smallest window's count, 10), and a larger batch is refused before any spend; the actor-ID routes keep their own batch bound.
+   Presence owns the member's own setting: `GET` and
+   `POST /api/presence` (`social.presence.read` and
+   `social.presence.update` on the `presence_setting` resource), and the
+   friend list carries no setting of its own. `friendships` holds one row per asked or accepted
    pair (`low_actor_id < high_actor_id`, `requester_actor_id`, `state`
    `pending | accepted`, `requested_at`, `accepted_at`). It references the
    contact pair row and cascades with it. Every change runs in the social
@@ -30,7 +52,7 @@ fence (accounts, then the pair, then a channel).
    and `social.friend.end` (decline, cancel or remove: always open to a
    pair member, even across a block) on the `contact_pair` resource. The
    pure transition rules (`decideFriendship` in
-   `apps/web/src/features/messaging/friends`) decide the next pair state:
+   `apps/web/src/features/friends`) decide the next pair state:
    a request to someone who already asked you accepts it, so reciprocal
    requests converge on one friendship; declining or removing deletes the
    row; a repeat changes nothing.
@@ -41,7 +63,17 @@ fence (accounts, then the pair, then a channel).
 4. **Bounds.** At most 250 friends per member and 20 outgoing pending
    requests, counted under the account locks; 30 friend changes per member
    per minute through the shared limiter. A member's list reads at most 500
-   rows.
+   rows. _Amended 2026-10-27 (DEC-251, #479):_ a friend request is also a
+   DEC-251 social request. It spends the same budgets as a DM request, which
+   are counted from the append-only `social_requests` ledger (Contacts),
+   never from messaging's receipts: 20
+   per day, and 5 per hour to an account with no accepted friendship or
+   accepted DM, judged when asked; a pending or declined request relates
+   nobody. Three declines by one person, counted per direction in
+   `social_request_declines`, block further requests to them for 30 days.
+   The block is refused exactly as a block is, and acceptance clears both
+   directions. Each decline row expires 30 days after its last decline,
+   and the retention sweep deletes it then.
 5. **Friendship grants nothing else yet.** It does not open a DM channel,
    room membership or any competitive standing. When friendship starts a
    DM, messaging's own age and contact policy (ADR 0061) decides that, not
@@ -66,7 +98,7 @@ fence (accounts, then the pair, then a channel).
    and never closes a socket.
 7. **Who may see presence.** Only accepted friends see a member's status.
    `GET /api/friends` first passes `authorize` (`social.friend.list` over the
-   reader's own `messaging_collection`, on their freshly locked account),
+   reader's own `friend_collection`, on their freshly locked account),
    lists only unblocked pairs, then reads each friend's leases in one bounded Lua op
    (`readActorsPresence`) and shows `online` (any active connection), `away`
    (only idle ones) or `offline`. The member count online
@@ -76,28 +108,34 @@ fence (accounts, then the pair, then a channel).
 8. **Challenge** creates an unlisted casual room on the catalog's default
    template, named for the two members, delivers the challenge to the
    friend, and takes the challenger to the room. Delivery is a
-   `messaging_friend_challenges` row (room, challenger, challenged), written
+   `friend_challenges` row (room, challenger, challenged), written
    in the same contact-fenced transaction that confirms the pair is an
    accepted friendship and that the challenger hosts the room while it
    assembles. The friend's `/friends` lists it with Join (the room) and
    Decline (which deletes it); it shows only while the room assembles or is
    ready, only from an accepted, unblocked friend, and it goes with its
    room. A Challenge that cannot be delivered still opens the room, whose
-   invite link reaches the friend.
+   invite link reaches the friend. _Amended 2026-10-27 (#479, S2–S4, S7):_
+   a challenge is authorized by its own `social.challenge.send` (current
+   members, no block) and `social.challenge.decline` (a safety exit, open
+   across a block). It spends its own `friend-challenges:<actor>` budget
+   (30 a minute), never the friend-change one. It answers its own
+   `challengeCommandResultSchema` result, and it asks Rooms' open-room
+   predicate (`room-open.ts`) rather than naming Room statuses.
 
 ## Consequences
 
 - The mock `onlineUsers`, `onlineCount` and the Friends page's Watch action
   are deleted; the rail and tab-bar badge read `GET /api/friends/online`.
-- A member may hide their online status (`messaging_presence_settings`,
+- A member may hide their online status (`presence_settings`,
   set from `/friends` through `social.presence.update` on their own
   collection). Hidden, every friend sees them offline and no friend's badge
   counts them; their leases are never read for a friend list, and nothing
   tells a friend they chose to hide. The members-online aggregate still
   counts them, since it names no one. The row is personal/private, deleted
   on subject erasure and exported to its member.
-- `messaging_friend_challenges` is personal/private like the friendship
+- `friend_challenges` is personal/private like the friendship
   row, deleted on subject erasure and exported to either member.
-- `messaging_friendships` is personal/private, deleted on subject erasure
+- `friendships` is personal/private, deleted on subject erasure
   and exported to either member, on the same pending lawful-basis and
-  retention decisions as `messaging_contact_pairs`.
+  retention decisions as `contact_pairs`.

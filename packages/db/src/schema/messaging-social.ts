@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
-  boolean,
   check,
   index,
   foreignKey,
@@ -10,121 +9,11 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import { friendshipStates } from '@daisy/protocol';
 import { actors } from './actors';
-import { rooms } from './rooms';
 import { messagingActorColumn } from './messaging-columns';
 import { oneOf, timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
-
-/** One durable lock target even when a blocked pair has no DM channel. */
-export const messagingContactPairs = pgTable(
-  'messaging_contact_pairs',
-  {
-    lowActorId: messagingActorColumn('low_actor_id'),
-    highActorId: messagingActorColumn('high_actor_id'),
-    lowBlocksHigh: boolean('low_blocks_high').notNull().default(false),
-    highBlocksLow: boolean('high_blocks_low').notNull().default(false),
-    revision: bigint('revision', { mode: 'number' }).notNull().default(1),
-  },
-  (table) => [
-    index('messaging_contact_pairs_high_actor_idx').on(table.highActorId),
-    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
-    check(
-      'messaging_contact_pairs_order',
-      sql`${table.lowActorId} < ${table.highActorId}`,
-    ),
-    check(
-      'messaging_contact_pairs_revision',
-      sql`${table.revision} between 1 and 9007199254740991`,
-    ),
-  ],
-);
-
-/**
- * The friendship producer (ADR 0072): one row per asked or accepted pair,
- * fenced by the same contact pair row as blocks and DMs. Declining or
- * removing deletes the row, and a block deletes it too, so unblocking never
- * restores a friendship.
- */
-export const messagingFriendships = pgTable(
-  'messaging_friendships',
-  {
-    lowActorId: messagingActorColumn('low_actor_id'),
-    highActorId: messagingActorColumn('high_actor_id'),
-    requesterActorId: text('requester_actor_id').notNull(),
-    state: text('state').notNull(),
-    requestedAt: timestampColumn('requested_at').notNull(),
-    acceptedAt: timestampColumn('accepted_at'),
-  },
-  (table) => [
-    index('messaging_friendships_high_actor_idx').on(table.highActorId),
-    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
-    check(
-      'messaging_friendships_order',
-      sql`${table.lowActorId} < ${table.highActorId}`,
-    ),
-    check(
-      'messaging_friendships_requester',
-      sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
-    ),
-    check('messaging_friendships_state', oneOf(table.state, friendshipStates)),
-    check(
-      'messaging_friendships_time',
-      sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
-    ),
-    foreignKey({
-      name: 'messaging_friendships_contact_fk',
-      columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        messagingContactPairs.lowActorId,
-        messagingContactPairs.highActorId,
-      ],
-    }).onDelete('cascade'),
-  ],
-);
-
-/**
- * A challenge one friend sent another (ADR 0072): the room the challenger
- * opened for them, shown to the challenged friend while it assembles. It
- * goes with its room, and declining deletes it.
- */
-export const messagingFriendChallenges = pgTable(
-  'messaging_friend_challenges',
-  {
-    roomId: text('room_id')
-      .primaryKey()
-      .references(() => rooms.id, { onDelete: 'cascade' }),
-    challengerActorId: messagingActorColumn('challenger_actor_id'),
-    challengedActorId: messagingActorColumn('challenged_actor_id'),
-    createdAt: timestampColumn('created_at').notNull(),
-  },
-  (table) => [
-    index('messaging_friend_challenges_challenged_idx').on(
-      table.challengedActorId,
-    ),
-    index('messaging_friend_challenges_challenger_idx').on(
-      table.challengerActorId,
-    ),
-    check(
-      'messaging_friend_challenges_distinct',
-      sql`${table.challengerActorId} <> ${table.challengedActorId}`,
-    ),
-  ],
-);
-
-/**
- * A member's choice to hide their online status from friends (ADR 0072).
- * No row means visible; a hidden member shows offline to every friend.
- */
-export const messagingPresenceSettings = pgTable(
-  'messaging_presence_settings',
-  {
-    actorId: messagingActorColumn('actor_id').primaryKey(),
-    hidden: boolean('hidden').notNull(),
-    updatedAt: timestampColumn('updated_at').notNull(),
-  },
-);
+import { contactPairs } from './contacts';
 
 /** Messaging's accepted/requested DM pair is not a friendship producer. */
 export const messagingDmPairs = pgTable(
@@ -173,10 +62,7 @@ export const messagingDmPairs = pgTable(
     foreignKey({
       name: 'messaging_dm_pairs_contact_fk',
       columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        messagingContactPairs.lowActorId,
-        messagingContactPairs.highActorId,
-      ],
+      foreignColumns: [contactPairs.lowActorId, contactPairs.highActorId],
     }),
     foreignKey({
       name: 'messaging_dm_pairs_channel_kind_fk',
@@ -312,7 +198,6 @@ export const messagingSocialCommands = pgTable(
       oneOf(table.kind, [
         'dm.request',
         'dm.decide',
-        'dm.block',
         'group.create',
         'group.invite',
         'group.decide',

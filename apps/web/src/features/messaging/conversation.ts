@@ -60,3 +60,26 @@ export function readThroughSequence(
     return null;
   return Math.max(...history.messages.map((message) => message.sequence));
 }
+
+type ChannelEntry = ReturnType<
+  ReturnType<
+    typeof import('@daisy/protocol').createMessagingInboxSchemas
+  >['entry']['parse']
+>['entry'];
+
+/**
+ * ISSUE-605: what a conversation page calls itself and the other author: a
+ * DM's counterpart by public @username, a group by its title. Group
+ * authors stay "Member" until groups return (ISSUE-643).
+ */
+export function conversationNames(entry: ChannelEntry | null): {
+  readonly title: string;
+  readonly otherAuthor: string;
+} {
+  if (entry === null || entry.kind === 'incoming_invitation')
+    return { title: 'Conversation', otherAuthor: 'Member' };
+  if (entry.kind === 'group_conversation')
+    return { title: entry.title ?? 'Untitled group', otherAuthor: 'Member' };
+  const name = entry.title === null ? 'Deleted account' : `@${entry.title}`;
+  return { title: name, otherAuthor: name };
+}

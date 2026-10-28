@@ -19,7 +19,6 @@ test('social HTTP checks origin and current participant identity before untruste
     },
     request: operation,
     decide: operation,
-    block: operation,
     preview: operation,
     status: operation,
   });

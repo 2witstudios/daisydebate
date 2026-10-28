@@ -31,7 +31,7 @@ BEGIN
       OR actual_high_actor_id IS DISTINCT FROM expected_high_actor_id
     THEN RETURN false; END IF;
     -- Canonical account locks are already held by the same caller transaction.
-    PERFORM p.low_actor_id FROM public.messaging_contact_pairs AS p
+    PERFORM p.low_actor_id FROM public.contact_pairs AS p
       WHERE p.low_actor_id = actual_low_actor_id AND p.high_actor_id = actual_high_actor_id
       FOR UPDATE OF p;
     IF NOT FOUND THEN RETURN false; END IF;

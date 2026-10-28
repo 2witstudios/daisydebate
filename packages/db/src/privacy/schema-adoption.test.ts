@@ -34,6 +34,8 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
   const social = await import('../schema/messaging-social');
   const subjects = await import('../schema/messaging-social-command-subjects');
   const messages = await import('../schema/messaging-messages');
+  const retained = await import('../schema/messaging-retained');
+
   const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
     await import('./messaging-declarations');
   const tables = [
@@ -42,6 +44,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(social),
     ...Object.values(subjects),
     ...Object.values(messages),
+    ...Object.values(retained),
   ];
   const expected = currentColumns(tables);
   assert({
@@ -70,7 +73,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
       .filter(
         (field) =>
           field.column === 'text' ||
-          (field.table === 'messaging_contact_pairs' &&
+          (field.table === 'messaging_dm_pairs' &&
             field.column === 'low_actor_id'),
       )
       .map((field) => field.erasure),
@@ -242,6 +245,57 @@ test('beta access declarations match all actual producer columns', async () => {
       'account_beta_access:delete',
       'mail_intents:delete',
       'operator_command_receipts:retain-nonpersonal',
+    ],
+  });
+});
+
+test('Contacts, Friends and Presence each declare exactly their own tables (B5)', async () => {
+  const contactsSchema = await import('../schema/contacts');
+  const friendsSchema = await import('../schema/friends');
+  const presenceSchema = await import('../schema/presence');
+  const { contactsPrivacyFields } = await import('../contacts/privacy');
+  const { friendsPrivacyFields } = await import('../friends/privacy');
+  const { presencePrivacyFields } = await import('../presence/privacy');
+  const checks = [
+    [
+      contactsPrivacyFields,
+      [
+        contactsSchema.contactPairs,
+        contactsSchema.contactCommands,
+        contactsSchema.socialRequests,
+        contactsSchema.socialRequestDeclines,
+      ],
+    ],
+    [
+      friendsPrivacyFields,
+      [friendsSchema.friendships, friendsSchema.friendChallenges],
+    ],
+    [presencePrivacyFields, [presenceSchema.presenceSettings]],
+  ] as const;
+  assert({
+    given: 'each Social capability’s declarations and its own schema',
+    should: 'declare the exact table and column set, with policy holds',
+    actual: checks.map(([fields, tables]) =>
+      validatePrivacyAdoption(currentColumns(tables), fields),
+    ),
+    expected: checks.map(() => ({ problems: [], activationHeld: true })),
+  });
+  assert({
+    given: 'the decline table DEC-251 sets',
+    should: 'carry DEC-251’s approved retention, every other one pending',
+    actual: [
+      ...new Set(
+        contactsPrivacyFields.map(
+          (field) =>
+            `${field.table}:${field.retention.status}:${field.retention.decision}`,
+        ),
+      ),
+    ].sort(),
+    expected: [
+      'contact_commands:pending:njiorsf64z4iqjm2dbfa3zuu',
+      'contact_pairs:pending:njiorsf64z4iqjm2dbfa3zuu',
+      'social_request_declines:approved:dvkpb5wjay835m0xrgq1iz6v',
+      'social_requests:pending:xidjgsvnu3spoaa35dzzkkn5',
     ],
   });
 });

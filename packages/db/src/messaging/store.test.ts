@@ -83,9 +83,9 @@ test('send frame binds receipt to current command and commits one thin bell with
   assert({
     given: 'the successful write',
     should:
-      'persist message, receipt and channel counter before one content-free bell',
-    actual: f.queries.slice(6).map((q) => q.query.split(' ')[0]),
-    expected: ['insert', 'insert', 'update', 'insert', 'select'],
+      'persist message, receipt and channel counter before one content-free bell, then read whose inboxes to ring (ISSUE-603)',
+    actual: f.queries.slice(6).map((q) => q.query.trim().split(/\s/)[0]),
+    expected: ['insert', 'insert', 'update', 'insert', 'select', 'select'],
   });
 });
 test('send frame refuses fresh authority loss and malformed command without inspecting private receipts', async () => {

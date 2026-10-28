@@ -1,26 +1,37 @@
 import { createAppError } from '@daisy/errors';
+import {
+  appDiscoverActor,
+  usernameDiscoveryBatch,
+} from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { messagingGroupCommandRoute } from './group-command-route';
 import { composeMessagingGroupIssuanceStore } from './group-issuance-composition';
 import { inviteMessagingGroup } from './group-issuance';
+import { requirePrivateGroups } from './private-groups';
+import { requireMemberActor } from '../access/actor';
 export function composeMessagingGroupIssuanceRoute(app: App) {
   return messagingGroupCommandRoute(
     app,
     'messaging.group.invite',
-    async (input, principal, { social, limit }) => {
-      const actor = requireMessagingActor(principal);
+    async (input, principal, { policy, social, limit }) => {
+      requirePrivateGroups(policy);
+      const actor = requireMemberActor(principal);
       const intent = parseValidated(
         createMessagingSocialSchemas(social.bounds).inviteGroupUsernames,
         input,
       );
 
+      // A batch discovery could never fit is refused before spending any of it.
+      if (intent.invitedUsernames.length > usernameDiscoveryBatch)
+        throw createAppError('VALIDATION');
       await limit(actor.actorId);
+      const discover = appDiscoverActor(app);
       const invitedActorIds: string[] = [];
       for (const username of intent.invitedUsernames) {
-        const id = await app.database.lookupHumanActorByUsername(username);
+        const id = await discover(actor.actorId, username);
         if (id === null) throw createAppError('AUTHORIZATION');
         invitedActorIds.push(id);
       }

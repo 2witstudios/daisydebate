@@ -7,7 +7,7 @@ import type { Database } from '@daisy/db';
 import type { MessagingRuntimePolicy } from './composition';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { messagingAuthorizationFence } from './authorization-fence';
 /** Clear uses only a persisted own row and current account; read/update keep the canonical channel policy fence. */
 export function composeMessagingPreferences({
@@ -62,7 +62,7 @@ export function authorizeOwnPreferenceClear(
   )
     throw createAppError('AUTHORIZATION');
   const resource: MessagingPreferenceAuthorizationFact | null = fact;
-  requireMessagingAuthorization({
+  requireAuthorization({
     principal,
     capability: resource ? 'channel.preferences.clear' : 'channel.inbox.read',
     resource: resource ?? {

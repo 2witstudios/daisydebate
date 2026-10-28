@@ -33,6 +33,7 @@ export {
   ageAdmitted,
   participantAccess,
 } from './participant-access';
+export type { ContactPairCapability } from './authorization-contact';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,
@@ -113,6 +114,9 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  // DEC-126: a retained DM is its survivor's own rows, read only through
+  // channel.retained.read; every channel capability refuses it.
+  if (resource.lifecycle === 'retained') return deny('missing-capability');
   if (['channel.group.revoke', 'channel.group.archive'].includes(capability))
     return decision(groupSafetyAllowed(actorId, capability, resource));
   if (capability === 'channel.leave')
@@ -254,6 +258,8 @@ function resolveMemberResource(
         socialCreationAllowed(actorId, capability, resource, context),
       );
     case 'messaging_collection':
+    case 'friend_collection':
+    case 'presence_setting':
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;

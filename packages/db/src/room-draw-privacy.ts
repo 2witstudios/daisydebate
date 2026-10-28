@@ -14,6 +14,7 @@ import {
 } from './schema/resolution-draws';
 import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
 import { persistRoomMutation } from './room-mutation-persistence';
+import { roomIsOpen } from './room-open';
 
 /** A scrubbed host line: unique per list position, so lists stay valid. */
 const placeholder = (index: number) => `Removed resolution ${index + 1}`;
@@ -242,7 +243,7 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
       .where(
         and(
           inArray(rooms.id, seatedRooms),
-          inArray(rooms.status, ['assembling', 'ready']),
+          roomIsOpen(),
           isNull(rooms.prepStartedAt),
           sql`not exists (select 1 from room_resolution_draws d where d.room_id = ${rooms.id})`,
         ),

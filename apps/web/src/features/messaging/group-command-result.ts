@@ -4,7 +4,7 @@ import type {
 } from '@daisy/auth/authorization';
 import type { MessagingGroupManagementFence } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 /** The committed owner row grants only its minimal result, never membership or content. */
 export function requireMessagingGroupResult(
   principal: AuthorizationPrincipal,
@@ -17,6 +17,8 @@ export function requireMessagingGroupResult(
     channel.policyKey !== 'social.private_group'
   )
     throw createAppError('AUTHORIZATION');
+  // Only DMs are ever retained (DEC-126): a retained group is absent.
+  if (channel.lifecycle === 'retained') throw createAppError('NOT_FOUND');
   const resource: GroupCommandResultAuthorizationFact = {
     kind: 'group_command_result',
     channel: {
@@ -34,7 +36,7 @@ export function requireMessagingGroupResult(
       resultChannelId: receipt.channelId ?? '',
     },
   };
-  requireMessagingAuthorization({
+  requireAuthorization({
     principal,
     capability: 'channel.group.result',
     resource,

@@ -4,6 +4,7 @@ import { fixedClock, sequentialId } from '@daisy/clock';
 import { readServerConfig } from '@daisy/config';
 import { AI_ROUND_MONTHLY_CAP_MAX } from '@daisy/protocol';
 import { createApp } from './app';
+import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { botAdmissionOptions } from './round-worker-policy';
 setupRitewayBun();
 const env = {
@@ -54,6 +55,7 @@ test('configured bot worker policy requires an actual injected bearer producer',
         'refuse rather than silently leave configured workers inert or infer a token',
       actual: await rejectionOf(() => {
         app = createApp({
+          messagingPolicy: betaMessagingPolicy,
           env,
           fetch: async () => {
             throw Error('no network');

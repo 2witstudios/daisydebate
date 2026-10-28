@@ -3,8 +3,11 @@ import { systemId } from '@daisy/clock';
 import type { SearchParams } from '../../../features/access/decision';
 import { requireAccess } from '../../../lib/access';
 import { FriendsPage } from '../../../ui/friends/friends-page/friends-page';
-import { challengeAction, friendAction, presenceAction } from './actions';
+import { challengeAction, friendAction } from './actions';
+import { presenceAction } from './presence/actions';
 import { readFriends } from './read-friends';
+import { readPresence } from './read-presence';
+import { PresenceForm } from '../../../ui/presence/presence-form';
 import { MessageUserButton } from '../../../ui/messaging/message-user-button';
 import { createConversationAction } from '../messages/new/actions';
 
@@ -16,9 +19,10 @@ export default async function Friends({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/friends', searchParams);
+  const [list, presence] = await Promise.all([readFriends(), readPresence()]);
   return (
     <FriendsPage
-      list={await readFriends()}
+      list={list}
       friendAction={friendAction}
       challengeAction={challengeAction}
       message={(username) => (
@@ -28,7 +32,11 @@ export default async function Friends({
           action={createConversationAction.bind(null, 'dm')}
         />
       )}
-      presenceAction={presenceAction}
+      presence={
+        presence ? (
+          <PresenceForm action={presenceAction} hidden={presence.hidden} />
+        ) : null
+      }
     />
   );
 }

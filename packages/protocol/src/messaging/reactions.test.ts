@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingReactionSchemas } from './reactions';
 setupRitewayBun();
-const policy = { reactionUnits: 8, choices: ['👍', '❤️'] };
+const policy = {
+  reactionUnits: 8,
+  choices: ['👍', '❤️'],
+  distinctPerMessage: 2,
+};
 const intent = {
   version: 1,
   channelId: 'c'.repeat(24),

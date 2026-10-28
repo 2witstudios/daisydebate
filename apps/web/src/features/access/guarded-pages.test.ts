@@ -31,6 +31,7 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
+  privateGroupsOffered: () => false,
   // Settings reads the member's own onboarding answers (ISSUE-324); a
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,
@@ -109,6 +110,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/requests/[channelId]/page'),
     '(shell)/messages/requests/[channelId]/status/page.tsx': () =>
       import('../../app/(shell)/messages/requests/[channelId]/status/page'),
+    '(shell)/messages/retained/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/retained/[channelId]/page'),
     '(shell)/messages/groups/[channelId]/manage/page.tsx': () =>
       import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
     '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>

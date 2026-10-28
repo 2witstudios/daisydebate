@@ -23,8 +23,10 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     'channel.group.result',
     'channel.message.remove',
     'channel.request.cancel',
+    'channel.retained.delete',
     'channel.request.result',
     'channel.invitation.cancel',
+    'social.challenge.decline',
   ];
   const sorted = (values: readonly string[]) => [...values].sort();
   assert({
@@ -55,6 +57,7 @@ test('withdrawals never include adding, transferring authority or reading others
     'room.create',
     'room.read',
     'room.join',
+    'social.challenge.send',
   ] as const;
   assert({
     given:

@@ -25,20 +25,39 @@ export async function deleteMessageFiles(
       ),
     );
 }
-/** Only this subject's authored objects, never another member's shared files. */
+/**
+ * Deletes only `actorId`'s own files (never another member's shared ones),
+ * in `channelId` only when given, queuing each stored object's deletion
+ * through a file intent. `pendingOnly` limits it to uploads not yet
+ * attached (reserved or quarantined), which nothing could finish once the
+ * channel loses its authority.
+ */
 export async function eraseSubjectFiles(
   tx: AuthorizationTransaction,
   actorId: string,
+  channelId?: string,
+  { pendingOnly = false }: { readonly pendingOnly?: boolean } = {},
 ) {
-  if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
+  if (
+    !idSchema.safeParse(actorId).success ||
+    (channelId !== undefined && !idSchema.safeParse(channelId).success)
+  )
+    throw createAppError('VALIDATION');
+  const scope = sql.join(
+    [
+      channelId === undefined ? sql`true` : sql`channel_id = ${channelId}`,
+      pendingOnly ? sql`lifecycle in ('reserved', 'quarantined')` : sql`true`,
+    ],
+    sql` and `,
+  );
   // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
   await tx.execute(sql`
     insert into messaging_file_deletion_intents(object_key, charged_bytes)
     select object_key, reserved_bytes from messaging_files
-    where owner_actor_id = ${actorId} and lifecycle <> 'deleted'
+    where owner_actor_id = ${actorId} and ${scope} and lifecycle <> 'deleted'
   `);
   await tx.execute(
-    sql`delete from messaging_files where owner_actor_id = ${actorId}`,
+    sql`delete from messaging_files where owner_actor_id = ${actorId} and ${scope}`,
   );
 }
 export async function exportSubjectFiles(

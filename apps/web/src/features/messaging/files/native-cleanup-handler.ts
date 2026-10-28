@@ -2,11 +2,12 @@ import { createAppError } from '@daisy/errors';
 import { createMessagingFileSchemas } from '@daisy/protocol';
 import { readBytes, parseValidated } from '../../../server/http';
 import { inProcessFetch } from '../../../server/in-process-fetch';
-import { runMessagingHandler } from '../handler-boundary';
+import { runMemberHandler } from '../../../server/member-handler';
+
 /** Own pending cleanup has its dedicated canonical capability, independently of posting eligibility. */
 export function nativeFileCleanup(
   input: {
-    readonly boundary: Parameters<typeof runMessagingHandler>[0];
+    readonly boundary: Parameters<typeof runMemberHandler>[0];
     readonly maxBodyBytes: number;
     readonly bounds: { maxFileBytes: number; maxFilenameUnits: number };
     readonly cleanup: (request: Request) => Promise<Response>;
@@ -14,7 +15,7 @@ export function nativeFileCleanup(
   request: Request,
   channelId: string,
 ) {
-  return runMessagingHandler(input.boundary, request, {
+  return runMemberHandler(input.boundary, request, {
     name: 'messaging.file.discard',
     readOnly: false,
     readInput: async () => {

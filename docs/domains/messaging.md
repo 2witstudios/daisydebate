@@ -180,8 +180,11 @@ fixtures must be recreated by their owner, never assigned an inferred author.
 
 ## Public username intent discovery
 
-The account adapter exposes `lookupHumanActorByUsername(input)` for native DM
-initiation. The single portable `parseUsername` rule validates and normalizes
+The account adapter exposes `lookupHumanActorByUsername(input)`. Every feature
+reaches it only through the one username port (`discoverActor`,
+`features/account/username-discovery.ts`): DM and group requests, blocks,
+friendships and challenges each spend the member's shared
+`username-discovery:<actor>` budget once per name first (ADR 0072). The single portable `parseUsername` rule validates and normalizes
 the input before database I/O. Discovery returns only an actor ID bound to an
 existing human account with verified email and no deletion tombstone, or null.
 It returns no account profile, age, session or contact entitlement. The messaging
@@ -219,14 +222,13 @@ transport, JSON, schema-field or parser-class, and endpoint-binding error names.
 It never exposes rejected values, exception messages or bearer tickets, and
 does not relax the production content security policy.
 
-Contact safety has a native username form for block and unblock, available from
-the inbox. Both username and actor-ID routes use the same canonical safety
-operation: current subject and counterpart accounts, ordered pair fences and
-fresh participant authorization remain mandatory, while age/admission/read/post
-policies are not prerequisites. Unblocking grants neither request acceptance
-nor content access. Refused sends keep draft text and command identity; native
-browser controls exercise a blocked refusal followed by an authorized retry
-once the pair is unblocked.
+Blocking belongs to Contacts, not Messaging (ADR 0072): the native "Contact
+safety" form, reached from the inbox, posts to Contacts' own
+`/api/contacts/username` route, and `/api/contacts/block` takes an actor ID.
+Messaging only honors the pair's block when it authorizes a DM. A refused send
+keeps its draft text and command identity, and native browser controls
+exercise a blocked refusal followed by an authorized retry once the pair is
+unblocked.
 
 Private-group membership commands use one native username-intent route and the
 same transactional provider as application operations. Revoke and archive use

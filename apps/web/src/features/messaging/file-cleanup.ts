@@ -5,7 +5,7 @@ import type {
   PendingFileAuthorizationFact,
 } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 /** Current own pending cleanup is independent of reading, posting and age policy. */
 export function composeMessagingFileCleanup({
@@ -23,7 +23,7 @@ export function composeMessagingFileCleanup({
     )
       throw createAppError('AUTHORIZATION');
     const resource: PendingFileAuthorizationFact = frame.fact;
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability: 'channel.file.cleanup',
       resource,

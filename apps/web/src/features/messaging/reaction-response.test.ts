@@ -11,7 +11,7 @@ test('native reaction summary refuses foreign scope, actor lists, malformed poli
     changeVersion: 9,
     replayed: false,
     reactions: [{ reaction: '👍', count: 2, own: true }],
-    policy: { reactionUnits: 8, choices: ['👍'] },
+    policy: { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
   };
   const accepted = await readReactionResponse(
     Response.json(body),

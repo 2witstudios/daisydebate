@@ -1,5 +1,5 @@
 import { PresenceDot } from '../presence-dot/presence-dot';
-import type { PresenceStatus as Presence } from '@daisy/protocol';
+import type { FriendPresence as Presence } from '@daisy/protocol';
 import { avatarClass, type AvatarSize } from './avatar-class';
 import { initialsOf } from '../../../lib/initials';
 

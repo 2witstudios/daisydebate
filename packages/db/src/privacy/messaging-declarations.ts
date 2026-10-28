@@ -28,38 +28,6 @@ const messagingColumns = {
     ],
     none: [],
   },
-  messaging_contact_pairs: {
-    identifier: [],
-    personal: [
-      'low_actor_id',
-      'high_actor_id',
-      'low_blocks_high',
-      'high_blocks_low',
-    ],
-    none: ['revision'],
-  },
-  messaging_friendships: {
-    identifier: [],
-    personal: [
-      'low_actor_id',
-      'high_actor_id',
-      'requester_actor_id',
-      'state',
-      'requested_at',
-      'accepted_at',
-    ],
-    none: [],
-  },
-  messaging_friend_challenges: {
-    identifier: ['room_id'],
-    personal: ['challenger_actor_id', 'challenged_actor_id', 'created_at'],
-    none: [],
-  },
-  messaging_presence_settings: {
-    identifier: [],
-    personal: ['actor_id', 'hidden', 'updated_at'],
-    none: [],
-  },
   messaging_dm_pairs: {
     identifier: ['channel_id'],
     personal: [
@@ -110,6 +78,11 @@ const messagingColumns = {
       'result_channel_id',
     ],
     none: ['kind', 'created_at'],
+  },
+  messaging_retained_authors: {
+    identifier: ['channel_id'],
+    personal: ['actor_id', 'created_at'],
+    none: [],
   },
   messaging_group_invitations: {
     identifier: [],
@@ -186,6 +159,11 @@ function privacyPurpose(
   }
   if (table === 'messaging_files') {
     return 'Private attachment metadata and quota reservation';
+  }
+  if (table === 'messaging_retained_authors') {
+    // DEC-126: the explicit grant to a survivor's own retained rows, with
+    // the same retention and basis as those message bodies.
+    return 'Survivor access to own retained messages';
   }
   if (category === 'personal') {
     return 'Subject-directed private communication and social access';

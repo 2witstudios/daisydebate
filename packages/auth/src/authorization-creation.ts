@@ -54,7 +54,7 @@ function intentCurrent(
   if (actorId !== resource.initiatorActorId) return false;
   if (resource.mode === 'dm')
     return (
-      capability === 'social.request.create' &&
+      capability === 'channel.dm.request' &&
       resource.policyKey === 'social.dm' &&
       validPair(resource.contactPair, [actorId, resource.recipientActorId]) &&
       !resource.contactPair.blocked

@@ -102,7 +102,7 @@ test('composed messaging sends dedupe races and refuse protected replay after bl
       expected: before,
     });
     await client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
+      'update contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
       [fixture.low, fixture.high],
     );
     await assertRejects({

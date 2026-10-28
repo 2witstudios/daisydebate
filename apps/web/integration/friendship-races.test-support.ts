@@ -7,9 +7,10 @@ import {
   blockDependencies,
   type openMessagingFixture,
 } from './messaging-fixture.test-support';
-import { changeFriendship } from '../src/features/messaging/friends/operations';
-import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { changeFriendship } from '../src/features/friends/operations';
+import { blockContact as blockOperation } from '../src/features/contacts/block';
+import { contactPairFence } from '../src/features/contacts/authorization';
+import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
 
 export type Opened = Awaited<ReturnType<typeof openMessagingFixture>>;
 
@@ -24,16 +25,12 @@ export const friendChange =
     const clock = { now: () => fixture.now };
     return changeFriendship(principal, command, username, {
       clock,
+      ids: { next: createId },
+      limits: dec251ContactsPolicy.requests,
       limit: async () => {},
-      lookup: (name) => database.lookupHumanActorByUsername(name),
+      discover: (_actorId, name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>
-        database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
-            principal,
-            clock,
-            operation: { kind: 'friend', capability },
-          }),
-        ),
+        database.friendStore(contactPairFence({ principal, capability })),
     });
   };
 
@@ -43,7 +40,7 @@ export const blockContact = (
   principal: AuthorizationPrincipal,
   otherActorId: string,
 ) =>
-  blockMessagingContact(
+  blockOperation(
     { version: 1, requestId: createId(), otherActorId, blocked: true },
     principal,
     blockDependencies(opened, principal),
@@ -190,11 +187,11 @@ export async function seedFriendships(
   const lows = pairs.map(([low]) => low!);
   const highs = pairs.map(([, high]) => high!);
   await client.unsafe(
-    'insert into messaging_contact_pairs(low_actor_id,high_actor_id) select * from unnest($1::text[],$2::text[])',
+    'insert into contact_pairs(low_actor_id,high_actor_id) select * from unnest($1::text[],$2::text[])',
     [textArray(lows), textArray(highs)],
   );
   await client.unsafe(
-    "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4::text,$5::timestamptz,case when $4::text = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
+    "insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) select l,h,r,$4::text,$5::timestamptz,case when $4::text = 'accepted' then $5::timestamptz end from unnest($1::text[],$2::text[],$3::text[]) as t(l,h,r)",
     [
       textArray(lows),
       textArray(highs),
@@ -210,9 +207,15 @@ export async function removeMembers(client: SQL, members: readonly Member[]) {
   const actorIds = members.map((member) => member.actorId);
   const userIds = members.map((member) => member.userId);
   await client.unsafe(
-    'delete from messaging_contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
+    'delete from contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
     [textArray(actorIds)],
   );
+  // Friend requests leave DEC-251 budget rows, and blocks leave receipts, naming both members.
+  for (const table of ['social_requests', 'contact_commands'])
+    await client.unsafe(
+      `delete from ${table} where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])`,
+      [textArray(actorIds)],
+    );
   await client.unsafe('delete from actors where id = any($1::text[])', [
     textArray(actorIds),
   ]);

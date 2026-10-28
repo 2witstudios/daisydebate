@@ -5,10 +5,12 @@ function MessageRow({
   message,
   actorId,
   channelId,
+  otherAuthor,
 }: {
   readonly channelId: string;
   readonly message: Message;
   readonly actorId: string | null;
+  readonly otherAuthor: string;
 }) {
   return (
     <li className="rounded-lg border border-border bg-surface-raised p-4">
@@ -17,7 +19,7 @@ function MessageRow({
       ) : (
         <>
           <p className="mb-2 text-xs text-ink-muted">
-            {message.authorActorId === actorId ? 'You' : 'Participant'} ·{' '}
+            {message.authorActorId === actorId ? 'You' : otherAuthor} ·{' '}
             <time dateTime={message.createdAt}>
               {message.createdAt.replace('T', ' ').replace('.000Z', ' UTC')}
             </time>
@@ -59,10 +61,13 @@ export function MessageHistory({
   history,
   actorId,
   searchQuery,
+  otherAuthor = 'Member',
 }: {
   readonly searchQuery?: string;
   readonly history: MessagingConversation;
   readonly actorId: string | null;
+  /** Who wrote messages that are not the reader's: a DM's @username (ISSUE-605). */
+  readonly otherAuthor?: string;
 }) {
   return (
     <>
@@ -80,6 +85,7 @@ export function MessageHistory({
               message={message}
               actorId={actorId}
               channelId={history.channelId}
+              otherAuthor={otherAuthor}
             />
           ))}
         </ol>

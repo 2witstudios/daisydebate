@@ -4,7 +4,7 @@ import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
 import { readJson } from '../../server/http';
-import { runMessagingHandler } from './handler-boundary';
+import { runMemberHandler } from '../../server/member-handler';
 
 type Operation = (
   input: unknown,
@@ -36,7 +36,7 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     >,
     input: () => Promise<unknown>,
   ) =>
-    runMessagingHandler(dependencies, request, {
+    runMemberHandler(dependencies, request, {
       name: `messaging.${operation}`,
       readOnly:
         operation === 'history' ||

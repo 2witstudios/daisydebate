@@ -1,82 +1,48 @@
+import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
-import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../../server/rate-limit';
+import { readJson } from '../../server/http';
+import { appDiscoverActor } from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+
 import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';
-import { composeMessagingBlockOperation } from './block-composition';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 export function composeMessagingCreationIntentRoutes(app: App) {
-  const run = (request: Request, kind: 'dm' | 'private_group' | 'block') => {
+  const run = (request: Request, kind: 'dm' | 'private_group') => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     const schemas = createMessagingSocialSchemas(social.bounds);
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name: `messaging.${kind}.username`,
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),
       operation: async (input, principal) => {
-        const block =
-          kind === 'block'
-            ? parseValidated(schemas.blockUsername, input)
-            : null;
+        // Before any username lookup or limiter: groups are off (ISSUE-643).
+        if (kind === 'private_group') requirePrivateGroups(policy);
         const command = await resolveMessagingCreationIntent(
-          kind === 'block' ? 'dm' : kind,
-          block
-            ? {
-                version: block.version,
-                requestId: block.requestId,
-                recipientUsername: block.recipientUsername,
-              }
-            : input,
+          kind,
+          input,
           principal,
           {
             bounds: social.bounds,
-            lookup: (username) =>
-              app.database.lookupHumanActorByUsername(username),
-            limit: (actorId) =>
-              consumeOrThrow(
-                app.limiter,
-                `messaging:discovery:${actorId}`,
-                social.abuse,
-              ),
+            discover: appDiscoverActor(app),
           },
         );
-        const result =
-          kind === 'block' && block
-            ? await composeMessagingBlockOperation(app)(
-                {
-                  version: block.version,
-                  requestId: block.requestId,
-                  otherActorId:
-                    'recipientActorId' in command
-                      ? command.recipientActorId
-                      : undefined,
-                  blocked: block.blocked,
-                },
-                principal,
-              )
-            : await composeMessagingCreationOperation(
-                app,
-                kind === 'block' ? 'dm' : kind,
-              )(command, principal);
-        return (
-          kind === 'block'
-            ? schemas.blockResult
-            : kind === 'dm'
-              ? schemas.dmResult
-              : schemas.groupResult
-        ).parse({ version: 1, ...result });
+        const result = await composeMessagingCreationOperation(app, kind)(
+          command,
+          principal,
+        );
+        return (kind === 'dm' ? schemas.dmResult : schemas.groupResult).parse({
+          version: 1,
+          ...result,
+        });
       },
     });
   };
   return {
-    blockByUsername: (request: Request) => run(request, 'block'),
     requestByUsername: (request: Request) => run(request, 'dm'),
     createGroupByUsername: (request: Request) => run(request, 'private_group'),
   };

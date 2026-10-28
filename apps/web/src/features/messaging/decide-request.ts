@@ -1,3 +1,4 @@
+import type { SocialRequestLimits } from '@daisy/db';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
@@ -5,8 +6,9 @@ import {
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
-import { requireMessagingActor } from './principal';
+
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 const resultStates = {
   accept: 'accepted',
   decline: 'declined',
@@ -17,9 +19,11 @@ const resultStates = {
 export async function decideMessagingDm(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: SocialOperationDependencies<MessagingDmStore>,
+  dependencies: SocialOperationDependencies<MessagingDmStore> & {
+    readonly limits: SocialRequestLimits;
+  },
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const command = parseSocialCommand(
     dependencies.bounds,
     input,
@@ -36,14 +40,21 @@ export async function decideMessagingDm(
       const replay = replayDecision(command, state, digest);
       if (replay) return replay;
       if (state.state !== 'pending') throw createAppError('AUTHORIZATION');
-      await dependencies.limit(actorId);
       const now = dependencies.clock.now();
       if (
         !Number.isFinite(Date.parse(now)) ||
         Date.parse(now) < Date.parse(state.requestedAt)
       )
         throw createAppError('VALIDATION');
-      return frame.commitDecision({ ...command, digest, now });
+      // As send and block do: replays never spend the limiter; a new
+      // decision spends it before the commit's own checks.
+      await dependencies.limit(actorId);
+      return frame.commitDecision({
+        ...command,
+        digest,
+        now,
+        limits: dependencies.limits,
+      });
     },
   );
 }

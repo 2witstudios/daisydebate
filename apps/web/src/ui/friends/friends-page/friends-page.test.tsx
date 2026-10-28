@@ -8,7 +8,6 @@ setupRitewayBun();
 
 const at = '2026-10-26T18:00:00.000Z';
 const action = async () => ({ username: '' });
-const presenceAction = async () => ({});
 const noop = () => {};
 const router = {
   bfcacheId: 'test',
@@ -19,7 +18,14 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
+const render = (
+  list: Parameters<typeof FriendsPage>[0]['list'],
+  presence: Parameters<typeof FriendsPage>[0]['presence'] = h(
+    'p',
+    null,
+    'Presence control',
+  ),
+) =>
   renderInStore(
     h(
       AppRouterContext,
@@ -30,7 +36,7 @@ const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
         challengeAction: action,
         message: (username: string) =>
           h('button', { type: 'submit' }, `Message @${username}`),
-        presenceAction,
+        presence,
       }),
     ),
   );
@@ -39,7 +45,6 @@ describe('FriendsPage', () => {
   test('friends online first, with requests both ways and what you can do', () => {
     const html = render({
       version: 1,
-      hidden: false,
       friends: [
         { username: 'ada', presence: 'online' },
         { username: 'cat', presence: 'offline' },
@@ -99,7 +104,6 @@ describe('FriendsPage', () => {
   test('a member with no friends sees how to add one', () => {
     const html = render({
       version: 1,
-      hidden: true,
       friends: [],
       incoming: [],
       outgoing: [],
@@ -108,12 +112,12 @@ describe('FriendsPage', () => {
     assert({
       given: 'an empty list',
       should:
-        'invite adding a friend by username with a native form, and offer showing a hidden status',
+        'invite adding a friend by username with a native form, and show Presence’s own status control',
       actual: [
         html.includes('Add a friend by username'),
         html.includes('name="username"'),
         html.includes('>Your friends</h2>'),
-        html.includes('Show my online status'),
+        html.includes('Presence control'),
       ],
       expected: [true, true, false, true],
     });

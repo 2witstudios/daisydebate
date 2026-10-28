@@ -12,6 +12,7 @@ const policy = {
   maxFilenameUnits: 40,
   maxImagePixels: 100,
   serviceMs: 100,
+  maxUploadsPerDay: 20,
 };
 test('file policy is explicit and has no missing or invalid production defaults', async () => {
   for (const input of [

@@ -27,6 +27,7 @@ test('protected history and changes preserve bounded pagination and authority-on
     [row(2, 6), row(3, 7)],
     [row(3, 7)],
     [[3]],
+    [[1n, '9']], // the reader's own inbox doorbell (ISSUE-603)
   ]);
   let authorizations = 0;
   const frame = channelReadFrame(
@@ -70,7 +71,9 @@ test('protected history and changes preserve bounded pagination and authority-on
     actual: [
       queries[0]?.query.includes('strpos(lower('),
       queries[0]?.params.includes(channelId),
-      queries[3]?.query.includes('greatest('),
+      queries[3]?.query.includes(
+        'where "messaging_actor_states"."read_sequence" <',
+      ),
       queries[3]?.query
         .split('do update set')[1]
         ?.includes('notification_level'),

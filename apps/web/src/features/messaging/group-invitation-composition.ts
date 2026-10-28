@@ -8,7 +8,7 @@ import type {
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 const capabilities = {
   read: 'channel.invitation.read',
   result: 'channel.invitation.result',
@@ -64,7 +64,7 @@ export function composeMessagingGroupInvitationStore({
             now,
           )
         : undefined;
-    requireMessagingAuthorization({
+    requireAuthorization({
       principal,
       capability: capabilities[operation],
       resource,

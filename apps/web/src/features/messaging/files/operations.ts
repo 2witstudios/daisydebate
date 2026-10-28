@@ -9,12 +9,13 @@ import {
 } from '@daisy/db/messaging-files';
 import { createMessagingFileSchemas } from '@daisy/protocol';
 import { createAppError, isAppError } from '@daisy/errors';
-import { requireMessagingActor } from '../principal';
+
 import { parseValidated } from '../../../server/http';
 import { requireFileSignature } from './content';
 import { requireFileAttempt } from './attempt';
 import { sameFileBytes } from './same-bytes';
 import type { FileScanner, ImageSanitizer, PrivateObjectStore } from './ports';
+import { requireMemberActor } from '../../access/actor';
 export type FileDependencies = {
   readonly policy: FilePolicy | undefined;
   readonly store: FileStore;
@@ -45,7 +46,7 @@ async function cleanupPending(
 }
 function context(principal: AuthorizationPrincipal, d: FileDependencies) {
   return {
-    identity: requireMessagingActor(principal),
+    identity: requireMemberActor(principal),
     policy: requireFilePolicy(d.policy),
   };
 }

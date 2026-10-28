@@ -1,8 +1,5 @@
 export type { PrivacyExport, PrivacyAdopter } from './contracts';
-export {
-  messagingPrivacyFields,
-  messagingPrivacyExpectedColumns,
-} from './messaging-declarations';
+export { messagingPrivacyFields } from './messaging-declarations';
 export {
   betaAccessPrivacyAdopter,
   betaAccessPrivacyExpectedColumns,

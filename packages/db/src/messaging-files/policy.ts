@@ -19,6 +19,7 @@ export function requireFilePolicy(policy: FilePolicy | undefined): FilePolicy {
     'maxFilenameUnits',
     'maxImagePixels',
     'serviceMs',
+    'maxUploadsPerDay',
   ];
   if (
     keys.some((key) => !Number.isSafeInteger(policy[key]) || policy[key] <= 0)

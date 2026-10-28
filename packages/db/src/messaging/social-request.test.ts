@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { dmRequestFrame } from './social-request';
+import { contactReactions } from '../contact-composition';
 setupRitewayBun();
 import {
   peerId,
@@ -13,11 +14,12 @@ import {
   pair,
   command,
   request,
+  budget,
 } from './social-request.test-support';
 test('a new admitted DM persists pending authority once and emits only content-free invalidations', async () => {
   const { client, queries } = fakeSql([
     [],
-    [[0, 0]],
+    budget(),
     [],
     [],
     [[1, '9']],
@@ -29,9 +31,15 @@ test('a new admitted DM persists pending authority once and emits only content-f
     [],
   ]);
   let admitted = 0;
-  const frame = dmRequestFrame(drizzle({ client }), input, [pair], async () => {
-    admitted += 1;
-  });
+  const frame = dmRequestFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {
+      admitted += 1;
+    },
+    contactReactions.relations,
+  );
   const result = await frame.commitDmRequest(command);
   const inserts = queries.filter((entry) =>
     entry.query.startsWith('insert into'),
@@ -48,7 +56,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
     actual: [
       result,
       admitted,
-      inserts.map((entry) => entry.query.match(/insert into "([^"]+)"/)?.[1]),
+      inserts.map((entry) => entry.query.match(/insert into "?([a-z_]+)/)?.[1]),
       bells,
     ],
     expected: [
@@ -60,6 +68,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
         'outbox',
         'outbox',
         'outbox',
+        'social_requests',
         'messaging_social_commands',
       ],
       [
@@ -82,33 +91,18 @@ test('a new admitted DM persists pending authority once and emits only content-f
     expected: [true, false],
   });
 });
-for (const state of ['pending', 'accepted'])
-  test(`existing ${state} pair converges without replacing authority`, async () => {
-    const { client, queries } = fakeSql([[request(state)], []]);
-    const frame = dmRequestFrame(
-      drizzle({ client }),
-      input,
-      [pair],
-      async () => {},
-    );
-    assert({
-      given: `an existing ${state} DM`,
-      should:
-        'return the durable channel and bind the new request receipt without creating channels or renewing pair state',
-      actual: [
-        await frame.commitDmRequest(command),
-        queries.map((entry) => entry.query.split(' ')[0]),
-        queries.at(-1)?.params.includes(channelId),
-      ],
-      expected: [{ channelId, state }, ['select', 'insert'], true],
-    });
-  });
 test('authority loss, pair ambiguity and policy drift refuse before request mutation', async () => {
   const { client, queries } = fakeSql([]),
     tx = drizzle({ client });
-  const denied = dmRequestFrame(tx, input, [pair], async () => {
-    throw createAppError('AUTHORIZATION');
-  });
+  const denied = dmRequestFrame(
+    tx,
+    input,
+    [pair],
+    async () => {
+      throw createAppError('AUTHORIZATION');
+    },
+    contactReactions.relations,
+  );
   for (const operation of [
     () => denied.readDmRequest(),
     () => denied.commitDmRequest(command),
@@ -123,7 +117,13 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     given: 'a stale policy revision',
     should: 'refuse before pair read',
     actual: () =>
-      dmRequestFrame(tx, input, [pair], async () => {}).commitDmRequest({
+      dmRequestFrame(
+        tx,
+        input,
+        [pair],
+        async () => {},
+        contactReactions.relations,
+      ).commitDmRequest({
         ...command,
         policyRevision: 2,
       }),
@@ -133,7 +133,13 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     given: 'more than one pair for a DM command',
     should: 'refuse ambiguous authority',
     actual: () =>
-      dmRequestFrame(tx, input, [pair, pair], async () => {}).readDmRequest(),
+      dmRequestFrame(
+        tx,
+        input,
+        [pair, pair],
+        async () => {},
+        contactReactions.relations,
+      ).readDmRequest(),
     code: 'VALIDATION',
   });
   assert({
@@ -143,54 +149,101 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     expected: 0,
   });
 });
-for (const counts of [[], [[3, 0]], [[0, 5]]])
-  test(`request limits refuse ${JSON.stringify(counts)} before inserts`, async () => {
-    const { client, queries } = fakeSql([[], counts]);
+for (const [facts, code] of [
+  [[], 'INFRASTRUCTURE'],
+  [budget({ declined: true }), 'AUTHORIZATION'],
+  [budget({ daily: 20 }), 'RATE_LIMIT'],
+  [budget({ hourly: 5 }), 'RATE_LIMIT'],
+] as const)
+  test(`a ${code} budget read refuses before any write`, async () => {
+    const { client, queries } = fakeSql([[], facts]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
-      given: 'missing count facts or an exhausted pending/new pair bound',
-      should: 'refuse without creating personal pair history',
+      given:
+        'missing budget facts, a decline block, a spent day or a spent unrelated hour',
+      should:
+        'refuse a block as a block is refused, and an exhausted budget as a rate limit',
       actual: () => frame.commitDmRequest(command),
-      code: 'RATE_LIMIT',
+      code,
     });
     assert({
-      given: 'request refusal',
-      should: 'perform reads only',
+      given: 'the refused request',
+      should: 'perform reads only, leaving no pair history or ledger row',
       actual: queries.every((entry) => entry.query.startsWith('select')),
       expected: true,
     });
   });
-test('a recently decided pair preserves cooldown and malformed limits never query counts', async () => {
-  for (const [current, next, code] of [
-    [request('declined', new Date(now)), command, 'RATE_LIMIT'],
-    [
-      request('cancelled', new Date('2026-10-09T17:00:00Z')),
-      { ...command, now: 'invalid' },
-      'VALIDATION',
-    ],
-    [
-      null,
-      { ...command, limits: { ...command.limits, maxPending: 0 } },
-      'VALIDATION',
-    ],
-  ] as const) {
-    const { client, queries } = fakeSql([current ? [current] : []]);
+test('committing an existing DM without the screen is refused (DEC-251)', async () => {
+  const { client, queries } = fakeSql([[request('accepted')]]);
+  await assertRejects({
+    given: 'an accepted DM committed directly',
+    should: 'refuse it rather than converge a second way',
+    actual: () =>
+      dmRequestFrame(
+        drizzle({ client }),
+        input,
+        [pair],
+        async () => {},
+        contactReactions.relations,
+      ).commitDmRequest(command),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the refused commit',
+    should: 'read the pair only, never the budget ledger or declines',
+    actual: queries.map((entry) => entry.query.split(/\s/)[0]),
+    expected: ['select'],
+  });
+});
+test('a declined DM is no convergence: the commit spends the budget and refuses an exhausted unrelated hour', async () => {
+  const { client, queries } = fakeSql([
+    [request('declined', new Date(now))],
+    budget({ hourly: 5, daily: 19 }),
+  ]);
+  await assertRejects({
+    given: 'a declined DM asked again with the unrelated hour spent',
+    should: 'refuse it as rate limited rather than as a convergence',
+    actual: () =>
+      dmRequestFrame(
+        drizzle({ client }),
+        input,
+        [pair],
+        async () => {},
+        contactReactions.relations,
+      ).commitDmRequest(command),
+    code: 'RATE_LIMIT',
+  });
+  assert({
+    given: 'the refusal',
+    should: 'perform reads only',
+    actual: queries.every((entry) => entry.query.startsWith('select')),
+    expected: true,
+  });
+});
+test('malformed time or limits never query the budget', async () => {
+  for (const next of [
+    { ...command, now: 'invalid' },
+    { ...command, limits: { ...command.limits, daily: 0 } },
+  ]) {
+    const { client, queries } = fakeSql([[]]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
-      given: 'cooldown or invalid time/bounds',
+      given: 'an invalid time or a zero budget',
       should: 'refuse without counts or writes',
       actual: () => frame.commitDmRequest(next),
-      code,
+      code: 'VALIDATION',
     });
     assert({
       given: 'the refused request',

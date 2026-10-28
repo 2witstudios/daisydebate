@@ -6,8 +6,8 @@ import type {
 } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
-import { requireMessagingActor } from './principal';
-import { requireMessagingAuthorization } from './authorization';
+
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
@@ -20,6 +20,7 @@ import {
   summarizeMessagingInboxEntry,
   type MessagingInboxEntry,
 } from './inbox';
+import { requireMemberActor } from '../access/actor';
 export function composeMessagingInbox(input: {
   readonly database: Database;
   readonly principal: AuthorizationPrincipal;
@@ -27,10 +28,10 @@ export function composeMessagingInbox(input: {
   readonly postingPolicy: SocialContactPolicy;
   readonly readingPolicy: MessagingReadingPolicy;
 }) {
-  const actor = requireMessagingActor(input.principal);
+  const actor = requireMemberActor(input.principal);
   const store = input.database.messagingInboxStore(
     async ({ scope, account }) => {
-      requireMessagingAuthorization({
+      requireAuthorization({
         principal: input.principal,
         capability: 'channel.inbox.read',
         resource: {
@@ -79,6 +80,8 @@ export function composeMessagingInbox(input: {
         ),
     });
   return {
+    /** One channel's entry under the same fresh authority as the inbox. */
+    entry: inspectChannel,
     read: (page: { readonly limit: number; readonly after?: string }) =>
       readMessagingInbox(page, {
         candidates: (query) => store.candidates({ ...actor, ...query }),

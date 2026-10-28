@@ -4,6 +4,12 @@ import { createAppError } from '@daisy/errors';
 import { createMessagingDmStore } from './dm-store';
 import { channelWire } from './channel-wire.test-support';
 setupRitewayBun();
+const limits = {
+  daily: 20,
+  unrelatedHourly: 5,
+  declinesToBlock: 3,
+  declineBlockMs: 2_592_000_000,
+};
 const requestId = 'r'.repeat(24),
   now = '2026-10-09T18:00:00.000Z';
 const row = [
@@ -52,6 +58,8 @@ test('request decisions require observation and matching operation before writes
     [{ fact }],
     [[f.scope.channelId]],
     [],
+    // An acceptance clears the pair's declines (DEC-251).
+    [],
     [],
     [[1, '7']],
     [],
@@ -69,7 +77,12 @@ test('request decisions require observation and matching operation before writes
       given: 'no observed decision',
       should: 'refuse blind commit',
       actual: () =>
-        frame.commitDecision({ ...command, digest: 'd'.repeat(64), now }),
+        frame.commitDecision({
+          ...command,
+          digest: 'd'.repeat(64),
+          now,
+          limits,
+        }),
       code: 'CONFLICT',
     });
     const state = await frame.readDecisionState(command);
@@ -82,6 +95,7 @@ test('request decisions require observation and matching operation before writes
           decision: 'decline',
           digest: 'd'.repeat(64),
           now,
+          limits,
         }),
       code: 'CONFLICT',
     });
@@ -89,12 +103,18 @@ test('request decisions require observation and matching operation before writes
       ...command,
       digest: 'd'.repeat(64),
       now,
+      limits,
     });
     await assertRejects({
       given: 'an already consumed observation',
       should: 'refuse another blind write',
       actual: () =>
-        frame.commitDecision({ ...command, digest: 'd'.repeat(64), now }),
+        frame.commitDecision({
+          ...command,
+          digest: 'd'.repeat(64),
+          now,
+          limits,
+        }),
       code: 'CONFLICT',
     });
     assert({

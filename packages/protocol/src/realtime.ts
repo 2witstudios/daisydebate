@@ -120,18 +120,6 @@ export const realtimeRequestIdSchema = z.string().min(1).max(128);
 
 export const presenceActivitySchema = z.enum(['active', 'idle']);
 export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
-/**
- * The one projected presence status vocabulary: what a
- * `round:<id>:presence` topic's projected value reports for each actor,
- * and what the UI's presence dot renders.
- */
-export const presenceStatuses = [
-  'in-debate',
-  'online',
-  'away',
-  'offline',
-] as const;
-export type PresenceStatus = (typeof presenceStatuses)[number];
 
 /**
  * The socket accepts exactly these five inbound types (ADR 0031 §4).

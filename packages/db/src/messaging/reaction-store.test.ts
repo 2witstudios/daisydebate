@@ -5,7 +5,7 @@ import { channelWire } from './channel-wire.test-support';
 import { createMessagingReactionStore } from './reaction-store';
 setupRitewayBun();
 const messageId = 'm'.repeat(24),
-  policy = { reactionUnits: 8, choices: ['👍'] };
+  policy = { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 };
 test('reaction store extends ordered authority discovery with scoped metadata on the same transaction handle', async () => {
   const f = channelWire([
     [{ id: messageId }],

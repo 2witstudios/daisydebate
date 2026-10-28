@@ -14,7 +14,11 @@ const command = {
   reaction: '👍',
   active: true,
 };
-const policy = { reactionUnits: 8, choices: ['👍', '❤️'] };
+const policy = {
+  reactionUnits: 8,
+  choices: ['👍', '❤️'],
+  distinctPerMessage: 2,
+};
 const digest = '1'.repeat(64);
 const message = {
   id: command.messageId,
@@ -94,6 +98,7 @@ test('adding and removing an own reaction atomically advance changes and emit on
       [message],
       active ? [] : [own],
       [],
+      ...(active ? [[{ count: 1 }]] : []),
       [{ actorId: scope.actorId }],
       [{ id: scope.channelId }],
       [{ id: command.messageId }],
@@ -293,3 +298,29 @@ function readableFrame(client: ReturnType<typeof fakeSql>['client']) {
   );
   return { frame, guards };
 }
+
+test('a member at the distinct reaction cap cannot add another (DEC-251)', async () => {
+  const { client, queries } = fakeSql([[message], [], [], [{ count: 2 }]]);
+  const frame = channelReactionFrame(
+    drizzle({ client }),
+    scope,
+    8,
+    policy,
+    async () => {},
+  );
+  await assertRejects({
+    given:
+      'a member already holding the policy’s distinct reactions on a message',
+    should: 'refuse a further distinct reaction',
+    actual: () => frame.change({ ...command, active: true }, digest),
+    code: 'VALIDATION',
+  });
+  assert({
+    given: 'the refused addition',
+    should: 'write no reaction',
+    actual: queries.some((q) =>
+      q.query.includes('insert into messaging_reactions'),
+    ),
+    expected: false,
+  });
+});

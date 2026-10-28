@@ -14,6 +14,7 @@ export async function readReactionResponse(
       .strictObject({
         reactionUnits: z.number().int().positive().safe(),
         choices: z.array(z.string()).nonempty(),
+        distinctPerMessage: z.number().int().positive().safe(),
       })
       .parse(z.object({ policy: z.unknown() }).parse(body).policy);
     const schemas = createMessagingReactionSchemas(policy);

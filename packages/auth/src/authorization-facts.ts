@@ -1,3 +1,4 @@
+import type { MessagingChannelLifecycle } from '@daisy/protocol';
 import type {
   AuthorizationCapability,
   AuthorizationDenyReason,
@@ -84,7 +85,7 @@ export type ChannelAuthorizationFact = {
   readonly channelId: string;
   readonly policyKey: string;
   readonly policyRevision: number;
-  readonly lifecycle: 'active' | 'archived';
+  readonly lifecycle: MessagingChannelLifecycle;
   readonly revision: number;
   readonly authority:
     | {
@@ -232,6 +233,16 @@ export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
   readonly actorId: string;
 };
+/** A member's own friend list and challenges (ADR 0072), never another's. */
+type FriendCollectionAuthorizationFact = {
+  readonly kind: 'friend_collection';
+  readonly actorId: string;
+};
+/** A member's own presence visibility setting (ADR 0072). */
+type PresenceSettingAuthorizationFact = {
+  readonly kind: 'presence_setting';
+  readonly actorId: string;
+};
 /**
  * A member's own profile history, private Rounds included (ISSUE-600):
  * the subject is the member whose profile is read.
@@ -250,6 +261,8 @@ export type AuthorizationInput = {
     | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
+    | FriendCollectionAuthorizationFact
+    | PresenceSettingAuthorizationFact
     | MemberHistoryAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact

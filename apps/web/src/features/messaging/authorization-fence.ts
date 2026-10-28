@@ -14,7 +14,7 @@ import type { Clock } from '@daisy/clock';
 import type { MessagingAuthorizationFence } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 type PolicyInput = {
   readonly channel: ChannelAuthorizationFact;
@@ -80,7 +80,7 @@ export function messagingAuthorizationFence(
   options: FenceOptions & { readonly capability: AuthorizationCapability },
 ): MessagingAuthorizationFence {
   return async (tx, input, frame) =>
-    requireMessagingAuthorization({
+    requireAuthorization({
       ...(await loadMessagingAuthorizationInput(tx, input, frame, options)),
       capability: options.capability,
     });

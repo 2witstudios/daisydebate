@@ -38,18 +38,19 @@ test('native own-message fields retain escaped drafts and explicit removal while
   assert({
     given: 'refused draft and pending/completed navigation states',
     should:
-      'escape content, retain request/text/notice, provide an explicit hidden edit intent, and disable pending submission',
+      'escape content, retain request/text/notice, count instead of truncating, provide an explicit hidden edit intent, and disable pending submission',
     actual: [
       ready.includes('&lt;script&gt;private draft&lt;/script&gt;'),
       ready.includes('name="operation" value="edit"'),
       removal.includes('name="operation" value="remove"'),
       removal.includes('formNoValidate=""'),
       ready.includes('Your message could not be changed.'),
-      ready.toLowerCase().includes('maxlength="100"'),
+      ready.toLowerCase().includes('maxlength'),
+      ready.includes('30 / 100 characters'),
       ready.includes('disabled=""'),
       (waiting.match(/disabled=""/g) ?? []).length,
     ],
-    expected: [true, true, true, true, true, true, false, 2],
+    expected: [true, true, true, true, true, false, true, false, 2],
   });
 });
 test('native reactions keep false cleanup intent distinct from addition and escape untrusted displayed choices', () => {

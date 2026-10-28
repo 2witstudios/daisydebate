@@ -1,18 +1,19 @@
+import { requirePrivateGroups } from './private-groups';
 import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../../server/rate-limit';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
+
 import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import {
   readMessagingGroupInvitation,
   decideMessagingGroupInvitation,
 } from './group-invitation';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 /** Refusal and minimal reads do not depend on group admission approval. */
 export function composeMessagingGroupInvitationRoutes(app: App) {
   const run = (
@@ -21,9 +22,8 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+      social = policy.social;
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name: `messaging.invitation.${mode}`,
       readOnly: mode === 'read',
       readInput:
@@ -36,11 +36,11 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
             createMessagingSocialSchemas(social.bounds).decideGroupInvitation,
             input,
           );
-          if (
-            command.decision === 'accept' &&
-            social.groupAdmission?.state !== 'approved'
-          )
-            throw createAppError('INFRASTRUCTURE');
+          if (command.decision === 'accept') {
+            requirePrivateGroups(policy);
+            if (social.groupAdmission?.state !== 'approved')
+              throw createAppError('INFRASTRUCTURE');
+          }
         }
         const dependencies = {
           store: composeMessagingGroupInvitationStore({
@@ -54,7 +54,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
           bounds: social.bounds,
           clock: app.clock,
           limit: (actorId: string) =>
-            consumeOrThrow(
+            consumeWindowsOrThrow(
               app.limiter,
               `messaging:social:${actorId}`,
               social.abuse,

@@ -30,11 +30,10 @@ for (const kind of ['dm', 'private_group'] as const) {
       principal,
       {
         bounds,
-        limit: async () => {
-          calls.push('limit');
-        },
-        lookup: async (username) => {
-          calls.push(username);
+        discover: async (actorId, username) => {
+          calls.push(
+            `${actorId === principal.actorId ? 'me' : actorId}:${username}`,
+          );
           return username === 'peer_one' ? 'b'.repeat(24) : 'c'.repeat(24);
         },
       },
@@ -42,13 +41,10 @@ for (const kind of ['dm', 'private_group'] as const) {
     assert({
       given: 'normalized username intent after the actor boundary',
       should:
-        'discover minimal actor IDs after rate limiting without creating membership',
+        'discover each name through the member’s discovery port, once per name, without creating membership',
       actual: { calls, result },
       expected: {
-        calls:
-          kind === 'dm'
-            ? ['limit', 'peer_one']
-            : ['limit', 'peer_one', 'peer-two'],
+        calls: kind === 'dm' ? ['me:peer_one'] : ['me:peer_one', 'me:peer-two'],
         result:
           kind === 'dm'
             ? {
@@ -71,11 +67,8 @@ test('username intent refuses invalid input and identity before lookup and leave
   const calls: string[] = [];
   const deps = {
     bounds,
-    limit: async () => {
-      calls.push('limit');
-    },
-    lookup: async () => {
-      calls.push('lookup');
+    discover: async () => {
+      calls.push('discover');
       return null;
     },
   };
@@ -133,5 +126,38 @@ test('username intent refuses invalid input and identity before lookup and leave
         deps,
       ),
     code: 'AUTHORIZATION',
+  });
+});
+
+test('a group by usernames larger than one discovery window is refused before any lookup', async () => {
+  const calls: string[] = [];
+  await assertRejects({
+    given: 'eleven usernames, one more than discovery’s ten-second window',
+    should: 'refuse as invalid without spending discovery on any name',
+    actual: () =>
+      resolveMessagingCreationIntent(
+        'private_group',
+        {
+          version: 1,
+          requestId,
+          title: 'Group',
+          invitedUsernames: Array.from({ length: 11 }, (_, i) => `peer${i}x`),
+        },
+        principal,
+        {
+          bounds: { ...bounds, batchActors: 50 },
+          discover: async () => {
+            calls.push('discover');
+            return 'b'.repeat(24);
+          },
+        },
+      ),
+    code: 'VALIDATION',
+  });
+  assert({
+    given: 'the refused batch',
+    should: 'have looked up no name',
+    actual: calls,
+    expected: [],
   });
 });

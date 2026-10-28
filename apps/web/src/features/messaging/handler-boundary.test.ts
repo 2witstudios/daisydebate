@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { evaluatedIdentity } from './handler-boundary';
+import { evaluatedIdentity } from '../../server/member-handler';
 
 setupRitewayBun();
 

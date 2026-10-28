@@ -115,7 +115,7 @@ test('creation persists only after observing absent receipt and fresh account/pa
       { channelId, lifecycle: 'active' },
       ['create'],
       [
-        'messaging_contact_pairs',
+        'contact_pairs',
         'messaging_channels',
         'messaging_group_grants',
         'messaging_group_invitations',
@@ -171,7 +171,7 @@ test('canonical admission refusal stops durable group/receipt/outbox writes', as
     actual: queries
       .filter((q) => q.query.startsWith('insert into'))
       .map((q) => q.query.match(/insert into "([^"]+)"/)?.[1]),
-    expected: ['messaging_contact_pairs'],
+    expected: ['contact_pairs'],
   });
 });
 

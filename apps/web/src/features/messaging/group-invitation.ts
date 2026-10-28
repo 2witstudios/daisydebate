@@ -7,9 +7,10 @@ import {
   messagingGroupInvitationResultSchema,
   type MessagingSocialBounds,
 } from '@daisy/protocol';
-import { requireMessagingActor } from './principal';
+
 import { parseValidated } from '../../server/http';
 import { messagingSocialDigest } from './social-command-digest';
+import { requireMemberActor } from '../access/actor';
 type Dependencies = {
   readonly store: MessagingGroupInvitationStore;
   readonly bounds: MessagingSocialBounds;
@@ -26,7 +27,7 @@ export function readMessagingGroupInvitation(
   principal: AuthorizationPrincipal,
   dependencies: Pick<Dependencies, 'store' | 'bounds'>,
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const command = parseValidated(
     createMessagingSocialSchemas(dependencies.bounds).readGroupInvitation,
     input,
@@ -49,7 +50,7 @@ export async function decideMessagingGroupInvitation(
   principal: AuthorizationPrincipal,
   dependencies: Dependencies,
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const schemas = createMessagingSocialSchemas(dependencies.bounds);
   const command =
     kind === 'cancel'

@@ -1,4 +1,4 @@
-import type { PresenceStatus as Presence } from '@daisy/protocol';
+import type { FriendPresence as Presence } from '@daisy/protocol';
 import { presenceDotClass } from './presence-dot-class';
 
 export type PresenceDotProps = {

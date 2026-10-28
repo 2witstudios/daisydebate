@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
-import { messagingTextSchema } from './core';
+import {
+  messagingBetaLimits,
+  messagingTextSchema,
+  parseMessagingBound,
+} from './core';
 import { usernameSchema as recipientUsername } from '../username';
 
 export type MessagingSocialBounds = Readonly<{
@@ -25,11 +29,18 @@ export const messagingGroupInvitationResultSchema = z.strictObject({
   state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
 });
 
-export const messagingContactBlockResultSchema = z.strictObject({
-  version: z.literal(1),
-  blocked: z.boolean(),
-  revision: z.number().int().positive().safe(),
-});
+/**
+ * A channel's lifecycle. `retained` is a DM whose other member was erased:
+ * only its survivor's own rows remain, readable by them alone (DEC-126).
+ */
+export const messagingChannelLifecycles = [
+  'active',
+  'archived',
+  'retained',
+] as const;
+export type MessagingChannelLifecycle =
+  (typeof messagingChannelLifecycles)[number];
+
 export const messagingGroupCreationResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,
@@ -38,7 +49,12 @@ export const messagingGroupCreationResultSchema = z.strictObject({
 
 /** Actor comes from the principal; contact facts never come from a command. */
 export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
-  z.number().int().positive().safe().parse(bounds.batchActors);
+  parseMessagingBound(bounds.batchActors, messagingBetaLimits.batchActors);
+  parseMessagingBound(
+    bounds.introductionUnits,
+    messagingBetaLimits.introductionUnits,
+  );
+  parseMessagingBound(bounds.titleUnits, messagingBetaLimits.titleUnits);
   const command = { version: z.literal(1), requestId: idSchema };
   const scoped = { ...command, channelId: idSchema };
   const generation = z.number().int().positive().safe();
@@ -56,17 +72,6 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       senderActorId: idSchema,
       introduction: messagingTextSchema(bounds.introductionUnits).nullable(),
       requestedAt: z.iso.datetime(),
-    }),
-    blockResult: messagingContactBlockResultSchema,
-    blockUsername: z.strictObject({
-      ...command,
-      recipientUsername,
-      blocked: z.boolean(),
-    }),
-    block: z.strictObject({
-      ...command,
-      otherActorId: idSchema,
-      blocked: z.boolean(),
     }),
     requestDm: z.strictObject({
       ...command,

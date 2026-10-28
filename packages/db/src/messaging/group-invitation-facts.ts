@@ -3,7 +3,11 @@ import { z } from 'zod';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingGroupInvitations } from '../schema/messaging-social';
-import { readMessagingChannelFact, type MessagingChannelFact } from './social';
+import {
+  groupLifecycleOf,
+  readMessagingChannelFact,
+  type MessagingChannelFact,
+} from './social';
 import type {
   MessagingGroupInvitationFact,
   MessagingGroupInvitationScope,
@@ -56,7 +60,7 @@ export async function groupInvitationFacts(
       policyKey: 'social.private_group',
       policyRevision: channel.policyRevision,
       revision: channel.revision,
-      lifecycle: channel.lifecycle,
+      lifecycle: groupLifecycleOf(channel.lifecycle),
       activeMemberActorIds: channel.authority.activeMemberActorIds,
     },
     invitation: {

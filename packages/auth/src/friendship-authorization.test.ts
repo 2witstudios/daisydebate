@@ -11,7 +11,11 @@ const pair = {
   revision: 1,
 };
 const input = (
-  capability: 'social.friend.request' | 'social.friend.end',
+  capability:
+    | 'social.friend.request'
+    | 'social.friend.end'
+    | 'social.challenge.send'
+    | 'social.challenge.decline',
   overrides: { blocked?: boolean; peerMember?: boolean } = {},
 ) => ({
   principal: { kind: 'user' as const, userId: 'a', actorId: 'a' },
@@ -71,6 +75,32 @@ test('friendship authority over the contact pair', () => {
   });
 });
 
+test('challenge authority over the contact pair, on its own capabilities (S2)', () => {
+  const outsider = (
+    capability: 'social.challenge.send' | 'social.challenge.decline',
+  ) => ({
+    ...input(capability),
+    principal: { kind: 'user' as const, userId: 'c', actorId: 'c' },
+    context: { account: adultAccount('c').account },
+  });
+  assert({
+    given:
+      'two current members, then a block, then a lapsed peer, then an outsider',
+    should:
+      'allow sending only between current unblocked members, keep declining open across a block, and refuse an outsider both',
+    actual: [
+      authorize(input('social.challenge.send')).allow,
+      authorize(input('social.challenge.decline')).allow,
+      authorize(input('social.challenge.send', { blocked: true })).allow,
+      authorize(input('social.challenge.decline', { blocked: true })).allow,
+      authorize(input('social.challenge.send', { peerMember: false })).allow,
+      authorize(outsider('social.challenge.send')).allow,
+      authorize(outsider('social.challenge.decline')).allow,
+    ],
+    expected: [true, true, false, true, false, false, false],
+  });
+});
+
 test('a member reads only their own friend collection', () => {
   const read = (
     actorId: string,
@@ -79,7 +109,7 @@ test('a member reads only their own friend collection', () => {
     authorize({
       principal: { kind: 'user', userId: 'a', actorId: 'a' },
       capability: 'social.friend.list',
-      resource: { kind: 'messaging_collection', actorId },
+      resource: { kind: 'friend_collection', actorId },
       context: { account },
     }).allow;
   assert({
@@ -96,28 +126,56 @@ test('a member reads only their own friend collection', () => {
     expected: [true, false, false, false, false],
   });
   assert({
-    given: 'the list capability on a contact pair',
-    should: 'deny the mismatched resource',
-    actual: authorize({
-      ...input('social.friend.request'),
-      capability: 'social.friend.list',
-    }).allow,
-    expected: false,
+    given:
+      'the list capability on a contact pair, then on the messaging inbox collection',
+    should: 'deny both mismatched resources: friends have their own (S5)',
+    actual: [
+      authorize({
+        ...input('social.friend.request'),
+        capability: 'social.friend.list',
+      }).allow,
+      authorize({
+        principal: { kind: 'user', userId: 'a', actorId: 'a' },
+        capability: 'social.friend.list',
+        resource: { kind: 'messaging_collection', actorId: 'a' },
+        context: { account: adultAccount('a').account },
+      }).allow,
+    ],
+    expected: [false, false],
   });
 });
 
-test('a member updates only their own presence setting', () => {
-  const update = (actorId: string, erased = false) =>
-    authorize({
+test('a member reads and updates only their own presence setting', () => {
+  const decide =
+    (capability: 'social.presence.read' | 'social.presence.update') =>
+    (actorId: string, erased = false) =>
+      authorize({
+        principal: { kind: 'user', userId: 'a', actorId: 'a' },
+        capability,
+        resource: { kind: 'presence_setting', actorId },
+        context: { account: { ...adultAccount('a').account, erased } },
+      }).allow;
+  for (const capability of [
+    'social.presence.read',
+    'social.presence.update',
+  ] as const) {
+    const allow = decide(capability);
+    assert({
+      given: `${capability} on their own setting, another actor’s, and their own when erased`,
+      should: 'allow only the current member’s own',
+      actual: [allow('a'), allow('b'), allow('a', true)],
+      expected: [true, false, false],
+    });
+  }
+  assert({
+    given: 'the presence capability on the messaging inbox collection',
+    should: 'deny it: presence has its own resource (S5)',
+    actual: authorize({
       principal: { kind: 'user', userId: 'a', actorId: 'a' },
       capability: 'social.presence.update',
-      resource: { kind: 'messaging_collection', actorId },
-      context: { account: { ...adultAccount('a').account, erased } },
-    }).allow;
-  assert({
-    given: 'their own setting, another actor’s, and their own when erased',
-    should: 'allow only the current member’s own',
-    actual: [update('a'), update('b'), update('a', true)],
-    expected: [true, false, false],
+      resource: { kind: 'messaging_collection', actorId: 'a' },
+      context: { account: adultAccount('a').account },
+    }).allow,
+    expected: false,
   });
 });

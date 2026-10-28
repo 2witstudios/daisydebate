@@ -1,24 +1,53 @@
+import { consumeMessagingRead } from './handler-boundary';
 import type { App } from '../../server/app';
-import { createMessagingInboxSchemas } from '@daisy/protocol';
+import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import { createMessagingInboxSchemas, idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { parseValidated } from '../../server/http';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+
 import { composeMessagingInbox } from './inbox-composition';
+import { requireMemberActor } from '../access/actor';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
+const inboxOf = (app: App, principal: AuthorizationPrincipal) =>
+  composeMessagingInbox({
+    database: app.database,
+    principal,
+    clock: app.clock,
+    postingPolicy: app.messagingPolicy.posting,
+    readingPolicy: app.messagingPolicy.reading,
+  });
+
+/** One conversation's inbox entry: its title and kind for its page (ISSUE-605). */
+export function composeMessagingChannelEntryRoute(app: App) {
+  return (request: Request, channelId: string) => {
+    const schemas = createMessagingInboxSchemas(
+      app.messagingPolicy.bounds.pageItems,
+    );
+    return runMemberHandler(memberHttpBoundary(app), request, {
+      name: 'messaging.channel.entry',
+      readOnly: true,
+      readInput: async () => parseValidated(idSchema, channelId),
+      operation: async (value, principal) => {
+        await consumeMessagingRead(app, requireMemberActor(principal).actorId);
+        return schemas.entry.parse({
+          version: 1,
+          entry: await inboxOf(app, principal).entry(
+            parseValidated(idSchema, value),
+          ),
+        });
+      },
+    });
+  };
+}
+
 export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;
-    if (!policy)
-      return unavailableMessagingHandler(
-        app,
-        request,
-        'messaging.inbox.unavailable',
-      );
     const schemas = createMessagingInboxSchemas(policy.bounds.pageItems);
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return runMemberHandler(memberHttpBoundary(app), request, {
       name: 'messaging.inbox',
       readOnly: true,
       headers: {
@@ -42,13 +71,8 @@ export function composeMessagingInboxRoute(app: App) {
       },
       operation: async (value, principal) => {
         const query = parseValidated(schemas.query, value);
-        const result = await composeMessagingInbox({
-          database: app.database,
-          principal,
-          clock: app.clock,
-          postingPolicy: policy.posting,
-          readingPolicy: policy.reading,
-        }).read({
+        await consumeMessagingRead(app, requireMemberActor(principal).actorId);
+        const result = await inboxOf(app, principal).read({
           limit: policy.bounds.pageItems,
           ...(query.after === undefined ? {} : { after: query.after }),
         });

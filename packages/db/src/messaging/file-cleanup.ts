@@ -73,7 +73,7 @@ export function createMessagingFileCleanup({
       });
       if (pair)
         await tx.execute(
-          sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${pair.low_actor_id} and high_actor_id=${pair.high_actor_id} for update`,
+          sql`select low_actor_id from contact_pairs where low_actor_id=${pair.low_actor_id} and high_actor_id=${pair.high_actor_id} for update`,
         );
       const channels = await tx.execute(
         sql`select id as "channelId", kind, policy_key as "policyKey", policy_revision::float8 as "policyRevision", authority_revision::float8 as revision from messaging_channels where id=${scope.channelId} for update`,

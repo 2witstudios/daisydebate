@@ -3,34 +3,23 @@ import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { dmRequestFrame } from './social-request';
+import { contactReactions } from '../contact-composition';
 import {
   actorId,
   peerId,
   channelId,
-  now,
   input,
   pair,
   command,
   request,
+  budget,
+  channelRow,
 } from './social-request.test-support';
 setupRitewayBun();
-const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
-  channelId,
-  'dm',
-  'social.dm',
-  1,
-  lifecycle,
-  null,
-  null,
-  0,
-  changeVersion,
-  revision,
-  new Date(now),
-];
-test('a cooled down closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
+test('a closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
   const { client, queries } = fakeSql([
     [request('declined', new Date('2026-10-09T17:00:00Z'))],
-    [[0, 0]],
+    budget(),
     [channelRow('active')],
     [],
     [[1, '9']],
@@ -48,6 +37,7 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   const result = await frame.commitDmRequest({
     ...command,
@@ -56,10 +46,16 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
   const write = queries.find((entry) =>
     entry.query.startsWith('update "messaging_dm_pairs"'),
   );
+  const ledger = queries.find((entry) =>
+    entry.query.startsWith('insert into social_requests'),
+  );
+  const channelLock = queries.find((entry) =>
+    /"messaging_channels".*for update$/s.test(entry.query),
+  );
   assert({
-    given: 'a closed active DM beyond cooldown',
+    given: 'a closed active DM inside its budget',
     should:
-      'reuse its channel, clear decision time, replace introduction, and advance authority exactly once',
+      'reuse its channel under its row lock, clear decision time, replace introduction, advance authority exactly once, and ledger the budget read’s unrelated fact',
     actual: [
       result,
       queries.some((entry) =>
@@ -71,8 +67,17 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
           entry.query.startsWith('update "messaging_channels"'),
         )
         .map((entry) => entry.params.slice(0, 2)),
+      ledger?.params.at(-2), // unrelated, before created_at
+      channelLock?.params[0],
     ],
-    expected: [{ channelId, state: 'pending' }, false, true, [[5, 3]]],
+    expected: [
+      { channelId, state: 'pending' },
+      false,
+      true,
+      [[5, 3]],
+      true,
+      channelId,
+    ],
   });
 });
 for (const channel of [
@@ -83,7 +88,7 @@ for (const channel of [
   test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
-      [[0, 0]],
+      budget(),
       channel ? [channel] : [],
     ]);
     const frame = dmRequestFrame(
@@ -91,6 +96,7 @@ for (const channel of [
       input,
       [pair],
       async () => {},
+      contactReactions.relations,
     );
     await assertRejects({
       given: 'absent/archived channel or exhausted authority counter',
@@ -113,6 +119,7 @@ test('admitted request discovery returns only current channel/state or absence',
     input,
     [pair],
     async () => {},
+    contactReactions.relations,
   );
   assert({
     given: 'a pair with then without a durable request',
