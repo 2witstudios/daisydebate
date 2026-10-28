@@ -21,7 +21,7 @@ describe('PracticeSetup', () => {
         html.match(/<h1/g)?.length,
         html.includes('method="get"'),
         html.includes('action="/train/practice"'),
-        ['side', 'motion', 'opp', 'coach', 'hints'].every((name) =>
+        ['side', 'motion', 'opp', 'prompts', 'hints'].every((name) =>
           html.includes(`name="${name}"`),
         ),
         html.includes('Update summary'),

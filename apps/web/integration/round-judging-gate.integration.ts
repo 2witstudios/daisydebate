@@ -73,7 +73,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
 
 test('a mixed panel on an incomplete freeze completes once its human judge rules, before the deadline (ISSUE-466-r2)', async () =>
   withRoomRuntime(async (f) => {
-    const bot = await f.bot();
+    const bot = await f.aiJudge();
     let room = await assembleJudgedRoom(f, 2);
     room = (
       await f.command(f.outsider, room, {

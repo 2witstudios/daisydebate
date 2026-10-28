@@ -112,7 +112,7 @@ diverge:
 | `round.media.unsafe`                     | error    | A media reconcile failed; the session is marked unsafe and the error goes to the error tracker under the same request ID (`operation`, `errorCode`, `requestId`)                                                                                                                           |
 | `round.media.fairness_degraded`          | warn     | An optional admission hint failed or exceeded 250 ms; canonical admission and recovery continue. Logged once per degraded episode (`operation` only, category `none`).                                                                                                                     |
 | `round.judging.failed`                   | error    | A judging worker pass failed; claimed judging work stays recoverable for the next pass (`operation` is `round.judging.` plus one of `execute`, `scan`, `renew`; `errorCode` is the error's own code or `INTERNAL`)                                                                         |
-| `round.coaching.failed`                  | error    | An AI coaching call failed after its claim; the Round is claimed again on a later scan while it has paid calls left (ADR 0071) (`operation` is `round.coaching.` plus one of `coach`, `scan`; `errorCode` only). A full provider is not a failure                                          |
+| `round.analysis.failed`                  | error    | A round analysis call failed after its claim; the seat is claimed again on a later scan while it has paid calls left (ADR 0085) (`operation` is `round.analysis.` plus one of `analyse`, `scan`; `errorCode` only). A full provider is not a failure                                       |
 | `beta.mail.failed`                       | error    | A durable mail intent batch failed (ADR 0075); the intents stay queued or leased and are sent on a later tick (`operation` is `beta.mail.send`; `errorCode` only)                                                                                                                          |
 | `operator.request.refused`               | warn     | The private operator API refused a request (ADR 0079); `cause` names the stage (`route`, `bounds`, `grammar`, `key`, `signature`, `skew`, `replay`, `nonce-store`, `encoding`, `content-type`, `handler`) and `errorCode` the public code                                                  |
 | `operator.command.applied`               | info     | An operator beta access command committed (ADR 0079); `requestId` is the command id, `userId` the target, `cause` is `changed` or `unchanged`                                                                                                                                              |
@@ -144,7 +144,7 @@ diverge:
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
 The five round worker failure events (`round.maintenance.failed`,
-`round.judging.failed`, `round.coaching.failed`, `round.control.failed`,
+`round.judging.failed`, `round.analysis.failed`, `round.control.failed`,
 `round.speaking.failed`) carry
 the worker stage in `operation` and the error's own code (`INTERNAL` when
 untyped). The raw error goes only to the scrubbed `ErrorReporter`. Two outcomes

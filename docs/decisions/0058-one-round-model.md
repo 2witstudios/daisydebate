@@ -234,7 +234,7 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   AI Rounds per exact UTC calendar month, and any other account fact admits
   none. The policy is applied to the account row locked by the admitting
   transaction; no grant table, grant setter or caller entitlement exists, and
-  this quota is not the coaching entitlement (DEC-247). Paid pricing is decided
+  this quota is not the round analysis entitlement (DEC-247, ADR 0085). Paid pricing is decided
   before paid launch, in this paragraph.
   Reservations serialize per actor and across global capacity. The first
   bot-debater model call counts the reservation. A definite vendor failure (the vendor

@@ -3,7 +3,7 @@ import { createOpenRouter } from '@daisy/ai-voice';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createBotGeneration } from '../src/features/round-bots/generation';
-import { createProviderCapacity } from '../src/features/round-bots/provider-capacity';
+import { createProviderBudget } from '../src/server/provider-budget';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { opponentSpeech, botControlOptions } from './bot-control.test-support';
 setupRitewayBun();
@@ -22,7 +22,7 @@ test('actual generation caller refuses opponent speech without dispatch or trans
             throw Error('must not dispatch');
           },
         }),
-      withProvider: createProviderCapacity(1),
+      withProvider: createProviderBudget(1),
       nowMs: () => Date.now(),
       maxTokens: 1000,
     });

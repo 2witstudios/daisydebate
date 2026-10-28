@@ -149,12 +149,12 @@ export function PracticeSetup({
           <TrainCard title="Pacing">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-base font-strong text-ink">
-                Coach prompts
+                Practice prompts
               </span>
               <Chips
-                name="coach"
-                legend="Coach prompts"
-                value={config.coach ? 'on' : 'off'}
+                name="prompts"
+                legend="Practice prompts"
+                value={config.prompts ? 'on' : 'off'}
                 options={onOff}
               />
             </div>

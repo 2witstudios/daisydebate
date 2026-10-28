@@ -142,7 +142,9 @@ describe('rated rounds', () => {
     { id: 'r', title: 'Round', scope: 'round' },
     { id: 'c', title: 'Club', scope: 'club' },
   ];
-  const agents: readonly Agent[] = [{ id: 'g', title: 'Coach', scope: 'club' }];
+  const agents: readonly Agent[] = [
+    { id: 'g', title: 'Drill partner', scope: 'club' },
+  ];
 
   test('drawer visibility', () => {
     assert({

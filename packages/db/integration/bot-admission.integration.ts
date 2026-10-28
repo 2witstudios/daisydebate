@@ -81,10 +81,13 @@ test('only an approved beta host is eligible, re-read inside each admission', as
       code: 'CONFLICT',
     });
     await admission.reserve({ actorId, roundId: firstRound });
+    // As the beta access command does: revocation removes the beta grants.
     await fixture.sql`update account_beta_access set state='revoked', revision=revision+1
       where user_id=(select user_id from actors where id=${actorId})`;
+    await fixture.sql`delete from account_entitlement_grants
+      where source='beta' and user_id=(select user_id from actors where id=${actorId})`;
     await assertRejects({
-      given: 'a host whose beta approval was revoked mid-month',
+      given: 'a host whose beta approval and its grants were revoked mid-month',
       should: 'refuse the next admission from the freshly locked account fact',
       actual: () => admission.reserve({ actorId, roundId: secondRound }),
       code: 'CONFLICT',
@@ -110,7 +113,7 @@ test('the month boundary counts only reservations made in the current UTC month'
       id: createId(),
       actor_id: actorId,
       round_id: earlier,
-      kind: 'ai_practice',
+      kind: 'ai_round',
       reserved_at: new Date(start.getTime() - 1),
       counted_at: new Date(start.getTime() - 1),
     });

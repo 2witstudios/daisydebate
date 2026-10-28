@@ -87,7 +87,7 @@ export async function lockMediaRound(
     round.participants.map(async (seat) => {
       if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
       const actor = await actorFact(tx, seat.actorId);
-      return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
+      return { ...seat, ...seatEligibility(actor, accounts, seat) };
     }),
   );
   const caller = mediaCaller

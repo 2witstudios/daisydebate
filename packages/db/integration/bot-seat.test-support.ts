@@ -8,15 +8,23 @@ export async function createBotSeat(
 ) {
   const actorId = createId();
   await fixture.insert('actors', { id: actorId, kind: 'bot' });
-  await fixture.insert(
-    'bot_profiles',
-    {
-      actor_id: actorId,
-      name: 'Fixture bot',
-      persona: 'Test',
-      voice: 'aura-2-thalia-en',
-    },
-    'actor_id',
-  );
+  // The judge seat holds the AI judge, a side a bot debater (ISSUE-750).
+  if (role === 'judge')
+    await fixture.insert(
+      'ai_judge_profiles',
+      { actor_id: actorId, name: 'Fixture judge' },
+      'actor_id',
+    );
+  else
+    await fixture.insert(
+      'bot_profiles',
+      {
+        actor_id: actorId,
+        name: 'Fixture bot',
+        persona: 'Test',
+        voice: 'aura-2-thalia-en',
+      },
+      'actor_id',
+    );
   return fixture.seat(roundId, role, slot, actorId);
 }

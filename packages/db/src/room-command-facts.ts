@@ -20,6 +20,8 @@ import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { botProfiles } from './schema/bot-profiles';
+import { aiJudgeProfiles } from './schema/ai-judge-profiles';
+import { aiSeatFits } from './seat-eligibility';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
@@ -74,6 +76,14 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
+  /** Which seat an AI actor may hold (ISSUE-750); null for a human. */
+  readonly seatRole: 'debater' | 'judge' | null;
+};
+/** An AI actor is a bot debater or the AI judge by its profile, never both (ISSUE-750). */
+const aiSeatRole = (botName: string | null, judgeName: string | null) => {
+  if (botName !== null && judgeName === null) return 'debater' as const;
+  if (judgeName !== null && botName === null) return 'judge' as const;
+  return null;
 };
 export const actorFact = async (
   tx: Pick<BunSQLDatabase, 'select'>,
@@ -87,22 +97,32 @@ export const actorFact = async (
       deletedAt: users.deletedAt,
       verified: users.emailVerified,
       botName: botProfiles.name,
+      judgeName: aiJudgeProfiles.name,
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
+    .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(eq(actors.id, actorId));
   if (!row || (row.kind !== 'human' && row.kind !== 'bot')) return null;
+  if (row.kind === 'human')
+    return {
+      actorId: row.actorId,
+      kind: row.kind,
+      label: row.username ?? '',
+      eligible:
+        row.verified === true &&
+        row.username !== null &&
+        row.deletedAt === null,
+      seatRole: null,
+    };
+  const seatRole = aiSeatRole(row.botName, row.judgeName);
   return {
     actorId: row.actorId,
     kind: row.kind,
-    label: row.kind === 'bot' ? (row.botName ?? '') : (row.username ?? ''),
-    eligible:
-      row.kind === 'bot'
-        ? row.botName !== null
-        : row.verified === true &&
-          row.username !== null &&
-          row.deletedAt === null,
+    label: row.botName ?? row.judgeName ?? '',
+    eligible: seatRole !== null,
+    seatRole,
   };
 };
 export const publishDefinition = async (
@@ -168,6 +188,10 @@ const hydrateRoom = async (
       if (!actor) throw createAppError('INVARIANT');
       return {
         ...actor,
+        // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
+        eligible:
+          actor.eligible &&
+          (actor.kind === 'human' || aiSeatFits(actor.seatRole, seat.role)),
         id: seat.id,
         role: seat.role,
         slot: seat.slot,

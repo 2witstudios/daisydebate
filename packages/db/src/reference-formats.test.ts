@@ -114,7 +114,29 @@ const migrated = async () => {
     /'([a-z0-9]{24})', '([^']+)', '([^']+)', '([^']+)', '(beginner|intermediate|advanced)'\)/g,
   ))
     bots.push({ actorId, name, persona, voice, difficulty });
-  return { definitions, formats, presets, superseded, bots };
+  // ISSUE-750 moved the AI judge out of the bot roster into its own table.
+  const moved = new Set(
+    [
+      ...sql.matchAll(
+        /DELETE FROM "bot_profiles" WHERE "actor_id" = '([a-z0-9]{24})'/g,
+      ),
+    ].map(([, actorId]) => actorId),
+  );
+  const judges = [
+    ...sql.matchAll(
+      /INSERT INTO "ai_judge_profiles" \("actor_id", "name"\) VALUES \('([a-z0-9]{24})', '([^']+)'\)/g,
+    ),
+  ].map(([, actorId, name]) => ({ actorId, name }));
+  return {
+    definitions,
+    formats,
+    presets,
+    superseded,
+    bots: bots.filter(
+      (bot) => !moved.has((bot as { actorId: string }).actorId),
+    ),
+    judges,
+  };
 };
 
 /** The newest approved revision per format: the one ranked play resolves. */
@@ -255,18 +277,22 @@ describe('reference data', () => {
   test('bots and the AI judge ship as the baseline says', async () => {
     const rows = await migrated();
     assert({
-      given: 'the bot roster and the committed baseline',
-      should: 'seat the same actors with the same profiles',
-      actual: rows.bots,
-      expected: [...referenceBots, referenceAiJudge].map(
-        ({ actorId, name, persona, voice, difficulty }) => ({
-          actorId,
-          name,
-          persona,
-          voice,
-          difficulty,
-        }),
-      ),
+      given: 'the bot roster, the AI judge and the committed migrations',
+      should:
+        'seat the same bot debaters with the same profiles, and the AI judge only in its own table',
+      actual: { bots: rows.bots, judges: rows.judges },
+      expected: {
+        bots: referenceBots.map(
+          ({ actorId, name, persona, voice, difficulty }) => ({
+            actorId,
+            name,
+            persona,
+            voice,
+            difficulty,
+          }),
+        ),
+        judges: [referenceAiJudge],
+      },
     });
   });
 

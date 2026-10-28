@@ -1,7 +1,11 @@
 # 0071: Every completed round coaches each debater; ballot feedback stays with its side
 
 Status: accepted for the MVP beta on 2026-10-26 (owner GO for the MVP push;
-the decision is made on the owner's behalf and recorded here).
+the decision is made on the owner's behalf and recorded here). Items 3 to 6
+and the premium section are superseded by
+[ADR 0085](0085-round-analysis-is-its-own-product.md); items 1, 2 and 7
+stand. The superseded text below is kept as the record ADR 0085's
+post-mortem explains.
 
 ## Context
 

@@ -31,7 +31,7 @@ export const modeCards = (
   {
     id: 'practice',
     title: 'Guided practice',
-    blurb: 'A timed debate with coach prompts.',
+    blurb: 'A timed debate with practice prompts.',
     status: '25 to 45 min',
     cta: { label: 'Start a practice debate', href: trainDestinations.practice },
   },

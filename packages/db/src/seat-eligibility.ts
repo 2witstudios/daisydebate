@@ -1,7 +1,18 @@
 type ActorFact = {
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
+  /** Which seat an AI actor may hold (ISSUE-750); null for a human. */
+  readonly seatRole: 'debater' | 'judge' | null;
 } | null;
+
+/**
+ * ISSUE-750: a bot debater fits only a side seat and the AI judge only the
+ * judge seat, whenever and however it was seated.
+ */
+export const aiSeatFits = (
+  seatRole: 'debater' | 'judge' | null,
+  role: string,
+) => seatRole === (role === 'judge' ? 'judge' : 'debater');
 type AccountFact = {
   readonly actorId: string | null;
   readonly member: boolean;
@@ -9,18 +20,23 @@ type AccountFact = {
 } | null;
 
 /**
- * One rule for every Round writer: a bot seat needs its canonical profile, a
- * human seat a live member account, and an actor of unknown kind is never
- * eligible (it is reported as human so no bot authority can attach to it).
+ * One rule for every Round writer: a bot seat needs its canonical profile
+ * for that kind of seat, a human seat a live member account, and an actor of
+ * unknown kind is never eligible (it is reported as human so no bot
+ * authority can attach to it).
  */
 export function seatEligibility(
   actor: ActorFact,
   accounts: readonly AccountFact[],
-  actorId: string,
+  seat: { readonly actorId: string; readonly role: string },
 ): { readonly kind: 'human' | 'bot'; readonly eligible: boolean } {
   if (!actor) return { kind: 'human', eligible: false };
-  if (actor.kind === 'bot') return { kind: 'bot', eligible: actor.eligible };
-  const account = accounts.find((entry) => entry?.actorId === actorId);
+  if (actor.kind === 'bot')
+    return {
+      kind: 'bot',
+      eligible: actor.eligible && aiSeatFits(actor.seatRole, seat.role),
+    };
+  const account = accounts.find((entry) => entry?.actorId === seat.actorId);
   return {
     kind: 'human',
     eligible: account?.member === true && !account.erased,
