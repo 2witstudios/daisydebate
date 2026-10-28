@@ -144,7 +144,8 @@ test.describe('dashboard shell chrome', () => {
   test('on a phone, a link brought into view stops clear of the tab bar', async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 390, height: 600 });
+    // A short phone screen (200% zoom): the contents list runs past it.
+    await page.setViewportSize({ width: 390, height: 320 });
     await page.goto('/privacy');
     const link = page.getByRole('main').getByRole('link').last();
     // Whether the tab bar, not the link, answers at the link's center.
