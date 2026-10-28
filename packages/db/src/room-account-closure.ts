@@ -104,7 +104,26 @@ export const createRoomAccountClosureAdopter = (
       await closeHosted(roomTx, subject.actorId, now);
       await freeSeats(roomTx, subject.actorId, now);
     },
-    // Hosted Rooms are public competitive record, not the member's private data.
-    export: async () => ({}),
+    // The resolution lists the member wrote for Rooms they host: their own
+    // text, exported to them though erasure keeps it on the record.
+    export: async (tx, subject) => {
+      const hosted = await (tx as unknown as Tx)
+        .select({ id: rooms.id, config: rooms.config })
+        .from(rooms)
+        .where(eq(rooms.hostActorId, subject.actorId));
+      return {
+        room_resolution_lists: hosted.flatMap(({ id, config }) =>
+          config.resolutionDraw.enabled &&
+          config.resolutionDraw.source.kind === 'host'
+            ? [
+                {
+                  room_id: id,
+                  resolutions: config.resolutionDraw.source.resolutions,
+                },
+              ]
+            : [],
+        ),
+      };
+    },
   };
 };

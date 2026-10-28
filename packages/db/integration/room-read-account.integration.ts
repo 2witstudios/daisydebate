@@ -101,7 +101,7 @@ test('Room reader reloads tombstone after waiting for the exclusive writer', asy
     const { promise: released, resolve: release } =
       Promise.withResolvers<void>();
     const writer = fixture.sql.begin(async (tx) => {
-      await tx`update users set username=null,email_verified=false,deleted_at=statement_timestamp(),version=version+1 where id=${caller.userId}`;
+      await tx`update users set email_verified=false,deleted_at=statement_timestamp(),version=version+1 where id=${caller.userId}`;
       enter();
       await released;
     });

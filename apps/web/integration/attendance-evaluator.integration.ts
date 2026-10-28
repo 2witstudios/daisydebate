@@ -103,7 +103,7 @@ test('fresh scheduled-speaker erasure resolves none instead of inventing absence
     const { f, attendance, roundId, segmentId } = input;
     const cleanup = await settleAttendanceFixture(input, false, false);
     try {
-      await f.sql`update users set deleted_at=statement_timestamp(),username=null where id=${f.host.userId}`;
+      await f.sql`update users set deleted_at=statement_timestamp() where id=${f.host.userId}`;
       const resolution = await attendance.evaluate(roundId);
       const round = await f.store.getRound(roundId);
       const [receipt] =

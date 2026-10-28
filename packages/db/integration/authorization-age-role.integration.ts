@@ -110,7 +110,7 @@ test('realtime age producer exposes monthly bands under the canonical erasure fe
         ),
         expected: '42501',
       });
-      await fixture.sql`update users set deleted_at='2026-10-09T00:00:00Z',email_verified=false,username=null,version=2 where id=${userId}`;
+      await fixture.sql`update users set deleted_at='2026-10-09T00:00:00Z',email_verified=false,version=2 where id=${userId}`;
       await fixture.sql.begin(async (client) => {
         await client`set local role daisy_realtime`;
         assert({

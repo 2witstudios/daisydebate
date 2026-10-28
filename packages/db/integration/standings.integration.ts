@@ -70,7 +70,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         const third = await season(fixture, 'closed', at(3));
         const [winner, loser] = [await fixture.actor(), await fixture.actor()];
         await fixture.sql.unsafe(
-          "update users set deleted_at = now(), username = null, email = null, image = null, name = '' where id = (select user_id from actors where id = $1)",
+          "update users set deleted_at = now(), email = null, image = null, name = '' where id = (select user_id from actors where id = $1)",
           [loser],
         );
         /** One debate rated in a scope: both ratings rows and both postings. */
@@ -124,6 +124,11 @@ describe('standings reads (RATE-1.4.1)', () => {
           [winner],
         )) as Array<{ username: string }>;
         const name = winnerName?.username ?? '';
+        const [loserName] = (await fixture.sql.unsafe(
+          'select username from users where id = (select user_id from actors where id = $1)',
+          [loser],
+        )) as Array<{ username: string }>;
+        const closedName = loserName?.username ?? '';
         const bySeasonThenRating = <T extends { seasonId: string }>(
           rows: readonly T[],
           value: (row: T) => number,
@@ -136,12 +141,19 @@ describe('standings reads (RATE-1.4.1)', () => {
           given:
             'ratings in two asked seasons, a third season and another format',
           should:
-            'return exactly the ranked rows of that format in the two asked seasons, a tombstoned name as null',
+            'return exactly the ranked rows of that format in the two asked seasons, a closed account by name and marked closed',
           actual: bySeasonThenRating(read.ratings, (row) => row.rating).map(
-            ({ seasonId, actorId, username, rating: value }) => ({
+            ({
               seasonId,
               actorId,
               username,
+              accountClosed,
+              rating: value,
+            }) => ({
+              seasonId,
+              actorId,
+              username,
+              accountClosed,
               rating: value,
             }),
           ),
@@ -151,19 +163,28 @@ describe('standings reads (RATE-1.4.1)', () => {
                 seasonId: first,
                 actorId: winner,
                 username: name,
+                accountClosed: false,
                 rating: 1516,
               },
-              { seasonId: first, actorId: loser, username: null, rating: 1484 },
+              {
+                seasonId: first,
+                actorId: loser,
+                username: closedName,
+                accountClosed: true,
+                rating: 1484,
+              },
               {
                 seasonId: second,
                 actorId: winner,
                 username: name,
+                accountClosed: false,
                 rating: 1520,
               },
               {
                 seasonId: second,
                 actorId: loser,
-                username: null,
+                username: closedName,
+                accountClosed: true,
                 rating: 1480,
               },
             ],
