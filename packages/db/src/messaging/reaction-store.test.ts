@@ -81,7 +81,7 @@ test('reaction store invokes current operation fence before protected message, r
   assert({
     given: 'the current fence refusal',
     should:
-      'perform only discovery/account/pair/channel/counter reads, under the exclusive fence a change takes',
+      'perform only discovery/account/pair/channel/stream reads, under the shared fences and stream lock a change takes (MSG-2.2-arch1)',
     actual: [
       f.queries.length,
       f.queries.some(
@@ -91,9 +91,12 @@ test('reaction store invokes current operation fence before protected message, r
           query.query.includes('messaging_reactions'),
       ),
       f.queries.some((query) =>
+        query.query.includes('daisy_messaging_channel_read_fence('),
+      ),
+      f.queries.some((query) =>
         query.query.includes('daisy_messaging_channel_fence('),
       ),
     ],
-    expected: [6, false, true],
+    expected: [6, false, true, false],
   });
 });

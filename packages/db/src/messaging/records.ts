@@ -117,13 +117,15 @@ export type MessagingLockedFrame = {
 };
 /**
  * What a read may do: no counter writes, sends or mutations (MSG-2.1-arch1).
+ * `markRead` writes only the actor's own read marker, so it shares the
+ * fences too (MSG-2.2-arch1).
  * `readRequestState` is a command's lock-free preflight: it tells a new
  * request from a replay before the limiter, outside the write transaction
  * (MSG-2.2-arch1).
  */
 export type MessagingReadFrame = Pick<
   MessagingLockedFrame,
-  'history' | 'changes' | 'authorize' | 'fact' | 'accounts'
+  'history' | 'changes' | 'markRead' | 'authorize' | 'fact' | 'accounts'
 > & {
   readonly readRequestState: (input: {
     readonly requestId: string;
