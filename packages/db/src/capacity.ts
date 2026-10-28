@@ -6,6 +6,6 @@
  */
 export {
   isReportedCapacityRefusal,
-  isTransactionCapacityRefusal,
+  isCapacityRefusal,
   markCapacityRefusalReported,
-} from './transaction-admission';
+} from './capacity-refusal';

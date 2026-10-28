@@ -1,3 +1,4 @@
+import { testLane } from './testing-lane';
 import { createBoundedTransaction } from './bounded-transaction';
 import { fakeSql, type ScriptedProtocol } from './scripted-bun-wire';
 
@@ -17,12 +18,12 @@ export const bounded = (
 ) => {
   const wire = fakeSql(options.script ?? [], options.protocol);
   const run = createBoundedTransaction({
-    client: wire.client,
-    maxConnections: options.maxConnections ?? 4,
+    lane: testLane(
+      wire.client,
+      options.maxConnections ?? 4,
+      options.admissionWaitMs,
+    ),
     now: options.now ?? (() => 0),
-    ...(options.admissionWaitMs === undefined
-      ? {}
-      : { admissionWaitMs: options.admissionWaitMs }),
   });
   return { ...wire, run };
 };

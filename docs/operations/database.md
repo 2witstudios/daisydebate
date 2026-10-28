@@ -12,7 +12,7 @@ Run `bun db:migrate` with DATABASE_URL locally. In production the runner reads `
 
 **Migration concurrency:** generation is single-writer across the whole repository at a time — two branches that each run `bun db:generate` fork the snapshot chain (both new snapshots name the same predecessor). `bun migrations:check` reads the committed migrations tree of HEAD and of its merge base with `origin/main`, and fails any file outside `<timestamp>_<name>/migration.sql` and `snapshot.json` (a legacy `meta/` file included), a snapshot with no `migration.sql` beside it (the migrator would skip it silently), SQL without a snapshot, two folders sharing a timestamp, a broken `prevIds` chain, and any shared migration removed, displaced, or edited (SQL or snapshot). Resolve collisions by rebasing and regenerating the conflicting tail as a forward correction; never auto-rewrite applied migrations on `main` after the fact.
 
-Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. `bun slot:up` writes and migrates this checkout's test database; `bun slot:up` also writes TEST_REDIS_URL: the slot's own Redis database (main 1, a worktree `2 + its port block`), where every integration test uses its own `t3-` namespace; the runner refuses any other database before it deletes anything (ADR 0034). Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per instance: sum of instance pool limits plus migrations/admin capacity must remain below PostgreSQL max_connections.
+Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. `bun slot:up` writes and migrates this checkout's test database; `bun slot:up` also writes TEST_REDIS_URL: the slot's own Redis database (main 1, a worktree `2 + its port block`), where every integration test uses its own `t3-` namespace; the runner refuses any other database before it deletes anything (ADR 0034). Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per process profile (ADR 0088): web holds 18 connections (competitive 6, social 4, audience 2, control 5, 1 dedicated) and realtime 7 (admission 1, renewal 2, control 1, 3 dedicated). The sum over replicas plus migrations/admin capacity must remain below PostgreSQL max_connections.
 
 **The migration owner (ADR 0080).** Staging and production migrate as a
 least-privilege owner, `daisy_migrator` on staging: `NOSUPERUSER NOCREATEDB
@@ -97,8 +97,8 @@ Inject a monotonic millisecond clock. The callback receives a runtime-enforced
 access and manual transaction/session controls are refused; refusal poisons the
 attempt even if the callback catches it. Each admitted attempt reserves a watchdog
 connection before its writer; the 3,000 ms whole budget includes pool acquisition,
-setup, locks, callback and commit. Admission uses at most half the configured
-pool capacity in writers, with two connections per attempt. Callbacks perform
+setup, locks, callback and commit. Writers are admitted on the competitive lane (ADR 0088),
+weighing two connections per attempt. Callbacks perform
 only database work and deterministic computation; provider calls run afterward.
 
 The writer sets local statement, lock and idle transaction timeouts to 2,000 ms.

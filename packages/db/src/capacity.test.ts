@@ -14,13 +14,13 @@ test('the capacity subpath loads nothing but the error identity', async () => {
     given:
       '@daisy/db/capacity, which apps/web reaches from client bundles through server/http.ts',
     should:
-      'import only transaction-admission, and it only @daisy/errors, never the driver, Bun or the schema',
+      'import only capacity-refusal, and it only @daisy/errors, never the driver, Bun or the schema',
     actual: {
       capacity: await specifiers('./capacity.ts'),
-      admission: await specifiers('./transaction-admission.ts'),
+      admission: await specifiers('./capacity-refusal.ts'),
     },
     expected: {
-      capacity: ['./transaction-admission'],
+      capacity: ['./capacity-refusal'],
       admission: ['@daisy/errors'],
     },
   });

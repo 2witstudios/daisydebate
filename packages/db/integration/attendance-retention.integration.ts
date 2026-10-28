@@ -92,7 +92,7 @@ test('bounded retention prunes old leases/samples and preserves durable attendan
         await tx`select pg_advisory_xact_lock(59003)`;
         await tx`insert into availability_samples(at,healthy,cause) values(${before}::timestamptz-interval '1 microsecond',true,null),(${before}::timestamptz,true,null)`;
       });
-      const ops = availabilityOperations(f.sql);
+      const ops = availabilityOperations(f.sql, f.sql);
       const commands = commandRetention({
         database: drizzle({ client: f.sql }),
       });

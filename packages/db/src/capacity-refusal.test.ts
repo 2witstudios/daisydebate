@@ -1,11 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  capacityRefusalDetail,
   isReportedCapacityRefusal,
-  isTransactionCapacityRefusal,
+  isCapacityRefusal,
   markCapacityRefusalReported,
   refuseCapacity,
-} from './transaction-admission';
+} from './capacity-refusal';
 
 setupRitewayBun();
 
@@ -35,7 +36,7 @@ test('capacity identity survives native error wrappers without trusting messages
       cyclic,
       accessor,
       undefined,
-    ].map(isTransactionCapacityRefusal),
+    ].map(isCapacityRefusal),
     expected: [true, true, true, false, false, false, false, false, false],
   });
 });
@@ -58,7 +59,7 @@ test('unsupported cause chains never suppress ordinary failure reporting', () =>
     given:
       'an excessive cause chain, a hostile proxy and post-execution recovery detail',
     should: 'leave each on the ordinary failure path',
-    actual: [tooDeep, hostile, recovering].map(isTransactionCapacityRefusal),
+    actual: [tooDeep, hostile, recovering].map(isCapacityRefusal),
     expected: [false, false, false],
   });
 });
@@ -74,5 +75,18 @@ test('a reported refusal stays reported under any other wrapper of the same refu
       new Error('rethrown wrapper', { cause: refusal }),
     ),
     expected: true,
+  });
+});
+
+test('a refusal carries the lane and reason that refused it', () => {
+  const refusal = refuseCapacity({ lane: 'social', reason: 'expired' });
+  assert({
+    given: 'a social-lane refusal wrapped by a driver error',
+    should: 'report its lane and reason, and nothing for ordinary failures',
+    actual: [
+      capacityRefusalDetail(new Error('driver', { cause: refusal })),
+      capacityRefusalDetail(new Error('other')),
+    ],
+    expected: [{ lane: 'social', reason: 'expired' }, undefined],
   });
 });

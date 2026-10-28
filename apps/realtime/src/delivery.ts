@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ServerMessage } from '@daisy/protocol';
+import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import {
   createRealtimeAuthorization,
@@ -29,11 +30,16 @@ export function createRealtimeDelivery({
   readonly publish: (topic: string, frame: ServerMessage) => void;
   readonly readingPolicy?: RealtimeReadingPolicy;
 }) {
-  const authority = createRealtimeAuthorization({
-    resources,
-    now,
-    ...(readingPolicy ? { readingPolicy } : {}),
-  });
+  // Subscribes and renewals read on separate lanes (ADR 0088), so an
+  // admission wave cannot consume the capacity renewals need.
+  const authorityOn = (database: RealtimeAuthorityReads) =>
+    createRealtimeAuthorization({
+      resources: { clock: resources.clock, database },
+      now,
+      ...(readingPolicy ? { readingPolicy } : {}),
+    });
+  const authority = authorityOn(resources.database.admission);
+  const renewal = authorityOn(resources.database.renewal);
   const tuning = resources.transport ?? {
     maxPerIp: 20,
     maxUnauthenticated: 4,
@@ -50,6 +56,12 @@ export function createRealtimeDelivery({
     authorize: (principal, topic) =>
       boundedAuthorityCheck({
         check: () => authority.authorizeTopic(principal, topic),
+        timers,
+        budgetMs: 5_000,
+      }),
+    renew: (principal, topic) =>
+      boundedAuthorityCheck({
+        check: () => renewal.authorizeTopic(principal, topic),
         timers,
         budgetMs: 5_000,
       }),
@@ -72,7 +84,7 @@ export function createRealtimeDelivery({
     admission: createAdmission({ now, ...tuning }),
     validatePrincipal: (principal: SocketPrincipal) =>
       boundedAuthorityCheck({
-        check: () => authority.validatePrincipal(principal),
+        check: () => renewal.validatePrincipal(principal),
         timers,
         budgetMs: 5_000,
       }),
@@ -86,11 +98,13 @@ export function createRealtimeDelivery({
         origin,
       );
       if (!binding.accepted) return null;
-      const session = await resources.database.resolveRealtimeSession({
-        actorId: binding.actorId,
-        sessionId: binding.sessionId,
-        now: resources.clock.now(),
-      });
+      const session = await resources.database.admission.resolveRealtimeSession(
+        {
+          actorId: binding.actorId,
+          sessionId: binding.sessionId,
+          now: resources.clock.now(),
+        },
+      );
       // ADR 0075: a ticket redeems only for a participant (approved, 16+).
       if (!session || !liveParticipantSession(session, resources.clock.now()))
         return null;

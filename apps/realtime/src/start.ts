@@ -24,7 +24,6 @@ import {
 const resources = createRealtimeApp({
   env: process.env,
   clock: systemClock,
-  ids: systemId,
 });
 const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
 const hostname = parseHostname(process.env.REALTIME_HOST);

@@ -1,8 +1,8 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
 import {
-  isTransactionCapacityRefusal,
+  isCapacityRefusal,
   markCapacityRefusalReported,
-} from './transaction-admission';
+} from './capacity-refusal';
 
 export type DatabaseEventSink = (
   event:
@@ -30,7 +30,7 @@ export async function instrumented<T>(
     return await fn();
   } catch (error) {
     if (isDomainRefusal(error)) throw error;
-    const refused = isTransactionCapacityRefusal(error);
+    const refused = isCapacityRefusal(error);
     if (refused && eventSink) markCapacityRefusalReported(error);
     eventSink?.(
       refused ? 'db.capacity.refused' : 'db.query.failed',

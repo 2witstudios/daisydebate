@@ -23,7 +23,7 @@ export async function withRoomRuntime(
   options: Pick<
     Parameters<typeof createDatabase>[0],
     | 'client'
-    | 'maxConnections'
+    | 'profile'
     | 'botAdmission'
     | 'judging'
     | 'botPublication'
@@ -41,7 +41,7 @@ async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
     | 'client'
-    | 'maxConnections'
+    | 'profile'
     | 'botAdmission'
     | 'judging'
     | 'botPublication'

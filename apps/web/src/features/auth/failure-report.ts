@@ -1,6 +1,6 @@
 import {
   isReportedCapacityRefusal,
-  isTransactionCapacityRefusal,
+  isCapacityRefusal,
   markCapacityRefusalReported,
 } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
@@ -16,7 +16,7 @@ export function reportAuthFailure(
   source: 'auth.after-response' | 'better-auth',
   message: string,
 ) {
-  if (!isTransactionCapacityRefusal(error))
+  if (!isCapacityRefusal(error))
     logger.log('request.unhandled', { source }, message);
   else if (!isReportedCapacityRefusal(error)) {
     logger.log(
@@ -37,7 +37,7 @@ export function reportAuthFailure(
  */
 export const betterAuthLogger = (logger: Logger) => ({
   log: (level: string, _message: string, ...details: unknown[]) => {
-    const refusal = details.find(isTransactionCapacityRefusal);
+    const refusal = details.find(isCapacityRefusal);
     if (refusal !== undefined)
       reportAuthFailure(
         logger,

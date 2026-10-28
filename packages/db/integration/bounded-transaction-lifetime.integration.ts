@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
@@ -184,8 +185,7 @@ test(
       };
       let escaped: BoundedTransactionContext | undefined;
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       const result = run(async (tx) => {
@@ -219,8 +219,7 @@ for (const command of ['SELECT 1; COMMIT', 'SELECT 1; END']) {
   test(`prepared protocol refuses multiple statements including ${command}`, async () =>
     withPool(async (client) => {
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       await assertRejects({
