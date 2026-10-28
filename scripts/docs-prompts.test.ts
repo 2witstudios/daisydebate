@@ -55,6 +55,39 @@ describe('DOCUMENTATION_PROMPTS', async () => {
       },
     });
   });
+
+  // ISSUE-799: the agent's context, not the question, overflowed. Listing the
+  // whole Documentation folder alone returned ~140 KB of Review Queue titles,
+  // and the ledgers and slice diffs it read grow with every merge.
+  test('bounds every read and write to what the run needs', async () => {
+    const all = (pattern: RegExp) =>
+      DOCUMENT_PIPELINES.every((pipeline) =>
+        pattern.test(DOCUMENTATION_PROMPTS[pipeline]),
+      );
+    assert({
+      given: 'any registered prompt',
+      should:
+        'list only the target subtree, read ledgers by filter, never read a whole PR diff, and keep task titles short',
+      actual: {
+        subtree: all(/list only the target Canvas's own subtree/i),
+        noFolder: all(/never the whole Documentation folder/i),
+        ledgers: all(
+          /Page Registry and the Documentation Runs sheet only through read_sheet with where and select/i,
+        ),
+        runRow: all(/without reading the Runs sheet/i),
+        diff: all(/never the whole pull request diff/i),
+        title: all(/title is one line of at most 200 characters/i),
+      },
+      expected: {
+        subtree: true,
+        noFolder: true,
+        ledgers: true,
+        runRow: true,
+        diff: true,
+        title: true,
+      },
+    });
+  });
 });
 
 describe('promptFor', async () => {

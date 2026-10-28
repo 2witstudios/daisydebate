@@ -28,9 +28,12 @@ export function trustedKeys(
  * The most characters a whole consult question may take, for every pipeline
  * (ISSUE-792). The event gets what the trusted text leaves, never more than
  * EVENT_MAX_CHARS, so a longer prompt shrinks the event instead of
- * overflowing the consult.
+ * overflowing the consult. The trusted text carries the context bound that
+ * keeps the agent's own reads small (ISSUE-799), so the cap leaves the event
+ * its full share beside it: the question is ~3 k tokens of a window the run's
+ * reads, not the question, used to fill.
  */
-export const QUESTION_MAX_CHARS = 10_000;
+export const QUESTION_MAX_CHARS = 11_000;
 
 // Instructions first, untrusted data last and nonce-fenced. Every receipt key
 // trusted CI context knows is interpolated here so the row stays reconcilable
