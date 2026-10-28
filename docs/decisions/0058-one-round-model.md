@@ -67,7 +67,8 @@ occupied by a human or an AI do not create different round types.
 `debates` is renamed `rounds`. `mode` is uncollapsed into `competition_type`
 (`ranked | casual`; casual is the one unranked type, DEC-233) and `ladder_id`, the one
 authority for ratedness. Every Round is full length (DEC-237), so there is no length
-column and `ranked` is the one ladder (DEC-238).
+column. The selected ladder pools are Freestyle, Policy and Value
+([ADR 0090](0090-three-rating-ladders.md), DEC-265; implementation pending).
 
 ### 2. Three-layer identity
 
@@ -183,9 +184,11 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 - **Rated eligibility is a construction-time invariant.** A ranked round is resolved from a
   sanctioned preset or it does not exist. `ratingEligibility()` re-checks nothing about
   format; a failure there is an invariant violation, not `{kind:'unrated', reason:'rules'}`.
-- **Ratedness has one authority.** `competition_type` alone decides it;
-  `ladder_id` is configuration a ranked round requires, constrained by a derivation CHECK
-  so a stored value cannot contradict the rule that produced it.
+- **Ratedness has one authority.** The frozen `ladder_id` alone decides it
+  (DEC-238, [ADR 0090](0090-three-rating-ladders.md)): null is unrated; a
+  non-null value identifies the pool. `competition_type` is constrained
+  context, never a second ratedness decision. Sanctioned construction and
+  pinned provenance constrain the value.
 - **Abandonment is lifecycle, not outcome.** A `rounds_lifecycle_check` constrains status,
   stage, outcome and both timestamps together; `abandoned` deliberately leaves
   `started_at` nullable for a round abandoned before starting.
