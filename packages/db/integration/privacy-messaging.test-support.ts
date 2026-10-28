@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { eq } from 'drizzle-orm';
 import { actors } from '../src/schema/actors';
 import {
+  messagingChannelStreams,
   messagingChannels,
   messagingActorStates,
 } from '../src/schema/messaging-channels';
@@ -71,8 +72,6 @@ export async function withPrivacyMessaging(
           policyKey: 'social.dm',
           policyRevision: 1,
           lifecycle: 'active',
-          messageSequence: 2,
-          changeVersion: 2,
           createdAt: timestamp,
         },
         {
@@ -86,6 +85,12 @@ export async function withPrivacyMessaging(
           createdAt: timestamp,
         },
       ]);
+      await database
+        .insert(messagingChannelStreams)
+        .values([
+          { channelId: dmId, messageSequence: 2, changeVersion: 2 },
+          { channelId: groupId },
+        ]);
       await database.insert(contactPairs).values({
         lowActorId,
         highActorId,

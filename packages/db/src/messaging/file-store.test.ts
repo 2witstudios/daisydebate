@@ -13,9 +13,14 @@ const fencesOf = (queries: readonly { readonly query: string }[]) => ({
   exclusiveChannel: queries.some((q) =>
     q.query.includes('daisy_messaging_channel_fence('),
   ),
+  streamLock: queries.some(
+    (q) =>
+      q.query.includes('from messaging_channel_streams') &&
+      q.query.trim().endsWith('for update'),
+  ),
 });
 
-test('a file read takes the shared fences; posting keeps the exclusive ones (MSG-2.1-arch1)', async () => {
+test('file reads and posts share the authority fences; only posting locks the stream (MSG-2.1-arch1, MSG-2.2-arch1)', async () => {
   const runs = await Promise.all(
     (['read', 'post'] as const).map(async (capability) => {
       const f = channelWire([]);
@@ -29,11 +34,21 @@ test('a file read takes the shared fences; posting keeps the exclusive ones (MSG
   assert({
     given: 'a file frame opened to read, and one opened to post',
     should:
-      'let readers share the account and channel fences, and keep posting exclusive',
+      'share the account and channel fences for both, and lock the stream row only to post',
     actual: runs,
     expected: [
-      { sharedAccounts: true, sharedChannel: true, exclusiveChannel: false },
-      { sharedAccounts: false, sharedChannel: false, exclusiveChannel: true },
+      {
+        sharedAccounts: true,
+        sharedChannel: true,
+        exclusiveChannel: false,
+        streamLock: false,
+      },
+      {
+        sharedAccounts: true,
+        sharedChannel: true,
+        exclusiveChannel: false,
+        streamLock: true,
+      },
     ],
   });
 });

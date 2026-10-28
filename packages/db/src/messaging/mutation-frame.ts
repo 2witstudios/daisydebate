@@ -8,7 +8,7 @@ import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
-import { messagingChannels } from '../schema/messaging-channels';
+import { appendStream } from './stream';
 import { appendOutboxEvent } from '../outbox';
 import type {
   MessagingLockedFrame,
@@ -80,6 +80,12 @@ export function channelMutationFrame(
         ].every(Boolean)
       )
         throw createAppError('CONFLICT');
+      const allocated = await appendStream(tx, input.channelId, {
+        messages: 0,
+        changes: 1,
+      });
+      if (allocated.changeVersion !== plan.message.changeVersion)
+        throw createAppError('CONFLICT');
       await tx
         .update(messagingMessages)
         .set({
@@ -122,10 +128,6 @@ export function channelMutationFrame(
             ),
           );
       }
-      await tx
-        .update(messagingChannels)
-        .set({ changeVersion: plan.message.changeVersion })
-        .where(eq(messagingChannels.id, input.channelId));
       await appendOutboxEvent(tx, {
         topic: buildChannelTopic(input.channelId),
         kind: 'channel.changed',

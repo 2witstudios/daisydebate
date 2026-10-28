@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   fileFrameFixture,
+  fileStreamRow,
   fileRow,
   fileMessageRow,
   fileFramePolicy as policy,
@@ -24,6 +25,7 @@ test('attachment replay is idempotent and announces one content-free committed m
     [[4]],
     [['0']],
     [],
+    fileStreamRow(),
     [],
     [[1n, '100']],
     [],
@@ -151,7 +153,7 @@ for (const lifecycle of ['reserved', 'attached'] as const) {
   test(`cancellation of ${lifecycle} file retains unacknowledged charge`, async () => {
     const f = fileFrameFixture(
       lifecycle === 'attached'
-        ? [attached(), [], [], [[1n, '100']], []]
+        ? [attached(), [], fileStreamRow(), [], [[1n, '100']], []]
         : [fileRow(), []],
     );
     await f.frame.cancel(token);

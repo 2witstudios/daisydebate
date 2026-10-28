@@ -3,12 +3,12 @@ import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
-import { readMessagingChannel, withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
 import { channelMutationFrame } from './mutation-frame';
 import { appendOutboxEvent } from '../outbox';
-import { messagingChannels } from '../schema/messaging-channels';
+import { appendStream } from './stream';
 import {
   messagingMessages,
   messagingReceipts,
@@ -19,6 +19,44 @@ import type {
   MessagingMessageRecord,
   MessagingSendCommand,
 } from './records';
+
+type ReadTransaction = Pick<BunSQLDatabase, 'select'>;
+const readMessageIn =
+  (tx: ReadTransaction, channelId: string) =>
+  async (messageId: string | null): Promise<MessagingMessageRecord | null> => {
+    if (messageId === null) return null;
+    const [row] = await tx
+      .select()
+      .from(messagingMessages)
+      .where(
+        and(
+          eq(messagingMessages.id, messageId),
+          eq(messagingMessages.channelId, channelId),
+        ),
+      );
+    return row ? messageRecord(row) : null;
+  };
+/** The actor's own receipt for one request key, if any. */
+const readReceipt = async (
+  tx: ReadTransaction,
+  scope: { readonly channelId: string; readonly actorId: string },
+  requestId: string,
+) => {
+  const [receipt] = await tx
+    .select({
+      payloadDigest: messagingReceipts.payloadDigest,
+      messageId: messagingReceipts.messageId,
+    })
+    .from(messagingReceipts)
+    .where(
+      and(
+        eq(messagingReceipts.channelId, scope.channelId),
+        eq(messagingReceipts.actorId, scope.actorId),
+        eq(messagingReceipts.requestId, requestId),
+      ),
+    );
+  return receipt ?? null;
+};
 
 /** Scope-specific transaction frame; never exposes a raw database to delivery. */
 export function createMessagingStore({
@@ -33,55 +71,48 @@ export function createMessagingStore({
       readMessagingChannel(
         database,
         input,
-        ({ tx, channel, fact, accounts }) => {
+        ({ tx, channel, stream, fact, accounts }) => {
           const authorizeRead = () => authorize(tx, input, { fact, accounts });
-          const { history, changes } = channelReadFrame(
+          const { history, changes, markRead } = channelReadFrame(
             tx,
             input,
-            {
-              channelId: channel.id,
-              messageSequence: channel.messageSequence,
-              changeVersion: channel.changeVersion,
-            },
+            { channelId: channel.id, ...stream },
             authorizeRead,
           );
           return work({
             history,
             changes,
+            markRead,
             authorize: authorizeRead,
             fact,
             accounts,
+            async readRequestState({ requestId, messageId }) {
+              await authorizeRead();
+              if (
+                !idSchema.safeParse(requestId).success ||
+                (messageId !== undefined &&
+                  !idSchema.safeParse(messageId).success)
+              )
+                throw createAppError('VALIDATION');
+              return {
+                counters: { channelId: channel.id, ...stream },
+                receipt: await readReceipt(tx, input, requestId),
+                message: await readMessageIn(tx, channel.id)(messageId ?? null),
+              };
+            },
           });
         },
       ),
     withChannel: async (input, work) => {
-      return withMessagingChannel(
+      return withMessagingContent(
         database,
         input,
-        async ({ tx, channel, fact, accounts }) => {
-          const counters = {
-            channelId: channel.id,
-            messageSequence: channel.messageSequence,
-            changeVersion: channel.changeVersion,
-          };
+        async ({ tx, channel, stream, fact, accounts }) => {
+          const counters = { channelId: channel.id, ...stream };
           const refreshAuthorization = () =>
             authorize(tx, input, { fact, accounts });
           let command: MessagingSendCommand | null = null;
-          const readMessage = async (
-            messageId: string | null,
-          ): Promise<MessagingMessageRecord | null> => {
-            if (messageId === null) return null;
-            const [row] = await tx
-              .select()
-              .from(messagingMessages)
-              .where(
-                and(
-                  eq(messagingMessages.id, messageId),
-                  eq(messagingMessages.channelId, channel.id),
-                ),
-              );
-            return row ? messageRecord(row) : null;
-          };
+          const readMessage = readMessageIn(tx, channel.id);
           return work({
             authorize: refreshAuthorization,
             fact,
@@ -103,22 +134,10 @@ export function createMessagingStore({
               )
                 throw createAppError('VALIDATION');
               command = send;
-              const [receipt] = await tx
-                .select({
-                  payloadDigest: messagingReceipts.payloadDigest,
-                  messageId: messagingReceipts.messageId,
-                })
-                .from(messagingReceipts)
-                .where(
-                  and(
-                    eq(messagingReceipts.channelId, channel.id),
-                    eq(messagingReceipts.actorId, input.actorId),
-                    eq(messagingReceipts.requestId, send.requestId),
-                  ),
-                );
+              const receipt = await readReceipt(tx, input, send.requestId);
               return {
                 counters,
-                receipt: receipt ?? null,
+                receipt,
                 existingMessage: receipt
                   ? await readMessage(receipt.messageId)
                   : null,
@@ -142,6 +161,15 @@ export function createMessagingStore({
                 ].every(Boolean)
               )
                 throw createAppError('CONFLICT');
+              const allocated = await appendStream(tx, channel.id, {
+                messages: 1,
+                changes: 1,
+              });
+              if (
+                allocated.messageSequence !== plan.message.sequence ||
+                allocated.changeVersion !== plan.message.changeVersion
+              )
+                throw createAppError('CONFLICT');
               await tx.insert(messagingMessages).values({
                 ...plan.message,
                 createdAt: new Date(plan.message.createdAt),
@@ -154,13 +182,6 @@ export function createMessagingStore({
                 requestId: command.requestId,
                 ...plan.receipt,
               });
-              await tx
-                .update(messagingChannels)
-                .set({
-                  messageSequence: plan.message.sequence,
-                  changeVersion: plan.message.changeVersion,
-                })
-                .where(eq(messagingChannels.id, channel.id));
               await appendOutboxEvent(tx, {
                 topic: buildChannelTopic(channel.id),
                 kind: 'channel.changed',

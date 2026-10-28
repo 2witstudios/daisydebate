@@ -34,6 +34,10 @@ async function fixture() {
       [channelId, base.fixture.actorId],
     );
     await base.client.unsafe(
+      'insert into messaging_channel_streams(channel_id) values($1)',
+      [channelId],
+    );
+    await base.client.unsafe(
       "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$3)",
       [channelId, base.fixture.actorId, base.fixture.now],
     );

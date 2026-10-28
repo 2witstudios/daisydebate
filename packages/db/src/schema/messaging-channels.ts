@@ -32,12 +32,6 @@ export const messagingChannels = pgTable(
       () => actors.id,
       { onDelete: 'restrict' },
     ),
-    messageSequence: bigint('message_sequence', { mode: 'number' })
-      .notNull()
-      .default(0),
-    changeVersion: bigint('change_version', { mode: 'number' })
-      .notNull()
-      .default(0),
     authorityRevision: bigint('authority_revision', { mode: 'number' })
       .notNull()
       .default(1),
@@ -59,16 +53,37 @@ export const messagingChannels = pgTable(
       sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group'))`,
     ),
     check(
-      'messaging_channels_counters',
-      sql`${table.messageSequence} between 0 and 9007199254740991 and ${table.changeVersion} between ${table.messageSequence} and 9007199254740991`,
-    ),
-    check(
       'messaging_channels_authority_revision',
       sql`${table.authorityRevision} between 1 and 9007199254740991`,
     ),
     check(
       'messaging_channels_title',
       sql`(${table.title} is null and ${table.titleAuthorActorId} is null) or (${table.kind} = 'private_group' and ${table.title} is not null and ${table.title} ~ '[^[:space:]]' and ${table.titleAuthorActorId} is not null)`,
+    ),
+  ],
+);
+
+/**
+ * The channel stream (MSG-2.2-arch1): the ordered append header, apart from
+ * the channel's authority. Only `messaging/stream.ts` writes these counters.
+ */
+export const messagingChannelStreams = pgTable(
+  'messaging_channel_streams',
+  {
+    channelId: text('channel_id')
+      .primaryKey()
+      .references(() => messagingChannels.id, { onDelete: 'cascade' }),
+    messageSequence: bigint('message_sequence', { mode: 'number' })
+      .notNull()
+      .default(0),
+    changeVersion: bigint('change_version', { mode: 'number' })
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    check(
+      'messaging_channel_streams_counters',
+      sql`${table.messageSequence} between 0 and 9007199254740991 and ${table.changeVersion} between ${table.messageSequence} and 9007199254740991`,
     ),
   ],
 );

@@ -65,12 +65,10 @@ test('social channels use constrained identity rather than preference grants', (
       .sort(),
     expected: [
       'authority_revision',
-      'change_version',
       'created_at',
       'id',
       'kind',
       'lifecycle',
-      'message_sequence',
       'policy_key',
       'policy_revision',
       'title',

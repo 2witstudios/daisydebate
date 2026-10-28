@@ -41,11 +41,7 @@ export const request = (state: string, decidedAt: Date | null = null) => [
   decidedAt,
 ];
 /** A positional `messaging_channels` row for the DM's channel. */
-export const channelRow = (
-  lifecycle: string,
-  changeVersion = 4,
-  revision = 2,
-) => [
+export const channelRow = (lifecycle: string, revision = 2) => [
   channelId,
   'dm',
   'social.dm',
@@ -53,10 +49,12 @@ export const channelRow = (
   lifecycle,
   null,
   null,
-  0,
-  changeVersion,
   revision,
   new Date(now),
+];
+/** The DM channel's locked stream row, as `appendStream` reads it. */
+export const streamRow = (changeVersion = 4) => [
+  { messageSequence: 0, changeVersion },
 ];
 /** The budget read's facts: no decline block and nothing spent yet. */
 export const budget = (

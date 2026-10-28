@@ -1,6 +1,5 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type {
-  MessagingLockedFrame,
   MessagingChannelStore,
   MessagingReadFrame,
 } from '@daisy/db/messaging';
@@ -20,20 +19,12 @@ export function createMessagingReadOperations({
   readonly store: MessagingChannelStore;
 }) {
   const schemas = createMessagingCoreSchemas(bounds);
-  // Reads take shared fences; only the read marker writes (MSG-2.1-arch1).
+  // Reads, and the read marker, take shared fences (MSG-2.1-arch1, MSG-2.2-arch1).
   const read = <T>(
     channelId: string,
     principal: AuthorizationPrincipal,
     work: (frame: MessagingReadFrame) => Promise<T>,
   ) => store.readChannel({ channelId, ...requireMemberActor(principal) }, work);
-  const write = <T>(
-    channelId: string,
-    principal: AuthorizationPrincipal,
-    work: (frame: MessagingLockedFrame) => Promise<T>,
-  ) => {
-    const identity = requireMemberActor(principal);
-    return store.withChannel({ channelId, ...identity }, work);
-  };
   const history = (
     command: {
       channelId: string;
@@ -93,7 +84,7 @@ export function createMessagingReadOperations({
     },
     markRead(input: unknown, principal: AuthorizationPrincipal) {
       const command = parseValidated(schemas.markRead, input);
-      return write(command.channelId, principal, async (frame) => ({
+      return read(command.channelId, principal, async (frame) => ({
         version: 1,
         channelId: command.channelId,
         sequence: await frame.markRead(command.cursor.sequence),

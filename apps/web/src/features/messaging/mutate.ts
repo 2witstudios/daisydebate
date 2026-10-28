@@ -72,26 +72,34 @@ export async function mutateMessagingMessage(
     kind,
   } as MessagingMutationCommand;
   const payloadDigest = digest(command);
-  return dependencies.store.withChannel(
-    { channelId: command.channelId, actorId, userId },
-    async (frame) => {
-      const state = await frame.readMutationState(command);
-      const existing = replay(command, state, actorId, payloadDigest);
-      if (existing) return existing;
-      // Avoid consuming a limit for foreign/unavailable/expired author operations.
-      const planAt = (current: MessagingMutationState) =>
-        planMessageMutation(command, current.message, {
-          actorId,
-          now: dependencies.clock.now(),
-          editWindowMs: dependencies.editWindowMs,
-          changeVersion: current.counters.changeVersion,
-        });
-      planAt(state);
-      await dependencies.limit(actorId, command.channelId);
-      const plan = planAt(await frame.readMutationState(command));
-      const mutation: MessagingMutationPlan = { ...plan, payloadDigest };
-      await frame.commitMutation(mutation);
-      return plan.message;
-    },
+  const scope = { channelId: command.channelId, actorId, userId };
+  const planAt = (current: MessagingMutationState) =>
+    planMessageMutation(command, current.message, {
+      actorId,
+      now: dependencies.clock.now(),
+      editWindowMs: dependencies.editWindowMs,
+      changeVersion: current.counters.changeVersion,
+    });
+  // The lock-free preflight (MSG-2.2-arch1): a replay never spends the
+  // limiter, and a foreign/unavailable/expired author operation refuses
+  // before it; the limiter itself runs outside any database fence.
+  const preflight = await dependencies.store.readChannel(scope, (frame) =>
+    frame.readRequestState({
+      requestId: command.requestId,
+      messageId: command.messageId,
+    }),
   );
+  if (!replay(command, preflight, actorId, payloadDigest)) {
+    planAt(preflight);
+    await dependencies.limit(actorId, command.channelId);
+  }
+  return dependencies.store.withChannel(scope, async (frame) => {
+    const state = await frame.readMutationState(command);
+    const existing = replay(command, state, actorId, payloadDigest);
+    if (existing) return existing;
+    const plan = planAt(state);
+    const mutation: MessagingMutationPlan = { ...plan, payloadDigest };
+    await frame.commitMutation(mutation);
+    return plan.message;
+  });
 }

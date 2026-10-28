@@ -87,7 +87,7 @@ test('real own collection projects pending direction through fresh request grant
       [createId(), fixture.channelId, sender.actorId, sentAt],
     );
     await client.unsafe(
-      'update messaging_channels set message_sequence=2, change_version=2 where id=$1',
+      'update messaging_channel_streams set message_sequence=2, change_version=2 where channel_id=$1',
       [fixture.channelId],
     );
     const conversation = {

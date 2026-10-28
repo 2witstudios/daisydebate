@@ -1,3 +1,4 @@
+import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
@@ -55,21 +56,24 @@ async function lockSubjectMessaging(
   `);
 }
 
+/** Erasure is content: its revision goes through the stream; authority moves separately. */
 async function advanceChannel(
   tx: AuthorizationTransaction,
   channelId: string,
   authority: boolean,
 ) {
-  const rows = rowsOf<{ changeVersion: number }>(
-    await tx.execute(sql`
-    update messaging_channels set change_version=change_version+1,
-      authority_revision=authority_revision+${authority ? 1 : 0}
-    where id=${channelId} and change_version < 9007199254740991 and authority_revision < 9007199254740991
-    returning change_version as "changeVersion"
-  `),
-  );
-  if (!rows[0]) throw createAppError('CONFLICT');
-  return Number(rows[0].changeVersion);
+  if (authority) {
+    const rows = await tx.execute(sql`
+      update messaging_channels set authority_revision=authority_revision+1
+      where id=${channelId} and authority_revision < 9007199254740991 returning id
+    `);
+    if (!rows[0]) throw createAppError('CONFLICT');
+  }
+  const { changeVersion } = await appendStream(tx, channelId, {
+    messages: 0,
+    changes: 1,
+  });
+  return changeVersion;
 }
 
 async function scrubSubjectMessages(

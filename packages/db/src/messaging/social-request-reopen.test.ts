@@ -14,6 +14,7 @@ import {
   request,
   budget,
   channelRow,
+  streamRow,
 } from './social-request.test-support';
 setupRitewayBun();
 test('a closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
@@ -21,6 +22,8 @@ test('a closed DM reopens the durable channel and invalidates current authority 
     [request('declined', new Date('2026-10-09T17:00:00Z'))],
     budget(),
     [channelRow('active')],
+    [],
+    streamRow(),
     [],
     [[1, '9']],
     [],
@@ -55,7 +58,7 @@ test('a closed DM reopens the durable channel and invalidates current authority 
   assert({
     given: 'a closed active DM inside its budget',
     should:
-      'reuse its channel under its row lock, clear decision time, replace introduction, advance authority exactly once, and ledger the budget read’s unrelated fact',
+      'reuse its channel under its row lock, clear decision time, replace introduction, advance authority and its stream exactly once, and ledger the budget read’s unrelated fact',
     actual: [
       result,
       queries.some((entry) =>
@@ -66,6 +69,11 @@ test('a closed DM reopens the durable channel and invalidates current authority 
         .filter((entry) =>
           entry.query.startsWith('update "messaging_channels"'),
         )
+        .map((entry) => entry.params[0]),
+      queries
+        .filter((entry) =>
+          entry.query.startsWith('update messaging_channel_streams'),
+        )
         .map((entry) => entry.params.slice(0, 2)),
       ledger?.params.at(-2), // unrelated, before created_at
       channelLock?.params[0],
@@ -74,7 +82,8 @@ test('a closed DM reopens the durable channel and invalidates current authority 
       { channelId, state: 'pending' },
       false,
       true,
-      [[5, 3]],
+      [3],
+      [[0, 5]],
       true,
       channelId,
     ],
@@ -85,7 +94,7 @@ for (const channel of [
   channelRow('archived'),
   channelRow('active', Number.MAX_SAFE_INTEGER),
 ])
-  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
+  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[7] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
       budget(),
@@ -103,7 +112,7 @@ for (const channel of [
       should: 'refuse reopening before any mutation',
       actual: () => frame.commitDmRequest(command),
       code:
-        channel?.[8] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
+        channel?.[7] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
     });
     assert({
       given: 'the refusal',

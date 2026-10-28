@@ -50,7 +50,19 @@ export function groupStoreFacts() {
 
 /** Real driver responses for channel advancement and two recipient outbox inserts. */
 export function groupWriteBellRows() {
-  return [[], [], [[1, '9']], [], [], [[2, '9']], [], [[3, '9']], []];
+  return [
+    [],
+    [],
+    [{ messageSequence: 0, changeVersion: 3 }],
+    [],
+    [[1, '9']],
+    [],
+    [],
+    [[2, '9']],
+    [],
+    [[3, '9']],
+    [],
+  ];
 }
 export function groupWrittenBells(
   queries: readonly {
