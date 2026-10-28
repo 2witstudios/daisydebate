@@ -201,7 +201,7 @@ test('messaging rights erase subject associations atomically and preserve other 
     assert({
       given: 'deleted DM authority and an unowned shared title',
       should:
-        'fail closed without inventing survivor access and preserve the title with content-free change notifications',
+        'fail closed without inventing survivor access and preserve the title; no channel doorbell (observers rebuild from the advanced stream, ADR 0089)',
       actual: {
         fact,
         group,
@@ -212,10 +212,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       expected: {
         fact: null,
         group: { title: 'Shared title', lifecycle: 'archived' },
-        bells: [
-          ['changeVersion', 'channelId', 'kind'],
-          ['changeVersion', 'channelId', 'kind'],
-        ],
+        bells: [],
       },
     });
   } finally {
