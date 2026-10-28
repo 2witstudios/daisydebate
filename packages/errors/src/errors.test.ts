@@ -4,10 +4,28 @@ import {
   createAppError,
   createInvariantError,
   isAppError,
+  isRefusal,
   toPublicError,
 } from './index';
 
 setupRitewayBun();
+
+describe('isRefusal', () => {
+  test('only a minted CONFLICT or AUTHORIZATION is a refusal', () => {
+    assert({
+      given:
+        'a CONFLICT, an AUTHORIZATION, an INFRASTRUCTURE app error, and a stray Error',
+      should: 'count the first two as refusals only',
+      actual: [
+        createAppError('CONFLICT'),
+        createAppError('AUTHORIZATION'),
+        createAppError('INFRASTRUCTURE'),
+        Object.assign(new Error('x'), { code: 'CONFLICT' }),
+      ].map(isRefusal),
+      expected: [true, true, false, false],
+    });
+  });
+});
 
 describe('isAppError', () => {
   test('recognizes errors minted by the public factory', () => {
