@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { appendOutboxEvent } from '../outbox';
 import { messagingChannels } from '../schema/messaging-channels';
+import { appendStream } from '../messaging/stream';
 import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
 import { requireFilePolicy } from './policy';
@@ -51,11 +52,11 @@ export function channelFileFrame(
 ): FileFrame {
   const { channelId } = input;
   const changed = async () => {
-    counters.changeVersion += 1;
-    await tx
-      .update(messagingChannels)
-      .set({ changeVersion: counters.changeVersion })
-      .where(eq(messagingChannels.id, channelId));
+    ({ changeVersion: counters.changeVersion } = await appendStream(
+      tx,
+      channelId,
+      { messages: 0, changes: 1 },
+    ));
     await appendOutboxEvent(tx, {
       topic: buildChannelTopic(channelId),
       kind: 'channel.changed',

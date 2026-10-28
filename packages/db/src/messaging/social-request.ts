@@ -15,6 +15,7 @@ import {
 } from '../contacts/request-budget';
 import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
+import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
@@ -120,8 +121,8 @@ export function dmRequestFrame(
           policyRevision: command.policyRevision,
           lifecycle: 'active',
           createdAt: new Date(command.now),
-          changeVersion: 1,
         });
+        await openStream(tx, channelId);
         await tx.insert(messagingDmPairs).values({
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,

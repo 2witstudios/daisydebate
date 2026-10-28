@@ -115,11 +115,21 @@ export type MessagingLockedFrame = {
   ) => Promise<MessagingMutationState>;
   readonly commitMutation: (plan: MessagingMutationPlan) => Promise<void>;
 };
-/** What a read may do: no counters, sends or mutations (MSG-2.1-arch1). */
+/**
+ * What a read may do: no counter writes, sends or mutations (MSG-2.1-arch1).
+ * `readRequestState` is a command's lock-free preflight: it tells a new
+ * request from a replay before the limiter, outside the write transaction
+ * (MSG-2.2-arch1).
+ */
 export type MessagingReadFrame = Pick<
   MessagingLockedFrame,
   'history' | 'changes' | 'authorize' | 'fact' | 'accounts'
->;
+> & {
+  readonly readRequestState: (input: {
+    readonly requestId: string;
+    readonly messageId?: string;
+  }) => Promise<MessagingMutationState>;
+};
 type ChannelScope = {
   readonly channelId: string;
   readonly actorId: string;

@@ -86,6 +86,10 @@ export function fileMessageRow(
   ];
 }
 
+/** The channel's locked stream row, as `appendStream` reads it (MSG-2.2-arch1). */
+export const fileStreamRow = (changeVersion = 10): unknown[][] => [
+  { messageSequence: 1, changeVersion } as unknown as unknown[],
+];
 /** Only the driver is scripted. Production Drizzle builds, binds and maps every query. */
 export function fileFrameFixture(responses: unknown[][][]) {
   const calls: { query: string; params: unknown[] }[] = [];

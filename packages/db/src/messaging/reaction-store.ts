@@ -23,12 +23,12 @@ export function createMessagingReactionStore(
       value: ReturnType<typeof channelReactionFrame>,
     ) => Promise<Awaited<ReturnType<MessagingReactionStore['read']>>>,
   ) =>
-    fence(database, scope, ({ tx, channel, fact, accounts }) =>
+    fence(database, scope, ({ tx, stream, fact, accounts }) =>
       work(
         channelReactionFrame(
           tx,
           scope,
-          channel.changeVersion,
+          stream.changeVersion,
           policy,
           (operation, association) =>
             authorize(tx, scope, { fact, accounts }, operation, association),

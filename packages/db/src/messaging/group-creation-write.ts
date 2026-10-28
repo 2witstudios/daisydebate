@@ -9,6 +9,7 @@ import {
 } from '../schema/messaging-social';
 import { messagingSocialCommandSubjects } from '../schema/messaging-social-command-subjects';
 import { appendOutboxEvent } from '../outbox';
+import { openStream } from './stream';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type {
   MessagingGroupCreationFrame,
@@ -36,8 +37,8 @@ export async function writeMessagingGroupCreation(
     title: command.title,
     titleAuthorActorId: scope.actorId,
     createdAt: now,
-    changeVersion: 1,
   });
+  await openStream(tx, command.channelId);
   await tx.insert(messagingGroupGrants).values({
     channelId: command.channelId,
     actorId: scope.actorId,

@@ -24,10 +24,11 @@ const original = {
 };
 for (const kind of ['edit', 'remove'] as const)
   test(`own ${kind} transaction keeps sequence and creation time while advancing only changes`, async () => {
+    const stream = [{ messageSequence: 2, changeVersion: 3 }];
     const steps =
       kind === 'remove'
-        ? [[], [], [], [], [], [], [[1, '7']], []]
-        : [[], [], [], [], [[1, '7']], []];
+        ? [[], stream, [], [], [], [], [], [[1, '7']], []]
+        : [[], stream, [], [], [], [[1, '7']], []];
     const { client, queries } = fakeSql(steps);
     let fences = 0;
     const counters = { channelId, messageSequence: 2, changeVersion: 3 };

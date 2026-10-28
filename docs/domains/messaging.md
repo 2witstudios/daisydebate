@@ -11,10 +11,22 @@ then locks the canonical DM pair and channel. Membership is reread after waits;
 a changed actor set refuses the operation. The application injects the canonical
 account and policy composition, keeping raw birth data outside messaging.
 Protected reads and writes reevaluate that composition while the locks remain
-held, including after limiter waits and before receipt replay.
+held and before receipt replay.
+
+A send or author edit first runs a lock-free preflight under the shared read
+fences: a request key that already has a receipt is a replay and never spends
+the limiter. Otherwise the Redis limiter runs before the write transaction,
+never inside a database fence, and the transaction then repeats the receipt
+lookup before any write (MSG-2.2-arch1).
 
 Message sequence orders creation. Change version orders content changes and
-reconnect reads. History pages are descending by sequence; reconnect pages are
+reconnect reads. Both live on the channel stream (`messaging_channel_streams`),
+apart from the channel's authority row and its `authority_revision`. Every
+content writer (send, edit, removal, reactions, files, social authority changes
+and erasure) advances them only through `appendStream`, which locks the stream
+row after the authority fences, allocates the writer's whole plan or refuses
+it, and writes the counters once; readers never lock the stream row
+(MSG-2.2-arch1). History pages are descending by sequence; reconnect pages are
 ascending by current message change version. Removed content is represented by
 a minimal unavailable marker. Read cursors advance monotonically and cannot
 exceed committed channel sequence. Marking read does not follow the channel or

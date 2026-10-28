@@ -120,9 +120,11 @@ test('erasure fences every subject channel before file cleanup and publishes fin
       { id: 'm'.repeat(24), channelId, authorActorId: actorId },
       { id: 'n'.repeat(24), channelId, authorActorId: peerId },
     ],
-    [{ changeVersion: 2 }],
+    [{ messageSequence: 0, changeVersion: 1 }],
     [],
-    [{ changeVersion: 3 }],
+    [],
+    [{ messageSequence: 0, changeVersion: 2 }],
+    [],
     [],
     [], // the retained channels the subject survives
     [],
@@ -137,14 +139,19 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [], // the subject's DM pairs are deleted
-    [{ changeVersion: 4 }],
+    [{ id: channelId }],
+    [{ messageSequence: 0, changeVersion: 3 }],
+    [],
     [[1, '9']],
     [],
   ]);
   const adopter = createMessagingPrivacyAdopter();
   await adopter.erase(drizzle({ client }), subject, { now });
-  const channelUpdates = queries.filter((query) =>
-    query.query.includes('authority_revision=authority_revision+'),
+  const authorityUpdates = queries.filter((query) =>
+    query.query.includes('authority_revision=authority_revision+1'),
+  );
+  const streamUpdates = queries.filter((query) =>
+    query.query.startsWith('update messaging_channel_streams'),
   );
   const messageUpdates = queries.filter((query) =>
     query.query.startsWith('\n      update messaging_messages'),
@@ -156,10 +163,11 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     given:
       'own content and peer message with subject reaction plus authority association',
     should:
-      'scrub only own text and combine authority advance into one latest bell after all cleanup',
+      'scrub only own text, advance the stream once per change and authority once, and combine them into one latest bell after all cleanup',
     actual: [
       adopter.phase,
-      channelUpdates.map((query) => query.params[0]),
+      authorityUpdates.length,
+      streamUpdates.map((query) => query.params[1]),
       messageUpdates.length,
       bells.length,
       bells[0]?.params.find(
@@ -168,7 +176,8 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     ],
     expected: [
       'before-auth',
-      [0, 0, 1],
+      1,
+      [2, 3, 4],
       2,
       1,
       { kind: 'channel.changed', channelId, changeVersion: 4 },
@@ -204,7 +213,7 @@ test('exhausted erase version refuses before association or file deletion', asyn
     [],
     [],
     [{ id: 'm'.repeat(24), channelId, authorActorId: actorId }],
-    [],
+    [{ messageSequence: 0, changeVersion: Number.MAX_SAFE_INTEGER }],
   ]);
   await assertRejects({
     given: 'a channel unable to advance current version',

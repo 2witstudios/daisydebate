@@ -41,7 +41,11 @@ export function messagingAuthorityWire(script: Parameters<typeof fakeSql>[0]) {
   return { database: drizzle({ client }), queries, scope, fact, now };
 }
 
-export function channelWire(script: Parameters<typeof fakeSql>[0]) {
+/** The channel row, then its stream's unlocked high-water mark (MSG-2.2-arch1). */
+export function channelWire(
+  script: Parameters<typeof fakeSql>[0],
+  stream = { messageSequence: 0, changeVersion: 1 },
+) {
   const channel = [
     'c'.repeat(24),
     'dm',
@@ -50,10 +54,8 @@ export function channelWire(script: Parameters<typeof fakeSql>[0]) {
     'active',
     null,
     null,
-    0,
-    1,
     1,
     new Date('2026-10-09T18:00:00.000Z'),
   ];
-  return messagingAuthorityWire([[channel], ...script]);
+  return messagingAuthorityWire([[channel], [stream], ...script]);
 }

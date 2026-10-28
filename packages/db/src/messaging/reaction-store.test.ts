@@ -94,6 +94,6 @@ test('reaction store invokes current operation fence before protected message, r
         query.query.includes('daisy_messaging_channel_fence('),
       ),
     ],
-    expected: [5, false, true],
+    expected: [6, false, true],
   });
 });

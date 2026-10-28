@@ -170,7 +170,7 @@ export async function openComposedFileFixture(
       [messageId, fixture.channelId, fixture.actorId, fixture.now],
     );
     await client.unsafe(
-      'update messaging_channels set message_sequence=1,change_version=1 where id=$1',
+      'update messaging_channel_streams set message_sequence=1,change_version=1 where channel_id=$1',
       [fixture.channelId],
     );
     const fileRow = async (fileId: string) =>

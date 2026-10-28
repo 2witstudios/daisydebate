@@ -79,7 +79,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
       [messageId, channelId, actorId, now],
     );
     await client.unsafe(
-      'update messaging_channels set message_sequence=1,change_version=1 where id=$1',
+      'update messaging_channel_streams set message_sequence=1,change_version=1 where channel_id=$1',
       [channelId],
     );
     assert({

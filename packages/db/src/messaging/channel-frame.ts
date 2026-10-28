@@ -8,14 +8,20 @@ import {
   withSharedMessagingAuthority,
 } from './authority-frame';
 import type { MessagingChannelStore } from './records';
+import { readStream, type ChannelStream } from './stream';
 type Input = Parameters<MessagingChannelStore['withChannel']>[0];
 type AuthorityWork = Parameters<typeof withLockedMessagingAuthority>[2];
 type Frame = Parameters<AuthorityWork>[0] & {
   readonly tx: Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
   readonly channel: typeof messagingChannels.$inferSelect;
+  readonly stream: ChannelStream;
 };
 
-/** Adds the channel row, read after the authority fences, to the frame. */
+/**
+ * Adds the channel row and its stream's high-water mark, read after the
+ * authority fences, to the frame. Neither read locks the stream row: a
+ * writer allocates through `appendStream` (MSG-2.2-arch1).
+ */
 const withChannelRow =
   <T>(tx: Frame['tx'], input: Input, work: (frame: Frame) => Promise<T>) =>
   async (authority: Parameters<AuthorityWork>[0]) => {
@@ -24,7 +30,8 @@ const withChannelRow =
       .from(messagingChannels)
       .where(eq(messagingChannels.id, input.channelId));
     if (!channel) throw createAppError('NOT_FOUND');
-    return work({ ...authority, tx, channel });
+    const stream = await readStream(tx, channel.id);
+    return work({ ...authority, tx, channel, stream });
   };
 
 /** Message/file readers extend the shared authority fence with their own counters. */

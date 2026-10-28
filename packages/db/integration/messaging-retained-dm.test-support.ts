@@ -38,7 +38,7 @@ export const openDm = async (databaseUrl: string) => {
     attached: { id: createId(), objectKey: createId() },
   };
   await client.unsafe(
-    'update messaging_channels set message_sequence=3,change_version=3 where id=$1',
+    'update messaging_channel_streams set message_sequence=3,change_version=3 where channel_id=$1',
     [channelId],
   );
   await client.unsafe(

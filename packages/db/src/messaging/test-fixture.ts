@@ -174,6 +174,10 @@ export async function seedMessagingTestDm(
     [channelId],
   );
   await client.unsafe(
+    'insert into messaging_channel_streams(channel_id) values($1)',
+    [channelId],
+  );
+  await client.unsafe(
     "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,'accepted',$5,$5)",
     [low, high, channelId, actorId, now],
   );

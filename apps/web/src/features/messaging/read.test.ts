@@ -94,7 +94,12 @@ function readWire() {
     },
     readChannel: async (scope, work) => {
       calls.push(['scope', scope]);
-      return work(frame);
+      return work({
+        ...frame,
+        readRequestState: async () => {
+          throw new Error('A read never preflights a command');
+        },
+      });
     },
   };
   return {

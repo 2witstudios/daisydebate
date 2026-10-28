@@ -198,7 +198,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
     // remains in it, and keeps only files attached to it there.
     const peerMessageId = createId();
     const [counters] = await client.unsafe(
-      'update messaging_channels set message_sequence=message_sequence+1, change_version=change_version+1 where id=$1 returning message_sequence as sequence, change_version as version',
+      'update messaging_channel_streams set message_sequence=message_sequence+1, change_version=change_version+1 where channel_id=$1 returning message_sequence as sequence, change_version as version',
       [fixture.channelId],
     );
     await client.unsafe(

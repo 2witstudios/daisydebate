@@ -22,6 +22,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
     budget(),
     [],
     [],
+    [],
     [[1, '9']],
     [],
     [[2, '9']],
@@ -64,6 +65,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
       1,
       [
         'messaging_channels',
+        'messaging_channel_streams',
         'messaging_dm_pairs',
         'outbox',
         'outbox',

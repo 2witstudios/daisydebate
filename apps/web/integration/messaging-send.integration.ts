@@ -52,7 +52,7 @@ test('composed messaging sends dedupe races and refuse protected replay after bl
       (select count(*)::int from messaging_messages where channel_id=$1) as messages,
       (select count(*)::int from messaging_receipts where channel_id=$1) as receipts,
       (select count(*)::int from outbox where payload->>'channelId'=$1) as bells
-      from messaging_channels where id=$1`,
+      from messaging_channel_streams where channel_id=$1`,
       [fixture.channelId],
     );
     return row;
