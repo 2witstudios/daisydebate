@@ -7,11 +7,8 @@ import {
   ownedClaim,
   seat,
 } from './control-service.test-support';
-import {
-  failureLog,
-  manualTimers,
-  within,
-} from '../../lib/worker-timers.test-support';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
 /**

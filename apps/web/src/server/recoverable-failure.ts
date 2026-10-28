@@ -31,23 +31,43 @@ export function recoverableFailure(input: {
   readonly cause?: (error: unknown) => string | undefined;
 }) {
   const deferrals = new Map<string, number>();
+  /** One sink step; a step that throws never stops the next or its caller. */
+  const attempt = (step: () => void) => {
+    try {
+      step();
+    } catch {
+      /* A failing sink is never its caller's fault (ISSUE-789). */
+    }
+  };
   const report = (error: unknown, operation: string) => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
-    const cause = input.cause?.(error);
-    input.logger.log(
-      input.event,
-      { operation, errorCode, ...(cause ? { cause } : {}) },
-      input.message,
-    );
-    input.reporter.capture(error, {
-      requestId: input.nextId(),
-      route: operation,
-      errorCode,
+    attempt(() => {
+      const cause = input.cause?.(error);
+      input.logger.log(
+        input.event,
+        { operation, errorCode, ...(cause ? { cause } : {}) },
+        input.message,
+      );
     });
+    attempt(() =>
+      input.reporter.capture(error, {
+        requestId: input.nextId(),
+        route: operation,
+        errorCode,
+      }),
+    );
   };
+  /**
+   * Never throws, so no worker promise ever rejects because reporting its
+   * failure failed (ISSUE-789).
+   */
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
-    if (!input.isCapacity(error)) return report(error, operation);
+    let capacity = false;
+    attempt(() => {
+      capacity = input.isCapacity(error);
+    });
+    if (!capacity) return report(error, operation);
     const deferred = (deferrals.get(stage) ?? 0) + 1;
     if (deferred <= CAPACITY_DEFERRAL_LIMIT)
       return void deferrals.set(stage, deferred);

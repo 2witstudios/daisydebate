@@ -1,11 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startBotControlService } from './control-service';
+import { recoverableFailure } from '../../server/recoverable-failure';
 import { neverOverdue, ownedClaim, seat } from './control-service.test-support';
-import {
-  failureLog,
-  manualTimers,
-  within,
-} from '../../lib/worker-timers.test-support';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
 /**
@@ -65,9 +63,10 @@ test('a rotating seat holds one slot while its incoming claim is in flight (ISSU
   });
 });
 
-test('a reporter that throws never rejects the service’s own promises (ISSUE-789)', async () => {
+test('a worker sink whose log throws never rejects the service’s promises, and every stage is still reported (ISSUE-789)', async () => {
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  const routes: string[] = [];
   process.on('unhandledRejection', onUnhandled);
   try {
     const incoming = Promise.withResolvers<void>();
@@ -87,7 +86,10 @@ test('a reporter that throws never rejects the service’s own promises (ISSUE-7
       },
       control: (claim) => ({
         pulse: async () => {
-          if (claim.scope.segmentId === 'second') incoming.resolve();
+          if (claim.scope.segmentId === 'second') {
+            incoming.resolve();
+            throw new Error('receipt write failed');
+          }
           return [];
         },
         stop: async () => {
@@ -98,9 +100,22 @@ test('a reporter that throws never rejects the service’s own promises (ISSUE-7
       limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
       timers,
       overdue: neverOverdue,
-      failed: () => {
-        throw new Error('reporter down');
-      },
+      // The production sink, with a log transport that always throws.
+      failed: recoverableFailure({
+        isCapacity: () => false,
+        logger: {
+          log: () => {
+            throw new Error('log transport down');
+          },
+        },
+        reporter: {
+          capture: (_error, context) => routes.push(context.route),
+        },
+        nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+        event: 'round.control.failed',
+        operation: 'round.control',
+        message: 'Control receipt work remains recoverable',
+      }),
     });
     await service.started;
     segment = 'second';
@@ -114,10 +129,17 @@ test('a reporter that throws never rejects the service’s own promises (ISSUE-7
   }
   assert({
     given:
-      'a failing stop and a failing scan reported to a reporter that throws',
+      'a failing stop, pulse and scan reported through a sink whose log throws',
     should:
-      'still rotate the seat, stop the service and leave no rejection unhandled',
-    actual: unhandled,
-    expected: [],
+      'report each stage, rotate the seat, stop the service and leave no rejection unhandled',
+    actual: { unhandled, routes: [...new Set(routes)].sort() },
+    expected: {
+      unhandled: [],
+      routes: [
+        'round.control.discover',
+        'round.control.pulse',
+        'round.control.stop',
+      ],
+    },
   });
 });

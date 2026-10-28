@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './seat';
-import { manualTimers, within } from '../../lib/worker-timers.test-support';
+import { manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from '../../lib/deadline.test-support';
 
 setupRitewayBun();
 function harness(withFeed: boolean, speakerStop = async () => undefined) {
@@ -159,5 +160,44 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
       log: ['publication-start', 'publication-close', 'feed-close'],
       failures: [[closeFault, 'close']],
     },
+  });
+});
+
+test('a seat that cannot close either part reports both failures (ISSUE-789)', async () => {
+  const publicationFault = new Error('publication close failed');
+  const feedFault = new Error('hearing close failed');
+  const reported = Promise.withResolvers<unknown>();
+  try {
+    createBotSeat({
+      control: { pulse: async () => [] },
+      speaker: { wake: () => {}, stop: async () => {} },
+      publication: {
+        start: () => {},
+        close: async () => {
+          throw publicationFault;
+        },
+      },
+      feed: {
+        start: () => {
+          throw new Error('listener unavailable');
+        },
+        poll: async () => {},
+        close: async () => {
+          throw feedFault;
+        },
+      },
+      pollMs: 50,
+      timers: manualTimers().timers,
+      failed: (error) => reported.resolve(error),
+    });
+  } catch {
+    /* The start failure itself is the first test's concern. */
+  }
+  const error = await within(reported.promise, 'The close report');
+  assert({
+    given: 'a seat whose publication and hearing both fail to close',
+    should: 'report both errors, not only the last',
+    actual: (error as AggregateError).errors,
+    expected: [publicationFault, feedFault],
   });
 });

@@ -52,20 +52,14 @@ export function startBotControlService<C extends Claim>(input: {
    * ending is done, so its timer is cleared.
    */
   readonly overdue: (signal: AbortSignal) => Promise<void>;
-  /** `stage` names the work that failed: pulse, stop, revoke, claim or discover. */
+  /**
+   * `stage` names the work that failed: pulse, stop, revoke, claim or
+   * discover. It must never throw (the worker sink guards itself), so no
+   * promise here rejects because reporting failed (ISSUE-789).
+   */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
-  /**
-   * Reports through `input.failed`, never throwing: a reporter fault is not
-   * a seat fault, so no promise here rejects because reporting failed.
-   */
-  const failed = (error: unknown, stage: string) => {
-    try {
-      input.failed(error, stage);
-    } catch {
-      /* The reporter itself failed; the seat's work carries on. */
-    }
-  };
+  const failed = input.failed;
   const owned = new Map<string, Owned<C>>();
   let stopped = false,
     discovering: Promise<void> | null = null;
@@ -163,7 +157,9 @@ export function startBotControlService<C extends Claim>(input: {
         if (await authorityLost(entry)) {
           // Authority ended (Round completed or claim rotated): a release, not a fault.
           entry.lost = true;
-          void end(entry, false);
+          void end(entry, false).catch((ending: unknown) =>
+            failed(ending, 'stop'),
+          );
           return;
         }
         // A pulse that outlived its overrun was already reported as it.
@@ -198,8 +194,10 @@ export function startBotControlService<C extends Claim>(input: {
     // slot is never free between them; shutdown waits for the chain.
     old.handingOff = true;
     const chained: Promise<void> = end(old, true)
-      .then(() => claimSeat(target))
-      .catch(claimFailed)
+      .then(
+        () => claimSeat(target).catch(claimFailed),
+        (error: unknown) => failed(error, 'stop'),
+      )
       .finally(() => {
         release(old);
         endings.delete(chained);

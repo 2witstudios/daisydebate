@@ -47,13 +47,20 @@ export function createBotSeat(input: {
     })();
     return polling;
   };
-  /** Closes what the seat started: its publication, then its hearing. */
+  /**
+   * Closes what the seat started, its publication and then its hearing,
+   * each attempted, and throws every failure, not only the last.
+   */
   const closeStarted = async () => {
-    try {
-      await input.publication.close();
-    } finally {
-      await input.feed?.close();
-    }
+    const { publication, feed } = input;
+    const errors: unknown[] = [];
+    for (const close of [() => publication.close(), () => feed?.close()])
+      await Promise.resolve()
+        .then(close)
+        .catch((error: unknown) => errors.push(error));
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1)
+      throw new AggregateError(errors, 'The seat could not close');
   };
   input.publication.start();
   let timer: unknown = null;

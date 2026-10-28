@@ -2,11 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
 import { neverOverdue, ownedClaim, seat } from './control-service.test-support';
-import {
-  failureLog,
-  manualTimers,
-  within,
-} from '../../lib/worker-timers.test-support';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
 const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };

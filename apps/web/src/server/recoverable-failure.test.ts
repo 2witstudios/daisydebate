@@ -168,3 +168,57 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
     ],
   });
 });
+
+test('a sink that throws never fails its caller, and its other steps still run (ISSUE-789)', () => {
+  const captured: unknown[] = [];
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: {
+      log: () => {
+        throw new Error('log transport down');
+      },
+    },
+    reporter: { capture: (error) => captured.push(error) },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.control.failed',
+    operation: 'round.control',
+    message: 'Control receipt work remains recoverable',
+    cause: () => {
+      throw new Error('cause reader broke');
+    },
+  });
+  const fault = new Error('stop failed');
+  let thrown: unknown = null;
+  try {
+    failed(fault, 'stop');
+  } catch (error) {
+    thrown = error;
+  }
+  const dead = recoverableFailure({
+    isCapacity: () => {
+      throw new Error('capacity check broke');
+    },
+    logger: { log: () => {} },
+    reporter: {
+      capture: () => {
+        throw new Error('reporter down');
+      },
+    },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.control.failed',
+    operation: 'round.control',
+    message: 'Control receipt work remains recoverable',
+  });
+  try {
+    dead(fault, 'pulse');
+  } catch (error) {
+    thrown = error;
+  }
+  assert({
+    given: 'a log, cause reader, capacity check or reporter that throws',
+    should:
+      'never throw to the worker, and still hand the error to the reporter',
+    actual: { thrown, captured },
+    expected: { thrown: null, captured: [fault] },
+  });
+});
