@@ -12,13 +12,6 @@ import { parseTopic, type TopicFamily } from './topics';
  */
 const entityVersionSchema = z.int().positive();
 
-/** Channel sequence is separate from change version; this carries no content. */
-const channelChangedPayloadSchema = z.strictObject({
-  kind: z.literal('channel.changed'),
-  channelId: idSchema,
-  changeVersion: z.number().int().positive().safe(),
-});
-
 const messagingInboxChangedPayloadSchema = z.strictObject({
   kind: z.literal('messaging.inbox.changed'),
 });
@@ -98,7 +91,6 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 
 /** The outbox payload contract, discriminated by `kind`, always carrying `entityVersion`. */
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
-  channelChangedPayloadSchema,
   messagingInboxChangedPayloadSchema,
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
@@ -123,7 +115,9 @@ type OutboxPayloadKind = OutboxPayload['kind'];
 const storageFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
 > = {
-  channel: ['channel.changed'],
+  // Channel content is observed (ADR 0089), never a doorbell; the channel
+  // topic carries only typing hints, which are not outbox rows.
+  channel: [],
   room: ['room.changed'],
   round: ['round.phase-changed', 'round.transcript-changed'],
   'round:presence': [],
@@ -153,11 +147,6 @@ export function isPayloadStorableOnTopic(
     jitless: true,
   });
   if (!parsedPayload.success) return false;
-  if (parsedTopic.family === 'channel')
-    return (
-      parsedPayload.data.kind === 'channel.changed' &&
-      parsedPayload.data.channelId === parsedTopic.channelId
-    );
   if (
     parsedTopic.family === 'room' &&
     (parsedPayload.data.kind !== 'room.changed' ||

@@ -1,6 +1,6 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic, idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingGroupGrants,
@@ -8,7 +8,6 @@ import {
   messagingSocialCommands,
 } from '../schema/messaging-social';
 import { messagingSocialCommandSubjects } from '../schema/messaging-social-command-subjects';
-import { appendOutboxEvent } from '../outbox';
 import { openStream } from './stream';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type {
@@ -74,16 +73,6 @@ export async function writeMessagingGroupCreation(
       subjectActorId,
     })),
   );
-  await appendOutboxEvent(tx, {
-    topic: buildChannelTopic(command.channelId),
-    kind: 'channel.changed',
-    version: 1,
-    payload: {
-      kind: 'channel.changed',
-      channelId: command.channelId,
-      changeVersion: 1,
-    },
-  });
   await invalidateMessagingInboxes(tx, scope.proposedActorIds);
   return { channelId: command.channelId, lifecycle: 'active' as const };
 }

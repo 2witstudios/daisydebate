@@ -10,7 +10,7 @@ const row = (topic: string, createdAt = '2026-10-27T00:00:00.000Z') =>
     txid: '1',
     seq: (seq += 1n),
     topic,
-    kind: 'channel.changed',
+    kind: 'room.changed',
     version: 1,
     payload: {},
     createdAt,

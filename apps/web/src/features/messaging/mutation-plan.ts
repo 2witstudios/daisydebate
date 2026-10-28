@@ -41,11 +41,6 @@ export function planMessageMutation(
   };
   return {
     message: updated,
-    doorbell: {
-      kind: 'channel.changed' as const,
-      channelId: command.channelId,
-      changeVersion,
-    },
   };
 }
 

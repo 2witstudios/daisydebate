@@ -263,4 +263,3 @@ export function createObservationOwner({
     stats: () => ({ owned: owned.size, building }),
   };
 }
-type ObservationOwner = ReturnType<typeof createObservationOwner>;

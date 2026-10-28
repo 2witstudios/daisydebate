@@ -1,55 +1,64 @@
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { openPage, test } from './fixtures';
 import { effectsRan } from './hydration';
-import { seedControlMessage, watchChannelBells } from './channel-bells';
+import { watchChannelObservation } from './channel-observation';
 import {
   acceptMessagingJourney,
   openMessagingJourney,
 } from './messaging-journey';
 
+const messageInHistory = (page: Page, text: string) =>
+  page
+    .getByRole('list', { name: 'Message history' })
+    .getByText(text, { exact: true });
+
 /**
- * ISSUE-619: a channel doorbell refetches the own-message page. The reader's
- * unsaved edit and its request must survive that refresh; only the bell and
- * the page's own refetch are awaited, never time.
+ * MSG-5.3-arch1 (ADR 0089): another member's message arrives as an
+ * observation snapshot that replaces only the history. The reader's unsent
+ * draft and its request survive, and the page is never refetched. Only the
+ * snapshot and the rendered message are awaited, never time.
  */
 export function testDraftSurvivesRefresh() {
-  test('an unsaved message edit and its request survive a live refresh', async ({
+  test('an unsent draft and its request survive another member posting', async ({
     browser,
   }) => {
     const journey = await openMessagingJourney(browser);
     try {
       const page = await acceptMessagingJourney(journey);
       const { channelId } = journey;
-      const message = await seedControlMessage(page, channelId, journey.sender);
-      const bells = watchChannelBells(page, channelId);
-      await page.goto(message.path);
+      const observed = watchChannelObservation(page, channelId);
+      await page.goto(`/messages/${channelId}`);
       await effectsRan(page);
-      await bells.subscribed();
-      const draft = 'An edit still being written';
-      const editor = page.getByLabel('Revise your message');
-      await editor.fill(draft);
-      const form = editor.locator('xpath=ancestor::form');
+      await observed.ready();
+      const path = new URL(page.url()).pathname;
+      const refetches: string[] = [];
+      page.on('request', (request) => {
+        if (
+          request.headers()['rsc'] === '1' &&
+          new URL(request.url()).pathname === path
+        )
+          refetches.push(request.url());
+      });
+      const draft = 'A reply still being written';
+      const composer = page.getByLabel('Your message');
+      await composer.fill(draft);
+      const form = composer.locator('xpath=ancestor::form');
       const requestId = await form
         .locator('input[name="requestId"]')
         .inputValue();
-      const path = new URL(page.url()).pathname;
-      const refetched = page.waitForResponse(
-        (response) =>
-          response.request().headers()['rsc'] === '1' &&
-          new URL(response.url()).pathname === path,
-      );
-      const other = await openPage(journey.sender, 'the doorbell sender');
+      const other = await openPage(journey.sender, 'the other member');
       await other.goto(`/messages/${channelId}`);
-      await other.getByLabel('Your message').fill('A message that rings');
+      const text = 'A message that arrives live';
+      await other.getByLabel('Your message').fill(text);
       await other
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
-      await bells.heard(message.changeVersion + 1);
-      await refetched;
-      await expect(editor).toHaveValue(draft);
+      await expect(messageInHistory(page, text)).toHaveCount(1);
+      await expect(composer).toHaveValue(draft);
       await expect(form.locator('input[name="requestId"]')).toHaveValue(
         requestId,
       );
+      expect(refetches).toEqual([]);
     } finally {
       await journey.close();
     }

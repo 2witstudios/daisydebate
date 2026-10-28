@@ -25,8 +25,6 @@ test('a closed DM reopens the durable channel and invalidates current authority 
     [],
     streamRow(),
     [],
-    [[1, '9']],
-    [],
     [{ lowActorId: actorId, highActorId: peerId }],
     [[2, '9']],
     [],

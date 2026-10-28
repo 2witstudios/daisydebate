@@ -558,6 +558,3 @@ export function createObservationCacheOperations({
     },
   };
 }
-type ObservationCacheOperations = ReturnType<
-  typeof createObservationCacheOperations
->;

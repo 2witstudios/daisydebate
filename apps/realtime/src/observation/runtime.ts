@@ -138,4 +138,3 @@ export function startObservationRuntime({
     },
   };
 }
-type ObservationRuntime = ReturnType<typeof startObservationRuntime>;

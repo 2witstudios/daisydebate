@@ -10,8 +10,9 @@ test('delivery preserves topic identity and never forwards inbox control rows', 
   const room = { kind: 'room.changed', ids: [id], entityVersion: 3 };
   assert({
     given:
-      'valid Room and channel doorbells, mismatched identities and an unknown payload field',
-    should: 'deliver only validated matching entity doorbells',
+      'a valid Room doorbell, mismatched identities, an unknown payload field and the retired channel doorbell',
+    should:
+      'deliver only validated matching entity doorbells; channel content is observed, never rung (ADR 0089)',
     actual: [
       isPayloadDeliverableOnTopic(`room:${id}`, room),
       isPayloadDeliverableOnTopic(`room:${other}`, room),
@@ -27,7 +28,7 @@ test('delivery preserves topic identity and never forwards inbox control rows', 
         changeVersion: 3,
       }),
     ],
-    expected: [true, false, false, true, false],
+    expected: [true, false, false, false, false],
   });
   assert({
     given: 'three valid durable inbox control kinds and one notification delta',

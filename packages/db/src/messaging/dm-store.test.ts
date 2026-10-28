@@ -63,8 +63,6 @@ test('request decisions require observation and matching operation before writes
     [],
     [{ messageSequence: 0, changeVersion: 1 }],
     [],
-    [[1, '7']],
-    [],
     [],
   ]);
   const modes: string[] = [];
@@ -137,7 +135,8 @@ test('request decisions require observation and matching operation before writes
   });
   assert({
     given: 'the accepted decision',
-    should: 'record current counterpart and a content-free authority bell',
+    should:
+      'record current counterpart and no doorbell: observers see the authority change as a new disclosure revision (ADR 0089)',
     actual: [
       current.queries.filter((q) =>
         q.query.startsWith('insert into "messaging_social_commands"'),
@@ -150,7 +149,7 @@ test('request decisions require observation and matching operation before writes
       current.queries.filter((q) => q.query.startsWith('insert into "outbox"'))
         .length,
     ],
-    expected: [1, true, 1],
+    expected: [1, true, 0],
   });
 });
 test('dedicated request authority loss refuses before introduction or receipt access', async () => {

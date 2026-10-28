@@ -48,14 +48,12 @@ export function groupStoreFacts() {
   return { inviter, invitee, channelId, accounts, channel, now, invitation };
 }
 
-/** Real driver responses for channel advancement and two recipient outbox inserts. */
+/** Real driver responses for channel advancement and two recipient inbox bells. */
 export function groupWriteBellRows() {
   return [
     [],
     [],
     [{ messageSequence: 0, changeVersion: 3 }],
-    [],
-    [[1, '9']],
     [],
     [],
     [[2, '9']],

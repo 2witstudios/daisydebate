@@ -16,15 +16,22 @@ const base = (r: ReturnType<typeof resource>, disclosureRevision = 1) => ({
   disclosureRevision,
 });
 
+type Redis = Parameters<Parameters<typeof withRedis>[1]>[0]['redis'];
+/** A fresh cache incarnation with live demand for `resources` from one node. */
+async function demanded(
+  redis: Redis,
+  resources: readonly ReturnType<typeof resource>[],
+  node: string,
+) {
+  const incarnation = await redis.establishObservationIncarnation(createId());
+  await redis.refreshObservationInterest({ node, resources, ttlMs: 5000 });
+  return incarnation;
+}
+
 test('observation: only the claim holder publishes, forward only within a base (ADR 0089)', () =>
   withRedis(url, async ({ redis }) => {
     const r = resource();
-    const incarnation = await redis.establishObservationIncarnation(createId());
-    await redis.refreshObservationInterest({
-      node: 'node-a',
-      resources: [r],
-      ttlMs: 5000,
-    });
+    const incarnation = await demanded(redis, [r], 'node-a');
     const owner = createId(),
       rival = createId();
     const claims = [
@@ -102,12 +109,7 @@ test('observation: only the claim holder publishes, forward only within a base (
 test('observation: a purge deletes bodies and fences out a build started before it', () =>
   withRedis(url, async ({ redis }) => {
     const r = resource();
-    const incarnation = await redis.establishObservationIncarnation(createId());
-    await redis.refreshObservationInterest({
-      node: 'node-a',
-      resources: [r],
-      ttlMs: 5000,
-    });
+    const incarnation = await demanded(redis, [r], 'node-a');
     const token = createId();
     await redis.claimObservation({
       resource: r,

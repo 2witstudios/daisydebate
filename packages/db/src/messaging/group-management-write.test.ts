@@ -84,7 +84,6 @@ for (const operation of ['remove', 'transfer', 'archive'] as const)
         updates.length,
         true,
         [
-          { kind: 'channel.changed', channelId, changeVersion: 4 },
           { kind: 'messaging.inbox.changed' },
           { kind: 'messaging.inbox.changed' },
         ],

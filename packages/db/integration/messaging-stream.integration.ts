@@ -116,7 +116,6 @@ test('two channels sharing their members both progress under concurrent sends (M
             removedAt: null,
           },
           receipt: { messageId, payloadDigest: 'd'.repeat(64) },
-          doorbell: { kind: 'channel.changed', channelId, changeVersion },
         });
       });
     };
@@ -138,7 +137,7 @@ test('two channels sharing their members both progress under concurrent sends (M
       given:
         'interleaved concurrent sends by both members to their DM and group',
       should:
-        'advance each channel’s own stream contiguously, with one bell per send',
+        'advance each channel’s own stream contiguously, and write no channel doorbell (content is observed, ADR 0089)',
       actual: {
         dm: await streamOf(client, fixture.channelId),
         group: await streamOf(client, groupId),
@@ -150,13 +149,13 @@ test('two channels sharing their members both progress under concurrent sends (M
           sequence: `${sends}`,
           version: `${sends}`,
           revision: 1,
-          bells: sends,
+          bells: 0,
         },
         group: {
           sequence: `${sends}`,
           version: `${sends}`,
           revision: 1,
-          bells: sends,
+          bells: 0,
         },
         dmSequences: all,
         groupSequences: all,
