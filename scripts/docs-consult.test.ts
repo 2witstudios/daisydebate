@@ -1,12 +1,17 @@
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
+import { classifyConsultResponse, conversationIdFor } from './docs-consult';
 import {
-  classifyConsultResponse,
   composeConsultQuestion,
-  conversationIdFor,
-} from './docs-consult';
+  QUESTION_MAX_CHARS,
+} from './docs-consult-question';
 import { CUID2, mergeEvent } from './docs-consult.test-support';
-import { DOCUMENTATION_PROMPT_VERSION, promptFor } from './docs-prompts';
+import type { DocumentPipeline } from './docs-pipeline';
+import {
+  DOCUMENTATION_PROMPT_VERSION,
+  DOCUMENTATION_PROMPTS,
+  promptFor,
+} from './docs-prompts';
 import { RUN_RECORD_COLUMNS } from './docs-runs-sheet';
 import { EVENT_MAX_CHARS } from './docs-event-bound';
 import { DOCUMENTATION_RUNS_SHEET_ID } from './pagespace-docs';
@@ -123,6 +128,47 @@ describe('composeConsultQuestion', async () => {
         ),
       },
       expected: { fenced: true, said: true },
+    });
+  });
+
+  test('caps the whole question for every pipeline', async () => {
+    const files = Array.from({ length: 500 }, (_, i) => `scripts/f-${i}.ts`);
+    // The repository is trusted text the event bound cannot cut, so the
+    // event's share has to shrink for the question to fit.
+    const big = {
+      ...event,
+      repository: `2witstudios/${'r'.repeat(1_500)}`,
+      pullRequest: event.pullRequest && {
+        ...event.pullRequest,
+        body: 'z'.repeat(30_000),
+      },
+      changedFiles: files,
+      sourceRefs: files,
+    };
+    const questions = Object.keys(DOCUMENTATION_PROMPTS).map((pipeline) =>
+      composeConsultQuestion({
+        event: big,
+        pipeline: pipeline as DocumentPipeline,
+        conversationId: 'dabc',
+        runRow: 7,
+        nonce: 'n0nce',
+      }),
+    );
+    assert({
+      given:
+        'a slice-sized event with long trusted context, for each registered pipeline',
+      should:
+        'keep each question within QUESTION_MAX_CHARS and name the smaller event budget',
+      actual: questions.map((question) => ({
+        fits: question.length <= QUESTION_MAX_CHARS,
+        smaller:
+          /This event was shortened to fit the (\d+)-character consult budget/
+            .exec(question)
+            ?.slice(1)
+            .map(Number)
+            .every((budget) => budget < EVENT_MAX_CHARS) ?? false,
+      })),
+      expected: questions.map(() => ({ fits: true, smaller: true })),
     });
   });
 
