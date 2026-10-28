@@ -102,7 +102,7 @@ the same formula (a shared vCPU includes 256MB):
 | Machine                                            | Size                 | Monthly                     |
 | -------------------------------------------------- | -------------------- | --------------------------- |
 | Web `daisy-debate-staging`                         | shared-cpu-4x, 1gb   | ≈ $9.72 (was $3.99)         |
-| Postgres `daisy-debate-staging-db`                 | performance-1x, 2gb  | ≈ $40 (was $2.43)           |
+| Postgres `daisy-debate-staging-db`                 | performance-2x, 4gb  | ≈ $80 (was $2.43)           |
 | LiveKit `daisy-debate-staging-livekit`             | shared-cpu-1x, 512mb | ≈ $3.99 + $2 dedicated IPv4 |
 | Realtime `daisy-debate-staging-realtime`           | shared-cpu-1x, 512mb | ≈ $3.99                     |
 | Capture worker `daisy-debate-staging-media-worker` | shared-cpu-1x, 1gb   | ≈ $7.12                     |
@@ -117,7 +117,18 @@ host contention, which stretched each media admission to 9 to 34 s. A
 dedicated vCPU (performance-1x, Fly's list price $32.19 with the ord markup)
 measured 0% steal and 40 to 130 ms per media store call. In all about
 $67/month at rest, about $60 more than before; Postgres is most of it, and
-it is the one machine shared CPU cannot serve. Media egress
+it is the one machine shared CPU cannot serve.
+
+Measured on 2026-10-28 (ISSUE-809): at performance-1x every database round
+trip, from the web and realtime machines alike, stalled 2.5 to 4 s about 40
+times a day, even at one request per second. Each stall outlasted the 3 s
+transaction budget, so every open writer aborted and closed its own
+connection (Postgres logs "unexpected EOF on client connection with an open
+transaction"), and the one vCPU failed Fly's CPU-pressure health check. The
+machine is now performance-2x, 4gb, and every app dials Postgres directly
+over 6PN (`daisy-debate-staging-db.internal:5432`, the machine's HAProxy),
+not through Fly Proxy (`.flycast`), so no shared proxy hop sits in the
+transaction path. Media egress
 beyond Fly's free allowance bills per GB.
 
 Before ISSUE-528: about $6.57/month at rest: the always-on web machine ($3.99), the
@@ -815,7 +826,7 @@ MW_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(3
 printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\n" "$RT_PW" "$MW_PW" \
   | fly ssh console -a daisy-debate-staging-db \
       -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"'
-DB=daisy-debate-staging-db.flycast:5432/daisy_debate_staging?sslmode=disable
+DB=daisy-debate-staging-db.internal:5432/daisy_debate_staging?sslmode=disable
 fly secrets import -a daisy-debate-staging-realtime --stage <<SECRETS
 DATABASE_URL=postgres://daisy_realtime:$RT_PW@$DB
 REDIS_URL=<the web app's REDIS_URL>
@@ -843,7 +854,7 @@ The Postgres machine needs the size above; `fly postgres` machines are not
 in a committed config, so set it once:
 
 ```sh
-fly machine update <id> -a daisy-debate-staging-db --vm-size performance-1x --vm-memory 2048 --yes
+fly machine update <id> -a daisy-debate-staging-db --vm-size performance-2x --vm-memory 4096 --yes
 ```
 
 **Availability probe.** Competitive maintenance finalizes nothing while
@@ -923,7 +934,7 @@ echo "SELECT r, d, has_database_privilege(r, d, 'CONNECT') FROM (VALUES ('daisy_
 # 2. Admin apps and their database secrets (staged; applied by the first deploy)
 fly apps create daisy-debate-staging-admin --org daisy-debate
 fly apps create daisy-debate-staging-admin-migrate --org daisy-debate
-DB=daisy-debate-staging-db.flycast:5432/daisy_admin?sslmode=disable
+DB=daisy-debate-staging-db.internal:5432/daisy_admin?sslmode=disable
 printf 'ADMIN_MIGRATION_DATABASE_URL=postgres://daisy_admin_owner:%s@%s\n' "$OWN_PW" "$DB" \
   | fly secrets import --stage -a daisy-debate-staging-admin-migrate
 ATT="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"))')"

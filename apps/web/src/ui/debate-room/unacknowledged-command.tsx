@@ -8,6 +8,8 @@ const fields = new Set([
   'type',
   'participantId',
   'confirmed',
+  // Form state, not envelope: the retry posts exactly what was sent (ISSUE-838).
+  'segment',
 ]);
 /** Only the unresolved original envelope can be retried; fresh intent hints cannot replace it. */
 export function UnacknowledgedCommand({

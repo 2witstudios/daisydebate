@@ -143,3 +143,25 @@ test('control labels name speeches and prep in words, never by code', () => {
     expected: ['Start affirmative constructive', 'Take prep time'],
   });
 });
+
+test('controls act only once the persisted Round reaches the phase the clock shows (ISSUE-838)', () => {
+  const opened = Date.parse(at(startOf(0) + 100));
+  const enabled = (round: typeof view) =>
+    roundControlIntents(round, aff.actorId, opened)
+      .filter((c) => c.enabled)
+      .map((c) => c.type);
+  const expired = Date.parse(at(startOf(1) + 100));
+  assert({
+    given:
+      'a speech the clock has opened but the server has not yet persisted, the same once persisted, and a persisted speech the clock has already closed',
+    should:
+      'disable every control until the persisted phase agrees, so no command carries a version the server will refuse as stale',
+    actual: [
+      enabled(ran(0)),
+      enabled(ran(1)),
+      roundControlIntents(ran(1), aff.actorId, expired).filter((c) => c.enabled)
+        .length,
+    ],
+    expected: [[], ['yield', 'forfeit'], 0],
+  });
+});

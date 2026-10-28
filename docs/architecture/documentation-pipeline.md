@@ -40,13 +40,21 @@ creation workflow.
    other source refs, then the rest of the body, the title and the task ids.
    It names every cut in trusted text just above the fence, and an event that
    still cannot fit fails the dispatch rather than overflow. The whole question
-   is capped too, at 10,000 characters for every pipeline
+   is capped too, at 11,000 characters for every pipeline
    (`QUESTION_MAX_CHARS` in `scripts/docs-consult-question.ts`, ISSUE-792):
    when the prompt and trusted text leave less than 6,000 characters, the
-   event gets what is left. The cap covers the question only; the agent's own
-   run (its system prompt and the pages it reads) can still overflow the
-   model's context, which is ISSUE-787. A consult runs an agent, so
-   it is never retried in-process.
+   event gets what is left. The question was never what overflowed, though:
+   the model's window also holds every page the run reads until it ends, and
+   the agent read things that grow with each merge (ISSUE-799). Listing the
+   whole Documentation folder returned about 140 KB of Review Queue task
+   titles, the Runs sheet holds a row per run, and a slice's diff runs to a
+   megabyte. So every prompt carries a context bound: list only the target
+   Canvas's own subtree, read the Page Registry and the Runs sheet only by
+   filtered `read_sheet`, write the run row by address without reading the
+   sheet, read the diff of only the files the pages cite, find review tasks
+   by search, and keep a task title to one line of at most 200 characters.
+   The Documentation Agent's system prompt agrees with it. A consult runs an
+   agent, so it is never retried in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
    and the answer can be lost on its way back. On a dropped connection or a

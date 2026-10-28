@@ -1,7 +1,9 @@
 import type { Database } from '@daisy/db';
 import type { MessagingGroupInvitationFence } from '@daisy/db/messaging';
 import type {
+  AuthorizationInput,
   AuthorizationPrincipal,
+  SocialAccountFact,
   GroupInvitationAuthorizationFact,
   SocialCreationPolicy,
 } from '@daisy/auth/authorization';
@@ -16,6 +18,56 @@ const capabilities = {
   decline: 'channel.invitation.decline',
   cancel: 'channel.invitation.cancel',
 } as const;
+type FencedInvitation = Parameters<MessagingGroupInvitationFence>[3];
+type InvitationFacts = {
+  readonly invitation: FencedInvitation['invitation'];
+  readonly accounts: readonly FencedInvitation['accounts'][number][];
+};
+/** The canonical invitation input over facts already read under the fences. */
+export function groupInvitationAuthorizationInput(input: {
+  readonly principal: AuthorizationPrincipal;
+  readonly scope: { readonly userId: string; readonly actorId: string };
+  readonly operation: keyof typeof capabilities;
+  readonly facts: InvitationFacts;
+  readonly now: string;
+  readonly socialAccounts?: readonly SocialAccountFact[];
+  readonly admissionPolicy?: SocialCreationPolicy;
+}): AuthorizationInput {
+  const { principal, scope, facts } = input;
+  if (
+    principal.kind !== 'user' ||
+    principal.userId !== scope.userId ||
+    principal.actorId !== scope.actorId
+  )
+    throw createAppError('AUTHORIZATION');
+  const resource: GroupInvitationAuthorizationFact = facts.invitation;
+  const participants = [
+    resource.invitation.inviterActorId,
+    resource.invitation.inviteeActorId,
+  ];
+  return {
+    principal,
+    capability: capabilities[input.operation],
+    resource,
+    context: {
+      account:
+        facts.accounts.find((row) => row?.actorId === scope.actorId) ?? null,
+      contactAccounts: facts.accounts.filter(
+        (row): row is NonNullable<typeof row> =>
+          row !== null &&
+          row.actorId !== null &&
+          participants.includes(row.actorId),
+      ),
+      now: input.now,
+      ...(input.socialAccounts === undefined
+        ? {}
+        : { socialAccounts: input.socialAccounts }),
+      ...(input.admissionPolicy === undefined
+        ? {}
+        : { socialCreationPolicy: input.admissionPolicy }),
+    },
+  };
+}
 /** One canonical evaluator, minimal refusal/result facts, and no admission prerequisite for declining. */
 export function composeMessagingGroupInvitationStore({
   database,
@@ -40,19 +92,11 @@ export function composeMessagingGroupInvitationStore({
       principal.actorId !== scope.actorId
     )
       throw createAppError('AUTHORIZATION');
-    const resource: GroupInvitationAuthorizationFact = facts.invitation;
-    const participants = [
-      resource.invitation.inviterActorId,
-      resource.invitation.inviteeActorId,
-    ];
     const currentAccounts = facts.accounts.filter((row) => row !== null);
-    const contactAccounts = currentAccounts.filter(
-      (row) => row.actorId !== null && participants.includes(row.actorId),
-    );
     const now = clock.now();
     const proposed = [
-      ...resource.channel.activeMemberActorIds,
-      resource.invitation.inviteeActorId,
+      ...facts.invitation.channel.activeMemberActorIds,
+      facts.invitation.invitation.inviteeActorId,
     ];
     const socialAccounts =
       operation === 'accept'
@@ -64,21 +108,17 @@ export function composeMessagingGroupInvitationStore({
             now,
           )
         : undefined;
-    requireAuthorization({
-      principal,
-      capability: capabilities[operation],
-      resource,
-      context: {
-        account:
-          facts.accounts.find((row) => row?.actorId === scope.actorId) ?? null,
-        contactAccounts,
+    requireAuthorization(
+      groupInvitationAuthorizationInput({
+        principal,
+        scope,
+        operation,
+        facts,
         now,
         ...(socialAccounts === undefined ? {} : { socialAccounts }),
-        ...(admissionPolicy === undefined
-          ? {}
-          : { socialCreationPolicy: admissionPolicy }),
-      },
-    });
+        ...(admissionPolicy === undefined ? {} : { admissionPolicy }),
+      }),
+    );
   };
   return database.messagingGroupInvitationStore(authorize);
 }

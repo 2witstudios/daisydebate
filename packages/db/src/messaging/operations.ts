@@ -10,7 +10,7 @@ import { createMessagingGroupCreationStore } from './group-creation-store';
 import type { MessagingGroupCreationFence } from './group-creation-contracts';
 import { createMessagingGroupInvitationStore } from './group-invitation-store';
 import type { MessagingGroupInvitationFence } from './group-invitation-contracts';
-import { createMessagingInboxStore } from './inbox-store';
+import { createMessagingInboxPage } from './inbox-page';
 import { createMessagingChannelAuthority } from './authority-frame';
 import {
   createMessagingStore,
@@ -31,9 +31,7 @@ export function messagingOperations(
   reactions: ContactReactions,
 ) {
   return {
-    messagingInboxStore: (
-      authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(database, authorize),
+    messagingInboxPage: createMessagingInboxPage(database),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database, authorize }),

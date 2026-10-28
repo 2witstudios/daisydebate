@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
@@ -95,6 +95,28 @@ export function canonicalContactPair(first: string, second: string) {
   return { lowActorId: ids[0]!, highActorId: ids[1]! };
 }
 
+/** One channel's authority as `actor` sees it, over aliases c, d, p and g. */
+const channelFactObject = (actor: SQL) => sql`jsonb_build_object(
+      'kind', 'channel', 'channelId', c.id,
+      'policyKey', c.policy_key, 'policyRevision', c.policy_revision,
+      'lifecycle', c.lifecycle, 'revision', c.authority_revision,
+      'authority', case when c.kind = 'dm' then jsonb_build_object(
+        'kind', 'dm', 'lowActorId', d.low_actor_id, 'highActorId', d.high_actor_id,
+        'requestSenderActorId', d.request_sender_actor_id, 'state', d.request_state,
+        'blocked', p.low_blocks_high or p.high_blocks_low, 'revision', p.revision
+      ) else jsonb_build_object(
+        'kind', 'private_group', 'actorId', ${actor},
+        'role', case when g.revoked_at is null then g.role else null end,
+        'generation', coalesce(g.generation, 0),
+        'activeMemberActorIds', coalesce((select jsonb_agg(actor_id order by actor_id)
+          from ${messagingGroupGrants} where channel_id = c.id and revoked_at is null), '[]'::jsonb)
+      ) end
+    )`;
+const channelFactJoins = (actor: SQL) => sql`
+    left join ${messagingDmPairs} d on d.channel_id = c.id
+    left join ${contactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
+    left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = ${actor}`;
+
 /**
  * Reads through the caller's SAME transaction. A mutation first locks current
  * account rows, then contact pair, then channel; it evaluates this projection
@@ -108,28 +130,42 @@ export async function readMessagingChannelFact(
 ): Promise<MessagingChannelFact | null> {
   idSchema.parse(channelId);
   idSchema.parse(actorId);
+  const actor = sql`${actorId}::text`;
   const rows = (await tx.execute(sql`
-    select jsonb_build_object(
-      'kind', 'channel', 'channelId', c.id,
-      'policyKey', c.policy_key, 'policyRevision', c.policy_revision,
-      'lifecycle', c.lifecycle, 'revision', c.authority_revision,
-      'authority', case when c.kind = 'dm' then jsonb_build_object(
-        'kind', 'dm', 'lowActorId', d.low_actor_id, 'highActorId', d.high_actor_id,
-        'requestSenderActorId', d.request_sender_actor_id, 'state', d.request_state,
-        'blocked', p.low_blocks_high or p.high_blocks_low, 'revision', p.revision
-      ) else jsonb_build_object(
-        'kind', 'private_group', 'actorId', ${actorId}::text,
-        'role', case when g.revoked_at is null then g.role else null end,
-        'generation', coalesce(g.generation, 0),
-        'activeMemberActorIds', coalesce((select jsonb_agg(actor_id order by actor_id)
-          from ${messagingGroupGrants} where channel_id = c.id and revoked_at is null), '[]'::jsonb)
-      ) end
-    ) as fact
-    from ${messagingChannels} c
-    left join ${messagingDmPairs} d on d.channel_id = c.id
-    left join ${contactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
-    left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = ${actorId}
+    select ${channelFactObject(actor)} as fact
+    from ${messagingChannels} c ${channelFactJoins(actor)}
     where c.id = ${channelId} and (c.kind <> 'dm' or d.channel_id is not null)
   `)) as unknown as Array<{ fact: unknown }>;
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
+}
+
+/**
+ * Each binding's channel as its actor sees it, in one statement and in
+ * binding order; an absent channel is null at its index.
+ */
+export async function readMessagingChannelFacts(
+  tx: MessagingTransaction,
+  bindings: readonly { readonly channelId: string; readonly actorId: string }[],
+): Promise<readonly (MessagingChannelFact | null)[]> {
+  if (bindings.length === 0) return [];
+  const wanted = bindings.map((binding, index) => ({
+    i: index,
+    channel_id: idSchema.parse(binding.channelId),
+    actor_id: idSchema.parse(binding.actorId),
+  }));
+  const actor = sql`w.actor_id`;
+  const rows = (await tx.execute(sql`
+    select w.i as "index", ${channelFactObject(actor)} as fact
+    from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb) as w(i integer, channel_id text, actor_id text)
+    join ${messagingChannels} c on c.id = w.channel_id ${channelFactJoins(actor)}
+    where c.kind <> 'dm' or d.channel_id is not null
+  `)) as unknown as Array<{ index: unknown; fact: unknown }>;
+  const facts: (MessagingChannelFact | null)[] = bindings.map(() => null);
+  for (const row of rows) {
+    const index = Number(row.index);
+    if (!Number.isSafeInteger(index) || facts[index] !== null)
+      throw createAppError('INFRASTRUCTURE');
+    facts[index] = parseMessagingChannelFact(row.fact);
+  }
+  return facts;
 }

@@ -139,6 +139,16 @@ test('real own collection projects pending direction through fresh request grant
       actual: read.entries.map((entry) => 'unread' in entry && entry.unread),
       expected: [false],
     });
+    await client.unsafe(
+      "update messaging_dm_pairs set request_state='declined', decided_at=$2 where channel_id=$1",
+      [fixture.channelId, fixture.now],
+    );
+    assert({
+      given: 'a full page whose only candidate is now denied',
+      should: 'show nothing yet continue after the scanned candidate',
+      actual: await inbox(recipient).read({ limit: 1 }),
+      expected: { entries: [], nextAfter: fixture.channelId },
+    });
     await fixture.eraseSubject(sender.actorId);
     assert({
       given: 'erasure removed the personal pair association',
