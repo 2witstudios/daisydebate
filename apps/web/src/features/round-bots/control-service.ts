@@ -15,7 +15,7 @@ type Owned<C> = {
   readonly claim: C;
   readonly control: Control;
   pending: Promise<void> | null;
-  /** Set once the seat starts ending; it stays owned until the ending settles. */
+  /** Set once the seat starts ending; it stays owned until the ending (or its handoff) settles. */
   ending: Promise<void> | null;
   /** Its pulse found the lease already gone: there is nothing to revoke. */
   lost: boolean;
@@ -98,10 +98,11 @@ export function startBotControlService<C extends Claim>(input: {
    * Ends a seat once, apart from the heartbeat and discovery: its speaking
    * work stops at once (a hung receipt pulse never keeps a speaker alive),
    * and its pulse in flight settles, within `overdue`; then its lease is
-   * revoked when `revoke` is set. The seat stays in `owned` until then, so it
-   * still counts against `maxControllers` and no replacement is claimed
-   * beside a speaker still stopping. A stop that fails or overruns is
-   * reported and the seat is released anyway (ISSUE-789).
+   * revoked when `revoke` is set. The seat stays in `owned` until then (or,
+   * when it is handing off, until the rotation's chained claim settles and
+   * releases it), so it still counts against `maxControllers` and no
+   * replacement is claimed beside a speaker still stopping. A stop that fails
+   * or overruns is reported and the seat is released anyway (ISSUE-789).
    */
   const end = (entry: Owned<C>, revoke: boolean): Promise<void> => {
     if (entry.ending) return entry.ending;
@@ -167,7 +168,11 @@ export function startBotControlService<C extends Claim>(input: {
     if (!isRefusal(error)) input.failed(error, 'claim');
   };
   /** Seats owned or being claimed: the count `maxControllers` bounds. */
-  const seatsHeld = () => new Set([...owned.keys(), ...claiming]).size;
+  const seatsHeld = () => {
+    let held = owned.size;
+    for (const seat of claiming) if (!owned.has(seat)) held += 1;
+    return held;
+  };
   const claimTarget = async (target: Target): Promise<void> => {
     const seat = target.roundParticipantId;
     const old = owned.get(seat);
@@ -186,6 +191,8 @@ export function startBotControlService<C extends Claim>(input: {
         () => claimSeat(target).catch(claimFailed),
         (error: unknown) => input.failed(error, 'stop'),
       )
+      // A reporter that throws never leaves the chain rejected.
+      .catch(() => undefined)
       .finally(() => {
         release(old);
         endings.delete(chained);

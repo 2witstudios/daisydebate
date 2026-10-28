@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './seat';
 import { manualTimers } from '../../lib/worker-timers.test-support';
+import { within } from './control-service.test-support';
 setupRitewayBun();
 function harness(withFeed: boolean, speakerStop = async () => undefined) {
   const log: string[] = [];
@@ -123,7 +124,8 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
       speaker: { wake: () => {}, stop: async () => {} },
       publication: {
         start: () => log.push('publication-start'),
-        close: async () => {
+        // A plain function that throws, not a rejected promise.
+        close: () => {
           log.push('publication-close');
           throw closeFault;
         },
@@ -145,12 +147,12 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
   } catch (error) {
     thrown = error;
   }
-  await feedClosed.promise;
+  await within(feedClosed.promise, 'The hearing’s close');
   await new Promise((resolve) => setImmediate(resolve));
   assert({
     given: 'a cross-examination seat whose hearing throws as it starts',
     should:
-      'rethrow, close its publication and hearing, and report a failed close',
+      'rethrow, close its publication and hearing, and report a close that throws',
     actual: { thrown, log, failures },
     expected: {
       thrown: broken,

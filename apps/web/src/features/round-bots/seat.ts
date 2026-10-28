@@ -54,7 +54,11 @@ export function createBotSeat(input: {
     if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
   } catch (error) {
     // A seat that fails to start owns nothing it started (ISSUE-789).
-    for (const close of [input.publication.close, input.feed?.close])
+    const { publication, feed } = input;
+    for (const close of [
+      () => publication.close(),
+      feed && (() => feed.close()),
+    ])
       if (close)
         void Promise.resolve()
           .then(close)

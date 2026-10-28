@@ -7,6 +7,8 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 const FRAMES = 5;
+const describe = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 const PROCESS_DEADLINE_MS = 10_000;
 
 /**
@@ -30,7 +32,7 @@ async function closeIn(order: 'racing' | 'dropped' | 'live') {
     await cleanup().catch((cleanupError: unknown) => {
       throw new AggregateError(
         [error, cleanupError],
-        `${(error as Error).message}; room cleanup also failed: ${(cleanupError as Error).message}`,
+        `${describe(error)}; room cleanup also failed: ${describe(cleanupError)}`,
       );
     });
     throw error;

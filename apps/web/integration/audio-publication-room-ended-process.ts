@@ -60,5 +60,10 @@ if (order !== 'live') await media.deleteRoom(room);
 if (order === 'dropped') await dropped(publication.disconnected);
 const usable = publication.usable();
 const closed = await publication.close();
-process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`);
+// The line is flushed before the exit that keeps native state out of the runner.
+await new Promise<void>((resolve) =>
+  process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`, () =>
+    resolve(),
+  ),
+);
 process.exit(0);

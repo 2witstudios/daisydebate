@@ -60,7 +60,7 @@ test('a rotating seat holds one slot while its incoming claim is in flight (ISSU
   });
   assert({
     given: 'a cap of one, the rotating seat’s incoming claim in flight',
-    should: 'admit no other seat into the rotating seat’s slot',
+    should: 'admit no other seat while that claim holds the slot',
     actual: await scanDuringHandoff(1),
     expected: ['rotating:first', 'rotating:second'],
   });
