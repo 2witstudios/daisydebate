@@ -41,8 +41,12 @@ export function recoverableFailure(input: {
   };
   const report = (error: unknown, operation: string) => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
+    let cause: string | undefined;
+    // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
-      const cause = input.cause?.(error);
+      cause = input.cause?.(error);
+    });
+    attempt(() => {
       input.logger.log(
         input.event,
         { operation, errorCode, ...(cause ? { cause } : {}) },

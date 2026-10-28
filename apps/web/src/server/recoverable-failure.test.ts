@@ -222,3 +222,32 @@ test('a sink that throws never fails its caller, and its other steps still run (
     expected: { thrown: null, captured: [fault] },
   });
 });
+
+test('a cause reader that throws costs only the cause, never the log line (ISSUE-789)', () => {
+  const lines: unknown[][] = [];
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: { log: (...line) => lines.push(line) },
+    reporter: { capture: () => {} },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.speaking.failed',
+    operation: 'round.speaking',
+    message: 'Bot speech stays uncredited',
+    cause: () => {
+      throw new Error('cause reader broke');
+    },
+  });
+  failed(createAppError('INFRASTRUCTURE', 'stall'), 'publish');
+  assert({
+    given: 'a working log and a cause reader that throws',
+    should: 'still log the failure, without a cause',
+    actual: lines,
+    expected: [
+      [
+        'round.speaking.failed',
+        { operation: 'round.speaking.publish', errorCode: 'INFRASTRUCTURE' },
+        'Bot speech stays uncredited',
+      ],
+    ],
+  });
+});
