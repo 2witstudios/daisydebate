@@ -1,3 +1,4 @@
+import { reportedOperation } from './reported-operation';
 import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
@@ -52,15 +53,7 @@ export function createMessagingTypingOperations({
 }) {
   const key = (channelId: string, actorId: string) =>
     redisKey(namespace, 'messaging-typing', actorId, channelId);
-  const run = async <T>(name: string, work: () => Promise<T>) => {
-    try {
-      await client.connect();
-      return await work();
-    } catch (error) {
-      reportFailure(name);
-      throw error;
-    }
-  };
+  const run = reportedOperation({ client, reportFailure });
   return {
     ...createTypingSubjectOperations(client, namespace, run),
     async writeTypingLease(input: Lease, ttlMs: number) {

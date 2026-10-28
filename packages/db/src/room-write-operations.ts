@@ -52,6 +52,8 @@ type CommandInput = {
   /** The catalog tuple a select-format names; its facts load under this transaction (FMT-1). */
   readonly formatTuple: SelectionTuple | null;
   readonly roundId: string;
+  /** The engine's cast rule (castSeatsBotDebater): only such a launch takes the bot-admission lock. */
+  readonly seatsBotDebater: (state: RoomAssemblyState) => boolean;
   readonly prepare: (
     state: RoomAssemblyState,
     now: string,
@@ -109,7 +111,11 @@ async function executeOnce(
   const preparation = await prepareCommand(tx, input);
   if ('replay' in preparation) return preparation.replay;
   const { prepared, execute } = preparation;
-  await lockBotFreeze(tx, input.type, botAdmission);
+  const botLocked = await lockBotFreeze(
+    tx,
+    botDebaterLaunch(input, prepared),
+    botAdmission,
+  );
   const initialSeats = await tx
     .select({ actorId: roomParticipants.actorId })
     .from(roomParticipants)
@@ -166,7 +172,13 @@ async function executeOnce(
     true,
     storedStrikes(state),
   );
-  await reserveBotFreeze(tx, outcome.mutation, input.roundId, botAdmission);
+  await reserveBotFreeze(
+    tx,
+    outcome.mutation,
+    input.roundId,
+    botAdmission,
+    botLocked,
+  );
   const receipt: RoomCommandReceipt = {
     commandId: input.commandId,
     roomId: next.id,
@@ -243,23 +255,40 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
   return { prepared, execute } as const;
 }
 
+/** A Launch whose prepared cast seats a bot debater. */
+const botDebaterLaunch = (input: CommandInput, prepared: RoomAssemblyState) =>
+  input.type === 'start-round' && input.seatsBotDebater(prepared);
+
+/**
+ * Serializes bot-debater launches fleet-wide, so concurrent freezes cannot
+ * both read capacity below the cap. Taken before account and Room locks,
+ * only for a launch whose prepared cast seats a bot debater; the
+ * changeVersion check after the locks refuses a cast that changed since.
+ */
 async function lockBotFreeze(
   tx: Tx,
-  command: string,
+  botDebaterLaunch: boolean,
   admission: RoundBotAdmission | undefined,
 ) {
-  if (command === 'start-round') await admission?.lock(tx);
+  if (!botDebaterLaunch || !admission) return false;
+  await admission.lock(tx);
+  return true;
 }
 async function reserveBotFreeze(
   tx: Tx,
   mutation: Extract<RoomMutationOutcome, { ok: true }>['mutation'],
   roundId: string,
   admission: RoundBotAdmission | undefined,
+  locked: boolean,
 ) {
   const state = mutation.state;
-  // The pure engine decides whether this cast spends an AI round (DEC-186).
-  if (!mutation.freeze || !mutation.spendsAiRound) return;
+  // The pure engine decides whether this cast takes a bot-debater capacity
+  // slot and whether it also spends an AI round (DEC-186, ADR 0058).
+  if (!mutation.freeze || !mutation.seatsBotDebater) return;
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
-  await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');
+  if (mutation.spendsAiRound)
+    await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  else await admission.admitCapacityLocked(tx, roundId);
 }

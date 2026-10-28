@@ -1,17 +1,7 @@
-import {
-  betaAccessCommandResultSchema,
-  betaAccessProvenances,
-  betaAccessStates,
-} from '@daisy/protocol';
+import { betaAccessProvenances, betaAccessStates } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
-import {
-  createdAtColumn,
-  jsonbColumn,
-  jsonbIsObject,
-  oneOf,
-  timestampColumn,
-} from './columns';
+import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 /**
@@ -89,36 +79,5 @@ export const accountAccessEvents = pgTable(
       sql`${table.principal} ~ '^(signup|migration:[a-z0-9_]+|operator:[a-z0-9-]+/[a-z0-9]{24})$'`,
     ),
     index('account_access_events_user_idx').on(table.userId, table.createdAt),
-  ],
-);
-
-/**
- * Durable operator command identity (ADR 0076): one receipt per accepted
- * command, no-ops included, written with the change it records. Append-only
- * for the runtime role. `result` is the closed, non-personal command result.
- */
-export const operatorCommandReceipts = pgTable(
-  'operator_command_receipts',
-  {
-    commandId: text('command_id').primaryKey(),
-    serviceId: text('service_id').notNull(),
-    operatorRef: text('operator_ref').notNull(),
-    action: text('action').notNull(),
-    targetUserId: text('target_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    requestDigest: text('request_digest').notNull(),
-    result: jsonbColumn('result', betaAccessCommandResultSchema).notNull(),
-    adminAuditHead: text('admin_audit_head').notNull(),
-    createdAt: createdAtColumn(),
-  },
-  (table) => [
-    check(
-      'operator_command_receipts_digest_check',
-      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$' and ${table.adminAuditHead} ~ '^[0-9a-f]{64}$'`,
-    ),
-    jsonbIsObject('operator_command_receipts', table.result),
-    index('operator_command_receipts_target_idx').on(table.targetUserId),
-    index('operator_command_receipts_created_idx').on(table.createdAt),
   ],
 );

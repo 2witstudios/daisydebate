@@ -102,8 +102,9 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
       state,
       consent: null,
       freeze: false,
-      // Erasure freezes no Round, so it never spends an AI round.
+      // Erasure freezes no Round, so it never spends an AI round or seats a bot.
       spendsAiRound: false,
+      seatsBotDebater: false,
       publishDefinition: false,
       drawSecrets: null,
       members: transitions.activeRoomMembers(state),

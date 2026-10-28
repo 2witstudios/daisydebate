@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import type { Fetch } from '../src/features/auth/mail/mail';
+import type { Fetch } from '../src/features/mail/resend-sender';
 import { createApp } from '../src/server/app';
 import { LATENCY_BUCKETS_MS } from '../src/server/metrics-store';
 import { createRoutes } from '../src/server/routes';

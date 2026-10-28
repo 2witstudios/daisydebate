@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
 import type { Clock } from '@daisy/clock';
-import type { Fetch } from '../features/auth/mail/mail';
+import type { Fetch } from '../features/mail/resend-sender';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 

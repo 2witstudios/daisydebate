@@ -17,9 +17,15 @@ export function startRoundBotWorkers(input: {
   readonly policy: RoundBotWorkerPolicy;
   readonly budget: ReturnType<typeof createProviderBudget>;
   readonly instanceId: string;
-  /** Media broker grant; without configured media, seats keep receipts only. */
-  readonly botToken:
-    Parameters<typeof createSpeakingBotControl>[0]['botToken'] | null;
+  /**
+   * Media broker grants for a bot seat: its publication and its own
+   * listen-only hearing (ISSUE-764). Without configured media, seats keep
+   * receipts only.
+   */
+  readonly botMedia: Pick<
+    Parameters<typeof createSpeakingBotControl>[0],
+    'botToken' | 'listenToken' | 'readPeers'
+  > | null;
   readonly timers: WorkerTimers;
   /** Bounds each seat's ending below its lease (ISSUE-789). */
   readonly deadlineTimer: OneShotTimer;
@@ -33,13 +39,17 @@ export function startRoundBotWorkers(input: {
     nextId: () => app.ids.next(),
     instanceId: input.instanceId,
   });
-  const speaking = input.botToken
+  const hearing = failure(
+    'round.hearing.failed',
+    'round.hearing',
+    'Bot hearing stays unknown until rejoined',
+  );
+  const speaking = input.botMedia
     ? createSpeakingBotControl({
         store: app.database,
         voice: app.aiVoice,
         withProvider: input.budget,
-        botToken: input.botToken,
-        readActivity: app.redis.readBotActivity,
+        ...input.botMedia,
         readHeard: app.redis.readCaptureHeard,
         timers: input.timers,
         nextId: () => app.ids.next(),
@@ -52,6 +62,7 @@ export function startRoundBotWorkers(input: {
           // Says whether a publish stopped at a stall or a native failure.
           publicationStopOf,
         ),
+        hearingFailed: (error) => hearing(error, 'join'),
       })
     : null;
   return startBotControlService({

@@ -1,4 +1,4 @@
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isRefusal } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = {
   readonly roundId: string;
@@ -60,10 +60,6 @@ export function startBotControlService<C extends Claim>(input: {
   const endings = new Set<Promise<void>>();
   /** Seats with a claim in flight, so a chained and a scanned claim never race. */
   const claiming = new Set<string>();
-  /** A definite refusal of the lease: the Round ended or the claim moved on. */
-  const refusedAuthority = (error: unknown) =>
-    isAppError(error) &&
-    (error.code === 'AUTHORIZATION' || error.code === 'CONFLICT');
   /**
    * Lost only on a definite refusal of the lease. A check that failed (pool
    * capacity, a reset) proves nothing, so the seat stays owned; dropping it
@@ -77,7 +73,7 @@ export function startBotControlService<C extends Claim>(input: {
       );
       return false;
     } catch (error) {
-      return refusedAuthority(error);
+      return isRefusal(error);
     }
   };
   /**
@@ -88,7 +84,7 @@ export function startBotControlService<C extends Claim>(input: {
     input.store.revokeRoundBotWorker(claim.scope, claim.token).then(
       () => undefined,
       (error: unknown) => {
-        if (!refusedAuthority(error)) input.failed(error, 'revoke');
+        if (!isRefusal(error)) input.failed(error, 'revoke');
       },
     );
   /** Drops a seat only while it is still this entry, never a claim that replaced it. */
@@ -166,7 +162,7 @@ export function startBotControlService<C extends Claim>(input: {
   };
   /** Another controller claiming or rotating the seat first is no fault. */
   const claimFailed = (error: unknown) => {
-    if (!refusedAuthority(error)) input.failed(error, 'claim');
+    if (!isRefusal(error)) input.failed(error, 'claim');
   };
   /** `handoff`: replaces a seat already counted, so it keeps its slot under the cap. */
   const claimTarget = async (

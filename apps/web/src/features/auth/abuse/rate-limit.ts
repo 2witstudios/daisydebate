@@ -2,7 +2,7 @@ import type { Clock } from '@daisy/clock';
 import type { AuthConfig } from '@daisy/config';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
-import { recipientKey } from '../mail/recipient-key';
+import { recipientKey } from '../../mail/recipient-key';
 import {
   readLimiterDecision,
   type RateLimiter,

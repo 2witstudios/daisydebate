@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { matchOperatorRoute, operatorCommandStateSchema } from './operator';
+import {
+  matchOperatorRoute,
+  operatorCommandReceiptSchema,
+  operatorCommandStateSchema,
+} from './operator';
 
 setupRitewayBun();
 
@@ -10,21 +14,24 @@ const result = {
   accessRevision: 2,
   mail: 'queued',
 };
+const action = 'account.beta_access.update';
 
 test('a reconciled command state is a closed contract (ADR 0079)', () => {
   const parses = (value: unknown) =>
     operatorCommandStateSchema.safeParse(value).success;
   assert({
     given:
-      'a stored result with queued mail, with no mail owed, with an unknown mail state and with an extra field',
-    should: 'accept only the declared shape and mail states',
+      'a beta access result with queued mail, with no mail owed, with an unknown mail state, with an extra field, under an unknown action and with no action',
+    should: "accept only a declared action's shape and mail states",
     actual: [
-      parses({ result, mailState: 'queued' }),
+      parses({ action, result, mailState: 'queued' }),
+      parses({ action, result, mailState: null }),
+      parses({ action, result, mailState: 'bounced' }),
+      parses({ action, result, mailState: null, operator: 'o' }),
+      parses({ action: 'account.erase', result, mailState: null }),
       parses({ result, mailState: null }),
-      parses({ result, mailState: 'bounced' }),
-      parses({ result, mailState: null, operator: 'o' }),
     ],
-    expected: [true, true, false, false],
+    expected: [true, true, false, false, false, false],
   });
 });
 
@@ -51,5 +58,21 @@ test('only the three operator routes match, each with its own method (ADR 0079)'
       null,
       null,
     ],
+  });
+});
+
+test("a receipt's action and result are validated together (ISSUE-781)", () => {
+  const parses = (value: unknown) =>
+    operatorCommandReceiptSchema.safeParse(value).success;
+  assert({
+    given:
+      "the beta access action with its result, with another action's name, and with a malformed result",
+    should: 'accept only the declared pair',
+    actual: [
+      parses({ action, result }),
+      parses({ action: 'account.erase', result }),
+      parses({ action, result: { ...result, mail: 'sent' } }),
+    ],
+    expected: [true, false, false],
   });
 });

@@ -23,7 +23,7 @@ export function startRoundWorkers(input: {
   readonly timers: WorkerTimers;
   /** Bot seat ending deadlines (ISSUE-789). */
   readonly deadlineTimer: OneShotTimer;
-  readonly botToken: Parameters<typeof startRoundBotWorkers>[0]['botToken'];
+  readonly botMedia: Parameters<typeof startRoundBotWorkers>[0]['botMedia'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {

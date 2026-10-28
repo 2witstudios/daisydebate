@@ -282,7 +282,7 @@ test('redeeming the captured link durably creates a verified user and session', 
           events: logged.map(([event]) => event),
           leaks: logsLeakSecrets(logged, [token, email]),
         },
-        expected: { events: ['auth.mail.sent'], leaks: false },
+        expected: { events: ['mail.sent'], leaks: false },
       });
     },
   );

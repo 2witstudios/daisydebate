@@ -1,36 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { clockMilestone, clockUrgency, formatClock } from './clock';
+import { clockMilestone, clockUrgency } from './clock';
 
 setupRitewayBun();
-
-describe('formatClock', () => {
-  test('rounding up partial seconds', () => {
-    assert({
-      given: 'a running clock with 1ms left',
-      should: 'still show 0:01',
-      actual: formatClock(1),
-      expected: '0:01',
-    });
-    assert({
-      given: 'exactly zero',
-      should: 'show 0:00',
-      actual: formatClock(0),
-      expected: '0:00',
-    });
-    assert({
-      given: 'four minutes and a fraction',
-      should: 'round the fraction up',
-      actual: formatClock(240_001),
-      expected: '4:01',
-    });
-    assert({
-      given: 'an overrun clock',
-      should: 'clamp to 0:00',
-      actual: formatClock(-5_000),
-      expected: '0:00',
-    });
-  });
-});
 
 describe('clockUrgency', () => {
   test('thresholds', () => {

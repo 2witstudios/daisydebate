@@ -11,6 +11,7 @@ import {
   projectMedia,
   seatGrants,
 } from './projection';
+import { listenIdentity } from './listen-identity';
 import { createMediaReconcileRun } from './reconcile-run';
 import type {
   Store,
@@ -98,7 +99,20 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
   };
+  /**
+   * `listen` (ISSUE-764) signs the bot seat's own listen-only identity: a
+   * hidden identity that subscribes and cannot publish or send data, bound
+   * to no seat, so reconciliation never grants it a floor. It is derived
+   * from the seat's binding, so a takeover's or a rejoin's listener evicts
+   * any earlier connection under it (LiveKit admits one connection per
+   * identity). Its claim and live segment are checked under the claim's
+   * locks (`verifyBotMediaPrincipal`), and the projected hearing seats
+   * (`mediaHearingSeats`, checked in `sign`) decide whether the seat may
+   * hear, under this session's reconcile hold. It needs no speaking window:
+   * the bot hears most while it does not hold the floor.
+   */
   const admit = async (roundId: string, principal: Principal) => {
+    const hearing = principal.kind === 'bot' && principal.hearing === true;
     const binding =
       principal.kind === 'human'
         ? await input.store.ensureBinding({
@@ -106,23 +120,37 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             caller: callerOf(principal.actorId),
             buildProjection,
           })
-        : await input.store.ensureBotBinding({
-            scope: principal.scope,
-            token: principal.token,
-            buildProjection,
-          });
+        : await input.store.ensureBotBinding({ principal, buildProjection });
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
       if (admissionRevoked(context))
         throw createAppError('CONFLICT', 'Round media admission is closed');
+      // A hearing grant rests on the projected hearing seats, the same fact
+      // room creation reads: base eligibility, a live claim, a live segment.
+      if (hearing && !context.hearing.includes(context.participantId))
+        throw createAppError('AUTHORIZATION');
       const grants = seatGrants(context, context.participantId, input.nextId);
-      const token = await input.media.joinToken({
-        room: context.binding.roomName,
-        identity: context.binding.identity,
-        ...grants,
-        publish: [...grants.publish],
-        ...(principal.kind === 'bot' ? { subscribe: false } : {}),
-      });
+      const identity = hearing
+        ? listenIdentity(context.binding.identity)
+        : context.binding.identity;
+      const token = await input.media.joinToken(
+        hearing
+          ? {
+              room: context.binding.roomName,
+              identity,
+              publish: [],
+              subscribe: true,
+              hidden: true,
+              capture: false,
+            }
+          : {
+              room: context.binding.roomName,
+              identity,
+              ...grants,
+              publish: [...grants.publish],
+              ...(principal.kind === 'bot' ? { subscribe: false } : {}),
+            },
+      );
       const own = {
         ...context,
         caller: context.participants.find(
@@ -132,7 +160,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       return {
         ...projectMedia(own, true, input.nextId),
         state: 'ready' as const,
-        identity: context.binding.identity,
+        identity,
         token,
         url: principal.kind === 'bot' ? input.workerUrl : input.publicUrl,
         expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
@@ -164,7 +192,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         sign,
       });
     };
-    await run(claim, principal, issue);
+    let refusal = await run(claim, principal, issue);
     // Rotation releases the old claim. Reacquire the new room before creating
     // or signing; an unresolved cleanup never earns a retry.
     if (
@@ -172,18 +200,29 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       (await snapshot(roundId)).session.roomName !== claim.roomName
     ) {
       claim = await acquire(binding.sessionId);
-      await run(claim, principal, issue);
+      refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
-    // The reconcile refused or cleaned up and never reached the issue. Read
-    // as the human caller, so one revoked meanwhile is refused as such.
+    throw await notIssued(roundId, principal, refusal);
+  };
+  /**
+   * Why the reconcile never reached the issue: a human caller revoked
+   * meanwhile is refused as such (read as that caller); otherwise the
+   * admission's own refusal the reconcile met; otherwise a race or a
+   * cleanup, which is infrastructure and retried.
+   */
+  const notIssued = async (
+    roundId: string,
+    principal: Principal,
+    refusal: unknown,
+  ) => {
     const after = await snapshot(
       roundId,
       principal.kind === 'human' ? principal.actorId : undefined,
     );
     if (admissionRevoked(after))
-      throw createAppError('CONFLICT', 'Round media admission is closed');
-    throw createAppError('INFRASTRUCTURE');
+      return createAppError('CONFLICT', 'Round media admission is closed');
+    return refusal ?? createAppError('INFRASTRUCTURE');
   };
   /**
    * Runs `work` while this caller's own reconcile holds the session, so a
@@ -221,6 +260,22 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     },
     botToken: (scope: Scope, token: string) =>
       admit(scope.roundId, { kind: 'bot', scope, token }),
+    /** The bot seat's own hearing in cross-examination (ISSUE-764). */
+    botListenToken: (scope: Scope, token: string) =>
+      admit(scope.roundId, { kind: 'bot', scope, token, hearing: true }),
+    /**
+     * The session's current seat bindings, for a listener whose peer bound
+     * after it joined: a read, never a signed grant. An ended session has none.
+     */
+    async botPeers(scope: Scope) {
+      const state = await snapshot(scope.roundId);
+      return state.session.endedAt
+        ? []
+        : state.bindings.map((binding) => ({
+            participantId: binding.roundParticipantId,
+            identity: binding.identity,
+          }));
+    },
     reconcile,
     async recoverActiveSessions() {
       for (const session of await input.store.activeMediaSessions()) {

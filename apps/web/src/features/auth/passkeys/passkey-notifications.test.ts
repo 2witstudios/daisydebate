@@ -3,8 +3,8 @@ import { APIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
 import { createEventRecorder as recorder } from '../../../server/test-loggers.test-support';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
-import type { Deliver } from '../mail/deliver-or-unavailable';
-import type { AuthEmailMessage } from '../server';
+import type { Deliver } from '../../mail/types';
+import type { EmailMessage } from '../server';
 
 setupRitewayBun();
 
@@ -39,7 +39,7 @@ const sentAfter = async (
   session: Parameters<typeof context>[1],
   returned?: unknown,
 ) => {
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   await runAfterHook(
     async (message) => {
       sent.push(message);

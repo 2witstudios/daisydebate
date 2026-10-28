@@ -1,6 +1,6 @@
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { normalizeEmail } from '../mail/recipient-key';
+import { normalizeEmail } from '../../mail/recipient-key';
 import { safeLocalDestination } from '../redirect';
 import type {
   SuppressionCheck,

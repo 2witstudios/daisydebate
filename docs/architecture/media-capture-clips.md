@@ -62,9 +62,9 @@ configured provider STT and worker composition remain separate service obligatio
 
 ## Native observation cadence
 
-`@daisy/media/observation` exports `createCaptureClock` for one native track. It
+`@daisy/media/observation` exports `createFrameClock` for one native track. It
 consumes the original sequence and copy brackets from
-`createCaptureSubscription`; the caller retains their associated 160-sample
+`createAudioSubscription`; the caller retains their associated 160-sample
 PCM. Gaps are decided by frame sequence, never by clock (DEC-215): contiguous
 sequence numbers advance `nominalStartMs` exactly 10 ms whatever their arrival
 timing (bursts, stalls and jitter included), and each missing sequence number

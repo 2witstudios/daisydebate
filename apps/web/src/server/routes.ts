@@ -62,7 +62,7 @@ export function createRoutes(app: App) {
   const rooms = composeRoomRoutes(app);
   const auth = createAuthRouteHandlers(confirmAuth, logger);
   const provisionalMail = provisionalMailCleanup(
-    () => app.auth().config.RECIPIENT_HASH_SECRET,
+    () => app.mailConfig().RECIPIENT_HASH_SECRET,
   );
   return {
     mediaCapture: composeMediaCaptureRoutes(app),
@@ -188,7 +188,7 @@ export function createRoutes(app: App) {
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
     mailWebhook: {
       POST: (request: Request) =>
-        handleOperation(logger, request, 'auth.mail.webhook', () =>
+        handleOperation(logger, request, 'mail.webhook', () =>
           app.mailWebhook().handle(request),
         ),
     },

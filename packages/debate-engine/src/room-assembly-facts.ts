@@ -94,6 +94,7 @@ export const acceptedRoomMutation = (
     consent: null,
     freeze: false,
     spendsAiRound: false,
+    seatsBotDebater: false,
     publishDefinition: false,
     drawSecrets: null,
     members: activeRoomMembers(state),

@@ -1,4 +1,4 @@
-import { castSpendsAiRound } from './ai-round-cast';
+import { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
   RoomAssemblyState,
@@ -82,6 +82,7 @@ export const startRound = (
   return acceptedRoomMutation(next, {
     freeze: true,
     spendsAiRound: castSpendsAiRound(next),
+    seatsBotDebater: castSeatsBotDebater(next),
   });
 };
 export const close = (

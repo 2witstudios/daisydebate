@@ -28,14 +28,10 @@ export function createMediaCaptureHandlers(input: {
   readonly authentication: () => Authentication;
   readonly capture: () => Capture;
   readonly token: Broker['captureToken'];
-  readonly activity: Relay;
-  /** Capture hears a bot seat's track (ISSUE-514-r2). */
+  /** Capture hears a bot seat's track (DEC-226, ISSUE-514-r2). */
   readonly heard: Relay;
 }) {
-  const relays = new Map([
-    ['activity', input.activity],
-    ['heard', input.heard],
-  ]);
+  const relays = new Map([['heard', input.heard]]);
   return {
     handle: (request: Request) =>
       handleOperation(input.logger, request, 'media.capture', async (id) => {

@@ -92,7 +92,6 @@ test('every capture operation the worker client calls is admitted, the heard rep
     'append',
     'observe',
     'seal',
-    'activity',
     'heard',
   ];
   assert({
@@ -101,4 +100,26 @@ test('every capture operation the worker client calls is admitted, the heard rep
     actual: operations.map(admitted),
     expected: operations.map(() => roundId),
   });
+});
+
+test("a signed call outside capture's own operations is refused", async () => {
+  const auth = createMediaWorkerAuthentication({ secret, now: () => instant });
+  for (const signedPath of [
+    `/api/internal/media/${roundId}/capture/delete`,
+    `/api/internal/media/${roundId}/transcripts/lease`,
+  ])
+    await assertRejects({
+      given: `a call to ${signedPath}`,
+      should: 'refuse to sign or verify it',
+      code: 'AUTHORIZATION',
+      actual: async () => {
+        const headers = auth.sign({ method: 'POST', path: signedPath, body });
+        return auth.verify({
+          method: 'POST',
+          path: signedPath,
+          body,
+          ...headers,
+        });
+      },
+    });
 });

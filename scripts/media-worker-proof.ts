@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createAudioPublication } from '@daisy/media/audio';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { disposeCaptureRuntime } from '@daisy/media/capture';
+import { disposeAudioRuntime } from '@daisy/media/subscription';
 import { systemId } from '@daisy/clock';
 import { createRoundRuntimeOperations } from '../apps/web/src/features/round-runtime/operations';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
@@ -14,10 +14,7 @@ import {
 } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
-import {
-  createBotActivityRelay,
-  createBotHeardRelay,
-} from '../apps/web/src/features/round-bots/activity-relay';
+import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/heard-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
@@ -130,15 +127,10 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     authentication: () => authentication,
     capture: () => capture,
     token: (scope, principal) => broker.captureToken(scope, principal),
-    heard: createBotHeardRelay({
+    heard: createCaptureHeardRelay({
       readCapture: (value) => capture.readMediaCaptureState(value),
       readLease: (value) => capture.readCurrentCaptureLease(value),
       write: f.redis.writeCaptureHeard,
-    }),
-    activity: createBotActivityRelay({
-      readCapture: (value) => capture.readMediaCaptureState(value),
-      readLease: (value) => capture.readCurrentCaptureLease(value),
-      write: f.redis.writeBotActivity,
     }),
   });
   return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
@@ -319,6 +311,6 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
     await server.stop(true);
     if (await deps.media.exists(binding.room_name))
       await deps.media.deleteRoom(binding.room_name);
-    await disposeCaptureRuntime();
+    await disposeAudioRuntime();
   }
 }

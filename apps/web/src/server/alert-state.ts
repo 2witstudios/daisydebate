@@ -62,7 +62,7 @@ export type AlertSnapshot = {
     readonly windowMinutes: number;
   };
   readonly retentionLastSuccessIso: string | null;
-  /** `auth.mail.shed` events over the trailing window (ISSUE-220). */
+  /** `mail.shed` events over the trailing window (ISSUE-220). */
   readonly mailShed: {
     readonly count: number;
     readonly windowMinutes: number;

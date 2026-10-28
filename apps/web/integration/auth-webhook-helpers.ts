@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, webhookSecret, withSql } from './fixtures';
-import { deriveRecipientSubkey } from '../src/features/auth/mail/recipient-key';
+import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 
 const sign = (id: string, timestamp: string, body: string) =>
   `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
@@ -58,7 +58,7 @@ export function createMailSuite() {
   const testApp = createTestApp();
   const { app, routes, mailbox, jsonPost, formPost, freshEmail } = testApp;
   const recipientSubkey = deriveRecipientSubkey(
-    app.auth().config.RECIPIENT_HASH_SECRET,
+    app.mailConfig().RECIPIENT_HASH_SECRET,
   );
   // Ids of messages the suite makes up itself; the mailbox's own are
   // removed by createTestApp's teardown.

@@ -45,6 +45,17 @@ export function createInvariantError(
 export function isAppError(error: unknown): error is AppError {
   return error instanceof Error && knownErrors.has(error);
 }
+/**
+ * A refusal of the operation as asked (`CONFLICT` or `AUTHORIZATION`): the
+ * state did not admit it now, which is expected and often clears, never a
+ * fault in the system.
+ */
+export function isRefusal(error: unknown): boolean {
+  return (
+    isAppError(error) &&
+    (error.code === 'CONFLICT' || error.code === 'AUTHORIZATION')
+  );
+}
 /** The HTTP status and `{ error }` body, whose `error` is the protocol's public error. */
 export function toPublicError(
   error: unknown,

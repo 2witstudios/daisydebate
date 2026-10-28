@@ -19,7 +19,7 @@ import {
   type BallotDebaters,
 } from '../../../features/judge/ballot';
 import { formValues } from '../../../features/forms/form-state';
-import { formatClock } from '../../../features/debate-room/clock';
+import { formatCountdown } from '../../../lib/clock-display';
 import {
   ballotHeadingClass,
   ballotSectionClass,
@@ -233,7 +233,7 @@ function SubmitRow({
       </button>
       {waiting ? (
         <p id={OPENS_ID} className="text-base text-ink-muted">
-          {`Opens in ${formatClock(opensInMs)}`}
+          {`Opens in ${formatCountdown(opensInMs)}`}
         </p>
       ) : null}
       {live ? (

@@ -7,7 +7,7 @@ import config from '../../playwright.config';
 import {
   deriveRecipientSubkey,
   recipientKey,
-} from '../../src/features/auth/mail/recipient-key';
+} from '../../src/features/mail/recipient-key';
 
 export type RoomAccountOwnership = {
   email: string;

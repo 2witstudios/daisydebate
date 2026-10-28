@@ -35,13 +35,6 @@ export const resume = (state: ClockState): ClockState => ({
 
 export const isTimeUp = (state: ClockState): boolean => state.remainingMs <= 0;
 
-/** m:ss, rounding a part-second up so the clock reads 0:00 only at zero. */
-export const formatClock = (ms: number): string => {
-  const total = Math.ceil(Math.max(0, ms) / 1000);
-  const seconds = total % 60;
-  return `${Math.floor(total / 60)}:${seconds < 10 ? '0' : ''}${seconds}`;
-};
-
 /** Percent of the speech already used, 0 to 100. */
 export const elapsedPercent = (
   totalSeconds: number,
