@@ -2,12 +2,11 @@ import { invalidateChannelInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic, idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
 import { channelMutationFrame } from './mutation-frame';
-import { appendOutboxEvent } from '../outbox';
 import { appendStream } from './stream';
 import {
   messagingMessages,
@@ -156,8 +155,6 @@ export function createMessagingStore({
                   plan.message.text === command.text,
                   plan.message.replyToMessageId === command.replyToMessageId,
                   plan.receipt.messageId === plan.message.id,
-                  plan.doorbell.channelId === channel.id,
-                  plan.doorbell.changeVersion === plan.message.changeVersion,
                 ].every(Boolean)
               )
                 throw createAppError('CONFLICT');
@@ -181,12 +178,6 @@ export function createMessagingStore({
                 actorId: input.actorId,
                 requestId: command.requestId,
                 ...plan.receipt,
-              });
-              await appendOutboxEvent(tx, {
-                topic: buildChannelTopic(channel.id),
-                kind: 'channel.changed',
-                version: 1,
-                payload: plan.doorbell,
               });
               await invalidateChannelInboxes(tx, channel.id);
               counters.messageSequence = plan.message.sequence;

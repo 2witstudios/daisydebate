@@ -142,8 +142,6 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [{ id: channelId }],
     [{ messageSequence: 0, changeVersion: 3 }],
     [],
-    [[1, '9']],
-    [],
   ]);
   const adopter = createMessagingPrivacyAdopter();
   await adopter.erase(drizzle({ client }), subject, { now });
@@ -163,25 +161,15 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     given:
       'own content and peer message with subject reaction plus authority association',
     should:
-      'scrub only own text, advance the stream once per change and authority once, and combine them into one latest bell after all cleanup',
+      'scrub only own text and advance the stream once per change and authority once; no doorbell: the advanced stream is what observers rebuild from (ADR 0089)',
     actual: [
       adopter.phase,
       authorityUpdates.length,
       streamUpdates.map((query) => query.params[1]),
       messageUpdates.length,
       bells.length,
-      bells[0]?.params.find(
-        (value) => typeof value === 'object' && value !== null,
-      ),
     ],
-    expected: [
-      'before-auth',
-      1,
-      [2, 3, 4],
-      2,
-      1,
-      { kind: 'channel.changed', channelId, changeVersion: 4 },
-    ],
+    expected: ['before-auth', 1, [2, 3, 4], 2, 0],
   });
   const fileIntent = queries.findIndex((query) =>
     query.query.includes('insert into messaging_file_deletion_intents'),

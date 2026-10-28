@@ -27,8 +27,8 @@ for (const kind of ['edit', 'remove'] as const)
     const stream = [{ messageSequence: 2, changeVersion: 3 }];
     const steps =
       kind === 'remove'
-        ? [[], stream, [], [], [], [], [], [[1, '7']], []]
-        : [[], stream, [], [], [], [[1, '7']], []];
+        ? [[], stream, [], [], [], [], []]
+        : [[], stream, [], [], []];
     const { client, queries } = fakeSql(steps);
     let fences = 0;
     const counters = { channelId, messageSequence: 2, changeVersion: 3 };
@@ -62,11 +62,6 @@ for (const kind of ['edit', 'remove'] as const)
     const plan = {
       message,
       payloadDigest: 'd'.repeat(64),
-      doorbell: {
-        kind: 'channel.changed' as const,
-        channelId,
-        changeVersion: 4,
-      },
     };
     await assertRejects({
       given: 'a mutation plan before protected observation',
@@ -99,7 +94,7 @@ for (const kind of ['edit', 'remove'] as const)
     assert({
       given: 'persisted content removal or edit',
       should:
-        'scrub remove digests and file metadata without deleting physical objects before acknowledgement',
+        'scrub remove digests and file metadata without deleting physical objects before acknowledgement, and write no doorbell (ADR 0089)',
       actual: [
         receipt?.params.includes('d'.repeat(64)),
         queries.some((query) =>
@@ -110,7 +105,7 @@ for (const kind of ['edit', 'remove'] as const)
           query.query.startsWith('insert into "outbox"'),
         ).length,
       ],
-      expected: [kind === 'edit', kind === 'remove', false, 1],
+      expected: [kind === 'edit', kind === 'remove', false, 0],
     });
   });
 for (const stored of [
@@ -146,7 +141,6 @@ for (const stored of [
             changeVersion: 4,
           },
           payloadDigest: 'd'.repeat(64),
-          doorbell: { kind: 'channel.changed', channelId, changeVersion: 4 },
         }),
       code: 'CONFLICT',
     });

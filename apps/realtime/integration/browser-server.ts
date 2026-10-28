@@ -1,9 +1,9 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { systemClock } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { SQL } from 'bun';
-import { createRealtimeDatabase } from '@daisy/db';
+import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
 import {
   messagingTestReading,
   messagingTestGroupReading,
@@ -85,9 +85,11 @@ try {
   await runtimeClient.close();
   throw new Error('Realtime browser runtime role unavailable');
 }
+// An eligible observation owner, so conversations get snapshots (ADR 0089).
 const runtimeDatabase = createRealtimeDatabase({
   url: runtimeUrl,
   client: runtimeClient,
+  profile: WORKLOAD_PROFILES['realtime-observer'],
 });
 const resources = createRealtimeApp({
   database: runtimeDatabase,
@@ -103,6 +105,8 @@ const runtime = await serveRealtime({
   port,
   hostname: '127.0.0.1',
   tls: { key, cert },
+  // Conversations observe channel messages (ADR 0089).
+  observation: { nextId: () => systemId.next() },
 }).catch(async () => {
   await resources.close();
   throw new Error('Realtime browser listener unavailable');

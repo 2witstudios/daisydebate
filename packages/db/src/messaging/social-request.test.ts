@@ -27,8 +27,6 @@ test('a new admitted DM persists pending authority once and emits only content-f
     [],
     [[2, '9']],
     [],
-    [[3, '9']],
-    [],
     [],
   ]);
   let admitted = 0;
@@ -53,7 +51,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
   assert({
     given: 'a fresh fenced pair with available capacity',
     should:
-      'persist pending DM authority, creator receipt and thin inbox/channel bells only',
+      'persist pending DM authority, creator receipt and thin inbox bells only (channel content is observed, ADR 0089)',
     actual: [
       result,
       admitted,
@@ -69,14 +67,12 @@ test('a new admitted DM persists pending authority once and emits only content-f
         'messaging_dm_pairs',
         'outbox',
         'outbox',
-        'outbox',
         'social_requests',
         'messaging_social_commands',
       ],
       [
         { kind: 'messaging.inbox.changed' },
         { kind: 'messaging.inbox.changed' },
-        { kind: 'channel.changed', channelId, changeVersion: 1 },
       ],
     ],
   });

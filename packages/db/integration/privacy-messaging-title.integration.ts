@@ -162,7 +162,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
           given:
             'successful subject erasure with only a surviving peer manager grant',
           should:
-            'delete own title and binding, preserve peer title and authority, and emit one content-free final version',
+            'delete own title and binding, preserve peer title and authority, and write no channel doorbell (observers rebuild from the advanced stream, ADR 0089)',
           actual: [
             owned,
             [...grants],
@@ -181,13 +181,7 @@ test('canonical title erasure retains peer manager data and rolls back all local
               title: 'Peer-authored shared title',
               title_author_actor_id: otherActorId,
             },
-            [
-              {
-                kind: 'channel.changed',
-                channelId: authoredId,
-                changeVersion: 1,
-              },
-            ],
+            [],
           ],
         });
       } finally {

@@ -86,7 +86,7 @@ test('fresh reaction retry reads current aggregate without restoring a subsequen
   });
 });
 
-test('adding and removing an own reaction atomically advance changes and emit one content-free bell', async () => {
+test('adding and removing an own reaction atomically advance changes and write no doorbell', async () => {
   for (const active of [true, false]) {
     const own = {
       actorId: scope.actorId,
@@ -103,8 +103,6 @@ test('adding and removing an own reaction atomically advance changes and emit on
       [{ messageSequence: 0, changeVersion: 8 }],
       [],
       [{ id: command.messageId }],
-      [],
-      [[1n, '1']],
       [],
       active ? [{ reaction: command.reaction, count: '1', own: true }] : [],
     ]);
@@ -126,22 +124,19 @@ test('adding and removing an own reaction atomically advance changes and emit on
           : 'delete from messaging_reactions',
       ),
     );
-    const bell = queries.find((q) => q.query.includes('insert into "outbox"'));
     assert({
       given: active
         ? 'a current authorized addition'
         : 'an actual locked own association with canonical removal authority',
       should:
-        'scope the association and receipt, advance only the change counter and publish no choice/actor/body',
+        'scope the association and receipt, advance only the change counter, and write no outbox row: content is observed (ADR 0089)',
       actual: [
         result.changeVersion,
         result.replayed,
         result.reactions,
         guards,
         associationWrite?.params,
-        bell?.params.find(
-          (value) => value !== null && typeof value === 'object',
-        ),
+        queries.some((q) => q.query.includes('insert into "outbox"')),
         queries.filter((q) => q.query.includes('pg_notify')).length,
         // A removal never reads the aggregates, so it reveals no other reactor.
         queries.some((q) => q.query.includes('count(*)')),
@@ -160,12 +155,8 @@ test('adding and removing an own reaction atomically advance changes and emit on
           : // A withdrawal (ADR 0075): only the own-association check, no read.
             [['remove', own]],
         [scope.actorId, scope.channelId, command.messageId, command.reaction],
-        {
-          kind: 'channel.changed',
-          channelId: scope.channelId,
-          changeVersion: 9,
-        },
-        1,
+        false,
+        0,
         active,
       ],
     });

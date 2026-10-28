@@ -97,14 +97,14 @@ test('canonical message mutations serialize retries and scrub removed retry fing
     assert({
       given: 'concurrent identical author edits',
       should:
-        'keep creation sequence and commit one new version, receipt and doorbell',
+        'keep creation sequence and commit one new version and receipt, with no channel doorbell (ADR 0089)',
       actual: {
         versions: edits.map((item) => item.changeVersion),
         state: await state(),
       },
       expected: {
         versions: [2, 2],
-        state: { sequence: 1, version: 2, receipts: 2, bells: 2 },
+        state: { sequence: 1, version: 2, receipts: 2, bells: 0 },
       },
     });
     const peer: AuthorizationPrincipal = {

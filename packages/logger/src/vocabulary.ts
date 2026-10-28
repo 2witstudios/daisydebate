@@ -57,6 +57,7 @@ export const eventRegistry = {
   'realtime.delivery.backlog': 'info',
   'realtime.connection.rejected': 'info',
   'realtime.subscription.unavailable': 'error',
+  'realtime.observation.unavailable': 'warn',
   'db.query.failed': 'error',
   'db.capacity.refused': 'warn',
   'retention.sweep.completed': 'info',

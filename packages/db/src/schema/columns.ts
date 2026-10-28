@@ -1,5 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { check, customType, integer, timestamp } from 'drizzle-orm/pg-core';
+import {
+  check,
+  customType,
+  integer,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
@@ -110,3 +116,33 @@ export const jsonbIsObject = (table: string, column: PgColumn) =>
     `${table}_${column.name}_is_object`,
     sql`jsonb_typeof(${column}) = 'object'`,
   );
+
+/**
+ * A retried delivery job's lifecycle (vendor deletion, observation purge):
+ * pending until one confirmed success, with its attempts and next retry.
+ */
+export const retriedJobColumns = () => ({
+  status: text('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  createdAt: timestampColumn('created_at').notNull(),
+  retryAt: timestampColumn('retry_at').notNull(),
+  succeededAt: timestampColumn('succeeded_at'),
+});
+export const retriedJobChecks = (
+  table: string,
+  columns: {
+    readonly status: PgColumn;
+    readonly attempts: PgColumn;
+    readonly succeededAt: PgColumn;
+  },
+) => [
+  check(
+    `${table}_status_valid`,
+    oneOf(columns.status, ['pending', 'succeeded']),
+  ),
+  check(`${table}_attempts_nonnegative`, sql`${columns.attempts} >= 0`),
+  check(
+    `${table}_success_consistent`,
+    sql`(${columns.status} = 'succeeded') = (${columns.succeededAt} is not null)`,
+  ),
+];

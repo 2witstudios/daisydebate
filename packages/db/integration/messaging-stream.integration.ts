@@ -56,7 +56,6 @@ const sender =
           removedAt: null,
         },
         receipt: { messageId, payloadDigest: 'd'.repeat(64) },
-        doorbell: { kind: 'channel.changed', channelId, changeVersion },
       });
     });
   };
@@ -155,7 +154,7 @@ test('two channels sharing their members both progress under concurrent sends (M
       given:
         'interleaved concurrent sends by both members to their DM and group',
       should:
-        'advance each channel’s own stream contiguously, with one bell per send',
+        'advance each channel’s own stream contiguously, and write no channel doorbell (content is observed, ADR 0089)',
       actual: {
         dm: await streamOf(client, fixture.channelId),
         group: await streamOf(client, groupId),
@@ -167,13 +166,13 @@ test('two channels sharing their members both progress under concurrent sends (M
           sequence: `${sends}`,
           version: `${sends}`,
           revision: 1,
-          bells: sends,
+          bells: 0,
         },
         group: {
           sequence: `${sends}`,
           version: `${sends}`,
           revision: 1,
-          bells: sends,
+          bells: 0,
         },
         dmSequences: all,
         groupSequences: all,
@@ -279,7 +278,7 @@ test('a held append blocks neither peers nor readers on the authority fence, whi
         appendFences: 'accepted',
         appendStream: '55P03',
         revocation: '55P03',
-        dm: { sequence: '2', version: '2', revision: 1, bells: 2 },
+        dm: { sequence: '2', version: '2', revision: 1, bells: 0 },
       },
     });
   } finally {

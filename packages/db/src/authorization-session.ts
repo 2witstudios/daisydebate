@@ -22,6 +22,53 @@ export async function loadAuthorizationSession(
 ) {
   return checkedSession(tx, input);
 }
+type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
+/**
+ * Many viewers' sessions in one statement (ADR 0089 cohorts), each bound to
+ * an account the caller already read inside the same fenced transaction.
+ * One answer per input, in order; null is an expired, foreign or missing
+ * session, or an account that is no longer the session's.
+ */
+export async function loadAuthorizationSessions(
+  tx: AuthorizationTransaction,
+  input: {
+    readonly now: string;
+    readonly sessions: readonly Omit<AuthorizationSessionInput, 'now'>[];
+    readonly accounts: readonly (AccountFact | null)[];
+  },
+) {
+  const instants = input.sessions.map((session) =>
+    sessionInstant({ ...session, now: input.now }),
+  );
+  if (input.sessions.length === 0) return [];
+  const rows = (await tx.execute(
+    sql`select id, user_id as "userId", expires_at as "expiresAt" from session where id = any(array[${sql.join(
+      input.sessions.map(({ sessionId }) => sql`${sessionId}`),
+      sql`, `,
+    )}]::text[])`,
+  )) as unknown as { id: string; userId: string; expiresAt: Date }[];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return input.sessions.map((wanted, index) => {
+    const row = byId.get(wanted.sessionId);
+    const account =
+      input.accounts.find((fact) => fact?.actorId === wanted.actorId) ?? null;
+    if (
+      !row ||
+      !sessionUserMatches(row.userId, { ...wanted, now: input.now }) ||
+      !(row.expiresAt instanceof Date) ||
+      !(row.expiresAt.getTime() > instants[index]!) ||
+      !currentSessionAccount(account, wanted.actorId, row.userId)
+    )
+      return null;
+    return {
+      sessionId: wanted.sessionId,
+      userId: row.userId,
+      actorId: wanted.actorId,
+      expiresAt: row.expiresAt.toISOString(),
+      account,
+    };
+  });
+}
 async function checkedSession(
   tx: AuthorizationTransaction,
   input: RealtimeSessionInput & { readonly userId?: string },

@@ -84,11 +84,12 @@ test('real file consumer attaches only scanned content and preserves clean quara
     );
     assert({
       given: 'successful attachment and immutable retries',
-      should: 'emit one content-free canonical notification',
+      should:
+        'write no channel doorbell: observers rebuild from the advanced stream (ADR 0089)',
       actual: bells.map((row: { readonly payload: Record<string, unknown> }) =>
         Object.keys(row.payload).sort(),
       ),
-      expected: [['changeVersion', 'channelId', 'kind']],
+      expected: [],
     });
   } finally {
     await f.close();

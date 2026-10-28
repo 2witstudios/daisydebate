@@ -8,7 +8,6 @@ import { parseTopic } from '../topics';
 
 setupRitewayBun();
 const channelId = 'c'.repeat(24);
-const otherId = 'o'.repeat(24);
 const payload = { kind: 'channel.changed', channelId, changeVersion: 1 };
 
 test('channel topics carry exactly one validated channel identifier', () => {
@@ -32,41 +31,22 @@ test('channel topics carry exactly one validated channel identifier', () => {
     });
 });
 
-test('channel activity is a content-free, topic-bound doorbell', () => {
-  for (const [patch, expected] of [
-    [{}, true],
-    [{ changeVersion: 0 }, false],
-    [{ changeVersion: 1.5 }, false],
-    [{ changeVersion: Number.MAX_SAFE_INTEGER + 1 }, false],
-    [{ channelId: 'bad' }, false],
-    [{ text: 'private' }, false],
-    [{ authorActorId: otherId }, false],
-    [{ filename: 'private.pdf' }, false],
-    [{ ids: [channelId] }, false],
-  ] as const)
-    assert({
-      given: JSON.stringify(patch),
-      should: 'accept only channel ID and safe positive change version',
-      actual: outboxPayloadSchema.safeParse({ ...payload, ...patch }).success,
-      expected,
-    });
-  for (const [topic, body, expected] of [
-    [`channel:${channelId}`, payload, true],
-    [`channel:${otherId}`, payload, false],
-    [`round:${channelId}`, payload, false],
-    [`user:${channelId}:inbox`, payload, false],
-    [
-      `channel:${channelId}`,
-      { kind: 'round.phase-changed', entityVersion: 1, ids: [channelId] },
-      false,
+test('the channel topic stores no outbox row: its content is observed (ADR 0089)', () => {
+  assert({
+    given:
+      'the retired channel doorbell and a Round doorbell on a channel topic',
+    should: 'refuse both: the channel topic carries only typing hints',
+    actual: [
+      outboxPayloadSchema.safeParse(payload).success,
+      isPayloadStorableOnTopic(`channel:${channelId}`, payload),
+      isPayloadStorableOnTopic(`channel:${channelId}`, {
+        kind: 'round.phase-changed',
+        entityVersion: 1,
+        ids: [channelId],
+      }),
     ],
-  ] as const)
-    assert({
-      given: topic,
-      should: 'bind stored kind and channel identity to the parsed topic',
-      actual: isPayloadStorableOnTopic(topic, body),
-      expected,
-    });
+    expected: [false, false, false],
+  });
 });
 
 test('messaging inbox invalidation carries only its owner and contains no private association', () => {

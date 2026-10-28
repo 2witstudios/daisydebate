@@ -1,8 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type {
-  ConnectionState,
-  ConnectionStore,
-} from '../realtime/connection-types';
+import type { ConnectionState, ConnectionStore } from './connection-types';
 import { sharedConnections } from './shared-connection';
 
 setupRitewayBun();

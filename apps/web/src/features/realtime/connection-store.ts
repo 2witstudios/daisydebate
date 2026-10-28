@@ -336,6 +336,11 @@ export function createConnectionStore(
     subscribeTopic: live(topics.subscribe),
     onMessage: live(topics.onMessage),
     resubscribeTopic: topics.resubscribe,
+    sendObservation: (frame) => {
+      if (disposed || status !== 'open' || !socket) return false;
+      socket.send(JSON.stringify({ v: ENVELOPE_VERSION, ...frame }));
+      return true;
+    },
     connect,
     close,
     dispose,

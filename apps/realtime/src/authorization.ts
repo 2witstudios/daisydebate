@@ -166,63 +166,28 @@ export function createRealtimeAuthorization({
     const result = await resources.database.messagingChannelAuthority(
       { ...principal, channelId: channelId },
       async ({ tx, fact, accounts: currentAccounts }) => {
-        const factNow = resources.clock.now();
         const accounts = await loadAccountPolicyFacts({
           accounts: currentAccounts,
-          now: factNow,
+          now: resources.clock.now(),
           readAgeFact: bindAuthorizationAgeFact(tx),
         });
-        const current = await loadAuthorizationSession(tx, {
+        const session = await loadAuthorizationSession(tx, {
           ...principal,
           now: resources.clock.now(),
         });
-        if (
-          !current ||
-          !participantAccess(current.account) ||
-          current.account.revision !== accountRevision
-        )
-          return null;
-        const instant = resources.clock.now();
-        const reading = readingPolicy({
-          channel: fact,
+        const viewer = decideChannelViewer({
+          session,
+          fact,
           accounts,
-          now: instant,
+          principal,
+          readingPolicy,
+          clock: resources.clock,
+          deadline,
         });
-        const decision = authorize({
-          principal: { kind: 'user', ...principal },
-          capability: 'channel.subscribe',
-          resource: fact,
-          context: {
-            account: current.account,
-            socialAccounts: accounts,
-            now: instant,
-            ...(reading ? { socialReading: reading } : {}),
-          },
-        });
-        if (!decision.allow || !reading) return null;
-        const ageDeadlines = accounts.flatMap((row) =>
-          row.age.state === 'known' ? [deadline(row.age.validUntil)] : [],
-        );
+        if (!viewer || viewer.accountRevision !== accountRevision) return null;
         return {
-          revision: fingerprint([
-            ...base,
-            fact.revision,
-            fact.policyRevision,
-            fact.authority,
-            accounts.map((row) => [
-              row.account.actorId,
-              row.account.revision,
-              row.age.state === 'known' ? row.age.revision : null,
-            ]),
-            reading.authorityRevision,
-            reading.relationshipRevision,
-          ]),
-          validUntil: Math.min(
-            bound,
-            deadline(current.expiresAt),
-            deadline(reading.validUntil),
-            ...ageDeadlines,
-          ),
+          revision: fingerprint([...base, viewer.revision]),
+          validUntil: Math.min(bound, viewer.validUntil),
         };
       },
     );
@@ -230,6 +195,7 @@ export function createRealtimeAuthorization({
   }
   return {
     authorizeTopic,
+    deadline,
     async validatePrincipal(principal: SocketPrincipal) {
       const session = await resources.database.readAuthorizationSession({
         ...principal,
@@ -237,5 +203,70 @@ export function createRealtimeAuthorization({
       });
       return liveParticipantSession(session, resources.clock.now());
     },
+  };
+}
+
+/**
+ * One viewer's channel decision from facts already read inside one fenced
+ * read: the viewer's current session, participant access, reading policy
+ * and `channel.subscribe`. Pure: no I/O. The
+ * topic subscription and the observation permit evaluator share it, so the
+ * channel's policy has one home. `revision` fingerprints every fact the
+ * decision depended on; `validUntil` is the earliest of their deadlines.
+ */
+export function decideChannelViewer({
+  session: current,
+  fact,
+  accounts,
+  principal,
+  readingPolicy,
+  clock,
+  deadline,
+}: {
+  readonly session: Awaited<ReturnType<typeof loadAuthorizationSession>>;
+  readonly fact: ChannelAuthorizationFact;
+  readonly accounts: readonly SocialAccountFact[];
+  readonly principal: SocketPrincipal;
+  readonly readingPolicy: RealtimeReadingPolicy;
+  readonly clock: { readonly now: () => string };
+  readonly deadline: (expiry: string) => number;
+}) {
+  if (!current || !participantAccess(current.account)) return null;
+  const instant = clock.now();
+  const reading = readingPolicy({ channel: fact, accounts, now: instant });
+  const decision = authorize({
+    principal: { kind: 'user', ...principal },
+    capability: 'channel.subscribe',
+    resource: fact,
+    context: {
+      account: current.account,
+      socialAccounts: accounts,
+      now: instant,
+      ...(reading ? { socialReading: reading } : {}),
+    },
+  });
+  if (!decision.allow || !reading) return null;
+  const ageDeadlines = accounts.flatMap((row) =>
+    row.age.state === 'known' ? [deadline(row.age.validUntil)] : [],
+  );
+  return {
+    accountRevision: current.account.revision,
+    revision: [
+      fact.revision,
+      fact.policyRevision,
+      fact.authority,
+      accounts.map((row) => [
+        row.account.actorId,
+        row.account.revision,
+        row.age.state === 'known' ? row.age.revision : null,
+      ]),
+      reading.authorityRevision,
+      reading.relationshipRevision,
+    ],
+    validUntil: Math.min(
+      deadline(current.expiresAt),
+      deadline(reading.validUntil),
+      ...ageDeadlines,
+    ),
   };
 }

@@ -2,12 +2,10 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
-  buildChannelTopic,
   idSchema,
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from '@daisy/protocol';
-import { appendOutboxEvent } from '../outbox';
 import { appendStream } from './stream';
 import type {
   MessagingReactionAssociation,
@@ -109,17 +107,6 @@ export function channelReactionFrame(
         insert into messaging_receipts(actor_id,channel_id,request_id,message_id,payload_digest)
         values(${scope.actorId},${scope.channelId},${command.requestId},${command.messageId},${payloadDigest})
       `);
-      if (changed)
-        await appendOutboxEvent(tx, {
-          topic: buildChannelTopic(scope.channelId),
-          kind: 'channel.changed',
-          version: 1,
-          payload: {
-            kind: 'channel.changed',
-            channelId: scope.channelId,
-            changeVersion,
-          },
-        });
       if (command.active) await authorize('add');
       return result(command, false, available, !command.active);
     },

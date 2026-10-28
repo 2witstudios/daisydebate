@@ -15,6 +15,10 @@ import type {
 import type { AdmissionReservation } from './admission';
 import { closeFor, evaluateFirstMessage } from './handlers/hello';
 import type { PresenceSession, PresenceTracker } from './presence';
+import type {
+  ObservationConnection,
+  ObservationNode,
+} from './observation/node';
 
 /** ADR 0031 §11.5: the first message must arrive within 5s or the socket closes 4001. */
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -28,6 +32,7 @@ export type SocketData = {
   connection?: RegistryConnection;
   helloTimer?: ReturnType<typeof setTimeout> | undefined;
   presence?: PresenceSession | undefined;
+  observer?: ObservationConnection | undefined;
 };
 export type SocketTimers = {
   readonly setTimeout: (
@@ -75,6 +80,7 @@ export function createWebSocketHandlers({
   registry,
   validatePrincipal,
   presence,
+  observation,
 }: {
   readonly logger: Logger;
   readonly timers?: SocketTimers;
@@ -86,12 +92,15 @@ export function createWebSocketHandlers({
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
   readonly presence?: PresenceTracker;
+  readonly observation?: ObservationNode;
 }) {
   /** Closes the socket's phase and frees everything it owns, once or again. */
   function release(ws: ServerWebSocket<SocketData>) {
     ws.data.phase = 'closed';
     clearHelloTimer(ws, timers);
     if (ws.data.connection) registry?.remove(ws.data.connection);
+    if (ws.data.observer) observation?.disconnect(ws.data.observer);
+    ws.data.observer = undefined;
     ws.data.presence?.stop();
     ws.data.presence = undefined;
     ws.data.admission?.release();
@@ -179,6 +188,18 @@ export function createWebSocketHandlers({
         },
         principal,
       );
+    // Observation frames are encoded once per revision and sent as text.
+    ws.data.observer = {
+      principal,
+      sendText: (text) => {
+        if (ws.data.phase === 'closed') return false;
+        if (ws.send(text) === 0 || ws.getBufferedAmount() > 262_144) {
+          reject(ws, 'slow_consumer');
+          return false;
+        }
+        return true;
+      },
+    };
     send(ws, { v: ENVELOPE_VERSION, type: 'ready' });
   }
   async function receiveAuthenticated(
@@ -192,6 +213,8 @@ export function createWebSocketHandlers({
       send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
     else if (frame.type === 'presence.activity')
       reportActivity(ws, frame.activity);
+    else if (frame.type === 'observe' || frame.type === 'unobserve')
+      receiveObservation(ws, frame);
     else await receiveSubscription(ws, frame);
   }
   /**
@@ -218,6 +241,30 @@ export function createWebSocketHandlers({
     if (frame.type === 'subscribe')
       await registry?.subscribe(ws.data.connection, frame);
     else registry?.unsubscribe(ws.data.connection, frame);
+  }
+  /** A refused observe (bounds, unknown kind, no node) is a retryable unavailability, not denial. */
+  function receiveObservation(
+    ws: ServerWebSocket<SocketData>,
+    frame: Extract<
+      NonNullable<ReturnType<typeof parseFrame>>,
+      { type: 'observe' | 'unobserve' }
+    >,
+  ) {
+    const observer = ws.data.observer;
+    if (!observer) return;
+    if (frame.type === 'unobserve') {
+      observation?.unobserve(observer, frame.resource);
+      return;
+    }
+    if (!observation?.observe(observer, frame))
+      send(ws, {
+        v: ENVELOPE_VERSION,
+        type: 'observation.state',
+        id: frame.id,
+        resource: frame.resource,
+        generation: 0,
+        state: 'unavailable',
+      });
   }
   function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
     let parsed: unknown;

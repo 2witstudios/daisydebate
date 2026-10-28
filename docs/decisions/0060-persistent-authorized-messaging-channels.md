@@ -124,3 +124,11 @@ lock it already covers; a transaction that read shared never takes the
 exclusive fence afterwards, so locks are
 never upgraded. Order stays user rows, then the contact pair, then the
 channel row.
+
+## Amendment (2026-10-28): channel content is observed, not rung
+
+[ADR 0089](0089-shared-resource-observation.md) replaces the `channel.changed`
+doorbell: no writer appends it, the protocol no longer defines it, and the
+`channel:<id>` topic carries only typing hints. Open conversations receive the
+latest window as permitted observation snapshots; HTTP still owns mutations,
+search, older history and no-JS reading.

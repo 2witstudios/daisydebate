@@ -1,8 +1,7 @@
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic, idSchema } from '@daisy/protocol';
-import { appendOutboxEvent } from '../outbox';
+import { idSchema } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
 import { appendStream } from '../messaging/stream';
 import { messagingMessages } from '../schema/messaging-messages';
@@ -57,16 +56,6 @@ export function channelFileFrame(
       channelId,
       { messages: 0, changes: 1 },
     ));
-    await appendOutboxEvent(tx, {
-      topic: buildChannelTopic(channelId),
-      kind: 'channel.changed',
-      version: 1,
-      payload: {
-        kind: 'channel.changed',
-        channelId: channelId,
-        changeVersion: counters.changeVersion,
-      },
-    });
   };
   const currentRevision = async () => {
     const [channel] = await tx

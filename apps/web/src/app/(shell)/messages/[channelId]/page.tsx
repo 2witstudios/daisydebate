@@ -20,7 +20,6 @@ import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
-import { MarkConversationRead } from '../../../../ui/messaging/mark-read';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
@@ -85,10 +84,7 @@ export default async function ConversationPage({
           ) : null}
           {readThrough === null ? null : (
             <>
-              <MarkConversationRead
-                channelId={id.data}
-                sequence={readThrough}
-              />
+              {/* With JavaScript the live history marks what it shows. */}
               <noscript>
                 <form action={markReadAction.bind(null, id.data, readThrough)}>
                   <button type="submit" className="text-accent underline">
@@ -98,19 +94,25 @@ export default async function ConversationPage({
               </noscript>
             </>
           )}
-          <ConversationLive
-            channelId={id.data}
-            socketUrl={conversation.socketUrl}
-            typingRefetchMs={conversation.typingRefetchMs}
-            snapshotId={systemId.next()}
-          >
+          {searchQuery === undefined && typeof query.before !== 'string' ? (
+            // The latest page is live on the tab's socket (ADR 0089).
+            <ConversationLive
+              channelId={id.data}
+              history={conversation.history}
+              actorId={actorId}
+              otherAuthor={names.otherAuthor}
+              socketUrl={conversation.socketUrl}
+              typingRefetchMs={conversation.typingRefetchMs}
+            />
+          ) : (
+            // Search results and older pages are explicit HTTP reads.
             <MessageHistory
               history={conversation.history}
               actorId={actorId}
               otherAuthor={names.otherAuthor}
               {...(searchQuery === undefined ? {} : { searchQuery })}
             />
-          </ConversationLive>
+          )}
           <MessageComposer
             channelId={id.data}
             key={typeof query.sent === 'string' ? query.sent : id.data}

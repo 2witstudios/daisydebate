@@ -15,7 +15,10 @@ import { testDraftSurvivesRefresh } from './messaging-draft-refresh';
 import { testComposerCharacterLimit } from './messaging-character-limit';
 import { pressByKeyboard } from './focus';
 import { expectNotInUrl } from './forms';
-import { listenForChannelBells, seedControlMessage } from './channel-bells';
+import {
+  listenForChannelObservation,
+  seedControlMessage,
+} from './channel-observation';
 import {
   manageNativeReactions,
   openRefusedMessageControls,
@@ -254,9 +257,9 @@ export function testMessageControlFocus() {
             const reactions = `/messages/${journey.channelId}/reactions?messageId=${message.id}`;
             await page.goto(reactions);
             if (buttonName === 'Remove 👍') {
-              // The reaction rings its own doorbell: reopen the page once
-              // it has rung, so the proof's form is not remounted mid-way.
-              const bells = await listenForChannelBells(
+              // Reopen the page once the reaction's revision is observed,
+              // so the proof starts from its committed state.
+              const bells = await listenForChannelObservation(
                 journey.sender,
                 journey.channelId,
               );

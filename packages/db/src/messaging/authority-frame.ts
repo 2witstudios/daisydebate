@@ -8,6 +8,7 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
+import { channelObservationReads } from './observation-reads';
 type Scope = {
   readonly channelId: string;
   readonly actorId: string;
@@ -185,4 +186,114 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
     restartingRead(database, (tx) =>
       withSharedMessagingAuthority(tx, input, work),
     );
+}
+
+/**
+ * One shared-fenced read for many viewers of one channel (ADR 0089): the
+ * full cast and every viewer's account are fenced and read once, in the
+ * canonical order, and each distinct viewer's own channel fact is read
+ * inside that same snapshot. Renewing 500 viewers costs one cohort read,
+ * not 500 authority transactions: its statements are constant in viewers
+ * (one grant read for a group, none for a DM) apart from one age read per
+ * distinct account.
+ */
+export function createMessagingChannelCohortAuthority(
+  database: BunSQLDatabase,
+) {
+  return <T>(
+    input: {
+      readonly channelId: string;
+      readonly viewers: readonly {
+        readonly actorId: string;
+        readonly userId: string;
+      }[];
+    },
+    work: (frame: {
+      readonly tx: AuthorizationTransaction;
+      readonly accounts: AuthorityFrame['accounts'];
+      readonly factFor: (actorId: string) => MessagingChannelFact;
+      /** The stream's content revision this read sees: the viewers' content floor. */
+      readonly contentRevision: number;
+    }) => Promise<T>,
+  ): Promise<T> => {
+    const [first, ...rest] = input.viewers;
+    if (!first || input.viewers.length > 65535)
+      throw createAppError('VALIDATION');
+    const others = [...new Set(rest.map((viewer) => viewer.actorId))].filter(
+      (actorId) => actorId !== first.actorId,
+    );
+    return restartingRead(database, (tx) =>
+      withSharedMessagingAuthority(
+        tx,
+        { channelId: input.channelId, ...first },
+        async ({ fact, accounts }) => {
+          const facts = await viewerFacts(tx, fact, [first.actorId, ...others]);
+          const header = (
+            await channelObservationReads(tx).readChannelObservationHeaders([
+              input.channelId,
+            ])
+          ).get(input.channelId);
+          if (!header) throw createAppError('NOT_FOUND');
+          return work({
+            tx,
+            accounts,
+            contentRevision: header.contentRevision,
+            factFor: (actorId) => {
+              const own = facts.get(actorId);
+              if (!own) throw createAppError('INVARIANT');
+              return own;
+            },
+          });
+        },
+        { additionalActors: others, beforeChannel: async () => {} },
+      ),
+    );
+  };
+}
+
+/**
+ * Every viewer's own channel fact, set-based: a DM's fact does not depend on
+ * the reader; a group's differs only in the reader's own grant, read for
+ * every viewer in one statement under the fences already held. The same
+ * derivation as `readMessagingChannelFact`'s group branch.
+ */
+async function viewerFacts(
+  tx: AuthorizationTransaction,
+  fact: MessagingChannelFact,
+  actorIds: readonly string[],
+): Promise<ReadonlyMap<string, MessagingChannelFact>> {
+  const { authority } = fact;
+  if (authority.kind === 'dm')
+    return new Map(actorIds.map((actorId) => [actorId, fact]));
+  const rows = (await tx.execute(sql`
+    select actor_id as "actorId", role, revoked_at as "revokedAt", generation
+    from messaging_group_grants
+    where channel_id = ${fact.channelId} and actor_id = any(array[${sql.join(
+      actorIds.map((actorId) => sql`${actorId}`),
+      sql`, `,
+    )}]::text[])
+  `)) as unknown as {
+    actorId: string;
+    role: 'manager' | 'member';
+    revokedAt: unknown;
+    generation: number;
+  }[];
+  const grants = new Map(rows.map((row) => [row.actorId, row]));
+  return new Map(
+    actorIds.map((actorId): [string, MessagingChannelFact] => {
+      const grant = grants.get(actorId);
+      return [
+        actorId,
+        {
+          ...fact,
+          authority: {
+            ...authority,
+            actorId,
+            role: grant && grant.revokedAt === null ? grant.role : null,
+            generation: Number(grant?.generation ?? 0),
+          },
+        } as MessagingChannelFact,
+      ];
+    }),
+  );
 }

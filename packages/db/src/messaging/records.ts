@@ -1,19 +1,10 @@
+import type { ChannelMessageRecord } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
 
-export type MessagingMessageRecord = {
-  readonly id: string;
-  readonly channelId: string;
-  readonly authorActorId: string;
-  readonly sequence: number;
-  readonly changeVersion: number;
-  readonly text: string | null;
-  readonly createdAt: string;
-  readonly editedAt: string | null;
-  readonly removedAt: string | null;
-  readonly replyToMessageId?: string;
-};
+/** One stored message: the shape the shared channel mapper reads (ADR 0089). */
+export type MessagingMessageRecord = ChannelMessageRecord;
 export type MessagingSendCommand = {
   readonly version: 1;
   readonly channelId: string;
@@ -42,11 +33,6 @@ export type MessagingCreateSendPlan = {
     readonly payloadDigest: string;
     readonly messageId: string;
   };
-  readonly doorbell: {
-    readonly kind: 'channel.changed';
-    readonly channelId: string;
-    readonly changeVersion: number;
-  };
 };
 export type MessagingMutationCommand = {
   readonly version: 1;
@@ -63,7 +49,6 @@ export type MessagingMutationState = {
 };
 export type MessagingMutationPlan = {
   readonly message: MessagingMessageRecord;
-  readonly doorbell: MessagingCreateSendPlan['doorbell'];
   readonly payloadDigest: string;
 };
 export type MessagingAuthorizationFence = (

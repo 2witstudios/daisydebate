@@ -142,4 +142,7 @@ export async function loadAuthorizationAccount(
   return account?.userId === userId ? account : null;
 }
 
-export { loadAuthorizationSession } from './authorization-session';
+export {
+  loadAuthorizationSession,
+  loadAuthorizationSessions,
+} from './authorization-session';

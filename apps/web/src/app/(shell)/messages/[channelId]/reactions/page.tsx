@@ -1,4 +1,3 @@
-import { ConversationLive } from '../../../../../ui/messaging/conversation-live';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
@@ -33,23 +32,17 @@ export default async function MessageReactionsPage({
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
         <>
-          <ConversationLive
-            channelId={channelId}
-            socketUrl={current.socketUrl}
-            snapshotId={systemId.next()}
-          >
-            <ul aria-label="Current reactions">
-              {current.result.reactions.map((item) => (
-                <li key={item.reaction}>
-                  {item.reaction} · {item.count}
-                  {item.own ? ' · You reacted' : ''}
-                </li>
-              ))}
-            </ul>
-          </ConversationLive>
-          {/* Outside the live snapshot and keyed by intent: a refresh that
-              leaves the reader's own reaction unchanged keeps each form, its
-              request and its notice; a toggle starts a fresh request. */}
+          <ul aria-label="Current reactions">
+            {current.result.reactions.map((item) => (
+              <li key={item.reaction}>
+                {item.reaction} · {item.count}
+                {item.own ? ' · You reacted' : ''}
+              </li>
+            ))}
+          </ul>
+          {/* Keyed by intent: a reload that leaves the reader's own reaction
+              unchanged keeps each form, its request and its notice; a toggle
+              starts a fresh request. */}
           {[
             ...new Set([
               ...current.policy.choices,

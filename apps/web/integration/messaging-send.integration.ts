@@ -64,11 +64,12 @@ test('composed messaging sends dedupe races and refuse protected replay after bl
     ]);
     assert({
       given: 'two concurrent sends with the same actor/channel/request/payload',
-      should: 'commit one message and one receipt/version/doorbell',
+      should:
+        'commit one message, receipt and version, with no channel doorbell (ADR 0089)',
       actual: { sameId: first.id === retry.id, state: await snapshot() },
       expected: {
         sameId: true,
-        state: { sequence: 1, version: 1, messages: 1, receipts: 1, bells: 1 },
+        state: { sequence: 1, version: 1, messages: 1, receipts: 1, bells: 0 },
       },
     });
     const before = await snapshot();

@@ -33,11 +33,15 @@ export function createRealtimeApp({
     appVersion: config.APP_VERSION,
     gitCommit: config.GIT_COMMIT,
   });
+  const transport = readRealtimeTransportConfig(env);
+  // An eligible owner reserves the observation lanes; a fanout-only one does not.
   const database =
     injectedDatabase ??
     createRealtimeDatabase({
       url: config.DATABASE_URL,
-      profile: WORKLOAD_PROFILES.realtime,
+      profile: transport.observationOwner
+        ? WORKLOAD_PROFILES['realtime-observer']
+        : WORKLOAD_PROFILES.realtime,
       eventSink: logger.log,
     });
   const redis = createRedis({
@@ -48,7 +52,7 @@ export function createRealtimeApp({
   return {
     config,
     transport: {
-      ...readRealtimeTransportConfig(env),
+      ...transport,
       trustedProxyEntries: readTrustedProxyConfig(env),
     },
     clock,

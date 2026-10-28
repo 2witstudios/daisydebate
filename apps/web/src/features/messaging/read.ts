@@ -4,11 +4,11 @@ import type {
   MessagingReadFrame,
 } from '@daisy/db/messaging';
 import {
+  channelMessageView,
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { messagingMessageView } from './message-view';
 import { requireMemberActor } from '../access/actor';
 
 export function createMessagingReadOperations({
@@ -46,7 +46,7 @@ export function createMessagingReadOperations({
         version: 1,
         channelId: command.channelId,
         ...page,
-        messages: page.messages.map(messagingMessageView),
+        messages: page.messages.map(channelMessageView),
       });
     });
   return {
@@ -77,7 +77,7 @@ export function createMessagingReadOperations({
             changeVersion: message.changeVersion,
             ...(message.text === null || message.removedAt !== null
               ? {}
-              : { message: messagingMessageView(message) }),
+              : { message: channelMessageView(message) }),
           })),
         });
       });

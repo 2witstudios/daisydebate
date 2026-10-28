@@ -27,46 +27,25 @@ test('attachment replay is idempotent and announces one content-free committed m
     [],
     fileStreamRow(),
     [],
-    [[1n, '100']],
-    [],
     attached(),
     fileMessageRow(),
   ]);
   await f.frame.finalize(token, messageId, now, policy);
   await f.frame.finalize(token, messageId, '2026-10-09T18:00:02.000Z', policy);
-  const bell = f
-    .writes()
-    .find((call) => call.query.startsWith('insert into "outbox"'));
   assert({
     given:
       'valid quarantine attached then retried after its reservation deadline',
     should:
-      'write one association, one channel revision and one bell without duplicating attachment',
+      'write one association and one channel revision, and no outbox row or notification (ADR 0089: content is observed)',
     actual: [
       f.writes().length,
+      f.writes().some((call) => call.query.startsWith('insert into "outbox"')),
+      f.calls.some((call) => call.query.includes('pg_notify')),
       f.counters.changeVersion,
       f.remaining.length,
       f.state.authorizations,
     ],
-    expected: [3, 11, 0, 2],
-  });
-  assert({
-    given: 'the actual outbox payload and same-transaction notification',
-    should: 'contain only canonical invalidation fields and bind its position',
-    actual: [
-      bell?.params.find((value) => typeof value === 'object' && value !== null),
-      f.calls
-        .filter((call) => call.query.includes('pg_notify'))
-        .map((call) => call.params),
-    ],
-    expected: [
-      {
-        kind: 'channel.changed',
-        channelId: scope.channelId,
-        changeVersion: 11,
-      },
-      [['100:1']],
-    ],
+    expected: [2, false, false, 11, 0, 2],
   });
 });
 

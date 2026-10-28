@@ -2,7 +2,6 @@ import { invalidateMessagingInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingDmPairs,
@@ -13,7 +12,6 @@ import {
   refuseDeclineBlock,
   spendSocialRequest,
 } from '../contacts/request-budget';
-import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
@@ -136,12 +134,6 @@ export function dmRequestFrame(
           pair.lowActorId,
           pair.highActorId,
         ]);
-        await appendOutboxEvent(tx, {
-          topic: buildChannelTopic(channelId),
-          kind: 'channel.changed',
-          version: 1,
-          payload: { kind: 'channel.changed', channelId, changeVersion: 1 },
-        });
       }
       await record();
       // Messaging's own receipt, which a retry of this request replays.

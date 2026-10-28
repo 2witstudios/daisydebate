@@ -1,8 +1,9 @@
 import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic, idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import {
   deleteAbandonedChannels,
@@ -12,7 +13,6 @@ import {
   retainedChannelsOf,
   survivingDms,
 } from './retained-dm';
-import { appendOutboxEvent } from '../outbox';
 import { exportRows } from '../privacy/export-rows';
 import type { AuthorizationTransaction } from '../authorization';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
@@ -190,17 +190,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const abandoned = await retainSurvivorDms(tx, subject.actorId, dms, now);
       await eraseAssociations(tx, subject.actorId, versions);
       await deleteAbandonedChannels(tx, abandoned);
-      for (const [channelId, version] of versions)
-        await appendOutboxEvent(tx, {
-          topic: buildChannelTopic(channelId),
-          kind: 'channel.changed',
-          version: 1,
-          payload: {
-            kind: 'channel.changed',
-            channelId,
-            changeVersion: version,
-          },
-        });
+      // Cached observation copies of what was just erased are purged by a
+      // durable, retried job queued in this same transaction (ISSUE-852).
+      await queueObservationPurge(tx, subject.userId, now);
     },
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);

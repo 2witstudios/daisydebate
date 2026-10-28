@@ -7,14 +7,12 @@ setupRitewayBun();
 const requestId = 'r'.repeat(24),
   messageId = 'm'.repeat(24);
 
-test('send frame binds receipt to current command and commits one thin bell with monotonic counters', async () => {
+test('send frame binds receipt to current command and commits with monotonic counters and no doorbell', async () => {
   const f = channelWire([
     [],
     [{ messageSequence: 0, changeVersion: 1 }],
     [],
     [],
-    [],
-    [[1, '5']],
     [],
   ]);
   let authorizationCalls = 0;
@@ -45,11 +43,6 @@ test('send frame binds receipt to current command and commits one thin bell with
         removedAt: null,
       },
       receipt: { messageId, payloadDigest: 'd'.repeat(64) },
-      doorbell: {
-        kind: 'channel.changed' as const,
-        channelId: f.scope.channelId,
-        changeVersion: 2,
-      },
     };
     await assertRejects({
       given: 'a send plan without an observed command',
@@ -91,17 +84,9 @@ test('send frame binds receipt to current command and commits one thin bell with
   assert({
     given: 'the successful write',
     should:
-      'allocate on the locked stream row, persist message and receipt before one content-free bell, then read whose inboxes to ring (ISSUE-603)',
+      'allocate on the locked stream row, persist message and receipt, then read whose inboxes to ring (ISSUE-603); content is observed, never rung (ADR 0089)',
     actual: f.queries.slice(7).map((q) => q.query.trim().split(/\s/)[0]),
-    expected: [
-      'select',
-      'update',
-      'insert',
-      'insert',
-      'insert',
-      'select',
-      'select',
-    ],
+    expected: ['select', 'update', 'insert', 'insert', 'select'],
   });
 });
 test('send frame refuses fresh authority loss and malformed command without inspecting private receipts', async () => {

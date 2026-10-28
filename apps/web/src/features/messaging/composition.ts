@@ -19,7 +19,7 @@ import {
 } from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { channelMessageView, messagingTypingSchemas } from '@daisy/protocol';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { identify } from '../../lib/identity';
@@ -32,7 +32,6 @@ import { createMessagingHandlers } from './handlers';
 import { createMessagingReadOperations } from './read';
 import { sendMessagingMessage } from './send';
 import { mutateMessagingMessage } from './mutate';
-import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
@@ -101,7 +100,7 @@ export function composeMessagingRoutes(app: App) {
         input: unknown,
         principal: Parameters<typeof sendMessagingMessage>[1],
       ) =>
-        messagingMessageView(
+        channelMessageView(
           await mutateMessagingMessage(kind, input, principal, {
             store: store(
               principal,
@@ -145,7 +144,7 @@ export function composeMessagingRoutes(app: App) {
               `messaging:send:${actorId}`,
               policy.limits.actorSend,
             ),
-        }).then(messagingMessageView),
+        }).then(channelMessageView),
       ...(Object.fromEntries(
         (['history', 'search', 'changes', 'markRead'] as const).map((kind) => [
           kind,

@@ -28,14 +28,12 @@ test('an accepted send allocates independent ordering and one content-free chang
             sequence: plan.message.sequence,
             changeVersion: plan.message.changeVersion,
             text: plan.message.text,
-            doorbell: plan.doorbell,
           }
         : plan.kind,
     expected: {
       sequence: 4,
       changeVersion: 9,
       text: ' Hello ',
-      doorbell: { kind: 'channel.changed', channelId, changeVersion: 9 },
     },
   });
   assert({

@@ -102,10 +102,5 @@ export function planMessageSend(
     kind: 'create' as const,
     message,
     receipt: { payloadDigest, messageId: message.id },
-    doorbell: {
-      kind: 'channel.changed' as const,
-      channelId: command.channelId,
-      changeVersion,
-    },
   };
 }

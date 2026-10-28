@@ -3,13 +3,11 @@ import { deleteMessageFiles } from '../messaging-files';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { buildChannelTopic } from '@daisy/protocol';
 import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
 import { appendStream } from './stream';
-import { appendOutboxEvent } from '../outbox';
 import type {
   MessagingLockedFrame,
   MessagingMessageRecord,
@@ -66,8 +64,6 @@ export function channelMutationFrame(
           plan.message.createdAt === original.createdAt,
           plan.message.sequence === original.sequence,
           plan.message.changeVersion === counters.changeVersion + 1,
-          plan.doorbell.channelId === input.channelId,
-          plan.doorbell.changeVersion === plan.message.changeVersion,
           command.kind === 'remove'
             ? [
                 plan.message.text === null,
@@ -128,12 +124,6 @@ export function channelMutationFrame(
             ),
           );
       }
-      await appendOutboxEvent(tx, {
-        topic: buildChannelTopic(input.channelId),
-        kind: 'channel.changed',
-        version: 1,
-        payload: plan.doorbell,
-      });
       await invalidateChannelInboxes(tx, input.channelId);
       counters.changeVersion = plan.message.changeVersion;
     },

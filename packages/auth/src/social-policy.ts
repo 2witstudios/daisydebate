@@ -190,7 +190,7 @@ function invalidPolicyEvidence(
  * aged 16 or over, within one age band. ADR 0061 allows no cross-band
  * contact without a separately approved guardian policy, so 16-17 and adult
  * never meet. One value for every process that evaluates DM posting or
- * reading (web commands and realtime subscriptions), so they cannot diverge.
+ * reading (web commands, realtime subscriptions and observation permits), so they cannot diverge.
  */
 export const betaDmPolicy = {
   state: 'approved',

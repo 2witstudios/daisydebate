@@ -31,5 +31,7 @@ export function productionServeOptions({
     trustedProxies,
     presence: { instanceId, nextId },
     readingPolicy: socialMemberReading(betaDmPolicy),
+    // Conversations observe channel messages (ADR 0089).
+    observation: { nextId },
   } satisfies Parameters<typeof serveRealtime>[0];
 }

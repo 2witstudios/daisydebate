@@ -1,4 +1,3 @@
-import { ConversationLive } from '../../../../../ui/messaging/conversation-live';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
@@ -40,15 +39,6 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <h1>Your message</h1>
       <p>Revise your message or remove it from the conversation.</p>
-      {/* A live refresh replaces only the snapshot region; the form holding
-          the reader's draft, its request and its notice stays mounted. */}
-      <ConversationLive
-        channelId={channelId}
-        socketUrl={conversation.socketUrl}
-        snapshotId={requestId}
-      >
-        {null}
-      </ConversationLive>
       <MessageMutationForm
         action={changeMessageAction.bind(null, channelId, messageId)}
         state={{ requestId, text: message.text }}

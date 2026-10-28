@@ -5,7 +5,11 @@ import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
-import { createMessagingChannelAuthority } from './messaging/authority-frame';
+import {
+  createMessagingChannelAuthority,
+  createMessagingChannelCohortAuthority,
+} from './messaging/authority-frame';
+import { channelObservationReads } from './messaging/observation-reads';
 import { outboxOperations, type OutboxPosition } from './outbox';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
@@ -26,6 +30,8 @@ const authorityReads = (database: BunSQLDatabase) => ({
   ...authorizationSessionOperations({ database }),
   ...roomAuthorizationRead({ database }),
   messagingChannelAuthority: createMessagingChannelAuthority(database),
+  messagingChannelCohortAuthority:
+    createMessagingChannelCohortAuthority(database),
 });
 export type RealtimeAuthorityReads = ReturnType<typeof authorityReads>;
 
@@ -57,6 +63,19 @@ export function createRealtimeDatabase({
   return {
     admission: authorityReads(admission),
     renewal: authorityReads(workload.lane('renewal').database),
+    /**
+     * Observation owner reads (ADR 0089), only on a profile that reserves
+     * the headers and projection lanes; null on a fanout-only process.
+     */
+    observation:
+      profile.lanes.headers && profile.lanes.projection
+        ? {
+            headers: channelObservationReads(workload.lane('headers').database),
+            projection: channelObservationReads(
+              workload.lane('projection').database,
+            ),
+          }
+        : null,
     ...outboxOperations({ database: control.database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>

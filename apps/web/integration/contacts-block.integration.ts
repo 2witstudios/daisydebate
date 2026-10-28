@@ -40,14 +40,14 @@ test('same-transaction participant safety controls require no age or posting pol
     assert({
       given: 'current member without age facts or a posting policy',
       should:
-        'serialize equal safety retries into one durable choice and invalidation',
+        'serialize equal safety retries into one durable choice; the channel needs no doorbell, its authority revision reaches observers (ADR 0089)',
       actual: { choices, durable },
       expected: {
         choices: [
           { blocked: true, revision: 2 },
           { blocked: true, revision: 2 },
         ],
-        durable: { revision: 2, receipts: 1, bells: 1 },
+        durable: { revision: 2, receipts: 1, bells: 0 },
       },
     });
     await assertRejects({

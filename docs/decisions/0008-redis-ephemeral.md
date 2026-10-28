@@ -27,3 +27,17 @@ drains, so multi-instance fan-out needs no Redis pub/sub, no pub/sub adapter
 and no second Redis client. Redis keeps its role here: presence leases,
 single-use connect tickets and rate limits, all expendable and expiring.
 Adopting Redis pub/sub still requires a new ADR.
+
+## Amendment (2026-10-28): shared observation bodies and one Pub/Sub connection
+
+[ADR 0089](0089-shared-resource-observation.md) supersedes the September
+amendment for adopted observable resources. Redis may hold protected
+expendable projection bodies for at most 60s, always under a guarded
+install (owner token, cache incarnation, purge generation) and always
+rebuildable from PostgreSQL. Each process may hold one managed Pub/Sub
+subscriber connection beside its command connection, from the same native
+Bun client (no second client library). Hints are metadata only and
+at-most-once; a lost one costs a Redis head read, never SQL. Bun 1.4.2
+marks Pub/Sub experimental, so a pinned-runtime probe
+(`packages/redis/integration/observation-cache.integration.ts`) gates it.
+Un-adopted topics keep the outbox drain.

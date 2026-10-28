@@ -153,14 +153,14 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       [channelId],
     );
     const bells = await client.unsafe(
-      "select payload from outbox where topic=$1 and kind='channel.changed' order by txid,seq",
+      'select payload from outbox where topic=$1 order by txid,seq',
       [`channel:${channelId}`],
     );
     assert({
       given:
         'archived blocked history with unknown posting age and an actual locked own reaction',
       should:
-        'permit only own removal, preserve the peer association, advance changes without consuming sequence and emit thin bells',
+        'permit only own removal, preserve the peer association, advance changes without consuming sequence, and write no channel doorbell (content is observed, ADR 0089)',
       actual: [
         denied.status,
         removed.status,
@@ -172,10 +172,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
           .parse(Array.from(own))
           .map((row) => row.actor_id),
         Array.from(counters),
-        z
-          .array(z.object({ payload: z.record(z.string(), z.unknown()) }))
-          .parse(Array.from(bells))
-          .map((row) => Object.keys(row.payload).sort()),
+        Array.from(bells).length,
       ],
       expected: [
         403,
@@ -185,7 +182,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
         [{ reaction: '👍', count: 1, own: true }],
         [peer.actorId],
         [{ sequence: 1, version: 4 }],
-        Array.from({ length: 4 }, () => ['changeVersion', 'channelId', 'kind']),
+        0,
       ],
     });
   } finally {

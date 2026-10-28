@@ -77,7 +77,6 @@ test('issuance writes exact generation and explicit subject receipt but never gr
       true,
       false,
       [
-        { kind: 'channel.changed', channelId, changeVersion: 4 },
         { kind: 'messaging.inbox.changed' },
         { kind: 'messaging.inbox.changed' },
       ],

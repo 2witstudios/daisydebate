@@ -24,7 +24,7 @@ import {
 testMessageControlFocus();
 testProfileMessageEntry();
 
-test('an authenticated DM doorbell refetches current history in the other real browser', async ({
+test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({
   browser,
 }) => {
   const journey = await openMessagingJourney(browser);
@@ -34,7 +34,9 @@ test('an authenticated DM doorbell refetches current history in the other real b
     const subscribed: string[] = [];
     const typingHints: Extract<ServerMessage, { type: 'typing_changed' }>[] =
       [];
-    const bells: unknown[] = [];
+    const events: unknown[] = [];
+    const snapshots: number[] = [];
+    let ready = false;
     const invalidFrames: string[] = [];
     sender.on('websocket', (socket) =>
       socket.on('framereceived', (frame) => {
@@ -52,7 +54,10 @@ test('an authenticated DM doorbell refetches current history in the other real b
         }
         if (result.data.type === 'subscribed')
           subscribed.push(result.data.topic);
-        if (result.data.type === 'event') bells.push(result.data.payload);
+        if (result.data.type === 'event') events.push(result.data.payload);
+        if (result.data.type === 'observation.ready') ready = true;
+        if (result.data.type === 'observation.snapshot')
+          snapshots.push(result.data.contentRevision);
         if (result.data.type === 'typing_changed')
           typingHints.push(result.data);
       }),
@@ -61,6 +66,7 @@ test('an authenticated DM doorbell refetches current history in the other real b
     await expect
       .poll(() => subscribed.includes(`channel:${journey.channelId}`))
       .toBe(true);
+    await expect.poll(() => ready).toBe(true);
     await proveNativeTyping(sender, recipient, journey.channelId, typingHints);
     const text = 'Delivered through a real authenticated socket';
     await recipient.getByLabel('Your message').fill(text);
@@ -68,16 +74,9 @@ test('an authenticated DM doorbell refetches current history in the other real b
       .getByRole('button', { name: 'Send message', exact: true })
       .click();
     await expect(messageInHistory(sender, text)).toHaveCount(1);
-    expect(
-      bells.some(
-        (payload) =>
-          typeof payload === 'object' &&
-          payload !== null &&
-          'kind' in payload &&
-          payload.kind === 'channel.changed',
-      ),
-    ).toBe(true);
-    expect(JSON.stringify(bells)).not.toContain(text);
+    // Content arrives as a permitted snapshot, never as a channel doorbell.
+    expect(snapshots.length).toBeGreaterThan(0);
+    expect(events).toEqual([]);
     expect(invalidFrames).toEqual([]);
   } finally {
     await journey.close();

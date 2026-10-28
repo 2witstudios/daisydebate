@@ -9,65 +9,41 @@ import { appendOutboxEvent } from '../src/outbox';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-test('channel doorbells commit once, refuse foreign identity, and roll back with their transaction', async () => {
+test('the channel topic stores no outbox row: channel content is observed (ADR 0089)', async () => {
   const client = new SQL(databaseUrl);
   const database = drizzle({ client });
   const channelId = createId();
   const topic = buildChannelTopic(channelId);
-  const input = {
-    topic,
-    kind: 'channel.changed',
-    version: 1,
-    payload: { kind: 'channel.changed' as const, channelId, changeVersion: 1 },
-  };
   try {
-    await database.transaction((tx) => appendOutboxEvent(tx, input));
     let refused = false;
     try {
       await database.transaction((tx) =>
         appendOutboxEvent(tx, {
-          ...input,
-          payload: { ...input.payload, channelId: createId() },
+          topic,
+          kind: 'channel.changed',
+          version: 1,
+          // The retired doorbell, now outside the payload contract.
+          payload: {
+            kind: 'channel.changed',
+            channelId,
+            changeVersion: 1,
+          } as never,
         }),
       );
-    } catch (error) {
-      refused =
-        error instanceof Error && error.message.includes('not storable');
+    } catch {
+      // The payload contract no longer has the kind, so the append refuses
+      // before any insert.
+      refused = true;
     }
-    let rolledBack = false;
-    try {
-      await database.transaction(async (tx) => {
-        await appendOutboxEvent(tx, {
-          ...input,
-          payload: { ...input.payload, changeVersion: 2 },
-        });
-        throw new Error('messaging rollback control');
-      });
-    } catch (error) {
-      rolledBack =
-        error instanceof Error &&
-        error.message === 'messaging rollback control';
-    }
-    const rows = (await client.unsafe(
-      'select kind, payload from outbox where topic = $1 order by seq',
+    const rows = await client.unsafe(
+      'select count(*)::int as count from outbox where topic = $1',
       [topic],
-    )) as Array<{ kind: string; payload: unknown }>;
+    );
     assert({
-      given: 'one accepted append, a foreign channel and a rolled-back append',
-      should: 'persist exactly the accepted content-free doorbell',
-      actual: {
-        refused,
-        rolledBack,
-        rows: Array.from(rows, (row) => ({
-          kind: row.kind,
-          payload: row.payload,
-        })),
-      },
-      expected: {
-        refused: true,
-        rolledBack: true,
-        rows: [{ kind: input.kind, payload: input.payload }],
-      },
+      given: 'an append of the retired channel doorbell',
+      should: 'refuse it before insert and persist nothing',
+      actual: { refused, rows: rows[0]?.count },
+      expected: { refused: true, rows: 0 },
     });
   } finally {
     await client.unsafe('delete from outbox where topic = $1', [topic]);
