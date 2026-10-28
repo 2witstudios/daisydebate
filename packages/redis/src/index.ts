@@ -11,9 +11,7 @@ import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
-export {
-  type ObservationHint,
-} from './observation-cache';
+export { type ObservationHint } from './observation-cache';
 export {
   createObservationSubscriber,
   dialObservationSubscriber,

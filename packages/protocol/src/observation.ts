@@ -27,9 +27,7 @@ export const observationPermitMs = 4_700;
 const revision = z.number().int().nonnegative().safe();
 const generation = z.number().int().nonnegative().safe();
 /** A policy-issued visibility partition label; equal labels disclose identical fields. */
-const observationPartitionSchema = z
-  .string()
-  .regex(/^[a-z][a-z0-9-]{0,39}$/);
+const observationPartitionSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/);
 
 /**
  * One stable identity per resource, safe as a Redis key segment and a Pub/Sub

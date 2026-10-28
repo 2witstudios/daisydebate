@@ -150,6 +150,4 @@ export const dialObservationSubscriber =
     });
     return client as unknown as SubscriberTransport;
   };
-type ObservationSubscriber = ReturnType<
-  typeof createObservationSubscriber
->;
+type ObservationSubscriber = ReturnType<typeof createObservationSubscriber>;
