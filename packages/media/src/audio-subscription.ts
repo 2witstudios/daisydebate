@@ -180,29 +180,43 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   ): void => {
     if (closing || !publication.sid) return;
     const sid = publication.sid;
-    requests.reconcile(publication, wanted(publication, participant), () => {
-      const current = participant.trackPublications.get(sid);
-      if (current) reconcile(current, participant);
-    });
+    requests.reconcile(publication, wanted(publication, participant), () =>
+      again(participant, sid),
+    );
   };
   const subscribeWanted = () => {
     for (const participant of room.remoteParticipants.values())
       for (const publication of participant.trackPublications.values())
         reconcile(publication, participant);
   };
+  /**
+   * Re-evaluates one publication for a retry, only while its participant is
+   * still in the room: a departed participant keeps its stale publications.
+   */
+  const again = (participant: RemoteParticipant, sid: string) => {
+    if (room.remoteParticipants.get(participant.identity) !== participant)
+      return requests.ended(sid);
+    const publication = participant.trackPublications.get(sid);
+    if (publication) reconcile(publication, participant);
+    else requests.ended(sid);
+  };
   const subscriptionFailed = (
     trackSid: string,
     participant: RemoteParticipant,
   ) => {
     if (closing) return;
-    requests.refused(trackSid, () => {
-      const publication = participant.trackPublications.get(trackSid);
-      if (publication) reconcile(publication, participant);
-    });
+    requests.refused(trackSid, () => again(participant, trackSid));
   };
-  const unsubscribed = (track: Track, publication: TrackPublication) => {
-    if (publication.sid) requests.ended(publication.sid);
+  /** Unsubscribed while still published (a permission refresh): ask again if still wanted. */
+  const unsubscribed = (
+    track: Track,
+    publication: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ) => {
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
+    if (!publication.sid) return;
+    requests.ended(publication.sid);
+    again(participant, publication.sid);
   };
   /** Unpublished before its track arrived: nothing will answer the ask. */
   const unpublished = (publication: RemoteTrackPublication) => {

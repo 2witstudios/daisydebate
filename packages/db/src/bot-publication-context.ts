@@ -1,4 +1,4 @@
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
@@ -22,6 +22,13 @@ export type PublicationWindow = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
+/**
+ * Segment `s` is in progress over [`before`, `after`]: started, not ended,
+ * and within its duration. The one definition of a live segment, for
+ * publication's speaking window and hearing alike.
+ */
+const segmentInProgress = (before: SQL, after: SQL) =>
+  sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')`;
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
 export async function requireBotControlSegment(
   tx: Pick<BoundedTransactionContext, 'execute'>,
@@ -60,7 +67,7 @@ export async function requireBotSpeakingWindow(
     join round_segments s on s.id=i.segment_id and s.round_id=i.round_id
     where i.round_id=${target.roundId} and i.segment_id=${target.segmentId} and i.round_participant_id=${target.roundParticipantId}
       and i.started_at<=${before} and (i.ended_at is null or ${after}<i.ended_at)
-      and s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')
+      and ${segmentInProgress(before, after)}
       and ${after}<=clock_timestamp() limit 1`);
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
@@ -70,15 +77,14 @@ export async function requireBotSpeakingWindow(
  * hearing lives within its segment, as publication lives within a speaking
  * window.
  */
-async function requireBotSegmentLive(
+export async function requireBotSegmentLive(
   tx: BoundedTransactionContext,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
+  const now = sql`clock_timestamp()`;
   const rows = await tx.execute(sql`select 1 from round_segments s
     where s.round_id=${target.roundId} and s.id=${target.segmentId}
-      and s.started_at<=clock_timestamp()
-      and clock_timestamp()<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')
-    limit 1`);
+      and ${segmentInProgress(now, now)} limit 1`);
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot segment is not live');
 }

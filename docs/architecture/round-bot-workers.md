@@ -249,7 +249,7 @@ refusal nor a full capture fleet deafens a bot Round.
 - **Lifetime.** The listener joins with the seat and ends with it, after the
   publication. A dropped connection (or a failed cleanup) rejoins with a
   fresh grant after a pause that starts at 1 s and doubles to 30 s. A refused
-  rejoin is reported (`round.speaking.failed`, stage `listen`) and backs off
+  rejoin backs off
   the same way, since many refusals (a revocation still settling) clear on
   their own. A Round end or a revoked seat rotates or deletes the vendor
   room, which drops it, and the admission refuses every rejoin until the

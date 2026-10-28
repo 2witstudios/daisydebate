@@ -37,7 +37,9 @@ export function createSubscriptionRequests(timers: Timers) {
     pauses.delete(sid);
   };
   const refused = (sid: string, again: () => void) => {
-    if (closed) return;
+    // Only an outstanding ask can be refused: a late or stray refusal for a
+    // withdrawn or never-asked publication arms nothing.
+    if (closed || !pending.has(sid)) return;
     const pauseMs = pauses.get(sid) ?? RETRY_FIRST_MS;
     pauses.set(sid, Math.min(pauseMs * 2, RETRY_MAX_MS));
     cancel(sid);

@@ -40,6 +40,8 @@ export function createSpeakingBotControl(input: {
   readonly nowMs: () => number;
   readonly callTimeoutMs: number;
   readonly failed: (error: unknown, stage: string) => void;
+  /** The seat's own hearing's unexpected join failures (ISSUE-764). */
+  readonly hearingFailed: (error: unknown) => void;
 }) {
   const generation = createBotGeneration({
     store: input.store,
@@ -89,7 +91,7 @@ export function createSpeakingBotControl(input: {
             monotonicNowMs: () => performance.now(),
             playing: speaker.playing,
             onEvent: ({ kind }) => speaker.peer(kind),
-            failed: (error) => input.failed(error, 'listen'),
+            failed: input.hearingFailed,
           })
         : null;
     return createBotSeat({

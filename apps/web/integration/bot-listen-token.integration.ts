@@ -97,6 +97,7 @@ test('a bot claim without the floor is refused publication but still hears (ISSU
       given: "the claim's segment ended",
       should: 'refuse to sign: hearing lives within its live segment',
       code: 'CONFLICT',
+      message: 'Bot segment is not live',
       actual: () => media.botListenToken(claim.scope, claim.token),
     });
   }, botControlOptions);

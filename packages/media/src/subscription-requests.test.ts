@@ -120,3 +120,14 @@ test('a withdrawal, an unpublished track or a close cancels a pending retry', ()
     expected: [[], [], { live: [], asks: [true] }],
   });
 });
+
+test('a stray refusal for a publication never asked for arms nothing', () => {
+  const { requests, live } = fixture();
+  requests.refused('TR_other', () => undefined);
+  assert({
+    given: 'a refusal for a sid with no outstanding ask',
+    should: 'arm no retry',
+    actual: live(),
+    expected: [],
+  });
+});

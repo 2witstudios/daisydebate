@@ -82,14 +82,13 @@ export function createMediaReconcileRun(
               seat.kind === 'bot',
         );
         // A human revoked after binding is refused here too (ISSUE-714). A
-        // seat's `eligible` means it may publish; a bot that only hears was
-        // admitted on its live claim by ensureBotBinding, under its locks.
-        const hears = admission.kind === 'bot' && admission.hearing === true;
-        if (
-          !seat ||
-          !(hears || seat.eligible) ||
-          context.withdrawn.includes(seat.id)
-        )
+        // seat's `eligible` means it may publish; a bot that only hears is
+        // admitted by the projected hearing eligibility instead.
+        const admitted =
+          admission.kind === 'bot' && admission.hearing
+            ? context.hearing.includes(seat?.id ?? '')
+            : seat?.eligible === true;
+        if (!seat || !admitted || context.withdrawn.includes(seat.id))
           throw createAppError('AUTHORIZATION');
       },
     );

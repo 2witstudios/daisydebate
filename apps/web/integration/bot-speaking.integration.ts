@@ -97,6 +97,9 @@ for (const mode of ['valid', 'provider-error'] as const)
         failed: () => {
           failures++;
         },
+        hearingFailed: () => {
+          failures++;
+        },
       });
       const receipts = createBotControl({
         claim,
@@ -111,7 +114,7 @@ for (const mode of ['valid', 'provider-error'] as const)
       });
       const seat = speaking(claim, receipts);
       const runs = (): Promise<Record<string, unknown>[]> =>
-        f.sql`select kind,requests,input_tokens,output_tokens,characters,configuration_snapshot->>'providerOutcome' outcome from agent_runs where round_participant_id=${claim.scope.roundParticipantId} and id<>${claim.scope.agentRunId} order by kind`;
+        f.sql`select kind,requests,input_tokens,output_tokens,characters,configuration_snapshot->>'providerOutcome' outcome from agent_runs where round_participant_id=${claim.scope.roundParticipantId} and id<>${claim.scope.agentRunId} order by kind, started_at`;
       try {
         const pulsed = await seat.pulse();
         if (mode === 'valid')

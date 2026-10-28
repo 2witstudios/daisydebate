@@ -120,6 +120,7 @@ diverge:
 | `operator.listener.disabled`             | info     | No `OPERATOR_API_KEYS` is configured, so the operator listener did not start (ADR 0079)                                                                                                                                                                                                    |
 | `round.control.failed`                   | error    | A bot control receipt pass failed; the receipt work stays recoverable (`operation` is `round.control.` plus one of `pulse`, `discover`; `errorCode`)                                                                                                                                       |
 | `round.speaking.failed`                  | error    | A bot speaking turn failed; the phrase stays uncredited and the control receipt continues (`operation` is `round.speaking.` plus one of `generate`, `synthesize`, `publish`, `poll`; `errorCode` only). A pool capacity refusal does not spend a delivery attempt                          |
+| `round.hearing.failed`                   | error    | A bot seat's own hearing could not join for an unexpected reason (`operation` is `round.hearing.join`; `errorCode`); peers read as unknown until a back-off rejoin. Routine admission refusals (`CONFLICT`, `AUTHORIZATION`) back off unreported (ISSUE-764)                               |
 | `round.maintenance.failed`               | error    | A competitive maintenance pass failed; the next tick retries (`operation` is `round.maintenance.` plus one of `discover`, `tick`, `evaluate`, `finalize`, `rate`; `errorCode`)                                                                                                             |
 | `room.maintenance.failed`                | error    | A Room lifecycle maintenance pass (draw-strike settlement and idle Room expiry) failed; the next pulse retries (`operation` is `room.maintenance.` plus `discover` or `maintain`, one report per failed Room; `errorCode`)                                                                 |
 | `round.media.recovery_failed`            | error    | Startup or periodic media session recovery failed; recovery stays pending for the next cycle                                                                                                                                                                                               |
@@ -143,9 +144,9 @@ diverge:
 | `logship.insert.failed`                  | error    | A log batch insert into ClickHouse failed; the batch stays in flight and is retried under the same token (`errorCode`, `pending` only, ADR 0084)                                                                                                                                           |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
-The five round worker failure events (`round.maintenance.failed`,
+The six round worker failure events (`round.maintenance.failed`,
 `round.judging.failed`, `round.analysis.failed`, `round.control.failed`,
-`round.speaking.failed`) carry
+`round.speaking.failed`, `round.hearing.failed`) carry
 the worker stage in `operation` and the error's own code (`INTERNAL` when
 untyped). The raw error goes only to the scrubbed `ErrorReporter`. Two outcomes
 are not failures: a lost lease (`CONFLICT` once the Round completes or the claim

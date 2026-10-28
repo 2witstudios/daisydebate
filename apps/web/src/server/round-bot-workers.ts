@@ -36,6 +36,11 @@ export function startRoundBotWorkers(input: {
     nextId: () => app.ids.next(),
     instanceId: input.instanceId,
   });
+  const hearing = failure(
+    'round.hearing.failed',
+    'round.hearing',
+    'Bot hearing stays unknown until rejoined',
+  );
   const speaking = input.botMedia
     ? createSpeakingBotControl({
         store: app.database,
@@ -54,6 +59,7 @@ export function startRoundBotWorkers(input: {
           // Says whether a publish stopped at a stall or a native failure.
           publicationStopOf,
         ),
+        hearingFailed: (error) => hearing(error, 'join'),
       })
     : null;
   return startBotControlService({

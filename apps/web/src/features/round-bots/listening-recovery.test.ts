@@ -63,7 +63,8 @@ test('a respondent bot refused its first grant for want of the floor still hears
   await s.joined();
   assert({
     given: 'a cross-ex seat whose first listen grant is refused with CONFLICT',
-    should: 'report the refusal, ask again after its pause and join',
+    should:
+      'ask again after its pause and join, reporting nothing: a routine refusal is no fault',
     actual: {
       grants: s.grants.length,
       subscriptions: s.subscriptions.length,
@@ -72,7 +73,7 @@ test('a respondent bot refused its first grant for want of the floor still hears
     expected: {
       grants: 2,
       subscriptions: 1,
-      failures: ['Bot speaking authority changed'],
+      failures: [],
     },
   });
 });
@@ -103,15 +104,37 @@ test('a transient join failure backs off, doubling to a ceiling, and a failed cl
     given:
       'three transient join failures, then a subscription whose `closed` rejects',
     should:
-      'retry after 1 s, 2 s and 4 s, then treat the rejected close as a drop and rejoin',
+      'report each, retry after 1 s, 2 s and 4 s, then treat the rejected close as a drop and rejoin',
     actual: {
       attemptsAt,
       subscriptions: s.subscriptions.map((sub) => sub.token),
+      failures: s.failures,
     },
     expected: {
       attemptsAt: [1000, 3000, 7000],
       subscriptions: ['listen-4', 'listen-5'],
+      failures: ['media unreachable', 'media unreachable', 'media unreachable'],
     },
+  });
+});
+
+test('a failing reporter never turns a failed join into a join on every poll', async () => {
+  const s = session({
+    refuse: () => new Error('media unreachable'),
+    reportThrows: true,
+  });
+  s.listening.start();
+  for (let poll = 0; poll < 10; poll++) {
+    s.advance(50);
+    await s.listening.poll().catch(() => undefined);
+    await Promise.resolve();
+  }
+  assert({
+    given:
+      'a join that fails, reported to a reporter that throws, then 500 ms of polls',
+    should: 'still back off: one grant asked for, not one per poll',
+    actual: s.grants.length,
+    expected: 1,
   });
 });
 

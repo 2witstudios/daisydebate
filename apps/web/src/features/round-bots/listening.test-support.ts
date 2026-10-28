@@ -16,6 +16,8 @@ export function session(
     readonly refuse?: () => Error | undefined;
     /** How long each PostgreSQL time read takes. */
     readonly readMs?: () => number;
+    /** The failure reporter itself throws. */
+    readonly reportThrows?: boolean;
     readonly peers?: readonly string[];
     readonly grantPeers?: readonly {
       readonly participantId: string;
@@ -43,8 +45,10 @@ export function session(
   /** Each reported join failure, by its message. */
   const failures: string[] = [];
   const listening = createBotListening({
-    failed: (error) =>
-      failures.push(error instanceof Error ? error.message : String(error)),
+    failed: (error) => {
+      failures.push(error instanceof Error ? error.message : String(error));
+      if (options.reportThrows) throw new Error('reporter down');
+    },
     claim: {
       scope,
       token: 'claim-token',

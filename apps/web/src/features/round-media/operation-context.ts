@@ -3,6 +3,7 @@ import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { ErrorReporter } from '@daisy/observability';
 import type { Logger } from '@daisy/logger';
+import type { BotPublicationScope } from '@daisy/db/bot-publication';
 export type Store = Database['mediaSessions'];
 export type Claim = Extract<
   Awaited<ReturnType<Store['claimMediaReconcile']>>,
@@ -10,9 +11,7 @@ export type Claim = Extract<
 >;
 export type Intent = Parameters<Store['beginMediaMutation']>[0]['intent'];
 export type Principal = Parameters<Store['issueMediaToken']>[0]['principal'];
-export type Scope = Parameters<
-  Store['ensureBotBinding']
->[0]['principal']['scope'];
+export type Scope = BotPublicationScope;
 
 export type MediaOperationInput = {
   readonly priority: ReturnType<typeof createAdmissionPriority>;

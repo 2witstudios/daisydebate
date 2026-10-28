@@ -1,5 +1,6 @@
 import {
   readMediaBotLeases,
+  mediaHearingSeats,
   mediaPublicationParticipants,
 } from './media-publication-authority';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
@@ -80,6 +81,13 @@ export async function lockedMediaSnapshot(
     round,
     ...authority,
     participants: mediaPublicationParticipants(
+      authority.participants,
+      botLeases,
+      round,
+      tick.now,
+    ),
+    /** Bot seats that may hear, floor or not (ISSUE-764). */
+    hearing: mediaHearingSeats(
       authority.participants,
       botLeases,
       round,
