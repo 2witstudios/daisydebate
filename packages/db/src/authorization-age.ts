@@ -115,7 +115,7 @@ export async function loadAuthorizationAgeFacts(
     cross join lateral public.daisy_authorization_age(w.user_id, w.actor_id, w.revision, w.checked_at) as age
     order by w.i`);
   const byIndex = new Map(
-    (rows as Record<string, unknown>[]).map((row) => [row.index, row]),
+    (rows as Record<string, unknown>[]).map((row) => [Number(row.index), row]),
   );
   return inputs.map((input, i) => {
     const row = byIndex.get(i);

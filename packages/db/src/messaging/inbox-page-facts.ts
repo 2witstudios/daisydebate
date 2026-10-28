@@ -15,7 +15,7 @@ const invitationRow = z.object({
   channelId: idSchema,
   invitedByActorId: idSchema,
   inviteeActorId: idSchema,
-  generation: z.number().int().positive().safe(),
+  generation: z.coerce.number().int().positive().safe(),
   state: z.string(),
 });
 export type InboxDiscovery = Awaited<ReturnType<typeof discoverInboxFacts>>;
@@ -112,7 +112,7 @@ const pairRow = z.object({
   lowActorId: idSchema,
   highActorId: idSchema,
   blocked: z.boolean(),
-  revision: z.number().int().positive().safe(),
+  revision: z.coerce.number().int().positive().safe(),
 });
 /**
  * The G4 SHARE fences, once, in the writers' order: accounts by user id,

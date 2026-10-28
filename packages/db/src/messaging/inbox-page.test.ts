@@ -79,7 +79,8 @@ function world(size: number, options: { readonly hidden?: boolean } = {}) {
         lowActorId: w.low,
         highActorId: w.high,
         blocked: false,
-        revision: 1,
+        // bigint columns arrive as strings from the driver.
+        revision: '1',
       }));
     if (statement.includes('daisy_messaging_channel_read_fence'))
       return jsonParam(params).map((w) => ({ channelId: w.id, locked: true }));

@@ -162,8 +162,8 @@ export async function readMessagingChannelFacts(
   `)) as unknown as Array<{ index: unknown; fact: unknown }>;
   const facts: (MessagingChannelFact | null)[] = bindings.map(() => null);
   for (const row of rows) {
-    const index = row.index;
-    if (typeof index !== 'number' || facts[index] !== null)
+    const index = Number(row.index);
+    if (!Number.isSafeInteger(index) || facts[index] !== null)
       throw createAppError('INFRASTRUCTURE');
     facts[index] = parseMessagingChannelFact(row.fact);
   }
