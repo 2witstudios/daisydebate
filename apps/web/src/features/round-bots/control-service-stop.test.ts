@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { ownedClaim, settled } from './control-service.test-support';
+import { neverOverdue, ownedClaim } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -39,6 +39,7 @@ test('a seat whose stop fails at completion never halts the other seats’ heart
     }),
     limits: { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;
@@ -59,6 +60,7 @@ test('a seat whose stop fails at completion never halts the other seats’ heart
 });
 
 test('a rotated claim whose stop fails is still revoked and its next segment claimed (ISSUE-789)', async () => {
+  const incoming = Promise.withResolvers<void>();
   const { failures, failed } = failureLog();
   const log: string[] = [];
   const stopFault = new Error('The operation was aborted.');
@@ -85,20 +87,23 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
-      pulse: async () => [],
+      pulse: async () => {
+        if (claim.scope.segmentId === 'second') incoming.resolve();
+        return [];
+      },
       stop: async () => {
         if (claim.scope.segmentId === 'first') throw stopFault;
       },
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;
   segment = 'second';
   await tasks.get(500)!();
-  await settled();
-  await tasks.get(500)!();
+  await incoming.promise;
   await service.stop();
   assert({
     given: 'a segment rotation whose old publication fails to close',
@@ -148,6 +153,7 @@ test('a seat whose stop never settles never holds another seat’s renewal (ISSU
     }),
     limits: { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;
@@ -165,6 +171,7 @@ test('a seat whose stop never settles never holds another seat’s renewal (ISSU
 });
 
 test('a heartbeat during a rotation never pulses the outgoing claim or drops the incoming one (ISSUE-789)', async () => {
+  const incoming = Promise.withResolvers<void>();
   const { failed } = failureLog();
   const pulses: string[] = [];
   const revoked = new Set<string>();
@@ -189,6 +196,7 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
     control: (claim) => ({
       pulse: async () => {
         pulses.push(claim.scope.segmentId);
+        if (claim.scope.segmentId === 'second') incoming.resolve();
         if (revoked.has(claim.scope.segmentId))
           throw createAppError('CONFLICT', 'Worker claim rotated');
         return [];
@@ -201,6 +209,7 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;
@@ -209,9 +218,7 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
   await stopping.promise;
   const during = tasks.get(3000)!();
   release.resolve();
-  await Promise.all([rotation, during]);
-  await settled();
-  await tasks.get(500)!();
+  await Promise.all([rotation, during, incoming.promise]);
   await tasks.get(3000)!();
   await service.stop();
   assert({

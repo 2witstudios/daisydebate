@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
-import { ownedClaim, settled } from './control-service.test-support';
+import { neverOverdue, ownedClaim } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
@@ -42,6 +42,7 @@ test('idle control discovery and receipt pulses have no provider or media prereq
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers: worker,
+    overdue: neverOverdue,
     failed: () => {
       throw Error('unexpected');
     },
@@ -63,6 +64,7 @@ test('idle control discovery and receipt pulses have no provider or media prereq
   });
 });
 test('a rotated or stopped claim stops its speaking work before revocation', async () => {
+  const incoming = Promise.withResolvers<void>();
   const log: string[] = [];
   let segment = 'first';
   const claimFor = (segmentId: string) => ({
@@ -89,7 +91,10 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
-      pulse: async () => [],
+      pulse: async () => {
+        if (claim.scope.segmentId === 'second') incoming.resolve();
+        return [];
+      },
       stop: async () => {
         log.push(`stop:${claim.scope.segmentId}`);
       },
@@ -99,6 +104,7 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
       setInterval: (task) => tasks.push(task),
       clearInterval: () => {},
     },
+    overdue: neverOverdue,
     failed: () => {
       throw Error('unexpected');
     },
@@ -106,8 +112,8 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
   await service.started;
   segment = 'second';
   await tasks[0]!();
-  await settled();
-  await tasks[0]!();
+  // The incoming claim follows the ending and pulses once it is owned.
+  await incoming.promise;
   await service.stop();
   assert({
     given: 'a claim rotated to a new segment and then shutdown',
@@ -146,6 +152,7 @@ test('failed control discovery and receipt pulses report their stages', async ()
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;
@@ -195,6 +202,7 @@ async function failedPulse(input: {
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
+    overdue: neverOverdue,
     failed,
   });
   await service.started;

@@ -1,81 +1,74 @@
-import { createId } from '@paralleldrive/cuid2';
-import { createAudioPublication } from '@daisy/media/audio';
-import { createMediaService } from '@daisy/media';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { localMediaConfig } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 const FRAMES = 5;
-const DROP_DEADLINE_MS = 10_000;
+const PROCESS_DEADLINE_MS = 10_000;
 
-/** The server's drop of a deleted room, or a named failure past the deadline. */
-const dropped = (signal: Promise<void>) =>
-  Promise.race([
-    signal,
-    Bun.sleep(DROP_DEADLINE_MS).then(() => {
-      throw new Error('Room deletion never disconnected the publication');
-    }),
+/**
+ * Closes one native publication in `order`, in a child process: native
+ * rtc-node state from a room the server deleted never lives on in this
+ * runner, where it once crashed Bun in a later suite (ISSUE-789).
+ */
+async function closeIn(order: 'racing' | 'dropped' | 'live') {
+  const child = Bun.spawn(
+    ['bun', 'audio-publication-room-ended-process.ts', order],
+    {
+      cwd: import.meta.dir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      timeout: PROCESS_DEADLINE_MS,
+    },
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
   ]);
-
-/** A native publication that sent a few frames into a fresh room. */
-async function publishing() {
-  const media = createMediaService({ config: localMediaConfig });
-  const room = createId();
-  await media.createRoom(room);
-  const publication = await createAudioPublication({
-    url: 'ws://127.0.0.1:7880',
-    token: await media.joinToken({
-      room,
-      identity: createId(),
-      publish: ['microphone'],
-      subscribe: false,
-      capture: false,
-    }),
-    trackName: createId(),
-    sampleRate: 24000,
-    channels: 1,
-    monotonicNowMs: () => performance.now(),
-  });
-  for (let frame = 0; frame < FRAMES; frame++)
-    await publication.capture10ms(new Int16Array(240));
-  return { media, room, publication };
+  if (exitCode !== 0)
+    throw new Error(
+      `Publication process exited ${exitCode}: ${stderr.slice(0, 500)}`,
+    );
+  return JSON.parse(stdout.trim().split('\n').at(-1)!) as unknown;
 }
 
-test('a native publication closes when its room is deleted, before the drop arrives (ISSUE-789)', async () => {
-  const { media, room, publication } = await publishing();
-  await media.deleteRoom(room);
-  assert({
-    given: 'Round cleanup deleting the room, with close racing the drop',
-    should: 'close without a refusal and report the samples it sent',
-    actual: await publication.close(),
-    expected: { consumedSamples: FRAMES * 240 },
-  });
-});
+test(
+  'a native publication closes when its room is deleted, before the drop arrives (ISSUE-789)',
+  async () => {
+    assert({
+      given: 'Round cleanup deleting the room, with close racing the drop',
+      should: 'close without a refusal and report the samples it sent',
+      actual: ((await closeIn('racing')) as { consumedSamples: number })
+        .consumedSamples,
+      expected: FRAMES * 240,
+    });
+  },
+  PROCESS_DEADLINE_MS + 2_000,
+);
 
-test('a native publication closes after its deleted room dropped it (ISSUE-789)', async () => {
-  const { media, room, publication } = await publishing();
-  await media.deleteRoom(room);
-  await dropped(publication.disconnected);
-  assert({
-    given: 'a bot publication the server already disconnected',
-    should: 'close without a refusal and report the samples it sent',
-    actual: [publication.usable(), await publication.close()],
-    expected: [false, { consumedSamples: FRAMES * 240 }],
-  });
-});
+test(
+  'a native publication closes after its deleted room dropped it (ISSUE-789)',
+  async () => {
+    assert({
+      given: 'a bot publication the server already disconnected',
+      should: 'close without a refusal and report the samples it sent',
+      actual: await closeIn('dropped'),
+      expected: { usable: false, consumedSamples: FRAMES * 240 },
+    });
+  },
+  PROCESS_DEADLINE_MS + 2_000,
+);
 
-test('a native publication in a live room unpublishes and closes', async () => {
-  const { media, room, publication } = await publishing();
-  try {
+test(
+  'a native publication in a live room closes',
+  async () => {
     assert({
       given: 'a bot publication whose room is still open',
       should: 'close and report the samples it sent',
-      actual: await publication.close(),
-      expected: { consumedSamples: FRAMES * 240 },
+      actual: await closeIn('live'),
+      expected: { usable: true, consumedSamples: FRAMES * 240 },
     });
-  } finally {
-    await media.deleteRoom(room);
-  }
-});
+  },
+  PROCESS_DEADLINE_MS + 2_000,
+);

@@ -55,6 +55,9 @@
         // Spawned by the native ballot fixture under Bun, never imported by the Node driver.
         "e2e/support/human-ballot-maintenance-process.ts",
         "integration/**/*.integration.ts",
+        // Spawned by audio-publication-room-ended.integration.ts, so native
+        // state never lives in the shared runner (ISSUE-789).
+        "integration/audio-publication-room-ended-process.ts",
         // AUTH-6.7 load harness: run.ts and abuse-run.ts are CLI entries;
         // instance-process.ts is spawned as a subprocess, never imported.
         "scripts/auth-load/run.ts",

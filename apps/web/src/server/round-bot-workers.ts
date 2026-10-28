@@ -69,6 +69,13 @@ export function startRoundBotWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
+    // A seat's ending finishes within two renewals of its lease: the last
+    // renewal was at most renewMs ago, so its lease never lapses while its
+    // speaker is still stopping (ISSUE-789).
+    overdue: () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, policy.leaseMs - 2 * policy.renewMs).unref();
+      }),
     failed: failure(
       'round.control.failed',
       'round.control',

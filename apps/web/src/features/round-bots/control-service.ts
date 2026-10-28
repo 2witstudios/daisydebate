@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = {
   readonly roundId: string;
@@ -15,7 +15,7 @@ type Owned<C> = {
   readonly claim: C;
   readonly control: Control;
   pending: Promise<void> | null;
-  /** Set once the seat is released: its stop, and revoke when asked, run once. */
+  /** Set once the seat starts ending; it stays owned until the ending settles. */
   ending: Promise<void> | null;
   /** Its pulse found the lease already gone: there is nothing to revoke. */
   lost: boolean;
@@ -42,6 +42,11 @@ export function startBotControlService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
+  /**
+   * Settles when a seat's ending has run too long. The composition sets it
+   * below the lease, so a stop never outlives its seat's lease (ISSUE-789).
+   */
+  readonly overdue: () => Promise<void>;
   /** `stage` names the work that failed: pulse, stop, revoke or discover. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -50,6 +55,12 @@ export function startBotControlService<C extends Claim>(input: {
     discovering: Promise<void> | null = null;
   /** Seat endings still running; shutdown waits for every one. */
   const endings = new Set<Promise<void>>();
+  /** Seats with a claim in flight, so a chained and a scanned claim never race. */
+  const claiming = new Set<string>();
+  /** A definite refusal of the lease: the Round ended or the claim moved on. */
+  const refusedAuthority = (error: unknown) =>
+    isAppError(error) &&
+    (error.code === 'AUTHORIZATION' || error.code === 'CONFLICT');
   /**
    * Lost only on a definite refusal of the lease. A check that failed (pool
    * capacity, a reset) proves nothing, so the seat stays owned; dropping it
@@ -63,10 +74,7 @@ export function startBotControlService<C extends Claim>(input: {
       );
       return false;
     } catch (error) {
-      return (
-        isAppError(error) &&
-        (error.code === 'AUTHORIZATION' || error.code === 'CONFLICT')
-      );
+      return refusedAuthority(error);
     }
   };
   /** Drops a seat only while it is still this entry, never a claim that replaced it. */
@@ -77,26 +85,37 @@ export function startBotControlService<C extends Claim>(input: {
   /**
    * Ends a seat once, apart from the heartbeat and discovery: its speaking
    * work stops at once (a hung receipt pulse never keeps a speaker alive),
-   * then, after its pulse in flight, its lease is revoked when `revoke` is
-   * set. The seat stays in `owned` until the ending settles, so it still
-   * counts against `maxControllers` and no replacement is claimed beside a
-   * speaker still stopping. A failed stop or revoke is reported, never
-   * thrown; one that never settles holds only this seat (ISSUE-789).
+   * and its pulse in flight settles, within `overdue`; then its lease is
+   * revoked when `revoke` is set. The seat stays in `owned` until then, so it
+   * still counts against `maxControllers` and no replacement is claimed
+   * beside a speaker still stopping. A stop that fails or overruns is
+   * reported and the seat is released anyway (ISSUE-789).
    */
   const end = (entry: Owned<C>, revoke: boolean): Promise<void> => {
     if (entry.ending) return entry.ending;
     const ending = (async () => {
-      try {
-        await entry.control.stop?.();
-      } catch (error) {
-        input.failed(error, 'stop');
-      }
-      await entry.pending;
+      const stopping = (async () => {
+        try {
+          await entry.control.stop?.();
+        } catch (error) {
+          input.failed(error, 'stop');
+        }
+        await entry.pending;
+        return 'stopped' as const;
+      })();
+      const late = input.overdue().then(() => 'late' as const);
+      if ((await Promise.race([stopping, late])) === 'late')
+        input.failed(
+          createAppError('INFRASTRUCTURE', 'Seat stop overran its deadline'),
+          'stop',
+        );
       if (revoke && !entry.lost)
         await input.store
           .revokeRoundBotWorker(entry.claim.scope, entry.claim.token)
-          // An unrevoked lease lapses on its own; the next scan claims again.
-          .catch((error: unknown) => input.failed(error, 'revoke'));
+          // A refused revoke is a lease already gone; any other lapses alone.
+          .catch((error: unknown) => {
+            if (!refusedAuthority(error)) input.failed(error, 'revoke');
+          });
     })().finally(() => {
       release(entry);
       endings.delete(ending);
@@ -124,25 +143,42 @@ export function startBotControlService<C extends Claim>(input: {
     })();
     return entry.pending;
   };
-  const claimTarget = async (target: Target) => {
-    const old = owned.get(target.roundParticipantId);
-    // An ending seat is claimed again by the first scan after it is released.
-    if (old?.ending || old?.claim.scope.segmentId === target.segmentId) return;
-    if (old) return void end(old, true);
-    if (stopped || owned.size >= input.limits.maxControllers) return;
-    const claim = await input.store.claimRoundBotWorker(target);
-    if (stopped) {
-      await input.store.revokeRoundBotWorker(claim.scope, claim.token);
+  const claimTarget = async (target: Target): Promise<void> => {
+    const seat = target.roundParticipantId;
+    const old = owned.get(seat);
+    if (
+      claiming.has(seat) ||
+      old?.ending ||
+      old?.claim.scope.segmentId === target.segmentId
+    )
+      return;
+    if (old) {
+      // The incoming segment is claimed as soon as the ending frees the seat.
+      void end(old, true)
+        .then(() => claimTarget(target))
+        .catch(() => undefined);
       return;
     }
-    const entry: Owned<C> = {
-      claim,
-      control: input.control(claim),
-      pending: null,
-      ending: null,
-      lost: false,
-    };
-    owned.set(target.roundParticipantId, entry);
+    if (stopped || owned.size >= input.limits.maxControllers) return;
+    claiming.add(seat);
+    let entry: Owned<C>;
+    try {
+      const claim = await input.store.claimRoundBotWorker(target);
+      if (stopped) {
+        await input.store.revokeRoundBotWorker(claim.scope, claim.token);
+        return;
+      }
+      entry = {
+        claim,
+        control: input.control(claim),
+        pending: null,
+        ending: null,
+        lost: false,
+      };
+      owned.set(seat, entry);
+    } finally {
+      claiming.delete(seat);
+    }
     await pulse(entry);
   };
   const discover = (): Promise<void> => {
@@ -190,8 +226,13 @@ export function startBotControlService<C extends Claim>(input: {
       stopped = true;
       input.timers.clearInterval(scanTimer);
       input.timers.clearInterval(pulseTimer);
+      // Speakers end at once; a seat claimed by the scan in flight, after it.
+      const endOwned = () => {
+        for (const entry of [...owned.values()]) void end(entry, true);
+      };
+      endOwned();
       await Promise.allSettled([discovering]);
-      for (const entry of [...owned.values()]) void end(entry, true);
+      endOwned();
       await Promise.allSettled([...endings]);
     },
   };

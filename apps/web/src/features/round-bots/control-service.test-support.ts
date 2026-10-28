@@ -14,6 +14,5 @@ export const ownedClaim = (target: {
   leaseExpiresAt: '2026-10-22T00:00:30Z',
 });
 
-/** Runs every queued microtask, so endings the fakes let finish have settled. */
-export const settled = () =>
-  new Promise<void>((resolve) => setImmediate(resolve));
+/** An ending deadline that never trips, for tests about other behavior. */
+export const neverOverdue = () => new Promise<void>(() => {});
