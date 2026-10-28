@@ -1,11 +1,8 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
-import {
-  frozenRoomConfigSchema,
-  frozenRoomExecutionPlanSchema,
-  roomConfigSchema,
-} from './room';
+import { formatSettingsSchema } from './format-settings';
+import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
 import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
@@ -190,7 +187,7 @@ export const roomCatalogChoiceSchema = z.strictObject({
   rulesEdition: z.string().nullable(),
   sourceUrl: z.string().nullable(),
   definition: formatDefinitionSchema,
-  preset: z.strictObject({ version, config: roomConfigSchema }),
+  preset: z.strictObject({ version, config: formatSettingsSchema }),
 });
 /** An AI actor a host may seat: a bot debater for a side, or the AI judge for the judge seat (ISSUE-750). */
 export const roomCastChoiceSchema = z.strictObject({

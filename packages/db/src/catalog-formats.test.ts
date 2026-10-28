@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatDefinitionSchema, roomConfigSchema } from '@daisy/protocol';
+import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
 import { catalogFormats } from './catalog-formats';
 
 setupRitewayBun();
@@ -10,11 +10,12 @@ describe('catalogFormats', () => {
   test('shape', () => {
     assert({
       given: 'every catalog entry',
-      should: 'parse as a format definition and a room config',
+      should:
+        'parse as a format definition and as format settings, never a Room config (ISSUE-775)',
       actual: catalogFormats.every(
         (entry) =>
           formatDefinitionSchema.safeParse(entry.definition).success &&
-          roomConfigSchema.safeParse(entry.preset).success,
+          formatSettingsSchema.safeParse(entry.preset).success,
       ),
       expected: true,
     });

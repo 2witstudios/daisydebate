@@ -1,4 +1,4 @@
-import { roomConfigSchema } from '@daisy/protocol';
+import { formatSettingsSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -15,7 +15,7 @@ import { jsonbColumn, jsonbIsObject, timestampColumn } from './columns';
 import { formatRevisions } from './format-revisions';
 
 /**
- * Sanctioned RoomConfig values for rated play, as immutable revisions
+ * Sanctioned format settings for rated play, as immutable revisions
  * (ADR 0058 §3). A ranked round resolves from the current revision for its
  * format (every Round is full length, DEC-237); every earlier revision is
  * retained, because a live
@@ -30,7 +30,8 @@ export const formatPresets = pgTable(
     formatId: text('format_id').notNull(),
     version: integer('version').notNull(),
     formatVersion: integer('format_version').notNull(),
-    config: jsonbColumn('config', roomConfigSchema).notNull(),
+    /** The format's settings, never a Room config (ISSUE-775). */
+    config: jsonbColumn('config', formatSettingsSchema).notNull(),
     /**
      * Ranked play may use this preset (FMT-1). Casual selection ignores it;
      * a change is a new preset version, never an update in place.
@@ -66,5 +67,11 @@ export const formatPresets = pgTable(
       sql`${table.formatVersion} > 0`,
     ),
     jsonbIsObject('format_presets', table.config),
+    // A host-written list is a Room's own input; no preset carries one, by
+    // whatever path the row arrives (ISSUE-775, ADR 0078 §10).
+    check(
+      'format_presets_bank_draw_only',
+      sql`${table.config} #>> '{resolutionDraw,source,kind}' is distinct from 'host'`,
+    ),
   ],
 );

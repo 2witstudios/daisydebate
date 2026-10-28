@@ -1,9 +1,9 @@
 import type {
   FormatDefinition,
-  RoomConfig,
+  FormatSettings,
   SegmentType,
 } from '@daisy/protocol';
-import { oneOnOneRoomConfig } from './reference-formats';
+import { oneOnOneSettings } from './reference-formats';
 import type { SegmentRow } from './catalog-segments';
 
 /**
@@ -71,13 +71,13 @@ export function templateDefinition({
   };
 }
 
-/** A template's starting config: its league prep and questioning, Daisy's usual floor rules. */
-export function templateConfig(
+/** A template's settings: its league prep and questioning, Daisy's usual floor rules. */
+export function templateSettings(
   prepMinutesPerSide: number,
   crossExMode: 'ordered' | 'free',
-): RoomConfig {
+): FormatSettings {
   return {
-    ...oneOnOneRoomConfig,
+    ...oneOnOneSettings,
     inRoundPrep: {
       enabled: true,
       budgetMsPerSide: prepMinutesPerSide * minute,
@@ -106,10 +106,10 @@ export const withDraw = (definition: FormatDefinition): FormatDefinition => ({
  * any kind, the Negative strikes first, then fixed prep and none during
  * the round. The 60 s strike window is Daisy's; IPDA leaves it to the room.
  */
-export const strikeConfig = (
-  base: RoomConfig,
+export const strikeSettings = (
+  base: FormatSettings,
   prepMinutes: number,
-): RoomConfig => ({
+): FormatSettings => ({
   ...base,
   preRoundPrep: { enabled: true, durationMs: prepMinutes * minute },
   inRoundPrep: { enabled: false },

@@ -5,7 +5,7 @@ import {
   emptyCheckpoint,
   oneOnOneDefinition,
   oneOnOneActors,
-  oneOnOneConfig,
+  oneOnOneSettings,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
@@ -110,7 +110,7 @@ describe('round runtime prep', () => {
 
   test('refuses prep the resolved rules never granted a budget for', async () => {
     const withoutPrep = resolveRoomConfiguration(oneOnOneDefinition, {
-      ...oneOnOneConfig,
+      ...oneOnOneSettings,
       inRoundPrep: { enabled: false },
     });
     if (!withoutPrep.ok) throw new Error(withoutPrep.refusal.message);
