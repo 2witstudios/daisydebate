@@ -92,7 +92,12 @@ export async function coverageAuthority(
       start: row.start.getTime(),
       end: row.end.getTime(),
     })),
-    tolerance: { openMs: tolerance.relayMs, closeMs: tolerance.relayMs },
+    tolerance: {
+      openMs: tolerance.relayMs,
+      closeMs: tolerance.relayMs,
+      // Only credited windows end at a cutoff the speaker cannot see (ISSUE-806).
+      terminalCloseMs: tolerance.relayMs,
+    },
   };
 }
 export const transcriptRevision = async (
