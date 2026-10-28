@@ -8,6 +8,8 @@ import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
 import { startRealtimeServiceLease } from './service-lease';
 import { readFile } from 'node:fs/promises';
+import { socialMemberReading } from '@daisy/auth/social-reading';
+import { betaDmPolicy } from '@daisy/auth/social-policy';
 import {
   defaultGateway,
   resolveTrustedProxies,
@@ -51,6 +53,9 @@ const { close, drain } = await serveRealtime({
   hostname,
   trustedProxies,
   presence: { instanceId, nextId: () => systemId.next() },
+  // The same DEC-251 reading policy web's messaging commands evaluate.
+  readingPolicy: socialMemberReading(betaDmPolicy),
+  observation: { nextId: () => systemId.next() },
 });
 const lease = startRealtimeServiceLease({
   instanceId,

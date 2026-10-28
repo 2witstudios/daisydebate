@@ -186,3 +186,64 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
       withSharedMessagingAuthority(tx, input, work),
     );
 }
+
+/**
+ * One shared-fenced read for many viewers of one channel (ADR 0089): the
+ * full cast and every viewer's account are fenced and read once, in the
+ * canonical order, and each distinct viewer's own channel fact is read
+ * inside that same snapshot. Renewing 500 viewers costs one cohort read,
+ * not 500 authority transactions.
+ */
+export function createMessagingChannelCohortAuthority(
+  database: BunSQLDatabase,
+) {
+  return <T>(
+    input: {
+      readonly channelId: string;
+      readonly viewers: readonly {
+        readonly actorId: string;
+        readonly userId: string;
+      }[];
+    },
+    work: (frame: {
+      readonly tx: AuthorizationTransaction;
+      readonly accounts: AuthorityFrame['accounts'];
+      readonly factFor: (actorId: string) => MessagingChannelFact;
+    }) => Promise<T>,
+  ): Promise<T> => {
+    const [first, ...rest] = input.viewers;
+    if (!first || input.viewers.length > 65535)
+      throw createAppError('VALIDATION');
+    const others = [...new Set(rest.map((viewer) => viewer.actorId))].filter(
+      (actorId) => actorId !== first.actorId,
+    );
+    return restartingRead(database, (tx) =>
+      withSharedMessagingAuthority(
+        tx,
+        { channelId: input.channelId, ...first },
+        async ({ fact, accounts }) => {
+          const facts = new Map([[first.actorId, fact]]);
+          for (const actorId of others) {
+            const own = await readMessagingChannelFact(
+              tx,
+              input.channelId,
+              actorId,
+            );
+            if (!own) throw createAppError('NOT_FOUND');
+            facts.set(actorId, own);
+          }
+          return work({
+            tx,
+            accounts,
+            factFor: (actorId) => {
+              const own = facts.get(actorId);
+              if (!own) throw createAppError('INVARIANT');
+              return own;
+            },
+          });
+        },
+        { additionalActors: others, beforeChannel: async () => {} },
+      ),
+    );
+  };
+}

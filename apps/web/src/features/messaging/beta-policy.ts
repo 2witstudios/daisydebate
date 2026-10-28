@@ -1,5 +1,5 @@
 import { socialMemberReading } from '@daisy/auth/social-reading';
-import type { SocialContactPolicy } from '@daisy/auth/social-policy';
+import { betaDmPolicy } from '@daisy/auth/social-policy';
 import type { MessagingPolicyOverride } from '@daisy/config';
 import { tightenOnly } from '../../server/tighten-only';
 import { messagingBetaLimits } from '@daisy/protocol';
@@ -98,16 +98,6 @@ export function tightenMessagingValues(
  * within one age band. ADR 0061 allows no cross-band contact without a
  * separately approved guardian policy, so 16-17 and adult never meet.
  */
-const betaDmPolicy = {
-  state: 'approved',
-  decision: 'DEC-251',
-  key: 'social.dm',
-  revision: 1,
-  allowedBandPairs: [
-    ['adult', 'adult'],
-    ['16-17', '16-17'],
-  ],
-} as const satisfies SocialContactPolicy;
 
 /**
  * Beta defaults DEC-251 leaves open, approved by the orchestrator [749] and

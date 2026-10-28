@@ -3,6 +3,7 @@ import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
 import { createPresenceTracker } from './presence';
+import { startObservationRuntime } from './observation/runtime';
 import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
@@ -78,6 +79,7 @@ export async function serveRealtime({
   readingPolicy,
   trustedProxies = [],
   presence,
+  observation,
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
@@ -92,6 +94,8 @@ export async function serveRealtime({
     readonly instanceId: string;
     readonly nextId: () => string;
   };
+  /** Shared resource observation (ADR 0089): its identity source; absent, the process serves no observe. */
+  readonly observation?: { readonly nextId: () => string };
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
@@ -135,6 +139,16 @@ export async function serveRealtime({
     ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
+  const observing =
+    observation && readingPolicy
+      ? startObservationRuntime({
+          resources,
+          readingPolicy,
+          timers: scheduler,
+          now,
+          nextId: observation.nextId,
+        })
+      : null;
   const { fetch, websocket } = createRealtimeServer({
     resources: {
       ...resources,
@@ -154,6 +168,7 @@ export async function serveRealtime({
       validatePrincipal: delivery.validatePrincipal,
       now,
       ...presenceTracker(resources, presence, scheduler),
+      ...(observing ? { observation: observing.node } : {}),
     },
   });
   let hintSubscription:
@@ -176,6 +191,7 @@ export async function serveRealtime({
       ...listenerTls(tls),
     });
   } catch (error) {
+    observing?.close();
     await Promise.allSettled([drain.stop(), hintSubscription?.unlisten()]);
     throw error;
   }
@@ -202,6 +218,7 @@ export async function serveRealtime({
       if (closed) return;
       closed = true;
       scheduler.clearInterval(validationTimer);
+      observing?.close();
       delivery.registry.closeAll();
       await completeShutdown([
         Promise.resolve().then(() => server?.stop()),

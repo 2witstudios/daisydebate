@@ -87,6 +87,7 @@ export {
   type RealtimeAuthorityReads,
   type RealtimeDatabase,
 } from './realtime-database';
+export type { ChannelObservationReads } from './messaging/observation-reads';
 
 /**
  * Composes every area over one admission owner (ADR 0088): each area

@@ -184,3 +184,19 @@ function invalidPolicyEvidence(
     allowed: false,
   };
 }
+
+/**
+ * DEC-251's beta DM contact policy: adults with adults and 16-17 with 16-17.
+ * One value for every process that evaluates DM posting or reading (web
+ * commands and realtime observation permits), so the two cannot diverge.
+ */
+export const betaDmPolicy = {
+  state: 'approved',
+  decision: 'DEC-251',
+  key: 'social.dm',
+  revision: 1,
+  allowedBandPairs: [
+    ['adult', 'adult'],
+    ['16-17', '16-17'],
+  ],
+} as const satisfies SocialContactPolicy;

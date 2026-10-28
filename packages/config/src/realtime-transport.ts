@@ -25,6 +25,15 @@ const schema = z.object({
     .positive()
     .max(3_600_000)
     .default(60_000),
+  /**
+   * Whether this process is one of the bounded eligible subset that owns
+   * observed resources (ADR 0089): it reserves the headers and projection
+   * lanes. Fanout-only processes set it false; adding them adds no SQL.
+   */
+  REALTIME_OBSERVATION_OWNER: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
 });
 /** Local transport resource tuning, never authorization policy or membership. */
 export function readRealtimeTransportConfig(
@@ -48,5 +57,6 @@ export function readRealtimeTransportConfig(
     ringLimit: parsed.data.REALTIME_RING_LIMIT,
     maxUpgradesPerWindow: parsed.data.REALTIME_MAX_IP_UPGRADES,
     upgradeWindowMs: parsed.data.REALTIME_IP_UPGRADE_WINDOW_MS,
+    observationOwner: parsed.data.REALTIME_OBSERVATION_OWNER,
   };
 }
