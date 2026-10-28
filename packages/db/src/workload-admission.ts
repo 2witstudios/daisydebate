@@ -60,8 +60,9 @@ export const WORKLOAD_PROFILES = {
       social: lane(4, 16, 100),
       audience: lane(2, 32, 250),
       // Auth bursts queue behind the sign-up ceiling, which decides what is
-      // shed (AUTH-3.10); a lane refusal must not pre-empt it.
-      control: lane(5, 2048, 5000),
+      // shed; AUTH-3.10's flood throughput was proven on 10 connections, so
+      // a lane refusal must not pre-empt it.
+      control: lane(10, 2048, 5000),
     },
   },
   realtime: {
