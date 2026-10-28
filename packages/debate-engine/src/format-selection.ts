@@ -1,7 +1,7 @@
 import type {
   FormatDefinition,
   FormatSelectionFacts,
-  RoomConfig,
+  FormatSettings,
 } from '@daisy/protocol';
 
 export type { FormatSelectionFacts };
@@ -36,7 +36,8 @@ type FormatSelectionOutcome =
   | {
       readonly ok: true;
       readonly definition: FormatDefinition;
-      readonly config: RoomConfig;
+      /** The preset's format settings, which the Room adopts as its config (ISSUE-775). */
+      readonly config: FormatSettings;
       readonly resolved: Extract<ResolveOutcome, { ok: true }>;
       /** The catalog preset a casual room is based on; null for ranked play. */
       readonly basis: FormatBasis | null;

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
+import { foundationDefinition, oneOnOneSettings } from './reference-formats';
 import { caller, accountRow } from './room-command-operations.test-support';
 import { createTestDatabase } from './index.test-support';
 
@@ -25,7 +25,7 @@ test('Room catalog lists role-bearing formats at their canonical presets', async
   const { database, queries } = createTestDatabase([
     [account],
     [formatRow],
-    [['value', 4, 1, oneOnOneRoomConfig]],
+    [['value', 4, 1, oneOnOneSettings]],
   ]);
   const catalog = await database.listRoomCatalogSources(
     caller,

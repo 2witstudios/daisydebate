@@ -116,7 +116,8 @@ configuration is **unrepresentable** rather than detectable afterwards.
 `rulesMatchFormat()` is deleted along with the validation responsibility it named;
 `assertRatedRoundIntegrity` instead compares the round's frozen provenance.
 
-`format_presets` holds sanctioned `RoomConfig` values as immutable revisions, keyed
+`format_presets` holds sanctioned format settings (`FormatSettings`, which a
+`RoomConfig` embeds; ADR 0078 §10) as immutable revisions, keyed
 `(format_id, version)` with at most one current per format and every earlier retained.
 
 ### 5. Provenance is pinned and structural

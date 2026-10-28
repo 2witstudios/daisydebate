@@ -6,7 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
@@ -56,7 +56,7 @@ export const assembleJudgedRoom = (
         ...oneOnOneDefinition,
         seats: { ...oneOnOneDefinition.seats, judge: judges },
       },
-      config: oneOnOneRoomConfig,
+      config: oneOnOneSettings,
       competitionType: 'casual',
     },
   });

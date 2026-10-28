@@ -10,7 +10,7 @@ import {
 } from '@daisy/protocol';
 import {
   oneOnOneDefinition,
-  oneOnOneRankedConfig,
+  oneOnOneRankedSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
@@ -32,7 +32,7 @@ export const account: AccountAuthorizationFact = {
 export const now = '2026-10-10T12:00:00.000Z';
 const resolved = resolveRoomConfiguration(
   oneOnOneDefinition,
-  oneOnOneRankedConfig,
+  oneOnOneRankedSettings,
 );
 if (!resolved.ok)
   throw new Error('The reference one-on-one config must resolve');
@@ -54,7 +54,7 @@ export const state: RoomAssemblyState = {
   basis: null,
   competitionType: 'casual',
   definition: oneOnOneDefinition,
-  config: oneOnOneRankedConfig,
+  config: oneOnOneRankedSettings,
   executionPlan: resolved.roomPlan,
   rules: resolved.rules,
   participants: [
@@ -86,7 +86,7 @@ export const launched: LaunchedRound = {
   topic: state.topic ?? '',
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: freezeRoomConfig(oneOnOneRankedConfig),
+  config: freezeRoomConfig(oneOnOneRankedSettings),
   rules: resolved.rules,
   participants: [
     {

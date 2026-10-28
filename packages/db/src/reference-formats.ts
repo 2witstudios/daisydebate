@@ -1,4 +1,4 @@
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+import type { FormatDefinition, FormatSettings } from '@daisy/protocol';
 
 /**
  * The reference formats, as TypeScript, for tooling that runs without a
@@ -165,8 +165,8 @@ export const foundationDefinition: FormatDefinition = {
   },
 };
 
-/** The foundation room's config: the proof format at its sanctioned defaults. */
-export const foundationConfig: RoomConfig = {
+/** The foundation format's settings: the proof format at its sanctioned defaults. */
+export const foundationSettings: FormatSettings = {
   preRoundPrep: { enabled: false },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
@@ -200,8 +200,8 @@ export const referenceFormats: ReadonlyArray<{
   },
 ];
 
-/** The casual config a one-on-one room starts from: defaults, prep enabled. */
-export const oneOnOneRoomConfig: RoomConfig = {
+/** One-on-one's casual settings, which a room starts from: defaults, prep enabled. */
+export const oneOnOneSettings: FormatSettings = {
   preRoundPrep: { enabled: false },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
@@ -214,8 +214,8 @@ export const oneOnOneRoomConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The sanctioned ranked config for one-on-one. */
-export const oneOnOneRankedConfig: RoomConfig = {
+/** One-on-one's sanctioned ranked settings. */
+export const oneOnOneRankedSettings: FormatSettings = {
   preRoundPrep: { enabled: true, durationMs: 1_200_000 },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
@@ -235,19 +235,19 @@ export const referencePresets: ReadonlyArray<{
   readonly formatId: string;
   readonly version: number;
   readonly formatVersion: number;
-  readonly config: RoomConfig;
+  readonly config: FormatSettings;
 }> = [
   {
     formatId: 'one-on-one',
     version: 1,
     formatVersion: 1,
-    config: oneOnOneRankedConfig,
+    config: oneOnOneRankedSettings,
   },
   {
     formatId: 'one-on-one',
     version: 2,
     formatVersion: 2,
-    config: oneOnOneRankedConfig,
+    config: oneOnOneRankedSettings,
   },
 ];
 

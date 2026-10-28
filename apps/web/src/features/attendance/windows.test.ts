@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
@@ -10,10 +10,7 @@ import { attendanceTimingPolicy } from '@daisy/protocol';
 import { acceptAttendanceReceipt } from './receipt-window';
 import { attendanceWindowFor } from './windows';
 setupRitewayBun();
-const compiled = resolveRoomConfiguration(
-  oneOnOneDefinition,
-  oneOnOneRoomConfig,
-);
+const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = {
   ...compiled.rules,

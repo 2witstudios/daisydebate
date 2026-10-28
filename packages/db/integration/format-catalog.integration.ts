@@ -153,3 +153,37 @@ test('a room basis names a whole preset or none', async () => {
     });
   });
 });
+
+test('no preset carries a host-written resolution list, however the row arrives (ISSUE-775)', async () => {
+  await withFixture(url, async (fixture) => {
+    const formatId = await fixture.format();
+    await fixture.preset(formatId);
+    // The draw binds as an object: Bun SQL JSON-encodes a string twice.
+    const drawFrom = (source: Record<string, unknown>) =>
+      rejectedBy(() =>
+        fixture.sql.unsafe(
+          `update format_presets set config = jsonb_set(config, '{resolutionDraw}', $2::jsonb) where format_id = $1`,
+          [
+            formatId,
+            {
+              enabled: true,
+              drawSize: 3,
+              strikeWindowMs: 60_000,
+              firstStriker: 'negative',
+              source,
+            },
+          ],
+        ),
+      );
+    assert({
+      given:
+        "a preset written straight to the table drawing from a host list, then from Daisy's bank",
+      should: 'refuse the host list in the database and accept the bank',
+      actual: {
+        host: await drawFrom({ kind: 'host', resolutions: ['A', 'B', 'C'] }),
+        bank: await drawFrom({ kind: 'bank', categories: ['policy'] }),
+      },
+      expected: { host: 'format_presets_bank_draw_only', bank: null },
+    });
+  });
+});

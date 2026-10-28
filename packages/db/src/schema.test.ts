@@ -73,6 +73,7 @@ describe('competitive schema rules', () => {
         },
         presets: {
           checks: [
+            'format_presets_bank_draw_only',
             'format_presets_config_is_object',
             'format_presets_format_version_positive',
             'format_presets_version_positive',
