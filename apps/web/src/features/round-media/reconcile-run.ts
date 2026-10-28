@@ -69,6 +69,7 @@ export function createMediaReconcileRun(
         scope: admission.scope,
         token: admission.token,
         buildProjection,
+        ...(admission.hearing ? { hearing: true as const } : {}),
       });
     return mutate(
       claim,

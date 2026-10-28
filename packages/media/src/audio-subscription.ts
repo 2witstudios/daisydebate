@@ -15,6 +15,7 @@ import {
   AudioFrameProcessor,
   type RawAudioFrame,
 } from './audio-frame-processor';
+import { createSubscriptionRequests } from './subscription-requests';
 
 type ClosedTrack = {
   readonly identity: string;
@@ -88,6 +89,10 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     string,
     { identity: string; stop: (reason: ClosedTrack['reason']) => Promise<void> }
   >();
+  const requests = createSubscriptionRequests({
+    set: (run, ms) => setTimeout(run, ms),
+    clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  });
   const start = (
     track: Track,
     publication: TrackPublication,
@@ -104,6 +109,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       !allowed.has(identity)
     )
       return;
+    requests.subscribed(trackId);
     let finished = false;
     const processor = new AudioFrameProcessor({
       identity,
@@ -159,7 +165,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   };
   /**
    * Only admitted identities' microphones are subscribed: no camera or other
-   * track ever reaches this process (autoSubscribe is off).
+   * track ever reaches this process (autoSubscribe is off). A refused
+   * subscription is asked again (`createSubscriptionRequests`).
    */
   const wanted = (
     publication: RemoteTrackPublication,
@@ -167,25 +174,33 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   ) =>
     publication.source === TrackSource.SOURCE_MICROPHONE &&
     allowed.has(participant.identity);
-  const published = (
+  const reconcile = (
     publication: RemoteTrackPublication,
     participant: RemoteParticipant,
   ) => {
-    if (!closing && wanted(publication, participant) && !publication.subscribed)
-      publication.setSubscribed(true);
+    if (!closing)
+      requests.reconcile(publication, wanted(publication, participant));
   };
   const subscribeWanted = () => {
     for (const participant of room.remoteParticipants.values())
-      for (const publication of participant.trackPublications.values()) {
-        const want = wanted(publication, participant);
-        if (want !== publication.subscribed) publication.setSubscribed(want);
-      }
+      for (const publication of participant.trackPublications.values())
+        reconcile(publication, participant);
   };
-  const unpublished = (track: Track) => {
+  const subscriptionFailed = (
+    trackSid: string,
+    participant: RemoteParticipant,
+  ) =>
+    requests.failed(trackSid, () => {
+      const publication = participant.trackPublications.get(trackSid);
+      if (publication) reconcile(publication, participant);
+    });
+  const unpublished = (track: Track, publication: TrackPublication) => {
+    if (publication.sid) requests.ended(publication.sid);
     if (track.sid) void streams.get(track.sid)?.stop('unpublished');
   };
   const disconnected = () => {
     closing = true;
+    requests.close();
     void Promise.all(
       [...streams.values()].map((stream) => stream.stop('disconnected')),
     ).then(
@@ -199,7 +214,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
         ),
     );
   };
-  room.on(RoomEvent.TrackPublished, published);
+  room.on(RoomEvent.TrackPublished, reconcile);
+  room.on(RoomEvent.TrackSubscriptionFailed, subscriptionFailed);
   room.on(RoomEvent.TrackSubscribed, start);
   room.on(RoomEvent.TrackUnsubscribed, unpublished);
   room.on(RoomEvent.Disconnected, disconnected);
@@ -238,11 +254,13 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     close() {
       if (shutdown) return shutdown;
       closing = true;
+      requests.close();
       shutdown = (async () => {
         await Promise.all(
           [...streams.values()].map((stream) => stream.stop('closed')),
         );
-        room.off(RoomEvent.TrackPublished, published);
+        room.off(RoomEvent.TrackPublished, reconcile);
+        room.off(RoomEvent.TrackSubscriptionFailed, subscriptionFailed);
         room.off(RoomEvent.TrackSubscribed, start);
         room.off(RoomEvent.TrackUnsubscribed, unpublished);
         room.off(RoomEvent.Disconnected, disconnected);

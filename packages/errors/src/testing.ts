@@ -12,20 +12,25 @@ type Rejection =
   | { readonly code: 'NOT_APP_ERROR'; readonly name: string }
   | { readonly code: 'NO_REJECTION' };
 
+/** A caught error's shape: its app-error code, or a stray error's name. */
+const rejectionFrom = (error: unknown): Rejection => {
+  if (!isAppError(error))
+    return {
+      code: 'NOT_APP_ERROR',
+      name: error instanceof Error ? error.name : typeof error,
+    };
+  return error.invariantId === undefined
+    ? { code: error.code }
+    : { code: error.code, invariantId: error.invariantId };
+};
+
 /** How `actual` settled: its app-error code, a stray error's name, or none. */
 export async function rejectionOf(actual: () => unknown): Promise<Rejection> {
   try {
     await actual();
     return { code: 'NO_REJECTION' };
   } catch (error) {
-    if (!isAppError(error))
-      return {
-        code: 'NOT_APP_ERROR',
-        name: error instanceof Error ? error.name : typeof error,
-      };
-    return error.invariantId === undefined
-      ? { code: error.code }
-      : { code: error.code, invariantId: error.invariantId };
+    return rejectionFrom(error);
   }
 }
 
@@ -48,25 +53,23 @@ export async function assertRejects({
   readonly invariantId?: string;
   readonly message?: string;
 }): Promise<void> {
-  let thrown: unknown;
-  const rejection = await rejectionOf(async () => {
-    try {
-      await actual();
-    } catch (error) {
-      thrown = error;
-      throw error;
-    }
-  });
+  let settled: { readonly rejection: Rejection; readonly message?: string };
+  try {
+    await actual();
+    settled = { rejection: { code: 'NO_REJECTION' } };
+  } catch (error) {
+    settled = {
+      rejection: rejectionFrom(error),
+      ...(isAppError(error) ? { message: error.message } : {}),
+    };
+  }
   assert({
     given,
     should,
     actual:
       message === undefined
-        ? rejection
-        : {
-            ...rejection,
-            message: isAppError(thrown) ? thrown.message : undefined,
-          },
+        ? settled.rejection
+        : { ...settled.rejection, message: settled.message },
     expected: {
       code,
       ...(invariantId === undefined ? {} : { invariantId }),

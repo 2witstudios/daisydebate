@@ -219,10 +219,10 @@ floor commands; the runtime clock opens and closes segments.
 
 In cross-examination the speaker opens the exchange once. After that it
 answers once per ended peer turn, and repeated end-of-turn reports for the same
-turn start nothing. Its activity feed polls each peer's relay key every 50 ms
-against fresh PostgreSQL time. It skips frames already delivered and treats
-frames older than 250 ms, missing keys and Redis failures as unknown. A barge-in
-or unknown aborts only the active turn. A changed, invalid or shut-down claim
+turn start nothing. It reads its peers' activity from the seat's own hearing
+(below), polled every 50 ms in memory; audio older than 250 ms, an unbound
+peer, a closed track and a dropped connection read as unknown. A barge-in or
+unknown aborts only the active turn. A changed, invalid or shut-down claim
 stops its speaker before the lease is revoked or abandoned.
 
 The claim returns its segment type and the other non-judge seats. These are
@@ -236,8 +236,10 @@ refusal nor a full capture fleet deafens a bot Round.
 
 - **Identity.** In a cross-ex claim, the seat's listener
   (`round-bots/listening.ts`) asks the media broker for a listen grant
-  (`botListenToken`). That grant is admitted exactly as the bot's publication
-  is: its live claim and speaking window, under the session's reconcile hold.
+  (`botListenToken`). That grant is admitted on the bot's live claim and the
+  media window, under the session's reconcile hold. Unlike publication it
+  needs no speaking window: a bot hears most while its opponent holds the
+  floor.
   It signs an identity bound to no seat: hidden, subscribe-only, with
   `canPublish` and `canPublishData` false, for that one room. Reconciliation
   never grants it a floor. The identity is derived from the seat's own
@@ -245,16 +247,17 @@ refusal nor a full capture fleet deafens a bot Round.
   evicts any earlier connection under it, including a wedged one.
 - **Lifetime.** The listener joins with the seat and ends with it, after the
   publication. A dropped connection (or a failed cleanup) rejoins with a
-  fresh grant after a pause that starts at 1 s and doubles to 30 s. A Round
-  end or a revoked seat rotates or deletes the vendor room, which drops it;
-  the claim's admission then refuses the rejoin with `CONFLICT` or
-  `AUTHORIZATION`, and the listener stops asking.
+  fresh grant after a pause that starts at 1 s and doubles to 30 s; a
+  refused rejoin backs off the same way, since many refusals (a revocation
+  still settling) clear on their own. A Round end or a revoked seat rotates
+  or deletes the vendor room, which drops it, and the claim's admission
+  refuses every rejoin until the claim's own end closes the listener.
 - **Hearing.** It subscribes only its peers' microphones, from the
   admission's peer list, re-reading the bindings for a peer that binds later. Media grants decide who may publish, so only a seat holding the
   floor is heard at all. It times each frame with the neutral frame clock
   (`@daisy/media/observation` `createTrackClocks`), calibrated against
-  PostgreSQL time about once a second; a read whose round trip exceeds
-  100 ms is discarded and retried, and feeds the bot's turn-taking
+  PostgreSQL time once a second; a read whose round trip exceeds 100 ms is
+  discarded and retried the next second. It feeds the bot's turn-taking
   (`round-bots/activity.ts`) in memory. Stale, missing or dropped audio is
   unknown, never silence.
 - **No storage.** PCM stays in that process's memory, frame by frame.

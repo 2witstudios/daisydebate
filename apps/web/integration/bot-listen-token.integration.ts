@@ -3,7 +3,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
-import { ownSpeech, botControlOptions } from './bot-control.test-support';
+import {
+  ownSpeech,
+  opponentSpeech,
+  botControlOptions,
+} from './bot-control.test-support';
 import { mediaDependencies } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -66,6 +70,27 @@ test("the bot seat's listen grant subscribes, never publishes, is hidden and bin
       should: 'refuse to sign: Round media has ended',
       code: 'CONFLICT',
       actual: () => media.botListenToken(claim.scope, claim.token),
+    });
+  }, botControlOptions);
+});
+
+test('a bot claim without the floor is refused publication but still hears (ISSUE-764)', async () => {
+  await withRoomRuntime(async (f) => {
+    const { claim } = await opponentSpeech(f);
+    const media = createRoundMediaOperations(mediaDependencies(f));
+    const listen = await media.botListenToken(claim.scope, claim.token);
+    assert({
+      given: 'a live bot claim while its opponent holds the floor',
+      should: 'sign its listen grant: hearing needs the claim, not the floor',
+      actual: videoGrant(listen.token).video.canSubscribe,
+      expected: true,
+    });
+    await assertRejects({
+      given: 'the same claim asking to publish',
+      should: 'refuse: publication needs a speaking window',
+      code: 'CONFLICT',
+      message: 'Bot speaking authority changed',
+      actual: () => media.botToken(claim.scope, claim.token),
     });
   }, botControlOptions);
 });

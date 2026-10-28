@@ -1,5 +1,4 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isAppError } from '@daisy/errors';
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createBotAudioActivity } from './activity';
@@ -34,11 +33,6 @@ type ListenGrant = {
   }[];
 };
 
-/** A refusal that says the claim's own admission is over, so no rejoin can succeed. */
-const definite = (error: unknown) =>
-  isAppError(error) &&
-  (error.code === 'CONFLICT' || error.code === 'AUTHORIZATION');
-
 /**
  * The bot seat's own hearing in cross-examination (ISSUE-764). It joins the
  * media session with its own listen-only identity (`listenToken`: hidden,
@@ -48,9 +42,10 @@ const definite = (error: unknown) =>
  * worker, relay or Redis key is in the path, so neither a capture refusal nor
  * a full capture fleet deafens the bot. It lives exactly as long as the
  * claim: `close` ends it, and a Round end or a revoked seat, which rotates or
- * deletes the vendor room, drops it; the claim's own admission then refuses
- * the rejoin, and it stops trying. Media grants decide who may publish, so
- * only a seat holding the floor is heard at all.
+ * deletes the vendor room, drops it. A refused or failed rejoin backs off
+ * rather than guessing from the error that the claim is over: the claim's
+ * own lifecycle closes the listener. Media grants decide who may publish,
+ * so only a seat holding the floor is heard at all.
  */
 export function createBotListening(
   input: {
@@ -88,13 +83,12 @@ export function createBotListening(
   const seats = new Map<string, string>();
   const clocks = createTrackClocks();
   let calibration: Calibration | null = null;
-  let calibratedAt = -Infinity;
+  /** The last calibration read, kept or discarded: reads stay once a period. */
+  let calibrationReadAt = -Infinity;
   let subscription: Subscription | null = null;
   let joining: Promise<void> | null = null;
   let rejoinAt = -Infinity;
   let rejoinPauseMs = REJOIN_FIRST_MS;
-  /** The claim's admission refused for good: it never rejoins. */
-  let refused = false;
   let peersReadAt = -Infinity;
   let closed = false;
 
@@ -196,29 +190,23 @@ export function createBotListening(
     void opened.closed.then(dropped, dropped);
   };
   const ensureJoined = () => {
-    if (closed || refused || subscription || joining) return;
+    if (closed || subscription || joining) return;
     if (input.monotonicNowMs() < rejoinAt) return;
     joining = join()
-      .catch((error: unknown) => {
-        // The claim's admission is over (Round ended, seat revoked, claim
-        // taken over): stop, rather than re-admit every second.
-        if (definite(error)) refused = true;
-        else scheduleRejoin();
-      })
+      // Refused (a revocation still settling, a claim taken over) or
+      // unreachable: ask again later, never every poll.
+      .catch(scheduleRejoin)
       .finally(() => {
         joining = null;
       });
   };
   const calibrate = async () => {
-    if (
-      calibration &&
-      input.monotonicNowMs() - calibratedAt < CALIBRATE_EVERY_MS
-    )
-      return;
     const sentAtMs = input.monotonicNowMs();
+    if (sentAtMs - calibrationReadAt < CALIBRATE_EVERY_MS) return;
+    calibrationReadAt = sentAtMs;
     const server = Date.parse(await input.databaseNow());
     const receivedAtMs = input.monotonicNowMs();
-    // A slow read keeps the previous calibration; the next poll retries.
+    // A slow read keeps the previous calibration; the next period retries.
     if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS) return;
     calibration = {
       sentAtMs,
@@ -226,7 +214,6 @@ export function createBotListening(
       serverNowMs: server,
       precisionMs: 1,
     };
-    calibratedAt = receivedAtMs;
     clocks.refresh(calibration);
   };
 

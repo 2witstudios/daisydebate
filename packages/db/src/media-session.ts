@@ -82,6 +82,8 @@ export function createMediaSessionStore({
     async ensureBotBinding(input: {
       readonly scope: BotPublicationScope;
       readonly token: string;
+      /** A listen-only hearing binds the seat without needing the floor. */
+      readonly hearing?: true;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
       return run(async (tx) => {
@@ -96,7 +98,7 @@ export function createMediaSessionStore({
           buildProjection: input.buildProjection,
         });
         await verifyLockedBotWorker(tx, input.scope, input.token);
-        await requireBotSpeakingWindow(tx, input.scope);
+        if (!input.hearing) await requireBotSpeakingWindow(tx, input.scope);
         requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;
       });

@@ -4,7 +4,7 @@ import { peer, session } from './listening.test-support';
 
 setupRitewayBun();
 
-test('a dropped connection rejoins with a fresh grant; a definite refusal stops it for good (ISSUE-764)', async () => {
+test('a dropped connection rejoins with a fresh grant; a refused rejoin backs off and joins once admitted (ISSUE-764)', async () => {
   let refusal: Error | undefined = undefined;
   const s = session({ refuse: () => refusal });
   s.listening.start();
@@ -17,31 +17,55 @@ test('a dropped connection rejoins with a fresh grant; a definite refusal stops 
   s.advance(1000);
   await s.listening.poll();
   await s.joined();
-  // The Round ends or the seat is revoked: its admission refuses the bot.
+  // A revocation still settling refuses the rejoin; it clears on its own.
   refusal = createAppError('CONFLICT', 'Round media admission is closed');
+  s.expectJoin();
   s.subscriptions[1]!.drop();
   await Promise.resolve();
   s.advance(1000);
   await s.listening.poll();
-  for (let poll = 0; poll < 5; poll++) {
-    s.advance(60_000);
-    await s.listening.poll();
-  }
+  const refusedGrants = s.grants.length;
+  refusal = undefined;
+  s.advance(2000);
+  await s.listening.poll();
+  await s.joined();
   assert({
     given:
-      'a drop, a rejoin after its pause, then a drop whose rejoin the admission refuses with CONFLICT',
+      'a drop, a rejoin after its pause, then a drop whose first rejoin is refused with CONFLICT',
     should:
-      'rejoin once with a fresh grant, then never ask again: a revoked seat hears nothing',
+      'rejoin with a fresh grant each time, and join again once the refusal clears',
     actual: {
       beforePause,
+      refusedGrants,
       subscriptions: s.subscriptions.map((sub) => sub.token),
-      grants: s.grants.length,
     },
     expected: {
       beforePause: 1,
-      subscriptions: ['listen-1', 'listen-2'],
-      grants: 3,
+      refusedGrants: 3,
+      subscriptions: ['listen-1', 'listen-2', 'listen-4'],
     },
+  });
+});
+
+test('a respondent bot refused its first grant for want of the floor still hears once admitted', async () => {
+  let refusals = 1;
+  const s = session({
+    refuse: () =>
+      refusals-- > 0
+        ? createAppError('CONFLICT', 'Bot speaking authority changed')
+        : undefined,
+  });
+  s.listening.start();
+  for (let poll = 0; poll < 3; poll++) {
+    s.advance(500);
+    await s.listening.poll();
+  }
+  await s.joined();
+  assert({
+    given: 'a cross-ex seat whose first listen grant is refused with CONFLICT',
+    should: 'ask again after its pause and join',
+    actual: { grants: s.grants.length, subscriptions: s.subscriptions.length },
+    expected: { grants: 2, subscriptions: 1 },
   });
 });
 
@@ -83,23 +107,35 @@ test('a transient join failure backs off, doubling to a ceiling, and a failed cl
   });
 });
 
-test('a slow PostgreSQL time read never calibrates the listener', async () => {
-  let readMs = 150;
-  const s = session({ readMs: () => readMs });
+test('a slow PostgreSQL time read never calibrates the listener, and is retried once a period', async () => {
+  let readMs = 150,
+    reads = 0;
+  const s = session({
+    readMs: () => {
+      reads++;
+      return readMs;
+    },
+  });
   s.listening.start();
   await s.joined();
   await s.listening.poll();
   s.speak(['peer-identity']);
-  const slow = [...s.events];
+  for (let poll = 0; poll < 10; poll++) await s.listening.poll();
+  const slow = { events: [...s.events], reads };
   readMs = 0;
+  s.advance(1000);
   await s.listening.poll();
   s.speak(['peer-identity'], 20);
   assert({
     given:
-      'a calibration read with a 150 ms round trip, then a prompt one on the next poll',
+      'a calibration read with a 150 ms round trip, eleven polls within its period, then a prompt read a period later',
     should:
-      'hear nothing while uncalibrated, then hear the peer once the next poll calibrates',
-    actual: { slow, events: s.events },
-    expected: { slow: [], events: [`speech-start:${peer}`] },
+      'hear nothing and read once while uncalibrated, then hear the peer once the next period calibrates',
+    actual: { slow, events: s.events, reads },
+    expected: {
+      slow: { events: [], reads: 1 },
+      events: [`speech-start:${peer}`],
+      reads: 2,
+    },
   });
 });

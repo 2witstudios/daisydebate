@@ -24,6 +24,11 @@ export type MediaAdmissionPrincipal =
       readonly kind: 'bot';
       readonly scope: BotPublicationScope;
       readonly token: string;
+      /**
+       * The seat's own listen-only hearing (ISSUE-764): admitted on its live
+       * claim and the media window alone. Only publication needs the floor.
+       */
+      readonly hearing?: true;
     };
 export type MediaAdmissionContext = MediaSessionSnapshot & {
   readonly binding: MediaSessionSnapshot['bindings'][number];
@@ -37,6 +42,14 @@ const requiredSnapshot = async (
   if (!snapshot) throw createAppError('NOT_FOUND');
   return snapshot;
 };
+/** The bot's live claim and, unless it only hears, its speaking window. */
+async function verifyBotPrincipal(
+  tx: BoundedTransactionContext,
+  principal: Extract<MediaAdmissionPrincipal, { readonly kind: 'bot' }>,
+) {
+  await verifyLockedBotWorker(tx, principal.scope, principal.token);
+  if (!principal.hearing) await requireBotSpeakingWindow(tx, principal.scope);
+}
 export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
   async issueMediaToken<T>(input: {
     readonly roundId: string;
@@ -65,24 +78,14 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
       if (input.principal.kind === 'bot') {
         if (input.principal.scope.roundId !== input.roundId)
           throw createAppError('AUTHORIZATION');
-        await verifyLockedBotWorker(
-          tx,
-          input.principal.scope,
-          input.principal.token,
-        );
-        await requireBotSpeakingWindow(tx, input.principal.scope);
+        await verifyBotPrincipal(tx, input.principal);
         // Run/claim locks can wait. Re-tick at the actual post-lock instant before signing.
         snapshot = await requiredSnapshot(tx, {
           roundId: input.roundId,
           admits: input.admits,
           buildProjection: input.buildProjection,
         });
-        await verifyLockedBotWorker(
-          tx,
-          input.principal.scope,
-          input.principal.token,
-        );
-        await requireBotSpeakingWindow(tx, input.principal.scope);
+        await verifyBotPrincipal(tx, input.principal);
         participantId = input.principal.scope.roundParticipantId;
       } else participantId = snapshot.caller!.id;
       const binding = snapshot.bindings.find(

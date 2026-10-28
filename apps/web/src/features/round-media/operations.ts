@@ -105,14 +105,12 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
    * to no seat, so reconciliation never grants it a floor. It is derived
    * from the seat's binding, so a takeover's or a rejoin's listener evicts
    * any earlier connection under it (LiveKit admits one connection per
-   * identity). It is admitted exactly as the bot's publication is: its live
-   * claim and speaking window, under this session's reconcile hold.
+   * identity). It is admitted on the bot's live claim and the media window,
+   * under this session's reconcile hold, but needs no speaking window: the
+   * bot hears most while it does not hold the floor.
    */
-  const admit = async (
-    roundId: string,
-    principal: Principal,
-    mode: 'speak' | 'listen' = 'speak',
-  ) => {
+  const admit = async (roundId: string, principal: Principal) => {
+    const hearing = principal.kind === 'bot' && principal.hearing === true;
     const binding =
       principal.kind === 'human'
         ? await input.store.ensureBinding({
@@ -124,18 +122,18 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             scope: principal.scope,
             token: principal.token,
             buildProjection,
+            ...(hearing ? { hearing: true as const } : {}),
           });
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
       if (admissionRevoked(context))
         throw createAppError('CONFLICT', 'Round media admission is closed');
       const grants = seatGrants(context, context.participantId, input.nextId);
-      const identity =
-        mode === 'listen'
-          ? listenIdentity(context.binding.identity)
-          : context.binding.identity;
+      const identity = hearing
+        ? listenIdentity(context.binding.identity)
+        : context.binding.identity;
       const token = await input.media.joinToken(
-        mode === 'listen'
+        hearing
           ? {
               room: context.binding.roomName,
               identity,
@@ -252,7 +250,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       admit(scope.roundId, { kind: 'bot', scope, token }),
     /** The bot seat's own hearing in cross-examination (ISSUE-764). */
     botListenToken: (scope: Scope, token: string) =>
-      admit(scope.roundId, { kind: 'bot', scope, token }, 'listen'),
+      admit(scope.roundId, { kind: 'bot', scope, token, hearing: true }),
     /**
      * The session's current seat bindings, for a listener whose peer bound
      * after it joined: a read, never a signed grant. An ended session has none.
