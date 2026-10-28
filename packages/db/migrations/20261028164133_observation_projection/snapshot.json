@@ -1,7 +1,7 @@
 {
-  "id": "84df2782-5a88-4bcf-ab8b-0b1096b9083d",
+  "id": "836f7a86-112b-4f63-8a3e-83ed50f39517",
   "prevIds": [
-    "ec944507-f8d0-475e-9d31-22d365f8b6ed"
+    "f32b26bb-7cdb-4d77-8e07-bf9207197b88"
   ],
   "version": "8",
   "dialect": "postgres",
@@ -20075,7 +20075,7 @@
       "table": "usage_reservations"
     },
     {
-      "value": "\"deleted_at\" is null or (\"email\" is null and \"username\" is null and \"image\" is null and \"name\" = '')",
+      "value": "\"deleted_at\" is null or (\"email\" is null and \"image\" is null and \"name\" = '')",
       "name": "users_tombstone_scrubbed",
       "entityType": "checks",
       "schema": "public",
