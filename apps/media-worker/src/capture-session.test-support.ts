@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { captureConnectionClosed } from '@daisy/media/capture';
+import { subscriptionClosed } from '@daisy/media/subscription';
 import { captureFailureExit, describeCaptureExit } from './capture-exit';
 import type { CaptureClient } from './capture-history';
 import { runCaptureSession } from './capture-session';
@@ -148,7 +148,6 @@ export function createCaptureSessionFixture(
       return {};
     },
     heard: async () => undefined,
-    activity: async () => undefined,
   } as unknown as CaptureClient;
   const done = runCaptureSession(
     {
@@ -175,8 +174,7 @@ export function createCaptureSessionFixture(
         return {
           closed: closed.promise,
           setIdentities: async () => {
-            if (dropped && options.closingFirst)
-              throw captureConnectionClosed();
+            if (dropped && options.closingFirst) throw subscriptionClosed();
           },
           close: async () => {
             closed.resolve('closed');

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emailedLinkIdentifier } from '../confirmation/emailed-link-token';
-import type { AuthEmailMessage } from '../server';
+import type { EmailMessage } from '../server';
 import {
   linkIn,
   newEmail,
@@ -133,7 +133,7 @@ describe('ISSUE-2 email change on opaque stored tokens', () => {
 });
 
 /** A mail with its one link's token blanked, so two sends compare equal. */
-const withoutToken = (message: AuthEmailMessage | undefined) => ({
+const withoutToken = (message: EmailMessage | undefined) => ({
   to: message?.to,
   subject: message?.subject,
   text: message?.text.replace(/token=[\w-]+/, 'token=…'),

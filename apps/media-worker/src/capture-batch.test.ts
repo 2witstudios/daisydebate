@@ -56,7 +56,6 @@ const staged = (
 ): StagedFrame => ({
   seat,
   segmentId,
-  original: { sequence: 0, beforeMs: 0, afterMs: 0 },
   frame: {
     pcm: new Int16Array(160),
     trackId: 'track',

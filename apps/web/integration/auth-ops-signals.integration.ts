@@ -39,7 +39,7 @@ describe('ISSUE-190 mail delivery failure signals', () => {
       const afterFailures = {
         total: sampleOf(
           await edge.metricsText(),
-          'auth_mail_delivery_failures_total',
+          'mail_delivery_failures_total{purpose="auth"}',
         ),
         consecutive: (await edge.alertSnapshot()).deliveryConsecutiveFailures,
       };
@@ -47,7 +47,7 @@ describe('ISSUE-190 mail delivery failure signals', () => {
       const afterDelivery = {
         total: sampleOf(
           await edge.metricsText(),
-          'auth_mail_delivery_failures_total',
+          'mail_delivery_failures_total{purpose="auth"}',
         ),
         consecutive: (await edge.alertSnapshot()).deliveryConsecutiveFailures,
       };

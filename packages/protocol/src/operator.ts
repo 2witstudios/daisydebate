@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { betaAccessCommandResultSchema, betaAccessStates } from './beta-access';
+import {
+  betaAccessCommandAction,
+  betaAccessCommandResultSchema,
+  betaAccessCommandStateSchema,
+  betaAccessStates,
+} from './beta-access';
 import { idSchema } from './primitives';
 
 /**
@@ -115,14 +120,27 @@ export const betaAccessCommandSchema = z.strictObject({
 });
 
 /**
- * `GET /operator/v1/commands/{id}`: a command's stored result and its
- * approval mail's state (null when it owed none), for the admin app to
- * reconcile a response it never received.
+ * `GET /operator/v1/commands/{id}`: a command's stored result, for the admin
+ * app to reconcile a response it never received. Discriminated by the
+ * receipt's action; each action's owner defines its variant.
  */
-export const operatorCommandStateSchema = z.strictObject({
-  result: betaAccessCommandResultSchema,
-  mailState: z
-    .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
-    .nullable(),
-});
+export const operatorCommandStateSchema = z.discriminatedUnion('action', [
+  betaAccessCommandStateSchema,
+]);
+
+/** What a receipt stores: the result of whichever action it records. */
+export const operatorCommandResultSchema = z.union([
+  betaAccessCommandResultSchema,
+]);
+
+/**
+ * A receipt's action and result, validated together before it is written,
+ * so no row can pair an action with another action's result.
+ */
+export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
+  z.strictObject({
+    action: z.literal(betaAccessCommandAction),
+    result: betaAccessCommandResultSchema,
+  }),
+]);
 export type OperatorCommandState = z.infer<typeof operatorCommandStateSchema>;

@@ -69,7 +69,7 @@ production use. No production service, credentials or deployment is activated.
 
 ## Native receive callback foundation
 
-`createCaptureSubscription` uses the same pinned rtc-node1.2.0 public
+`createAudioSubscription` uses the same pinned rtc-node1.2.0 public
 AudioStream FrameProcessor extension, with16kHz mono160-sample frames. The SDK
 invokes that processor synchronously in its FFI frameReceived handler before
 its readable controller enqueues the frame. The adapter copies PCM and records

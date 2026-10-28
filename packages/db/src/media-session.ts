@@ -3,9 +3,9 @@ import {
   mediaBindingFields as bindingFields,
 } from './media-participant-binding';
 import {
+  verifyBotMediaPrincipal,
   verifyLockedBotWorker,
-  requireBotSpeakingWindow,
-  type BotPublicationScope,
+  type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -80,23 +80,27 @@ export function createMediaSessionStore({
       });
     },
     async ensureBotBinding(input: {
-      readonly scope: BotPublicationScope;
-      readonly token: string;
+      readonly principal: BotMediaPrincipal;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
+      const { scope, token } = input.principal;
       return run(async (tx) => {
-        await verifyLockedBotWorker(tx, input.scope, input.token);
+        await verifyLockedBotWorker(tx, scope, token);
         const binding = await bindMediaParticipant(tx, {
-          roundId: input.scope.roundId,
-          roundParticipantId: input.scope.roundParticipantId,
+          roundId: scope.roundId,
+          roundParticipantId: scope.roundParticipantId,
           nextId,
         });
         const tick = await executeLockedRoundTick(tx, {
-          roundId: input.scope.roundId,
+          roundId: scope.roundId,
           buildProjection: input.buildProjection,
         });
-        await verifyLockedBotWorker(tx, input.scope, input.token);
-        await requireBotSpeakingWindow(tx, input.scope);
+        // The tick may have moved the segment or the claim, so the whole
+        // admission rule (claim included) is judged again after it, the same
+        // one the token is signed under; a refusal rolls the binding back
+        // with this transaction. The claim check before it only spares a
+        // dead claim the tick.
+        await verifyBotMediaPrincipal(tx, input.principal);
         requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;
       });

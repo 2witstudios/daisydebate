@@ -204,9 +204,10 @@ complete (DEC-218).
 Each claim joins one native publication when its seat starts, ahead of
 generation and synthesis, and every attempt reuses it (DEC-225). The track is
 used only once capture reports hearing it: the capture worker reports each bot
-track it subscribes to through its signed ingress, admitted for a bound bot
-seat in the open segment under a current lease, into the expiring Redis key
-`botheard` (Round and track id, 30 s). The bot polls that key every 50 ms
+track it subscribes to through its signed ingress, admitted by media capture
+for a bound bot seat in the open segment under a current lease, into
+capture's expiring Redis key `captureheard` (Round and track id, 30 s), which
+the bot reads as a named input. The bot polls that key every 50 ms
 after joining, so no window is credited before capture can see the track
 (DEC-226, ISSUE-514-r2). A track not reported within 10 s is closed and the
 attempt fails as `unheard`. The key grants no authority.
@@ -218,41 +219,53 @@ floor commands; the runtime clock opens and closes segments.
 
 In cross-examination the speaker opens the exchange once. After that it
 answers once per ended peer turn, and repeated end-of-turn reports for the same
-turn start nothing. Its activity feed polls each peer's relay key every 50 ms
-against fresh PostgreSQL time. It skips frames already delivered and treats
-frames older than 250 ms, missing keys and Redis failures as unknown. A barge-in
-or unknown aborts only the active turn. A changed, invalid or shut-down claim
+turn start nothing. It reads its peers' activity from the seat's own hearing
+(below), polled every 50 ms in memory; audio older than 250 ms, an unbound
+peer, a closed track and a dropped connection read as unknown. A barge-in or
+unknown aborts only the active turn. A changed, invalid or shut-down claim
 stops its speaker before the lease is revoked or abandoned.
 
 The claim returns its segment type and the other non-judge seats. These are
 activity peers only and grant no authority over those seats.
 
-## Activity relay owner hook
+## The bot's own hearing
 
-`createBotActivityRelay` (`round-bots/activity-relay.ts`) is the hook the signed
-capture ingress calls with the worker's capture identity and body. The body
-(`botActivityRelaySchema`) carries the speaker seat, the segment its frames
-belong to and the original frames only. It has no Round, receipt, bearer or
-service claim. The hook admits a seat once per capture lease epoch and
-segment, through the locked capture read: an actually bound non-judge seat and
-the current open segment. Admission and every later batch then pass the same
-lease-validity predicate, `readCurrentCaptureLease`: this worker's epoch, an
-unexpired lease, a session not ended, unsafe or being deleted, and an open
-segment, read without the Round lock. A refused check drops the admission. The
-hook attaches PostgreSQL time as `receivedAt` and writes the validated batch
-through the existing Redis
-adapter. Bounds later than PostgreSQL time are refused.
+A cross-examination bot hears its peers itself (ISSUE-764). There is no
+capture worker, relay route or Redis key in the path, so neither a capture
+refusal nor a full capture fleet deafens a bot Round.
 
-The signed `activity` capture operation (`media-capture/handlers.ts`) splits the
-lease identity from the relay body and calls this hook. The media worker
-produces it (`apps/media-worker/src/capture-activity.ts`) only while a consumer
-exists: the current segment is cross-examination and the Round has a bot seat.
-Otherwise no PCM leaves the worker. Each staged frame joins its seat's sliding
-window of the newest twenty, with native sequence, brackets and calibrated
-server window. Every 50 ms the worker sends the window of each seat that has
-new frames. Because each batch repeats the window and the consumer skips frames
-it already delivered, the bot's 50 ms poll of the single expiring key sees an
-unbroken sequence, and only real absence of audio leaves a gap
-(`scripts/bot-activity-relay-timing.test.ts` holds this contract). Relay is
-best-effort; a refused
-or lost batch leaves activity unknown and never fails capture.
+- **Identity.** In a cross-ex claim, the seat's listener
+  (`round-bots/listening.ts`) asks the media broker for a listen grant
+  (`botListenToken`), under the session's reconcile hold. Every bot media
+  request needs its live claim (`verifyBotMediaPrincipal`); publishing also
+  needs the speaking window. Who may hear is one projected rule,
+  `mediaHearingSeats`: base seat eligibility and a live claim within its
+  live segment, read by both the token and room creation. Hearing needs no
+  floor, since a bot hears most while its opponent holds it. The grant signs an identity bound to no seat: hidden,
+  subscribe-only, with `canPublish` and `canPublishData` false, for that one
+  room. Reconciliation never grants it a floor. The identity is derived from
+  the seat's own (`round-media/listen-identity.ts`), so a takeover's or a
+  rejoin's listener evicts any earlier connection under it, including a
+  wedged one.
+- **Lifetime.** The listener joins with the seat and ends with it, after the
+  publication. A dropped connection (or a failed cleanup) rejoins with a
+  fresh grant after a pause that starts at 1 s and doubles to 30 s. A refused
+  rejoin backs off the same way, since many refusals (a revocation still
+  settling) clear on their own. An unexpected join failure is reported as
+  `round.hearing.failed` (`round.hearing.join`); a routine refusal
+  (`CONFLICT`, `AUTHORIZATION`) is reported only once it persists, every
+  fifth join in a row. A Round end or a revoked seat rotates or deletes the
+  vendor room, which drops it, and the admission refuses every rejoin until
+  the claim's own end closes the listener.
+- **Hearing.** It subscribes only its peers' microphones, from the
+  admission's peer list, re-reading the bindings for a peer that binds
+  later. A refused or unanswered subscription is asked again after a pause
+  doubling to 30 s (`@daisy/media` `createSubscriptionRequests`). Media
+  grants decide who may publish, so only a seat holding the floor is heard
+  at all. It times each frame with the neutral frame clock
+  (`@daisy/media/observation` `createTrackClocks`), calibrated against
+  PostgreSQL time once a second. A read whose round trip exceeds 100 ms is
+  discarded: retried within 200 ms until a first calibration lands, then
+  the next second. It feeds the bot's turn-taking (`round-bots/activity.ts`)
+  in memory. Stale, missing or dropped audio is unknown, never silence.
+- **No storage.** PCM stays in that process's memory, frame by frame.

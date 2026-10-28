@@ -189,9 +189,10 @@ describe('auth mail receipt recording', () => {
       expected: {
         status: 200,
         tokenSent: true,
-        events: ['auth.mail.receipt_failed', 'auth.mail.sent'],
+        events: ['mail.receipt_failed', 'mail.sent'],
         receiptFields: {
-          operation: 'auth.mail.send',
+          operation: 'mail.send',
+          purpose: 'auth',
           errorCode: 'INFRASTRUCTURE',
           providerMessageId: 'msg_1',
         },

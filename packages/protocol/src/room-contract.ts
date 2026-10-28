@@ -246,6 +246,8 @@ type RoomMutation = {
   readonly freeze: boolean;
   /** A freeze that reserves the host's AI-round allowance (DEC-186). */
   readonly spendsAiRound: boolean;
+  /** A freeze that takes a slot of the global bot-debater capacity, ranked included. */
+  readonly seatsBotDebater: boolean;
   readonly publishDefinition: boolean;
   /** The seed and private inputs of a draw this mutation creates; never delivered. */
   readonly drawSecrets: {

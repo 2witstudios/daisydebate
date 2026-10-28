@@ -2,6 +2,16 @@ import { z } from 'zod';
 import { idSchema, roundStatusSchema, segmentTypes } from '@daisy/protocol';
 const iso = z.iso.datetime({ precision: 3 });
 const version = z.number().int().nonnegative().max(2147483647);
+/** The non-judge seats a worker sees, with their bound media identities. */
+const seatsReply = z
+  .array(
+    z.strictObject({
+      roundParticipantId: idSchema,
+      kind: z.enum(['human', 'bot']),
+      identity: idSchema.nullable(),
+    }),
+  )
+  .max(256);
 export const leaseReply = z.strictObject({
   epoch: version.positive(),
   expiresAt: iso,
@@ -21,15 +31,7 @@ export const captureStateReply = z.strictObject({
   serverNow: iso,
   status: roundStatusSchema,
   transcriptAdmissionCutoff: iso.nullable(),
-  participants: z
-    .array(
-      z.strictObject({
-        roundParticipantId: idSchema,
-        kind: z.enum(['human', 'bot']),
-        identity: idSchema.nullable(),
-      }),
-    )
-    .max(256),
+  participants: seatsReply,
   segment: z
     .strictObject({
       id: idSchema,
@@ -62,4 +64,5 @@ export const sealReply = z.strictObject({
   state: z.enum(['complete', 'partial']),
   revision: version,
 });
-export const activityReply = z.null();
+/** A relay the server only acknowledges. */
+export const acknowledgedReply = z.null();

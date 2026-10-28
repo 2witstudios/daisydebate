@@ -219,10 +219,10 @@ describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any
         failures: events.filter(
           (event) =>
             event === 'request.unhandled' ||
-            event === 'auth.mail.receipt_failed' ||
-            event === 'auth.mail.failed',
+            event === 'mail.receipt_failed' ||
+            event === 'mail.failed',
         ),
-        sent: events.includes('auth.mail.sent'),
+        sent: events.includes('mail.sent'),
       },
       expected: { status: 200, mailed: 1, failures: [], sent: true },
     });

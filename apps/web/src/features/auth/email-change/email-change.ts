@@ -7,9 +7,9 @@ import {
 import { setSessionCookie } from 'better-auth/cookies';
 import * as z from 'zod';
 import type { Clock } from '@daisy/clock';
+import type { Deliver } from '../../mail/types';
 import {
   sendOrUnavailable,
-  type Deliver,
   type UndeliverableRefusal,
 } from '../mail/deliver-or-unavailable';
 import {

@@ -8,7 +8,7 @@ Redis state be validated, namespaced keys with expiry. Applies
 classification to every new field. Builds on
 [docs/operations/observability.md](../operations/observability.md)'s
 existing "alert on `auth.rate_limit.unavailable`, `auth.session.unavailable`
-and `auth.mail.failed`" line by shipping the mechanism that line only
+and `mail.failed`" line by shipping the mechanism that line only
 described as intent.
 
 ## Context
@@ -122,10 +122,10 @@ exactly one place.
   one web machine needs a shared store for this marker, chosen under a new
   ADR, before `limiter_unavailable` can be exact.
 
-- **Consecutive delivery-provider failures.** `auth.mail.failed` increments
+- **Consecutive delivery-provider failures.** `mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
-  `auth.mail.sent` deletes it. Fires at 3.
+  `mail.sent` deletes it. Fires at 3.
 - **Auth 5xx rate.** `http.ts` now logs `status` on `http.request.failed`
   too (previously only `http.request.completed` did, which undercounted
   thrown-error responses — the majority of real 5xx). The tap increments a
@@ -155,7 +155,7 @@ exactly one place.
 - **Mail shed past the bound (ISSUE-220).** A saturated sign-up ceiling
   hands each magic-link request's lookup and send or drop to bounded work
   after its answer (ADR 0025, DEC-73). Work past the bound is shed and
-  logged as `auth.mail.shed`, and real sign-ins get no mail. The tap
+  logged as `mail.shed`, and real sign-ins get no mail. The tap
   increments a per-minute `alert-mail-shed-<minute>` counter (11-minute
   TTL, like the 5xx buckets), and `readAlertSnapshot` sums the trailing
   `ALERT_THRESHOLDS.mailShedWindowMinutes` (10) into `mailShed.count`.

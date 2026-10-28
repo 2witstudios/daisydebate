@@ -32,6 +32,7 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'actor-ineligible': 'Someone in a seat can’t take part right now.',
   'draw-unavailable':
     'There aren’t enough resolutions to draw from. Choose another source or add lines.',
+  'bots-busy': 'Bots are busy right now. Try again shortly.',
 };
 
 /** Why a room command was refused, in the room's words; generic when unknown. */

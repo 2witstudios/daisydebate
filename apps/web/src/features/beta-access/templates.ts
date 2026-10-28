@@ -1,4 +1,4 @@
-import { renderAuthEmailLayout } from '../auth/mail/layout';
+import { renderEmailLayout } from '../mail/layout';
 
 /**
  * Beta access mail (ADR 0075), rendered through the shared Daisy mail
@@ -27,7 +27,7 @@ const accounts = (count: number) =>
 export function renderBetaEmail(input: BetaEmailInput) {
   switch (input.kind) {
     case 'beta-approved':
-      return renderAuthEmailLayout({
+      return renderEmailLayout({
         subject: "You're in: Daisy Debate beta",
         preheader: 'Your beta access is ready. Come debate.',
         eyebrow: 'Beta access',
@@ -41,7 +41,7 @@ export function renderBetaEmail(input: BetaEmailInput) {
         footerNote: FOOTER_NOTE,
       });
     case 'beta-requests':
-      return renderAuthEmailLayout({
+      return renderEmailLayout({
         subject: `${accounts(input.newRequests)} joined the beta list`,
         preheader: `${accounts(input.waiting)} waiting for review.`,
         eyebrow: 'Beta requests',

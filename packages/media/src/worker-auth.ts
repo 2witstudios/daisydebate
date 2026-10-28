@@ -11,6 +11,16 @@ type SignedRequest = {
 };
 const unauthorized = () =>
   createAppError('AUTHORIZATION', 'Worker authentication refused');
+/** The operations the capture worker owns on its signed routes. */
+const captureOperations = [
+  'token',
+  'lease',
+  'read',
+  'append',
+  'observe',
+  'seal',
+  'heard',
+] as const;
 const route = (path: string) => {
   const parts = path.split('/');
   if (
@@ -21,16 +31,7 @@ const route = (path: string) => {
     parts[3] !== 'media' ||
     !idSchema.safeParse(parts[4]).success ||
     parts[5] !== 'capture' ||
-    ![
-      'token',
-      'lease',
-      'read',
-      'append',
-      'observe',
-      'seal',
-      'activity',
-      'heard',
-    ].includes(parts[6]!)
+    !(captureOperations as readonly string[]).includes(parts[6]!)
   )
     throw unauthorized();
   return parts[4]!;
@@ -125,8 +126,7 @@ export function createMediaWorkerAuthentication(input: {
       // Compare SHA3-256 digests of both signatures, never the raw HMACs.
       if (sha3(digest(request).toString('hex')) !== sha3(request.signature))
         throw unauthorized();
-      const roundId = route(request.path);
-      return workerPrincipal(request.body, roundId);
+      return workerPrincipal(request.body, route(request.path));
     },
   };
 }

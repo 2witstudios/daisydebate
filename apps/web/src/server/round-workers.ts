@@ -21,7 +21,7 @@ export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: WorkerTimers;
-  readonly botToken: Parameters<typeof startRoundBotWorkers>[0]['botToken'];
+  readonly botMedia: Parameters<typeof startRoundBotWorkers>[0]['botMedia'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {

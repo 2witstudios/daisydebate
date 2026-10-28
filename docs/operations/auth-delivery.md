@@ -7,16 +7,24 @@ deploy and to reason about failures.
 
 ## Required configuration (production refuses to start without it)
 
-| Variable                | Purpose                                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; signs the session cookie                                                                          |
-| `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141)                 |
-| `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
-| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                                        |
-| `AUTH_EMAIL_FROM`       | Verified sender mailbox                                                                                                               |
-| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook                                                                                        |
-| `AUTH_TRUSTED_PROXIES`  | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
-| `OPS_PROBE_TOKEN`       | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
+Auth's own group (`readAuthConfig`):
+
+| Variable               | Purpose                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`   | 64 characters from 32 random bytes; signs the session cookie                                                                          |
+| `PUBLIC_APP_URL`       | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
+| `AUTH_TRUSTED_PROXIES` | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
+| `OPS_PROBE_TOKEN`      | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
+
+The mail transport's group (`readMailConfig`, ISSUE-780), which auth composes
+for its mail and recipient keys and beta access mail reads on its own:
+
+| Variable                | Purpose                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141) |
+| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                        |
+| `EMAIL_FROM`            | Verified sender mailbox                                                                                               |
+| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook; required in production                                                |
 
 `apps/web/src/server/start.ts` validates these at boot and reports field names
 only. Live delivery additionally needs the human prerequisite AUTH-1.3: a
@@ -87,15 +95,15 @@ ceiling, a sign-up request gets the same `200` as any other and no mail
 `path: /sign-in/magic-link` in the log. While saturated, the answer comes
 before the account lookup and the send or drop, which finish afterwards
 (ISSUE-185), so a failed sign-in send also answers `200` (ISSUE-189): watch
-`auth.mail.failed`, and `request.unhandled` with `source:
+`mail.failed`, and `request.unhandled` with `source:
 auth.after-response` for a database failure in that work. That work is
 bounded (512 holding a slot, 64 waiting, with only its database steps
-gated at 4 at once); past it a request's work is shed with no mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
+gated at 4 at once); past it a request's work is shed with no mail, logged as `mail.shed` and counted as `auth_mail_shed_total` on
 `/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
 "Alerting" and "Auth mail shed past the bound" below): it means a flood,
 real sign-in volume above what the bound drains, or slow or failing mail
 delivery, which holds every slot longer so the bound fills sooner. Check
-`auth.mail.failed` and the `delivery_failures` alert before assuming a
+`mail.failed` and the `delivery_failures` alert before assuming a
 flood.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
@@ -125,7 +133,7 @@ recipient hour and day ceilings and the whole-application day ceiling.
   from it is refused when requested, before any approval mail (a change to
   it with the same `422`, a change from it with `422
 CURRENT_EMAIL_UNDELIVERABLE`), and a passkey added/removed notice
-  is skipped and logged as `auth.mail.suppressed` (ADR 0025). Clearing a suppression is an explicit operator action on that
+  is skipped and logged as `mail.suppressed` (ADR 0025). Clearing a suppression is an explicit operator action on that
   table and should follow confirmation that the mailbox is fixed.
 - Diagnostics: `email_delivery` (message ID, status rank, recipient hash) and
   `email_delivery_event` (event ID dedupe). Neither holds an address or a
@@ -139,7 +147,7 @@ CURRENT_EMAIL_UNDELIVERABLE`), and a passkey added/removed notice
   committing); older, or with no usable timestamp, it answers `200` and is
   discarded.
 - Receipt write failure after the provider accepted a message: the request
-  still succeeds (the user has the email) and `auth.mail.receipt_failed` logs
+  still succeeds (the user has the email) and `mail.receipt_failed` logs
   the opaque `providerMessageId`, nothing else about the message. With no
   `email_delivery` row, that message's bounce or complaint is retried while it
   is under two minutes old, then answered `200` and discarded, so no
@@ -251,10 +259,10 @@ existing event stream — no new call sites):
 | --------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `storage_unavailable` | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                        |
 | `limiter_unavailable` | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                        |
-| `delivery_failures`   | 3+ consecutive `auth.mail.failed`, reset by `auth.mail.sent`                                    | `alert-mail-consecutive-failures`                  |
+| `delivery_failures`   | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                  |
 | `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
 | `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
-| `mail_shed`           | 20+ `auth.mail.shed` over the trailing 10 minutes (ISSUE-220)                                   | per-minute `alert-mail-shed-*`                     |
+| `mail_shed`           | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                     |
 | `network_limited`     | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
@@ -276,7 +284,7 @@ diagnostic also breaks `bun test:integration` or `bun test src`.
 EMAIL_DELIVERY_FAILED`, or a bounce guidance message (`422
 EMAIL_UNDELIVERABLE`) appears for addresses that should be deliverable.
 
-1. Filter the event stream for `event:"auth.mail.failed"` — every occurrence
+1. Filter the event stream for `event:"mail.failed"` — every occurrence
    is a Resend send that threw or timed out; the fields carry only
    `operation`/`errorCode`, never the recipient or provider exception
    (`apps/web/integration/auth-database-failures.integration.ts`, "delivery
@@ -287,19 +295,19 @@ EMAIL_UNDELIVERABLE`) appears for addresses that should be deliverable.
    `recipientKey(deriveRecipientSubkey(RECIPIENT_HASH_SECRET), email)`
    (SHA3-256 of a domain-separated subkey of `RECIPIENT_HASH_SECRET` and the
    normalized address, never `BETTER_AUTH_SECRET`; ADR 0044, ISSUE-141;
-   `apps/web/src/features/auth/mail/recipient-key.ts`), which cannot be
+   `apps/web/src/features/mail/recipient-key.ts`), which cannot be
    recomputed from SQL alone — run `bun repl` (or a one-off script) importing
    `recipientKey`/`deriveRecipientSubkey` with the deployment's
    `RECIPIENT_HASH_SECRET` to look up
    `SELECT reason, created_at FROM email_suppression WHERE recipient_hash =
-'<computed hash>'`, or correlate via `auth.mail.receipt_failed`'s
+'<computed hash>'`, or correlate via `mail.receipt_failed`'s
    `providerMessageId` against Resend's dashboard. Suppression only follows a
    hard bounce or complaint
    (`apps/web/integration/auth-mail-suppression.integration.ts`, "a hard
    bounce stops automatic resends"). Clearing a row is a deliberate operator
    action taken only after confirming the mailbox is fixed; there is no
    in-app override, by design.
-4. If `auth.mail.receipt_failed` is firing repeatedly, the message is still
+4. If `mail.receipt_failed` is firing repeatedly, the message is still
    sent (the user has their email) but bounce/complaint correlation for that
    `providerMessageId` will be delayed — reconcile using the ID in the log,
    never the address.
@@ -464,10 +472,10 @@ limiter_unavailable").
 failures fire; 2 does not").
 
 1. Follow "Mail delivery is failing" above to diagnose Resend itself; this
-   alert is that same condition crossing 3 consecutive `auth.mail.failed`
+   alert is that same condition crossing 3 consecutive `mail.failed`
    events with no intervening successful send
    (`apps/web/src/server/alert-recorder.test.ts`, "increments consecutive
-   mail failures on auth.mail.failed, resets on auth.mail.sent").
+   mail failures on mail.failed, resets on mail.sent").
 2. The counter resets to zero on the next successful send; no manual reset
    is needed once Resend recovers.
 
@@ -550,7 +558,7 @@ at the edge is the response.
    validated `AUTH_SIGN_UP_MAIL_CEILINGS` configuration (below)
    rather than the bound: the bound protects the Postgres pool and the
    process's memory.
-4. Check `auth.mail.failed`: a slow or failing provider holds every slot
+4. Check `mail.failed`: a slow or failing provider holds every slot
    longer, so the bound fills sooner.
 
 ### Magic-link requests limited per network

@@ -6,7 +6,7 @@ import {
   EMAILED_LINK_PURPOSES,
   SIGN_IN_STORED_PURPOSE,
 } from '../confirmation/emailed-link-token';
-import { deriveRecipientSubkey, recipientKey } from './recipient-key';
+import { deriveRecipientSubkey, recipientKey } from '../../mail/recipient-key';
 
 /**
  * The link purposes a provisional account's emailed links are stored under,

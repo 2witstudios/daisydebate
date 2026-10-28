@@ -468,7 +468,7 @@ Verify: `fly secrets list -a daisy-debate-staging` shows `REDIS_URL` (staged).
 
 ## 4. Create the Resend webhook (before first deploy)
 
-Before setting `AUTH_EMAIL_FROM` (step 5), choose a sending path:
+Before setting `EMAIL_FROM` (step 5), choose a sending path:
 
 - **Normal staging delivery**: add and verify a sending domain in the Resend
   dashboard, then use a sender address from that domain (for example
@@ -520,7 +520,7 @@ fly secrets import -a daisy-debate-staging --stage <<SECRETS
 BETTER_AUTH_SECRET=$better_auth_secret
 RECIPIENT_HASH_SECRET=$recipient_hash_secret
 RESEND_API_KEY=re_...
-AUTH_EMAIL_FROM=Daisy <no-reply@yourdomain.example>
+EMAIL_FROM=Daisy <no-reply@yourdomain.example>
 RESEND_WEBHOOK_SECRET=whsec_...
 OPS_PROBE_TOKEN=$ops_probe_token
 SECRETS
@@ -641,7 +641,7 @@ curl -sS https://daisy-debate-staging.fly.dev/api/health/ready
 
 # Sign-in email delivered: start a magic-link sign-in against the running
 # app, then confirm Resend's dashboard shows the message as sent/delivered
-# for that recipient. If AUTH_EMAIL_FROM uses onboarding@resend.dev (step 4
+# for that recipient. If EMAIL_FROM uses onboarding@resend.dev (step 4
 # account-only path), this MUST be the Resend account's own email address —
 # any other recipient gets a 403 and the email never sends. Otherwise use
 # any real inbox you control under the verified sending domain.

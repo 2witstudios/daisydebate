@@ -1,3 +1,5 @@
+import type { MailPurpose } from '../features/mail/types';
+
 const STATUS_CLASSES = ['2xx', '3xx', '4xx', '5xx'] as const;
 type StatusClass = (typeof STATUS_CLASSES)[number];
 
@@ -18,7 +20,7 @@ export const KNOWN_OPERATIONS = [
   'auth.confirm.submit',
   'auth.confirm_email.view',
   'auth.confirm_email.submit',
-  'auth.mail.webhook',
+  'mail.webhook',
   'account.sessions.list',
   'account.sessions.revoke',
   'account.username.claim',
@@ -62,7 +64,10 @@ export type MetricsSnapshot = {
   readonly httpRequestsByStatusClass: Readonly<Record<StatusClass, number>>;
   readonly rateLimitDeniedTotal: number;
   readonly rateLimitUnavailableTotal: number;
-  readonly mailDeliveryFailuresTotal: number;
+  /** Mail transport failures by purpose (ISSUE-780). */
+  readonly mailDeliveryFailuresByPurpose: Readonly<
+    Record<MailPurposeLabel, number>
+  >;
   /** Saturated sign-in/sign-up work shed past its bound (ISSUE-185, DEC-73). */
   readonly authMailShedTotal: number;
   /** Magic-link requests denied for their network, by scope (AUTH-3.10). */
@@ -75,6 +80,14 @@ export type MetricsSnapshot = {
   >;
 };
 
+/** Mail purposes: the only `mail_delivery_failures_total` labels. */
+const MAIL_PURPOSES = [
+  'auth',
+  'beta-access',
+] as const satisfies readonly MailPurpose[];
+type MailPurposeLabel = (typeof MAIL_PURPOSES)[number];
+const isMailPurpose = (value: unknown): value is MailPurposeLabel =>
+  (MAIL_PURPOSES as readonly unknown[]).includes(value);
 /** The network scopes `rate-limit.ts` limits: the only labels counted. */
 const NETWORK_SCOPES = ['ipv6_56', 'ipv6_48', 'ipv4_24'] as const;
 type NetworkScopeLabel = (typeof NETWORK_SCOPES)[number];
@@ -100,7 +113,10 @@ export function createMetricsStore() {
   };
   let rateLimitDeniedTotal = 0;
   let rateLimitUnavailableTotal = 0;
-  let mailDeliveryFailuresTotal = 0;
+  const mailDeliveryFailuresByPurpose: Record<MailPurposeLabel, number> = {
+    auth: 0,
+    'beta-access': 0,
+  };
   let authMailShedTotal = 0;
   const networkDeniedByScope: Record<NetworkScopeLabel, number> = {
     ipv6_56: 0,
@@ -134,6 +150,16 @@ export function createMetricsStore() {
     });
   };
 
+  /** Auth's own after-response backlog; another purpose's shed is not counted. */
+  const recordAuthShed = (fields: Readonly<Record<string, unknown>>) => {
+    if (fields.purpose === 'auth') authMailShedTotal += 1;
+  };
+  /** An unknown purpose is not a label, so cardinality stays bounded. */
+  const recordMailFailure = (fields: Readonly<Record<string, unknown>>) => {
+    if (isMailPurpose(fields.purpose))
+      mailDeliveryFailuresByPurpose[fields.purpose] += 1;
+  };
+
   const recordHttpOutcome = (fields: Readonly<Record<string, unknown>>) => {
     recordStatusClass(fields);
     recordLatency(fields);
@@ -163,11 +189,11 @@ export function createMetricsStore() {
         case 'auth.rate_limit.unavailable':
           rateLimitUnavailableTotal += 1;
           return;
-        case 'auth.mail.failed':
-          mailDeliveryFailuresTotal += 1;
+        case 'mail.failed':
+          recordMailFailure(fields);
           return;
-        case 'auth.mail.shed':
-          authMailShedTotal += 1;
+        case 'mail.shed':
+          recordAuthShed(fields);
           return;
         case 'auth.rate_limit.network_denied':
           if (isNetworkScope(fields.scope))
@@ -185,7 +211,7 @@ export function createMetricsStore() {
         httpRequestsByStatusClass: { ...httpRequestsByStatusClass },
         rateLimitDeniedTotal,
         rateLimitUnavailableTotal,
-        mailDeliveryFailuresTotal,
+        mailDeliveryFailuresByPurpose: { ...mailDeliveryFailuresByPurpose },
         authMailShedTotal,
         networkDeniedByScope: { ...networkDeniedByScope },
         retentionSweepFailuresByOperation: Object.fromEntries(
@@ -228,9 +254,12 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
     '# HELP auth_rate_limit_unavailable_total Auth requests the rate limiter could not decide since process start.',
     '# TYPE auth_rate_limit_unavailable_total counter',
     `auth_rate_limit_unavailable_total ${snapshot.rateLimitUnavailableTotal}`,
-    '# HELP auth_mail_delivery_failures_total Auth email delivery failures since process start.',
-    '# TYPE auth_mail_delivery_failures_total counter',
-    `auth_mail_delivery_failures_total ${snapshot.mailDeliveryFailuresTotal}`,
+    '# HELP mail_delivery_failures_total Email delivery failures by purpose since process start.',
+    '# TYPE mail_delivery_failures_total counter',
+    ...MAIL_PURPOSES.map(
+      (purpose) =>
+        `mail_delivery_failures_total{purpose="${purpose}"} ${snapshot.mailDeliveryFailuresByPurpose[purpose]}`,
+    ),
     '# HELP auth_mail_shed_total Auth mail work shed after the answer because its backlog was full, since process start.',
     '# TYPE auth_mail_shed_total counter',
     `auth_mail_shed_total ${snapshot.authMailShedTotal}`,

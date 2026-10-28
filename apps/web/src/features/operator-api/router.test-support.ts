@@ -50,7 +50,11 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
         calls.commands.push(input);
         return { kind: 'applied', result };
       },
-      readOperatorCommand: async () => ({ result, mailState: 'sent' }),
+      readOperatorCommand: async () => ({
+        action: 'account.beta_access.update' as const,
+        result,
+        mailState: 'sent' as const,
+      }),
     },
     nextId: () => 'i'.repeat(24),
     logger: { log: () => {} },
