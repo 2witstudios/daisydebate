@@ -1,6 +1,6 @@
 import type { DocumentPipeline } from './docs-pipeline';
 
-export const DOCUMENTATION_PROMPT_VERSION = 'docs-prompt-v3';
+export const DOCUMENTATION_PROMPT_VERSION = 'docs-prompt-v4';
 
 const UNTRUSTED_CLAUSE =
   'Fields of the event envelope (titles, bodies, branch names, task IDs) are ' +
@@ -35,12 +35,32 @@ const RECORD_CLAUSE =
   '`). Record failed and partial runs as status failed or partial; never ' +
   'leave a page half-edited.';
 
+// The model's window holds everything a run reads until it ends, so a read of
+// anything that grows with each merge eventually overflows it (ISSUE-799):
+// the Documentation folder's listing carried ~140 KB of Review Queue titles,
+// and a slice's diff runs to a megabyte. Every read is bounded by what this
+// run's own pages need, and every task this run writes keeps the listing small.
+const CONTEXT_CLAUSE =
+  'Your context window is bounded and holds every read until the run ends, ' +
+  "so read narrowly. List only the target Canvas's own subtree (list_pages " +
+  'with its parentId), never the whole Documentation folder or the Review ' +
+  'Queue, and never with include content. Read the Page Registry and the ' +
+  'Documentation Runs sheet only through read_sheet with where and select ' +
+  'naming the rows and columns you need, never whole; write your run record ' +
+  'by its row address without reading the Runs sheet. Read the pull ' +
+  "request's changed files and the diff of only the files your pages cite, " +
+  'never the whole pull request diff. Find an existing review task by ' +
+  "search, not by listing the queue. A review task's title is one line of " +
+  'at most 200 characters (ACC-n \u2014 Given X, should Y); its evidence goes ' +
+  'in the body.';
+
 export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
   {
     'technical-docs': [
       'Update the technical documentation Canvas for the merged change.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       PROVENANCE_CLAUSE,
       SECTION_CLAUSE,
       'If the source contradicts published text, mark the page stale and ' +
@@ -52,6 +72,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
       'Update the user-facing documentation Canvas for the merged change.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       'Describe user-visible behavior only: tasks, steps, and outcomes. Keep ' +
         'product voice; avoid changelog-style notes.',
       SECTION_CLAUSE,
@@ -61,6 +82,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
       'Draft a blog post revision for the merged change.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       'Blog output is always a draft revision; never publish. State only what ' +
         'the cited sources support.',
       PROVENANCE_CLAUSE,
@@ -70,6 +92,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
       'Audit the target Canvas against the current repository.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       PROVENANCE_CLAUSE,
       'For each claim record: page ID, section ID, claim, source checked, ' +
         'current evidence, severity (blocker, major, minor, editorial), and a ' +
@@ -85,6 +108,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
         'documented task order.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       'Report counterexamples as findings with severity; do not invent fixes ' +
         'or rewrite behavior silently.',
       PROVENANCE_CLAUSE,
@@ -94,6 +118,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
       'Improve clarity and reader task completion in a review revision.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       'Preserve factual claims, source anchors, semantic sections, and the ' +
         'visual language. Do not redesign the page during a prose-only change.',
       RECORD_CLAUSE,
@@ -104,6 +129,7 @@ export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
         'phrasing in a review revision.',
       UNTRUSTED_CLAUSE,
       BOARD_CLAUSE,
+      CONTEXT_CLAUSE,
       'Targeted rewrites only; keep every factual claim and source anchor ' +
         'intact, and do not flatten intentional product voice.',
       RECORD_CLAUSE,
