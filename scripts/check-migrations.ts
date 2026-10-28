@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 
+import { findRewriteProblems } from './migration-rewrites';
 import { isIsoDate, reviewDateStatus, utcToday } from './review-date';
 
 /**
@@ -38,7 +39,9 @@ export type MigrationProblemCode =
   | 'BROKEN_CHAIN'
   | 'BASE_LAYOUT'
   | 'EXPIRED_SANCTION'
-  | 'INVALID_SANCTION';
+  | 'INVALID_SANCTION'
+  | 'UNPROVEN_REWRITE'
+  | 'PENDING_TRIGGER_HAZARD';
 
 export type MigrationProblem = {
   readonly code: MigrationProblemCode;
@@ -388,15 +391,42 @@ export async function runMigrationCheck(
     today,
     dir,
   });
+  const shared = new Set(
+    readMigrations(baseFiles, dir).migrations.map(({ tag }) => tag),
+  );
+  const rewrites = result.sanctioned
+    ? []
+    : await Promise.all(
+        readMigrations(headFiles, dir)
+          .migrations.filter(({ tag }) => !shared.has(tag))
+          .map(async ({ tag, sql }) =>
+            findRewriteProblems({
+              tag,
+              sql: await git(['cat-file', '-p', sql]),
+              proven: await namedByIntegrationTest(tag),
+            }),
+          ),
+      );
+  const problems = [...result.problems, ...rewrites.flat()];
   return {
-    ok: result.problems.length === 0,
+    ok: problems.length === 0,
     sanctioned: result.sanctioned,
     baseRef,
     baseCount: result.baseCount,
     headCount: result.headCount,
-    problems: result.problems,
+    problems,
   };
 }
+
+/** A seeded proof names the migration it applies (ISSUE-788). */
+const namedByIntegrationTest = async (tag: string) =>
+  (
+    await Bun.$`git grep -l -F ${tag} HEAD -- ${'*.integration.ts'}`
+      .cwd(root)
+      .quiet()
+      .nothrow()
+      .text()
+  ).trim() !== '';
 
 if (import.meta.main) {
   try {
