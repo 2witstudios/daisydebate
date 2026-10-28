@@ -1,86 +1,114 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import {
+  decideMessagingInboxCandidate,
+  messagingInboxEntries,
   messagingInboxExcerpt,
   messagingInboxView,
-  readMessagingInbox,
   summarizeMessagingInboxEntry,
 } from './inbox';
+import { typingWorld } from './typing.test-support';
 setupRitewayBun();
-const summary = (channelId: string, activityAt: string) => ({
-  channelId,
-  kind: 'conversation' as const,
-  title: 'kelvin',
-  preview: null,
-  activityAt,
-  unread: false,
-});
-test('inbox reauthorizes each candidate and propagates infrastructure failure instead of empty history', async () => {
-  const ids = ['a'.repeat(24), 'b'.repeat(24), 'c'.repeat(24)] as const;
-  const inspected: string[] = [];
-  const port = {
-    candidates: async () => ids,
-    inspect: async (channelId: string) => {
-      inspected.push(channelId);
-      if (channelId === ids[1]) throw createAppError('AUTHORIZATION');
-      return summary(channelId, '2026-10-01T00:00:00.000Z');
-    },
+const decide = (
+  f: ReturnType<typeof typingWorld>,
+  candidate: Parameters<typeof decideMessagingInboxCandidate>[0],
+  ageOf: Parameters<typeof decideMessagingInboxCandidate>[1],
+) => {
+  const self = f.accounts[0]!.account;
+  return decideMessagingInboxCandidate(candidate, ageOf, {
+    principal: { kind: 'user', userId: self.userId, actorId: self.actorId },
+    clock: { now: () => f.now },
+    now: f.now,
+    postingPolicy: f.policy.posting,
+    readingPolicy: f.policy.reading,
+  });
+};
+test('a candidate is shown only under its own fenced grant; outages are never an omission', async () => {
+  const f = typingWorld();
+  const ages = new Map(f.accounts.map((row) => [row.account.actorId, row.age]));
+  const ageOf = (account: { readonly actorId: string | null }) =>
+    ages.get(account.actorId!)!;
+  const channel = {
+    fact: f.channel,
+    accounts: f.accounts.map((row) => row.account),
   };
   assert({
-    given: 'a removed entitlement among own candidate IDs',
-    should:
-      'omit it while inspecting every candidate freshly and advancing the discovery cursor',
-    actual: await readMessagingInbox({ limit: 3 }, port),
+    given: 'an accepted DM whose cast is fenced and current',
+    should: 'show the conversation and ask only for its message summary',
+    actual: await decide(
+      f,
+      { channelId: f.channel.channelId, channel, invitation: null },
+      ageOf,
+    ),
     expected: {
-      entries: [
-        summary(ids[0], '2026-10-01T00:00:00.000Z'),
-        summary(ids[2], '2026-10-01T00:00:00.000Z'),
-      ],
-      nextAfter: ids[2],
+      kind: 'conversation',
+      summary: { counterpartActorId: f.ids[1]!, content: 'messages' },
     },
   });
   assert({
-    given: 'candidate IDs',
-    should: 'never become automatic grants',
-    actual: inspected,
-    expected: [...ids],
+    given:
+      'a counterpart account that vanished under the fence, and no invitation',
+    should: 'omit the candidate rather than refuse the page',
+    actual: await decide(
+      f,
+      {
+        channelId: f.channel.channelId,
+        channel: { ...channel, accounts: [channel.accounts[0]!, null] },
+        invitation: null,
+      },
+      ageOf,
+    ),
+    expected: null,
   });
-  const { assertRejects } = await import('@daisy/errors/testing');
   await assertRejects({
-    given: 'a policy/authority infrastructure outage',
-    should: 'refuse the inbox rather than fabricate an empty result',
+    given: 'an age fact outage',
+    should: 'refuse the page rather than fabricate an omission',
     code: 'INFRASTRUCTURE',
     actual: () =>
-      readMessagingInbox(
-        { limit: 3 },
-        {
-          ...port,
-          inspect: async () => {
-            throw createAppError('INFRASTRUCTURE');
-          },
+      decide(
+        f,
+        { channelId: f.channel.channelId, channel, invitation: null },
+        () => {
+          throw createAppError('INFRASTRUCTURE');
         },
       ),
   });
 });
 
-test('inbox entries lead with invitations, then the newest activity', async () => {
+test('inbox entries lead with invitations, then the newest activity', () => {
   const [a, b, c] = ['a'.repeat(24), 'b'.repeat(24), 'c'.repeat(24)];
-  const entries = {
-    [a]: summary(a, '2026-10-01T00:00:00.000Z'),
-    [b]: summary(b, '2026-10-03T00:00:00.000Z'),
-    [c]: { channelId: c, kind: 'incoming_invitation' as const },
+  const summary = (createdAt: string) => ({
+    title: 'kelvin',
+    lastMessage: null,
+    introduction: null,
+    createdAt,
+    unread: false,
+  });
+  const conversation = {
+    kind: 'conversation' as const,
+    summary: { counterpartActorId: null, content: 'messages' as const },
   };
-  const page = await readMessagingInbox(
-    { limit: 5 },
-    {
-      candidates: async () => [a, b, c],
-      inspect: async (channelId: string) => entries[channelId]!,
-    },
-  );
   assert({
     given: 'an older conversation, a newer one and a pending invitation',
     should: 'order the invitation first and then newest activity first',
-    actual: page.entries.map((entry) => entry.channelId),
+    actual: messagingInboxEntries([
+      {
+        channelId: a,
+        decision: conversation,
+        summary: summary('2026-10-01T00:00:00.000Z'),
+      },
+      {
+        channelId: b,
+        decision: conversation,
+        summary: summary('2026-10-03T00:00:00.000Z'),
+      },
+      {
+        channelId: c,
+        decision: { kind: 'incoming_invitation', summary: null },
+        summary: null,
+      },
+    ]).map((entry) => entry.channelId),
     expected: [c, b, a],
   });
 });

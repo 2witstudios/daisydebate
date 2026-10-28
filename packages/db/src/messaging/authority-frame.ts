@@ -18,7 +18,7 @@ type AuthorityFrame = {
   readonly fact: MessagingChannelFact;
   readonly accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>;
 };
-const actorIdsOf = (
+export const actorIdsOf = (
   fact: MessagingChannelFact,
   actorId: string,
   additionalActors: readonly string[] = [],
