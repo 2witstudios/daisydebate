@@ -16,8 +16,6 @@ const seeOther = (location: string) =>
 /** The export form's refusals, one fixed sentence each on the settings page. */
 export type ExportDataNotice = 'rate-limited' | 'refused';
 
-export type ExportDataMember = Extract<Identity, { state: 'member' }>;
-
 /**
  * POST /api/privacy/export, the member's access-and-portability request
  * (ISSUE-833, ADR 0087): a native form post that works without JavaScript.

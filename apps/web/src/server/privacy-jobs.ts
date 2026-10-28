@@ -41,12 +41,11 @@ const PRIVACY_JOBS_BATCH = 32;
 const PRIVACY_JOBS_RETRY_MS = 60_000;
 const PRIVACY_JOBS_RETRY_MAX_MS = 3_600_000;
 
-/**
- * A failed vendor deletion tries again later, doubling its wait from one
+/** A failed vendor deletion tries again later, doubling its wait from one
  * minute, at most hourly. The obligation stays pending until the vendor
  * confirms; nothing about the failure is stored or logged beyond counts.
  */
-export const privacyJobRetryAt = (now: string, attempts: number): string =>
+const privacyJobRetryAt = (now: string, attempts: number): string =>
   new Date(
     new Date(now).getTime() +
       Math.min(

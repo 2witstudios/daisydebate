@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
+import type { PrivacyAdopter } from './privacy/contracts';
 
 /** One UTC ISO timestamp column, aliased under its bare column name. */
 const iso = (column: string, alias: string) =>

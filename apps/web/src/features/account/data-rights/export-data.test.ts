@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import type { RateLimiter } from '../../../server/rate-limit';
 import { createExportDataHandler } from './export-data';
