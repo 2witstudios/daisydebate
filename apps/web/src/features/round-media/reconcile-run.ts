@@ -70,7 +70,7 @@ export function createMediaReconcileRun(
   buildProjection: Parameters<Store['readMediaSession']>[0]['buildProjection'],
   snapshot: (roundId: string, actorId?: string) => Promise<MediaSnapshot>,
 ) {
-  const { unsafe, mutate } = createMediaMutations(input, buildProjection);
+  const { deferred, mutate } = createMediaMutations(input, buildProjection);
   const removeRoom = async (claim: Claim) => {
     if (await input.deadline(input.media.exists(claim.roomName))) {
       await mutate(
@@ -256,6 +256,13 @@ export function createMediaReconcileRun(
    * caller after the release and never marks the session unsafe. The
    * admission's own refusal, if the reconcile met one, is returned, not
    * thrown, so the caller can say why it was refused.
+   *
+   * Only a domain answer changes the room: a definite refusal, or a session
+   * already unsafe, ended or revoked. Any other failure (a dropped
+   * connection, a timeout, an aborted transaction) is retryable. The pass is
+   * deferred: the session is never marked unsafe for it, the room stays, and
+   * the failure reaches the caller, which retries with its own backoff
+   * (ISSUE-803).
    */
   return async (
     claim: Claim,
@@ -267,6 +274,7 @@ export function createMediaReconcileRun(
     let cleanupAttempted = false;
     let held: { readonly error: unknown } | null = null;
     let refusal: unknown;
+    let failure: { readonly error: unknown } | null = null;
     try {
       const state = await snapshot(claim.roundId);
       if (needsCleanup(state, claim)) {
@@ -278,19 +286,23 @@ export function createMediaReconcileRun(
         else held = await runHeld(whileHeld);
       }
     } catch (error) {
-      if (!isRefusal(error)) await unsafe(claim, error);
+      if (!isRefusal(error)) failure = { error };
     } finally {
       try {
         const state = await snapshot(claim.roundId);
         if (!cleanupAttempted && uncertain(state))
           absenceProof = await removeRoom(claim);
       } catch (error) {
-        await unsafe(claim, error);
+        failure ??= { error };
       }
       await input.store.finishMediaReconcile({
         ...claim.fence,
         absenceProof,
       });
+    }
+    if (failure) {
+      deferred(failure.error);
+      throw failure.error;
     }
     if (held) throw held.error;
     return refusal;

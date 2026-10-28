@@ -10,17 +10,20 @@ export function createMediaMutations(
   input: MediaOperationInput,
   buildProjection: Parameters<Store['readMediaSession']>[0]['buildProjection'],
 ) {
-  const unsafe = async (claim: Claim, error: unknown) => {
-    await input.store.markMediaUnsafe(claim.fence);
+  /**
+   * A reconcile pass that met a retryable failure (ISSUE-803): it is logged
+   * and its raw error goes to the tracker; the session and room are untouched.
+   */
+  const deferred = (error: unknown) => {
     const requestId = input.nextId();
     input.logger.log(
-      'round.media.unsafe',
+      'round.media.reconcile_deferred',
       {
         operation: 'round.media.reconcile',
         errorCode: 'INFRASTRUCTURE',
         requestId,
       },
-      'Media recovery is unresolved',
+      'Media reconcile deferred; the room is kept',
     );
     input.reporter.capture(error, {
       requestId,
@@ -77,5 +80,5 @@ export function createMediaMutations(
     });
   };
 
-  return { unsafe, mutate };
+  return { deferred, mutate };
 }

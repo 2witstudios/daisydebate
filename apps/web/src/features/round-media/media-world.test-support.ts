@@ -47,6 +47,19 @@ export function createMediaWorld(
   const journal: string[] = [];
   const reported: unknown[] = [];
   const failures = new Map<Vendor, number>();
+  /** Store calls whose next transactions drop their connection (ISSUE-803). */
+  const drops = new Map<'readMediaSession' | 'beginMediaMutation', number>();
+  const drop = (call: 'readMediaSession' | 'beginMediaMutation') => {
+    const left = drops.get(call) ?? 0;
+    if (left <= 0) return;
+    drops.set(call, left - 1);
+    // As a bounded transaction surfaces a connection lost mid-transaction.
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Connection dropped mid-transaction',
+    );
+  };
+  const logged: string[] = [];
   const rooms = new Set<string>();
   const connected = new Map<string, Grants>();
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
@@ -147,6 +160,7 @@ export function createMediaWorld(
   };
   const store = {
     readMediaSession: async (input: { actorId?: string; admits: Admits }) => {
+      drop('readMediaSession');
       rule = input.admits;
       return snapshot(
         admittedActor(
@@ -184,6 +198,7 @@ export function createMediaWorld(
       authorize: (context: unknown) => void;
     }) => {
       if (mutations === 0) options.beforeFirstMutation?.();
+      drop('beginMediaMutation');
       rule = request.admits;
       const participantId =
         bindings.find((b) => b.identity === request.intent.identity)
@@ -273,7 +288,7 @@ export function createMediaWorld(
     nextId,
     reporter: { capture: (error: unknown) => void reported.push(error) },
     logger: {
-      log: () => undefined,
+      log: (event: string) => void logged.push(event),
     } as unknown as MediaOperationInput['logger'],
     deadline: (work) => work,
     wait: async () => undefined,
@@ -287,6 +302,11 @@ export function createMediaWorld(
     reported,
     rooms,
     connected,
+    sessionId,
+    logged,
+    /** Drop the connection of the next `times` transactions of one store call. */
+    drop: (call: 'readMediaSession' | 'beginMediaMutation', times = 1) =>
+      void drops.set(call, times),
     /** Fail the next `times` calls of one vendor operation. */
     fail: (call: Vendor, times = 1) => void failures.set(call, times),
     /** A participant that joined with its minted identity and grants. */

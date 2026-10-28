@@ -31,6 +31,15 @@ request, so the unsafe episode ends and capture discovery resumes (ISSUE-465);
 a terminal Round keeps it.
 Token/open admission must refuse unsafe or pending sessions independently.
 
+Only a domain answer changes the room. A reconcile deletes or rotates it on a
+definite refusal, or for a session already unsafe, ended or revoked; a vendor
+mutation whose outcome is unknown is what makes a session unsafe. Any other
+failure in a pass (a dropped database connection, a timeout, an aborted
+transaction, a provider read that fails) is retryable: the pass is deferred
+(`round.media.reconcile_deferred`), the session is never marked unsafe for it,
+the room stays, and the caller retries with its own backoff (the capture
+worker, the browser, the recovery loop) (ISSUE-803).
+
 A floor change writes permissions in a fixed order: every stale microphone
 closes before any microphone opens. The closes use the snapshot the known
 publishers were read with, since nothing is written between that read and the
