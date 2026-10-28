@@ -436,3 +436,13 @@ the wire is added.
 - **A connection store has a final `dispose`.** It is separate from the
   reusable `close` and releases every listener, timer and pending ticket,
   so a page that builds a store per mount returns to its baseline.
+
+## Amendment (2026-10-28): bounded snapshots for adopted resources
+
+For resources adopted under [ADR 0089](0089-shared-resource-observation.md),
+the socket also accepts `observe` and `unobserve` and carries
+`observation.ready`, `observation.snapshot` (one bounded replacement
+snapshot of at most 128KiB, encoded once per revision) and
+`observation.state`. Subscription authority for them is a per-viewer
+permit of at most 4,700ms (DEC-130) rather than the 60s topic lease.
+Commands and authoritative reads stay HTTP.

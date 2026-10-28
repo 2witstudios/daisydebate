@@ -1,4 +1,4 @@
-import type { ConnectionStore } from '../realtime/connection-types';
+import type { ConnectionStore } from './connection-types';
 
 type Shared = {
   readonly store: ConnectionStore;

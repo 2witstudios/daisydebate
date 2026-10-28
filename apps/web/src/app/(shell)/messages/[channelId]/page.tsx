@@ -98,19 +98,25 @@ export default async function ConversationPage({
               </noscript>
             </>
           )}
-          <ConversationLive
-            channelId={id.data}
-            socketUrl={conversation.socketUrl}
-            typingRefetchMs={conversation.typingRefetchMs}
-            snapshotId={systemId.next()}
-          >
+          {searchQuery === undefined && typeof query.before !== 'string' ? (
+            // The latest page is live on the tab's socket (ADR 0089).
+            <ConversationLive
+              channelId={id.data}
+              history={conversation.history}
+              actorId={actorId}
+              otherAuthor={names.otherAuthor}
+              socketUrl={conversation.socketUrl}
+              typingRefetchMs={conversation.typingRefetchMs}
+            />
+          ) : (
+            // Search results and older pages are explicit HTTP reads.
             <MessageHistory
               history={conversation.history}
               actorId={actorId}
               otherAuthor={names.otherAuthor}
               {...(searchQuery === undefined ? {} : { searchQuery })}
             />
-          </ConversationLive>
+          )}
           <MessageComposer
             channelId={id.data}
             key={typeof query.sent === 'string' ? query.sent : id.data}

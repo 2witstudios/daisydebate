@@ -382,3 +382,15 @@ ADR 0003 rules out event sourcing and a message bus. This design is neither.
 - RT-2.2 creates the outbox and the realtime role only; `service_instances`
   is built by RT-4.3a;
   the drain loop, ring and startup order by the `apps/realtime` leaves.
+
+## Amendment (2026-10-28): adopted resources leave the drain's thin payloads
+
+For resources adopted under [ADR 0089](0089-shared-resource-observation.md),
+the per-instance drain no longer delivers content: owners read current
+PostgreSQL headers and publish bounded snapshots through Redis, and nodes
+deliver them under per-viewer permits. The outbox stays metadata-only, and
+the drain still serves un-adopted topics (Rooms, Rounds, the inbox) and
+control rows (`session.revoked` closes sockets). An authority change
+reaches observers through the disclosure revision in the owner's header
+read, not through a relay (DEC-262). Removing `pg_notify` and the outbox
+LISTEN is tracked to the drain's last consumer.

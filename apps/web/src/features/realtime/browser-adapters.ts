@@ -9,6 +9,7 @@ import {
 } from './connection-store';
 import { fetchRealtimeTicket } from './ticket-client';
 import { createTabPresence, type TabPresence } from './tab-presence';
+import { sharedConnections } from './shared-connection';
 
 /**
  * The real browser clock and timer queue (production `Scheduler`). Elapsed
@@ -107,3 +108,9 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
     },
   };
 }
+
+/**
+ * The tab's one socket per realtime URL, shared by every resource sync and
+ * the observation provider: a page never opens a second socket per mount.
+ */
+export const tabConnection = sharedConnections(createBrowserConnectionStore);

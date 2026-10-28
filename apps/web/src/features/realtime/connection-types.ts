@@ -1,5 +1,9 @@
 import type { ConnectionDiagnostic } from './connection-diagnostics';
-import type { PresenceActivity, ServerMessage } from '@daisy/protocol';
+import type {
+  ObservationResource,
+  PresenceActivity,
+  ServerMessage,
+} from '@daisy/protocol';
 import type { TerminalReason } from './close-code-policy';
 
 /**
@@ -62,6 +66,16 @@ export type ConnectionStore = {
   ) => () => void;
   readonly onMessage: (listener: (frame: ServerMessage) => void) => () => void;
   readonly resubscribeTopic: (topic: string) => void;
+  /**
+   * Sends one observe/unobserve request (ADR 0089) while open; false when
+   * the socket is not open. The observation provider resends its interests
+   * on every `ready`, so a dropped request is never lost.
+   */
+  readonly sendObservation: (frame: {
+    readonly type: 'observe' | 'unobserve';
+    readonly id: string;
+    readonly resource: ObservationResource;
+  }) => boolean;
   /** Single-flight: a no-op while already connecting or open. */
   readonly connect: () => void;
   /**

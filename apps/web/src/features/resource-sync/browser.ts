@@ -1,12 +1,8 @@
 import {
-  createBrowserConnectionStore,
   onDocumentVisibilityChange,
   systemScheduler,
+  tabConnection,
 } from '../realtime/browser-adapters';
-import { sharedConnections } from './shared-connection';
-
-/** The tab's one socket per realtime URL, shared by every resource sync. */
-const tabConnection = sharedConnections(createBrowserConnectionStore);
 
 /**
  * The real browser edges of resource sync: the monotonic clock, the
