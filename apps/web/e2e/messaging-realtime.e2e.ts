@@ -6,6 +6,7 @@ import {
 } from './support/messaging-message-controls';
 import { manageNativeReactions } from './support/messaging-reactions';
 import { proveNativeTyping } from './support/messaging-typing';
+import type { Page } from '@playwright/test';
 import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
@@ -84,6 +85,12 @@ test('an authenticated DM doorbell refetches current history in the other real b
 });
 
 const unreadableNotice = 'This conversation could not be marked read.';
+// Playwright's text engine skips <noscript>, though a no-JS browser renders
+// it, so read the notices' rendered status text directly.
+const noScriptStatus = (page: Page) =>
+  page
+    .locator('noscript [role="status"]')
+    .evaluateAll((notices) => notices.map((notice) => notice.textContent));
 for (const javaScriptEnabled of [true, false]) {
   test(`a recipient accepts a DM and sends durable history with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
     browser,
@@ -126,11 +133,13 @@ for (const javaScriptEnabled of [true, false]) {
         await expect(sender).toHaveURL(
           new RegExp(`/messages/${journey.channelId}$`),
         );
-        await expect(sender.getByText(unreadableNotice)).toHaveCount(0);
+        expect(await noScriptStatus(sender)).toEqual([]);
         await sender.goto(
           `/messages/${journey.channelId}?notice=read-unavailable`,
         );
-        await expect(sender.getByText(unreadableNotice)).toBeVisible();
+        expect(await noScriptStatus(sender)).toEqual([
+          `${unreadableNotice} Try again.`,
+        ]);
       }
       await expect(async () => {
         await sender.goto('/messages');
