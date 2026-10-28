@@ -1,8 +1,8 @@
+import type { AuthorityResources } from './authorization';
 import { authorizationPrincipal as principal } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildRoundTopic } from '@daisy/protocol';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
-import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
 setupRitewayBun();
 
@@ -66,7 +66,7 @@ for (const mode of [
               };
         },
       },
-    } as unknown as RealtimeApp;
+    } as unknown as AuthorityResources;
     const result = await createRealtimeAuthorization({
       resources,
       now: () => elapsed,

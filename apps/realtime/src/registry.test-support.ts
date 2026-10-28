@@ -35,12 +35,17 @@ export function fixture(
       closed.push(code);
     },
   };
+  const authorize =
+    overrides.authorize ??
+    (async () => ({ revision: '1', validUntil: now + 60_000 }));
   const registry = createSubscriptionRegistry({
     now: () => now,
     lifetimeMs: 60_000,
     ringLimit: 2,
     maxSubscriptions: 64,
-    authorize: async () => ({ revision: '1', validUntil: now + 60_000 }),
+    authorize,
+    // One authority stands in for both lanes unless a test splits them.
+    renew: overrides.renew ?? authorize,
     readCatchup: async () => ({ rows: [], resync: false }),
     readRetentionBoundary: async () => ({ txid: '0', seq: 0n }),
     publish: (_topic, frame) => {

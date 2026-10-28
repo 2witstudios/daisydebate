@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import {
   createBoundedTransaction,
   type BoundedTransaction,
@@ -59,8 +60,7 @@ export const withBoundedRound = async (
       await work(
         fixture,
         createBoundedTransaction({
-          client,
-          maxConnections: 4,
+          lane: testLane(client, 4),
           now: performance.now,
         }),
         roundId,

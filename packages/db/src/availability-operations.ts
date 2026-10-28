@@ -129,7 +129,11 @@ export const availabilitySamplesFrom = <T>(
     where at >= coalesce((select at from availability_samples where at < ${from}::timestamptz order by at desc offset ${availabilityRecoveryPolicy.recoverySamples - 1} limit 1),'-infinity'::timestamptz)
     order by at`;
 
-export function availabilityOperations(client: SQL) {
+/**
+ * Service leases and samples on the control lane; the sampler's election
+ * session is a dedicated connection, held for the process lifetime.
+ */
+export function availabilityOperations(client: SQL, dedicated: SQL) {
   return {
     async renewServiceInstance(
       input: { readonly instanceId: string } & (
@@ -152,7 +156,7 @@ export function availabilityOperations(client: SQL) {
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
         where service_instances.role=excluded.role`;
     },
-    availabilitySampler: () => createAvailabilitySampler(client),
+    availabilitySampler: () => createAvailabilitySampler(dedicated),
     async readAvailabilitySamples(
       from: string,
     ): Promise<readonly AvailabilityEvidence[]> {

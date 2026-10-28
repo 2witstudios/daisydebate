@@ -1,5 +1,5 @@
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
+import { isCapacityRefusal } from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
@@ -97,7 +97,7 @@ export async function handleOperation(
         const mapped = toPublicError(
           // A minted outer code is the answer; only an unminted wrapper
           // around a capacity refusal becomes the retryable outage.
-          !isAppError(error) && isTransactionCapacityRefusal(error)
+          !isAppError(error) && isCapacityRefusal(error)
             ? createAppError('INFRASTRUCTURE')
             : error,
           id,

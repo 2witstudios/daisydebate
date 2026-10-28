@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -15,8 +16,7 @@ test('media authority fence permits durable attendance marker FK admission while
     const entered = Promise.withResolvers<void>(),
       release = Promise.withResolvers<void>();
     const run = createBoundedTransaction({
-      client: fixture.sql,
-      maxConnections: 10,
+      lane: testLane(fixture.sql, 10),
       now: performance.now,
     });
     const held = run(async (tx) => {

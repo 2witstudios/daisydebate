@@ -64,7 +64,6 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
   const failures: ReportedFailure[] = [];
   const database = createDatabase({
     url,
-    maxConnections: 1,
     eventSink: (event, fields, message) =>
       failures.push({ event, fields, message }),
     nextActorId: createId,

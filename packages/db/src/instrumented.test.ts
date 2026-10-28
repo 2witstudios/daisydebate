@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instrumented } from './instrumented';
-import { refuseCapacity } from './transaction-admission';
+import { refuseCapacity } from './capacity-refusal';
 
 setupRitewayBun();
 

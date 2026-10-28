@@ -21,7 +21,6 @@ test('configured root judging aliases share the owned pool and claim actual froz
       const inert = createDatabase({
         url: services.databaseUrl,
         client,
-        maxConnections: 4,
         nextActorId: createId,
       });
       assert({
@@ -92,7 +91,6 @@ test('configured root judging aliases share the owned pool and claim actual froz
       const store = createDatabase({
         url: services.databaseUrl,
         client,
-        maxConnections: 4,
         nextActorId: createId,
         judging: {
           leaseMs: 30000,

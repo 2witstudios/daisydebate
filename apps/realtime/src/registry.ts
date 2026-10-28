@@ -1,3 +1,4 @@
+import type { AuthorizeSubscription } from './subscription-state';
 import {
   encodeOutboxCursor,
   OUTBOX_ORIGIN,
@@ -39,6 +40,7 @@ export function createSubscriptionRegistry({
   ringLimit,
   maxSubscriptions,
   authorize,
+  renew,
   readCatchup,
   readRetentionBoundary,
   publish,
@@ -48,13 +50,10 @@ export function createSubscriptionRegistry({
   readonly lifetimeMs: number;
   readonly ringLimit: number;
   readonly maxSubscriptions: number;
-  readonly authorize: (
-    principal: SocketPrincipal,
-    topic: string,
-  ) => Promise<{
-    readonly revision: string;
-    readonly validUntil: number;
-  } | null>;
+  /** A subscribe's authority read (the admission lane). */
+  readonly authorize: AuthorizeSubscription;
+  /** Delivery-time re-authorization and revalidation (the renewal lane). */
+  readonly renew: AuthorizeSubscription;
   readonly readCatchup: (
     topic: string,
     since: string,
@@ -130,7 +129,7 @@ export function createSubscriptionRegistry({
   }
   const delivery = createSubscriptionDelivery({
     connections,
-    authorize,
+    authorize: renew,
     failed,
     publish,
     event,

@@ -3,6 +3,9 @@ import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
 
 setupRitewayBun();
+
+/** One fake authority for both the admission and renewal lanes. */
+const bothLanes = <T>(reads: T) => ({ admission: reads, renewal: reads });
 test('ticket admission refuses session expiry crossed during the durable await', async () => {
   let instant = '2026-10-09T00:00:00.000Z';
   let resolve!: (value: unknown) => void;
@@ -20,12 +23,12 @@ test('ticket admission refuses session expiry crossed during the durable await',
         };
       },
     },
-    database: {
+    database: bothLanes({
       resolveRealtimeSession: () =>
         new Promise((done) => {
           resolve = done;
         }),
-    },
+    }),
   } as unknown as RealtimeApp;
   const delivery = createRealtimeDelivery({
     resources,
@@ -76,12 +79,12 @@ test('real delivery principal validation refuses a canonical read exceeding its 
   let cleared = false;
   let finish!: (value: unknown) => void;
   const resources = {
-    database: {
+    database: bothLanes({
       readAuthorizationSession: () =>
         new Promise((resolve) => {
           finish = resolve;
         }),
-    },
+    }),
     clock: { now: () => '2026-10-09T00:00:00.000Z' },
   } as unknown as RealtimeApp;
   const delivery = createRealtimeDelivery({

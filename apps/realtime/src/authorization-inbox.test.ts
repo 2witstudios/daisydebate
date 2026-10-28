@@ -1,7 +1,7 @@
+import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createRealtimeAuthorization } from './authorization';
-import type { RealtimeApp } from './app';
 
 setupRitewayBun();
 const principal = {
@@ -47,7 +47,7 @@ test('own inbox subscribes only through current canonical account authority', as
           expiresAt: current.expiresAt,
         }),
       },
-    } as unknown as RealtimeApp;
+    } as unknown as AuthorityResources;
     const authorization = createRealtimeAuthorization({
       resources,
       now: () => Date.parse(instant),

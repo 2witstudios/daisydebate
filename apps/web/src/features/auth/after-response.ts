@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { DEFAULT_MAX_CONNECTIONS } from '@daisy/db';
+import { WORKLOAD_PROFILES } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { reportAuthFailure } from './failure-report';
 
@@ -18,12 +18,15 @@ export const AFTER_RESPONSE_MAX_QUEUED = 64;
 
 /**
  * Database steps (the account lookup, the suppression read and the one
- * write) that handed-off work runs at once: two-fifths of the pool, so the
- * rest stays with the requests being answered. The steps queue in arrival
+ * write) that handed-off work runs at once: two-fifths of the web control
+ * lane auth runs on (ADR 0088), so the rest stays with the requests being
+ * answered. The steps queue in arrival
  * order. Only a task holding a slot makes a step, one at a time, so the
  * gate's own queue never exceeds AFTER_RESPONSE_MAX_RUNNING.
  */
-const AFTER_RESPONSE_DB_STEPS = Math.floor((DEFAULT_MAX_CONNECTIONS * 2) / 5);
+const AFTER_RESPONSE_DB_STEPS = Math.floor(
+  (WORKLOAD_PROFILES.web.lanes.control.connections * 2) / 5,
+);
 
 /** Work an auth request hands off so that its answer never waits on it. */
 type Work = () => Promise<void>;

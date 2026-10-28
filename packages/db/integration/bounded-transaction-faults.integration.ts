@@ -1,3 +1,4 @@
+import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import type { ReservedSQL } from 'bun';
@@ -23,8 +24,7 @@ test('lock contention rolls back within the server backstop and leaves unrelated
       await holder`begin`;
       await holder`select id from rounds where id=${roundId} for update`;
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       try {
@@ -80,8 +80,7 @@ test(
   async () =>
     withPool(async (client) => {
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       const timeouts = await run(
@@ -137,8 +136,7 @@ test(
         return connection;
       };
       const run = createBoundedTransaction({
-        client,
-        maxConnections: 4,
+        lane: testLane(client, 4),
         now: performance.now,
       });
       const survivor = await originalReserve();

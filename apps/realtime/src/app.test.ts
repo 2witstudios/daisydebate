@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId } from '@daisy/clock';
+import { fixedClock } from '@daisy/clock';
 import { createRealtimeApp } from './app';
 
 setupRitewayBun();
@@ -16,7 +16,6 @@ const build = (overrides: Record<string, string> = {}) =>
   createRealtimeApp({
     env: { ...env, ...overrides },
     clock: fixedClock('2026-09-23T00:00:00.000Z'),
-    ids: sequentialId('realtime'),
   });
 
 /** An app whose database and Redis closes are counted, never real. */

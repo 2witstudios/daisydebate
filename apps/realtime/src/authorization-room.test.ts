@@ -1,7 +1,7 @@
+import type { AuthorityResources } from './authorization';
 import { authorizationPrincipal as principal } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildRoomTopic } from '@daisy/protocol';
-import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
 
 setupRitewayBun();
@@ -18,7 +18,7 @@ for (const account of [null, { revision: 9 }])
         }),
         readRoomAuthorizationFacts: async () => ({ account }),
       },
-    } as unknown as RealtimeApp;
+    } as unknown as AuthorityResources;
     assert({
       given:
         'a current session followed by a missing or revised Room account fact',

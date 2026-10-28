@@ -23,7 +23,6 @@ if (import.meta.main) {
   const database = createDatabase({
     url: process.env.E2E_DATABASE_URL!,
     nextActorId: createId,
-    maxConnections: 4,
   });
   try {
     const instanceId = createId();

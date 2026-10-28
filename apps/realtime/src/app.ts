@@ -1,10 +1,10 @@
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { Clock } from '@daisy/clock';
 import {
   readRealtimeConfig,
   readRealtimeTransportConfig,
   readTrustedProxyConfig,
 } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
+import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
@@ -19,14 +19,12 @@ import { createRedis } from '@daisy/redis';
 export function createRealtimeApp({
   env,
   clock,
-  ids,
   database: injectedDatabase,
 }: {
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly clock: Clock;
-  readonly ids: IdGenerator;
-  readonly database?: ReturnType<typeof createDatabase>;
+  readonly database?: ReturnType<typeof createRealtimeDatabase>;
 }) {
   const config = readRealtimeConfig(env);
   const logger = createLogger({
@@ -37,10 +35,10 @@ export function createRealtimeApp({
   });
   const database =
     injectedDatabase ??
-    createDatabase({
+    createRealtimeDatabase({
       url: config.DATABASE_URL,
+      profile: WORKLOAD_PROFILES.realtime,
       eventSink: logger.log,
-      nextActorId: () => ids.next(),
     });
   const redis = createRedis({
     url: config.REDIS_URL,
