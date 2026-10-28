@@ -7,7 +7,7 @@ import { createOnboardingHandler } from './save-answers';
 import {
   allowEvery,
   type ConsumeStub,
-} from '../auth/abuse/limiter.test-support';
+} from '../../server/rate-limit.test-support';
 
 setupRitewayBun();
 

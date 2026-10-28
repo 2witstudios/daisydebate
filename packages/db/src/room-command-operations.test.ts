@@ -279,7 +279,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
       1,
       [
         {
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [roundId],
           entityVersion: 1,
         },

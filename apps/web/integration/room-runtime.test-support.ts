@@ -287,7 +287,7 @@ async function fixture(
       try {
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
-          await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
+          await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }

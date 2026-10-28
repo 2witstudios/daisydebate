@@ -89,6 +89,10 @@ function readWire() {
   };
   const store: MessagingChannelStore = {
     withChannel: async (scope, work) => {
+      calls.push(['write-scope', scope]);
+      return work(frame);
+    },
+    readChannel: async (scope, work) => {
       calls.push(['scope', scope]);
       return work(frame);
     },
@@ -125,7 +129,7 @@ test('history and search preserve protected adapter scope while removed records 
     given:
       'scoped adapter records containing a reply, an edit and removed private text',
     should:
-      'forward validated pagination/search and omit all removed body/author/reply fields',
+      'read through the shared-fence path, forward validated pagination/search and omit all removed body/author/reply fields',
     actual: [
       calls,
       history.messages[1],
@@ -190,7 +194,12 @@ test('change classification uses actual edits and permits the final cursor beyon
       result.changes[2],
       result.nextAfter,
       read,
-      calls.filter((call) => Array.isArray(call) && call[0] !== 'scope'),
+      calls.filter(
+        (call) =>
+          Array.isArray(call) &&
+          call[0] !== 'scope' &&
+          call[0] !== 'write-scope',
+      ),
     ],
     expected: [
       ['created', 'edited', 'removed'],

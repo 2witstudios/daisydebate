@@ -1,11 +1,12 @@
 import { isAppError } from '@daisy/errors';
+import type { WorkerTimers } from '../../lib/worker-timers';
 
 // The default shared pool has five writer/watchdog pairs; reserve headroom for discovery and public/control work.
 const MAX_ACTIVE_ROUNDS = 2;
 /** How often maintenance rediscovers due Rounds and recovers ratings. */
 export const MAINTENANCE_PULSE_MS = 500;
 
-type MaintenancePorts<Handle> = {
+type MaintenancePorts = {
   readonly discover: () => Promise<readonly string[]>;
   readonly tick: (roundId: string) => Promise<unknown>;
   readonly evaluate: (
@@ -13,18 +14,12 @@ type MaintenancePorts<Handle> = {
   ) => Promise<{ readonly decision: string } | null>;
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
-  readonly timers: {
-    readonly setInterval: (pulse: () => void, ms: number) => Handle;
-    readonly clearInterval: (handle: Handle) => void;
-  };
+  readonly timers: WorkerTimers;
   /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
   readonly failed: (error: unknown, stage: string) => void;
 };
 
-async function maintainRound<Handle>(
-  input: MaintenancePorts<Handle>,
-  roundId: string,
-) {
+async function maintainRound(input: MaintenancePorts, roundId: string) {
   let stage = 'tick';
   try {
     await input.tick(roundId);
@@ -49,7 +44,7 @@ async function maintainRound<Handle>(
 }
 
 /** Discovery and committed-rating recovery never wait for a competing Round's work. */
-export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
+export function startRoundMaintenance(input: MaintenancePorts) {
   let stopped = false,
     discovering = false,
     rating = false;
@@ -105,9 +100,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
     if (!rating) ratingWork = recoverRatings();
     return Promise.all([discoveryWork, ratingWork]).then(() => undefined);
   };
-  const timer = input.timers.setInterval(() => {
-    void pulse();
-  }, MAINTENANCE_PULSE_MS);
+  const timer = input.timers.setInterval(pulse, MAINTENANCE_PULSE_MS);
   const ready = pulse();
   let closing: Promise<void> | undefined;
   return {

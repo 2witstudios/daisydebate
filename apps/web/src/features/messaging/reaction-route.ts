@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import {
   messagingHttpBoundary,
   runMessagingHandler,
@@ -45,7 +45,7 @@ export function composeMessagingReactionRoute(app: App) {
             store: store(principal),
             limit: (actorId) =>
               consumeOrThrow(
-                app.auth().limiter,
+                app.limiter,
                 `messaging:reaction-read:${actorId}`,
                 policy.limits.read,
               ),
@@ -60,7 +60,7 @@ export function composeMessagingReactionRoute(app: App) {
           store: store(principal),
           limit: (actorId) =>
             consumeOrThrow(
-              app.auth().limiter,
+              app.limiter,
               `messaging:reaction:${actorId}`,
               policy.limits.actorSend,
             ),

@@ -1,5 +1,14 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
-import { debateMarks, type DebateMark } from './documents';
+
+/** The argument marks a debater flows a document with. */
+export type DebateMark = 'aff' | 'neg' | 'extend' | 'dropped' | 'new';
+export const debateMarks: readonly DebateMark[] = [
+  'aff',
+  'neg',
+  'extend',
+  'dropped',
+  'new',
+];
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {

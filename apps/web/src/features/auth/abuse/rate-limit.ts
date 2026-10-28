@@ -1,19 +1,18 @@
 import type { Clock } from '@daisy/clock';
 import type { AuthConfig } from '@daisy/config';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
-import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { recipientKey } from '../mail/recipient-key';
+import {
+  readLimiterDecision,
+  type RateLimiter,
+  type RateRule,
+} from '../../../server/rate-limit';
 import {
   clientNetworks,
   type NetworkScope,
 } from '@daisy/ingress/client-networks';
 
-/** Fixed-window allowance the gate asks the limiter to enforce for one key. */
-type RateRule = {
-  readonly windowSeconds: number;
-  readonly max: number;
-};
 /** 100 requests per 60 seconds for every auth route ... */
 const DEFAULT_RULE: RateRule = { windowSeconds: 60, max: 100 };
 /** ... and 3 per 60 seconds for magic-link requests, per client. */
@@ -61,17 +60,6 @@ export const MAGIC_LINK_NETWORK_RULES: Readonly<
   ipv6_56: { windowSeconds: 60, max: 30 },
   ipv6_48: { windowSeconds: 60, max: 120 },
   ipv4_24: { windowSeconds: 60, max: 120 },
-};
-
-/** Atomic multi-instance limiter contract backed by @daisy/redis. */
-export type AuthRateLimiter = {
-  readonly consume: (
-    key: string,
-    rule: RateRule,
-  ) => Promise<{
-    readonly allowed: boolean;
-    readonly retryAfterSeconds: number;
-  }>;
 };
 
 /**
@@ -181,39 +169,6 @@ const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
     ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
     : {};
 
-// The limiter is an injected boundary: a decision without a boolean verdict
-// is an outage, never an implicit allow and never a TypeError.
-const readDecision = (decision: unknown) => {
-  if (typeof decision !== 'object' || decision === null)
-    throw new TypeError('Malformed limiter decision');
-  const allowed: unknown = Reflect.get(decision, 'allowed');
-  if (typeof allowed !== 'boolean')
-    throw new TypeError('Malformed limiter decision');
-  const retryAfterSeconds: unknown = Reflect.get(decision, 'retryAfterSeconds');
-  return { allowed, retryAfterSeconds };
-};
-
-/**
- * The single-bucket atomic-limit gate a route runs before its durable work:
- * consume one decision, fail closed with `INFRASTRUCTURE` on outage or a
- * malformed answer, and refuse with `RATE_LIMIT` when denied. Callers with
- * more than one bucket (this file's own middleware, with its magic-link and
- * recipient buckets) stay on `readDecision` directly.
- */
-export async function consumeOrThrow(
-  limiter: AuthRateLimiter,
-  key: string,
-  rule: RateRule,
-): Promise<void> {
-  let decision: { readonly allowed: boolean };
-  try {
-    decision = readDecision(await limiter.consume(key, rule));
-  } catch (error) {
-    throw createAppError('INFRASTRUCTURE', undefined, error);
-  }
-  if (!decision.allowed) throw createAppError('RATE_LIMIT');
-}
-
 const logDenial = (
   logger: Logger,
   path: string,
@@ -273,7 +228,7 @@ const isServerPrincipalRead = (path: string, request: Request | undefined) =>
  * headers configured through `clientIpOptions`.
  */
 export const createRateLimitGate = (dependencies: {
-  readonly limiter: AuthRateLimiter;
+  readonly limiter: RateLimiter;
   readonly logger: Logger;
   readonly recipientSubkey: string;
   readonly resolveClient?: typeof getIP;
@@ -310,7 +265,7 @@ export const createRateLimitGate = (dependencies: {
     });
     const consume = async (bucket: Bucket) => {
       const decision = await failClosed(async () =>
-        readDecision(
+        readLimiterDecision(
           await dependencies.limiter.consume(bucket.key, bucket.rule),
         ),
       );
@@ -346,7 +301,7 @@ export const createRateLimitGate = (dependencies: {
  */
 export const createSignUpCeiling =
   (dependencies: {
-    readonly limiter: AuthRateLimiter;
+    readonly limiter: RateLimiter;
     readonly logger: Logger;
     readonly clock: Clock;
     readonly ceilings: AuthConfig['AUTH_SIGN_UP_MAIL_CEILINGS'];
@@ -358,7 +313,7 @@ export const createSignUpCeiling =
     )) {
       let allowed: boolean;
       try {
-        ({ allowed } = readDecision(
+        ({ allowed } = readLimiterDecision(
           await dependencies.limiter.consume(bucket.key, bucket.rule),
         ));
       } catch {

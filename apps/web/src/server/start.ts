@@ -87,24 +87,6 @@ const mediaRecovery = mediaRuntime
       },
     })
   : null;
-const availability = startRoundAvailability({
-  app,
-  fetch: fetchPublicAttendanceProbe,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
-const roundMaintenance = startRoundCompetitiveMaintenance({
-  app,
-  instanceId: availability.instanceId,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
 /** Process timers for the async worker loops; `unref` never holds the process open. */
 const workerTimers: WorkerTimers = {
   setInterval: (tick, ms) =>
@@ -114,6 +96,16 @@ const workerTimers: WorkerTimers = {
   clearInterval: (handle) =>
     clearInterval(handle as ReturnType<typeof setInterval>),
 };
+const availability = startRoundAvailability({
+  app,
+  fetch: fetchPublicAttendanceProbe,
+  timers: workerTimers,
+});
+const roundMaintenance = startRoundCompetitiveMaintenance({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+});
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
   timers: workerTimers,
@@ -151,10 +143,7 @@ const retention = startRetentionSweep({
       timeout: (ms) =>
         new Promise((resolve) => setTimeout(resolve, ms).unref()),
     }),
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-  },
+  timers: workerTimers,
 });
 const betaMail = startBetaMail({
   app,
@@ -168,10 +157,7 @@ const fileMaintenance = fileRuntime?.maintenance
       remove: (key) => fileRuntime.objects.remove(key),
       clock: app.clock,
       logger: app.logger,
-      timers: {
-        setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-        clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-      },
+      timers: workerTimers,
     })
   : null;
 async function shutdown() {

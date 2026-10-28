@@ -122,7 +122,7 @@ export const presenceActivitySchema = z.enum(['active', 'idle']);
 export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
 /**
  * The one projected presence status vocabulary: what a
- * `debate:<id>:presence` topic's projected value reports for each actor,
+ * `round:<id>:presence` topic's projected value reports for each actor,
  * and what the UI's presence dot renders.
  */
 export const presenceStatuses = [

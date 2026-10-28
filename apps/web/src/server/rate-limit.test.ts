@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAuthRateLimiter } from './redis-limiter';
+import { createRateLimiter } from './rate-limit';
 
 setupRitewayBun();
 
@@ -20,10 +20,10 @@ const fakeRedis = (
   };
 };
 
-describe('createAuthRateLimiter', () => {
+describe('createRateLimiter', () => {
   test('hashes untrusted identifiers into a valid key segment', async () => {
     const { redis, calls } = fakeRedis();
-    const limiter = createAuthRateLimiter(redis);
+    const limiter = createRateLimiter(redis);
     await limiter.consume('203.0.113.9|/sign-in/magic-link|a@b.co', {
       windowSeconds: 60,
       max: 3,
@@ -46,7 +46,7 @@ describe('createAuthRateLimiter', () => {
 
   test('is deterministic per identifier and distinct across identifiers', async () => {
     const { redis, calls } = fakeRedis();
-    const limiter = createAuthRateLimiter(redis);
+    const limiter = createRateLimiter(redis);
     const rule = { windowSeconds: 60, max: 3 };
     await limiter.consume('a', rule);
     await limiter.consume('a', rule);
@@ -67,7 +67,7 @@ describe('createAuthRateLimiter', () => {
     assert({
       given: 'a denied Redis decision',
       should: 'report denial with retry seconds',
-      actual: await createAuthRateLimiter(redis).consume('k', {
+      actual: await createRateLimiter(redis).consume('k', {
         windowSeconds: 60,
         max: 1,
       }),
@@ -78,7 +78,7 @@ describe('createAuthRateLimiter', () => {
   test('a Redis outage rejects instead of allowing or counting locally', async () => {
     const outage = new Error('redis down');
     const { redis } = fakeRedis(outage);
-    const limiter = createAuthRateLimiter(redis);
+    const limiter = createRateLimiter(redis);
     await expect(
       limiter.consume('k', { windowSeconds: 60, max: 1 }),
     ).rejects.toBe(outage);

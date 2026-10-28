@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { requestMessagingDm } from './request';
 import { createMessagingGroup } from './create-group';
 import { composeMessagingGroupCreationStore } from './group-creation-composition';
@@ -21,7 +21,7 @@ export function composeMessagingCreationOperation(
       ids: app.ids,
       limit: (actorId: string) =>
         consumeOrThrow(
-          app.auth().limiter,
+          app.limiter,
           `messaging:social:${actorId}`,
           social.abuse,
         ),

@@ -10,7 +10,7 @@ import {
 } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
 import { requestMessagingDm } from './request';
@@ -45,11 +45,7 @@ export function composeMessagingSocialRoutes(app: App) {
       social = policy?.social;
     if (!policy || !social) return unavailableMessagingHandler(app, request);
     const limit = (actorId: string) =>
-      consumeOrThrow(
-        app.auth().limiter,
-        `messaging:social:${actorId}`,
-        social.abuse,
-      );
+      consumeOrThrow(app.limiter, `messaging:social:${actorId}`, social.abuse);
     const dm = (principal: Parameters<typeof requestMessagingDm>[1]) =>
       composeMessagingDmStore({
         database: app.database,

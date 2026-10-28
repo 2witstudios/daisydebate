@@ -88,11 +88,11 @@ export function createRealtimeAuthorization({
           base,
           bound,
         );
-      case 'debate':
+      case 'round':
         return authorizeAudience(
           principal,
           resources.database.readRoundAuthorizationFacts(
-            parsed.debateId,
+            parsed.roundId,
             principal,
           ),
           session.account.revision,

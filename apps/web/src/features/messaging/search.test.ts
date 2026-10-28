@@ -10,6 +10,9 @@ test('search validates before its transaction and never turns authority outages 
     bounds: { messageUnits: 30, pageItems: 5 },
     store: {
       withChannel: async () => {
+        throw createAppError('INVARIANT', 'search never writes');
+      },
+      readChannel: async () => {
         entries += 1;
         throw createAppError(failure);
       },

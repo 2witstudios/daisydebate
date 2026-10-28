@@ -4,7 +4,7 @@ import {
   roundBallotReceiptSchema,
   type RoundBallotReceipt,
 } from '@daisy/protocol';
-import { formValues } from '../mock-form/form';
+import { formValues } from '../forms/form-state';
 import { ballotFields } from './fields';
 export type RoundBallotFormState = {
   readonly values: Readonly<Record<string, string>>;

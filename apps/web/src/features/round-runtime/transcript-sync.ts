@@ -1,4 +1,4 @@
-import { buildDebateTopic, type RoundTranscriptRead } from '@daisy/protocol';
+import { buildRoundTopic, type RoundTranscriptRead } from '@daisy/protocol';
 import { createResourceSyncDriver } from '../resource-sync/driver';
 import type { ResourceRead } from '../resource-sync/driver';
 import { attachVersionDoorbell } from '../resource-sync/doorbell';
@@ -26,8 +26,8 @@ export function createTranscriptSync(
     pollMs: { doorbell: null, alone: 30000 },
     doorbell: (connection, signal) =>
       attachVersionDoorbell({
-        topic: buildDebateTopic(input.seed.value.round.id),
-        kind: 'debate.transcript-changed',
+        topic: buildRoundTopic(input.seed.value.round.id),
+        kind: 'round.transcript-changed',
         catchUpOnSubscribe: true,
         id: input.seed.value.round.id,
         connection,

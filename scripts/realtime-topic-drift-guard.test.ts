@@ -9,7 +9,7 @@ setupRitewayBun();
  * PageSpace's realtime service built room names by hand across dozens of
  * call sites; this scan is the guard against the same drift here. It only
  * scans the two apps that speak the realtime protocol: any hand-built
- * `debate:`, `user:` or `standings:` prefix outside `@daisy/protocol`
+ * `round:`, `user:` or `standings:` prefix outside `@daisy/protocol`
  * itself means a caller bypassed the topic builders `@daisy/protocol`
  * exports. It lives here, in the root script tier, because
  * `packages/protocol` may never import `node:fs` (it stays framework- and
@@ -17,23 +17,23 @@ setupRitewayBun();
  */
 const repoRoot = path.resolve(import.meta.dir, '..');
 const scanTargets = ['apps/web', 'apps/realtime'];
-const FAMILY = '(?:debate|user|standings)';
+const FAMILY = '(?:round|user|standings)';
 /**
  * Matches a topic prefix immediately followed by string interpolation or
  * concatenation, in every form seen in review: template-literal
  * interpolation, quote/backtick concatenation with `+` (both a prefix
  * carrying its own `:` and a bare family literal concatenated with a
- * separate `':'` literal, e.g. `'debate' + ':' + id`), `.concat(...)`, an
+ * separate `':'` literal, e.g. `'round' + ':' + id`), `.concat(...)`, an
  * array literal starting with the bare family name fed to `.join(...)`, and
  * a template literal with a placeholder fed to `.replace(...)`. Deliberately
- * narrower than "any `debate:` substring": permission strings such as
- * `'debate:create'` are a single literal token with no interpolation,
+ * narrower than "any `round:` substring": permission strings such as
+ * `'round:create'` are a single literal token with no interpolation,
  * concatenation, `.concat`, `.join` or `.replace` nearby, so they never
  * match.
  *
  * Known limits, left as heuristics rather than a parser: it is regex over
  * source text, so it cannot follow a value through a variable
- * (`const p = 'debate'; p + ':' + id`), an indirect/computed builder call,
+ * (`const p = 'round'; p + ':' + id`), an indirect/computed builder call,
  * or construction spread across multiple statements or files; and it only
  * catches whitespace matched by `\s`, not exotic separators. It scans
  * `apps/web`/`apps/realtime` text, so it also cannot see a topic built at
@@ -44,12 +44,12 @@ const FAMILY = '(?:debate|user|standings)';
  */
 const handBuiltTopicPattern = new RegExp(
   [
-    `\`${FAMILY}:\\$\\{`, // `debate:${...}`
-    `['"\`]${FAMILY}:['"\`]\\s*\\+`, // 'debate:' + ... / `debate:` + ...
-    `['"\`]${FAMILY}:['"\`]\\s*\\.concat\\(`, // 'debate:'.concat(...)
-    `['"\`]${FAMILY}['"\`]\\s*\\+\\s*['"\`]:['"\`]`, // 'debate' + ':' + id
-    `\\[\\s*['"\`]${FAMILY}['"\`]\\s*,[^\\]]*\\]\\s*\\.join\\(`, // ['debate', id].join(...)
-    `\`${FAMILY}:[^\`]*\`\\s*\\.replace\\(`, // `debate:%s`.replace(...)
+    `\`${FAMILY}:\\$\\{`, // `round:${...}`
+    `['"\`]${FAMILY}:['"\`]\\s*\\+`, // 'round:' + ... / `round:` + ...
+    `['"\`]${FAMILY}:['"\`]\\s*\\.concat\\(`, // 'round:'.concat(...)
+    `['"\`]${FAMILY}['"\`]\\s*\\+\\s*['"\`]:['"\`]`, // 'round' + ':' + id
+    `\\[\\s*['"\`]${FAMILY}['"\`]\\s*,[^\\]]*\\]\\s*\\.join\\(`, // ['round', id].join(...)
+    `\`${FAMILY}:[^\`]*\`\\s*\\.replace\\(`, // `round:%s`.replace(...)
   ].join('|'),
 );
 
@@ -74,7 +74,7 @@ describe('realtime topic drift guard', () => {
     ).flat();
     assert({
       given: 'every existing app that speaks the realtime protocol',
-      should: 'contain no hand-built debate/user/standings topic strings',
+      should: 'contain no hand-built round/user/standings topic strings',
       actual: hits,
       expected: [],
     });
@@ -82,13 +82,13 @@ describe('realtime topic drift guard', () => {
 
   test('the detector itself is a real scan, not a silent pass: it flags every known hand-built form and clears a builder call', () => {
     const handBuilt = [
-      'const topic = `debate:${debateId}:presence`;', // template-literal interpolation
+      'const topic = `round:${roundId}:presence`;', // template-literal interpolation
       "const topic = 'user:' + id + ':inbox';", // quote concatenation
-      'const topic = `debate:` + id;', // backtick concatenation
-      "const topic = 'debate' + ':' + id;", // bare literal + colon literal
-      "const topic = ['debate', id].join(':');", // array + .join
+      'const topic = `round:` + id;', // backtick concatenation
+      "const topic = 'round' + ':' + id;", // bare literal + colon literal
+      "const topic = ['round', id].join(':');", // array + .join
       "const topic = 'standings:'.concat(season);", // .concat
-      'const topic = `debate:%s`.replace("%s", id);', // template + .replace
+      'const topic = `round:%s`.replace("%s", id);', // template + .replace
     ];
     assert({
       given: 'every hand-built topic form seen in review',
@@ -102,10 +102,10 @@ describe('realtime topic drift guard', () => {
       should: 'not match the drift-guard pattern',
       actual: [
         handBuiltTopicPattern.test(
-          'const topic = buildDebatePresenceTopic(debateId);',
+          'const topic = buildRoundPresenceTopic(roundId);',
         ),
         handBuiltTopicPattern.test(
-          "requirePermission(principal, 'debate:create');",
+          "requirePermission(principal, 'round:create');",
         ),
       ],
       expected: [false, false],

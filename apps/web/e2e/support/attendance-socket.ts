@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { buildDebateTopic, serverMessageSchema } from '@daisy/protocol';
+import { buildRoundTopic, serverMessageSchema } from '@daisy/protocol';
 import { expect } from './fixtures';
 
 /** Observe the mounted production connection; never create a test transport. */
@@ -47,7 +47,7 @@ export async function authenticatedAttendanceSocket(
   await expect
     .poll(
       () =>
-        connections.filter((row) => row.topics.has(buildDebateTopic(roundId)))
+        connections.filter((row) => row.topics.has(buildRoundTopic(roundId)))
           .length >= minimumConnections &&
         connections.filter((row) => !row.closed).length === 1 &&
         connections.some(
@@ -55,7 +55,7 @@ export async function authenticatedAttendanceSocket(
             row.secure &&
             row.ready &&
             !row.closed &&
-            row.topics.has(buildDebateTopic(roundId)),
+            row.topics.has(buildRoundTopic(roundId)),
         ),
       { timeout: 15_000 },
     )

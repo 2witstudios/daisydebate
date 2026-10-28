@@ -174,14 +174,13 @@ depends on the reason:
 **Gates.** Every operation authorizes exactly one gate before any other
 check or protected read:
 
-| Operation                                                                          | Gate, then                                                                                                               |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                              |
-| `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 7) |
-| Ranked creation (hosting a ranked debate)                                          | `debate.create` on `ranked`                                                                                              |
-| Unranked creation (hosting an unranked room)                                       | `room.create` (ADR 0049; ships with the room epic)                                                                       |
-| `standings:<seasonId>` subscribe                                                   | a valid ticket (the ladder is public)                                                                                    |
-| `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                         |
+| Operation                                                                        | Gate, then                                         |
+| -------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Debate read by id (page, JSON), `round:<id>` and `round:<id>:presence` subscribe | `debate.read` on the debate                        |
+| Ranked creation (hosting a ranked debate)                                        | `debate.create` on `ranked`                        |
+| Unranked creation (hosting an unranked room)                                     | `room.create` (ADR 0049; ships with the room epic) |
+| `standings:<seasonId>` subscribe                                                 | a valid ticket (the ladder is public)              |
+| `user:<actorId>:inbox` subscribe                                                 | `authorizeInbox`                                   |
 
 **Properties**, proven by property tests over generated principals,
 resources and contexts:
@@ -301,8 +300,8 @@ failed decision refuses the subscribe.
   is left out of listings, but anyone who has its id may read it and
   subscribe to it. cuid2 ids are identifiers, never bearer secrets
   (AGENTS.md), so privacy requires `private`.
-- `debate:<id>:chat` on a private debate keeps ADR 0031 section 5's "seated
-  roles only" narrowing; the chat epic may redefine it.
+- There is no Round chat topic family: in-Round conversation arrives as a
+  messaging channel kind under ADR 0060 (ISSUE-763).
 - **Cross-epic contract with the RT epic.** RT-2.5c's periodic
   re-authorization calls the same composition and fails closed: a recheck
   that cannot run drops the subscription. Its session revalidation covers

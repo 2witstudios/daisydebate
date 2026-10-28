@@ -1,9 +1,9 @@
 import { headers } from 'next/headers';
 import {
   refused,
-  type MockFormState,
+  type FormState,
   type Parsed,
-} from '../features/mock-form/form';
+} from '../features/forms/form-state';
 import { moveOn } from './form-action';
 
 /**
@@ -16,7 +16,7 @@ export async function runMockForm<T>(
   form: unknown,
   parse: (data: FormData) => Parsed<T>,
   destination: (value: T) => string,
-): Promise<MockFormState> {
+): Promise<FormState> {
   const data = form instanceof FormData ? form : new FormData();
   const parsed = parse(data);
   if (!parsed.ok) return refused(data, parsed.error);

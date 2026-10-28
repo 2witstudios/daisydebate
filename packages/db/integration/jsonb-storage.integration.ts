@@ -70,16 +70,16 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
   const fixture = new SQL(url);
   const testOnly = createTestOnlyOperations({ client: fixture });
   const roundId = createId();
-  const topic = `debate:${roundId}`;
+  const topic = `round:${roundId}`;
   try {
     await testOnly.transaction((tx) =>
       appendOutboxEvent(tx, {
         topic,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         version: 1,
         payload: {
           entityVersion: 1,
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [roundId],
         },
       }),
@@ -92,7 +92,7 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
       given: 'appendOutboxEvent',
       should: 'store payload as a jsonb object, not a double-encoded string',
       actual: { type: row?.type, kind: row?.kind },
-      expected: { type: 'object', kind: 'debate.phase-changed' },
+      expected: { type: 'object', kind: 'round.phase-changed' },
     });
   } finally {
     await fixture`delete from outbox where topic = ${topic}`;
@@ -196,7 +196,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
       ),
       payload: await fixture.rejectedBy(
         'outbox',
-        { topic: `debate:${roundId}`, kind: 'k', version: 1, payload: scalar },
+        { topic: `round:${roundId}`, kind: 'k', version: 1, payload: scalar },
         'topic',
       ),
     };

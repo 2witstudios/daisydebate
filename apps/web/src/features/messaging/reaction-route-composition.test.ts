@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { allowEvery } from '../../server/rate-limit.test-support';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
 import { createMessagingUnitApp } from './messaging-app.test-support';
@@ -46,6 +47,7 @@ test('actual app reaction route binds signed identity and canonical operation fe
   const bound: typeof app = {
     ...app,
     auth: () => auth,
+    limiter: { consume: allowEvery },
     database: {
       ...app.database,
       messagingReactionStore: (policy, fence) => {

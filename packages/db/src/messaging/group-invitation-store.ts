@@ -3,7 +3,12 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingSocialCommands } from '../schema/messaging-social';
-import { withLockedMessagingAuthority } from './authority-frame';
+import {
+  castChanged,
+  restartingRead,
+  withLockedMessagingAuthority,
+  withSharedMessagingAuthority,
+} from './authority-frame';
 import {
   readGroupInvitationRow,
   groupInvitationFacts,
@@ -28,10 +33,22 @@ export function createMessagingGroupInvitationStore({
     withInvitation: (scope, work) => {
       if (!idSchema.safeParse(scope.inviteeActorId).success)
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      // A preview only reads: shared fences and a bounded restart; a decision
+      // takes the exclusive fences it writes under (MSG-2.1-arch1).
+      const reading = scope.operation === 'read';
+      const fenced = reading
+        ? withSharedMessagingAuthority
+        : withLockedMessagingAuthority;
+      const run = <R>(
+        work: (
+          tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+        ) => Promise<R>,
+      ) =>
+        reading ? restartingRead(database, work) : database.transaction(work);
+      return run(async (tx) => {
         const discovered = await readGroupInvitationRow(tx, scope);
         let contacts: MessagingGroupInvitationFact['contactPairs'] = [];
-        return withLockedMessagingAuthority(
+        return fenced(
           tx,
           scope,
           async (authority) => {
@@ -131,8 +148,10 @@ export function createMessagingGroupInvitationStore({
               if (frame.fact.authority.kind !== 'private_group')
                 throw createAppError('NOT_FOUND');
               const current = await readGroupInvitationRow(tx, scope);
+              // The inviter moved since discovery: the same race as a cast
+              // change, so a preview restarts instead of failing (409).
               if (current.invitedByActorId !== discovered.invitedByActorId)
-                throw createAppError('CONFLICT');
+                throw castChanged();
               const admitting =
                 scope.operation === 'accept' && current.state === 'pending';
               contacts = await lockGroupContacts(
@@ -144,6 +163,7 @@ export function createMessagingGroupInvitationStore({
                     ]
                   : [discovered.invitedByActorId, scope.inviteeActorId],
                 admitting,
+                reading,
               );
             },
           },

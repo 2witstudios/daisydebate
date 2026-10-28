@@ -138,11 +138,11 @@ export async function insertAndNotifyBurst(
         'insert into outbox (topic, kind, version, payload) values ($1, $2, $3, $4::jsonb) returning txid, seq',
         [
           topic,
-          'debate.phase-changed',
+          'round.phase-changed',
           1,
           {
             entityVersion: index + 1,
-            kind: 'debate.phase-changed',
+            kind: 'round.phase-changed',
             ids: [topic],
           },
         ],

@@ -1,4 +1,5 @@
 import { markRead, type ChatMessage } from '../../features/debate-room/chat';
+import type { PageTone } from '../document-editor/document-editor';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
@@ -29,7 +30,6 @@ import {
 } from '../../features/debate-room/workspace';
 import type { RoundSnapshot } from './round';
 
-export type PageTone = 'dark' | 'light';
 export type EditOutcome = 'applied' | 'discarded';
 
 export type RoomState = {
