@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './seat';
-import { manualTimers } from '../../lib/worker-timers.test-support';
-import { within } from './control-service.test-support';
+import { manualTimers, within } from '../../lib/worker-timers.test-support';
+
 setupRitewayBun();
 function harness(withFeed: boolean, speakerStop = async () => undefined) {
   const log: string[] = [];

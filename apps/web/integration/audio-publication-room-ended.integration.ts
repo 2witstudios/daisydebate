@@ -7,9 +7,9 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 const FRAMES = 5;
-const describe = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
 const PROCESS_DEADLINE_MS = 10_000;
+const messageOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 /**
  * Closes one native publication in `order`, in a child process: native
@@ -32,7 +32,7 @@ async function closeIn(order: 'racing' | 'dropped' | 'live') {
     await cleanup().catch((cleanupError: unknown) => {
       throw new AggregateError(
         [error, cleanupError],
-        `${describe(error)}; room cleanup also failed: ${describe(cleanupError)}`,
+        `${messageOf(error)}; room cleanup also failed: ${messageOf(cleanupError)}`,
       );
     });
     throw error;

@@ -2,12 +2,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
+import { neverOverdue, ownedClaim } from './control-service.test-support';
 import {
-  neverOverdue,
-  ownedClaim,
+  failureLog,
+  manualTimers,
   within,
-} from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 test('idle control discovery and receipt pulses have no provider or media prerequisite', async () => {

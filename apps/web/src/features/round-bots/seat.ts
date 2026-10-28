@@ -47,6 +47,14 @@ export function createBotSeat(input: {
     })();
     return polling;
   };
+  /** Closes what the seat started: its publication, then its hearing. */
+  const closeStarted = async () => {
+    try {
+      await input.publication.close();
+    } finally {
+      await input.feed?.close();
+    }
+  };
   input.publication.start();
   let timer: unknown = null;
   try {
@@ -54,15 +62,9 @@ export function createBotSeat(input: {
     if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
   } catch (error) {
     // A seat that fails to start owns nothing it started (ISSUE-789).
-    const { publication, feed } = input;
-    for (const close of [
-      () => publication.close(),
-      feed && (() => feed.close()),
-    ])
-      if (close)
-        void Promise.resolve()
-          .then(close)
-          .catch((closeError: unknown) => input.failed(closeError, 'close'));
+    void closeStarted().catch((closeError: unknown) =>
+      input.failed(closeError, 'close'),
+    );
     throw error;
   }
   return {
@@ -76,11 +78,7 @@ export function createBotSeat(input: {
       try {
         await input.speaker.stop();
       } finally {
-        try {
-          await input.publication.close();
-        } finally {
-          await input.feed?.close();
-        }
+        await closeStarted();
       }
     },
   };

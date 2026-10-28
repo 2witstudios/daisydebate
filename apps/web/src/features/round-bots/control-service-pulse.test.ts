@@ -6,9 +6,12 @@ import {
   neverOverdue,
   ownedClaim,
   seat,
-  within,
 } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import {
+  failureLog,
+  manualTimers,
+  within,
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 /**

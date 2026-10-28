@@ -5,9 +5,12 @@ import {
   neverOverdue,
   ownedClaim,
   seat,
-  within,
 } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import {
+  failureLog,
+  manualTimers,
+  within,
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };

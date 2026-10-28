@@ -1,12 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startBotControlService } from './control-service';
+import { neverOverdue, ownedClaim, seat } from './control-service.test-support';
 import {
-  neverOverdue,
-  ownedClaim,
-  seat,
+  failureLog,
+  manualTimers,
   within,
-} from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 /**
@@ -63,5 +62,62 @@ test('a rotating seat holds one slot while its incoming claim is in flight (ISSU
     should: 'admit no other seat while that claim holds the slot',
     actual: await scanDuringHandoff(1),
     expected: ['rotating:first', 'rotating:second'],
+  });
+});
+
+test('a reporter that throws never rejects the service’s own promises (ISSUE-789)', async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const incoming = Promise.withResolvers<void>();
+    let segment = 'first',
+      scans = 0;
+    const { tasks, timers } = manualTimers();
+    const service = startBotControlService({
+      store: {
+        scanRoundBotWorkers: async () => {
+          scans += 1;
+          if (scans === 3) throw new Error('scan outage');
+          return [seat('rotating', segment)];
+        },
+        claimRoundBotWorker: async (target) => ownedClaim(target),
+        revokeRoundBotWorker: async () => {},
+        verifyRoundBotWorker: async () => {},
+      },
+      control: (claim) => ({
+        pulse: async () => {
+          if (claim.scope.segmentId === 'second') incoming.resolve();
+          return [];
+        },
+        stop: async () => {
+          if (claim.scope.segmentId === 'first')
+            throw new Error('The operation was aborted.');
+        },
+      }),
+      limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+      timers,
+      overdue: neverOverdue,
+      failed: () => {
+        throw new Error('reporter down');
+      },
+    });
+    await service.started;
+    segment = 'second';
+    await tasks.get(500)!();
+    await within(incoming.promise, 'The incoming claim');
+    await tasks.get(500)!();
+    await service.stop();
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+  assert({
+    given:
+      'a failing stop and a failing scan reported to a reporter that throws',
+    should:
+      'still rotate the seat, stop the service and leave no rejection unhandled',
+    actual: unhandled,
+    expected: [],
   });
 });

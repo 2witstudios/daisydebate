@@ -61,9 +61,9 @@ if (order === 'dropped') await dropped(publication.disconnected);
 const usable = publication.usable();
 const closed = await publication.close();
 // The line is flushed before the exit that keeps native state out of the runner.
-await new Promise<void>((resolve) =>
-  process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`, () =>
-    resolve(),
+await new Promise<void>((resolve, reject) =>
+  process.stdout.write(`${JSON.stringify({ usable, ...closed })}\n`, (error) =>
+    error ? reject(error) : resolve(),
   ),
 );
 process.exit(0);

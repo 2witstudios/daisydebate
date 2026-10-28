@@ -55,6 +55,17 @@ export function startBotControlService<C extends Claim>(input: {
   /** `stage` names the work that failed: pulse, stop, revoke, claim or discover. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
+  /**
+   * Reports through `input.failed`, never throwing: a reporter fault is not
+   * a seat fault, so no promise here rejects because reporting failed.
+   */
+  const failed = (error: unknown, stage: string) => {
+    try {
+      input.failed(error, stage);
+    } catch {
+      /* The reporter itself failed; the seat's work carries on. */
+    }
+  };
   const owned = new Map<string, Owned<C>>();
   let stopped = false,
     discovering: Promise<void> | null = null;
@@ -86,7 +97,7 @@ export function startBotControlService<C extends Claim>(input: {
     input.store.revokeRoundBotWorker(claim.scope, claim.token).then(
       () => undefined,
       (error: unknown) => {
-        if (!isRefusal(error)) input.failed(error, 'revoke');
+        if (!isRefusal(error)) failed(error, 'revoke');
       },
     );
   /** Drops a seat only while it is still this entry, never a claim that replaced it. */
@@ -113,7 +124,7 @@ export function startBotControlService<C extends Claim>(input: {
           await entry.control.stop?.();
         } catch (error) {
           // A stop that fails after its overrun was reported is not reported twice.
-          if (entry.overran !== 'stop') input.failed(error, 'stop');
+          if (entry.overran !== 'stop') failed(error, 'stop');
         }
         silenced = true;
         await entry.pending;
@@ -129,7 +140,7 @@ export function startBotControlService<C extends Claim>(input: {
         // Names the part still running: the speaker's stop, or the receipt pulse.
         const stage = silenced ? 'pulse' : 'stop';
         entry.overran = stage;
-        input.failed(
+        failed(
           createAppError('INFRASTRUCTURE', `Seat ${stage} overran its ending`),
           stage,
         );
@@ -156,7 +167,7 @@ export function startBotControlService<C extends Claim>(input: {
           return;
         }
         // A pulse that outlived its overrun was already reported as it.
-        if (entry.overran !== 'pulse') input.failed(error, 'pulse');
+        if (entry.overran !== 'pulse') failed(error, 'pulse');
       } finally {
         entry.pending = null;
       }
@@ -165,7 +176,7 @@ export function startBotControlService<C extends Claim>(input: {
   };
   /** Another controller claiming or rotating the seat first is no fault. */
   const claimFailed = (error: unknown) => {
-    if (!isRefusal(error)) input.failed(error, 'claim');
+    if (!isRefusal(error)) failed(error, 'claim');
   };
   /** Seats owned or being claimed: the count `maxControllers` bounds. */
   const seatsHeld = () => {
@@ -187,12 +198,8 @@ export function startBotControlService<C extends Claim>(input: {
     // slot is never free between them; shutdown waits for the chain.
     old.handingOff = true;
     const chained: Promise<void> = end(old, true)
-      .then(
-        () => claimSeat(target).catch(claimFailed),
-        (error: unknown) => input.failed(error, 'stop'),
-      )
-      // A reporter that throws never leaves the chain rejected.
-      .catch(() => undefined)
+      .then(() => claimSeat(target))
+      .catch(claimFailed)
       .finally(() => {
         release(old);
         endings.delete(chained);
@@ -251,7 +258,7 @@ export function startBotControlService<C extends Claim>(input: {
           await claimTarget(target).catch(claimFailed);
         }
       } catch (error) {
-        input.failed(error, 'discover');
+        failed(error, 'discover');
       } finally {
         discovering = null;
       }
