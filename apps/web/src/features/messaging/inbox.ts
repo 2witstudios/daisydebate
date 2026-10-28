@@ -190,7 +190,7 @@ export async function decideMessagingInboxCandidate(
     );
     return { kind: 'incoming_invitation', summary: null };
   } catch (error) {
-    return refused(error, ['AUTHORIZATION', 'NOT_FOUND', 'CONFLICT']);
+    return refused(error, ['AUTHORIZATION', 'NOT_FOUND']);
   }
 }
 
