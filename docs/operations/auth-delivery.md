@@ -213,7 +213,7 @@ no username, age or Terms acceptance, and no session or sign-in link since
 then. That includes a browser held by an under-age refusal that signed up
 again. The hourly sweep deletes up to 20 batches of 50 such accounts per
 run, each in its own short transaction, with the policy in
-[privacy](privacy.md#abandoned-provisional-accounts). Each account's own
+[compliance](compliance.md#data-classes). Each account's own
 sign-in and email-change links go in that transaction. Its delivery receipts
 stay for their 30 days, so a late bounce still suppresses the address. Events use `operation: 'retention.provisional_user'`:
 `retention.sweep.completed` (`deleted`, `batches`) and

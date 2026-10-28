@@ -130,7 +130,7 @@ sent addresses, those addresses are exported like any other inventory column.
 
 The reviewed documentation does not confirm the following, so none is
 assumed. WAIT-1.2 (the owner's credentials leaf) answers each and records it
-in the `docs/operations/privacy.md` subprocessor row:
+in the `docs/operations/compliance.md` processor row:
 
 - The data region where beehiiv stores and processes subscriber data.
 - The DPA terms, and whether international transfers rely on standard
@@ -145,7 +145,7 @@ in the `docs/operations/privacy.md` subprocessor row:
 
 ## Consequences
 
-- `docs/operations/privacy.md` gains a beehiiv subprocessor row with region
+- `docs/operations/compliance.md` carries the beehiiv processor row with region
   and DPA marked open, pending WAIT-1.2.
 - `docs/dependencies.md` registers beehiiv's HTTP API as an external
   dependency with no SDK package: Daisy calls it with an injected `fetch`.

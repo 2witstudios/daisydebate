@@ -23,8 +23,9 @@ export type Change =
 
 export type LadderRow = {
   readonly key: string;
-  /** Null for a deleted account. */
-  readonly username: string | null;
+  readonly username: string;
+  /** The account is closed: its name stays on the ladder, marked closed. */
+  readonly accountClosed: boolean;
   readonly rank: number | null;
   readonly rating: number;
   /** The 95% range around the rating: twice its deviation. */
@@ -37,8 +38,8 @@ export type LadderRow = {
   /** True while the viewer judges this debater: no rating or rank. */
   readonly masked: boolean;
   readonly selected: boolean;
-  /** Opens the detail; null for a deleted account, which is not a link. */
-  readonly href: string | null;
+  /** Opens the detail; a closed account keeps its link (ADR 0087). */
+  readonly href: string;
 };
 
 export type Champion = {

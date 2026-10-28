@@ -72,7 +72,11 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry => {
     side: row.role,
     opponents: row.seats
       .filter((seat) => seat.role !== 'judge' && seat.role !== row.role)
-      .map((seat) => ({ kind: seat.kind, label: seat.label })),
+      .map((seat) => ({
+        kind: seat.kind,
+        label: seat.label,
+        closed: seat.closed,
+      })),
     result,
     forfeit: row.forfeit,
     judges: judgePanel(row.seats),
@@ -82,7 +86,8 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry => {
 
 /**
  * A member's profile as `identity` may see it (ISSUE-600), or null when no
- * live member holds the name or the cursor names no Round the viewer may list. A visitor reads the public scope; a signed-in
+ * member holds the name or the cursor names no Round the viewer may list. A
+ * closed account still has a profile: its name and public record (ADR 0087). A visitor reads the public scope; a signed-in
  * caller's scope is decided in the read's own snapshot, and the record and
  * the history share it, so the record never reveals a result the history
  * hides. An unreadable session is an outage, never a visitor's view.
@@ -135,6 +140,7 @@ export async function readProfile(
     version: 1,
     username: read.member.username,
     memberSince: read.member.memberSince,
+    closed: read.member.closed,
     me: read.scope === 'owner',
     record: tallyRecord(read.groups),
     history: read.rows.map(toEntry),

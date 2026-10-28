@@ -6,9 +6,11 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
-import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
-import type { PrivacyExport, PrivacySubject } from './contracts';
-import { corePrivacyFields } from './core-declarations';
+import type {
+  PrivacyAdopter,
+  PrivacyExport,
+  PrivacySubject,
+} from './contracts';
 import {
   planPrivacyErasure,
   planPrivacyExport,
@@ -79,18 +81,18 @@ async function eraseAdopters(
   subject: PrivacySubject,
   now: string,
   adoption: PrivacyAdoption,
-  phase: 'before-auth' | 'after-scrub',
+  phase: PrivacyAdopter['phase'],
 ) {
-  for (const required of adoption.requiredAdopters.filter(
-    (item) => item.phase === phase,
-  )) {
-    const adopter = adoption.adopters.find((item) => item.id === required.id)!;
+  for (const adopter of adoption.filter((item) => item.phase === phase))
     await adopter.erase(tx, subject, { now });
-  }
 }
 
-/** Owns transaction commit; external calls cannot participate in local erasure. */
-export async function erasePrivacySubject(
+/**
+ * Owns transaction commit; external calls cannot participate in local
+ * erasure. The account closes: its email, name, image and sign-in rows go,
+ * its username stays on the competitive record and stays reserved (ADR 0087).
+ */
+export async function runPrivacyErasure(
   database: PrivacyDatabase,
   input: PrivacyErasureInput,
   adoption: PrivacyAdoption,
@@ -130,11 +132,11 @@ export async function erasePrivacySubject(
       await tx.execute(
         sql`delete from ${sql.identifier(table)} where user_id = ${plan.subject.userId}`,
       );
-    await tx.execute(sql`update users set username = null, email = null, image = null,
+    await tx.execute(sql`update users set email = null, image = null,
       name = '', email_verified = false, deleted_at = ${plan.now}::timestamptz,
       updated_at = ${plan.now}::timestamptz, version = version + 1
       where id = ${plan.subject.userId}`);
-    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-scrub');
+    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
     for (const job of plan.jobs)
       await tx.execute(sql`insert into privacy_jobs
       (id, subject_ref, vendor, status, attempts, created_at, retry_at)
@@ -144,41 +146,20 @@ export async function erasePrivacySubject(
   });
 }
 
-/** Own-direction projections may omit another subject’s declared private fields. */
-function checkExportRow(
-  row: Readonly<Record<string, unknown>>,
-  columns: Set<string>,
-) {
-  if (
-    !z.record(z.string(), z.json()).safeParse(row).success ||
-    Object.keys(row).some((column) => !columns.has(column))
-  )
-    throw createAppError('VALIDATION');
-}
+const exportShape = z.record(
+  z.string(),
+  z.array(z.record(z.string(), z.json())),
+);
 
-function checkedExport(
-  fields: readonly PrivacyFieldDeclaration[],
-  result: PrivacyExport,
-) {
-  const allowed = new Map<string, Set<string>>();
-  for (const field of fields)
-    if (field.exportable) {
-      const columns = allowed.get(field.table) ?? new Set<string>();
-      columns.add(field.column);
-      allowed.set(field.table, columns);
-    }
-  if (Object.keys(result).length !== allowed.size)
+/** Every adopter returns its own tables as plain JSON rows, never another's. */
+function checkedExport(result: PrivacyExport) {
+  if (!exportShape.safeParse(result).success)
     throw createAppError('VALIDATION');
-  for (const [table, columns] of allowed) {
-    const rows = result[table];
-    if (!Array.isArray(rows)) throw createAppError('VALIDATION');
-    for (const row of rows) checkExportRow(row, columns);
-  }
   return result;
 }
 
-/** Locked snapshot: providers return declared own-subject rows, never arbitrary history. */
-export async function exportPrivacySubject(
+/** Locked snapshot: each adopter returns its own subject rows, never arbitrary history. */
+export async function runPrivacyExport(
   database: PrivacyDatabase,
   subject: PrivacySubject,
   adoption: PrivacyAdoption,
@@ -193,17 +174,9 @@ export async function exportPrivacySubject(
       version, to_char(deleted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deleted_at
       from users where id = ${plan.subject.userId}`);
     const result: Record<string, readonly Readonly<Record<string, unknown>>[]> =
-      {
-        ...checkedExport(corePrivacyFields, {
-          users: rows as unknown as PrivacyExport[string],
-        }),
-      };
-    for (const id of plan.adopterIds) {
-      const adopter = adoption.adopters.find((item) => item.id === id)!;
-      const exported = checkedExport(
-        adopter.fields,
-        await adopter.export(tx, plan.subject),
-      );
+      { ...checkedExport({ users: rows as unknown as PrivacyExport[string] }) };
+    for (const adopter of adoption) {
+      const exported = checkedExport(await adopter.export(tx, plan.subject));
       for (const [table, records] of Object.entries(exported)) {
         if (Object.hasOwn(result, table)) throw createAppError('VALIDATION');
         result[table] = records;

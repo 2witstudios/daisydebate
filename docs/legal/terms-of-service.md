@@ -46,7 +46,7 @@ Some rounds are judged by AI, and some opponents are AI debaters. AI judging and
 
 ## What you post
 
-You own what you write and say. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it as needed to run the service: to the people in the round, to signed-in members where the room is public or unlisted, and on your public profile. This licence ends when your content is deleted, except for results and anonymous entries kept so other members’ records stay correct.
+You own what you write and say. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it as needed to run the service: to the people in the round, to signed-in members where the room is public or unlisted, and on your public profile. This licence ends when your content is deleted, except for results, rounds and your username kept on the public record so other members’ records stay correct.
 
 You are responsible for what you post and confirm you have the right to post it. We may remove content that breaks these terms. [COUNSEL: confirm the licence scope and any notice-and-takedown process.]
 
@@ -56,7 +56,7 @@ Your profile shows your public debates and your record to anyone. We may correct
 
 ## Leaving, and being removed
 
-You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your past results stay in records as an anonymous entry so other people’s results remain accurate.
+You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your username stays on your past results, marked closed, so other people’s results remain accurate, and nobody else can take it.
 
 We may suspend or close an account that breaks these terms or puts others at risk. Unless the law or safety prevents it, we tell you why, and you can answer.
 

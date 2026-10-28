@@ -5,8 +5,9 @@ import {
   loggableFields,
   type EventName,
 } from './vocabulary';
+import { logRoutes } from './routes';
 
-export { eventRegistry, loggableFields, type EventName };
+export { eventRegistry, loggableFields, logRoutes, type EventName };
 
 export type LogFields = Readonly<Record<string, unknown>> & {
   readonly event?: never;

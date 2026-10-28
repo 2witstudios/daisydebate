@@ -34,15 +34,19 @@ export default async function ProfileRoute({
     typeof raw.before === 'string' ? { before: raw.before } : {},
   );
   if (!query.success) notFound();
-  // Null: no live member holds the name, or the cursor names no Round the
-  // viewer may list. Either way there is no such page.
+  // Null: no member, live or closed, holds the name, or the cursor names no
+  // Round the viewer may list. Either way there is no such page.
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
   return (
     <ProfilePage
       profile={profile}
       paged={query.data.before !== undefined}
-      actions={profile.me ? null : await friendActionsFor(profile.username)}
+      actions={
+        profile.me || profile.closed
+          ? null
+          : await friendActionsFor(profile.username)
+      }
     />
   );
 }

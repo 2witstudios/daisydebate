@@ -5,7 +5,6 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import type { PrivacySubject } from './contracts';
-import { messagingTypingPrivacyDeclaration } from './typing-declaration';
 
 /** External I/O runs outside the PostgreSQL adopter transaction, never in place of its commit. */
 export function createMessagingTypingPrivacyPort(
@@ -23,7 +22,6 @@ export function createMessagingTypingPrivacyPort(
     return { ...account, actorId: account.actorId };
   };
   return {
-    declaration: messagingTypingPrivacyDeclaration,
     async export(subject: PrivacySubject) {
       if (!idSchema.safeParse(subject.actorId).success)
         throw createAppError('VALIDATION');

@@ -3,7 +3,8 @@ import { sql } from 'drizzle-orm';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AuthorizationTransaction } from '../src/authorization';
-import { erasePrivacySubject, type PrivacyAdopter } from '../src/privacy';
+import { runPrivacyErasure } from '../src/privacy/operations';
+import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { sqlStateOf } from './constraint-helpers';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 
@@ -17,7 +18,6 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     const before: PrivacyAdopter = {
       id: 'lock-probe',
       phase: 'before-auth',
-      fields: [],
       export: async () => ({}),
       erase: async (tx) => {
         firstTx = tx;
@@ -41,7 +41,7 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     const after: PrivacyAdopter = {
       ...before,
       id: 'scrub-probe',
-      phase: 'after-scrub',
+      phase: 'after-close',
       erase: async (tx) => {
         const rows = await tx.execute(
           sql`select email,email_verified,version,deleted_at is not null as erased from users where id=${userId}`,
@@ -60,17 +60,10 @@ test('subject account is locked before cleanup and adopters share the erasure tr
     };
     const adopters = [before, after];
     try {
-      await erasePrivacySubject(
+      await runPrivacyErasure(
         database,
         { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
-        {
-          requiredAdopters: adopters.map((item) => ({
-            id: item.id,
-            phase: item.phase,
-            expectedColumns: {},
-          })),
-          adopters,
-        },
+        adopters,
         bindings,
       );
       assert({

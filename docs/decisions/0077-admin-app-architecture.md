@@ -33,7 +33,9 @@ how operators authenticate, how they are authorized, and what the app records.
   participant database, Redis or Better Auth credential.
 - `PrivacyFieldDeclaration` and its zod schema moved from `@daisy/db` into
   `@daisy/protocol/privacy` so both databases declare their columns against one
-  contract; the transaction-bound adopter stays in `@daisy/db`.
+  contract; the transaction-bound adopter stays in `@daisy/db`. (ADR 0087
+  removed per-column declarations; admin retention lives in
+  `apps/admin/src/db/retention.ts` and `docs/operations/compliance.md`.)
 
 ### 2. Database placement and the migrate app
 

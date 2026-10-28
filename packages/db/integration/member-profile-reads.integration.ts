@@ -1,89 +1,19 @@
 import { createId } from '@paralleldrive/cuid2';
-import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import type { Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { createBotSeat } from './bot-seat.test-support';
-import { withFixture, type Fixture } from './constraint-helpers';
 import {
   forfeitCommand,
   played,
+  present,
+  profileOf,
   roomRound,
+  tally,
+  withProfileFixture,
 } from './member-profile.test-support';
 import { at } from './standings-fixtures';
 
 setupRitewayBun();
-
-const { databaseUrl: url } = requireTestServices(process.env);
-
-/** The owner's scope only for the bound, current member themself. */
-const ownerOnly = (
-  memberActorId: string,
-  account: {
-    readonly actorId: string | null;
-    readonly member: boolean;
-    readonly erased: boolean;
-  } | null,
-) =>
-  account !== null &&
-  account.member &&
-  !account.erased &&
-  account.actorId === memberActorId
-    ? ('owner' as const)
-    : ('public' as const);
-
-const profileOf = (
-  database: Database,
-  input: {
-    readonly username: string;
-    readonly caller: {
-      readonly userId: string;
-      readonly actorId: string;
-    } | null;
-    readonly before?: string | null;
-    readonly limit?: number;
-  },
-) =>
-  database.readMemberProfile({
-    username: input.username,
-    caller: input.caller,
-    decide: ownerOnly,
-    before: input.before ?? null,
-    limit: input.limit ?? 10,
-  });
-
-/** A profile the test expects to exist. */
-const present = async <T>(read: Promise<T | null>): Promise<T> => {
-  const value = await read;
-  if (value === null) throw new Error('Expected a member profile');
-  return value;
-};
-
-const tally = (
-  groups: readonly { role: string; outcome: string | null; rounds: number }[],
-) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
-
-/** A fixture, a database over it and one live member, closed after `run`. */
-const withProfileFixture = (
-  run: (context: {
-    readonly fixture: Fixture;
-    readonly database: Database;
-    readonly subject: { readonly userId: string; readonly actorId: string };
-  }) => Promise<void>,
-) =>
-  withFixture(url, async (fixture) => {
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      await run({
-        fixture,
-        database,
-        subject: await createAuthorizationSubject(fixture),
-      });
-    } finally {
-      await database.close();
-    }
-  });
 
 describe('member profile reads (ISSUE-600)', () => {
   test('reads a live member by name, case-insensitively, and nobody else', async () => {
@@ -275,7 +205,7 @@ describe('member profile reads (ISSUE-600)', () => {
             ['affirmative', 'human', username],
             ['negative', 'bot', 'Fixture bot'],
           ],
-          { role: 'judge', kind: 'human', label: null },
+          { role: 'judge', kind: 'human', label: null, closed: false },
           [
             ['affirmative', null, false, 'public'],
             ['negative', 'affirmative', true, 'private'],

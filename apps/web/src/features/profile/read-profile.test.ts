@@ -20,11 +20,11 @@ const row = {
   role: 'affirmative',
   forfeit: true,
   seats: [
-    { role: 'affirmative', kind: 'human', label: 'debater-a' },
-    { role: 'affirmative', kind: 'human', label: 'teammate' },
-    { role: 'negative', kind: 'bot', label: 'Socrates' },
-    { role: 'negative', kind: 'human', label: null },
-    { role: 'judge', kind: 'bot', label: 'Judge bot' },
+    { role: 'affirmative', kind: 'human', label: 'debater-a', closed: false },
+    { role: 'affirmative', kind: 'human', label: 'teammate', closed: false },
+    { role: 'negative', kind: 'bot', label: 'Socrates', closed: false },
+    { role: 'negative', kind: 'human', label: 'gone-debater', closed: true },
+    { role: 'judge', kind: 'bot', label: 'Judge bot', closed: false },
   ],
 } as const;
 
@@ -78,6 +78,7 @@ const storeFor = (
           ...owner,
           username: 'debater-a',
           memberSince: '2026-09-01T00:00:00.000Z',
+          closed: false,
         },
         scope,
         groups: [
@@ -133,8 +134,8 @@ describe('readProfile', () => {
           resolution: row.resolution,
           side: 'affirmative',
           opponents: [
-            { kind: 'bot', label: 'Socrates' },
-            { kind: 'human', label: null },
+            { kind: 'bot', label: 'Socrates', closed: false },
+            { kind: 'human', label: 'gone-debater', closed: true },
           ],
           result: 'loss',
           forfeit: true,

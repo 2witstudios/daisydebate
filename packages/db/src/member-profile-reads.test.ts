@@ -22,7 +22,7 @@ const account = {
   revision: 3,
 };
 const accountFact = factOfRow(account);
-const memberRow = [userId, actorId, 'debater-a', at];
+const memberRow = [userId, actorId, 'debater-a', at, null];
 
 /** A decision that records what it was asked and answers `scope`. */
 const deciding = (scope: HistoryScope) => {
@@ -67,9 +67,9 @@ describe('readMemberProfile', () => {
         ['round-1', earlier, 'Motion one', 'public', null, 'negative'],
       ],
       [
-        ['round-2', 'affirmative', 'human', 'debater-a', null],
-        ['round-2', 'judge', 'bot', null, 'Judge bot'],
-        ['round-2', 'negative', 'human', null, null],
+        ['round-2', 'affirmative', 'human', 'debater-a', null, null],
+        ['round-2', 'judge', 'bot', null, null, 'Judge bot'],
+        ['round-2', 'negative', 'human', 'closed-b', at, null],
       ],
       [['round-2']],
       [],
@@ -98,6 +98,7 @@ describe('readMemberProfile', () => {
             actorId,
             username: 'debater-a',
             memberSince: at.toISOString(),
+            closed: false,
           },
           scope: 'public',
           groups: [
@@ -118,15 +119,59 @@ describe('readMemberProfile', () => {
               role: 'affirmative',
               forfeit: true,
               seats: [
-                { role: 'affirmative', kind: 'human', label: 'debater-a' },
-                { role: 'judge', kind: 'bot', label: 'Judge bot' },
-                { role: 'negative', kind: 'human', label: null },
+                {
+                  role: 'affirmative',
+                  kind: 'human',
+                  label: 'debater-a',
+                  closed: false,
+                },
+                {
+                  role: 'judge',
+                  kind: 'bot',
+                  label: 'Judge bot',
+                  closed: false,
+                },
+                {
+                  role: 'negative',
+                  kind: 'human',
+                  label: 'closed-b',
+                  closed: true,
+                },
               ],
             },
           ],
           nextBefore: 'round-2',
         },
       },
+    });
+  });
+
+  test('a closed member, read by a caller bound to them', async () => {
+    const owner = deciding('owner');
+    const closed = createTestDatabase([
+      [],
+      [[userId, actorId, 'debater-a', at, at]],
+      [],
+      [],
+    ]);
+    const profile = await read(closed.database, {
+      caller,
+      decide: owner.decide,
+    });
+    assert({
+      given: 'a closed account and a caller bound to its actor',
+      should:
+        'read the public subset without asking for the owner scope or reading the account fence',
+      actual: [
+        owner.asked,
+        profile?.member.closed,
+        profile?.scope,
+        /"visibility" = \$/.test(closed.queries[2]?.query ?? ''),
+        closed.queries.some(({ query }) =>
+          /daisy_room_read_account/.test(query),
+        ),
+      ],
+      expected: [[], true, 'public', true, false],
     });
   });
 

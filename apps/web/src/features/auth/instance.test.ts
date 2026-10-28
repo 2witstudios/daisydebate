@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readAuthConfig } from '@daisy/config';
+import { logRoutes } from '@daisy/logger';
 import {
   authTestEnv,
   capturingSender,
@@ -198,6 +199,22 @@ describe('auth instance composition', () => {
         statuses: [404, 404, 404],
         setCookies: [false, false, false],
       },
+    });
+  });
+
+  test('every endpoint path the rate limiter may log is a listed route pattern (ISSUE-832)', () => {
+    const api = composeAuthServer().instance.api as Record<
+      string,
+      { readonly path?: string }
+    >;
+    const unlisted = Object.values(api)
+      .map((endpoint) => endpoint.path)
+      .filter((path) => path !== undefined && !logRoutes.has(path));
+    assert({
+      given: 'the configured Better Auth endpoints',
+      should: 'each name a route the logger admits',
+      actual: unlisted,
+      expected: [],
     });
   });
 });

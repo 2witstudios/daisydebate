@@ -10,7 +10,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { socialPrivacyAdoption } from '../src/social-privacy-composition';
-import { exportPrivacySubject } from '../src/privacy';
+import { runPrivacyExport } from '../src/privacy/operations';
 import {
   acknowledgeFileDeletion,
   expireChannelFiles,
@@ -160,12 +160,12 @@ test('real private storage deletion acknowledgement alone releases durable quota
     });
     const next = await reserve();
     const adoption = socialPrivacyAdoption();
-    const exported = await exportPrivacySubject(
+    const exported = await runPrivacyExport(
       database,
       { actorId: fixture.actorId, userId: fixture.userId },
       adoption,
     );
-    const peerExport = await exportPrivacySubject(
+    const peerExport = await runPrivacyExport(
       database,
       { actorId: fixture.otherActorId, userId: fixture.otherUserId },
       adoption,

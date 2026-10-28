@@ -152,23 +152,20 @@ These four rules are blockers in every plan and review (owner, 2026-10-27):
 - Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions, and integer millisecond durations. cuid2 IDs are identifiers, never bearer secrets. Use
   structured logging; never log credentials, cookies, raw request bodies, or
   raw exceptions. Public errors must not expose internals.
-- Every log field, database column, Redis key and vendor-held record has a
-  privacy category (`none | identifier | personal | sensitive | secret`)
-  and, when personal, a visibility (`public | private`); identifiers are
-  scoped per telemetry surface (logs, errors, analytics), never global. See
-  [privacy](docs/operations/privacy.md), [ADR 0036](docs/decisions/0036-privacy-by-design.md).
-- A personal-data column ships with its classification (category,
-  visibility, purpose, lawful basis, retention, erasure) in the PR body in
-  the same change; `bun privacy` (planned, PRIV-3) will gate undeclared or
-  stale entries in `data-inventory.ts` once built. See
-  [privacy](docs/operations/privacy.md).
+- Compliance is recorded per obligation and data class in
+  [compliance](docs/operations/compliance.md), never per column. A change
+  that adds a data class, purpose, processor or retention period updates
+  that page in the same PR. No personal data reaches a log, error report or
+  analytics event; identifiers are scoped per telemetry surface. Erasure
+  keeps the competitive record, username included
+  ([ADR 0087](docs/decisions/0087-compliance-from-obligations.md)).
 - Error tracking and product analytics go only through the `ErrorReporter`
   and `track` adapters (Sentry, PostHog); both stay inert without their
   deploy-time keys, and a raw exception goes only to the scrubbed error
   tracker, never to logs. See [ADR 0037](docs/decisions/0037-error-tracking-and-product-analytics.md).
 - `necessary`, `analytics` and `replay` consent categories always exist in
   the stored schema regardless of deploy configuration; `unanswered` counts
-  as denied. See [privacy](docs/operations/privacy.md).
+  as denied. See [compliance](docs/operations/compliance.md).
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
   migrations, and expand/contract for rolling deployments. Never rewrite an
   applied migration or reset production; the only sanctioned history rewrite

@@ -37,7 +37,7 @@ for (const change of [
       else if (change === 'age-removed')
         await fixture.client`delete from account_age where user_id=${fixture.userId}`;
       else if (change === 'erased')
-        await fixture.client`update users set username=null,deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${fixture.userId}`;
+        await fixture.client`update users set deleted_at='2026-10-09T00:00:00Z',version=version+1 where id=${fixture.userId}`;
       else
         await fixture.client`update session set expires_at='2026-10-09T00:00:30Z' where id=${fixture.sessionId}`;
       fixture.advanceToRevalidation();

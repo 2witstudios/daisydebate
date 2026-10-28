@@ -9,7 +9,8 @@ import {
 } from './schema';
 
 /**
- * The admin retention rules this app enforces itself (privacy.ts, plan §8):
+ * The admin retention rules this app enforces itself (BETA plan §8;
+ * docs/operations/compliance.md):
  * expired challenges, enrollments and sessions go 7 days after expiry, and
  * rate-limit buckets a day after their window opened, and settled commands
  * 30 days after they settled (an open one never goes). Credentials,

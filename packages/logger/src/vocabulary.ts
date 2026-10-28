@@ -3,6 +3,8 @@
  * loggable fields and their value kinds. It holds no I/O, so the ingest
  * admission (`./ingest`) judges shipped lines by it without loading pino.
  */
+import { logRoutes } from './routes';
+
 export const eventRegistry = {
   'runtime.initialize': 'info',
   'request.unhandled': 'error',
@@ -86,9 +88,8 @@ export const fieldKinds = {
   /** A request, trace, principal or provider identifier. */
   id: (value: unknown) =>
     typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value),
-  /** A route pattern or URL path, never a query or fragment. */
-  path: (value: unknown) =>
-    typeof value === 'string' && /^\/[A-Za-z0-9_./[\]-]{0,199}$/.test(value),
+  /** One of the listed route patterns, never a concrete URL. */
+  route: (value: unknown) => typeof value === 'string' && logRoutes.has(value),
   /** A SHA3-256 hex digest. */
   hash: (value: unknown) =>
     typeof value === 'string' && /^[0-9a-f]{64}$/.test(value),
@@ -115,8 +116,8 @@ export const loggableFields = {
   userId: 'id',
   actorId: 'id',
   providerMessageId: 'id',
-  route: 'path',
-  path: 'path',
+  route: 'route',
+  path: 'route',
   clientIdHash: 'hash',
   durationMs: 'count',
   status: 'count',
