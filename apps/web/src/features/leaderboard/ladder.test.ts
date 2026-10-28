@@ -106,17 +106,20 @@ describe('buildLadder filters', () => {
     });
   });
 
-  test('a deleted account is not searchable', () => {
+  test('a closed account keeps its name on the ladder', () => {
+    const closed = entry({ id: 'gone', username: 'gone', accountClosed: true });
     assert({
-      given: 'a tombstone row and a search',
-      should: 'not match it, but keep it in the ladder without a link',
+      given: 'a closed account’s row and a search for its name',
+      should:
+        'match it and keep it in the ladder, marked closed, with its link',
       actual: [
-        ladder([entry({ id: 'gone', username: null })], { q: 'gone' }).total,
-        ladder([entry({ id: 'gone', username: null }), ...field(3)]).rows.find(
-          (row) => row.username === null,
-        )?.href,
+        ladder([closed], { q: 'gone' }).total,
+        ladder([closed, ...field(3)]).rows.find((row) => row.key === 'gone')
+          ?.accountClosed,
+        ladder([closed, ...field(3)]).rows.find((row) => row.key === 'gone')
+          ?.href === null,
       ],
-      expected: [0, null],
+      expected: [1, true, false],
     });
   });
 });

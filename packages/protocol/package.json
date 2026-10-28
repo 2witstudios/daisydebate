@@ -10,7 +10,6 @@
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",
     "./capture-heard": "./src/capture-heard.ts",
     "./resolution-draw": "./src/resolution-draw.ts",
-    "./privacy": "./src/privacy.ts",
     "./operator": "./src/operator.ts",
     "./round-analysis-testing": "./src/round-analysis.test-support.ts"
   },

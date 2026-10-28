@@ -82,10 +82,9 @@ content or fabricated entity revision. The existing owner inbox topic provides
 the routing address, selected from the current locked DM pair. The
 browser clears its stale snapshot and refetches the protected inbox. Generic
 outbox position orders delivery; an uncertifiable reconnect requires HTTP
-resynchronization. The kind marker has privacy category `none`. No personal/private payload
-exception is inferred from an owner-only topic. Existing messaging collection
-lawful-basis and retention choices remain pending canonical PRIV-3/PRIV-4
-decisions; this bell supplies no activation or retention exception.
+resynchronization. The kind marker carries no personal data, and no personal payload is inferred
+from an owner-only topic. Messaging's lawful basis and retention are the
+Messages class in [compliance](../operations/compliance.md).
 
 The native routes, inbox and realtime reader are delivered source. Current
 browser, JavaScript-disabled, current-role and final composed service evidence
@@ -104,9 +103,7 @@ history envelope and preserve the query when following an earlier-page cursor.
 
 The conversation's GET search form works without JavaScript. Search text stays
 in the request/browser navigation; this implementation adds no query log,
-durable search record, event payload or analytics field. Existing message and
-relationship privacy declarations, current reading-policy holds and erasure
-rules remain applicable. Contract and protected-refusal tests are branch proof;
+durable search record, event payload or analytics field. Existing reading-policy holds and erasure rules remain applicable. Contract and protected-refusal tests are branch proof;
 the new real database/HTTP and browser controls remain scheduled acceptance.
 
 ### Private-group invitation decisions
@@ -156,24 +153,17 @@ never substitutes for current membership or reading authority.
 
 The dedicated `messaging_social_command_subjects` table records every invitee
 associated with a multi-target creation fingerprint. `actor_id`, `request_id`
-and `subject_actor_id` are all personal/private command relationship columns,
-owned by MSG in PostgreSQL, for subject export and erasure of the associated
-command. They are exportable only within the requester's own command or subject
+and `subject_actor_id` tie the command to its people, for subject export and
+erasure of the associated command. They are exportable only within the requester's own command or subject
 association. Erasure deletes the bound command and cascades its associations;
-unrelated peer commands and contributions remain untouched. Lawful basis is
-pending PRIV-3 (`jc0qcdvpkmqzrelpaesi3pah`); retention is pending PRIV-4
-(`njiorsf64z4iqjm2dbfa3zuu`), with no retention exception or activation approval.
-The fingerprint itself retains its existing personal/private declaration.
+unrelated peer commands and contributions remain untouched. Lawful basis and retention are the Messages class in
+[compliance](../operations/compliance.md).
 
-Schema input and cleanup/export source must be composed with the sole canonical
-inventory update and CAP's reviewed forward migration before rights or service
-acceptance. Stale inventory refuses the newly exported table. These source
-changes do not establish migration application, physical cleanup proof, accepted
-group policy, late-join history policy or production collection activation. The title author binding is personal/private MSG-owned PostgreSQL data,
-exportable to its subject and deleted with its authored title on erasure. Its
-purpose is subject-directed private communication and social access. Lawful
-basis and retention remain pending PRIV-3 and PRIV-4; this rights implementation
-does not authorize production collection. The schema couples title and author: DM
+These source changes do not establish migration application, physical cleanup proof, accepted
+group policy, late-join history policy or production collection activation. The title author binding is exported to its subject and deleted with its
+authored title on erasure. Its purpose is subject-directed private
+communication and social access, under the Messages class in
+[compliance](../operations/compliance.md). The schema couples title and author: DM
 channels carry neither, private groups carry both or neither after erasure. The
 forward migration requires an empty greenfield target; existing unattributed local
 fixtures must be recreated by their owner, never assigned an inferred author.

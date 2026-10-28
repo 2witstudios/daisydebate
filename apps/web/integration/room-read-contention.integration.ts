@@ -64,7 +64,7 @@ for (const race of ['unready', 'cast', 'membership', 'erasure'] as const)
         if (race === 'membership')
           await f.sql`update users set email_verified=false,version=version+1 where id=${f.host.userId}`;
         if (race === 'erasure')
-          await f.sql`update users set username=null,email_verified=false,deleted_at=statement_timestamp(),version=version+1 where id=${f.guest.userId}`;
+          await f.sql`update users set email_verified=false,deleted_at=statement_timestamp(),version=version+1 where id=${f.guest.userId}`;
         const before = await f.snapshot(view.id);
         release();
         await assertRejects({

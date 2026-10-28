@@ -24,7 +24,7 @@ Use /aidd-javascript for JavaScript/TypeScript, /aidd-tdd for test quality, /aid
 Use /aidd-timing-safe-compare for secret/token comparisons (SHA3-256 digest equality is correct; do not flag `===` on digests) and /aidd-jwt-security for authentication.
 For runtime changes, list each current OWASP Top 10 category and account for it as reviewed or not applicable, with a reason.
 Read the slice plan the PR links. Extract every "Given X, should Y" criterion in its task list and mark each PASS / FAIL / PARTIAL with code and test path:line.
-Check privacy and telemetry: every new log field, column, payload kind, topic field and analytics event is classified; no personal, sensitive or secret value reaches a log, an error report or analytics.
+Check compliance and telemetry: a new data class, purpose, processor or retention period updates docs/operations/compliance.md; no personal value reaches a log, an error report or analytics; erasure keeps the competitive record (ADR 0087).
 Look for redundancies, dead code, forgotten files and incomplete moves or deletions. Simplicity is removing the obvious and adding the meaningful.
 Judge against intent and the ideal design, not only the existing code: does the design serve the stated intent, and is it the best way or just consistent with what exists? Consistent-with-flawed-code is not a pass.
 Check concept boundaries against the repository's architecture rules (Daisy: AGENTS.md "Architecture rules"): do the names and the organization match the product's concepts? A breach of those rules (concept coupling) is a BLOCKER, never a minor.
@@ -67,7 +67,7 @@ Post {
    ### Checks — each command or CI job with PASS / FAIL / NOT RUN (reason)
    ### Findings — one line each: `- <blocker|major|minor|nit> · <file>:<line> · <why> · <what correct looks like>`
    ### Criteria — `<CODE — criterion> · PASS|FAIL|PARTIAL · code path:line · test path:line`
-   ### Privacy & telemetry — findings, or what was checked
+   ### Compliance & telemetry — findings, or what was checked
    ### Verdict — the next line, exactly: `<n> blocker / <n> major / <n> minor / <n> nit — <APPROVE | APPROVE WITH MINORS | CHANGES REQUESTED>`
    Approve only with zero blockers and zero majors. The merge automation reads this exact line (Daisy: a merge moves the PR's tasks to Done only when the latest verdict approves).
 2. Post it: `gh pr comment <n> --body-file <file>`. Put a finding tied to one line in an inline review comment as well, so it gets its own thread.

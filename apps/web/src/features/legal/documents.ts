@@ -64,7 +64,7 @@ export const termsDocument: LegalDocument = {
       id: 'ending-an-account',
       heading: 'Leaving, and being removed',
       paragraphs: [
-        'You can delete your account at any time from settings. Your past results stay in standings and records as an anonymous entry so other people’s results remain accurate.',
+        'You can close your account at any time. Your username stays on the results you took part in, marked closed, so other people’s results remain accurate, and nobody else can take it.',
         'We may suspend or remove an account that breaks these terms. We tell you why, and you can answer.',
       ],
     },
@@ -122,7 +122,7 @@ export const privacyDocument: LegalDocument = {
       heading: 'How long we keep it',
       paragraphs: [
         'Account data is kept while the account is open. Sign-in sessions and verification links expire on their own. Recordings and prep material follow the visibility you chose, and you can delete them.',
-        'When you delete your account we remove what identifies you. Results you took part in stay as an anonymous entry so other people’s standings do not change.',
+        'When you close your account we delete your email, sign-in, private profile, messages and what you said in rounds. Your username, results and the rounds you played stay on the public record, marked closed, so other people’s standings do not change. You can object to this by writing to us.',
       ],
     },
     {

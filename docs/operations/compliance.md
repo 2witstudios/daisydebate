@@ -1,0 +1,168 @@
+# Compliance
+
+Daisy's legal obligations under the GDPR, the UK GDPR, the CCPA (as amended
+by the CPRA) and COPPA, and the one module or procedure that meets each.
+This page is the source of truth. It is also Daisy's record of processing
+(GDPR and UK GDPR Article 30), kept at the level of data classes, not
+columns. [ADR 0087](../decisions/0087-compliance-from-obligations.md) is the
+decision behind it.
+
+Lawful bases and retention periods marked **proposed** await counsel review
+(COMP-4, human sign-off). Nothing on this page is legal advice or an
+attestation; it records what the code does and what is still missing.
+
+## Keeping this page true
+
+A change that adds a new data class, a new purpose for an existing class, a
+new processor or a new retention period updates this page in the same PR.
+Adding a column to an existing class does not: classification happens per
+class, and the class's row already covers it. There is no per-column
+inventory and no gate; the reviewer checks this page.
+
+## Controller
+
+| Item                     | Value                                                                      |
+| ------------------------ | -------------------------------------------------------------------------- |
+| Controller               | The owner's legal entity (open owner decision: name, address, contact)     |
+| Privacy contact          | The contact the privacy policy names ([draft](../legal/privacy-policy.md)) |
+| EU and UK representative | Open counsel decision (GDPR Art. 27, UK GDPR Art. 27)                      |
+| Data protection officer  | Not required at current scale; open counsel decision                       |
+
+## Obligations
+
+| Obligation                                     | Law                                                  | Met by                                                                                                                                                                                                                                                | Status                                                                             |
+| ---------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A lawful basis for each processing purpose     | GDPR/UK GDPR Art. 6                                  | The data-class table below                                                                                                                                                                                                                            | Proposed, COMP-4                                                                   |
+| Transparency                                   | GDPR/UK GDPR Art. 13–14; CCPA notice at collection   | The privacy policy ([draft](../legal/privacy-policy.md)), served at `/privacy` (`apps/web/src/features/legal/`)                                                                                                                                       | Draft awaiting counsel (WAIT-6.x)                                                  |
+| Access and portability                         | GDPR/UK GDPR Art. 15, 20; CCPA right to know         | `exportPrivacySubject` (`packages/db/src/privacy/subject-rights.ts`): every feature's export step, composed once in `subject-rights` order                                                                                                            | Engine built; **no request path**; competitive record not yet exported (ISSUE-833) |
+| Erasure                                        | GDPR/UK GDPR Art. 17; CCPA right to delete           | `erasePrivacySubject` (same module): one transaction that runs every feature's erase step, closes the account and queues vendor deletion                                                                                                              | Engine built; **no request path** (ISSUE-833)                                      |
+| Rectification                                  | GDPR/UK GDPR Art. 16; CCPA right to correct          | Settings: email change (`apps/web/src/features/auth/email-change/`)                                                                                                                                                                                   | Built                                                                              |
+| Objection and restriction                      | GDPR/UK GDPR Art. 18, 21                             | Procedure: a request to the privacy contact, decided by the owner with counsel (see "Retained after erasure")                                                                                                                                         | Procedure only                                                                     |
+| Storage limitation                             | GDPR/UK GDPR Art. 5(1)(e); CCPA retention disclosure | The retention sweep (`apps/web/src/server/retention-sweep.ts`), the admin sweep (`apps/admin/src/db/retention.ts`) and the log store TTL ([ADR 0084](../decisions/0084-operational-log-pipeline.md))                                                  | Built; periods proposed, COMP-4                                                    |
+| Children                                       | COPPA; GDPR Art. 8; UK Age Appropriate Design Code   | The age step (`packages/db/src/age-step.ts`, `apps/web/src/features/account/age-step.ts`, [DEC-244](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/cnl34yx54fgtuxwvekobc657))                                                                | Built                                                                              |
+| Processors under contract                      | GDPR/UK GDPR Art. 28; CCPA service-provider terms    | The processor table below; DPA execution is PRIV-H (human)                                                                                                                                                                                            | Open, PRIV-H                                                                       |
+| Processors told to delete                      | GDPR/UK GDPR Art. 17(2), 28(3)(g)                    | Vendor deletion jobs: `privacy_jobs` and `deliverPrivacyJob` (`packages/db/src/privacy/vendor-jobs.ts`), queued in the erasure transaction                                                                                                            | Jobs queued; **no scheduled worker** (ISSUE-833)                                   |
+| International transfers                        | GDPR/UK GDPR Ch. V                                   | Each processor's DPA with standard contractual clauses or the UK addendum, recorded in the processor table                                                                                                                                            | Open, PRIV-H                                                                       |
+| Security of processing                         | GDPR/UK GDPR Art. 32; CCPA reasonable security       | See "Security measures"                                                                                                                                                                                                                               | Built                                                                              |
+| No personal data in logs                       | Art. 5(1)(c), Art. 32                                | The logger vocabulary (`packages/logger/src/vocabulary.ts`, [ADR 0019](../decisions/0019-token-secret-ownership.md)): a closed field allowlist, fixed-prose messages, and `route`/`path` fields that admit only listed route patterns (ISSUE-832)     | Built                                                                              |
+| Consent for non-essential analytics and replay | ePrivacy Directive Art. 5(3); PECR; GDPR Art. 7      | The consent model ([ADR 0036](../decisions/0036-privacy-by-design.md) §5): `necessary`, `analytics`, `replay`, with `unanswered` denied; the adapters stay inert without keys ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md)) | Nothing collects analytics yet; consent storage unbuilt (PRIV-6)                   |
+| Breach record and notification                 | GDPR/UK GDPR Art. 33–34; US state breach laws        | See "Breaches"                                                                                                                                                                                                                                        | Procedure                                                                          |
+| No sale or sharing of personal information     | CCPA §1798.120                                       | Daisy sells nothing and shares nothing for cross-context advertising; no advertising SDK exists                                                                                                                                                       | Holds                                                                              |
+
+## Data classes
+
+Data subjects: members (16+ during the beta, 13+ later), people who started
+a sign-up and never finished, newsletter subscribers, and operators.
+
+| Class                   | What it holds                                                                                                 | Purpose                                                            | Lawful basis (proposed)                                      | Retention (proposed)                                                                               | On erasure                                                                                | Owning module                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Sign-in                 | Email, name, image, sessions (with IP address and user agent), passkeys, sign-in and email-change links       | Let the member sign in                                             | Contract                                                     | Life of the account; an expired session 24 h after expiry; a link 24 h; an unfinished sign-up 24 h | Deleted                                                                                   | `packages/db/src/privacy/operations.ts`; retention sweep                                           |
+| Competitive record      | Username, actor, Rooms (title, topic), Rounds (resolution, draw evidence), seats, ballots, ratings, standings | Run fair competition and keep every member's history true          | Contract; legitimate interest in the integrity of the record | Indefinite                                                                                         | **Kept**; the account shows as closed; the username stays reserved (DEC-261)              | The Room, Round, judging and ratings features                                                      |
+| Age and Terms           | Birth month, accepted Terms version                                                                           | Enforce the age floor; prove acceptance                            | Legal obligation; contract (DEC-244)                         | Life of the account                                                                                | Deleted                                                                                   | `account-age.ts`, `age-step.ts`                                                                    |
+| Private profile         | Onboarding answers, online-status choice                                                                      | Personalise Daisy                                                  | Contract (DEC-106)                                           | Life of the account                                                                                | Deleted                                                                                   | `onboarding-privacy.ts`, `presence/privacy.ts`                                                     |
+| Social graph            | Friendships, challenges, blocks, request and decline ledgers                                                  | Friends, challenges and blocking                                   | Contract                                                     | Requests 24 h (DEC-259); declines 30 days (DEC-251); the rest life of the account                  | Deleted                                                                                   | `friends/`, `contacts/`                                                                            |
+| Messages                | Direct and group messages, reactions, receipts, files                                                         | Messaging                                                          | Contract                                                     | Until the member deletes them or the account closes; moderation retention is an open decision      | The member's own deleted; a DM survivor keeps their own messages (DEC-126, ADR 0086)      | `messaging/privacy.ts`, `messaging-files/`                                                         |
+| Round speech            | Live audio (never stored), transcripts, pending AI judgments, Round analysis reports                          | Run, judge and analyse a Round                                     | Contract                                                     | Transcripts and pending judgments 180 days (DEC-101, DEC-223); analyses 180 days                   | The member's own lines deleted; a pending judgment or analysis that quotes them discarded | `round-transcript-privacy.ts`, `round-analysis-privacy.ts`                                         |
+| Access and entitlements | Beta access state, owed beta mail, entitlement grants                                                         | Admit members and grant features                                   | Contract                                                     | Life of the account                                                                                | Deleted; access-change events and operator receipts kept as audit                         | `beta-access-privacy.ts`, `entitlement-grants-privacy.ts`                                          |
+| Email delivery          | Keyed SHA3 recipient digests on delivery receipts and suppressions                                            | Deliverability; stop mailing an address that bounced or complained | Legitimate interest                                          | Receipts 30 days; suppressions indefinite                                                          | **Kept** (no raw address)                                                                 | `apps/web/src/features/mail/`, [ADR 0025](../decisions/0025-auth-delivery-and-abuse-protection.md) |
+| Operational logs        | Identifiers, route patterns, codes, counts, keyed client digests                                              | Operate and secure the service                                     | Legitimate interest                                          | 30 days at most (DEC-42); the staging log store 28 days                                            | Expire                                                                                    | `packages/logger`, [ADR 0084](../decisions/0084-operational-log-pipeline.md)                       |
+| Operator data           | Operator name, passkeys, sessions, audit chain                                                                | Run and audit the admin app                                        | Legitimate interest                                          | `apps/admin/src/db/retention.ts`; the audit chain's period is an open owner decision               | Not member data                                                                           | `apps/admin`                                                                                       |
+| Newsletter              | Subscriber email at beehiiv                                                                                   | The Scoreboard newsletter                                          | Consent (double opt-in)                                      | Until unsubscribed                                                                                 | Vendor deletion job                                                                       | [ADR 0047](../decisions/0047-beehiiv-newsletter-vendor.md)                                         |
+
+Live audio and video run through Daisy's self-hosted LiveKit
+([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md)) and are not
+recorded. A seated human's microphone stays captured but unpublished between
+turns (ISSUE-575). A bot hears its peers only in its own process memory, one
+10 ms frame at a time, never written anywhere (ISSUE-764).
+
+## Retained after erasure
+
+Erasure closes the account. It deletes everything in the classes marked
+"Deleted" and queues vendor deletion, in one transaction. It keeps:
+
+- the competitive record, including the username, which stays reserved by
+  the unique `lower(username)` index and is shown as closed. Visibility is
+  unchanged: a closed member's profile shows only what any unrelated viewer
+  could see before (public Rounds only);
+- the `users` row id and the `actors` link to it, which the record needs;
+- the keyed email digests on delivery receipts and suppressions.
+
+A username is personal data (ICO guidance on identifiers), so keeping it is a
+decision under a lawful basis, not a claim that it is anonymous. The proposed
+basis is legitimate interest in an accurate competitive record that other
+members' results and ratings depend on. A member may object (Art. 21); the
+owner decides each objection with counsel, and an upheld objection replaces
+the username on the closed account by hand. This exception, the basis and the
+indefinite period are proposed pending COMP-4.
+
+Future alt and ban-evasion detection reads the retained row id, actor, username
+and email digests. It is a separate future capability with its own
+legitimate-interest assessment and retention; nothing is retained for it
+today beyond what the record and deliverability already keep.
+
+## Children
+
+Members must be 13 or older; the beta floor is 16 (DEC-244, one trusted
+configuration value). The age step stores only a birth month. An under-13
+answer is refused neutrally: nothing is stored and the provisional account is
+deleted at once, with its sign-in links and delivery receipts (WAIT-4.7).
+Daisy is not directed to children under 13. A later under-age answer against
+a recorded adult age is open (DEC-246).
+
+## Processors
+
+| Processor                                 | Purpose                                                                                | Data                                                                              | Region and transfer safeguard | DPA status                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------- | ----------------------------- |
+| Fly.io                                    | Hosting, Postgres, Redis, platform logs (7 days)                                       | Everything Daisy stores                                                           | Deploy-time                   | PRIV-H                        |
+| Resend                                    | Transactional sign-in email                                                            | Recipient email, for delivery only                                                | Sending-domain setting        | PRIV-H                        |
+| OpenRouter and the transcription provider | Transcription, AI judging, bot replies, Round analysis                                 | Speech audio and transcript text, in bounded memory; zero data retention required | Confirm before launch         | PRIV-H                        |
+| beehiiv                                   | Newsletter                                                                             | Subscriber email (consent)                                                        | Open, WAIT-1.2                | Open, WAIT-1.2                |
+| Sentry                                    | Error tracking ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md)) | Scrubbed error events, `user.id` only                                             | Deploy-time                   | Not wired; PRIV-H before keys |
+| PostHog                                   | Product analytics and replay, consent-gated                                            | Events of category `none`/`identifier` only                                       | Deploy-time                   | Not wired; PRIV-H before keys |
+
+Vendor accounts, regions, DPAs and deploy secrets are a human-only sign-off
+leaf (PRIV-H). Before a processor goes live: the account belongs to the
+organization; the region and the transfer safeguard are recorded above; the
+DPA is executed and filed; secrets live only in the platform's secret store.
+
+## Security measures
+
+Zero trust at every boundary with validated input; passwordless sign-in
+(magic links and passkeys, [ADR 0025](../decisions/0025-auth-delivery-and-abuse-protection.md));
+rate limits on authentication and mutations; SHA3-256 digests for stored
+secrets and recipient keys ([ADR 0019](../decisions/0019-token-secret-ownership.md));
+unguessable cuid2 identifiers; least-privilege database roles; a separate
+admin app, database and operator identity ([ADR 0043](../decisions/0043-no-admin-surface-in-participant-app.md),
+[ADR 0077](../decisions/0077-admin-app-architecture.md)); structured logs
+without personal data; security views over the operational log store.
+
+## Breaches
+
+A suspected personal-data breach is posted on the PageSpace Incidents channel
+at once, then recorded there with what happened, the data and people
+affected, the likely consequences and the remediation (GDPR Art. 33(5)
+requires a record of every breach, notified or not). The owner decides with
+counsel whether to notify the supervisory authority within 72 hours of
+awareness (Art. 33), whether to tell the people affected (Art. 34), and which
+US state notification laws apply. Detection uses the admin app's security
+views over the operational log store.
+
+## Gaps
+
+- **ISSUE-833, the next compliance slice**: no member or operator request
+  path reaches `exportPrivacySubject` or `erasePrivacySubject`, and no
+  scheduled worker delivers `privacy_jobs`. Until it lands, Daisy cannot
+  honour an access or erasure request within one month (GDPR, UK GDPR) or 45
+  days (CCPA). It must land before public launch. The export also lacks a
+  step for the member's competitive record (their Rounds, seats, ballots and
+  ratings), which ISSUE-833 adds.
+- COMP-4: counsel reviews every lawful basis and retention period above.
+- PRIV-H: processor DPAs, regions and transfer safeguards.
+- WAIT-6.x: the counsel-approved privacy policy and Terms (ISSUE-720,
+  ISSUE-743).
+- PRIV-6: consent storage before any analytics or replay key is set;
+  Settings shows no privacy control that saves nothing (ISSUE-722).
+- Moderation and evidentiary retention for messages (an open decision on
+  Privacy and safety).
+- Erasure of private prep and round-room documents once they exist
+  (ISSUE-383, ISSUE-329); private-group tombstones (ISSUE-734).

@@ -20,10 +20,11 @@ export type MatchHistoryEntry = {
   readonly completedAt: string;
   readonly resolution: string;
   readonly side: DebateSide;
-  /** A null label is a member who has left Daisy. */
+  /** A closed opponent keeps their name on the record, marked closed (ADR 0087). */
   readonly opponents: readonly {
     readonly kind: 'human' | 'bot';
     readonly label: string | null;
+    readonly closed: boolean;
   }[];
   readonly result: RecordResult;
   readonly forfeit: boolean;
@@ -42,6 +43,8 @@ export type MemberProfile = {
   readonly version: 1;
   readonly username: string;
   readonly memberSince: string;
+  /** The account is closed: its name and public record stay, nothing else. */
+  readonly closed: boolean;
   readonly me: boolean;
   readonly record: DebateRecord;
   readonly history: readonly MatchHistoryEntry[];

@@ -6,8 +6,9 @@
 export type LadderEntry = {
   /** Application id (cuid2); never shown. */
   readonly id: string;
-  /** Null once the account is deleted: the row keeps its rating (tombstone). */
-  readonly username: string | null;
+  readonly username: string;
+  /** The account is closed: the row keeps its name and rating (ADR 0087). */
+  readonly accountClosed: boolean;
   readonly rating: number;
   /** Rating deviation; the 95% range is twice this. */
   readonly deviation: number;

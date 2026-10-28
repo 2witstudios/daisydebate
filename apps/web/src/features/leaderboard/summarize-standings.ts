@@ -4,8 +4,10 @@ import type { StandingsRead } from '@daisy/db/ratings';
 export type StandingSummary = {
   readonly seasonId: string;
   readonly actorId: string;
-  /** Null once the account is deleted. */
+  /** Null for an actor with no account. */
   readonly username: string | null;
+  /** The account is closed; its name stays on the ladder (ADR 0087). */
+  readonly accountClosed: boolean;
   readonly rating: number;
   readonly deviation: number;
   readonly played: number;
@@ -53,6 +55,7 @@ export function summarizeStandings(
       seasonId: rating.seasonId,
       actorId: rating.actorId,
       username: rating.username,
+      accountClosed: rating.accountClosed,
       rating: rating.rating,
       deviation: rating.deviation,
       played: own.length,

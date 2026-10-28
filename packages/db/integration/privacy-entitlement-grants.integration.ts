@@ -1,24 +1,12 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  entitlementGrantPrivacyAdopter,
-  entitlementGrantPrivacyExpectedColumns,
-} from '../src/privacy';
+import { entitlementGrantPrivacyAdopter } from '../src/entitlement-grants-privacy';
 import { exportThenErase, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
 
-const adoption = {
-  requiredAdopters: [
-    {
-      id: entitlementGrantPrivacyAdopter.id,
-      phase: entitlementGrantPrivacyAdopter.phase,
-      expectedColumns: entitlementGrantPrivacyExpectedColumns,
-    },
-  ],
-  adopters: [entitlementGrantPrivacyAdopter],
-};
+const adoption = [entitlementGrantPrivacyAdopter];
 
 test('export carries the subject’s entitlement grants and erasure removes them (ISSUE-779)', async () => {
   await withPrivacySubject(async ({ client, database, userId, actorId }) => {

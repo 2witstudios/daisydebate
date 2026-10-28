@@ -140,4 +140,32 @@ test.describe('dashboard shell chrome', () => {
     );
     expect(overflow).toBe(0);
   });
+
+  test('on a phone, a link brought into view stops clear of the tab bar', async ({
+    page,
+  }) => {
+    // A short phone screen (200% zoom): the contents list runs past it.
+    await page.setViewportSize({ width: 390, height: 320 });
+    await page.goto('/privacy');
+    const link = page.getByRole('main').getByRole('link').last();
+    // Whether the tab bar, not the link, answers at the link's center.
+    const covered = () =>
+      link.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.top + box.height / 2,
+        );
+        return hit !== null && !node.contains(hit);
+      });
+    // Park the link just above the screen's bottom edge, under the bar.
+    await link.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      scrollBy(0, box.bottom - innerHeight + 8);
+    });
+    expect(await covered()).toBe(true);
+    // Keyboard focus scrolls it into view, above the bar.
+    await link.focus();
+    expect(await covered()).toBe(false);
+  });
 });

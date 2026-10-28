@@ -1,6 +1,8 @@
 # 0029: Competitive schema foundation
 
-Status: accepted. Amends [ADR 0007](0007-postgresql-source-of-truth.md)
+Status: accepted. Decision 2's scrub clause is superseded by
+[ADR 0087](0087-compliance-from-obligations.md): a closed account keeps its
+username, reserved, on the competitive record. Amends [ADR 0007](0007-postgresql-source-of-truth.md)
 (what PostgreSQL holds) and [ADR 0018](0018-cuid2-identifiers.md) (no
 database-minted identifiers on the new tables). Amended by
 [ADR 0038](0038-drizzle-1-baseline.md): the migrations below are squashed

@@ -12,9 +12,10 @@ export function changeText(change: Change, closed: boolean): string {
   return `${change.kind === 'up' ? '▲' : '▼'} ${change.amount}`;
 }
 
-/** The name a row shows: a username, or the tombstone for a deleted account. */
-export const displayName = (row: Pick<LadderRow, 'username'>): string =>
-  row.username === null ? '[deleted debater]' : `@${row.username}`;
+/** The name a row shows: the username, marked when the account is closed. */
+export const displayName = (
+  row: Pick<LadderRow, 'username' | 'accountClosed'>,
+): string => `@${row.username}${row.accountClosed ? ' (closed)' : ''}`;
 
 export const recordText = (row: Pick<LadderRow, 'wins' | 'losses'>): string =>
   `${row.wins}–${row.losses}`;
@@ -30,7 +31,7 @@ export const rankText = (row: Pick<LadderRow, 'rank'>): string =>
 
 /** The row's accessible name: who, where they stand and their rating. */
 export function rowLabel(row: LadderRow): string {
-  const who = row.username === null ? 'Deleted debater' : `@${row.username}`;
+  const who = displayName(row);
   if (row.masked) return `${who}, rating hidden while you judge`;
   return row.provisional
     ? `${who}, provisional, rating ${row.rating}`

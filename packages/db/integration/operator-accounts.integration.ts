@@ -312,7 +312,7 @@ describe('operator beta access commands (ADR 0079)', () => {
           code: 'NOT_FOUND',
         });
         const erased = await pendingAccount(fixture);
-        await fixture.sql`update users set username = null, email = null, deleted_at = now(), version = version + 1 where id = ${erased.userId}`;
+        await fixture.sql`update users set email = null, deleted_at = now(), version = version + 1 where id = ${erased.userId}`;
         await assertRejects({
           given: 'a command for an erased account (ISSUE-684)',
           should: 'answer not found, as for an unknown one',

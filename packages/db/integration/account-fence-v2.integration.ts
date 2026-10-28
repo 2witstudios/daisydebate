@@ -100,7 +100,7 @@ describe('one age validity rule for the fence and the age reader (ADR 0075)', ()
       const [none] =
         await fixture.sql`select "ageBand" from public.daisy_authorization_accounts_v2(null::text[], ${missing.userId}::text, false)`;
       const erased = await createAuthorizationSubject(fixture);
-      await fixture.sql`update users set username = null, email = null, image = null, name = '', deleted_at = now(), version = version + 1 where id = ${erased.userId}`;
+      await fixture.sql`update users set email = null, image = null, name = '', deleted_at = now(), version = version + 1 where id = ${erased.userId}`;
       const [tombstone] =
         await fixture.sql`select "ageBand" from public.daisy_authorization_accounts_v2(null::text[], ${erased.userId}::text, false)`;
       assert({

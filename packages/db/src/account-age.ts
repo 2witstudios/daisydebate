@@ -2,7 +2,6 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from './authorization';
-import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 export { loadAuthorizationAgeFact } from './authorization-age';
@@ -28,44 +27,9 @@ export async function loadAccountAgeSource(
     : null;
 }
 
-/** DEC-244: the owner's age-step decision (birth month only, WAIT-4.6/4.7/4.8). */
-export const DEC_244 = 'cnl34yx54fgtuxwvekobc657';
-
-const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
-  'user_id',
-  'birth_month',
-  'version',
-  'recorded_at',
-].map((column) => ({
-  table: 'account_age',
-  column,
-  category:
-    column === 'birth_month'
-      ? 'personal'
-      : column === 'user_id'
-        ? 'identifier'
-        : 'none',
-  ...(column === 'birth_month' ? { visibility: 'private' as const } : {}),
-  storage: 'postgres',
-  owner: 'WAIT',
-  purpose: 'Minimum durable source for current account age eligibility',
-  lawfulBasis: {
-    status: 'approved',
-    decision: DEC_244,
-    rule: 'legal obligation and contract',
-  },
-  retention: {
-    status: 'approved',
-    decision: DEC_244,
-    rule: 'life of the account',
-  },
-  erasure: 'delete',
-  exportable: true,
-}));
 export const accountAgePrivacyAdopter: PrivacyAdopter = {
   id: 'account-age',
-  phase: 'after-scrub',
-  fields: accountAgePrivacyFields,
+  phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(
       sql`delete from ${accountAge} where user_id=${subject.userId}`,

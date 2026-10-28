@@ -1,4 +1,4 @@
-import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
@@ -118,10 +118,10 @@ export async function subjectVerificationCount(client: SQL, userId: string) {
 export async function exportThenErase(
   database: ReturnType<typeof drizzle>,
   subject: { readonly userId: string; readonly actorId: string },
-  adoption: Parameters<typeof exportPrivacySubject>[2],
+  adoption: Parameters<typeof runPrivacyExport>[2],
 ) {
-  const exported = await exportPrivacySubject(database, subject, adoption);
-  await erasePrivacySubject(
+  const exported = await runPrivacyExport(database, subject, adoption);
+  await runPrivacyErasure(
     database,
     { subject, now, vendors: [], jobIds: [] },
     adoption,

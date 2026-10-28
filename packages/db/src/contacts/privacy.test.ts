@@ -85,7 +85,7 @@ test('Contacts erases the subject’s rows, the pairs last, after every consumer
       ),
     ],
     expected: [
-      'after-scrub',
+      'after-close',
       [
         'social_request_declines',
         'social_requests',

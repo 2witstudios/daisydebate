@@ -90,7 +90,7 @@ test('actual attendance operation preserves first receipt before Round contentio
         actual: [recorded.recorded, recorded.targets],
         expected: [[{ segmentId, receivedAt: first.receivedAt }], []],
       });
-      await f.sql`update users set deleted_at=statement_timestamp(),username=null where id=${f.host.userId}`;
+      await f.sql`update users set deleted_at=statement_timestamp() where id=${f.host.userId}`;
       await assertRejects({
         given: 'same acknowledged command after canonical erasure',
         should: 'freshly reject instead of granting receipt authority',

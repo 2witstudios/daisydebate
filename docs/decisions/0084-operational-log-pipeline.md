@@ -14,7 +14,7 @@ Sentry and PostHog stay inert until the owner creates their accounts.
 ## Context
 
 Until now, Fly's 7-day log search was the only place the event stream
-persisted (privacy.md, "Operational logs"). Operators need security views
+persisted (compliance.md, "Operational logs"). Operators need security views
 over a longer window: auth denials and rate limits, operator API refusals and
 commands, realtime closes, invariant violations, and error rates. These views
 must not add a vendor, change how any app logs, or put an admin surface in
@@ -212,7 +212,7 @@ alone, the app refuses to start.
 
 ## Consequences
 
-- privacy.md's "Operational logs" records the store and its retention. The
+- compliance.md's "Operational logs" class records the store and its retention. The
   `events` columns carry no personal, sensitive or secret field.
   `requestId`, `traceId`, `userId`, `actorId`, `providerMessageId` and
   `clientIdHash` are identifiers scoped to the log surface. Erasure is by

@@ -2,15 +2,10 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
-import {
-  erasePrivacySubject,
-  exportPrivacySubject,
-  type PrivacyAdopter,
-  type PrivacyExport,
-} from '../src/privacy';
+import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
+import type { PrivacyAdopter, PrivacyExport } from '../src/privacy/contracts';
 import { bindings, now } from './privacy.test-support';
 import {
-  messagingRequiredAdopters as requiredAdopters,
   messagingPrivacyAdoption,
   withPrivacyMessaging,
 } from './privacy-messaging.test-support';
@@ -55,21 +50,15 @@ function assertInvitationExport(rows: PrivacyExport[string], actorId: string) {
 test('canonical privacy export composes MSG and age while masking other private data', async () => {
   await withPrivacyMessaging(
     async ({ database, userId, actorId, otherId, otherActorId }) => {
-      const result = await exportPrivacySubject(
+      const result = await runPrivacyExport(
         database,
         { userId, actorId },
-        {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        },
+        messagingPrivacyAdoption,
       );
-      const peer = await exportPrivacySubject(
+      const peer = await runPrivacyExport(
         database,
         { userId: otherId, actorId: otherActorId },
-        {
-          requiredAdopters,
-          adopters: messagingPrivacyAdoption.adopters,
-        },
+        messagingPrivacyAdoption,
       );
       assertSocialExport(result, peer, actorId);
       const contact = result.contact_pairs?.[0] ?? {};
@@ -104,11 +93,10 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
       ownMessageId,
       otherMessageId,
     }) => {
-      const adopters = messagingPrivacyAdoption.adopters;
+      const adopters = messagingPrivacyAdoption;
       const late: PrivacyAdopter = {
         id: 'rollback-probe',
-        phase: 'after-scrub',
-        fields: [],
+        phase: 'after-close',
         export: async () => ({}),
         erase: async () => {
           throw new Error('composed rollback');
@@ -121,18 +109,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         jobIds: [createId()],
       };
       await expect(
-        erasePrivacySubject(
-          database,
-          input,
-          {
-            requiredAdopters: [
-              ...requiredAdopters,
-              { id: late.id, phase: late.phase, expectedColumns: {} },
-            ],
-            adopters: [...adopters, late],
-          },
-          bindings,
-        ),
+        runPrivacyErasure(database, input, [...adopters, late], bindings),
       ).rejects.toThrow('composed rollback');
       const rolledBack = await client.unsafe(
         'select text from messaging_messages where id=$1',
@@ -167,12 +144,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
         ],
         expected: ['Subject contribution', 1, 0],
       });
-      await erasePrivacySubject(
-        database,
-        input,
-        { requiredAdopters, adopters },
-        bindings,
-      );
+      await runPrivacyErasure(database, input, adopters, bindings);
       const survivingSocial = await client.unsafe(
         'select actor_id,kind,result_channel_id from messaging_social_commands where actor_id in ($1,$2)',
         [actorId, otherActorId],
