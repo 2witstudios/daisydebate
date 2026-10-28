@@ -127,3 +127,76 @@ test('a first frame never moves required coverage past its own window', () => {
     expected: [range(1000, 1500), range(1800, 3000), range(4200, null)],
   });
 });
+
+/** Whether a bot's credited windows seal complete for the observed frames (ISSUE-806). */
+const sealsComplete = (
+  authority: readonly ReturnType<typeof range>[],
+  observed: readonly ReturnType<typeof range>[],
+) =>
+  hasCompleteCaptureCoverage({
+    required: requiredCoverage({
+      authority,
+      observed,
+      tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
+    }),
+    observed,
+    storedChunks: 1,
+    expectedChunks: 1,
+  });
+// Credited windows as a bot publishes them: short unions with gaps, ending at the cutoff 60000.
+const windows = [
+  range(5000, 5100),
+  range(30000, 30100),
+  range(59500, 59600),
+  range(59888, 60000),
+];
+
+test('a bot’s last credited window seals complete whichever side of the final frame it starts (ISSUE-806)', () => {
+  assert({
+    given:
+      'contiguous capture from the first window whose final frame lands inside the last window, then before it, near the cutoff',
+    should:
+      'seal complete both ways: what follows the final frame within the close tolerance of the cutoff is the relay lag, not missing speech',
+    actual: [
+      sealsComplete(windows, [range(4900, 59950)]),
+      sealsComplete(windows, [range(4900, 59853)]),
+    ],
+    expected: [true, true],
+  });
+});
+
+test('the cutoff tolerance never forgives speech that was not captured (ISSUE-806)', () => {
+  assert({
+    given:
+      'capture that stopped well before the cutoff, a gap in capture mid-speech, and a final grant whose every frame precedes it',
+    should: 'still seal partial',
+    actual: [
+      sealsComplete(windows, [range(4900, 58000)]),
+      sealsComplete(windows, [range(4900, 20000), range(31000, 59950)]),
+      sealsComplete([range(6000, 7000)], [range(5000, 6000)]),
+    ],
+    expected: [false, false, false],
+  });
+});
+
+test('a human grant whose microphone dies in its last second still seals partial (ISSUE-806)', () => {
+  const human = (observed: readonly ReturnType<typeof range>[]) =>
+    hasCompleteCaptureCoverage({
+      required: requiredCoverage({
+        authority: [range(0, 58500), range(59200, 60000)],
+        observed,
+        // A human's grants carry no terminal close tolerance.
+        tolerance: { openMs: 4000, closeMs: 1000 },
+      }),
+      observed,
+      storedChunks: 1,
+      expectedChunks: 1,
+    });
+  assert({
+    given:
+      'a human whose capture ends before a short final grant opens, and one captured through it',
+    should: 'seal the dead final grant partial, and the captured one complete',
+    actual: [human([range(0, 59100)]), human([range(0, 59950)])],
+    expected: [false, true],
+  });
+});
