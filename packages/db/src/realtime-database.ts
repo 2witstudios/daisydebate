@@ -56,11 +56,12 @@ export function createRealtimeDatabase({
     profile,
     connect: injectedClient ? () => injectedClient : dialLanes(url),
   });
+  const admission = workload.lane('admission').database;
   const control = workload.lane('control');
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
   return {
-    admission: authorityReads(workload.lane('admission').database),
+    admission: authorityReads(admission),
     renewal: authorityReads(workload.lane('renewal').database),
     /**
      * Observation owner reads (ADR 0089), only on a profile that reserves
@@ -80,6 +81,7 @@ export function createRealtimeDatabase({
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(control.database),
       ),
+    /** Subscribe-time replay from a cursor: admission work, never the drain's lane. */
     readOutboxCatchup: (
       topic: string,
       since: string,
@@ -87,7 +89,7 @@ export function createRealtimeDatabase({
       limit?: number,
     ) =>
       instrumented(eventSink, 'readOutboxCatchup', () =>
-        readOutboxCatchup(control.database, topic, since, through, limit),
+        readOutboxCatchup(admission, topic, since, through, limit),
       ),
     renewServiceInstance: availabilityOperations(control.client, dedicated)
       .renewServiceInstance,

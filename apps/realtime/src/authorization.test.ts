@@ -7,6 +7,7 @@ import {
   createRealtimeAuthorization,
   type RealtimeReadingPolicy,
 } from './authorization';
+import type { RealtimeApp } from './app';
 import { productionServeOptions } from './production';
 import { refuseAllReading } from './authorization.test-support';
 
@@ -143,8 +144,8 @@ for (const mode of [
               mode === 'production-policy'
                 ? // start.ts's own composition, not a copy of its policy value.
                   productionServeOptions({
-                    // Only its reading policy is used: the process edge's app is not built.
-                    resources: resources as unknown as RealtimeApp,
+                    // Its reading policy reads no resource.
+                    resources: {} as RealtimeApp,
                     port: 0,
                     hostname: '127.0.0.1',
                     trustedProxies: [],

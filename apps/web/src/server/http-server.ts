@@ -11,6 +11,7 @@ export function createHttpServer({
   trustedProxies,
   clientIdSubkey,
   isDraining,
+  withinClientNetwork,
   logger,
   handle,
 }: {
@@ -19,6 +20,9 @@ export function createHttpServer({
   /** Derived from the validated `BETTER_AUTH_SECRET` (`deriveClientIdSubkey`). */
   readonly clientIdSubkey: string;
   readonly isDraining: () => boolean;
+  readonly withinClientNetwork: Parameters<
+    typeof createIngressListener
+  >[0]['withinClientNetwork'];
   readonly logger: Logger;
   readonly handle: Parameters<typeof createIngressListener>[0]['handle'];
 }): Server {
@@ -26,6 +30,7 @@ export function createHttpServer({
     isDraining,
     trustedProxies,
     clientIdSubkey,
+    withinClientNetwork,
     handle,
     onError: () =>
       logger.log(

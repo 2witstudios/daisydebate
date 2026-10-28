@@ -27,13 +27,13 @@ type IngressRequest = {
 /**
  * Deployment ingress: replaces any caller-supplied identity and hash
  * headers with the resolved ones (or removes them) before the request
- * reaches application code.
+ * reaches application code. Returns the resolved client, or null.
  */
 export function stampClientIdentity(
   request: IngressRequest,
   trustedProxies: readonly string[],
   clientIdSubkey: string,
-): void {
+): string | null {
   const forwarded = request.headers['x-forwarded-for'];
   const flyClientIpHeader = request.headers[FLY_CLIENT_IP_HEADER];
   const client = resolveClientIp({
@@ -51,8 +51,9 @@ export function stampClientIdentity(
       clientIdSubkey,
       client,
     );
-  } else {
-    delete request.headers[CLIENT_IP_HEADER];
-    delete request.headers[CLIENT_ID_HASH_HEADER];
+    return client;
   }
+  delete request.headers[CLIENT_IP_HEADER];
+  delete request.headers[CLIENT_ID_HASH_HEADER];
+  return null;
 }

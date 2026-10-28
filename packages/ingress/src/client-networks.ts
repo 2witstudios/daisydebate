@@ -108,3 +108,16 @@ export function clientNetworks(
     { scope: 'ipv6_48', network: `${g0}:${g1}:${g2}::/48` },
   ];
 }
+
+const WIDEST: readonly NetworkScope[] = ['ipv4_24', 'ipv6_48'];
+
+/**
+ * The key a client's database work queues under for lane fairness (ADR
+ * 0088): its widest network (an IPv4 /24, an IPv6 /48), so rotating
+ * addresses inside one network never buys extra turns. Never the address
+ * itself; no network, no key.
+ */
+export function fairnessNetwork(client: string | null): string | undefined {
+  return clientNetworks(client).find(({ scope }) => WIDEST.includes(scope))
+    ?.network;
+}

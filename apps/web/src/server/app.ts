@@ -39,6 +39,7 @@ import {
   tightenContactsPolicy,
 } from '../features/contacts/request-policy';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
+import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
@@ -115,9 +116,11 @@ export function createApp({
   // feeds both the durable Redis alert state and the in-process metrics
   // counters, once each, with no per-site change.
   const logger = withAlertRecording(baseLogger, alertRecorder, metrics);
+  const requestNetwork = createRequestNetwork();
   const database = createDatabase({
     url: config.DATABASE_URL,
     eventSink: logger.log,
+    fairnessKey: requestNetwork.current,
     nextActorId: () => ids.next(),
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...botAdmissionOptions(config),
@@ -275,6 +278,8 @@ export function createApp({
         );
     },
     isDraining: drainState.isDraining,
+    /** The client network the ingress runs each request in; the lanes' fairness key. */
+    requestNetwork,
     drain: drainState.drain,
     /**
      * Drains, lets auth finish the work it answered before doing (ISSUE-185),

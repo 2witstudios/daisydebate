@@ -15,17 +15,13 @@ const unsupported = (property: PropertyKey) => () => {
     `A lane-bound client does not offer ${String(property)}`,
   );
 };
-/** Pool-level members that would bypass the lane or outlive its owner. */
-const REFUSED = new Set<PropertyKey>([
-  'listen',
-  'unlisten',
-  'close',
-  'end',
-  'flush',
-  'file',
-  'connect',
-  'distributed',
-]);
+/**
+ * The one pool member a lane passes through unadmitted: Drizzle reads and
+ * sets its parsers and serializers when it builds the lane's handle. Every
+ * other member a lane does not admit below is refused, so a member Bun adds
+ * later is closed until someone admits it here.
+ */
+const PASSED = 'options';
 
 async function holding<T>(
   admit: () => Promise<LaneRelease>,
@@ -91,7 +87,8 @@ function admittedReservation(
  * The only SQL handle a lane hands out (ADR 0088). Every top-level query,
  * transaction and reservation waits for the lane's gate and holds its slot
  * until it settles; work inside a transaction or reservation already holds
- * its connection. Pool lifecycle (close, LISTEN) stays with the owner.
+ * its connection. Anything else (close, LISTEN, NOTIFY, distributed
+ * transactions, members Bun adds later) stays with the owner and is refused.
  */
 export function laneClient(
   pool: SQL,
@@ -128,9 +125,11 @@ export function laneClient(
       ),
     get(target, property, receiver) {
       if (Object.hasOwn(members, property)) return members[property];
-      if (REFUSED.has(property)) return unsupported(property);
-      const value: unknown = Reflect.get(target, property, receiver);
-      return typeof value === 'function' ? value.bind(target) : value;
+      if (property === PASSED) return Reflect.get(target, property, receiver);
+      // Absent, not refusing: a lane client is no thenable (an async function
+      // may return it) and has no symbol protocol (disposal, coercion).
+      if (property === 'then' || typeof property === 'symbol') return undefined;
+      return unsupported(property);
     },
   });
 }

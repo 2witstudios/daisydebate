@@ -3,6 +3,7 @@ import type { AuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { deriveClientIdSubkey } from '../features/auth/abuse/client-ip';
 import { createHttpServer } from './http-server';
+import type { RequestNetwork } from './request-network';
 import {
   defaultGateway,
   resolveTrustedProxies,
@@ -12,8 +13,9 @@ import {
  * The production server start.ts runs, composed from the app this process
  * built, isolated from start.ts's top-level side effects so a test can prove
  * the wiring on a real socket: ingress stamping through the validated
- * `AUTH_TRUSTED_PROXIES`, a client id keyed by `BETTER_AUTH_SECRET`, and the
- * app's own drain flag (AUTH-3.8, ISSUE-158). Reading the auth configuration
+ * `AUTH_TRUSTED_PROXIES`, a client id keyed by `BETTER_AUTH_SECRET`, each
+ * request run inside its client's network (the app's database lanes queue
+ * fairly by it, ADR 0088), and the app's own drain flag (AUTH-3.8, ISSUE-158). Reading the auth configuration
  * here, eagerly, is what refuses a production start without auth secrets
  * before Next prepares or the port opens; its errors name fields only
  * (AUTH-7.0-AC3).
@@ -37,6 +39,7 @@ export function createProductionServer({
       >;
     };
     readonly isDraining: () => boolean;
+    readonly requestNetwork: Pick<RequestNetwork, 'within'>;
     readonly logger: Logger;
   };
   readonly handle: Parameters<typeof createHttpServer>[0]['handle'];
@@ -60,6 +63,7 @@ export function createProductionServer({
     trustedProxies,
     clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
     isDraining: app.isDraining,
+    withinClientNetwork: app.requestNetwork.within,
     logger: app.logger,
     handle,
   });
