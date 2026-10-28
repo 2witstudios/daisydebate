@@ -210,7 +210,7 @@ export function retentionTargets({
         database.purgeExpiredSocialDeclines({ before: cutoff(now, 0), limit }),
     },
     /**
-     * DEC-251: the request budget looks back one day at most, so an older
+     * DEC-259 (open): the request budget looks back one day at most, so an older
      * request row is never counted again.
      */
     {

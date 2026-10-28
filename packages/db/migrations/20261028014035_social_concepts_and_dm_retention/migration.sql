@@ -80,6 +80,7 @@ CREATE INDEX "social_request_declines_high_actor_idx" ON "social_request_decline
 CREATE INDEX "social_request_declines_expires_idx" ON "social_request_declines" ("expires_at");--> statement-breakpoint
 CREATE INDEX "social_requests_actor_created_idx" ON "social_requests" ("actor_id","created_at");--> statement-breakpoint
 CREATE INDEX "social_requests_counterpart_actor_idx" ON "social_requests" ("counterpart_actor_id");--> statement-breakpoint
+CREATE INDEX "social_requests_created_idx" ON "social_requests" ("created_at");--> statement-breakpoint
 CREATE INDEX "messaging_retained_authors_actor_idx" ON "messaging_retained_authors" ("actor_id");--> statement-breakpoint
 ALTER TABLE "contact_commands" ADD CONSTRAINT "contact_commands_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "contact_commands" ADD CONSTRAINT "contact_commands_counterpart_actor_id_actors_id_fkey" FOREIGN KEY ("counterpart_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint

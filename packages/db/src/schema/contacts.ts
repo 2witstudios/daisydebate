@@ -68,6 +68,8 @@ export const socialRequests = pgTable(
       table.createdAt,
     ),
     index('social_requests_counterpart_actor_idx').on(table.counterpartActorId),
+    // The DEC-259 sweep deletes by age alone, across every actor.
+    index('social_requests_created_idx').on(table.createdAt),
     check('social_requests_kind', oneOf(table.kind, ['dm', 'friend'])),
     check(
       'social_requests_distinct',

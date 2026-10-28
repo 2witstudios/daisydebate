@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { tightenOnly } from '../../server/tighten-only';
 import {
   createMessagingCoreSchemas,
   createMessagingSocialSchemas,
@@ -23,11 +24,11 @@ export function parseMessagingFileLimits<
   runtime: Runtime,
   policy: { readonly limits: { readonly fileBytes: number } },
 ) {
-  if (runtime.policy.maxFileBytes > policy.limits.fileBytes)
-    throw createAppError(
-      'VALIDATION',
-      'messagingFiles.maxFileBytes would loosen DEC-251',
-    );
+  tightenOnly('messagingFiles').atMost(
+    'maxFileBytes',
+    policy.limits.fileBytes,
+    runtime.policy.maxFileBytes,
+  );
   return runtime;
 }
 

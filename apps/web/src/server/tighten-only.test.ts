@@ -1,35 +1,46 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { tightenOnly } from './tighten-only';
 
 setupRitewayBun();
 
-test('a tighten-only override keeps the floor, takes a tighter value and refuses a looser one, naming it', () => {
+test('a tighten-only override keeps the floor, takes a tighter value and refuses a looser one', async () => {
   const { atMost, atLeast } = tightenOnly('POLICY');
-  const refusal = (run: () => number) => {
-    try {
-      return run();
-    } catch (error) {
-      return (error as Error).message;
-    }
-  };
   assert({
-    given: 'no value, a tighter value and a looser value on each side',
-    should: 'return the floor, the tighter value, and refuse the looser one',
+    given: 'no value, then a tighter value, on each side',
+    should: 'return the floor, then the tighter value',
     actual: [
       atMost('max', 10, undefined),
       atMost('max', 10, 4),
-      refusal(() => atMost('max', 10, 11)),
       atLeast('min', 10, undefined),
       atLeast('min', 10, 20),
-      refusal(() => atLeast('min', 10, 9)),
     ],
-    expected: [
-      10,
-      4,
-      'POLICY.max would loosen DEC-251',
-      10,
-      20,
-      'POLICY.min would loosen DEC-251',
-    ],
+    expected: [10, 4, 10, 20],
+  });
+  for (const [given, loosen] of [
+    ['a larger maximum', () => atMost('max', 10, 11)],
+    ['a smaller minimum', () => atLeast('min', 10, 9)],
+  ] as const)
+    await assertRejects({
+      given,
+      should: 'refuse it as a validation error rather than clamp it',
+      actual: async () => loosen(),
+      code: 'VALIDATION',
+    });
+});
+
+test('a refused override names its prefixed field', () => {
+  const { atMost } = tightenOnly('POLICY');
+  let message = '';
+  try {
+    atMost('max', 10, 11);
+  } catch (error) {
+    message = (error as Error).message;
+  }
+  assert({
+    given: 'a looser value for POLICY.max',
+    should: 'name the field so the boot refusal says what to fix',
+    actual: message,
+    expected: 'POLICY.max would loosen DEC-251',
   });
 });

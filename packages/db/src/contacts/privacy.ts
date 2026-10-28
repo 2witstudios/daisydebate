@@ -54,30 +54,29 @@ const purposes: Readonly<Record<string, string>> = {
 export const contactsPrivacyExpectedColumns =
   ownedTableExpectedColumns(contactsColumns);
 
-const retentions: Readonly<
-  Record<string, { readonly decision: string; readonly rule: string }>
-> = {
-  social_request_declines: {
-    decision: 'dvkpb5wjay835m0xrgq1iz6v',
-    rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
-  },
-  social_requests: {
-    decision: 'xidjgsvnu3spoaa35dzzkkn5',
-    rule: 'once older than the 24-hour request budget window (DEC-259), or sooner on erasure',
-  },
-};
-
-/** DEC-251 sets the request and decline windows; other tables await theirs. */
+/**
+ * DEC-251 sets the decline window. The request window awaits the owner's
+ * DEC-259 (its sweep already deletes rows the budget can no longer count);
+ * every other table awaits its own decision.
+ */
 export const contactsPrivacyFields = ownedTablePrivacyFields({
   owner: 'CONTACTS',
   columns: contactsColumns,
   purpose: (table) => purposes[table]!,
-  retention: (table) => {
-    const approved = retentions[table];
-    return approved === undefined
-      ? { status: 'pending', decision: 'njiorsf64z4iqjm2dbfa3zuu' }
-      : { status: 'approved', ...approved };
-  },
+  retention: (table) =>
+    table === 'social_request_declines'
+      ? {
+          status: 'approved',
+          decision: 'dvkpb5wjay835m0xrgq1iz6v',
+          rule: '30 days after the last decline (DEC-251), or sooner on acceptance, pair deletion or erasure',
+        }
+      : {
+          status: 'pending',
+          decision:
+            table === 'social_requests'
+              ? 'xidjgsvnu3spoaa35dzzkkn5'
+              : 'njiorsf64z4iqjm2dbfa3zuu',
+        },
 });
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];

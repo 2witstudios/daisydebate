@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "db6c255f-4afa-4bab-85b3-a4359873acc8",
+  "id": "2ae0de23-f416-4899-aaf2-583aeb3e3050",
   "prevIds": [
     "6dd73876-ed3a-4bd5-b3a6-7dd96e05e724"
   ],
@@ -10139,6 +10139,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "social_requests_counterpart_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "social_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "social_requests_created_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "social_requests"
