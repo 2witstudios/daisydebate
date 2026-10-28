@@ -8,7 +8,7 @@ export function roundCommandFields(
     entries,
     ['version', 'commandId', 'expectedVersion', 'type', 'participantId'],
     true,
-    ['confirmed'],
+    ['confirmed', 'segment'],
   );
   if (!fields) return null;
   const parsed = roundCommandEnvelopeSchema.safeParse({
