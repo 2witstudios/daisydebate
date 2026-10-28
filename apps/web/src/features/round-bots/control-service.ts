@@ -88,12 +88,14 @@ export function startBotControlService<C extends Claim>(input: {
    * failure is reported while the lease lapses on its own.
    */
   const revokeClaim = (claim: C) =>
-    input.store.revokeRoundBotWorker(claim.scope, claim.token).then(
-      () => undefined,
-      (error: unknown) => {
-        if (!isRefusal(error)) failed(error, 'revoke');
-      },
-    );
+    Promise.resolve()
+      .then(() => input.store.revokeRoundBotWorker(claim.scope, claim.token))
+      .then(
+        () => undefined,
+        (error: unknown) => {
+          if (!isRefusal(error)) failed(error, 'revoke');
+        },
+      );
   /** Drops a seat only while it is still this entry, never a claim that replaced it. */
   const release = (entry: Owned<C>) => {
     const seat = entry.claim.scope.roundParticipantId;
@@ -127,7 +129,18 @@ export function startBotControlService<C extends Claim>(input: {
       const deadline = new AbortController();
       const outcome = await Promise.race([
         stopping,
-        input.overdue(deadline.signal).then(() => 'late' as const),
+        Promise.resolve()
+          .then(() => input.overdue(deadline.signal))
+          .then(
+            () => 'late' as const,
+            // A deadline that cannot be kept ends the seat as an overrun would,
+            // but it reports its own error: nothing overran, so a stop failure
+            // that comes later is still reported.
+            (error: unknown) => {
+              failed(error, 'stop');
+              return 'unkept' as const;
+            },
+          ),
       ]);
       deadline.abort();
       if (outcome === 'late') {
@@ -140,10 +153,14 @@ export function startBotControlService<C extends Claim>(input: {
         );
       }
       if (revoke && !entry.lost) await revokeClaim(entry.claim);
-    })().finally(() => {
-      if (!entry.handingOff) release(entry);
-      endings.delete(ending);
-    });
+    })()
+      // Defence only: every step above guards itself while `failed` keeps its
+      // never-throws contract, so nothing reaches this; an ending never rejects.
+      .catch((error: unknown) => failed(error, 'stop'))
+      .finally(() => {
+        if (!entry.handingOff) release(entry);
+        endings.delete(ending);
+      });
     endings.add(ending);
     entry.ending = ending;
     return ending;
@@ -157,9 +174,7 @@ export function startBotControlService<C extends Claim>(input: {
         if (await authorityLost(entry)) {
           // Authority ended (Round completed or claim rotated): a release, not a fault.
           entry.lost = true;
-          void end(entry, false).catch((ending: unknown) =>
-            failed(ending, 'stop'),
-          );
+          void end(entry, false);
           return;
         }
         // A pulse that outlived its overrun was already reported as it.
@@ -194,10 +209,8 @@ export function startBotControlService<C extends Claim>(input: {
     // slot is never free between them; shutdown waits for the chain.
     old.handingOff = true;
     const chained: Promise<void> = end(old, true)
-      .then(
-        () => claimSeat(target).catch(claimFailed),
-        (error: unknown) => failed(error, 'stop'),
-      )
+      .then(() => claimSeat(target))
+      .catch(claimFailed)
       .finally(() => {
         release(old);
         endings.delete(chained);
