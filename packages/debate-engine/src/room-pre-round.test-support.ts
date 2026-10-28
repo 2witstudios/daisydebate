@@ -1,5 +1,12 @@
-import { drawCapableBounds } from '@daisy/protocol/testing';
-import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
+import {
+  drawCapableBounds,
+  plainFormatSettings,
+} from '@daisy/protocol/testing';
+import type {
+  FormatSettings,
+  RoomAssemblyState,
+  RoomCommand,
+} from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { bytesOf } from './draw-random';
@@ -16,11 +23,19 @@ export const drawConfig = {
   firstStriker: 'negative' as const,
 };
 
+type BankCategories = ('policy' | 'value' | 'fact')[];
+
+/** The format settings of a bank strike drawing 5: what a strike preset holds. */
+export const drawSettings = (categories: BankCategories): FormatSettings => ({
+  ...plainFormatSettings,
+  resolutionDraw: { ...drawConfig, source: { kind: 'bank', categories } },
+});
+
 /** A casual One-on-one-like Room whose host list draws 5. */
 export const drawRoom = (
   source:
     | { kind: 'host'; resolutions: string[] }
-    | { kind: 'bank'; categories: ('policy' | 'value' | 'fact')[] } = {
+    | { kind: 'bank'; categories: BankCategories } = {
     kind: 'host',
     resolutions: hostList,
   },

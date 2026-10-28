@@ -1,31 +1,23 @@
-import type {
-  RoomConfig,
-  RoundParticipantSeat,
-  RoundRules,
-} from '@daisy/protocol';
-import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
+import type { RoundParticipantSeat, RoundRules } from '@daisy/protocol';
+import {
+  oneOnOneFormatFixture,
+  oneOnOneSettingsFixture,
+} from '@daisy/protocol/testing';
 import { createRoundRuntime } from './round-runtime';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 /** The canonical protocol fixture keeps parser and resolver tests aligned. */
 export const oneOnOneDefinition = oneOnOneFormatFixture;
 
-export const oneOnOneConfig: RoomConfig = {
-  preRoundPrep: { enabled: false },
-  resolutionDraw: { enabled: false },
-  inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
-  speechTiming: {
-    countdownMs: 10_000,
-    segmentDurationOverrides: {},
-  },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
-  yielding: { allowed: true, returnsTime: true },
-};
+/** One-on-one's format settings; a room adopts them as its config. */
+export const oneOnOneSettings = oneOnOneSettingsFixture;
 
 /** The resolved rules for the one-on-one casual room; throws when it refuses. */
 export const oneOnOneRules = (): RoundRules => {
-  const outcome = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneConfig);
+  const outcome = resolveRoomConfiguration(
+    oneOnOneDefinition,
+    oneOnOneSettings,
+  );
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   return outcome.rules;
 };

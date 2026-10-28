@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
-import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
+import { foundationDefinition, oneOnOneSettings } from './reference-formats';
 
 setupRitewayBun();
 
@@ -44,7 +44,7 @@ describe('formatOperations', () => {
 
   test('getCurrentPreset reads the live preset for the format', async () => {
     const { database } = createTestDatabase([
-      [['one-on-one', 1, 1, oneOnOneRoomConfig]],
+      [['one-on-one', 1, 1, oneOnOneSettings]],
     ]);
     const preset = await database.getCurrentPreset('one-on-one');
     assert({
@@ -55,7 +55,7 @@ describe('formatOperations', () => {
         formatId: 'one-on-one',
         version: 1,
         formatVersion: 1,
-        config: oneOnOneRoomConfig,
+        config: oneOnOneSettings,
       },
     });
   });
@@ -105,7 +105,7 @@ describe('formatOperations', () => {
           foundationDefinition,
           3,
           1,
-          oneOnOneRoomConfig,
+          oneOnOneSettings,
           false,
           new Date(0),
         ],
@@ -134,7 +134,7 @@ describe('formatOperations', () => {
         preset: {
           version: 3,
           formatVersion: 1,
-          config: oneOnOneRoomConfig,
+          config: oneOnOneSettings,
           rankedEligible: false,
           current: false,
         },

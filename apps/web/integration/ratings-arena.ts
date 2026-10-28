@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
+import type { FormatSettings } from '@daisy/protocol';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
 
@@ -12,8 +13,8 @@ import { testDatabaseUrl, withSql } from './fixtures';
  * `cleanup` removes everything it made, ledger rows first.
  */
 
-/** The sanctioned RoomConfig the arena's presets approve. */
-const config = {
+/** The format settings the arena's presets sanction (ISSUE-775). */
+const config: FormatSettings = {
   preRoundPrep: { enabled: false },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },

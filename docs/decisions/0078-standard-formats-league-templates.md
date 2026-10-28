@@ -64,6 +64,15 @@ made it rankable.
 9. **Only what runs is listed.** A template is seeded only when Daisy runs its
    rules faithfully and a primary source confirms them; unsupported formats
    are not shown at all.
+10. **A preset holds format settings, not a Room config (ISSUE-775).**
+    `format_presets.config`, the catalog choice and the selection facts use
+    the Formats-owned `formatSettingsSchema`: timing, cross-examination,
+    interruptions, yielding, prep, and a draw policy that can name only
+    Daisy's bank. `roomConfigSchema` embeds those settings and extends the
+    draw source with the Room-only host-written list. A Room setting never
+    changes the preset schema. No preset can carry host-written lines: the
+    `format_presets_bank_draw_only` CHECK refuses one however the row
+    arrives, migration SQL included.
 
 ## Consequences
 

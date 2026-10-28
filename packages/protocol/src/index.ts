@@ -47,6 +47,8 @@ export {
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
+export { formatSettingsSchema } from './format-settings';
+export type { FormatSettings } from './format-settings';
 export type {
   HydratedRound,
   HydratedSegment,

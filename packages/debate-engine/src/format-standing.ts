@@ -2,6 +2,7 @@ import type {
   DebateRole,
   FormatChange,
   FormatDefinition,
+  FormatSettings,
   FormatStanding,
   RoomConfig,
   RoomExecutionPlan,
@@ -24,7 +25,8 @@ export type StandingBasis = {
   readonly formatVersion: number;
   readonly role: 'standard' | 'template';
   readonly definition: FormatDefinition;
-  readonly config: RoomConfig;
+  /** The preset's format settings; a room's config embeds them (ISSUE-775). */
+  readonly config: FormatSettings;
 };
 
 type Compiled = {

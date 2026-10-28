@@ -1,10 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   formatDefinitionSchema,
-  roomConfigSchema,
+  formatSettingsSchema,
   type FormatDefinition,
 } from '@daisy/protocol';
+import { oneOnOneSettingsFixture } from '@daisy/protocol/testing';
 import {
+  oneOnOneSettings,
   referenceBots,
   referenceFormats,
   referencePresets,
@@ -205,6 +207,16 @@ describe('reference data', () => {
     });
   });
 
+  test("one-on-one's settings are the engine's fixture, never a drifting copy", () => {
+    assert({
+      given:
+        "the reference one-on-one settings and the protocol's shared fixture",
+      should: 'be equal, so the engine and db tests exercise the same defaults',
+      actual: oneOnOneSettings,
+      expected: oneOnOneSettingsFixture,
+    });
+  });
+
   test('one-on-one follows the standard one-on-one schedule in its second revision (DEC-234)', () => {
     const oneOnOne = referenceFormats.find(({ id }) => id === 'one-on-one');
     const defaults = (definition: FormatDefinition | undefined) =>
@@ -287,7 +299,8 @@ describe('reference data', () => {
   test('every reference definition and preset passes the protocol schemas', () => {
     assert({
       given: 'all reference formats and presets',
-      should: 'each validate against the definition and config schemas',
+      should:
+        'each validate as a format definition and as format settings, never a Room config (ISSUE-775)',
       actual: {
         definitions: referenceFormats.flatMap(({ revisions }) =>
           revisions.map(
@@ -296,7 +309,7 @@ describe('reference data', () => {
           ),
         ),
         configs: referencePresets.map(
-          ({ config }) => roomConfigSchema.safeParse(config).success,
+          ({ config }) => formatSettingsSchema.safeParse(config).success,
         ),
       },
       expected: {

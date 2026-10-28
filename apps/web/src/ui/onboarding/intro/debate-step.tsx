@@ -3,7 +3,7 @@ import { destinationHref } from '../../../features/coming-soon/launch';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   oneOnOneDefinition,
-  oneOnOneRoomConfig,
+  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
@@ -43,7 +43,7 @@ function segmentClass(turn: IntroTurn): string {
 const introRules = (() => {
   const resolved = resolveRoomConfiguration(
     oneOnOneDefinition,
-    oneOnOneRoomConfig,
+    oneOnOneSettings,
   );
   if (!resolved.ok) throw new Error(resolved.refusal.message);
   return resolved.rules;

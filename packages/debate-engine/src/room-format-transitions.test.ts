@@ -3,9 +3,9 @@ import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
-import { oneOnOneConfig } from './runtime.test-support';
+import { oneOnOneSettings } from './runtime.test-support';
 import type { FormatSelectionFacts } from './format-selection';
-import { drawRoom } from './room-pre-round.test-support';
+import { drawRoom, drawSettings } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -22,7 +22,7 @@ const valueFacts: FormatSelectionFacts = {
   preset: {
     version: 3,
     formatVersion: 1,
-    config: oneOnOneConfig,
+    config: oneOnOneSettings,
     rankedEligible: false,
     current: true,
   },
@@ -84,10 +84,10 @@ describe('select-format', () => {
           name: 'Value',
           role: 'standard',
           definition: oneOnOneFormatFixture,
-          config: oneOnOneConfig,
+          config: oneOnOneSettings,
         },
         catalogFormat: { name: 'Value', role: 'standard', leagues: [] },
-        config: oneOnOneConfig,
+        config: oneOnOneSettings,
         definition: oneOnOneFormatFixture,
         version: room.version + 1,
         consent: [null, null],
@@ -178,9 +178,9 @@ describe('select-format', () => {
         name: 'Value',
         role: 'standard',
         definition: oneOnOneFormatFixture,
-        config: oneOnOneConfig,
+        config: oneOnOneSettings,
       },
-      config: { ...oneOnOneConfig, inRoundPrep: { enabled: false } },
+      config: { ...oneOnOneSettings, inRoundPrep: { enabled: false } },
     };
     const outcome = run(room, selectFormat(room, { intent: 'reset' }), {
       ...valueFacts,
@@ -198,7 +198,7 @@ describe('select-format', () => {
         },
       },
       expected: {
-        config: oneOnOneConfig,
+        config: oneOnOneSettings,
         basis: { formatId: 'value', presetVersion: 3 },
       },
     });
@@ -210,7 +210,10 @@ describe('select-format', () => {
       ...valueFacts,
       format: { ...valueFacts.format, id: 'freestyle', name: 'Freestyle' },
       definition: drawn.definition,
-      preset: { ...valueFacts.preset, config: drawn.config },
+      preset: {
+        ...valueFacts.preset,
+        config: drawSettings(['policy', 'value']),
+      },
     };
     const freestyle = (room: RoomAssemblyState, topic?: string) =>
       run(
