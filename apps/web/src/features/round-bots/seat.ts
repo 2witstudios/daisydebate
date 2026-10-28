@@ -28,8 +28,8 @@ export function createBotSeat(input: {
   readonly pollMs: number;
   readonly timers: WorkerTimers;
   /**
-   * `stage` is poll when the bot's hearing failed, or close when a seat that
-   * failed to start could not close what it had started.
+   * `stage` is poll when the bot's hearing failed, or close when the seat
+   * could not close what it had started, on stop or after a failed start.
    */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
