@@ -20,28 +20,37 @@ const RETRY_MAX_MS = 30000;
  * Which publications a subscriber has asked for. Every ask is answered (the
  * track arrives), refused, or times out. A refused or timed-out ask, or a
  * held track the SFU drops, is asked again after a pause that doubles to a
- * ceiling; the pause survives an arrival, so a flapping track backs off
- * instead of looping. A pending ask is never repeated, and withdrawing,
+ * ceiling; the pause survives an arrival until the track has held for
+ * the longest pause, so a flapping track backs off instead of looping while
+ * a stable one recovers quickly. A pending ask is never repeated, and withdrawing,
  * ending or closing forgets it entirely.
  */
 export function createSubscriptionRequests(timers: Timers) {
   /** Each outstanding ask or retry, by publication sid, with its timer. */
   const pending = new Map<string, unknown>();
-  /** The next retry pause per sid, kept until the publication ends or is withdrawn. */
+  /** The next retry pause per sid, until the track holds or the publication ends. */
   const pauses = new Map<string, number>();
+  /** A held track's timer that, once it has held long enough, forgets its pause. */
+  const holds = new Map<string, unknown>();
   let closed = false;
   const cancel = (sid: string) => {
     if (pending.has(sid)) timers.clear(pending.get(sid));
     pending.delete(sid);
   };
+  const release = (sid: string) => {
+    if (holds.has(sid)) timers.clear(holds.get(sid));
+    holds.delete(sid);
+  };
   const forget = (sid: string) => {
     cancel(sid);
+    release(sid);
     pauses.delete(sid);
   };
   const retry = (sid: string, again: () => void) => {
     // `again` re-evaluates the publication, so a retry for one withdrawn or
     // gone meanwhile asks nothing (and its caller forgets the sid).
     if (closed) return;
+    release(sid);
     const pauseMs = pauses.get(sid) ?? RETRY_FIRST_MS;
     pauses.set(sid, Math.min(pauseMs * 2, RETRY_MAX_MS));
     cancel(sid);
@@ -79,13 +88,28 @@ export function createSubscriptionRequests(timers: Timers) {
      * re-attempt), or a held track was dropped while still published.
      */
     retry,
-    /** The track arrived: its answer timeout is moot; its pause is kept. */
-    subscribed: cancel,
+    /**
+     * The track arrived: its answer timeout is moot. Its pause is kept until
+     * it has held for the longest pause, so a flapping track backs off while
+     * a stable one starts again from the first pause.
+     */
+    subscribed(sid: string) {
+      cancel(sid);
+      release(sid);
+      if (closed || !pauses.has(sid)) return;
+      holds.set(
+        sid,
+        timers.set(() => {
+          holds.delete(sid);
+          pauses.delete(sid);
+        }, RETRY_MAX_MS),
+      );
+    },
     /** The publication went away. */
     ended: forget,
     close() {
       closed = true;
-      for (const sid of [...pending.keys()]) forget(sid);
+      for (const sid of [...pending.keys(), ...holds.keys()]) forget(sid);
       pauses.clear();
     },
   };

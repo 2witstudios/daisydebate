@@ -210,8 +210,9 @@ export function createBotListening(
         // Back off first, so a failing reporter never turns this into a
         // join on every poll, nor into an unhandled rejection.
         scheduleRejoin();
-        if (isRefusal(error) && ++refusals % REPORT_REFUSALS_EVERY !== 0)
-          return;
+        // Only refusals in a row count: an unexpected failure breaks the run.
+        if (!isRefusal(error)) refusals = 0;
+        else if (++refusals % REPORT_REFUSALS_EVERY !== 0) return;
         try {
           input.failed(error);
         } catch {

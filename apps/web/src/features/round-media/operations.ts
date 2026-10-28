@@ -191,7 +191,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         sign,
       });
     };
-    await run(claim, principal, issue);
+    let refusal = await run(claim, principal, issue);
     // Rotation releases the old claim. Reacquire the new room before creating
     // or signing; an unresolved cleanup never earns a retry.
     if (
@@ -199,30 +199,29 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       (await snapshot(roundId)).session.roomName !== claim.roomName
     ) {
       claim = await acquire(binding.sessionId);
-      await run(claim, principal, issue);
+      refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
-    throw await notIssued(roundId, principal);
+    throw await notIssued(roundId, principal, refusal);
   };
   /**
-   * Why the reconcile refused or cleaned up and never reached the issue.
-   * Read as the human caller, so one revoked meanwhile is refused as such; a
-   * hearing seat the projection no longer admits was refused, not failed.
+   * Why the reconcile never reached the issue: a human caller revoked
+   * meanwhile is refused as such (read as that caller); otherwise the
+   * refusal the reconcile itself met; otherwise it cleaned up, which is
+   * infrastructure.
    */
-  const notIssued = async (roundId: string, principal: Principal) => {
+  const notIssued = async (
+    roundId: string,
+    principal: Principal,
+    refusal: unknown,
+  ) => {
     const after = await snapshot(
       roundId,
       principal.kind === 'human' ? principal.actorId : undefined,
     );
     if (admissionRevoked(after))
       return createAppError('CONFLICT', 'Round media admission is closed');
-    if (
-      principal.kind === 'bot' &&
-      principal.hearing &&
-      !after.hearing.includes(principal.scope.roundParticipantId)
-    )
-      return createAppError('AUTHORIZATION');
-    return createAppError('INFRASTRUCTURE');
+    return refusal ?? createAppError('INFRASTRUCTURE');
   };
   /**
    * Runs `work` while this caller's own reconcile holds the session, so a

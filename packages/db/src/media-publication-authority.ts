@@ -16,17 +16,6 @@ type Publication = {
   readonly floor: boolean;
 };
 
-/** Whether `check` admits, a refusal reading as false. */
-const admits = async (check: () => Promise<unknown>) => {
-  try {
-    await check();
-    return true;
-  } catch (error) {
-    if (isRefusal(error)) return false;
-    throw error;
-  }
-};
-
 /**
  * Each eligible bot seat's live claim within its live segment, and whether
  * it holds the floor. The owning Round fence is already held. Reuses the
@@ -59,10 +48,18 @@ export async function readMediaBotLeases(
       roundParticipantId: seat.id,
       segmentId: claim.segmentId,
     };
-    const verified = await admits(() =>
-      verifyBotWorkerPrincipalLocked(tx, { kind: 'agent', ...claim }, roundId),
-    );
-    const segment = verified ? await readBotSegmentFloor(tx, target) : null;
+    try {
+      await verifyBotWorkerPrincipalLocked(
+        tx,
+        { kind: 'agent', ...claim },
+        roundId,
+      );
+    } catch (error) {
+      // A refused claim simply holds no media fact now.
+      if (isRefusal(error)) continue;
+      throw error;
+    }
+    const segment = await readBotSegmentFloor(tx, target);
     if (segment) facts.push({ ...claim, floor: segment.floor });
   }
   return facts;

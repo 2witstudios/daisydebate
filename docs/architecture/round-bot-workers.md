@@ -236,11 +236,12 @@ refusal nor a full capture fleet deafens a bot Round.
 
 - **Identity.** In a cross-ex claim, the seat's listener
   (`round-bots/listening.ts`) asks the media broker for a listen grant
-  (`botListenToken`). One rule admits every bot media request
-  (`verifyBotMediaPrincipal`): the bot's live claim, then the speaking window
-  to publish, or only a live segment to hear, under the session's reconcile
-  hold. Hearing needs no floor, since a bot hears most while its opponent
-  holds it. The grant signs an identity bound to no seat: hidden,
+  (`botListenToken`), under the session's reconcile hold. Every bot media
+  request needs its live claim (`verifyBotMediaPrincipal`); publishing also
+  needs the speaking window. Who may hear is one projected rule,
+  `mediaHearingSeats`: base seat eligibility and a live claim within its
+  live segment, read by both the token and room creation. Hearing needs no
+  floor, since a bot hears most while its opponent holds it. The grant signs an identity bound to no seat: hidden,
   subscribe-only, with `canPublish` and `canPublishData` false, for that one
   room. Reconciliation never grants it a floor. The identity is derived from
   the seat's own (`round-media/listen-identity.ts`), so a takeover's or a
@@ -255,9 +256,7 @@ refusal nor a full capture fleet deafens a bot Round.
   (`CONFLICT`, `AUTHORIZATION`) is reported only once it persists, every
   fifth join in a row. A Round end or a revoked seat rotates or deletes the
   vendor room, which drops it, and the admission refuses every rejoin until
-  the claim's own end closes the listener. Both the token and room creation
-  admit a hearing seat only from the projected hearing seats
-  (`mediaHearingSeats`: base eligibility, a live claim, a live segment).
+  the claim's own end closes the listener.
 - **Hearing.** It subscribes only its peers' microphones, from the
   admission's peer list, re-reading the bindings for a peer that binds
   later. A refused or unanswered subscription is asked again after a pause

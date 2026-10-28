@@ -95,9 +95,9 @@ test('a bot claim without the floor is refused publication but still hears (ISSU
     await f.sql`update round_segments set ended_at=clock_timestamp() where id=${claim.scope.segmentId}`;
     await assertRejects({
       given: "the claim's segment ended",
-      should: 'refuse to sign: hearing lives within its live segment',
-      code: 'CONFLICT',
-      message: 'Bot segment is not live',
+      should:
+        'refuse to sign: the projected hearing seats admit a claim only within its live segment',
+      code: 'AUTHORIZATION',
       actual: () => media.botListenToken(claim.scope, claim.token),
     });
   }, botControlOptions);

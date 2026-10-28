@@ -214,7 +214,9 @@ export function createMediaReconcileRun(
    * One reconcile under `claim`. `whileHeld` runs after a successful
    * reconcile and before the lease is released, so no other reconcile can
    * change the session in between (ISSUE-534); its own failure reaches the
-   * caller after the release and never marks the session unsafe.
+   * caller after the release and never marks the session unsafe. A refusal
+   * (`isRefusal`) the reconcile met is returned, not thrown, so a caller
+   * that needed it can say why it was refused.
    */
   return async (
     claim: Claim,
@@ -225,6 +227,7 @@ export function createMediaReconcileRun(
       null;
     let cleanupAttempted = false;
     let held: { readonly error: unknown } | null = null;
+    let refusal: unknown;
     try {
       const state = await snapshot(claim.roundId);
       if (needsCleanup(state, claim)) {
@@ -235,7 +238,8 @@ export function createMediaReconcileRun(
         held = await runHeld(whileHeld);
       }
     } catch (error) {
-      if (!isRefusal(error)) await unsafe(claim, error);
+      if (isRefusal(error)) refusal = error;
+      else await unsafe(claim, error);
     } finally {
       try {
         const state = await snapshot(claim.roundId);
@@ -250,5 +254,6 @@ export function createMediaReconcileRun(
       });
     }
     if (held) throw held.error;
+    return refusal;
   };
 }

@@ -22,14 +22,14 @@ export type PublicationWindow = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
+/** Speaking interval `i` is open over [`before`, `after`]. */
+const intervalOpen = (before: SQL, after: SQL) =>
+  sql`i.started_at<=${before} and (i.ended_at is null or ${after}<i.ended_at)`;
 /**
  * Segment `s` is in progress over [`before`, `after`]: started, not ended,
  * and within its duration. The one definition of a live segment, for
  * publication's speaking window and hearing alike.
  */
-/** Speaking interval `i` is open over [`before`, `after`]. */
-const intervalOpen = (before: SQL, after: SQL) =>
-  sql`i.started_at<=${before} and (i.ended_at is null or ${after}<i.ended_at)`;
 const segmentInProgress = (before: SQL, after: SQL) =>
   sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')`;
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
@@ -76,22 +76,6 @@ export async function requireBotSpeakingWindow(
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
 /**
- * The claim's segment is in progress at the server's instant: a listen-only
- * hearing lives within its segment, as publication lives within a speaking
- * window.
- */
-async function requireBotSegmentLive(
-  tx: BoundedTransactionContext,
-  target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
-) {
-  const now = sql`clock_timestamp()`;
-  const rows = await tx.execute(sql`select 1 from round_segments s
-    where s.round_id=${target.roundId} and s.id=${target.segmentId}
-      and ${segmentInProgress(now, now)} limit 1`);
-  if (rows.length !== 1)
-    throw createAppError('CONFLICT', 'Bot segment is not live');
-}
-/**
  * The claim's segment and floor in one read, for the media projection:
  * `null` when the segment is not live, else whether the seat holds an open
  * speaking interval in it now.
@@ -120,18 +104,23 @@ export type BotMediaPrincipal = {
   readonly token: string;
   /**
    * The seat's own listen-only hearing (ISSUE-764): admitted on its live
-   * claim within its live segment. Only publication needs the floor.
+   * claim, then by the projected hearing seats (`mediaHearingSeats`: base
+   * eligibility, a live claim within its live segment). Only publication
+   * needs the floor.
    */
   readonly hearing?: true;
 };
-/** The one bot media admission rule: the live claim, then the floor to publish or a live segment to hear. */
+/**
+ * The bot media request's own claim, under its locks: the live claim, and
+ * the floor to publish. Whether a hearing seat may hear is the projection's
+ * one rule (`mediaHearingSeats`), which every hearing admission reads.
+ */
 export async function verifyBotMediaPrincipal(
   tx: BoundedTransactionContext,
   principal: BotMediaPrincipal,
 ) {
   await verifyLockedBotWorker(tx, principal.scope, principal.token);
-  if (principal.hearing) await requireBotSegmentLive(tx, principal.scope);
-  else await requireBotSpeakingWindow(tx, principal.scope);
+  if (!principal.hearing) await requireBotSpeakingWindow(tx, principal.scope);
 }
 /**
  * Records an authorized window as server credit (DEC-212, DEC-218), extending

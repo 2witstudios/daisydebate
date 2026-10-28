@@ -39,7 +39,35 @@ const fixture = () => {
   /** Timers still armed (neither fired nor cleared), by delay. */
   const live = () =>
     timers.filter((timer) => !timer.done).map((timer) => timer.ms);
-  return { asks, timers, publication, requests, want, live };
+  /** The track arrives, then (`drop`) the SFU drops it while still published. */
+  const arrive = () => {
+    publication.subscribed = true;
+    requests.subscribed('TR_mic');
+  };
+  const drop = () => {
+    publication.subscribed = false;
+    requests.retry('TR_mic', () => want());
+  };
+  /** Asks, then `times` arrivals each dropped and asked again after its pause. */
+  const flap = (times: number) => {
+    want();
+    for (let round = 0; round < times; round++) {
+      arrive();
+      drop();
+      timers.at(-1)!.run();
+    }
+  };
+  return {
+    asks,
+    timers,
+    publication,
+    requests,
+    want,
+    live,
+    arrive,
+    drop,
+    flap,
+  };
 };
 
 test('a pending subscription is asked for once, and withdrawn once', () => {
@@ -68,7 +96,7 @@ test('a refused subscription is asked again after a pause doubling to 30 s, unti
   assert({
     given: 'seven refusals of one wanted microphone, then its track arriving',
     should:
-      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s), and leave no timer once it arrives',
+      'ask again after each pause (1, 2, 4, 8, 16, 30, 30 s), and once it arrives arm only the 30 s hold that forgets its pause',
     actual: {
       asks: asks.length,
       pauses: timers
@@ -78,8 +106,8 @@ test('a refused subscription is asked again after a pause doubling to 30 s, unti
     },
     expected: {
       asks: 8,
-      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000],
-      live: [],
+      pauses: [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000],
+      live: [30000],
     },
   });
 });
@@ -137,28 +165,30 @@ test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again',
 });
 
 test('a held track the SFU keeps dropping is asked again after a pause that grows across arrivals', () => {
-  const { timers, publication, requests, want } = fixture();
-  const arrive = () => {
-    publication.subscribed = true;
-    requests.subscribed('TR_mic');
-  };
-  const drop = () => {
-    publication.subscribed = false;
-    requests.retry('TR_mic', () => want());
-  };
-  want();
-  for (let flap = 0; flap < 3; flap++) {
-    arrive();
-    drop();
-    timers.at(-1)!.run();
-  }
+  const { timers, flap } = fixture();
+  flap(3);
   assert({
     given: 'a microphone that arrives and is dropped three times',
     should: 'ask again after 1 s, 2 s, then 4 s, never at once',
     actual: timers
-      .filter((timer) => timer.ms !== 10000)
+      .filter((timer) => timer.ms !== 10000 && timer.ms !== 30000)
       .map((timer) => timer.ms),
     expected: [1000, 2000, 4000],
+  });
+});
+
+test('a track that has held for 30 s starts again from the first pause', () => {
+  const { timers, arrive, drop, flap } = fixture();
+  flap(3);
+  arrive();
+  timers.at(-1)!.run();
+  drop();
+  assert({
+    given:
+      'a microphone that flapped three times, then held for 30 s and dropped',
+    should: 'ask again after 1 s, not the grown pause',
+    actual: timers.at(-1)!.ms,
+    expected: 1000,
   });
 });
 
