@@ -12,8 +12,10 @@ import { composeMessagingDmStore } from '../src/features/messaging/dm-compositio
 import { decideMessagingDm } from '../src/features/messaging/decide-request';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
 import { sendMessagingMessage } from '../src/features/messaging/send';
-import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { blockContact } from '../src/features/contacts/block';
+import { contactPairFence } from '../src/features/contacts/authorization';
+import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
+
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const bounds = { introductionUnits: 100, titleUnits: 80, batchActors: 10 };
@@ -36,6 +38,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
     bounds,
     clock,
     limit: async () => {},
+    limits: dec251ContactsPolicy.requests,
   };
   const command = {
     version: 1,
@@ -95,7 +98,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
     });
     const result = await decideMessagingDm(command, recipient, dependencies);
     const message = await send();
-    await blockMessagingContact(
+    await blockContact(
       {
         version: 1,
         requestId: createId(),
@@ -104,15 +107,10 @@ test('real DM recipient accept opens history/post and binds closed retry through
       },
       sender,
       {
-        bounds,
         clock,
         limit: async () => {},
-        store: database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
-            principal: sender,
-            clock,
-            operation: { kind: 'block' },
-          }),
+        store: database.contactStore(
+          contactPairFence({ principal: sender, capability: 'social.block' }),
         ),
       },
     );
@@ -148,13 +146,13 @@ test('real DM recipient accept opens history/post and binds closed retry through
       ],
     );
     assert({
-      given: 'committed accept and block authority changes',
+      given: 'committed accept, block and the accepted send (ISSUE-603)',
       should:
-        'invalidate both own inboxes without channel IDs or request content',
+        'invalidate both own inboxes for each, without channel IDs or request content',
       actual: bells.map((row: { payload: Record<string, unknown> }) =>
         Object.keys(row.payload).sort(),
       ),
-      expected: Array.from({ length: 4 }, () => ['kind']),
+      expected: Array.from({ length: 6 }, () => ['kind']),
     });
     await fixture.eraseSubject(sender.actorId);
     await assertRejects({
@@ -187,6 +185,7 @@ for (const decision of ['decline', 'cancel'] as const) {
       bounds,
       clock,
       limit: async () => {},
+      limits: dec251ContactsPolicy.requests,
       store: composeMessagingDmStore({
         database,
         principal,

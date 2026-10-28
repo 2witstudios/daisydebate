@@ -3,7 +3,7 @@ import { createDatabase } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import { contactPairFence } from '../src/features/contacts/authorization';
 
 export async function openMessagingFixture(databaseUrl: string) {
   const client = new SQL(databaseUrl);
@@ -17,7 +17,7 @@ export async function openMessagingFixture(databaseUrl: string) {
   return { client, fixture, database, principal };
 }
 
-/** The real block dependencies: its bounds, clock and fenced store. */
+/** The real block dependencies: its clock, budget and fenced store. */
 export const blockDependencies = (
   {
     database,
@@ -30,15 +30,10 @@ export const blockDependencies = (
 ) => {
   const clock = { now: () => fixture.now };
   return {
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
     clock,
     limit: async () => {},
-    store: database.messagingSocialStore(
-      messagingSocialAuthorizationFence({
-        principal,
-        clock,
-        operation: { kind: 'block' },
-      }),
+    store: database.contactStore(
+      contactPairFence({ principal, capability: 'social.block' }),
     ),
   };
 };

@@ -1,7 +1,3 @@
-import {
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
@@ -10,14 +6,14 @@ import {
 } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { consumeOrThrow } from '../../server/rate-limit';
+import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
 import { requestMessagingDm } from './request';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
-import { composeMessagingBlockOperation } from './block-composition';
+import { memberHttpBoundary } from '../../server/member-handler';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;
@@ -26,26 +22,24 @@ export type MessagingSocialRuntimePolicy = {
     readonly maxMembers: number;
     readonly maxPendingInvitations: number;
   };
-  readonly requestLimits: {
-    readonly windowMs: number;
-    readonly maxNewPairs: number;
-    readonly maxPending: number;
-    readonly cooldownMs: number;
-  };
-  readonly abuse: { readonly max: number; readonly windowSeconds: number };
+  /** Per-account ceiling on every social command. */
+  readonly abuse: readonly RateRule[];
 };
 
 export function composeMessagingSocialRoutes(app: App) {
   const run = (
     request: Request,
-    kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
+    kind: 'request' | 'decide' | 'preview' | 'status',
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     const limit = (actorId: string) =>
-      consumeOrThrow(app.limiter, `messaging:social:${actorId}`, social.abuse);
+      consumeWindowsOrThrow(
+        app.limiter,
+        `messaging:social:${actorId}`,
+        social.abuse,
+      );
     const dm = (principal: Parameters<typeof requestMessagingDm>[1]) =>
       composeMessagingDmStore({
         database: app.database,
@@ -55,7 +49,7 @@ export function composeMessagingSocialRoutes(app: App) {
         readingPolicy: policy.reading,
       });
     const handlers = createMessagingSocialHandlers({
-      ...messagingHttpBoundary(app),
+      ...memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       bounds: social.bounds,
       request: composeMessagingCreationOperation(app, 'dm'),
@@ -65,6 +59,7 @@ export function composeMessagingSocialRoutes(app: App) {
           bounds: social.bounds,
           clock: app.clock,
           limit,
+          limits: app.contactsPolicy.requests,
         }),
       status: (input, principal) => {
         const command = parseValidated(
@@ -84,7 +79,6 @@ export function composeMessagingSocialRoutes(app: App) {
           store: dm(principal),
           bounds: social.bounds,
         }),
-      block: composeMessagingBlockOperation(app),
     });
     return kind === 'preview' || kind === 'status'
       ? handlers[kind](request, channelId!)
@@ -95,7 +89,6 @@ export function composeMessagingSocialRoutes(app: App) {
       run(request, 'status', channelId),
     requestDm: (request: Request) => run(request, 'request'),
     decideDm: (request: Request) => run(request, 'decide'),
-    blockContact: (request: Request) => run(request, 'block'),
     requestPreview: (request: Request, channelId: string) =>
       run(request, 'preview', channelId),
   };

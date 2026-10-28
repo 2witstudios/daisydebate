@@ -1,7 +1,5 @@
-import {
-  messagingTestPosting,
-  messagingTestReading,
-} from '@daisy/auth/testing';
+import { isolatedMessagingPolicy } from './isolated-policy.test-support';
+import { messagingTestReading } from '@daisy/auth/testing';
 import { accountAgeFact } from '@daisy/auth/account-age';
 import type { MessagingChannelFact } from '@daisy/db/messaging-social';
 import type { MessagingRuntimePolicy } from './composition';
@@ -55,16 +53,15 @@ export function typingWorld() {
 }
 /** Two feature-port suites consume the same explicit canonical isolated policy, never a default. */
 export function messagingUnitPolicy(): MessagingRuntimePolicy {
-  return {
-    posting: messagingTestPosting,
+  return isolatedMessagingPolicy({
     reading: messagingTestReading,
     bounds: { messageUnits: 100, pageItems: 20 },
     maxBodyBytes: 1024,
     editWindowMs: 1000,
     limits: {
-      read: { max: 10, windowSeconds: 60 },
-      actorSend: { max: 10, windowSeconds: 60 },
-      channelSend: { max: 10, windowSeconds: 60 },
+      ...isolatedMessagingPolicy().limits,
+      read: [{ max: 10, windowSeconds: 60 }],
+      actorSend: [{ max: 10, windowSeconds: 60 }],
     },
-  };
+  });
 }

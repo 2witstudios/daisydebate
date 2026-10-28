@@ -11,7 +11,11 @@ test('mounted reactions retain current aggregates, replay immutability and own c
   const fixture = await mountedMessaging.mountedMessagingPair(databaseUrl, {
     messagingPolicy: {
       ...mountedMessaging.messagingRoutePolicy,
-      reactions: { reactionUnits: 8, choices: ['👍', '❤️'] },
+      reactions: {
+        reactionUnits: 8,
+        choices: ['👍', '❤️'],
+        distinctPerMessage: 2,
+      },
     },
   });
   const { app, first, second, me, peer, client, channelId, routes } = fixture;
@@ -114,7 +118,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       expected: [404, 404],
     });
     await client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true, revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
+      'update contact_pairs set low_blocks_high=true, revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
       [...[me.actorId, peer.actorId].sort()],
     );
     await client.unsafe(

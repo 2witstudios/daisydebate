@@ -7,6 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
 import { readMessagingChannelFact } from '../src/messaging/social';
 
 setupRitewayBun();
@@ -24,6 +25,11 @@ test('messaging rights erase subject associations atomically and preserve other 
     requestId = createId();
   const subject = { userId: userId!, actorId: actorId! };
   const adopter = createMessagingPrivacyAdopter();
+  // Erasure composes every social adopter: Contacts, not Messaging, ends the pair (B5).
+  const eraseSocial = async (tx: Parameters<typeof adopter.erase>[0]) => {
+    for (const social of socialPrivacyAdoption().adopters)
+      await social.erase(tx, subject, { now });
+  };
   try {
     await client.unsafe(
       'update messaging_channels set message_sequence=2,change_version=2 where id=$1',
@@ -94,7 +100,7 @@ test('messaging rights erase subject associations atomically and preserve other 
     try {
       await database.transaction(async (tx) => {
         await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
-        await adopter.erase(tx, subject, { now });
+        await eraseSocial(tx);
         throw new Error('rollback privacy proof');
       });
     } catch (error) {
@@ -116,7 +122,7 @@ test('messaging rights erase subject associations atomically and preserve other 
     });
     await database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
-      await adopter.erase(tx, subject, { now });
+      await eraseSocial(tx);
     });
     const messages = await client.unsafe(
       'select author_actor_id,text,removed_at is not null as removed from messaging_messages where channel_id=$1 order by sequence',
@@ -126,7 +132,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       `select
       (select count(*)::int from messaging_receipts where actor_id=$1) as receipts,
       (select count(*)::int from messaging_group_grants where actor_id=$1) as grants,
-      (select count(*)::int from messaging_contact_pairs where low_actor_id=$1 or high_actor_id=$1) as contacts,
+      (select count(*)::int from contact_pairs where low_actor_id=$1 or high_actor_id=$1) as contacts,
       (select count(*)::int from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1) as pairs,
       (select count(*)::int from messaging_reactions where actor_id=$1) as reactions,
       (select count(*)::int from messaging_actor_states where actor_id=$1) as preferences,
@@ -156,18 +162,24 @@ test('messaging rights erase subject associations atomically and preserve other 
         other_grants: 1,
       },
     });
+    const [dm] = await client.unsafe(
+      "select lifecycle,(select string_agg(actor_id, ',') from messaging_retained_authors r where r.channel_id=c.id) as survivors from messaging_channels c where id=$1",
+      [channelId],
+    );
     assert({
-      given: 'committed erasure with another author',
+      given: 'committed erasure of one DM member with another author',
       should:
-        'scrub only subject text and preserve the other contribution physically',
-      actual: messages,
+        'delete the subject’s DM rows outright and keep the survivor’s, retained for them alone (DEC-126)',
+      actual: [messages, dm],
       expected: [
-        { author_actor_id: actorId, text: null, removed: true },
-        {
-          author_actor_id: otherActorId,
-          text: 'Other private text',
-          removed: false,
-        },
+        [
+          {
+            author_actor_id: otherActorId,
+            text: 'Other private text',
+            removed: false,
+          },
+        ],
+        { lifecycle: 'retained', survivors: otherActorId },
       ],
     });
     const [group] = await client.unsafe(
@@ -208,7 +220,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       groupId,
     ]);
     await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
     );
     await client.unsafe(

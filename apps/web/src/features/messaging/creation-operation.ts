@@ -1,11 +1,13 @@
+import { requirePrivateGroups } from './private-groups';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../../server/rate-limit';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
 import { requestMessagingDm } from './request';
 import { createMessagingGroup } from './create-group';
 import { composeMessagingGroupCreationStore } from './group-creation-composition';
-import { messagingSocialAuthorizationFence } from './social-authorization';
+import { messagingCreationFence } from './creation-authorization';
+
 /** Actor-ID and username intent routes converge on these exact fenced operations. */
 export function composeMessagingCreationOperation(
   app: App,
@@ -13,14 +15,13 @@ export function composeMessagingCreationOperation(
 ) {
   return async (input: unknown, principal: AuthorizationPrincipal) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) throw createAppError('INFRASTRUCTURE');
+      social = policy.social;
     const common = {
       bounds: social.bounds,
       clock: app.clock,
       ids: app.ids,
       limit: (actorId: string) =>
-        consumeOrThrow(
+        consumeWindowsOrThrow(
           app.limiter,
           `messaging:social:${actorId}`,
           social.abuse,
@@ -32,16 +33,17 @@ export function composeMessagingCreationOperation(
       return requestMessagingDm(input, principal, {
         ...common,
         store: app.database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
+          messagingCreationFence({
             principal,
             clock: app.clock,
             operation: { kind: 'dm', policy: social.creation },
           }),
         ),
         policyRevision: social.creation.revision,
-        limits: social.requestLimits,
+        limits: app.contactsPolicy.requests,
       });
     }
+    requirePrivateGroups(policy);
     return createMessagingGroup(input, principal, {
       ...common,
       store: composeMessagingGroupCreationStore({

@@ -1,5 +1,11 @@
 import { messagingOperations } from './messaging/operations';
-import { friendshipReadOperations } from './messaging/friendships';
+import { friendshipReadOperations } from './friends/reads';
+import { createFriendStore } from './friends/store';
+import { createContactStore } from './contacts/store';
+import { contactReactions } from './contact-composition';
+import { presenceSettingOperations } from './presence/settings';
+import type { ContactAuthorizationFence } from './contacts/fence';
+import { retainedConversationOperations } from './messaging/retained-store';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
@@ -59,11 +65,13 @@ import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { transcriptRetention } from './transcript-retention';
+import { socialRequestRetention } from './contacts/request-budget';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
 export type { DatabaseEventSink } from './instrumented';
+export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,
   ProvisionalMailCleanup,
@@ -175,11 +183,19 @@ export function createDatabase({
     ...betaAccessOperations({ database, eventSink }),
     ...operatorAccountOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    ...messagingOperations(database),
+    ...messagingOperations(database, contactReactions),
     ...friendshipReadOperations({ database, eventSink }),
+    ...presenceSettingOperations({ database, eventSink }),
+    friendStore: (authorize: ContactAuthorizationFence) =>
+      createFriendStore({ database, authorize, reactions: contactReactions }),
+    /** Contacts' own commands (blocks), with every registered reaction. */
+    contactStore: (authorize: ContactAuthorizationFence) =>
+      createContactStore({ database, authorize, reactions: contactReactions }),
+    ...retainedConversationOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     ...roundAnalysisRetention({ database, eventSink }),
+    ...socialRequestRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),

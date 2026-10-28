@@ -12,8 +12,11 @@ export function validResourceKind(
     'channel.reaction.remove': 'channel_reaction',
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
-    'social.friend.list': 'messaging_collection',
-    'social.presence.update': 'messaging_collection',
+    'social.friend.list': 'friend_collection',
+    'social.presence.read': 'presence_setting',
+    'social.presence.update': 'presence_setting',
+    'channel.retained.read': 'messaging_collection',
+    'channel.retained.delete': 'messaging_collection',
     'member.history.read': 'member_history',
     'channel.file.cleanup': 'pending_file',
     'account.collection.read': 'account_collection',
@@ -23,12 +26,14 @@ export function validResourceKind(
   if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
-  if (capability === 'social.block' || capability.startsWith('social.friend.'))
+  if (
+    capability === 'social.block' ||
+    capability.startsWith('social.friend.') ||
+    capability.startsWith('social.challenge.')
+  )
     return resource.kind === 'contact_pair';
   if (
-    ['social.request.create', 'channel.create.private_group'].includes(
-      capability,
-    )
+    ['channel.dm.request', 'channel.create.private_group'].includes(capability)
   )
     return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))

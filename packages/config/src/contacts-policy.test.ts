@@ -1,0 +1,51 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { readServerConfig } from './index';
+import { env, policyRefusal } from './server-env.test-support';
+setupRitewayBun();
+const failure = policyRefusal(env, 'CONTACTS_POLICY');
+
+test('CONTACTS_POLICY carries only explicit DEC-251 request overrides', () => {
+  const override = {
+    requests: { daily: 10, declineBlockMs: 3_000_000_000 },
+    blocks: [{ max: 5, windowSeconds: 10 }],
+  };
+  assert({
+    given: 'no override and then a partial one',
+    should: 'leave absence inert and keep every explicit number as given',
+    actual: [
+      readServerConfig(env).CONTACTS_POLICY,
+      readServerConfig({ ...env, CONTACTS_POLICY: JSON.stringify(override) })
+        .CONTACTS_POLICY,
+    ],
+    expected: [undefined, override],
+  });
+});
+
+test('CONTACTS_POLICY refuses anything but positive integers in known fields', () => {
+  assert({
+    given:
+      'malformed JSON, an unknown key, a zero, a fraction and a repeated window',
+    should: 'refuse each at boot, naming the variable or its field',
+    actual: [
+      failure('{'),
+      failure(JSON.stringify({ send: [] })),
+      failure(JSON.stringify({ requests: { daily: 0 } })),
+      failure(JSON.stringify({ requests: { unrelatedHourly: 1.5 } })),
+      failure(
+        JSON.stringify({
+          blocks: [
+            { max: 1, windowSeconds: 10 },
+            { max: 2, windowSeconds: 10 },
+          ],
+        }),
+      ),
+    ],
+    expected: [
+      'CONTACTS_POLICY',
+      'CONTACTS_POLICY',
+      'CONTACTS_POLICY.requests.daily',
+      'CONTACTS_POLICY.requests.unrelatedHourly',
+      'CONTACTS_POLICY.blocks',
+    ].map((field) => `Invalid server configuration: ${field}`),
+  });
+});

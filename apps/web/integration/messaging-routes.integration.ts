@@ -219,21 +219,12 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       actual: anonymous.status,
       expected: 401,
     });
-    const held = await createRoutes(testApp.app).messaging.send(
-      testApp.jsonPost('/api/messaging/messages', {}, { cookie: first.cookie }),
-    );
-    assert({
-      given: 'no injected approved messaging policy at the production edge',
-      should: 'remain unavailable without assuming product approval',
-      actual: held.status,
-      expected: 503,
-    });
   } finally {
     await client.unsafe('delete from messaging_channels where id=$1', [
       channelId,
     ]);
     await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      'delete from contact_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
     );
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [

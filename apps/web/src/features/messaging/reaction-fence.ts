@@ -1,7 +1,7 @@
 import type { MessagingReactionAuthorizationFact } from '@daisy/auth/authorization';
 import type { MessagingReactionFence } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import {
   loadMessagingAuthorizationInput,
   messagingAuthorizationFence,
@@ -27,13 +27,13 @@ export function messagingReactionFence(
         channel: input.resource,
         reaction: association,
       } satisfies MessagingReactionAuthorizationFact;
-      requireMessagingAuthorization({
+      requireAuthorization({
         ...input,
         capability: 'channel.reaction.remove',
         resource,
       });
     } else
-      requireMessagingAuthorization({
+      requireAuthorization({
         ...input,
         capability: operation === 'add' ? 'channel.post' : 'channel.read',
       });

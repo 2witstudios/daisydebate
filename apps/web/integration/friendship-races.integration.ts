@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { friendshipPolicy } from '../src/features/messaging/friends/friendship';
+import { friendshipPolicy } from '../src/features/friends/friendship';
 import {
   blockContact,
   friendChange,
@@ -18,7 +18,7 @@ const { databaseUrl } = requireTestServices(process.env);
 
 const friendshipRows = (opened: Opened) =>
   opened.client.unsafe(
-    'select state from messaging_friendships where low_actor_id=$1 and high_actor_id=$2',
+    'select state from friendships where low_actor_id=$1 and high_actor_id=$2',
     [opened.fixture.low, opened.fixture.high],
   ) as Promise<{ state: string }[]>;
 
@@ -45,7 +45,7 @@ const countFriendships = async (
   where: string,
 ): Promise<number> => {
   const [row] = (await opened.client.unsafe(
-    `select count(*)::int as count from messaging_friendships where ${where}`,
+    `select count(*)::int as count from friendships where ${where}`,
     [opened.fixture.actorId],
   )) as { count: number }[];
   return row!.count;

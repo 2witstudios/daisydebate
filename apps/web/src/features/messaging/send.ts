@@ -6,12 +6,13 @@ import {
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { planMessageSend } from './send-plan';
-import { requireMessagingActor } from './principal';
+
 import type {
   MessagingCreateSendPlan,
   MessagingSendCommand,
   MessagingSendState,
 } from '@daisy/db/messaging';
+import { requireMemberActor } from '../access/actor';
 
 type MessagingSendFrame = {
   readonly authorize: () => Promise<void>;
@@ -44,7 +45,7 @@ export async function sendMessagingMessage(
   principal: AuthorizationPrincipal,
   dependencies: MessagingSendDependencies,
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const { replyToMessageId, ...required } = parseValidated(
     createMessagingCoreSchemas(dependencies.bounds).send,
     input,

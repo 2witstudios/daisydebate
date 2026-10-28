@@ -14,13 +14,12 @@ async function submit(page: Page, channelId: string, name: string) {
 }
 /**
  * Both native DM modes exercise the same current authorized state and
- * explicit selections. The reader has already viewed the conversation, which
- * marks it read only when the browser runs JavaScript.
+ * explicit selections. The reader has already read the conversation, by
+ * script or by the native "Mark as read" POST (ISSUE-606).
  */
 export async function manageNativePreferences(
   page: Page,
   { channelId }: { readonly channelId: string },
-  javaScriptEnabled: boolean,
 ) {
   await page.goto(`/messages/${channelId}/preferences`);
   await expect(
@@ -39,20 +38,7 @@ export async function manageNativePreferences(
   const result = await saved.json();
   expect(result.state.following).toBe(false);
   expect(result.state.notificationLevel).toBe('none');
-  if (javaScriptEnabled)
-    await expect
-      .poll(
-        async () =>
-          (
-            await (
-              await page.request.get(
-                `/api/messaging/channels/${channelId}/preferences`,
-              )
-            ).json()
-          ).unread,
-      )
-      .toBe(0);
-  else expect(result.unread).toBeGreaterThanOrEqual(1);
+  expect(result.unread).toBe(0);
   await submit(page, channelId, 'Clear saved preferences');
   await expect(page.getByLabel('Follow this conversation')).toHaveValue('');
   const cleared = await page.request.get(

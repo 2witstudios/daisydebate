@@ -5,14 +5,15 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { messagingTypingSchemas } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
-import { requireMessagingActor } from './principal';
-import { requireMessagingAuthorization } from './authorization';
+
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 import {
   typingAuthority,
   typingAggregate,
   typingProjectionChanged,
 } from './typing-authority';
 import type { MessagingRuntimePolicy } from './composition';
+import { requireMemberActor } from '../access/actor';
 /** All Redis/vendor awaits remain within the actual SQL authority fence; no lease grants authority. */
 export function composeMessagingTyping({
   database,
@@ -34,7 +35,7 @@ export function composeMessagingTyping({
   readonly bounds: ReturnType<typeof messagingTypingSchemas.policy.parse>;
   readonly readAccounts: typeof loadAccountPolicyFacts;
 }) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const run = async (channelId: string, typing: boolean | undefined) => {
     const project = await database.messagingTypingStore(
       { ...actor, channelId },
@@ -96,7 +97,7 @@ export async function runTypingFrame({
   clear,
   notify,
 }: {
-  readonly actor: ReturnType<typeof requireMessagingActor>;
+  readonly actor: ReturnType<typeof requireMemberActor>;
   readonly principal: AuthorizationPrincipal;
   readonly channelId: string;
   readonly typing: boolean | undefined;
@@ -180,9 +181,9 @@ function requireTypingAccess(
   now: string,
 ) {
   const current = { ...input, principal, context: { ...input.context, now } };
-  requireMessagingAuthorization({
+  requireAuthorization({
     ...current,
     capability: typing === undefined ? 'channel.read' : 'channel.post',
   });
-  requireMessagingAuthorization({ ...current, capability: 'channel.read' });
+  requireAuthorization({ ...current, capability: 'channel.read' });
 }

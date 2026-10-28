@@ -24,14 +24,16 @@ test('native message submission verifies exact operation result scope before nav
     submit({ messageId: id }),
     submit({ messageId: 'x'.repeat(24) }),
     submit({ messageId: id }, 403),
+    submit({ messageId: id }, 409),
   ]);
   assert({
-    given: 'accepted, foreign-result and refused native operation replies',
+    given:
+      'accepted, foreign-result, refused and used-request-id native operation replies',
     should:
       'navigate only after the expected bound message reply while forwarding current identity',
     actual: [outcomes, seen[0]],
     expected: [
-      [true, false, false],
+      ['accepted', 'refused', 'refused', 'conflict'],
       ['POST', '/api/messaging/reactions', 'unit-cookie', { version: 1 }],
     ],
   });

@@ -6,6 +6,7 @@ import {
 } from './support/messaging-message-controls';
 import { manageNativeReactions } from './support/messaging-reactions';
 import { proveNativeTyping } from './support/messaging-typing';
+import type { Page } from '@playwright/test';
 import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
@@ -83,6 +84,13 @@ test('an authenticated DM doorbell refetches current history in the other real b
   }
 });
 
+const unreadableNotice = 'This conversation could not be marked read.';
+// Playwright's text engine skips <noscript>, though a no-JS browser renders
+// it, so read the notices' rendered status text directly.
+const noScriptStatus = (page: Page) =>
+  page
+    .locator('noscript [role="status"]')
+    .evaluateAll((notices) => notices.map((notice) => notice.textContent));
 for (const javaScriptEnabled of [true, false]) {
   test(`a recipient accepts a DM and sends durable history with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
     browser,
@@ -100,10 +108,48 @@ for (const javaScriptEnabled of [true, false]) {
         journey.sender,
         'the sender durable history',
       );
+      // ISSUE-639 social clause: the reply shows unread in the sender's
+      // inbox until they read it, by script or, without one, by native POST.
+      await sender.goto('/messages');
+      await expect(sender.getByRole('link', { name: /, unread$/ })).toHaveCount(
+        1,
+      );
       await sender.goto(`/messages/${journey.channelId}`);
       await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await expect(
+        sender.getByRole('heading', { name: `@${journey.recipientUsername}` }),
+      ).toBeVisible();
+      if (!javaScriptEnabled) {
+        // ISSUE-606: viewing by GET leaves it unread; only the POST marks it.
+        const viewed = await sender.request.get(
+          `/api/messaging/channels/${journey.channelId}/preferences`,
+        );
+        expect(viewed.status()).toBe(200);
+        expect((await viewed.json()).unread).toBeGreaterThanOrEqual(1);
+        await sender
+          .getByRole('button', { name: 'Mark as read', exact: true })
+          .click();
+        // Back on the conversation with no submitted values and no notice.
+        await expect(sender).toHaveURL(
+          new RegExp(`/messages/${journey.channelId}$`),
+        );
+        expect(await noScriptStatus(sender)).toEqual([]);
+        await sender.goto(
+          `/messages/${journey.channelId}?notice=read-unavailable`,
+        );
+        expect(await noScriptStatus(sender)).toEqual([
+          `${unreadableNotice} Try again.`,
+        ]);
+      }
+      await expect(async () => {
+        await sender.goto('/messages');
+        await expect(
+          sender.getByRole('link', { name: /, unread$/ }),
+        ).toHaveCount(0);
+      }).toPass();
+      await sender.goto(`/messages/${journey.channelId}`);
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
-      await manageNativePreferences(sender, journey, javaScriptEnabled);
+      await manageNativePreferences(sender, journey);
       await manageNativeReactions(sender, journey.channelId, text);
       const ownMessage = await editNativeMessage(sender, journey.channelId);
       const foreign = await journey.outsider.request.get(

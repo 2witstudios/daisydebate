@@ -114,3 +114,24 @@ writer files, source commits and reader proofs. Later source changes follow
 TDD and independent exact-head review. Human-only identities, vendor accounts,
 secrets and production activation remain human actions. A proposed record is
 not proof that any implementation leaf is complete.
+
+## Amendment (2026-10-27, DEC-251)
+
+The beta's request bounds are DEC-251's, composed in
+`apps/web/src/features/messaging/beta-policy.ts`. They replace the proposed
+10 new pairs per day, 20 pending and 7-day renewal cooldown:
+
+- 20 social requests (DM and friend) per account per rolling day;
+- 5 per rolling hour to accounts with no accepted friendship or accepted DM
+  when asked (a pending or declined request relates nobody);
+- three declines by one person block the requester's further requests to
+  them for 30 days, refused as a block is. A DM request to an unknown
+  account, a blocked pair or a decline-blocked requester answers the same
+  `NOT_FOUND` before any budget is spent; each decline row expires 30 days
+  after its last decline, and the retention sweep deletes it then.
+
+All of these are counted durably from the Contacts-owned `social_requests`
+ledger and `social_request_declines`, never from Redis; messaging's own
+`messaging_social_commands` keeps only its receipts (a DM request is
+`channel.dm.request`, a block is ledgered as `contact.block`). Posting stays
+within one age band (16–17 or adult); no cross-band pair is composed.

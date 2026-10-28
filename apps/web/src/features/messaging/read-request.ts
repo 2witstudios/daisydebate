@@ -5,7 +5,8 @@ import {
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+import { requireMemberActor } from '../access/actor';
+
 export async function readMessagingDmRequest(
   input: unknown,
   principal: AuthorizationPrincipal,
@@ -14,7 +15,7 @@ export async function readMessagingDmRequest(
     readonly bounds: MessagingSocialBounds;
   },
 ) {
-  const actor = requireMessagingActor(principal);
+  const actor = requireMemberActor(principal);
   const command = parseValidated(
     createMessagingSocialSchemas(dependencies.bounds).previewDm,
     input,

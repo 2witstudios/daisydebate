@@ -13,8 +13,9 @@ import {
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { planMessageMutation } from './mutation-plan';
+import { requireMemberActor } from '../access/actor';
 
 const digest = (command: MessagingMutationCommand) =>
   createHash('sha3-256')
@@ -62,7 +63,7 @@ export async function mutateMessagingMessage(
     readonly limit: (actorId: string, channelId: string) => Promise<void>;
   },
 ) {
-  const { actorId, userId } = requireMessagingActor(principal);
+  const { actorId, userId } = requireMemberActor(principal);
   const command = {
     ...parseValidated(
       createMessagingCoreSchemas(dependencies.bounds)[kind],

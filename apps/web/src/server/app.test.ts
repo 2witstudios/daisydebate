@@ -4,6 +4,8 @@ import { rejectionOf } from '@daisy/errors/testing';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
 import { createRoutes } from './routes';
+import { betaMessagingPolicy } from '../features/messaging/beta-policy';
+import { dec251ContactsPolicy } from '../features/contacts/request-policy';
 
 setupRitewayBun();
 
@@ -31,6 +33,7 @@ function recordingFetch() {
 
 const build = (env: Record<string, string>, fetch = recordingFetch().fetch) =>
   createApp({
+    messagingPolicy: betaMessagingPolicy,
     env,
     fetch,
     clock: fixedClock('2026-09-23T00:00:00.000Z'),
@@ -47,6 +50,56 @@ const errorOf = (run: () => unknown) => {
 };
 
 describe('createApp', () => {
+  test('runs the DEC-251 beta messaging policy, tightened only by MESSAGING_POLICY', async () => {
+    const shipped = build(baseEnv);
+    const tightened = build({
+      ...baseEnv,
+      MESSAGING_POLICY: JSON.stringify({ editWindowMs: 60_000 }),
+    });
+    assert({
+      given: 'no override, a tighter edit window, then a looser one',
+      should:
+        'run the shipped policy, apply the tighter value, and refuse to boot on the looser',
+      actual: [
+        shipped.messagingPolicy === betaMessagingPolicy,
+        tightened.messagingPolicy.editWindowMs,
+        errorOf(() =>
+          build({
+            ...baseEnv,
+            MESSAGING_POLICY: JSON.stringify({ editWindowMs: 900_001 }),
+          }),
+        ).includes('MESSAGING_POLICY.editWindowMs would loosen DEC-251'),
+      ],
+      expected: [true, 60_000, true],
+    });
+    await Promise.all([shipped.close(), tightened.close()]);
+  });
+
+  test('runs the DEC-251 social request budget Contacts owns, tightened only by CONTACTS_POLICY', async () => {
+    const shipped = build(baseEnv);
+    const tightened = build({
+      ...baseEnv,
+      CONTACTS_POLICY: JSON.stringify({ requests: { daily: 10 } }),
+    });
+    assert({
+      given: 'no override, a tighter daily budget, then a looser one',
+      should:
+        'run the shipped Contacts policy, apply the tighter value, and refuse to boot on the looser',
+      actual: [
+        shipped.contactsPolicy === dec251ContactsPolicy,
+        tightened.contactsPolicy.requests.daily,
+        errorOf(() =>
+          build({
+            ...baseEnv,
+            CONTACTS_POLICY: JSON.stringify({ requests: { daily: 21 } }),
+          }),
+        ).includes('CONTACTS_POLICY.requests.daily would loosen DEC-251'),
+      ],
+      expected: [true, 10, true],
+    });
+    await Promise.all([shipped.close(), tightened.close()]);
+  });
+
   test('builds independent instances from their own environments', async () => {
     const first = build({ ...baseEnv, FOUNDATION_PROOF_ENABLED: 'true' });
     const second = build({

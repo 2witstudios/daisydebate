@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   ActiveRoomFacts,
@@ -24,6 +24,7 @@ import {
   roomFacts,
   transactionNow,
 } from './room-command-facts';
+import { roomIsOpen } from './room-open';
 
 type Maintain = (
   state: RoomAssemblyState,
@@ -92,12 +93,7 @@ export const roomLifecycleOperations = ({
         await database
           .select({ id: rooms.id })
           .from(rooms)
-          .where(
-            and(
-              inArray(rooms.status, ['assembling', 'ready']),
-              sql`(${dueDraw} or ${idle})`,
-            ),
-          )
+          .where(and(roomIsOpen(), sql`(${dueDraw} or ${idle})`))
           .orderBy(asc(rooms.lastCommandAt))
           .limit(input.limit)
       ).map((row) => row.id),

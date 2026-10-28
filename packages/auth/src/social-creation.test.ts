@@ -28,7 +28,7 @@ const policy = {
 test('prospective requests consume facts without fabricating channel membership', () => {
   const input = {
     principal: { kind: 'user' as const, userId: 'a', actorId: 'a' },
-    capability: 'social.request.create' as const,
+    capability: 'channel.dm.request' as const,
     resource,
     context: {
       account: accounts[0]!.account,

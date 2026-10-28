@@ -155,6 +155,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
     now,
     [[foundationDefinition]],
     [],
+    [], // its friend challenges are deleted (ISSUE-699)
     [],
     [],
     [],
@@ -183,15 +184,18 @@ test('an idle Room the engine expires is closed, released and announced', async 
   assert({
     given: 'an open Room the engine finds idle',
     should:
-      'close it, delete every membership it held and ring its doorbell once',
+      'close it, delete every membership and friend challenge it held and ring its doorbell once',
     actual: [
       expired,
       queries.some(({ query }) => query.startsWith('update "rooms"')),
       queries.some(({ query }) =>
         query.startsWith('delete from "room_active_memberships"'),
       ),
+      queries.some(({ query }) =>
+        query.startsWith('delete from "friend_challenges"'),
+      ),
       queries.filter(({ query }) => query.includes('pg_notify')).length,
     ],
-    expected: [true, true, true, 1],
+    expected: [true, true, true, true, 1],
   });
 });

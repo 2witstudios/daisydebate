@@ -1,3 +1,4 @@
+import { consumeMessagingRead } from './handler-boundary';
 import { composeMessagingReactionRoute } from './reaction-route';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
@@ -7,7 +8,11 @@ import { composeMessagingGroupManagementRoute } from './group-management-route';
 import { composeMessagingCreationIntentRoutes } from './creation-intent-route';
 import { composeMessagingGroupCreationRoute } from './group-creation-route';
 import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
-import { composeMessagingInboxRoute } from './inbox-route';
+import {
+  composeMessagingChannelEntryRoute,
+  composeMessagingInboxRoute,
+} from './inbox-route';
+import { composeRetainedConversationRoutes } from './retained-route';
 import {
   composeMessagingSocialRoutes,
   type MessagingSocialRuntimePolicy,
@@ -17,9 +22,8 @@ import { createAppError } from '@daisy/errors';
 import { messagingTypingSchemas } from '@daisy/protocol';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
-import { handleOperation } from '../../server/http';
 import { identify } from '../../lib/identity';
-import { consumeOrThrow } from '../../server/rate-limit';
+import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
@@ -32,27 +36,33 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
-  readonly reactions?: import('@daisy/protocol').MessagingReactionPolicy;
-  readonly typing?: ReturnType<
+  readonly reactions: import('@daisy/protocol').MessagingReactionPolicy;
+  readonly typing: ReturnType<
     typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
   >;
-  readonly social?: MessagingSocialRuntimePolicy;
+  readonly social: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
   readonly editWindowMs: number;
   readonly posting: SocialContactPolicy;
+  /**
+   * ISSUE-643 (DEC-127): private groups are off in beta. Group creation,
+   * invitation and admission refuse unless an isolated test composition
+   * opts in; an approved group policy alone never turns them on.
+   */
+  readonly privateGroups: 'off' | 'isolated-test-fixture';
   readonly groupPosting?: SocialContactPolicy;
   readonly reading: MessagingReadingPolicy;
+  /** DEC-251 per-account windows (beta-policy.ts), each its own bucket. */
   readonly limits: {
-    readonly actorSend: {
-      readonly max: number;
-      readonly windowSeconds: number;
-    };
-    readonly channelSend: {
-      readonly max: number;
-      readonly windowSeconds: number;
-    };
-    readonly read: { readonly max: number; readonly windowSeconds: number };
+    readonly actorSend: readonly RateRule[];
+    readonly read: readonly RateRule[];
+    readonly reactions: readonly RateRule[];
+    readonly typing: readonly RateRule[];
+    /** DEC-251: attachment uploads per account per day. */
+    readonly fileUploadsDaily: number;
+    /** DEC-251: the largest attachment a file runtime may accept. */
+    readonly fileBytes: number;
   };
 };
 export function composeMessagingRoutes(app: App) {
@@ -69,15 +79,6 @@ export function composeMessagingRoutes(app: App) {
       | 'markRead',
     channelId?: string,
   ) => {
-    if (!policy)
-      return handleOperation(
-        app.logger,
-        request,
-        'messaging.unavailable',
-        async () => {
-          throw createAppError('INFRASTRUCTURE');
-        },
-      );
     const store = (
       principal: Parameters<typeof sendMessagingMessage>[1],
       capability: 'channel.post' | 'channel.read' | 'channel.message.remove',
@@ -110,9 +111,9 @@ export function composeMessagingRoutes(app: App) {
             editWindowMs: policy.editWindowMs,
             clock: app.clock,
             limit: async (actorId) =>
-              consumeOrThrow(
+              consumeWindowsOrThrow(
                 app.limiter,
-                `messaging:mutation:${actorId}`,
+                `messaging:send:${actorId}`,
                 policy.limits.actorSend,
               ),
           }),
@@ -138,18 +139,12 @@ export function composeMessagingRoutes(app: App) {
           bounds: policy.bounds,
           clock: app.clock,
           ids: app.ids,
-          limit: async (actorId, channelId) => {
-            await consumeOrThrow(
+          limit: (actorId) =>
+            consumeWindowsOrThrow(
               app.limiter,
               `messaging:send:${actorId}`,
               policy.limits.actorSend,
-            );
-            await consumeOrThrow(
-              app.limiter,
-              `messaging:send:${actorId}:${channelId}`,
-              policy.limits.channelSend,
-            );
-          },
+            ),
         }).then(messagingMessageView),
       ...(Object.fromEntries(
         (['history', 'search', 'changes', 'markRead'] as const).map((kind) => [
@@ -160,11 +155,7 @@ export function composeMessagingRoutes(app: App) {
           ) => {
             if (principal.kind !== 'user' || principal.actorId === null)
               throw createAppError('AUTHORIZATION');
-            await consumeOrThrow(
-              app.limiter,
-              `messaging:read:${principal.actorId}`,
-              policy.limits.read,
-            );
+            await consumeMessagingRead(app, principal.actorId);
             return createMessagingReadOperations({
               store: store(principal, 'channel.read'),
               bounds: policy.bounds,
@@ -193,6 +184,8 @@ export function composeMessagingRoutes(app: App) {
     files: composeMessagingFileRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
+    channelEntry: composeMessagingChannelEntryRoute(app),
+    retained: composeRetainedConversationRoutes(app),
     preferences: composeMessagingPreferenceRoutes(app),
     typing: composeMessagingTypingRoutes(app),
     reactions: composeMessagingReactionRoute(app),

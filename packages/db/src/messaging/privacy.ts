@@ -3,7 +3,16 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
+import {
+  deleteAbandonedChannels,
+  detachSurvivorsFromSubject,
+  eraseRetainedAuthorship,
+  retainSurvivorDms,
+  retainedChannelsOf,
+  survivingDms,
+} from './retained-dm';
 import { appendOutboxEvent } from '../outbox';
+import { exportRows } from '../privacy/owned-tables';
 import type { AuthorizationTransaction } from '../authorization';
 import {
   messagingPrivacyFields,
@@ -13,20 +22,6 @@ import {
 
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
-
-const exportRows = (rows: readonly Record<string, unknown>[]) =>
-  rows.map((row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([column, value]) => [
-        column,
-        value instanceof Date
-          ? value.toISOString()
-          : typeof value === 'bigint'
-            ? Number(value)
-            : value,
-      ]),
-    ),
-  );
 
 function omitPrivateColumns(
   row: Record<string, unknown>,
@@ -44,7 +39,7 @@ async function lockSubjectMessaging(
 ) {
   idSchema.parse(actorId);
   await tx.execute(
-    sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
+    sql`select low_actor_id from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
   );
   await tx.execute(sql`
     select id from messaging_channels where id in (
@@ -58,6 +53,7 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
       union select result_channel_id from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}
       union select channel_id from messaging_files where owner_actor_id=${actorId}
+      union select channel_id from messaging_retained_authors where actor_id=${actorId}
       union select c.result_channel_id from messaging_social_commands c join messaging_social_command_subjects s on s.actor_id=c.actor_id and s.request_id=c.request_id where s.subject_actor_id=${actorId}
     ) order by id for update
   `);
@@ -157,15 +153,10 @@ async function eraseAssociations(
   await tx.execute(
     sql`delete from messaging_group_grants where actor_id=${actorId}`,
   );
-  // In order: every social row goes before the contact pairs they hang from.
-  for (const statement of [
+  // Messaging's own pair rows; Friends, Presence and Contacts erase theirs.
+  await tx.execute(
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-    sql`delete from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
-    sql`delete from messaging_presence_settings where actor_id=${actorId}`,
-    sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-    sql`delete from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-  ])
-    await tx.execute(statement);
+  );
   for (const { channelId } of authorityChannels) {
     await tx.execute(
       sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
@@ -184,10 +175,22 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const now = z.iso.datetime().parse(context.now);
       await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
+      // DEC-126 (ADR 0086): a DM survivor keeps only their own rows.
+      const dms = await survivingDms(tx, subject.actorId);
+      // Every version advance comes first, so an exhausted one refuses
+      // before anything is deleted.
       await scrubSubjectMessages(tx, subject.actorId, now, versions);
       await eraseSubjectTitles(tx, subject.actorId, versions);
+      await eraseRetainedAuthorship(
+        tx,
+        subject.actorId,
+        await retainedChannelsOf(tx, subject.actorId),
+      );
+      await detachSurvivorsFromSubject(tx, subject.actorId, dms);
       await eraseSubjectFiles(tx, subject.actorId);
+      const abandoned = await retainSurvivorDms(tx, subject.actorId, dms, now);
       await eraseAssociations(tx, subject.actorId, versions);
+      await deleteAbandonedChannels(tx, abandoned);
       for (const [channelId, version] of versions)
         await appendOutboxEvent(tx, {
           topic: buildChannelTopic(channelId),
@@ -228,18 +231,6 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_reactions where actor_id=${actorId} order by channel_id,message_id`,
         ),
       );
-      const contacts = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
-        ),
-      ).map((row) => ({
-        low_actor_id: row.low_actor_id,
-        high_actor_id: row.high_actor_id,
-        revision: row.revision,
-        ...(row.low_actor_id === actorId
-          ? { low_blocks_high: row.low_blocks_high }
-          : { high_blocks_low: row.high_blocks_low }),
-      }));
       const pairs = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by channel_id`,
@@ -249,19 +240,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         if (row.request_sender_actor_id === actorId) return row;
         return omitPrivateColumns(row, ['introduction']);
       });
-      const friendships = rowsOf<Record<string, unknown>>(
+      const retained = rowsOf<Record<string, unknown>>(
         await tx.execute(
-          sql`select * from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
-        ),
-      );
-      const challenges = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId} order by created_at,room_id`,
-        ),
-      );
-      const presenceSettings = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_presence_settings where actor_id=${actorId}`,
+          sql`select * from messaging_retained_authors where actor_id=${actorId} order by channel_id`,
         ),
       );
       const commands = rowsOf<Record<string, unknown>>(
@@ -296,12 +277,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_group_grants: grants,
           messaging_receipts: receipts,
           messaging_reactions: reactions,
-          messaging_contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
-          messaging_friendships: friendships,
-          messaging_friend_challenges: challenges,
-          messaging_presence_settings: presenceSettings,
           messaging_social_commands: commands,
+          messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
         }).map(([table, rows]) => [table, exportRows(rows)]),

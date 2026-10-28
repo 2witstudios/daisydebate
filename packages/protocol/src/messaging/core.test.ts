@@ -3,7 +3,7 @@ import { createMessagingCoreSchemas, type MessagingCoreBounds } from '../index';
 
 setupRitewayBun();
 
-// DEC-124 is provisional: these bounds are injected, never production defaults.
+// DEC-124 (confirmed 2026-10-26): the beta limits themselves.
 const bounds: MessagingCoreBounds = {
   messageUnits: 4000,
   pageItems: 100,

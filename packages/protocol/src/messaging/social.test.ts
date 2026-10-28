@@ -104,43 +104,13 @@ test('social decisions bind a versioned request to its resource', () => {
   });
 });
 
-test('safety block commands cannot forge the blocking actor or durable facts', () => {
-  const command = {
-    version: 1,
-    requestId,
-    otherActorId: actorId,
-    blocked: true,
-  };
-  assert({
-    given: 'an explicit participant safety choice',
-    should:
-      'validate the subject actor and boolean without channel or age claims',
-    actual: schemas.block.safeParse(command).success,
-    expected: true,
-  });
-  for (const patch of [
-    { blocked: 'true' },
-    { blockerActorId: actorId },
-    { ageBand: 'adult' },
-    { revision: 1 },
-  ])
-    assert({
-      given: JSON.stringify(patch),
-      should: 'refuse caller-supplied authority',
-      actual: schemas.block.safeParse({ ...command, ...patch }).success,
-      expected: false,
-    });
-});
-
 test('username commands normalize discovery intent and forbid extra authority fields', () => {
-  for (const key of ['requestUsername', 'blockUsername'] as const) {
+  for (const key of ['requestUsername'] as const) {
     const base = {
       version: 1,
       requestId,
       recipientUsername: 'Peer_Name',
-      ...(key === 'blockUsername'
-        ? { blocked: true }
-        : { introduction: ' Exact intro ' }),
+      introduction: ' Exact intro ',
     };
     assert({
       given: key,
@@ -211,4 +181,36 @@ test('post-creation invitation intent is bounded and never carries manager or me
     ],
     expected: [['member_1'], false, false, false],
   });
+});
+
+test('social bounds stay within the DEC-124 beta limits', () => {
+  for (const over of [
+    { ...bounds, introductionUnits: 501 },
+    { ...bounds, titleUnits: 81 },
+    { ...bounds, batchActors: 51 },
+  ])
+    assert({
+      given: `a bound above the beta limit: ${JSON.stringify(over)}`,
+      should: 'refuse to compose the schemas',
+      actual: (() => {
+        try {
+          createMessagingSocialSchemas(over);
+          return 'composed';
+        } catch {
+          return 'refused';
+        }
+      })(),
+      expected: 'refused',
+    });
+  const request = { version: 1, requestId, recipientActorId: actorId };
+  for (const [introduction, expected] of [
+    ['😀'.repeat(250), true],
+    ['😀'.repeat(250) + 'a', false],
+  ] as const)
+    assert({
+      given: `a ${introduction.length}-unit introduction`,
+      should: expected ? 'accept it at the limit' : 'refuse it one over',
+      actual: schemas.requestDm.safeParse({ ...request, introduction }).success,
+      expected,
+    });
 });

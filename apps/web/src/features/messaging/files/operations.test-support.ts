@@ -15,6 +15,7 @@ const fileTestPolicy: FilePolicy = {
   maxFilenameUnits: 50,
   maxImagePixels: 100,
   serviceMs: 1000,
+  maxUploadsPerDay: 20,
 };
 export function fileOperationFixture() {
   const channelId = 'c'.repeat(24),

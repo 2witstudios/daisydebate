@@ -10,6 +10,7 @@ import {
 } from '../features/auth/abuse/client-ip';
 import { createApp } from './app';
 import { createProductionServer } from './server-wiring';
+import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 
 setupRitewayBun();
 
@@ -167,6 +168,7 @@ describe('createProductionServer (AUTH-3.8 start.ts wiring, ISSUE-158)', () => {
 describe('createProductionServer refuses a start without auth secrets (AUTH-7.0-AC3)', () => {
   test('throws before any server exists, naming the missing fields without values', async () => {
     const app = createApp({
+      messagingPolicy: betaMessagingPolicy,
       env: {
         NODE_ENV: 'test',
         DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',

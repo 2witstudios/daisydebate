@@ -1,17 +1,19 @@
 import { createAppError } from '@daisy/errors';
+import { appDiscoverActor } from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { requireMessagingActor } from './principal';
+
 import { messagingGroupCommandRoute } from './group-command-route';
 import { composeMessagingGroupManagementStore } from './group-management-composition';
 import { manageMessagingGroup } from './group-management';
+import { requireMemberActor } from '../access/actor';
 export function composeMessagingGroupManagementRoute(app: App) {
   return messagingGroupCommandRoute(
     app,
     'messaging.group.manage',
     async (input, principal, { policy, social, limit }) => {
-      const actor = requireMessagingActor(principal);
+      const actor = requireMemberActor(principal);
       const intent = parseValidated(
         createMessagingSocialSchemas(social.bounds).manageGroupUsername,
         input,
@@ -20,7 +22,8 @@ export function composeMessagingGroupManagementRoute(app: App) {
       let target: string | null = null;
       if ('memberUsername' in intent) {
         await limit(actor.actorId);
-        target = await app.database.lookupHumanActorByUsername(
+        target = await appDiscoverActor(app)(
+          actor.actorId,
           intent.memberUsername,
         );
         if (target === null) throw createAppError('AUTHORIZATION');

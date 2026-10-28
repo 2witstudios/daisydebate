@@ -1,3 +1,4 @@
+import type { SocialRequestLimits } from '../contacts/request-budget';
 import type {
   MessagingAuthorizationFence,
   MessagingChannelStore,
@@ -23,7 +24,12 @@ export type MessagingDmFrame = {
     readonly receipt: Receipt | null;
   }>;
   commitDecision(
-    command: Decision & { readonly digest: string; readonly now: string },
+    command: Decision & {
+      readonly digest: string;
+      readonly now: string;
+      /** DEC-251: a decline counts toward blocking the requester. */
+      readonly limits: SocialRequestLimits;
+    },
   ): Promise<{
     readonly channelId: string;
     readonly state: 'accepted' | 'declined' | 'cancelled';

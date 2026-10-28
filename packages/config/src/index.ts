@@ -2,12 +2,16 @@ import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
+import { messagingPolicyConfig } from './messaging-policy';
+import { contactsPolicyConfig } from './contacts-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
 import { judgingPolicyConfig } from './judging-policy';
 import { roundAnalysisPolicyConfig } from './round-analysis-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
 export type { RoundJudgingPolicy } from './judging-policy';
 export type { RoundAnalysisPolicy } from './round-analysis-policy';
+export type { MessagingPolicyOverride } from './messaging-policy';
+export type { ContactsPolicyOverride } from './contacts-policy';
 import { mediaEndpoint } from './media-endpoint';
 import {
   deploymentIdentityFields,
@@ -78,6 +82,9 @@ const serverFields = {
     .default('true')
     .transform((value) => value === 'true'),
   ROOM_POLICY: roomPolicyConfig,
+  /** DEC-251 tightening overrides for the composed beta messaging policy. */
+  MESSAGING_POLICY: messagingPolicyConfig,
+  CONTACTS_POLICY: contactsPolicyConfig,
   /** Configured isolated member/session resource for the actual public check-in probe. */
   ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
   ...deploymentIdentityFields,

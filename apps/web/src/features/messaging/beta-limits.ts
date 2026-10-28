@@ -1,0 +1,55 @@
+import { createAppError } from '@daisy/errors';
+import { tightenOnly } from '../../server/tighten-only';
+import {
+  createMessagingCoreSchemas,
+  createMessagingSocialSchemas,
+  messagingBetaLimits,
+  type MessagingCoreBounds,
+  type MessagingSocialBounds,
+} from '@daisy/protocol';
+
+type MessagingPolicyLimits = {
+  readonly bounds: MessagingCoreBounds;
+  readonly maxBodyBytes: number;
+  readonly social?: { readonly bounds: MessagingSocialBounds } | undefined;
+};
+
+/**
+ * DEC-251: a file runtime may accept attachments no larger than the
+ * policy's limit; a larger one is refused before any route uses it.
+ */
+export function parseMessagingFileLimits<
+  Runtime extends { readonly policy: { readonly maxFileBytes: number } },
+>(
+  runtime: Runtime,
+  policy: { readonly limits: { readonly fileBytes: number } },
+) {
+  tightenOnly('messagingFiles').atMost(
+    'maxFileBytes',
+    policy.limits.fileBytes,
+    runtime.policy.maxFileBytes,
+  );
+  return runtime;
+}
+
+/**
+ * DEC-124: a runtime messaging policy may be tighter than the beta limits,
+ * never looser. The app refuses one that is looser before any route uses it.
+ */
+export function parseMessagingPolicyLimits<
+  Policy extends MessagingPolicyLimits,
+>(policy: Policy): Policy {
+  try {
+    createMessagingCoreSchemas(policy.bounds);
+    if (policy.social) createMessagingSocialSchemas(policy.social.bounds);
+  } catch (cause) {
+    throw createAppError('VALIDATION', undefined, cause);
+  }
+  if (
+    !Number.isInteger(policy.maxBodyBytes) ||
+    policy.maxBodyBytes < 1 ||
+    policy.maxBodyBytes > messagingBetaLimits.bodyBytes
+  )
+    throw createAppError('VALIDATION');
+  return policy;
+}

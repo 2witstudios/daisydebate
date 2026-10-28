@@ -1,31 +1,37 @@
 import { invalidateMessagingInboxes } from './inbox-change';
-import { and, eq, gte, or, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
-  messagingContactPairs,
   messagingDmPairs,
   messagingSocialCommands,
 } from '../schema/messaging-social';
+import { contactPairs } from '../schema/contacts';
+import {
+  refuseDeclineBlock,
+  spendSocialRequest,
+} from '../contacts/request-budget';
 import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
-import type {
-  MessagingSocialFrame,
-  MessagingSocialInput,
-} from './social-contracts';
+import type { ContactInput } from '../contacts/fence';
+import type { MessagingSocialFrame } from './social-contracts';
+import type { ContactReactions } from '../contacts/reactions';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
-type Pair = typeof messagingContactPairs.$inferSelect;
-type RequestCommand = Parameters<MessagingSocialFrame['commitDmRequest']>[0];
+type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */
 export function dmRequestFrame(
   tx: Tx,
-  input: MessagingSocialInput,
+  input: ContactInput,
   rows: readonly Pair[],
   authorize: () => Promise<void>,
-): Pick<MessagingSocialFrame, 'readDmRequest' | 'commitDmRequest'> {
+  relations: ContactReactions['relations'],
+): Pick<
+  MessagingSocialFrame,
+  'readDmRequest' | 'commitDmRequest' | 'screenDmRequest'
+> {
   const read = async () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
     const pair = rows[0]!;
@@ -40,7 +46,31 @@ export function dmRequestFrame(
       );
     return current ?? null;
   };
+  const converges = (current: Awaited<ReturnType<typeof read>>) =>
+    current !== null && ['pending', 'accepted'].includes(current.requestState);
+  const activeChannel = async (channelId: string) => {
+    const [channel] = await tx
+      .select()
+      .from(messagingChannels)
+      .where(eq(messagingChannels.id, channelId))
+      .for('update');
+    if (!channel || channel.lifecycle !== 'active')
+      throw createAppError('AUTHORIZATION');
+    return channel;
+  };
   return {
+    // An existing pending or accepted DM is no new request: asking again
+    // converges on it without spending DEC-251's budgets or writing a ledger
+    // row (the convergence is idempotent, so no receipt is needed).
+    async screenDmRequest(now) {
+      await authorize();
+      const current = await read();
+      if (current && converges(current))
+        return { channelId: current.channelId, state: current.requestState };
+      if (current) await activeChannel(current.channelId);
+      await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
+      return null;
+    },
     async readDmRequest() {
       await authorize();
       const current = await read();
@@ -53,22 +83,25 @@ export function dmRequestFrame(
       if (command.policyRevision !== input.policyRevision)
         throw createAppError('CONFLICT');
       const current = await read();
-      if (current && ['pending', 'accepted'].includes(current.requestState)) {
-        await recordRequest(tx, input, command, current.channelId);
-        return { channelId: current.channelId, state: current.requestState };
-      }
-      await enforceRequestLimits(tx, input.actorId, command, current);
+      // screenDmRequest owns convergence: a pending or accepted DM is no new
+      // request, so committing one is a caller that skipped the screen.
+      if (current && converges(current)) throw createAppError('CONFLICT');
+      const record = await spendSocialRequest(
+        tx,
+        {
+          actorId: input.actorId,
+          counterpartActorId: counterpartOf(input),
+          kind: 'dm',
+          requestId: command.requestId,
+          now: command.now,
+          limits: command.limits,
+        },
+        relations,
+      );
       const pair = rows[0]!;
       const channelId = current?.channelId ?? command.channelId;
       if (current) {
-        const [channel] = await tx
-          .select()
-          .from(messagingChannels)
-          .where(eq(messagingChannels.id, channelId))
-          .for('update');
-        if (!channel || channel.lifecycle !== 'active')
-          throw createAppError('AUTHORIZATION');
-        await advanceSocialChannelAuthority(tx, channel);
+        await advanceSocialChannelAuthority(tx, await activeChannel(channelId));
         await tx
           .update(messagingDmPairs)
           .set({
@@ -109,71 +142,25 @@ export function dmRequestFrame(
           payload: { kind: 'channel.changed', channelId, changeVersion: 1 },
         });
       }
-      await recordRequest(tx, input, command, channelId);
+      await record();
+      // Messaging's own receipt, which a retry of this request replays.
+      await tx.insert(messagingSocialCommands).values({
+        actorId: input.actorId,
+        requestId: command.requestId,
+        counterpartActorId: counterpartOf(input),
+        kind: 'dm.request',
+        digest: command.digest,
+        resultChannelId: channelId,
+        createdAt: new Date(command.now),
+      });
       return { channelId, state: 'pending' };
     },
   };
 }
-async function recordRequest(
-  tx: Tx,
-  input: MessagingSocialInput,
-  command: RequestCommand,
-  channelId: string,
-) {
+function counterpartOf(input: ContactInput) {
   const counterpartActorId = input.memberActorIds.find(
     (actorId) => actorId !== input.actorId,
   );
   if (!counterpartActorId) throw createAppError('VALIDATION');
-  await tx.insert(messagingSocialCommands).values({
-    actorId: input.actorId,
-    counterpartActorId,
-    requestId: command.requestId,
-    kind: 'dm.request',
-    digest: command.digest,
-    resultChannelId: channelId,
-    createdAt: new Date(command.now),
-  });
-}
-async function enforceRequestLimits(
-  tx: Tx,
-  actorId: string,
-  command: RequestCommand,
-  current: typeof messagingDmPairs.$inferSelect | null,
-) {
-  const now = Date.parse(command.now),
-    limits = command.limits;
-  if (
-    !Number.isFinite(now) ||
-    !Object.values(limits).every(
-      (value) => Number.isSafeInteger(value) && value > 0,
-    )
-  )
-    throw createAppError('VALIDATION');
-  if (
-    current?.decidedAt &&
-    now - current.decidedAt.getTime() < limits.cooldownMs
-  )
-    throw createAppError('RATE_LIMIT');
-  const sender = eq(messagingDmPairs.requestSenderActorId, actorId);
-  const [counts] = await tx
-    .select({
-      pending: sql<number>`count(*) filter(where ${messagingDmPairs.requestState}='pending')::int`,
-      recent: sql<number>`count(*) filter(where ${messagingDmPairs.requestedAt} > ${new Date(now - limits.windowMs)})::int`,
-    })
-    .from(messagingDmPairs)
-    .where(
-      and(
-        sender,
-        or(
-          eq(messagingDmPairs.requestState, 'pending'),
-          gte(messagingDmPairs.requestedAt, new Date(now - limits.windowMs)),
-        ),
-      ),
-    );
-  if (
-    !counts ||
-    counts.pending >= limits.maxPending ||
-    counts.recent >= limits.maxNewPairs
-  )
-    throw createAppError('RATE_LIMIT');
+  return counterpartActorId;
 }

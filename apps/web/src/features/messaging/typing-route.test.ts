@@ -31,6 +31,7 @@ test('typing HTTP admits only current identified boolean intent and strict own-c
     consume: async () => {
       if (statuses.length === 4) throw createAppError('RATE_LIMIT');
     },
+    signal: async () => {},
     store: (principal) => ({
       read: async (id) => {
         calls.push([principal, id]);

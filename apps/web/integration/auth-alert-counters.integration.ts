@@ -9,6 +9,7 @@ import { LATENCY_BUCKETS_MS } from '../src/server/metrics-store';
 import { createRoutes } from '../src/server/routes';
 import { createTestApp } from './fixtures';
 import { latencyHistogramOf, sampleOf, serveEdge } from './ops-edge';
+import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -101,6 +102,7 @@ describe('ISSUE-190 auth request duration histogram', () => {
   };
   const logLines: string[] = [];
   const app = createApp({
+    messagingPolicy: betaMessagingPolicy,
     env: testApp.env,
     fetch: delayedMail,
     clock: systemClock,

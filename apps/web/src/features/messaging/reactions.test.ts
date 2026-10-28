@@ -30,7 +30,7 @@ function fixture() {
       userId: account.userId,
       actorId: account.actorId,
     },
-    policy: { reactionUnits: 8, choices: ['👍'] },
+    policy: { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
   };
 }
 test('reaction operations bind authenticated actor and hash canonical intent after the explicit rate limit', async () => {

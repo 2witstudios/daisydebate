@@ -18,6 +18,8 @@
     "./authorization": "./src/authorization.ts",
     "./privacy": "./src/privacy/index.ts",
     "./messaging": "./src/messaging/index.ts",
+    "./contacts": "./src/contacts/index.ts",
+    "./friends": "./src/friends/index.ts",
     "./account-age": "./src/account-age.ts",
     "./messaging-files": "./src/messaging-files/index.ts",
     "./round-ballot": "./src/round-ballot-operations.ts",

@@ -10,6 +10,7 @@
     "./age-floor": "./src/age-floor.ts",
     "./request-authorization": "./src/request-authorization.ts",
     "./social-policy": "./src/social-policy.ts",
+    "./social-reading": "./src/social-reading.ts",
     "./account-policy-facts": "./src/account-policy-facts.ts",
     "./testing": "./src/testing/social-policy.ts",
     "./operator-signature": "./src/operator-signature.ts"

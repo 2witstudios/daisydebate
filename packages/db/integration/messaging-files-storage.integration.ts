@@ -9,11 +9,8 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
-import { createMessagingPrivacyAdopter } from '../src/messaging';
-import {
-  exportPrivacySubject,
-  messagingPrivacyExpectedColumns,
-} from '../src/privacy';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { exportPrivacySubject } from '../src/privacy';
 import {
   acknowledgeFileDeletion,
   expireChannelFiles,
@@ -162,16 +159,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
       flag: 'wx',
     });
     const next = await reserve();
-    const adoption = {
-      requiredAdopters: [
-        {
-          id: 'messaging',
-          phase: 'before-auth' as const,
-          expectedColumns: messagingPrivacyExpectedColumns,
-        },
-      ],
-      adopters: [createMessagingPrivacyAdopter()],
-    };
+    const adoption = socialPrivacyAdoption();
     const exported = await exportPrivacySubject(
       database,
       { actorId: fixture.actorId, userId: fixture.userId },
@@ -206,6 +194,28 @@ test('real private storage deletion acknowledgement alone releases durable quota
         peerHasOwnFile: true,
       },
     });
+    // ADR 0086: the peer keeps the DM only while a live message of theirs
+    // remains in it, and keeps only files attached to it there.
+    const peerMessageId = createId();
+    const [counters] = await client.unsafe(
+      'update messaging_channels set message_sequence=message_sequence+1, change_version=change_version+1 where id=$1 returning message_sequence as sequence, change_version as version',
+      [fixture.channelId],
+    );
+    await client.unsafe(
+      "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,$4,$5,'Peer text',$6)",
+      [
+        peerMessageId,
+        fixture.channelId,
+        fixture.otherActorId,
+        counters.sequence,
+        counters.version,
+        fixture.now,
+      ],
+    );
+    await client.unsafe(
+      "update messaging_files set lifecycle='attached', message_id=$2, stored_bytes=reserved_bytes where id=$1",
+      [peerFile.id, peerMessageId],
+    );
     await fixture.eraseSubject(fixture.actorId);
     const associations = await client.unsafe(
       'select id from messaging_files where owner_actor_id=$1',
@@ -243,7 +253,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
         lifecycle: peerRows[0]!.lifecycle,
         exists: await Bun.file(join(directory, peerKey)).exists(),
       },
-      expected: { lifecycle: 'reserved', exists: true },
+      expected: { lifecycle: 'attached', exists: true },
     });
     assert({
       given:

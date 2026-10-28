@@ -9,6 +9,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';
+import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
  * AUTH-6.2: proves a running app survives a migration re-application and a
@@ -88,6 +89,7 @@ test('a migration re-application and a resource restart preserve a live session,
   const { testApp } = flows.account.flows;
   await testApp.app.close();
   const restarted = createApp({
+    messagingPolicy: betaMessagingPolicy,
     env: testApp.env,
     fetch: testApp.mailbox.fetch,
     clock: systemClock,

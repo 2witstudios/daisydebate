@@ -1,9 +1,7 @@
+import { isolatedMessagingPolicy } from '../isolated-policy.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
-import {
-  messagingTestPosting,
-  messagingTestReading,
-} from '@daisy/auth/testing';
+import { messagingTestReading } from '@daisy/auth/testing';
 import { createMessagingUnitApp } from '../messaging-app.test-support';
 import { authTestEnv } from '../../auth/auth-server.test-support';
 import { composeMessagingFileRoutes } from './route-composition';
@@ -13,18 +11,21 @@ test('configured mounted file routes still authenticate before any private vendo
   const f = fileOperationFixture();
   const policy = f.d.policy;
   if (!policy) throw new Error('Explicit file fixture policy required');
-  const limits = { max: 2, windowSeconds: 60 };
+  const limits = [{ max: 2, windowSeconds: 60 }];
   const app = createMessagingUnitApp({
     clock: fixedClock(f.state.now),
     ids: sequentialId('file-route'),
-    messagingPolicy: {
-      posting: messagingTestPosting,
+    messagingPolicy: isolatedMessagingPolicy({
       reading: messagingTestReading,
       bounds: { messageUnits: 100, pageItems: 20 },
       maxBodyBytes: 1024,
       editWindowMs: 1000,
-      limits: { actorSend: limits, channelSend: limits, read: limits },
-    },
+      limits: {
+        ...isolatedMessagingPolicy().limits,
+        actorSend: limits,
+        read: limits,
+      },
+    }),
     messagingFiles: { ...f.d, policy, maxMultipartBytes: 2048 },
   });
   try {

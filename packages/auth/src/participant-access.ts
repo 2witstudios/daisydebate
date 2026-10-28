@@ -47,8 +47,12 @@ const withdrawals: readonly AuthorizationCapability[] = [
   // invitation only shrink your own footprint.
   'channel.message.remove',
   'channel.request.cancel',
+  // DEC-126: a survivor may always delete what they kept of an erased DM.
+  'channel.retained.delete',
   'channel.request.result',
   'channel.invitation.cancel',
+  // ADR 0072: declining a challenge only deletes a row naming the caller.
+  'social.challenge.decline',
 ];
 /** Whether a bound member holds a capability under the admission rule. */
 export function admitsCapability(

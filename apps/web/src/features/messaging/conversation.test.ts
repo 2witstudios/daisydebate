@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { readConversationResponse, readThroughSequence } from './conversation';
+import {
+  readConversationResponse,
+  readThroughSequence,
+  conversationNames,
+} from './conversation';
 setupRitewayBun();
 test('conversation wire responses require authorized configured bounds and coherent portable history', async () => {
   assert({
@@ -107,5 +111,36 @@ test('only the live first page marks a conversation read', () => {
       readThroughSequence({ ...history, messages: [] }, live),
     ],
     expected: [7, null, null, null],
+  });
+});
+
+test('a conversation page names its counterpart, not "Participant" (ISSUE-605)', () => {
+  const base = {
+    channelId: 'c'.repeat(24),
+    preview: null,
+    activityAt: '2026-10-27T12:00:00.000Z',
+    unread: false,
+  };
+  assert({
+    given:
+      'a DM with a named counterpart, one with a deleted account, and a group',
+    should:
+      'title the page and label the other author by @username, or say who is gone, and title a group by name',
+    actual: [
+      conversationNames({ ...base, kind: 'conversation', title: 'ada' }),
+      conversationNames({ ...base, kind: 'conversation', title: null }),
+      conversationNames({
+        ...base,
+        kind: 'group_conversation',
+        title: 'Debate club',
+      }),
+      conversationNames(null),
+    ],
+    expected: [
+      { title: '@ada', otherAuthor: '@ada' },
+      { title: 'Deleted account', otherAuthor: 'Deleted account' },
+      { title: 'Debate club', otherAuthor: 'Member' },
+      { title: 'Conversation', otherAuthor: 'Member' },
+    ],
   });
 });

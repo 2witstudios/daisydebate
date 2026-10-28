@@ -6,7 +6,9 @@ import { createRoundMediaHandlers } from '../features/round-media/handlers';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
-import { composeFriendRoutes } from '../features/messaging/friends/composition';
+import { composeFriendRoutes } from '../features/friends/composition';
+import { composePresenceRoutes } from '../features/presence/composition';
+import { composeContactRoutes } from '../features/contacts/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -75,6 +77,8 @@ export function createRoutes(app: App) {
     attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),
     friends: composeFriendRoutes(app),
+    presence: composePresenceRoutes(app),
+    contacts: composeContactRoutes(app),
     rounds: {
       read: rooms.roundRead,
       ...composeRoundRoutes(app),

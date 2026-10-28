@@ -11,6 +11,7 @@ import { PageHeader } from '../../../../../../ui/components/page-header/page-hea
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/groups/[channelId]/invitation/route';
 import { decideInvitationAction } from './actions';
+import { privateGroupsOffered } from '../../../../../../lib/request-session';
 export const metadata = { title: 'Group invitation' };
 export default async function GroupInvitationPage({
   params,
@@ -42,8 +43,9 @@ export default async function GroupInvitationPage({
       {invitation ? (
         <section className="flex flex-col gap-6 rounded-lg border border-border bg-surface-raised p-5">
           <p>
-            You have been invited to a private group. Accept to join, or
-            decline.
+            {privateGroupsOffered()
+              ? 'You have been invited to a private group. Accept to join, or decline.'
+              : 'You have been invited to a private group. Private groups are not available in the beta, so you can only decline.'}
           </p>
           <RequestDecision
             action={decideInvitationAction.bind(
@@ -53,6 +55,7 @@ export default async function GroupInvitationPage({
             )}
             requestId={systemId.next()}
             subject="invitation"
+            acceptable={privateGroupsOffered()}
           />
         </section>
       ) : (

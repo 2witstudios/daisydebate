@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { accountAgeFact } from '@daisy/auth/account-age';
 import type { AuthorizationInput } from '@daisy/auth/authorization';
-import { requireMessagingAuthorization } from './authorization';
+import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 setupRitewayBun();
 const actorId = 'a'.repeat(24);
@@ -94,14 +94,14 @@ test('current shared authority protects reads and sends with different refusal s
   assert({
     given: 'fresh accepted pair and approved current policy evidence',
     should: 'allow a send through the shared evaluator',
-    actual: requireMessagingAuthorization(input),
+    actual: requireAuthorization(input),
     expected: undefined,
   });
   await assertRejects({
     given: 'missing reading policy evidence',
     should: 'conceal a protected channel read',
     actual: () =>
-      requireMessagingAuthorization({
+      requireAuthorization({
         ...input,
         capability: 'channel.read',
         context: { account: input.context.account, socialPosting: policy },
@@ -112,7 +112,7 @@ test('current shared authority protects reads and sends with different refusal s
     given: 'an erased account',
     should: 'refuse sends before protected replay',
     actual: () =>
-      requireMessagingAuthorization({
+      requireAuthorization({
         ...input,
         context: {
           ...input.context,
@@ -139,7 +139,7 @@ test('a block preserves independent history policy but prevents posting and retr
   assert({
     given: 'a blocked DM and current retained-history policy',
     should: 'permit its separately authorized history',
-    actual: requireMessagingAuthorization({
+    actual: requireAuthorization({
       ...blocked,
       capability: 'channel.read',
     }),
@@ -148,14 +148,14 @@ test('a block preserves independent history policy but prevents posting and retr
   await assertRejects({
     given: 'the same blocked channel',
     should: 'deny a protected send result including retry',
-    actual: () => requireMessagingAuthorization(blocked),
+    actual: () => requireAuthorization(blocked),
     code: 'AUTHORIZATION',
   });
   await assertRejects({
     given: 'policy proof from before a contact revision',
     should: 'deny stale policy evidence',
     actual: () =>
-      requireMessagingAuthorization({
+      requireAuthorization({
         ...blocked,
         resource: {
           ...blocked.resource,

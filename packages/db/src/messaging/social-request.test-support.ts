@@ -22,7 +22,12 @@ export const command = {
   digest: 'd'.repeat(64),
   now,
   policyRevision: 1,
-  limits: { windowMs: 60000, maxNewPairs: 5, maxPending: 3, cooldownMs: 1000 },
+  limits: {
+    daily: 20,
+    unrelatedHourly: 5,
+    declinesToBlock: 3,
+    declineBlockMs: 2_592_000_000,
+  },
 };
 export const request = (state: string, decidedAt: Date | null = null) => [
   actorId,
@@ -35,3 +40,30 @@ export const request = (state: string, decidedAt: Date | null = null) => [
   new Date(now),
   decidedAt,
 ];
+/** A positional `messaging_channels` row for the DM's channel. */
+export const channelRow = (
+  lifecycle: string,
+  changeVersion = 4,
+  revision = 2,
+) => [
+  channelId,
+  'dm',
+  'social.dm',
+  1,
+  lifecycle,
+  null,
+  null,
+  0,
+  changeVersion,
+  revision,
+  new Date(now),
+];
+/** The budget read's facts: no decline block and nothing spent yet. */
+export const budget = (
+  facts: Partial<{
+    declined: boolean;
+    unrelated: boolean;
+    daily: number;
+    hourly: number;
+  }> = {},
+) => [{ declined: false, unrelated: true, daily: 0, hourly: 0, ...facts }];

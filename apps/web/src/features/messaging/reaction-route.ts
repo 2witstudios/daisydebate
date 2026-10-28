@@ -1,26 +1,21 @@
+import { consumeMessagingRead } from './handler-boundary';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeOrThrow } from '../../server/rate-limit';
-import {
-  messagingHttpBoundary,
-  runMessagingHandler,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { consumeWindowsOrThrow } from '../../server/rate-limit';
+
 import { changeMessagingReaction, readMessagingReactions } from './reactions';
 import { messagingReactionFence } from './reaction-fence';
+import {
+  memberHttpBoundary,
+  runMemberHandler,
+} from '../../server/member-handler';
 
 /** Optional reaction policy never creates posting or cleanup authority. */
 export function composeMessagingReactionRoute(app: App) {
   return (request: Request, channelId?: string) => {
     const policy = app.messagingPolicy;
-    if (!policy?.reactions)
-      return unavailableMessagingHandler(
-        app,
-        request,
-        'messaging.reactions.unavailable',
-      );
     const reactionPolicy = policy.reactions;
     const store = (principal: AuthorizationPrincipal) =>
       app.database.messagingReactionStore(
@@ -37,39 +32,34 @@ export function composeMessagingReactionRoute(app: App) {
       );
     if (request.method === 'GET')
       return createMessagingReactionReader({
-        boundary: messagingHttpBoundary(app),
+        boundary: memberHttpBoundary(app),
         websocketEndpoint: app.websocketEndpoint,
         read: (value, principal) =>
           readMessagingReactions(value, principal, {
             policy: reactionPolicy,
             store: store(principal),
-            limit: (actorId) =>
-              consumeOrThrow(
-                app.limiter,
-                `messaging:reaction-read:${actorId}`,
-                policy.limits.read,
-              ),
+            limit: (actorId) => consumeMessagingRead(app, actorId),
           }),
       })(request, channelId);
     return createMessagingReactionHandler({
-      boundary: messagingHttpBoundary(app),
+      boundary: memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       change: (value, principal) =>
         changeMessagingReaction(value, principal, {
           policy: reactionPolicy,
           store: store(principal),
           limit: (actorId) =>
-            consumeOrThrow(
+            consumeWindowsOrThrow(
               app.limiter,
               `messaging:reaction:${actorId}`,
-              policy.limits.actorSend,
+              policy.limits.reactions,
             ),
         }),
     })(request);
   };
 }
 export function createMessagingReactionHandler(input: {
-  readonly boundary: ReturnType<typeof messagingHttpBoundary>;
+  readonly boundary: ReturnType<typeof memberHttpBoundary>;
   readonly maxBodyBytes: number;
   readonly change: (
     value: unknown,
@@ -77,7 +67,7 @@ export function createMessagingReactionHandler(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request) =>
-    runMessagingHandler(input.boundary, request, {
+    runMemberHandler(input.boundary, request, {
       name: 'messaging.reaction.change',
       readOnly: false,
       readInput: () => readJson(request, input.maxBodyBytes),
@@ -96,7 +86,7 @@ export function readReactionQuery(
 }
 
 export function createMessagingReactionReader(input: {
-  readonly boundary: ReturnType<typeof messagingHttpBoundary>;
+  readonly boundary: ReturnType<typeof memberHttpBoundary>;
   readonly websocketEndpoint: string | null;
   readonly read: (
     value: unknown,
@@ -104,7 +94,7 @@ export function createMessagingReactionReader(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request, channelId?: string) =>
-    runMessagingHandler(input.boundary, request, {
+    runMemberHandler(input.boundary, request, {
       name: 'messaging.reaction.read',
       readOnly: true,
       headers:

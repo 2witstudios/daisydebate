@@ -1,5 +1,5 @@
 import { accountAgePrivacyAdopter } from '../src/account-age';
-import { createMessagingPrivacyAdopter } from '../src/messaging/privacy';
+import { socialPrivacyAdoption } from '../src/social-privacy-composition';
 import { createId } from '@paralleldrive/cuid2';
 import { eq } from 'drizzle-orm';
 import { actors } from '../src/schema/actors';
@@ -8,26 +8,21 @@ import {
   messagingActorStates,
 } from '../src/schema/messaging-channels';
 import {
-  messagingContactPairs,
   messagingDmPairs,
   messagingGroupGrants,
   messagingGroupInvitations,
   messagingSocialCommands,
 } from '../src/schema/messaging-social';
+import { contactPairs } from '../src/schema/contacts';
 import {
   messagingMessages,
   messagingReceipts,
   messagingReactions,
 } from '../src/schema/messaging-messages';
-import { messagingPrivacyExpectedColumns } from '../src/privacy';
 import { now, withPrivacySubject } from './privacy.test-support';
 
 export const messagingRequiredAdopters = [
-  {
-    id: 'messaging',
-    phase: 'before-auth' as const,
-    expectedColumns: messagingPrivacyExpectedColumns,
-  },
+  ...socialPrivacyAdoption().requiredAdopters,
   {
     id: 'account-age',
     phase: 'after-scrub' as const,
@@ -38,7 +33,7 @@ export const messagingRequiredAdopters = [
 ];
 export const messagingPrivacyAdoption = {
   requiredAdopters: messagingRequiredAdopters,
-  adopters: [createMessagingPrivacyAdopter(), accountAgePrivacyAdopter],
+  adopters: [...socialPrivacyAdoption().adopters, accountAgePrivacyAdopter],
 };
 
 /** Composes real MSG-owned tables through Drizzle; no alternative contact backend. */
@@ -101,7 +96,7 @@ export async function withPrivacyMessaging(
           createdAt: timestamp,
         },
       ]);
-      await database.insert(messagingContactPairs).values({
+      await database.insert(contactPairs).values({
         lowActorId,
         highActorId,
         lowBlocksHigh: actorId !== lowActorId,
@@ -272,12 +267,17 @@ export async function withPrivacyMessaging(
           'delete from messaging_social_commands where actor_id in ($1,$2)',
           [actorId, otherActorId],
         );
+      for (const table of ['social_requests', 'contact_commands'])
+        await client.unsafe(
+          `delete from ${table} where actor_id in ($1,$2) or counterpart_actor_id in ($1,$2)`,
+          [actorId, otherActorId],
+        );
       await client.unsafe(
         'delete from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1',
         [actorId],
       );
       await client.unsafe(
-        'delete from messaging_contact_pairs where low_actor_id=$1 or high_actor_id=$1',
+        'delete from contact_pairs where low_actor_id=$1 or high_actor_id=$1',
         [actorId],
       );
       // Channel FK cascades delete only these fixtures' associations/content.

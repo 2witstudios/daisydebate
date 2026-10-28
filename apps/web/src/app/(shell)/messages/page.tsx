@@ -4,11 +4,22 @@ import { InboxLive } from '../../../ui/messaging/conversation-live';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireAccess } from '../../../lib/access';
+import { privateGroupsOffered } from '../../../lib/request-session';
 import type { SearchParams } from '../../../features/access/decision';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { InboxRow } from '../../../ui/messaging/inbox-row';
+import { RetainedConversationList } from '../../../ui/messaging/retained-list';
 import { GET } from '../../api/messaging/inbox/route';
+import { GET as retainedList } from '../../api/messaging/retained/route';
+import { messagingRetainedSchemas } from '@daisy/protocol';
+
+/** The survivor's retained conversations (DEC-126), or none when unreadable. */
+async function readRetainedConversations(response: Response) {
+  if (!response.ok) return [];
+  const parsed = messagingRetainedSchemas.list.safeParse(await response.json());
+  return parsed.success ? parsed.data.conversations : [];
+}
 export const metadata = { title: 'Messages' };
 export default async function MessagesPage({
   searchParams,
@@ -24,12 +35,19 @@ export default async function MessagesPage({
     typeof params.after === 'string'
       ? `?after=${encodeURIComponent(params.after)}`
       : '';
-  const response = await GET(
-    new Request(`http://in-process.invalid/api/messaging/inbox${query}`, {
-      headers: new Headers(await headers()),
-    }),
-  );
-  const inbox = await readMessagingInboxResponse(response);
+  const incoming = await headers();
+  const [inbox, retained] = await Promise.all([
+    GET(
+      new Request(`http://in-process.invalid/api/messaging/inbox${query}`, {
+        headers: new Headers(incoming),
+      }),
+    ).then(readMessagingInboxResponse),
+    retainedList(
+      new Request('http://in-process.invalid/api/messaging/retained', {
+        headers: new Headers(incoming),
+      }),
+    ).then(readRetainedConversations),
+  ]);
   const now = systemClock.now();
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
@@ -39,7 +57,9 @@ export default async function MessagesPage({
       />
       <nav aria-label="Start a conversation" className="flex gap-4">
         <Link href="/messages/new">Message someone</Link>
-        <Link href="/messages/new?kind=group">Create private group</Link>
+        {privateGroupsOffered() ? (
+          <Link href="/messages/new?kind=group">Create private group</Link>
+        ) : null}
         <Link href="/messages/contacts" className="text-accent hover:underline">
           Contact safety
         </Link>
@@ -74,6 +94,7 @@ export default async function MessagesPage({
           ) : null}
         </InboxLive>
       )}
+      <RetainedConversationList conversations={retained} />
     </main>
   );
 }

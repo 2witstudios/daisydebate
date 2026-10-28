@@ -3,7 +3,7 @@ import { systemId } from '@daisy/clock';
 import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
-import { ContactBlockForm } from '../../../../ui/messaging/contact-block-form';
+import { ContactBlockForm } from '../../../../ui/contacts/contact-block-form';
 import { blockContactAction } from './actions';
 export const metadata = { title: 'Contact safety' };
 export default async function ContactSafetyPage({

@@ -72,3 +72,17 @@ export async function consumeOrThrow(
   }
   if (!decision.allowed) throw createAppError('RATE_LIMIT');
 }
+
+/**
+ * One multi-window rule: every window is its own fixed-window bucket under
+ * `key`, and the first exhausted window refuses. Windows have distinct
+ * lengths, so their keys never collide.
+ */
+export async function consumeWindowsOrThrow(
+  limiter: RateLimiter,
+  key: string,
+  windows: readonly RateRule[],
+): Promise<void> {
+  for (const rule of windows)
+    await consumeOrThrow(limiter, `${key}:${rule.windowSeconds}`, rule);
+}

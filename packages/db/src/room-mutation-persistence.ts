@@ -6,12 +6,14 @@ import { createAppError } from '@daisy/errors';
 import { freezeRoomDraw, persistRoomDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
+import { friendChallenges } from './schema/friends';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { type Tx, publishDefinition } from './room-command-facts';
+import { isOpenRoomStatus } from './room-open';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (
@@ -60,6 +62,12 @@ export const persistRoomMutation = async (
     .update(rooms)
     .set(roomRow(next, acceptedCommand, now))
     .where(eq(rooms.id, next.id));
+  // ISSUE-699: a challenge invites to a room still gathering its players,
+  // so it goes the moment the room is no longer open (Rooms' own vocabulary).
+  if (!isOpenRoomStatus(next.status))
+    await tx
+      .delete(friendChallenges)
+      .where(eq(friendChallenges.roomId, next.id));
   await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
   if (next.participants.length)
     await tx.insert(roomParticipants).values(
