@@ -5,7 +5,6 @@ import { fakeSql } from '../index.test-support';
 import { createDatabase } from '../index';
 import { createMessagingTypingPrivacyPort } from './typing-rights';
 import { planPrivacyErasure } from './planner';
-import { messagingTypingSchemas } from '@daisy/protocol';
 import { deliverPrivacyJob } from './vendor-jobs';
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };

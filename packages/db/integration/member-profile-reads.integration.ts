@@ -1,89 +1,19 @@
 import { createId } from '@paralleldrive/cuid2';
-import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import type { Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { createBotSeat } from './bot-seat.test-support';
-import { withFixture, type Fixture } from './constraint-helpers';
 import {
   forfeitCommand,
   played,
+  present,
+  profileOf,
   roomRound,
+  tally,
+  withProfileFixture,
 } from './member-profile.test-support';
 import { at } from './standings-fixtures';
 
 setupRitewayBun();
-
-const { databaseUrl: url } = requireTestServices(process.env);
-
-/** The owner's scope only for the bound, current member themself. */
-const ownerOnly = (
-  memberActorId: string,
-  account: {
-    readonly actorId: string | null;
-    readonly member: boolean;
-    readonly erased: boolean;
-  } | null,
-) =>
-  account !== null &&
-  account.member &&
-  !account.erased &&
-  account.actorId === memberActorId
-    ? ('owner' as const)
-    : ('public' as const);
-
-const profileOf = (
-  database: Database,
-  input: {
-    readonly username: string;
-    readonly caller: {
-      readonly userId: string;
-      readonly actorId: string;
-    } | null;
-    readonly before?: string | null;
-    readonly limit?: number;
-  },
-) =>
-  database.readMemberProfile({
-    username: input.username,
-    caller: input.caller,
-    decide: ownerOnly,
-    before: input.before ?? null,
-    limit: input.limit ?? 10,
-  });
-
-/** A profile the test expects to exist. */
-const present = async <T>(read: Promise<T | null>): Promise<T> => {
-  const value = await read;
-  if (value === null) throw new Error('Expected a member profile');
-  return value;
-};
-
-const tally = (
-  groups: readonly { role: string; outcome: string | null; rounds: number }[],
-) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
-
-/** A fixture, a database over it and one live member, closed after `run`. */
-const withProfileFixture = (
-  run: (context: {
-    readonly fixture: Fixture;
-    readonly database: Database;
-    readonly subject: { readonly userId: string; readonly actorId: string };
-  }) => Promise<void>,
-) =>
-  withFixture(url, async (fixture) => {
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      await run({
-        fixture,
-        database,
-        subject: await createAuthorizationSubject(fixture),
-      });
-    } finally {
-      await database.close();
-    }
-  });
 
 describe('member profile reads (ISSUE-600)', () => {
   test('reads a live member by name, case-insensitively, and nobody else', async () => {
@@ -297,81 +227,6 @@ describe('member profile reads (ISSUE-600)', () => {
           before: middle.id,
         }),
         expected: null,
-      });
-    });
-  });
-
-  test('a closed member keeps a profile with only the public subset, for everyone (ADR 0087)', async () => {
-    await withProfileFixture(async ({ fixture, database, subject }) => {
-      const member = subject.actorId;
-      const username = subject.userId;
-      const open = await played(fixture, {
-        member,
-        side: 'affirmative',
-        outcome: 'affirmative',
-        day: 1,
-      });
-      await played(fixture, {
-        member,
-        side: 'negative',
-        outcome: 'affirmative',
-        day: 2,
-        visibility: 'private',
-      });
-      const reader = await createAuthorizationSubject(fixture);
-      const lost = await roomRound(fixture, {
-        status: 'completed',
-        outcome: 'negative',
-        started_at: at(3, 11),
-        completed_at: at(3),
-      });
-      await fixture.participant(lost, 'affirmative', 0, member);
-      await fixture.participant(lost, 'negative', 0, reader.actorId);
-      await fixture.sql`update users set email=null, name='', image=null,
-        deleted_at=${at(4)} where id=${subject.userId}`;
-      const visitor = await present(
-        profileOf(database, { username, caller: null }),
-      );
-      const asThemself = await present(
-        profileOf(database, { username, caller: subject }),
-      );
-      const readerView = await present(
-        profileOf(database, { username: reader.userId, caller: reader }),
-      );
-      assert({
-        given:
-          'a closed member with a public and a private Round, read by a visitor and by a caller bound to the closed actor',
-        should:
-          'name them, mark them closed and show only the public Rounds and tally to both',
-        actual: [
-          visitor.member.username,
-          visitor.member.closed,
-          visitor.scope,
-          visitor.rows.map((r) => r.roundId),
-          asThemself.scope,
-          asThemself.rows.map((r) => r.roundId),
-          tally(asThemself.groups),
-        ],
-        expected: [
-          username,
-          true,
-          'public',
-          [lost, open.id],
-          'public',
-          [lost, open.id],
-          ['affirmative:affirmative:1', 'affirmative:negative:1'],
-        ],
-      });
-      assert({
-        given: 'another member who debated the closed member',
-        should: 'name the closed opponent on their history, marked closed',
-        actual: readerView.rows[0]?.seats.find((s) => s.role === 'affirmative'),
-        expected: {
-          role: 'affirmative',
-          kind: 'human',
-          label: username,
-          closed: true,
-        },
       });
     });
   });

@@ -139,6 +139,40 @@ function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
   );
 }
 
+/** Who the member is: name, badges, join month or closed notice, and actions. */
+function ProfileHeader({
+  profile,
+  actions,
+}: {
+  readonly profile: MemberProfile;
+  readonly actions?: ReactNode;
+}) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-4">
+        <Avatar name={profile.username} size="lg" nameVisible />
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+              {`@${profile.username}`}
+            </h1>
+            {profile.me ? <Badge tone="accent">You</Badge> : null}
+            {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
+          </div>
+          <p className="text-base text-ink-muted">
+            {profile.closed
+              ? 'This account is closed. Its public rounds stay on the record.'
+              : `Member since ${month(profile.memberSince)}`}
+          </p>
+        </div>
+      </div>
+      <ProfileActions username={profile.username} me={profile.me}>
+        {actions}
+      </ProfileActions>
+    </header>
+  );
+}
+
 /**
  * A member's profile: who they are, their record and the rounds they have
  * debated. Only real data: everything here comes from the profile read.
@@ -157,28 +191,7 @@ export function ProfilePage({
   const base = `/profile/${profile.username}`;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <Avatar name={profile.username} size="lg" nameVisible />
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-                {`@${profile.username}`}
-              </h1>
-              {profile.me ? <Badge tone="accent">You</Badge> : null}
-              {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
-            </div>
-            <p className="text-base text-ink-muted">
-              {profile.closed
-                ? 'This account is closed. Its public rounds stay on the record.'
-                : `Member since ${month(profile.memberSince)}`}
-            </p>
-          </div>
-        </div>
-        <ProfileActions username={profile.username} me={profile.me}>
-          {actions}
-        </ProfileActions>
-      </header>
+      <ProfileHeader profile={profile} actions={actions} />
       <RecordSummary profile={profile} />
       <section aria-label="Match history" className={card}>
         <h2 className={heading}>Match history</h2>
