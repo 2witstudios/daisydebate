@@ -44,7 +44,7 @@ kill_timeout = 35
   # with `fly secrets import`, never written here (fly.toml
   # is committed; scripts/verify-deploy-config.ts refuses a database URL here).
   PORT = "8080"
-  PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
+  PUBLIC_APP_URL = "https://beta.daisydebate.com"
   REDIS_NAMESPACE = "daisy"
   LOG_LEVEL = "info"
   # AUTH_TRUSTED_PROXIES: fly-proxy terminates the client TLS connection and

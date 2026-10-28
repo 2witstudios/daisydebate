@@ -9,7 +9,7 @@ setupRitewayBun();
 const sha = 'a'.repeat(40);
 test('the provider proof refuses another deployment before opening a database', () => {
   const target = {
-    origin: 'https://daisy-debate-staging.fly.dev',
+    origin: 'https://beta.daisydebate.com',
     app: 'daisy-debate-staging',
     commit: sha,
     expectedCommit: sha,

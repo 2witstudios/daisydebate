@@ -254,7 +254,7 @@ jobs:
             echo "$1 did not become ready" >&2
             return 1
           }
-          ready https://daisy-debate-staging.fly.dev/api/health/ready
+          ready https://beta.daisydebate.com/api/health/ready
           ready https://daisy-debate-staging-realtime.fly.dev/health/ready
           ready https://daisy-debate-staging-livekit.fly.dev/
 

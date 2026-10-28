@@ -1,4 +1,4 @@
-export const STAGING_TRANSCRIPT_ORIGIN = 'https://daisy-debate-staging.fly.dev';
+export const STAGING_TRANSCRIPT_ORIGIN = 'https://beta.daisydebate.com';
 
 /** Every guard runs before fixture writes; the server's database name is checked separately. */
 export function requireStagingTranscriptTarget(input: {

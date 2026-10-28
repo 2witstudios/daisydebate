@@ -11,7 +11,7 @@
  * the AUTH-7.8 handoff) and needs a signed-in probe only if the owner asks
  * for one.
  *
- *   bun scripts/staging-security-probe.ts [--url https://daisy-debate-staging.fly.dev]
+ *   bun scripts/staging-security-probe.ts [--url https://beta.daisydebate.com]
  *
  * Exits non-zero and prints every failing check if any probe fails; prints
  * NOT RUN with a reason for a check this script cannot perform from outside
@@ -328,7 +328,7 @@ async function main(): Promise<void> {
   const flagIndex = process.argv.indexOf('--url');
   const url =
     flagIndex === -1
-      ? 'https://daisy-debate-staging.fly.dev'
+      ? 'https://beta.daisydebate.com'
       : process.argv[flagIndex + 1];
   if (!url)
     throw new Error(

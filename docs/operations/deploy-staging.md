@@ -11,9 +11,14 @@ step's flag names were verified against the installed `flyctl` (v0.4.105,
 https://fly.io/docs/flyctl/ as of 2026-09-22 — re-check flag names if the
 installed flyctl has since changed.
 
-No custom domain: the app is reachable at `https://<app>.fly.dev` only
-(owner decision). Postgres is an always-on Fly machine in the same org and
-Redis is Fly-native Upstash (owner decision, September 22), both reached
+The app's public origin is `https://beta.daisydebate.com` (custom domain,
+owner-set; certificate issued on the Fly app 2026-10-28). `PUBLIC_APP_URL`
+names that origin: it is the trusted sign-in Origin, the passkey RP ID, the
+realtime WebSocket origin gate (`REALTIME_ALLOWED_ORIGINS` falls back to it),
+and the host email links use. The Fly hostname
+`https://daisy-debate-staging.fly.dev` keeps serving the same app and stays
+the Resend webhook target and the operator path. Postgres is an always-on
+Fly machine in the same org and Redis is Fly-native Upstash (owner decision, September 22), both reached
 through the `DATABASE_URL` / `MIGRATION_DATABASE_URL` / `REDIS_URL`
 contract — no new client libraries.
 
@@ -391,10 +396,12 @@ true` starts it again on the next request if it is ever found stopped.
   the start-up gate and is retried inside that window.
 - **Passkey RP hostname stability.** `apps/web/src/features/auth/server.ts`
   derives the WebAuthn RP ID as `new URL(config.PUBLIC_APP_URL).hostname`.
-  `PUBLIC_APP_URL` is fixed at `https://<app>.fly.dev` (no custom domain),
-  and that hostname never changes across deploys or restarts; only the
-  underlying machine and its 6PN address can change, and RP ID depends on
-  neither. Passkeys registered against this staging app stay valid.
+  `PUBLIC_APP_URL` is `https://beta.daisydebate.com`, and that hostname
+  never changes across deploys or restarts; only the underlying machine and
+  its 6PN address can change, and RP ID depends on neither. Passkeys
+  registered against the public origin stay valid. Passkeys registered
+  before the domain flip are bound to the fly.dev RP ID and stop working on
+  the public origin; re-enroll them.
 
 ## 1. Create the app
 
@@ -498,7 +505,9 @@ even though the app is not live yet; Resend will queue/retry failed
 deliveries per the schedule above once the app exists.
 
 1. In the Resend dashboard, create a webhook targeting
-   `https://daisy-debate-staging.fly.dev/api/webhooks/resend`.
+   `https://daisy-debate-staging.fly.dev/api/webhooks/resend` (the Fly
+   hostname; the custom origin serves the same endpoint and the webhook is
+   signature-verified, so it does not depend on `PUBLIC_APP_URL`).
 2. Subscribe to: `email.sent`, `delivery_delayed`, `delivered`, `failed`,
    `bounced`, `complained`.
 3. Copy the signing secret (`whsec_...`).
@@ -647,18 +656,21 @@ the "Deploy staging" run shows `migrate` then `deploy` green.
 
 ```
 # Health
-curl -sS https://daisy-debate-staging.fly.dev/api/health/live
-curl -sS https://daisy-debate-staging.fly.dev/api/health/ready
+curl -sS https://beta.daisydebate.com/api/health/live
+curl -sS https://beta.daisydebate.com/api/health/ready
 
 # Sign-in email delivered: start a magic-link sign-in against the running
 # app, then confirm Resend's dashboard shows the message as sent/delivered
-# for that recipient. If EMAIL_FROM uses onboarding@resend.dev (step 4
-# account-only path), this MUST be the Resend account's own email address —
-# any other recipient gets a 403 and the email never sends. Otherwise use
-# any real inbox you control under the verified sending domain.
-curl -sS -X POST https://daisy-debate-staging.fly.dev/api/auth/sign-in/magic-link \
+# for that recipient. The recipient must be a real inbox: the sending
+# domain is send-only (no MX), and Resend refuses reserved recipient
+# domains such as example.com outright. If EMAIL_FROM uses
+# onboarding@resend.dev (step 4 account-only path), this MUST be the
+# Resend account's own email address — any other recipient gets a 403 and
+# the email never sends. Otherwise use any real inbox you control under
+# the verified sending domain.
+curl -sS -X POST https://beta.daisydebate.com/api/auth/sign-in/magic-link \
   -H 'Content-Type: application/json' \
-  -H 'Origin: https://daisy-debate-staging.fly.dev' \
+  -H 'Origin: https://beta.daisydebate.com' \
   -d '{"email":"you@yourdomain.example"}'
 
 # Webhook event received: after the email above is delivered, check
