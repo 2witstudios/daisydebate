@@ -137,7 +137,7 @@ const sealsComplete = (
     required: requiredCoverage({
       authority,
       observed,
-      tolerance: { openMs: 1000, closeMs: 1000 },
+      tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
     }),
     observed,
     storedChunks: 1,
@@ -176,5 +176,27 @@ test('the cutoff tolerance never forgives speech that was not captured (ISSUE-80
       sealsComplete([range(6000, 7000)], [range(5000, 6000)]),
     ],
     expected: [false, false, false],
+  });
+});
+
+test('a human grant whose microphone dies in its last second still seals partial (ISSUE-806)', () => {
+  const human = (observed: readonly ReturnType<typeof range>[]) =>
+    hasCompleteCaptureCoverage({
+      required: requiredCoverage({
+        authority: [range(0, 58500), range(59200, 60000)],
+        observed,
+        // A human's grants carry no terminal close tolerance.
+        tolerance: { openMs: 4000, closeMs: 1000 },
+      }),
+      observed,
+      storedChunks: 1,
+      expectedChunks: 1,
+    });
+  assert({
+    given:
+      'a human whose capture ends before a short final grant opens, and one captured through it',
+    should: 'seal the dead final grant partial, and the captured one complete',
+    actual: [human([range(0, 59100)]), human([range(0, 59950)])],
+    expected: [false, true],
   });
 });

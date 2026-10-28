@@ -76,9 +76,12 @@ test('a bot seat must cover only its credited windows, joined within relay laten
           { start: 1880, end: 4790 },
           { start: 5000, end: 5500 },
         ],
-        tolerance: { openMs: 1000, closeMs: 1000 },
+        tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
       },
-      { authority: [], tolerance: { openMs: 1000, closeMs: 1000 } },
+      {
+        authority: [],
+        tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
+      },
     ],
   });
 });

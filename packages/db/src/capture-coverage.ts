@@ -6,6 +6,12 @@ export type CaptureInterval = {
 export type CoverageEdges = {
   readonly openMs: number;
   readonly closeMs: number;
+  /**
+   * The tolerance at the authority's terminal close, for a bot's credited
+   * windows only (DEC-212, ISSUE-806). A human's grants have none, so a
+   * microphone that dies before a final grant still seals partial.
+   */
+  readonly terminalCloseMs?: number;
 };
 const validRange = ({ start, end }: CaptureInterval) =>
   Number.isFinite(start) &&
@@ -33,9 +39,9 @@ function covered(
  * else from its opening, so a dead microphone stays partial; and until its last
  * captured frame when that ends within the close tolerance, else until its
  * close, since speech stops before a yield reaches the server (DEC-220).
- * Within the close tolerance of the authority's terminal close, nothing after
- * the stream's final frame is required, in whichever window it falls
- * (ISSUE-806).
+ * For a bot's credited windows only, within the terminal close tolerance of
+ * the authority's terminal close, nothing after the stream's final frame is
+ * required, in whichever window it falls (ISSUE-806).
  */
 export function requiredCoverage(input: {
   readonly authority: readonly CaptureInterval[];
@@ -92,7 +98,12 @@ function terminalFrame(input: {
   readonly observed: readonly CaptureInterval[];
   readonly tolerance: CoverageEdges;
 }): number | null {
-  if (!input.authority.length || input.authority.some((a) => a.end === null))
+  const { terminalCloseMs } = input.tolerance;
+  if (
+    terminalCloseMs === undefined ||
+    !input.authority.length ||
+    input.authority.some((a) => a.end === null)
+  )
     return null;
   const opened = Math.min(...input.authority.map((a) => a.start));
   const close = Math.max(...input.authority.map((a) => a.end!));
@@ -101,9 +112,7 @@ function terminalFrame(input: {
     .filter((end): end is number => end !== null && Number.isFinite(end));
   if (!frames.length) return null;
   const final = Math.max(...frames);
-  return final > opened && final >= close - input.tolerance.closeMs
-    ? final
-    : null;
+  return final > opened && final >= close - terminalCloseMs ? final : null;
 }
 
 /** Coverage is producer evidence, independent of transcript text or lease ownership. */
