@@ -19,7 +19,7 @@ import type { PermitDecision } from './permits';
 import type { ObservableResource } from './resources';
 
 /** Every member sees the same fields of a channel's window: one partition. */
-export const CHANNEL_MESSAGES_PARTITION = 'members';
+const CHANNEL_MESSAGES_PARTITION = 'members';
 const bounds = {
   messageUnits: messagingBetaLimits.messageUnits,
   pageItems: messagingBetaLimits.pageItems,

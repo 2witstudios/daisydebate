@@ -13,7 +13,7 @@ import { createObservationOwner } from './owner';
 import { defineObservableResources } from './resources';
 
 /** Owner reconciliation, Redis-only head repair, interest and permit renewal cadences (ADR 0089). */
-export const OBSERVATION_CADENCE = {
+const OBSERVATION_CADENCE = {
   ownerMs: 100,
   repairMs: 500,
   interestMs: 2_000,
@@ -133,4 +133,4 @@ export function startObservationRuntime({
     },
   };
 }
-export type ObservationRuntime = ReturnType<typeof startObservationRuntime>;
+type ObservationRuntime = ReturnType<typeof startObservationRuntime>;

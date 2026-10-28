@@ -11,7 +11,7 @@ export type ObservationHeader = {
   readonly disclosureRevision: number;
 };
 /** One built snapshot for one base, from one coherent read. */
-export type ObservationProjection = {
+type ObservationProjection = {
   readonly partition: string;
   readonly disclosureRevision: number;
   readonly contentRevision: number;

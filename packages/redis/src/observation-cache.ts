@@ -28,14 +28,14 @@ import type { RedisTransport } from './transport';
  */
 const SENTINEL_TTL_MS = 3_600_000;
 /** Guards outlive every in-flight build and retry (bounded well under this). */
-export const OBSERVATION_GUARD_TTL_MS = 120_000;
+const OBSERVATION_GUARD_TTL_MS = 120_000;
 /** Bodies are protected expendable data: at most 60s (ADR 0008 as amended). */
-export const OBSERVATION_BODY_TTL_MS = 60_000;
-export const OBSERVATION_MAX_NODES_PER_RESOURCE = 1_024;
-export const OBSERVATION_MAX_DEMAND = 100_000;
-export const OBSERVATION_MAX_PARTITIONS = 16;
+const OBSERVATION_BODY_TTL_MS = 60_000;
+const OBSERVATION_MAX_NODES_PER_RESOURCE = 1_024;
+const OBSERVATION_MAX_DEMAND = 100_000;
+const OBSERVATION_MAX_PARTITIONS = 16;
 /** Resources per batched script call; bounds a script's key list. */
-export const OBSERVATION_BATCH = 128;
+const OBSERVATION_BATCH = 128;
 
 const claimScript = defineScript(`
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
@@ -558,6 +558,6 @@ export function createObservationCacheOperations({
     },
   };
 }
-export type ObservationCacheOperations = ReturnType<
+type ObservationCacheOperations = ReturnType<
   typeof createObservationCacheOperations
 >;

@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema, type ChannelMessageRecord } from '@daisy/protocol';
 
 /** The owner's header batch ceiling, matching the SQL function's slice. */
-export const OBSERVATION_HEADER_BATCH = 1024;
+const OBSERVATION_HEADER_BATCH = 1024;
 const revision = (value: unknown) => {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0)
@@ -27,9 +27,7 @@ export function channelObservationReads(
 ) {
   return {
     /** Current content (stream) and disclosure (authority) revisions; absent ids are deleted channels. */
-    async readChannelObservationHeaders(
-      channelIds: readonly string[],
-    ): Promise<
+    async readChannelObservationHeaders(channelIds: readonly string[]): Promise<
       ReadonlyMap<
         string,
         {

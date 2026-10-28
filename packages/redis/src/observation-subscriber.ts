@@ -21,10 +21,10 @@ type Timers = {
   readonly setTimeout: (callback: () => void, ms: number) => unknown;
   readonly clearTimeout: (handle: unknown) => void;
 };
-export type ObservationSubscriberState =
+type ObservationSubscriberState =
   'connecting' | 'synchronized' | 'lost' | 'closed';
 /** One process's channel ceiling: its node's resource interests. */
-export const OBSERVATION_MAX_CHANNELS = 1_024;
+const OBSERVATION_MAX_CHANNELS = 1_024;
 const BACKOFF_MS = [250, 500, 1_000, 2_000, 5_000] as const;
 
 /**
@@ -150,6 +150,6 @@ export const dialObservationSubscriber =
     });
     return client as unknown as SubscriberTransport;
   };
-export type ObservationSubscriber = ReturnType<
+type ObservationSubscriber = ReturnType<
   typeof createObservationSubscriber
 >;

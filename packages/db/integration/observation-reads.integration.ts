@@ -123,7 +123,7 @@ test('a cohort read fences the cast once for every viewer of a channel', async (
     const result = await cohort(
       { channelId: fixture.channelId, viewers },
       async ({ accounts, factFor }) => ({
-        accounts: accounts.map((a) => a.actorId).sort(),
+        accounts: accounts.map((a) => a?.actorId).sort(),
         facts: viewers.map((v) => factFor(v.actorId).channelId),
       }),
     );

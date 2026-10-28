@@ -12,17 +12,11 @@ import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
 export {
-  OBSERVATION_BODY_TTL_MS,
-  parseObservationHint,
-  type ObservationHead,
   type ObservationHint,
 } from './observation-cache';
 export {
   createObservationSubscriber,
   dialObservationSubscriber,
-  OBSERVATION_MAX_CHANNELS,
-  type ObservationSubscriber,
-  type ObservationSubscriberState,
   type SubscriberTransport,
 } from './observation-subscriber';
 export type RedisConfig = { readonly url: string; readonly namespace: string };

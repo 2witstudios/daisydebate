@@ -362,17 +362,11 @@ export {
 
 // Shared resource observation (ADR 0089).
 export {
-  observationResourceKinds,
-  observationResourceSchema,
   observationResourceKey,
   parseObservationResourceKey,
   observationBaseSchema,
-  observationBaseField,
   observationFrameBytes,
-  observationOverlayBytes,
-  observationWindowItems,
   observationPermitMs,
-  observationJsonBytes,
   utf8Bytes,
 } from './observation';
 export type {

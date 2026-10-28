@@ -61,15 +61,15 @@ export type ObservationNodeBounds = {
   /** Encoded snapshot bytes held across every resource. */
   readonly snapshotBytes: number;
 };
-export const defaultObservationNodeBounds: ObservationNodeBounds = {
+const defaultObservationNodeBounds: ObservationNodeBounds = {
   bindingsPerConnection: 32,
   bindings: 5_000,
   resources: 1_024,
   snapshotBytes: 64 * 1024 * 1024,
 };
 /** Permits are renewed this long before they expire (cadence well under 4,700ms). */
-export const OBSERVATION_RENEW_AHEAD_MS = 2_000;
-export const OBSERVATION_INTEREST_TTL_MS = 6_000;
+const OBSERVATION_RENEW_AHEAD_MS = 2_000;
+const OBSERVATION_INTEREST_TTL_MS = 6_000;
 
 type Snapshot = HeldSnapshot & { readonly text: string };
 type Binding = {

@@ -21,7 +21,7 @@ export type ObservationDescriptor<Body> = {
  * - `degraded`: renewal or the socket is unavailable; content stays until the permit deadline.
  * - `hidden`: denied, revoked or expired; protected content is withdrawn.
  */
-export type ObservationStatus = 'pending' | 'live' | 'degraded' | 'hidden';
+type ObservationStatus = 'pending' | 'live' | 'degraded' | 'hidden';
 export type ObservationView<Body> = {
   readonly status: ObservationStatus;
   readonly body: Body | null;

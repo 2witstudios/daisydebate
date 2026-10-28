@@ -50,7 +50,7 @@ export type ObservationOwnerBounds = {
   /** A cached body is rebuilt at least this often so its 60s TTL never lapses under interest. */
   readonly refreshMs: number;
 };
-export const defaultObservationOwnerBounds: ObservationOwnerBounds = {
+const defaultObservationOwnerBounds: ObservationOwnerBounds = {
   owned: 1_024,
   discoverLimit: 32,
   leaseMs: 2_000,
@@ -263,4 +263,4 @@ export function createObservationOwner({
     stats: () => ({ owned: owned.size, building }),
   };
 }
-export type ObservationOwner = ReturnType<typeof createObservationOwner>;
+type ObservationOwner = ReturnType<typeof createObservationOwner>;

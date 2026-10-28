@@ -49,7 +49,7 @@ export function channelMessageView(message: ChannelMessageRecord) {
  * Room left in a 128KiB observation frame for the window's messages once the
  * worst-case envelope (ids, revisions, partition) is paid for.
  */
-export const channelMessagesWindowBytes = observationFrameBytes - 2 * 1024;
+const channelMessagesWindowBytes = observationFrameBytes - 2 * 1024;
 
 /**
  * The owning channel mapper, shared by authorized HTTP history and the

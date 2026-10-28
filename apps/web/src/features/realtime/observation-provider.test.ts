@@ -74,7 +74,7 @@ function harness() {
       minimumContentRevision: 0,
       validForMs: 4700,
       ...extra,
-    } as ServerMessage);
+    } as unknown as ServerMessage);
   const snapshot = (revision: number, disclosureRevision = 1) =>
     receive({
       v: 1,
@@ -84,7 +84,7 @@ function harness() {
       disclosureRevision,
       contentRevision: revision,
       body: { revision },
-    } as ServerMessage);
+    } as unknown as ServerMessage);
   const stateFrame = (requestId: string, generation: number, value: string) =>
     receive({
       v: 1,
@@ -93,7 +93,7 @@ function harness() {
       resource,
       generation,
       state: value,
-    } as ServerMessage);
+    } as unknown as ServerMessage);
   return {
     provider,
     sent,
@@ -161,8 +161,10 @@ describe('observation provider', () => {
     h.stateFrame('r1', 7, 'revoked');
     h.snapshot(2);
     assert({
-      given: 'a revocation from an older generation, then the current one, then a snapshot',
-      should: 'ignore the stale one, hide content on the current one, and accept nothing after',
+      given:
+        'a revocation from an older generation, then the current one, then a snapshot',
+      should:
+        'ignore the stale one, hide content on the current one, and accept nothing after',
       actual: [stale, held.view()],
       expected: [
         { status: 'live', body: { revision: 1 } },
@@ -181,7 +183,8 @@ describe('observation provider', () => {
     h.advance(1);
     assert({
       given: 'renewal unavailable until the permit deadline passes',
-      should: 'keep content while the permit is valid, then hide it at its deadline',
+      should:
+        'keep content while the permit is valid, then hide it at its deadline',
       actual: [before, held.view()],
       expected: [
         { status: 'degraded', body: { revision: 1 } },
@@ -201,8 +204,10 @@ describe('observation provider', () => {
     h.ready('r2', 1);
     h.snapshot(2);
     assert({
-      given: 'a dropped socket, a new one, a late answer to the old request and a new node numbering from 1',
-      should: 'degrade, re-observe under a new id, ignore the old answer and go live on the new one',
+      given:
+        'a dropped socket, a new one, a late answer to the old request and a new node numbering from 1',
+      should:
+        'degrade, re-observe under a new id, ignore the old answer and go live on the new one',
       actual: [dropped, h.sent, held.view()],
       expected: [
         'degraded',
@@ -220,7 +225,8 @@ describe('observation provider', () => {
     h.ready('r1', 1);
     assert({
       given: 'a disposed provider receiving a frame',
-      should: 'unobserve once, release every connection listener and notify nobody',
+      should:
+        'unobserve once, release every connection listener and notify nobody',
       actual: [h.sent, h.listeners(), notified, h.provider.size()],
       expected: [['observe:r1', 'unobserve:r2'], 0, 0, 0],
     });

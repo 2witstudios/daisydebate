@@ -6,10 +6,10 @@ import { idSchema } from './primitives';
  * feature concept that owns it; adopting a new kind (a Round spectator view)
  * adds one entry here and one server definition, nothing else.
  */
-export const observationResourceKinds = ['channel-messages'] as const;
+const observationResourceKinds = ['channel-messages'] as const;
 export type ObservationResourceKind = (typeof observationResourceKinds)[number];
 
-export const observationResourceSchema = z.strictObject({
+const observationResourceSchema = z.strictObject({
   kind: z.enum(observationResourceKinds),
   id: idSchema,
 });
@@ -18,7 +18,7 @@ export type ObservationResource = z.infer<typeof observationResourceSchema>;
 /** A whole socket frame, envelope included (repair plan §4). */
 export const observationFrameBytes = 128 * 1024;
 /** A viewer-private overlay riding beside a shared body. */
-export const observationOverlayBytes = 64 * 1024;
+const observationOverlayBytes = 64 * 1024;
 /** Items in one hot window; older history is an explicit HTTP read. */
 export const observationWindowItems = 50;
 /** DEC-130: a permit lives at most 4,700ms past its read start (300ms reserve under 5s). */
@@ -27,7 +27,7 @@ export const observationPermitMs = 4_700;
 const revision = z.number().int().nonnegative().safe();
 const generation = z.number().int().nonnegative().safe();
 /** A policy-issued visibility partition label; equal labels disclose identical fields. */
-export const observationPartitionSchema = z
+const observationPartitionSchema = z
   .string()
   .regex(/^[a-z][a-z0-9-]{0,39}$/);
 
@@ -85,7 +85,7 @@ export function utf8Bytes(text: string): number {
   return bytes;
 }
 
-export const observationOverlaySchema = z
+const observationOverlaySchema = z
   .json()
   .refine((value) => observationJsonBytes(value) <= observationOverlayBytes, {
     message: 'Observation overlay exceeds its byte bound',
