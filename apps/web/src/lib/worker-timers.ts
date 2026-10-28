@@ -4,6 +4,12 @@ export type WorkerTimers = {
   readonly clearInterval: (handle: unknown) => void;
 };
 
+/** Process-edge one-shot timers, for deadlines a worker cancels once met. */
+export type OneShotTimer = {
+  readonly setTimeout: (run: () => void, ms: number) => unknown;
+  readonly clearTimeout: (handle: unknown) => void;
+};
+
 /**
  * An interval loop that never overlaps itself in this process: it runs at
  * once, then once per tick while no run is in flight; a failed run is

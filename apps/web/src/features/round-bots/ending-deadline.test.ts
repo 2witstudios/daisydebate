@@ -8,11 +8,11 @@ function manualTimer() {
   return {
     armed,
     timer: {
-      set: (run: () => void, ms: number) => {
+      setTimeout: (run: () => void, ms: number) => {
         armed.set(++next, { run, ms });
         return next;
       },
-      clear: (handle: unknown) => {
+      clearTimeout: (handle: unknown) => {
         armed.delete(handle as number);
       },
     },

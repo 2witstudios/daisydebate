@@ -21,7 +21,11 @@ async function closeIn(order: 'racing' | 'dropped' | 'live') {
   try {
     return await publishIn(order, room);
   } finally {
-    if (await media.exists(room)) await media.deleteRoom(room);
+    // A cleanup failure never hides the child's own exit (a native crash).
+    await media
+      .exists(room)
+      .then((exists) => (exists ? media.deleteRoom(room) : undefined))
+      .catch(() => undefined);
   }
 }
 

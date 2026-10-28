@@ -13,7 +13,7 @@ const DROP_DEADLINE_MS = 3_000;
 const [order, room] = process.argv.slice(2);
 if ((order !== 'racing' && order !== 'dropped' && order !== 'live') || !room)
   throw new Error(
-    'Usage: audio-publication-room-ended-process racing|dropped|live',
+    'Usage: audio-publication-room-ended-process racing|dropped|live <room>',
   );
 
 /** The server's drop of a deleted room, or a named failure past the deadline. */

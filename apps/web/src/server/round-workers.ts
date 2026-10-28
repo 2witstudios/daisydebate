@@ -4,7 +4,7 @@ import { createProviderBudget } from './provider-budget';
 import { startRoundAnalysisWorkers } from './round-analysis-workers';
 import { startRoundBotWorkers } from './round-bot-workers';
 import { startRoundJudgingWorkers } from './round-judging-workers';
-import type { WorkerTimers } from '../lib/worker-timers';
+import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 
 type Started = {
   readonly started: Promise<unknown>;
@@ -21,6 +21,8 @@ export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: WorkerTimers;
+  /** Bot seat ending deadlines (ISSUE-789). */
+  readonly deadlineTimer: OneShotTimer;
   readonly botToken: Parameters<typeof startRoundBotWorkers>[0]['botToken'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;

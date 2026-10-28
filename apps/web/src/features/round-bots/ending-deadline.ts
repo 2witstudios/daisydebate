@@ -1,11 +1,4 @@
-type Timer = {
-  readonly set: (run: () => void, ms: number) => unknown;
-  readonly clear: (handle: unknown) => void;
-};
-const processTimer: Timer = {
-  set: (run, ms) => setTimeout(run, ms).unref(),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
+import type { OneShotTimer } from '../../lib/worker-timers';
 
 /**
  * A seat's ending deadline, two renewals inside its lease (ISSUE-789): it
@@ -15,12 +8,15 @@ const processTimer: Timer = {
 export const endingDeadline =
   (
     policy: { readonly leaseMs: number; readonly renewMs: number },
-    timer: Timer = processTimer,
+    timer: OneShotTimer,
   ) =>
   (signal: AbortSignal) =>
     new Promise<void>((resolve) => {
-      const handle = timer.set(resolve, policy.leaseMs - 2 * policy.renewMs);
-      signal.addEventListener('abort', () => timer.clear(handle), {
+      const handle = timer.setTimeout(
+        resolve,
+        policy.leaseMs - 2 * policy.renewMs,
+      );
+      signal.addEventListener('abort', () => timer.clearTimeout(handle), {
         once: true,
       });
     });

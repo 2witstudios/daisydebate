@@ -261,3 +261,34 @@ test('claims in flight count against maxControllers, and a failed handoff claim 
     expected: { claimed: ['rotating'], failures: [[outage, 'claim']] },
   });
 });
+
+test('a claim whose seat cannot start is revoked at once (ISSUE-789)', async () => {
+  const { failures, failed } = failureLog();
+  const revoked: string[] = [];
+  const broken = new Error('native publication unavailable');
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => [seat('seat')],
+      claimRoundBotWorker: async (target) => ownedClaim(target),
+      revokeRoundBotWorker: async (scope) => {
+        revoked.push(scope.roundParticipantId);
+      },
+      verifyRoundBotWorker: async () => {},
+    },
+    control: () => {
+      throw broken;
+    },
+    limits,
+    timers: manualTimers().timers,
+    overdue: neverOverdue,
+    failed,
+  });
+  await service.started;
+  await service.stop();
+  assert({
+    given: 'a seat whose control throws while it is built',
+    should: 'revoke the fresh claim and report the claim failure',
+    actual: { revoked, failures },
+    expected: { revoked: ['seat'], failures: [[broken, 'claim']] },
+  });
+});
