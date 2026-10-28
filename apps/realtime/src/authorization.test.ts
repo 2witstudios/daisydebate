@@ -1,4 +1,3 @@
-import type { RealtimeApp } from './app';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildChannelTopic } from '@daisy/protocol';
