@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { DataRightsNotices } from '../../../features/account/data-rights/notices';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
@@ -84,10 +83,6 @@ export function DataRights({
             </button>
           </div>
         </form>
-        <p className={helper}>
-          Read the <Link href="/privacy">privacy policy</Link> for what erasure
-          keeps.
-        </p>
       </div>
     </div>
   );

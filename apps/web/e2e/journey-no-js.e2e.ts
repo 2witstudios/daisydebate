@@ -163,9 +163,10 @@ test.describe('with JavaScript off', () => {
     request,
   }) => {
     const { email } = await signUpMember(page.request);
-    await page.goto('/sign-in?next=%2Fsettings');
+    await page.goto('/sign-in?next=%2Flobby');
     await requestSignInLink(page, email);
     await confirmSignIn(page, await emailedLink(request, email));
+    await page.goto('/settings#privacy');
 
     // The export is the download the native form post itself answers.
     const downloadPromise = page.waitForEvent('download');
