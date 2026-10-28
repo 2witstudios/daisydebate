@@ -1,6 +1,9 @@
 # 0055: Glicko-2 calculation, ladders and season carry-over
 
-Status: proposed. Implements [ADR 0029](0029-competitive-schema-foundation.md)
+Status: partially accepted. DEC-110 confirms calculation parameters and
+DEC-119 confirms posting order; DEC-111 season/provisional calibration
+remains unresolved. [ADR 0090](0090-three-rating-ladders.md) supersedes the
+single-ladder vocabulary and selects three ladders (implementation pending). Implements [ADR 0029](0029-competitive-schema-foundation.md)
 item 8 (Glicko-2, one debate is one rating period) and the Ranked ladder.
 When this record is accepted it amends, in its own `## Amendment` section,
 [ADR 0029](0029-competitive-schema-foundation.md) item 8 (the rating key
@@ -10,13 +13,12 @@ overrules them.
 
 ## Context
 
-The schema has held Glicko-2 state since the baseline (`seasons`, `ratings`,
-`rating_changes`), but nothing computes a rating, opens a season or writes
-the ledger, and the leaderboard reads sample data. The owner fixed the model
-on 2026-10-05: Glicko-2, no debater tiers, and the Ranked ladder (one human
-judge, Daisy's promoted ladder). Before code can be written, the calculation needs parameters,
-Daisy's one-debate periods need an answer for idle time, and a new season
-needs a starting point.
+The rating foundation includes Glicko-2 calculation, season operations and
+ledger/standing persistence. Attendance forfeits call it; judged ranked
+Round completion still needs integration (ISSUE-435), and ranked screens
+still use sample data. The owner selected three ladders on 2026-10-28:
+Freestyle, Policy and Value (ADR 0090). This record owns the calculation;
+ADR 0090 owns the selected pool direction and the preparation boundary.
 
 ## Decision
 
@@ -55,8 +57,8 @@ lost. A debate is posted at its completion. If either debater was already
 posted at or after that instant, it is posted one millisecond after the
 latest such posting instead. This happens when another debate sharing a
 debater was rated first, or when a retry was delayed. So `before(n) =
-after(n - 1)` holds in `occurred_at` order for every debater, and the
-result never depends on which transaction committed first.
+after(n - 1)` holds in `occurred_at` order for every debater, and late results are retained. Sequential Glicko updates still depend on
+posting order; this rule does not claim order-independent results.
 
 ### 3. Idle time widens the deviation
 
@@ -77,7 +79,12 @@ or any value that is not finite, is refused with the invariant
 refused with `debate.rating.volatility-converges`. Both are registered in
 `spec/invariants.json`.
 
-### 5. One ladder, one key
+### 5. Rating pool identity
+
+[ADR 0090](0090-three-rating-ladders.md) supersedes this section’s original
+single Ranked pool with Freestyle, Policy and Value. Its detailed design
+must settle the key without creating extra pools per revision or template.
+The following describes the existing foundation, not the selected target.
 
 `ratings` and `rating_changes` carry `ladder` (`ranked`), which joins the key
 `(actor, format, season, ladder)`. The ladder vocabulary lives in
@@ -114,14 +121,20 @@ bands.
   `ratingEligibility` and `planRating` are injected as its decision, because
   the adapter sits below the domain and never imports it. The
   `apps/web` ratings feature (`rateCompletedDebate`) composes the two.
-  Nothing calls it yet. Wiring it into the debate completion path is task
-  RATE-2.
-- The leaderboard and profile read real standings on the Ranked ladder. They
-  are empty until a ranked-eligible format and an
-  active season exist; opening the first production season is a human-only
-  task.
+  Attendance forfeits call the rating path; judged Round completion
+  remains unfinished (ISSUE-435). Detailed integration tasks follow ADR 0090.
+- Standing/history read operations exist, but ranked screens still use
+  sample data. ADR 0090 requires all displays to consume the same rating
+  feature. Opening the first production season remains human-only.
 
-## Open decisions (made on the owner's behalf)
+## Calibration decisions
+
+DEC-110 confirms items 1 and 5. DEC-111 retains the unresolved season and
+provisional choices in items 2 and 3. Eligible forfeits retain the outcome
+policy in section 2; this record does not newly approve ranked admission.
+The original parameter list is preserved below.
+
+### Original decisions made on the owner's behalf
 
 1. **τ 0.5 and the one-day inactivity period.** τ is Glickman's example
    value, inside his recommended 0.3–1.2.
@@ -141,3 +154,10 @@ removed: `ratingLadders` is `['ranked']`, and the forward migration
 `20261025223110_full_length_only` deletes any Quick-ladder ratings and ledger
 rows (DEC-240) before the ladder CHECKs tighten. `ladder` stays in the rating
 key as the pool a rating belongs to.
+
+## Amendment (2026-10-28, DEC-265)
+
+[ADR 0090](0090-three-rating-ladders.md) selects Freestyle, Policy and Value
+for current delivery and retains one frozen ladder authority. The previous
+Quick removal remains; the generic Ranked pool is superseded. This is a
+direction change, not proof that the runtime or schema has been updated.
