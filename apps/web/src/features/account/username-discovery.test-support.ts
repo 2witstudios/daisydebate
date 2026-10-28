@@ -25,6 +25,7 @@ export async function openRecordedMember<Routes>(
   options: {
     readonly database?: Partial<App['database']>;
     readonly messagingPolicy?: App['messagingPolicy'];
+    readonly contactsPolicy?: App['contactsPolicy'];
   } = {},
 ) {
   const { auth, cookie } = await signedMessagingAuth(actorId, email);
@@ -44,6 +45,7 @@ export async function openRecordedMember<Routes>(
       },
     },
     database: { ...app.database, ...options.database },
+    contactsPolicy: options.contactsPolicy ?? app.contactsPolicy,
   });
   const origin = auth.config.PUBLIC_APP_URL;
   return {

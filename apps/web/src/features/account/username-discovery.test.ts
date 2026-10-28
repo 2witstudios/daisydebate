@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { discoverActor, usernameDiscoveryWindows } from './username-discovery';
+import {
+  discoverActor,
+  usernameDiscoveryBatch,
+  usernameDiscoveryWindows,
+} from './username-discovery';
 
 setupRitewayBun();
 
@@ -57,5 +61,22 @@ test('a refused discovery spend never reaches the directory', async () => {
     should: 'refuse as rate limited before any lookup',
     actual: [code, looked],
     expected: ['RATE_LIMIT', []],
+  });
+});
+
+test('discovery’s windows are DEC-251’s, fixed', () => {
+  assert({
+    given: 'the shipped username discovery windows',
+    should:
+      'be exactly 10 in 10 s, 30 a minute and 600 an hour, and a username batch at most the smallest window',
+    actual: [usernameDiscoveryWindows, usernameDiscoveryBatch],
+    expected: [
+      [
+        { max: 10, windowSeconds: 10 },
+        { max: 30, windowSeconds: 60 },
+        { max: 600, windowSeconds: 3_600 },
+      ],
+      10,
+    ],
   });
 });

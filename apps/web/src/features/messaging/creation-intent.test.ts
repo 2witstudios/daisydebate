@@ -128,3 +128,36 @@ test('username intent refuses invalid input and identity before lookup and leave
     code: 'AUTHORIZATION',
   });
 });
+
+test('a group by usernames larger than one discovery window is refused before any lookup', async () => {
+  const calls: string[] = [];
+  await assertRejects({
+    given: 'eleven usernames, one more than discovery’s ten-second window',
+    should: 'refuse as invalid without spending discovery on any name',
+    actual: () =>
+      resolveMessagingCreationIntent(
+        'private_group',
+        {
+          version: 1,
+          requestId,
+          title: 'Group',
+          invitedUsernames: Array.from({ length: 11 }, (_, i) => `peer${i}x`),
+        },
+        principal,
+        {
+          bounds: { ...bounds, batchActors: 50 },
+          discover: async () => {
+            calls.push('discover');
+            return 'b'.repeat(24);
+          },
+        },
+      ),
+    code: 'VALIDATION',
+  });
+  assert({
+    given: 'the refused batch',
+    should: 'have looked up no name',
+    actual: calls,
+    expected: [],
+  });
+});

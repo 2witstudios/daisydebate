@@ -5,6 +5,9 @@ import {
   openRecordedMember,
 } from '../account/username-discovery.test-support';
 import { dec251ContactsPolicy } from './request-policy';
+
+/** Block windows that differ from discovery's, so neither can stand in for the other. */
+const blocks = [{ max: 1, windowSeconds: 10 }];
 import { composeContactRoutes } from './composition';
 
 setupRitewayBun();
@@ -33,6 +36,7 @@ test('a block by username spends discovery under its own windows, then Contactsâ
       `contacts-${String(known)}@daisy.example.com`,
       composeContactRoutes,
       {
+        contactsPolicy: { ...dec251ContactsPolicy, blocks },
         database: {
           contactStore: () => store,
           lookupHumanActorByUsername: async () => (known ? them : null),
@@ -75,7 +79,7 @@ test('a block by username spends discovery under its own windows, then Contactsâ
         200,
         [
           ...discoverySpends(me),
-          ...dec251ContactsPolicy.blocks.map((rule) => [
+          ...blocks.map((rule) => [
             `contacts:block:${me}:${rule.windowSeconds}`,
             rule,
           ]),

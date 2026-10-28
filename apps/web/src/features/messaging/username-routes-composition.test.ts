@@ -78,3 +78,41 @@ test('Messaging’s username routes resolve every name through discovery, once p
     await member.close();
   }
 });
+
+test('a username invite larger than one discovery window is refused before any spend', async () => {
+  const base = isolatedMessagingPolicy();
+  const policy = isolatedMessagingPolicy({
+    social: {
+      ...base.social,
+      bounds: { ...base.social.bounds, batchActors: 50 },
+    },
+  });
+  const member = await openRecordedMember(
+    me,
+    'messaging-batch@daisy.example.com',
+    composeMessagingRoutes,
+    {
+      messagingPolicy: policy,
+      database: { lookupHumanActorByUsername: async () => 'b'.repeat(24) },
+    },
+  );
+  try {
+    const invited = await member.routes.inviteGroup(
+      member.post(`/api/messaging/channels/${channelId}/invitations`, {
+        version: 1,
+        requestId,
+        channelId,
+        invitedUsernames: Array.from({ length: 11 }, (_, i) => `peer${i}x`),
+      }),
+    );
+    assert({
+      given: 'eleven usernames under a fifty-name batch bound',
+      should:
+        'refuse as invalid with no limiter spend, so no discovery is burned',
+      actual: [invited.status, member.spent],
+      expected: [400, []],
+    });
+  } finally {
+    await member.close();
+  }
+});

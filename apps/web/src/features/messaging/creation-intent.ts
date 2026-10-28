@@ -6,7 +6,10 @@ import {
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
-import type { DiscoverActor } from '../account/username-discovery';
+import {
+  usernameDiscoveryBatch,
+  type DiscoverActor,
+} from '../account/username-discovery';
 
 /** Username discovery produces proposed IDs only; the existing transaction still authorizes creation. */
 export async function resolveMessagingCreationIntent(
@@ -28,6 +31,8 @@ export async function resolveMessagingCreationIntent(
     'recipientUsername' in command
       ? [command.recipientUsername]
       : command.invitedUsernames;
+  // A batch discovery could never fit is refused before spending any of it.
+  if (names.length > usernameDiscoveryBatch) throw createAppError('VALIDATION');
   const actors: string[] = [];
   for (const name of names) {
     const found = await dependencies.discover(actorId, name);

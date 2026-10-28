@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import { appDiscoverActor } from '../account/username-discovery';
+import {
+  appDiscoverActor,
+  usernameDiscoveryBatch,
+} from '../account/username-discovery';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
@@ -21,6 +24,9 @@ export function composeMessagingGroupIssuanceRoute(app: App) {
         input,
       );
 
+      // A batch discovery could never fit is refused before spending any of it.
+      if (intent.invitedUsernames.length > usernameDiscoveryBatch)
+        throw createAppError('VALIDATION');
       await limit(actor.actorId);
       const discover = appDiscoverActor(app);
       const invitedActorIds: string[] = [];

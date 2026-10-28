@@ -17,6 +17,14 @@ export const usernameDiscoveryWindows: readonly RateRule[] = Object.freeze([
   { max: 600, windowSeconds: 3_600 },
 ]);
 
+/**
+ * The most usernames one request may resolve: the smallest window's count,
+ * so a batch that discovery could never fit is refused before any spend.
+ */
+export const usernameDiscoveryBatch = Math.min(
+  ...usernameDiscoveryWindows.map((rule) => rule.max),
+);
+
 /** Resolves one username for a member, or null when no member holds it. */
 export type DiscoverActor = (
   actorId: string,

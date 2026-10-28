@@ -36,7 +36,7 @@ fence (accounts, then the pair, then a channel).
    Every username lookup (a DM or group request, a block, a friendship or a
    challenge) first spends the member's one `username-discovery:<actor>`
    budget, which owns its own windows (`usernameDiscoveryWindows`), besides
-   the feature's own command budget, so a feature never adds a probe budget. Its windows are DEC-251's and are not deployment-tunable: `MESSAGING_POLICY` and `CONTACTS_POLICY` tighten only their own command budgets. Every caller reaches the directory through one port, `discoverActor`, which spends once per name, so a batch of names spends once each.
+   the feature's own command budget, so a feature never adds a probe budget. Its windows are DEC-251's and are not deployment-tunable: `MESSAGING_POLICY` and `CONTACTS_POLICY` tighten only their own command budgets. Every caller reaches the directory through one port, `discoverActor`, which spends once per name, so a batch of names spends once each. A username request may name at most `usernameDiscoveryBatch` members (the smallest window's count, 10), and a larger batch is refused before any spend; the actor-ID routes keep their own batch bound.
    Presence owns the member's own setting: `GET` and
    `POST /api/presence` (`social.presence.read` and
    `social.presence.update` on the `presence_setting` resource), and the
