@@ -1,5 +1,6 @@
 import { connect, type AddressInfo } from 'node:net';
 import type { Logger } from '@daisy/logger';
+import { createRequestNetwork } from './request-network';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { startProductionServer } from './listen-first';
 
@@ -51,6 +52,7 @@ function startProduction({ refusalPending = false } = {}) {
         },
       }),
       isDraining: () => false,
+      requestNetwork: createRequestNetwork(),
       logger,
       clock: steppedClock([
         '2026-09-29T00:00:00.000Z',

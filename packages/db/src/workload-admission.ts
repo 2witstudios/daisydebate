@@ -87,14 +87,6 @@ export const WORKLOAD_PROFILES = {
       relay: lane(1, 4, 1000),
     },
   },
-  /** One-shot operator scripts: every lane, one connection each. */
-  script: {
-    name: 'script',
-    dedicated: 1,
-    lanes: Object.fromEntries(
-      WORKLOAD_LANES.map((name) => [name, lane(1, 64, 5000)]),
-    ),
-  },
 } as const satisfies Record<string, WorkloadProfile>;
 
 /** Every connection one process of a profile can hold, dedicated ones included. */

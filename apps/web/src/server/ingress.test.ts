@@ -33,6 +33,7 @@ const resolvedIdentity = async (
   const seen: Array<string | string[] | undefined> = [];
   const listen = createIngressListener({
     clientIdSubkey: 'ingress-test-subkey',
+    withinClientNetwork: (_client, work) => work(),
     isDraining: () => false,
     trustedProxies,
     handle: async (req) => {
@@ -110,6 +111,7 @@ describe('ingress listener', () => {
     const res = response();
     const listen = createIngressListener({
       clientIdSubkey: 'ingress-test-subkey',
+      withinClientNetwork: (_client, work) => work(),
       isDraining: () => true,
       trustedProxies: [],
       handle: async () => {
@@ -131,6 +133,7 @@ describe('ingress listener', () => {
     const res = response();
     const listen = createIngressListener({
       clientIdSubkey: 'ingress-test-subkey',
+      withinClientNetwork: (_client, work) => work(),
       isDraining: () => false,
       trustedProxies: [],
       handle: () => Promise.reject(new Error('boom')),

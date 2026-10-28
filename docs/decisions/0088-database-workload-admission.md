@@ -28,7 +28,10 @@ needs.
 3. **Counted, aged, fair queues.** Each lane admits up to its connections,
    queues at most `queue` waiters, and refuses a waiter once it is
    `maxWaitMs` old. Waiters are FIFO within a fairness key and round-robin
-   across keys. A waiter that does not fit holds its turn, so a bounded
+   across keys. On web the key is the request's client network (an IPv4
+   /24, an IPv6 /48, never the address): the ingress runs each request
+   inside it, so one network's flood waits its turn behind every other
+   network. Work outside a request shares one key. A waiter that does not fit holds its turn, so a bounded
    writer (two connections: work and watchdog) is never starved. A slot is
    held until the work settles, recovery included.
 4. **One refusal family.** A refusal is a retryable `INFRASTRUCTURE`
@@ -38,7 +41,10 @@ needs.
    `db.capacity.refused`.
 5. **No reachable raw client.** Areas receive a lane-bound Drizzle handle
    (`$client` included) whose every top-level query, transaction and
-   reservation is admitted. LISTEN and close are refused on a lane. Process
+   reservation is admitted. The handle is an allowlist: the tagged query,
+   `unsafe`, `begin`/`transaction` and `reserve` are admitted, `options`
+   is read through for Drizzle, and every other member (LISTEN, NOTIFY,
+   close, distributed transactions, anything Bun adds later) is refused. Process
    lifetime connections (LISTEN subscriptions, the availability election
    session) are a separate `dedicated` allocation in the profile.
 6. **Profiles.** web = competitive 10 (1s wait, the ISSUE-508 wait-out; Room
@@ -50,7 +56,8 @@ needs.
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves
-   (`createRealtimeDatabase`). Subscribes read on `admission`, and delivery
+   (`createRealtimeDatabase`). Subscribes and their outbox catch-up read on
+   `admission`, the outbox drain, health and leases on `control`, and delivery
    re-authorization and revalidation on `renewal`.
 
 ## Consequences
@@ -58,5 +65,6 @@ needs.
 - The fleet budget is the sum of profile connections × replicas, plus admin
   and the migrator, kept below `max_connections`
   ([database operations](../operations/database.md)).
-- Classifying lock and statement timeouts as retryable (ISSUE-597) and
-  measuring competitive p99 under a social flood follow in the same slice.
+- Classifying lock and statement timeouts as retryable is ISSUE-597. The
+  real-PostgreSQL proofs (the connection cap under 4x oversubscription and
+  competitive p99 under a social flood) are MSG-2.2-arch1-admission2.
