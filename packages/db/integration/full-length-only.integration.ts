@@ -231,10 +231,10 @@ test(
             rules_kept: true,
           },
           ladders: [
-            { kind: 'change', ladder: 'ranked' },
-            { kind: 'change', ladder: 'ranked' },
-            { kind: 'rating', ladder: 'ranked' },
-            { kind: 'rating', ladder: 'ranked' },
+            { kind: 'change', ladder: 'freestyle' },
+            { kind: 'change', ladder: 'freestyle' },
+            { kind: 'rating', ladder: 'freestyle' },
+            { kind: 'rating', ladder: 'freestyle' },
           ],
           presets: [
             { version: 1, format_version: 1, current: false },

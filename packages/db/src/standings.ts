@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { debateSides, type RatingLadder } from '@daisy/protocol';
-import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -29,6 +29,7 @@ type StandingRating = {
   readonly accountClosed: boolean;
   readonly rating: number;
   readonly deviation: number;
+  readonly volatility: number;
 };
 
 /** One ledger posting, with the debater's seat and the debate's outcome. */
@@ -38,6 +39,8 @@ type StandingChange = {
   readonly roundId: string;
   readonly ratingBefore: number;
   readonly ratingAfter: number;
+  readonly deviationBefore: number;
+  readonly deviationAfter: number;
   readonly occurredAt: string;
   readonly role: 'affirmative' | 'negative';
   readonly outcome: 'affirmative' | 'negative' | 'draw';
@@ -77,6 +80,19 @@ export const standingsOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  /** Ratings hidden from a member until their current judging assignment is ruled. */
+  async readRatingBlindings(viewerActorId: string): Promise<readonly string[]> {
+    const rows =
+      await database.execute(sql`select distinct opponent.actor_id from round_participants judge
+      join rounds r on r.id=judge.round_id
+      join round_participants opponent on opponent.round_id=r.id and opponent.role in ('affirmative','negative')
+      where judge.actor_id=${viewerActorId} and judge.role='judge' and r.status in ('scheduled','active')
+      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id and b.status='submitted')`);
+    return (rows as unknown as { actor_id: string }[]).map(
+      (row) => row.actor_id,
+    );
+  },
+
   /** The seasons a ladder can show: active and closed, newest start first. */
   listLadderSeasons(): Promise<readonly SeasonRecord[]> {
     return instrumented(eventSink, 'listLadderSeasons', async () =>
@@ -115,7 +131,6 @@ export const standingsOperations = ({
 
   /** One format and ladder's ratings and ledger rows in the given seasons. */
   readStandings(input: {
-    readonly formatId: string;
     readonly ladder: RatingLadder;
     readonly seasonIds: readonly string[];
   }): Promise<StandingsRead> {
@@ -133,13 +148,13 @@ export const standingsOperations = ({
               closedAt: users.deletedAt,
               rating: ratings.rating,
               deviation: ratings.deviation,
+              volatility: ratings.volatility,
             })
             .from(ratings)
             .innerJoin(actors, eq(actors.id, ratings.actorId))
             .leftJoin(users, eq(users.id, actors.userId))
             .where(
               and(
-                eq(ratings.formatId, input.formatId),
                 eq(ratings.ladder, input.ladder),
                 inArray(ratings.seasonId, [...input.seasonIds]),
               ),
@@ -151,6 +166,8 @@ export const standingsOperations = ({
               roundId: ratingChanges.roundId,
               ratingBefore: ratingChanges.ratingBefore,
               ratingAfter: ratingChanges.ratingAfter,
+              deviationBefore: ratingChanges.deviationBefore,
+              deviationAfter: ratingChanges.deviationAfter,
               occurredAt: ratingChanges.occurredAt,
               role: roundParticipants.role,
               outcome: rounds.outcome,
@@ -166,7 +183,6 @@ export const standingsOperations = ({
             )
             .where(
               and(
-                eq(ratingChanges.formatId, input.formatId),
                 eq(ratingChanges.ladder, input.ladder),
                 inArray(ratingChanges.seasonId, [...input.seasonIds]),
                 inArray(roundParticipants.role, [...debateSides]),

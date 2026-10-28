@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { readUnratedAttendanceForfeits } from '../src/attendance-rating';
+import { readUnratedRatingRounds } from '../src/rating-discovery';
 import { withRatings } from './rating-fixtures';
 import { validRules } from './round-fixtures';
 
@@ -14,7 +14,7 @@ test('RT rating discovery requires committed forfeit evidence and survives consu
     const ranked = await seated();
     const casual = await seated({ competitionType: 'casual' });
     const db = drizzle({ client: fixture.sql });
-    const read = () => readUnratedAttendanceForfeits(db, { limit: 100 });
+    const read = () => readUnratedRatingRounds(db, { limit: 100 });
     assert({
       given: 'completed ranked result without RT receipt',
       should: 'exclude unrelated completion',

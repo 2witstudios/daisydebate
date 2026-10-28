@@ -66,6 +66,7 @@ describe('competitive schema child tables', () => {
           indexes: [
             'round_commands_actor_idx',
             'round_commands_round_version_idx',
+            'unique round_commands_finalization_reference',
             'unique round_commands_id_round_unique',
           ],
           uniques: [],
@@ -87,6 +88,7 @@ describe('competitive schema child tables', () => {
             'ballots_freeze_revision_idx',
             'ballots_judge_round_idx',
             'ballots_voided_by_actor_idx',
+            'unique ballots_finalization_reference',
             'unique ballots_id_judge_unique',
             'unique ballots_judge_seat_unique',
           ],

@@ -22,7 +22,8 @@ const daysFrom = (now: string, days: number): string =>
 export const sampleSeasons = (now: string): readonly Season[] => {
   const start = (id: number) => daysFrom(now, -16 - SEASON_DAYS * (4 - id));
   const season = (id: number, status: Season['status']): Season => ({
-    id,
+    id: String(id),
+    name: `Season ${id}`,
     startsAt: start(id),
     endsAt: daysFrom(start(id), SEASON_DAYS),
     status,
@@ -61,10 +62,10 @@ const viewerLines: Readonly<
   3: { rating: 1502, played: 40, wins: 23, change: 52 },
 };
 
-const generated = (season: number): readonly LadderEntry[] =>
+const generated = (season: string): readonly LadderEntry[] =>
   Array.from({ length: FIELD }, (_, i): LadderEntry => {
     const stable = seeded(i * 131 + 7);
-    const varying = seeded(i * 53 + season * 104729);
+    const varying = seeded(i * 53 + Number(season) * 104729);
     const p = (i + 0.5) / FIELD;
     const tail = Math.log((1 - p) / p);
     const provisional = stable() < 0.12;
@@ -103,10 +104,10 @@ const generated = (season: number): readonly LadderEntry[] =>
  * where they have one (none in seasons before their first ranked debate).
  */
 export function sampleEntries(
-  season: number,
+  season: string,
   viewer: string | null,
 ): readonly LadderEntry[] {
-  const line = viewerLines[season];
+  const line = viewerLines[Number(season)];
   const field = generated(season);
   if (viewer === null || line === undefined) return field;
   return [

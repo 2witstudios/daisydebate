@@ -101,22 +101,21 @@ describe('standings reads (RATE-1.4.1)', () => {
           return roundId;
         };
         const inFirst = await rated(
-          { formatId, seasonId: first, ladder: 'ranked' },
+          { formatId, seasonId: first, ladder: 'freestyle' },
           1516,
         );
         const inSecond = await rated(
-          { formatId, seasonId: second, ladder: 'ranked' },
+          { formatId, seasonId: second, ladder: 'freestyle' },
           1520,
         );
-        await rated({ formatId, seasonId: third, ladder: 'ranked' }, 1530);
+        await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
         await rated(
-          { formatId: otherFormat, seasonId: first, ladder: 'ranked' },
+          { formatId: otherFormat, seasonId: first, ladder: 'freestyle' },
           1550,
         );
 
         const read = await database.readStandings({
-          formatId,
-          ladder: 'ranked',
+          ladder: 'freestyle',
           seasonIds: [first, second],
         });
         const [winnerName] = (await fixture.sql.unsafe(

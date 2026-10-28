@@ -1,3 +1,6 @@
+import { processApp } from '../../../../server/process-app';
+import { readMemberStandings } from '../../../../features/ratings/read-member';
+import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
@@ -38,16 +41,28 @@ export default async function ProfileRoute({
   // Round the viewer may list. Either way there is no such page.
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
+  const identity = await requestIdentity();
+  const app = processApp();
+  const standings = await readMemberStandings(app.database, {
+    username: profile.username,
+    now: app.clock.now(),
+    ...(identity.state === 'member' && identity.principal.actorId
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
   return (
-    <ProfilePage
-      profile={profile}
-      paged={query.data.before !== undefined}
-      actions={
-        profile.me || profile.closed
-          ? null
-          : await friendActionsFor(profile.username)
-      }
-    />
+    <>
+      <MemberStandings standings={standings} />
+      <ProfilePage
+        profile={profile}
+        paged={query.data.before !== undefined}
+        actions={
+          profile.me || profile.closed
+            ? null
+            : await friendActionsFor(profile.username)
+        }
+      />
+    </>
   );
 }
 

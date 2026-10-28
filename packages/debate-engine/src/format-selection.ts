@@ -1,3 +1,4 @@
+import { canonicalRatingLadder } from '@daisy/protocol';
 import type {
   FormatDefinition,
   FormatSelectionFacts,
@@ -74,6 +75,7 @@ const oneOnOneSeats = ({ seats }: FormatDefinition) =>
 /** Ranked admission: the current eligible preset of a 1/1/1 format, no picker role needed. */
 const rankedAdmits = (facts: FormatSelectionFacts) =>
   isCurrent(facts) &&
+  canonicalRatingLadder(facts.format.id) !== null &&
   facts.preset.rankedEligible &&
   oneOnOneSeats(facts.definition);
 

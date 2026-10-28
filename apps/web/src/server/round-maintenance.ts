@@ -29,6 +29,12 @@ export function startRoundCompetitiveMaintenance(input: {
       instanceId,
       ids: app.ids,
       evaluate: attendance.evaluate,
+      ratingFailed: (_roundId, error) =>
+        workerFailures(app, input.reporter)(
+          'round.maintenance.failed',
+          'round.maintenance',
+          'Competitive maintenance remains recoverable',
+        )(error, 'rate'),
       startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId:
         readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE)?.roundId ??

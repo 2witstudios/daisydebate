@@ -68,7 +68,7 @@ export function prepareRoundBallotSubmission(
           };
         }),
       );
-      return createRoundRuntime({
+      const projection = createRoundRuntime({
         round: context.round,
         rules: context.round.rules,
         participants: context.round.participants,
@@ -80,6 +80,13 @@ export function prepareRoundBallotSubmission(
         actorId: null,
         now: context.now,
       });
+      return {
+        ...projection,
+        finalization: {
+          freezeRevision: context.frozen.revision,
+          ballotIds: context.ballots.map((b) => b.id),
+        },
+      };
     },
   };
 }

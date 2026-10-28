@@ -18,6 +18,8 @@ const posting = (
   roundId,
   ratingBefore: before,
   ratingAfter: after,
+  deviationBefore: 150,
+  deviationAfter: 100,
   occurredAt,
   role,
   outcome,
@@ -32,6 +34,7 @@ const read: StandingsRead = {
       accountClosed: false,
       rating: 1530,
       deviation: 250,
+      volatility: 0.06,
     },
     {
       seasonId: 's1',
@@ -40,6 +43,7 @@ const read: StandingsRead = {
       accountClosed: true,
       rating: 1470,
       deviation: 250,
+      volatility: 0.06,
     },
     {
       seasonId: 's1',
@@ -48,6 +52,7 @@ const read: StandingsRead = {
       accountClosed: false,
       rating: 1500,
       deviation: 350,
+      volatility: 0.06,
     },
   ],
   changes: [
@@ -105,6 +110,7 @@ describe('summarizeStandings', () => {
           accountClosed: false,
           rating: 1530,
           deviation: 250,
+          volatility: 0.06,
           played: 2,
           wins: 2,
           losses: 0,
@@ -120,6 +126,7 @@ describe('summarizeStandings', () => {
           accountClosed: true,
           rating: 1470,
           deviation: 250,
+          volatility: 0.06,
           played: 2,
           wins: 0,
           losses: 1,
@@ -135,6 +142,7 @@ describe('summarizeStandings', () => {
           accountClosed: false,
           rating: 1500,
           deviation: 350,
+          volatility: 0.06,
           played: 0,
           wins: 0,
           losses: 0,
@@ -157,6 +165,7 @@ describe('summarizeStandings', () => {
           accountClosed: false,
           rating: 1516,
           deviation: 290,
+          volatility: 0.06,
         },
         {
           seasonId: 's0',
@@ -165,6 +174,7 @@ describe('summarizeStandings', () => {
           accountClosed: false,
           rating: 1700,
           deviation: 80,
+          volatility: 0.06,
         },
       ],
       changes: [
@@ -219,6 +229,7 @@ describe('summarizeStandings', () => {
           accountClosed: false,
           rating: 1516,
           deviation: 290,
+          volatility: 0.06,
         },
       ],
       changes: [

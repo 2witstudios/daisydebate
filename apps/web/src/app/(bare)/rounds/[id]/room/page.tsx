@@ -1,3 +1,6 @@
+import { processApp } from '../../../../../server/process-app';
+import { readRoundRatings } from '../../../../../features/ratings/read-round';
+import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
@@ -122,10 +125,19 @@ export default async function RoundRoomPage({
       <MediaDocument />
       <LiveRoundRoom
         attendanceSlot={
-          <RoundNativeAttendance
-            view={result.round}
-            state={await readPersistedAttendance(id)}
-          />
+          <>
+            <RoundRatings
+              view={await readRoundRatings(processApp().database, {
+                round: result.round,
+                now: processApp().clock.now(),
+                viewerActorId: actorId,
+              })}
+            />
+            <RoundNativeAttendance
+              view={result.round}
+              state={await readPersistedAttendance(id)}
+            />
+          </>
         }
         transcript={transcript}
         commandAction={roundCommandAction.bind(null, id)}

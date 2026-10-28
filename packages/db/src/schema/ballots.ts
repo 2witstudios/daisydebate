@@ -62,6 +62,11 @@ export const ballots = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    uniqueIndex('ballots_finalization_reference').on(
+      table.id,
+      table.roundId,
+      table.freezeRevision,
+    ),
     // Direct seat deletion is refused; the owning Round may erase its aggregate.
     foreignKey({
       name: 'ballots_judge_seat_fk',

@@ -13,14 +13,16 @@ import { entry } from './standing.test-support';
 export const NOW = '2026-09-30T12:00:00.000Z';
 
 export const activeSeason: Season = {
-  id: 5,
+  id: '5',
+  name: 'Season 5',
   startsAt: '2026-09-28T00:00:00.000Z',
   endsAt: '2026-10-26T00:00:00.000Z',
   status: 'active',
 };
 
 export const closedSeason: Season = {
-  id: 4,
+  id: '4',
+  name: 'Season 4',
   startsAt: '2026-09-01T00:00:00.000Z',
   endsAt: '2026-09-28T00:00:00.000Z',
   status: 'closed',

@@ -26,7 +26,7 @@ const render = (
     season?: typeof closedSeason;
     judging?: boolean;
     previousChampion?: {
-      season: number;
+      season: string;
       username: string;
       rating: number;
     } | null;
@@ -89,9 +89,9 @@ describe('Leaderboard', () => {
   });
 
   test('a new season', () => {
-    const html = render([entry({ id: 'p', played: 0 })], {
+    const html = render([entry({ id: 'p', played: 0, deviation: 200 })], {
       username: 'p',
-      previousChampion: { season: 4, username: 'ada', rating: 1758 },
+      previousChampion: { season: '4', username: 'ada', rating: 1758 },
     });
     assert({
       given: 'a season with nobody established',

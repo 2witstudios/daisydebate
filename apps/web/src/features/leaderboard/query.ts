@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ratingLadders, idSchema, type RatingLadder } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
 const scopes = ['top', 'around'] as const;
@@ -11,7 +12,8 @@ export type HistoryView = (typeof views)[number];
 
 export type LadderQuery = {
   /** Null is the current season. */
-  readonly season: number | null;
+  readonly season: string | null;
+  readonly ladder: RatingLadder;
   readonly scope: LadderScope;
   readonly q: string;
   readonly status: LadderStatus;
@@ -25,6 +27,7 @@ export type LadderQuery = {
 
 export const defaultQuery: LadderQuery = {
   season: null,
+  ladder: 'freestyle',
   scope: 'top',
   q: '',
   status: 'established',
@@ -45,7 +48,8 @@ const count = z
 // Every field falls back to its default on any bad value, so untrusted
 // parameters can never make parsing throw.
 const querySchema = z.object({
-  season: count.nullable().catch(defaultQuery.season),
+  season: idSchema.nullable().catch(defaultQuery.season),
+  ladder: z.enum(ratingLadders).catch(defaultQuery.ladder),
   scope: z.enum(scopes).catch(defaultQuery.scope),
   q: z
     .string()
@@ -133,7 +137,7 @@ export const everyoneHref = (query: LadderQuery): string =>
   ladderHref({ ...query, status: 'everyone', page: 1 });
 
 /** The ladder of another season with no filters. */
-export const seasonHref = (season: number): string =>
+export const seasonHref = (season: string): string =>
   ladderHref({ ...defaultQuery, season });
 
 /** The chart or the table alternative, at the latest debate. */

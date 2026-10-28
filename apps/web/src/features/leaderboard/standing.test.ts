@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { PROVISIONAL_AFTER, rankEntries } from './standing';
+import { rankEntries } from './standing';
 import { entry } from './standing.test-support';
 
 setupRitewayBun();
@@ -8,7 +8,7 @@ describe('rankEntries', () => {
   test('ranks established debaters only, in rating order', () => {
     const ranked = rankEntries([
       entry({ id: 'a', rating: 1500 }),
-      entry({ id: 'p', rating: 1800, played: PROVISIONAL_AFTER - 1 }),
+      entry({ id: 'p', rating: 1800, deviation: 200 }),
       entry({ id: 'b', rating: 1600 }),
     ]);
     assert({
@@ -38,7 +38,7 @@ describe('rankEntries', () => {
   test('derived fields', () => {
     const [top, prov] = rankEntries([
       entry({ id: 'a', rating: 1720, played: 20, wins: 15 }),
-      entry({ id: 'p', rating: 1400, played: 4, wins: 1 }),
+      entry({ id: 'p', rating: 1400, played: 4, deviation: 200, wins: 1 }),
     ]);
     assert({
       given: 'an established and a provisional entry',

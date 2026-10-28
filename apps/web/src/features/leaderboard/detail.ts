@@ -1,3 +1,4 @@
+import { isProvisional } from '@daisy/debate-engine';
 import {
   chartGeometry,
   lastStep,
@@ -12,7 +13,7 @@ import type { LadderViewer } from './ladder-view';
 import type { HistoryView, LadderQuery } from './query';
 import type { DebaterRead } from './read-leaderboard';
 import { seasonLabel, type Season } from './season';
-import { PROVISIONAL_AFTER, type RankedEntry } from './standing';
+import { type RankedEntry } from './standing';
 
 type SeasonPlayedRow = {
   readonly label: string;
@@ -85,9 +86,7 @@ const headOf = (
 });
 
 const statusNoteFor = (entry: RankedEntry): string =>
-  entry.provisional
-    ? `${entry.played} of ${PROVISIONAL_AFTER} ranked debates`
-    : 'Established';
+  entry.provisional ? 'Provisional' : 'Established';
 
 /** The stats, chart and lists of a debater who played the season. */
 function playerDetail(
@@ -104,14 +103,17 @@ function playerDetail(
     ...head,
     kind: 'player',
     rating: entry.rating,
-    range: `±${2 * entry.deviation}`,
+    range: `±${Math.round(2 * entry.deviation)}`,
     rank: established ? `#${entry.rank}` : 'Unranked',
     record: record(entry),
     peak: peakRating(read.points),
     established,
     statusNote: statusNoteFor(entry),
     view: query.view,
-    chart: chartGeometry(read.points, established ? PROVISIONAL_AFTER : null),
+    chart: chartGeometry(
+      read.points,
+      read.points.find((p) => !isProvisional(p.deviation))?.game ?? null,
+    ),
     chartLabel: `Rating history, ${seasonLabel(season)}. Started at ${read.points[0]?.rating}, now ${entry.rating} after ${entry.played} ranked debates.`,
     step: Math.min(last, query.step ?? last),
     lastStep: last,

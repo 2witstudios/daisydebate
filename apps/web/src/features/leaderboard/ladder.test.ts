@@ -62,7 +62,13 @@ describe('buildLadder pages', () => {
 describe('buildLadder filters', () => {
   const entries = [
     ...field(12),
-    entry({ id: 'prov', username: 'prov', rating: 1800, played: 3 }),
+    entry({
+      id: 'prov',
+      username: 'prov',
+      rating: 1800,
+      played: 3,
+      deviation: 200,
+    }),
     entry({ id: 'eu', username: 'eu', rating: 1000 }),
   ];
 
@@ -142,9 +148,12 @@ describe('buildLadder rows', () => {
   });
 
   test('provisional rows have no movement or rank', () => {
-    const [row] = ladder([entry({ id: 'p', played: 2, weekChange: 5 })], {
-      status: 'everyone',
-    }).rows;
+    const [row] = ladder(
+      [entry({ id: 'p', played: 2, deviation: 200, weekChange: 5 })],
+      {
+        status: 'everyone',
+      },
+    ).rows;
     assert({
       given: 'a provisional debater',
       should: 'show no rank and no movement',
@@ -154,7 +163,7 @@ describe('buildLadder rows', () => {
   });
 
   test('selected row and link', () => {
-    const view = ladder(field(12), { season: 5, debater: 'p005' });
+    const view = ladder(field(12), { season: '5', debater: 'p005' });
     assert({
       given: 'the detail open on one debater',
       should: 'mark that row selected and link rows to their detail',
@@ -205,7 +214,7 @@ describe('judge blinding', () => {
 
 describe('seasons', () => {
   test('a new season with nobody ranked', () => {
-    const view = ladder([entry({ id: 'p', played: 0 })]);
+    const view = ladder([entry({ id: 'p', played: 0, deviation: 200 })]);
     assert({
       given: 'a live season where nobody is established',
       should: 'show the new-season empty state, not a search miss',
@@ -215,7 +224,10 @@ describe('seasons', () => {
   });
 
   test('an early season lists everyone', () => {
-    const view = ladder([...field(3), entry({ id: 'p', played: 2 })]);
+    const view = ladder([
+      ...field(3),
+      entry({ id: 'p', played: 2, deviation: 200 }),
+    ]);
     assert({
       given: 'a live season with three established debaters',
       should: 'default to Everyone with no podium',

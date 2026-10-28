@@ -43,7 +43,7 @@ export type LadderRow = {
 };
 
 export type Champion = {
-  readonly season: number;
+  readonly season: string;
   readonly username: string;
   readonly rating: number;
 };

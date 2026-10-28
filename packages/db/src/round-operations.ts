@@ -53,7 +53,7 @@ export const roundOperations = ({
           presetVersion: input.presetVersion,
           rulesSnapshot: input.rules,
           status: 'scheduled',
-          ladderId: roundLadder(input.competitionType),
+          ladderId: roundLadder(input.competitionType, input.formatId),
         });
       } catch (error) {
         if (isUniqueViolation(error))

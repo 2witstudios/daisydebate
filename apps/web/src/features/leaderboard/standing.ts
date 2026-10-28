@@ -1,3 +1,4 @@
+import { isProvisional } from '@daisy/debate-engine';
 /**
  * A debater's line on one season's ladder: the shape of a `ratings` row with
  * its `rating_changes` ledger already summed (ADR 0029). Provisional status
@@ -20,15 +21,6 @@ export type LadderEntry = {
   readonly seasonChange: number;
 };
 
-/**
- * Ranked debates before a rating is established. A sample display rule, not
- * a stored flag (ADR 0029 item 5): the owner sets the real threshold.
- */
-export const PROVISIONAL_AFTER = 10;
-
-const isProvisional = (entry: LadderEntry): boolean =>
-  entry.played < PROVISIONAL_AFTER;
-
 export type RankedEntry = LadderEntry & {
   /** One-based, established debaters only. */
   readonly rank: number | null;
@@ -49,7 +41,7 @@ export function rankEntries(
 ): readonly RankedEntry[] {
   let rank = 0;
   return [...entries].sort(byStanding).map((entry) => {
-    const provisional = isProvisional(entry);
+    const provisional = isProvisional(entry.deviation);
     if (!provisional) rank += 1;
     return {
       ...entry,

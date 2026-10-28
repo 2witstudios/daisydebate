@@ -16,6 +16,7 @@ const pagedCandidates = (ids: readonly string[]) => ({
 });
 const operations = (ids: readonly string[], probeRoundId: string | null) =>
   createRoundMaintenanceOperations({
+    ratingFailed: () => {},
     store: pagedCandidates(ids) as never,
     instanceId: 'webinstance0000000000001',
     ids: { next: () => 'generatedid0000000000001' },

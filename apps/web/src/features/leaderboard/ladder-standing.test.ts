@@ -59,7 +59,7 @@ describe('Around me', () => {
 
   test('a provisional viewer', () => {
     const view = ladder(
-      [...field(30), { ...me, played: 4 }],
+      [...field(30), { ...me, played: 4, deviation: 200 }],
       { scope: 'around' },
       viewer,
     );

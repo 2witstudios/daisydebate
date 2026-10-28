@@ -5,9 +5,10 @@ import {
   createRoundRuntime,
   decideUnjudgedCompletion,
   freezeJudgingPlan,
+  participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
-import { createAttendanceRatingSweep } from '../attendance/rating';
+import { createRatingSweep } from '../ratings/sweep';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
 /** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
@@ -52,6 +53,10 @@ export const unjudgedCompletion =
     return {
       ruling: decision.ruling,
       noRuling: decision.noRuling,
+      ballotIds: participatingRulings(
+        round.participants.filter((p) => p.role === 'judge').map((p) => p.id),
+        ballots,
+      ).map((b) => b.id),
       projection: createRoundRuntime({
         ...round,
         round,
@@ -73,11 +78,12 @@ export function createRoundMaintenanceOperations(input: {
     | 'readRoundMaintenanceCandidates'
     | 'tickDueRound'
     | 'finalizeDueRoundTranscript'
-    | 'readUnratedAttendanceForfeits'
+    | 'readUnratedRatingRounds'
     | 'rateRound'
     | 'completeUnjudgedRound'
   >;
   readonly instanceId: string;
+  readonly ratingFailed: (roundId: string, error: unknown) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
@@ -99,9 +105,10 @@ export function createRoundMaintenanceOperations(input: {
     () => input.ids.next(),
     input.startHorizonMs,
   );
-  const ratings = createAttendanceRatingSweep({
+  const ratings = createRatingSweep({
     database: input.store,
     ids: input.ids,
+    onFailure: input.ratingFailed,
   });
   let ratingAfterId: string | undefined;
   return {

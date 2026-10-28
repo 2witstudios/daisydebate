@@ -39,6 +39,7 @@ type CompletionFacts = Parameters<
 >[0] & {
   /** The Round's stored ballots and the deadline persisted at its freeze. */
   readonly ballots: readonly {
+    readonly id: string;
     readonly judgeParticipantId: string;
     readonly winner: 'affirmative' | 'negative';
     readonly status: 'submitted' | 'voided';
@@ -57,6 +58,7 @@ type Request = LockedRoundTickInput & {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
     readonly ruling: RoundUnjudgedReceipt['ruling'];
     readonly noRuling: readonly string[];
+    readonly ballotIds: readonly string[];
   };
 };
 async function replay(
@@ -111,6 +113,7 @@ async function readCompletionFacts(
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
   const stored = await tx
     .select({
+      id: ballots.id,
       judgeParticipantId: ballots.judgeParticipantId,
       winner: ballots.winner,
       status: ballots.status,
@@ -206,6 +209,16 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       result: { ...receipt, noRuling: [...receipt.noRuling] },
     },
     receipt.resultingVersion,
+    {
+      before: current.status,
+      projection: {
+        ...projection,
+        finalization: {
+          freezeRevision: freeze.revision,
+          ballotIds: completion.ballotIds,
+        },
+      },
+    },
   );
   await writeSpeakingProjection(tx, {
     roundId: input.roundId,

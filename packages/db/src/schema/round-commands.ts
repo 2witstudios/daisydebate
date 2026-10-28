@@ -46,6 +46,11 @@ export const roundCommands = pgTable(
       table.commandId,
       table.roundId,
     ),
+    uniqueIndex('round_commands_finalization_reference').on(
+      table.commandId,
+      table.roundId,
+      table.resultingVersion,
+    ),
     index('round_commands_round_version_idx').on(
       table.roundId,
       table.resultingVersion,

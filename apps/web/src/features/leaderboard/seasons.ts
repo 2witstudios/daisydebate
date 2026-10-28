@@ -12,13 +12,13 @@ import {
 } from './season';
 
 /** The Seasons page reads one URL parameter: which season to show. */
-export function parseSeasonsQuery(params: SearchParams): number | null {
+export function parseSeasonsQuery(params: SearchParams): string | null {
   const raw = params['season'];
   const value = typeof raw === 'string' ? raw : raw?.[0];
-  return value !== undefined && /^\d{1,6}$/.test(value) ? Number(value) : null;
+  return value !== undefined && /^[a-z0-9]{24}$/.test(value) ? value : null;
 }
 
-export const seasonsHref = (season: number | null): string =>
+export const seasonsHref = (season: string | null): string =>
   season === null
     ? '/leaderboard/seasons'
     : `/leaderboard/seasons?season=${season}`;
@@ -64,7 +64,11 @@ export function buildSeasonsView(data: LadderData, now: string): SeasonsView {
     closed,
     tag: closed ? 'Closed' : 'Current season',
     dates: seasonDates(season),
-    statusLine: closed ? 'Final standings' : `Day ${day} of ${length}`,
+    statusLine: closed
+      ? 'Final standings'
+      : season.endsAt === null
+        ? `Day ${day}`
+        : `Day ${day} of ${length}`,
     percent: closed ? 100 : percent,
     chips: data.seasons.map((item) => ({
       label: `${seasonLabel(item)}${isClosed(item) ? '' : ' · current'}`,

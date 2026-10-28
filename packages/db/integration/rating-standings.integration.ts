@@ -10,9 +10,9 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 describe('rateDebate standings and refusals (RATE-1.3)', () => {
-  test('loads each standing on the debate ladder, carrying an earlier season', async () => {
+  test('refuses unapproved future carry-over without mutation', async () => {
     await withRatings(url, async ({ fixture, rate, seated }) => {
-      const formatId = await fixture.format();
+      const formatId = 'freestyle';
       const veteran = await fixture.actor();
       const earlier = createId();
       await fixture.insert('seasons', {
@@ -26,44 +26,40 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
         'ratings',
         {
           actor_id: veteran,
-          format_id: formatId,
           season_id: earlier,
-          ladder: 'ranked',
+          ladder: 'freestyle',
           rating: 1700,
           deviation: 60,
           volatility: 0.05,
         },
         'actor_id',
       );
-      const { seasonId, roundId, negative } = await seated({
+      const { roundId } = await seated({
         formatId,
         affirmative: veteran,
       });
       const seen: RatingPlanFacts[] = [];
-      await rate(roundId, stub(seen));
-      assert({
-        given: 'a ranked round by a debater rated only in an earlier season',
+      await assertRejects({
+        given:
+          'an earlier-season standing while DEC111 carry-over is unresolved',
         should:
-          'load no current row and the earlier ranked state, and leave the earlier row untouched',
+          'refuse before invoking a plan and preserve the earlier standing unchanged',
+        actual: () => rate(roundId, stub(seen)),
+        code: 'CONFLICT',
+      });
+      assert({
+        given: 'the refused posting',
+        should: 'write no ledger or current projection',
         actual: {
-          ladder: seen[0]?.ladder,
-          season: seen[0]?.seasonId,
-          veteran: seen[0]?.standings[veteran],
-          rival: seen[0]?.standings[negative],
+          seen: seen.length,
+          ledger: (await ledgerOf(fixture, roundId)).length,
           ratings: await ratingsOf(fixture, veteran),
         },
         expected: {
-          ladder: 'ranked',
-          season: seasonId,
-          veteran: {
-            current: null,
-            previous: { rating: 1700, deviation: 60, volatility: 0.05 },
-            lastRatedAt: null,
-          },
-          rival: { current: null, previous: null, lastRatedAt: null },
+          seen: 0,
+          ledger: 0,
           ratings: [
-            { ladder: 'ranked', rating: 1700, deviation: 60, version: 1 },
-            { ladder: 'ranked', rating: 1710, deviation: 59, version: 1 },
+            { ladder: 'freestyle', rating: 1700, deviation: 60, version: 1 },
           ],
         },
       });

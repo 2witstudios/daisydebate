@@ -1,3 +1,4 @@
+import { processApp } from '../../../../server/process-app';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
@@ -17,6 +18,19 @@ export default async function SeasonsRoute({
   searchParams: Promise<SearchParams>;
 }) {
   const now = systemClock.now();
-  const { data } = readLadder(parseSeasonsQuery(await searchParams), now, null);
+  const read = await readLadder(processApp().database, {
+    seasonId: parseSeasonsQuery(await searchParams),
+    ladder: 'freestyle',
+    now,
+    username: null,
+  });
+  if (!read)
+    return (
+      <div className="p-6">
+        <h1>Seasons</h1>
+        <p>No season is active.</p>
+      </div>
+    );
+  const { data } = read;
   return <SeasonsPage view={buildSeasonsView(data, now)} />;
 }

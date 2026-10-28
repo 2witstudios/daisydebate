@@ -59,6 +59,9 @@ async function maintainWith<T>(
     await f.store.renewServiceInstance({ instanceId, role: 'web' });
   const operations = instances.map((instanceId) =>
     createRoundMaintenanceOperations({
+      ratingFailed: (_id, error) => {
+        throw error;
+      },
       startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
       store: f.store,

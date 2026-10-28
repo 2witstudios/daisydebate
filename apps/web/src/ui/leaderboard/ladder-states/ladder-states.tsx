@@ -200,7 +200,7 @@ export type EmptyLadderProps = {
   readonly everyoneHref: string;
   /** The previous season's ladder, for a season with nobody ranked. */
   readonly previousSeasonHref: string | null;
-  readonly previousSeason: number | null;
+  readonly previousSeason: string | null;
 };
 
 /** The ladder's empty body; it never leaves a dead end. */

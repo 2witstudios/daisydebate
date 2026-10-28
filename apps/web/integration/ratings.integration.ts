@@ -40,7 +40,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           'rated',
           [
             {
-              ladder: 'ranked',
+              ladder: 'freestyle',
               rating: expected.negative.after.rating,
               deviation: expected.negative.after.deviation,
               version: 1,
@@ -48,7 +48,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           ],
           [
             {
-              ladder: 'ranked',
+              ladder: 'freestyle',
               rating: expected.affirmative.after.rating,
               deviation: expected.affirmative.after.deviation,
               version: 1,
@@ -85,8 +85,8 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           stateOf((await ratings(first))[0]),
         ],
         expected: [
-          'ranked',
-          ['ranked'],
+          'freestyle',
+          ['freestyle'],
           {
             rating: draw.affirmative.after.rating,
             deviation: draw.affirmative.after.deviation,

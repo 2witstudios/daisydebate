@@ -83,6 +83,7 @@ export async function launchedRoundRows(
     version: row.version,
     status: row.status,
     competitionType: row.competitionType,
+    ladderId: row.ladderId,
     topic: row.resolution,
     visibility: row.visibility,
     hostActorId: row.createdByActorId,

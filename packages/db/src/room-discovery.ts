@@ -60,7 +60,7 @@ const modeMatches = (mode: RoomListQuery['mode']) =>
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((r.rules_snapshot->'seats'->>'affirmative')::int+(r.rules_snapshot->'seats'->>'negative')::int+(r.rules_snapshot->'seats'->>'judge')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
-const hostRating = sql`case when r.competition_type='ranked' then (select round(rt.rating)::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.format_id=r.format_id and rt.ladder='ranked' limit 1) end`;
+const hostRating = sql`case when r.competition_type='ranked' then (select round(rt.rating)::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
 const search = (q: string) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(r.topic),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 /** The driver returns a timestamp, or JSON's string for one, as a canonical ISO instant. */
