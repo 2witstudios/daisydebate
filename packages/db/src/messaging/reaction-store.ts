@@ -1,6 +1,6 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { MessagingReactionPolicy } from '@daisy/protocol';
-import { readMessagingChannel, withMessagingChannel } from './channel-frame';
+import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { channelReactionFrame } from './reaction-frame';
 import type {
   MessagingReactionFence,
@@ -39,7 +39,7 @@ export function createMessagingReactionStore(
     read: (scope, messageId) =>
       frame(readMessagingChannel, scope, (value) => value.read(messageId)),
     change: (scope, command, payloadDigest) =>
-      frame(withMessagingChannel, scope, (value) =>
+      frame(withMessagingContent, scope, (value) =>
         value.change(command, payloadDigest),
       ),
   };

@@ -3,12 +3,30 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { appendStream, openStream, readStream } from './stream';
+import { allocateStream, appendStream, openStream, readStream } from './stream';
 setupRitewayBun();
 const channelId = 'c'.repeat(24);
 const streamRow = (messageSequence: number, changeVersion: number) => [
   { messageSequence, changeVersion },
 ];
+
+test('allocateStream is a pure whole-plan allocation from the locked high-water mark', () => {
+  const current = { messageSequence: 2, changeVersion: 4 };
+  assert({
+    given: 'one message and one reaction-like change after it',
+    should: 'allocate contiguously without changing its input',
+    actual: [allocateStream(current, { messages: 1, changes: 2 }), current],
+    expected: [
+      {
+        messageSequence: 3,
+        changeVersion: 6,
+        sequences: [3],
+        versions: [5, 6],
+      },
+      { messageSequence: 2, changeVersion: 4 },
+    ],
+  });
+});
 
 test('appendStream allocates the whole plan on the locked row and writes the counters once', async () => {
   const { client, queries } = fakeSql([streamRow(3, 5), []]);

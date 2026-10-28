@@ -7,11 +7,72 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { createMessagingStore } from '../src/messaging/store';
+import { sqlStateOf } from './constraint-helpers';
 import { advanceSocialChannelAuthority } from '../src/messaging/social-channel-change';
 import { messagingChannels } from '../src/schema/messaging-channels';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+type Fixture = Awaited<ReturnType<typeof createMessagingTestFixture>>;
+/** One real send through the content frame; `hold` runs inside it, before the commit. */
+const sender =
+  (store: ReturnType<typeof createMessagingStore>, fixture: Fixture) =>
+  (
+    channelId: string,
+    author: 'actor' | 'other',
+    hold: () => Promise<void> = async () => {},
+  ) => {
+    const scope =
+      author === 'actor'
+        ? { channelId, actorId: fixture.actorId, userId: fixture.userId }
+        : {
+            channelId,
+            actorId: fixture.otherActorId,
+            userId: fixture.otherUserId,
+          };
+    return store.withChannel(scope, async (frame) => {
+      const command = {
+        version: 1 as const,
+        channelId,
+        requestId: createId(),
+        text: 'Concurrent',
+      };
+      const { counters } = await frame.readSendState(command);
+      await hold();
+      const messageId = createId();
+      const changeVersion = counters.changeVersion + 1;
+      await frame.commitSend({
+        kind: 'create',
+        message: {
+          id: messageId,
+          channelId,
+          authorActorId: scope.actorId,
+          sequence: counters.messageSequence + 1,
+          changeVersion,
+          text: command.text,
+          createdAt: fixture.now,
+          editedAt: null,
+          removedAt: null,
+        },
+        receipt: { messageId, payloadDigest: 'd'.repeat(64) },
+      });
+    });
+  };
+const insertGroup = async (client: SQL, fixture: Fixture, groupId: string) => {
+  await client.unsafe(
+    "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
+    [groupId],
+  );
+  await client.unsafe(
+    'insert into messaging_channel_streams(channel_id) values($1)',
+    [groupId],
+  );
+  await client.unsafe(
+    "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",
+    [groupId, fixture.actorId, fixture.otherActorId, fixture.now],
+  );
+};
 
 const streamOf = async (client: SQL, channelId: string) =>
   (
@@ -70,55 +131,11 @@ test('two channels sharing their members both progress under concurrent sends (M
   const groupId = createId();
   const sends = 6;
   try {
-    await client.unsafe(
-      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'private_group','social.private_group',1,'active')",
-      [groupId],
+    await insertGroup(client, fixture, groupId);
+    const send = sender(
+      createMessagingStore({ database, authorize: async () => {} }),
+      fixture,
     );
-    await client.unsafe(
-      'insert into messaging_channel_streams(channel_id) values($1)',
-      [groupId],
-    );
-    await client.unsafe(
-      "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",
-      [groupId, fixture.actorId, fixture.otherActorId, fixture.now],
-    );
-    const store = createMessagingStore({ database, authorize: async () => {} });
-    const send = (channelId: string, author: 'actor' | 'other') => {
-      const scope =
-        author === 'actor'
-          ? { channelId, actorId: fixture.actorId, userId: fixture.userId }
-          : {
-              channelId,
-              actorId: fixture.otherActorId,
-              userId: fixture.otherUserId,
-            };
-      return store.withChannel(scope, async (frame) => {
-        const command = {
-          version: 1 as const,
-          channelId,
-          requestId: createId(),
-          text: 'Concurrent',
-        };
-        const { counters } = await frame.readSendState(command);
-        const messageId = createId();
-        const changeVersion = counters.changeVersion + 1;
-        await frame.commitSend({
-          kind: 'create',
-          message: {
-            id: messageId,
-            channelId,
-            authorActorId: scope.actorId,
-            sequence: counters.messageSequence + 1,
-            changeVersion,
-            text: command.text,
-            createdAt: fixture.now,
-            editedAt: null,
-            removedAt: null,
-          },
-          receipt: { messageId, payloadDigest: 'd'.repeat(64) },
-        });
-      });
-    };
     await Promise.all(
       Array.from({ length: sends }, (_, index) => [
         send(fixture.channelId, index % 2 === 0 ? 'actor' : 'other'),
@@ -159,6 +176,109 @@ test('two channels sharing their members both progress under concurrent sends (M
         },
         dmSequences: all,
         groupSequences: all,
+      },
+    });
+  } finally {
+    await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
+      groupId,
+    ]);
+    await client.unsafe('delete from messaging_channels where id=$1', [
+      groupId,
+    ]);
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
+/** 'done' when the work finishes while the holder still holds; 'blocked' otherwise. */
+const settlesWhileHeld = async (work: Promise<unknown>) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work.then(() => 'done'),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve('blocked'), 5000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+/** A probe transaction with a short lock_timeout: 'accepted' or the SQLSTATE that refused it. */
+const probe = (url: string, attempt: (sql: SQL) => Promise<unknown>) => {
+  const other = new SQL(url);
+  return sqlStateOf(() =>
+    other.begin(async (tx) => {
+      await tx`set local lock_timeout = '300ms'`;
+      await attempt(tx);
+    }),
+  ).finally(() => other.close());
+};
+
+test('a held append blocks neither peers nor readers on the authority fence, while a revocation still waits (MSG-2.2-arch1)', async () => {
+  const client = new SQL(databaseUrl);
+  const database = drizzle({ client });
+  const fixture = await createMessagingTestFixture(client);
+  const groupId = createId();
+  const { channelId, low, high } = fixture;
+  try {
+    await insertGroup(client, fixture, groupId);
+    const store = createMessagingStore({ database, authorize: async () => {} });
+    const send = sender(store, fixture);
+    const held = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const holding = send(channelId, 'actor', async () => {
+      held.resolve();
+      await release.promise;
+    });
+    await held.promise;
+    const actors = [fixture.actorId, fixture.otherActorId].sort();
+    const whileHeld = {
+      peerChannel: await settlesWhileHeld(send(groupId, 'other')),
+      reader: await settlesWhileHeld(
+        store.readChannel(
+          {
+            channelId,
+            actorId: fixture.otherActorId,
+            userId: fixture.otherUserId,
+          },
+          (frame) => frame.history({ limit: 10 }),
+        ),
+      ),
+      appendFences: await probe(databaseUrl, async (sql) => {
+        await sql`select * from public.daisy_authorization_read_accounts_v2(array[${actors[0]!}, ${actors[1]!}]::text[])`;
+        await sql`select public.daisy_messaging_channel_read_fence(${channelId}, ${low}, ${high})`;
+      }),
+      appendStream: await probe(
+        databaseUrl,
+        (sql) =>
+          sql`select 1 from messaging_channel_streams where channel_id=${channelId} for update`,
+      ),
+      revocation: await probe(
+        databaseUrl,
+        (sql) =>
+          sql`select public.daisy_messaging_channel_fence(${channelId}, ${low}, ${high})`,
+      ),
+    };
+    const second = send(channelId, 'other');
+    release.resolve();
+    await Promise.all([holding, second]);
+    assert({
+      given:
+        'a content transaction on a DM held open after its fences and stream lock',
+      should:
+        'let a same-member group send and a DM reader finish, admit a second append through the shared fences but order it on the stream row, and make a revocation wait',
+      actual: {
+        ...whileHeld,
+        dm: await streamOf(client, channelId),
+      },
+      expected: {
+        peerChannel: 'done',
+        reader: 'done',
+        appendFences: 'accepted',
+        appendStream: '55P03',
+        revocation: '55P03',
+        dm: { sequence: '2', version: '2', revision: 1, bells: 0 },
       },
     });
   } finally {
