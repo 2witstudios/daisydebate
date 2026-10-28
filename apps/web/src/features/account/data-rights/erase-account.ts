@@ -64,11 +64,10 @@ export function createEraseAccountHandler({
         dataRightsPolicy.erase,
       );
       const body = await readBoundedBody(request, MAX_ERASE_FORM_BYTES);
-      // Zero trust: the checkbox is the request, and only its one value asks.
-      if (
-        body === null ||
-        new URLSearchParams(body.toString('utf8')).get('confirm') !== 'on'
-      )
+      // Zero trust: the checkbox is the request, and only its one value asks;
+      // anything larger than an erase form is not one.
+      if (body === null) return back('refused');
+      if (new URLSearchParams(body.toString('utf8')).get('confirm') !== 'on')
         return back('confirm');
       await eraseSubject(
         {
