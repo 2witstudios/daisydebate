@@ -11,13 +11,39 @@
  * the AUTH-7.8 handoff) and needs a signed-in probe only if the owner asks
  * for one.
  *
- *   bun scripts/staging-security-probe.ts [--url https://daisy-debate-staging.fly.dev]
+ *   bun scripts/staging-security-probe.ts [--url https://beta.daisydebate.com]
+ *                                      [--app daisy-debate-staging]
+ *
+ * The application name is never derived from the URL: a custom origin's
+ * hostname is not a Fly application name. `--url` names the public origin
+ * to probe; `--app` names the Fly app whose logs the trusted-IP and
+ * secret-leak checks read.
  *
  * Exits non-zero and prints every failing check if any probe fails; prints
  * NOT RUN with a reason for a check this script cannot perform from outside
  * Fly's network (the trusted-IP correlation needs `fly logs`, which needs an
  * authenticated flyctl session).
  */
+const DEFAULT_PROBE_URL = 'https://beta.daisydebate.com';
+const STAGING_APP = 'daisy-debate-staging';
+
+export type ProbeArgs = { readonly url: string; readonly app: string };
+
+/** Explicit targets only: `--url` and `--app`, each defaulting to staging. */
+export function parseProbeArgs(argv: readonly string[]): ProbeArgs {
+  const value = (flag: string): string => {
+    const index = argv.indexOf(flag);
+    if (index === -1) return '';
+    const next = argv[index + 1];
+    if (!next || next.startsWith('--'))
+      throw new Error(`usage: ${flag} needs a value`);
+    return next;
+  };
+  return {
+    url: value('--url') || DEFAULT_PROBE_URL,
+    app: value('--app') || STAGING_APP,
+  };
+}
 export type ProbeResponse = {
   readonly status: number;
   readonly headers: ReadonlyMap<string, string>;
@@ -325,16 +351,7 @@ function report(results: ReadonlyMap<string, CheckResult>): boolean {
 }
 
 async function main(): Promise<void> {
-  const flagIndex = process.argv.indexOf('--url');
-  const url =
-    flagIndex === -1
-      ? 'https://daisy-debate-staging.fly.dev'
-      : process.argv[flagIndex + 1];
-  if (!url)
-    throw new Error(
-      'usage: bun scripts/staging-security-probe.ts [--url https://...]',
-    );
-  const app = new URL(url).hostname.replace(/\.fly\.dev$/, '');
+  const { url, app } = parseProbeArgs(process.argv.slice(2));
   const failed = report(await runChecks(url, app));
   if (failed) process.exit(1);
 }

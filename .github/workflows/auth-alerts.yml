@@ -51,5 +51,5 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: >-
           bun --no-install scripts/auth-alert-probe.ts
-          --origin https://daisy-debate-staging.fly.dev
+          --origin https://beta.daisydebate.com
           --run-url "$RUN_URL"

@@ -6,6 +6,7 @@ import {
   httpsRedirectIssues,
   noSharedCacheIssues,
   originEnforcementIssues,
+  parseProbeArgs,
   secretLeakIssues,
   type ProbeResponse,
 } from './staging-security-probe';
@@ -252,6 +253,60 @@ describe('secretLeakIssues', () => {
         'Invalid server configuration: MIGRATION_DATABASE_URL',
       ]),
       expected: ['1 log line(s) carry a secret-bearing pattern'],
+    });
+  });
+});
+
+describe('parseProbeArgs', () => {
+  test('defaults to the public origin and the explicit staging app', () => {
+    assert({
+      given: 'no flags',
+      should: 'probe the public origin of the staging app',
+      actual: parseProbeArgs([]),
+      expected: {
+        url: 'https://beta.daisydebate.com',
+        app: 'daisy-debate-staging',
+      },
+    });
+  });
+
+  test('never derives the app name from the URL hostname', () => {
+    assert({
+      given: 'a --url whose hostname is not a Fly application name',
+      should: 'keep the explicit staging app for `fly logs`',
+      actual: parseProbeArgs(['--url', 'https://anything.example']),
+      expected: {
+        url: 'https://anything.example',
+        app: 'daisy-debate-staging',
+      },
+    });
+  });
+
+  test('--app overrides the application name', () => {
+    assert({
+      given: '--app with another Fly application',
+      should: "read that application's logs",
+      actual: parseProbeArgs(['--app', 'other-app']),
+      expected: {
+        url: 'https://beta.daisydebate.com',
+        app: 'other-app',
+      },
+    });
+  });
+
+  test('a flag without a value is refused', () => {
+    assert({
+      given: '--app as the last argument with no value',
+      should: 'throw a usage error',
+      actual: (() => {
+        try {
+          parseProbeArgs(['--app']);
+          return 'accepted';
+        } catch {
+          return 'refused';
+        }
+      })(),
+      expected: 'refused',
     });
   });
 });
