@@ -72,7 +72,6 @@ jobs:
           export DOC_MERGED_BY="$(jq -r '.merged_by.login // empty' <<<"$pr")"
           export DOC_BRANCH="$(jq -r .head.ref <<<"$pr")"
           export DOC_BODY="$(jq -r '.body // ""' <<<"$pr")"
-          DOC_CHANGED_FILES="$(git diff --name-only \
-            "$(jq -r .base.sha <<<"$pr")" "$DOC_COMMIT" | paste -sd, -)"
+          DOC_CHANGED_FILES="$(bun scripts/docs-merge-files.ts "$DOC_COMMIT")"
           export DOC_CHANGED_FILES
           bun scripts/dispatch-docs.ts
