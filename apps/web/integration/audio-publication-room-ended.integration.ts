@@ -36,8 +36,7 @@ async function publishing() {
 test('a native publication whose room the server deleted still closes (ISSUE-789)', async () => {
   const { media, room, publication } = await publishing();
   await media.deleteRoom(room);
-  for (let waited = 0; publication.usable() && waited < 5000; waited += 20)
-    await Bun.sleep(20);
+  // No wait for the drop to arrive: close races it, as a claim's stop does.
   assert({
     given: 'Round cleanup deleting the room under a live bot publication',
     should: 'close without a refusal and report the samples it sent',

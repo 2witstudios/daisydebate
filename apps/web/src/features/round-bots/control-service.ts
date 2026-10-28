@@ -43,8 +43,7 @@ export function startBotControlService<C extends Claim>(input: {
 }) {
   const owned = new Map<string, Owned<C>>();
   let stopped = false,
-    discovering: Promise<void> | null = null,
-    pulsing: Promise<void> | null = null;
+    discovering: Promise<void> | null = null;
   /**
    * Lost only on a definite refusal of the lease. A check that failed (pool
    * capacity, a reset) proves nothing, so the seat stays owned; dropping it
@@ -64,11 +63,15 @@ export function startBotControlService<C extends Claim>(input: {
       );
     }
   };
+  /** Drops a seat only while it is still this entry, never a claim that replaced it. */
+  const release = (entry: Owned<C>) => {
+    const seat = entry.claim.scope.roundParticipantId;
+    if (owned.get(seat) === entry) owned.delete(seat);
+  };
   /**
-   * Ends a seat's speaking work. A stop that fails (a native publication
-   * whose room is already gone) is reported, never thrown: it must not keep
-   * a lease from being released or halt every other seat's heartbeat
-   * (ISSUE-789).
+   * Ends a seat's speaking work once it is out of `owned`. A stop that fails
+   * (a native publication whose room is already gone) is reported, never
+   * thrown, so it cannot keep a lease from being released (ISSUE-789).
    */
   const stopSeat = async (entry: Owned<C>) => {
     try {
@@ -77,7 +80,6 @@ export function startBotControlService<C extends Claim>(input: {
       input.failed(error, 'stop');
     }
   };
-  /** Settles once the pulse is done; it never rejects. */
   const pulse = (entry: Owned<C>): Promise<void> => {
     if (entry.pending) return entry.pending;
     entry.pending = (async () => {
@@ -85,7 +87,7 @@ export function startBotControlService<C extends Claim>(input: {
         await entry.control.pulse();
       } catch (error) {
         if (await authorityLost(entry)) {
-          owned.delete(entry.claim.scope.roundParticipantId);
+          release(entry);
           await stopSeat(entry);
           // Authority ended (Round completed or claim rotated): a release, not a fault.
           return;
@@ -102,9 +104,10 @@ export function startBotControlService<C extends Claim>(input: {
     if (old?.claim.scope.segmentId === target.segmentId) return;
     if (old) {
       await old.pending;
+      // Out of `owned` first, so no heartbeat pulses it while it stops.
+      release(old);
       await stopSeat(old);
       await input.store.revokeRoundBotWorker(old.claim.scope, old.claim.token);
-      owned.delete(target.roundParticipantId);
     }
     if (stopped || owned.size >= input.limits.maxControllers) return;
     const claim = await input.store.claimRoundBotWorker(target);
@@ -143,15 +146,14 @@ export function startBotControlService<C extends Claim>(input: {
     })();
     return discovering;
   };
-  /** One heartbeat in flight; it always clears, so the next tick pulses again. */
-  const heartbeat = (): Promise<void> => {
-    if (stopped || pulsing) return pulsing ?? Promise.resolve();
-    pulsing = Promise.all([...owned.values()].map(pulse))
-      .then(() => undefined)
-      .finally(() => {
-        pulsing = null;
-      });
-    return pulsing;
+  /**
+   * Pulses every owned seat on its own: `pulse` already keeps one in flight
+   * per seat, so a seat whose pulse or stop fails or hangs never holds
+   * another seat's renewal (ISSUE-789). It never rejects.
+   */
+  const heartbeat = async (): Promise<void> => {
+    if (stopped) return;
+    await Promise.allSettled([...owned.values()].map(pulse));
   };
   const scanTimer = input.timers.setInterval(discover, input.limits.scanMs);
   const pulseTimer = input.timers.setInterval(heartbeat, input.limits.renewMs);
@@ -162,7 +164,7 @@ export function startBotControlService<C extends Claim>(input: {
       stopped = true;
       input.timers.clearInterval(scanTimer);
       input.timers.clearInterval(pulseTimer);
-      await Promise.allSettled([discovering, pulsing]);
+      await Promise.allSettled([discovering]);
       await Promise.allSettled(
         [...owned.values()].map(async (entry) => {
           await entry.pending;

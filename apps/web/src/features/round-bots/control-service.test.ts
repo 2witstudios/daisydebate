@@ -2,23 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
+import { ownedClaim } from './control-service.test-support';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
-const ownedClaim = (target: {
-  readonly roundId: string;
-  readonly roundParticipantId: string;
-  readonly segmentId: string;
-}) => ({
-  scope: {
-    ...target,
-    agentRunId: 'run',
-    serviceId: 'agent-run:run',
-    publicationEpoch: 1,
-  },
-  token: 'memory-only',
-  leaseExpiresAt: '2026-10-22T00:00:30Z',
-});
 test('idle control discovery and receipt pulses have no provider or media prerequisite', async () => {
   const { tasks: timers, timers: worker } = manualTimers();
   let pulses = 0,

@@ -76,14 +76,12 @@ export async function createAudioPublication(input: {
   const track = LocalAudioTrack.createAudioTrack(input.trackName, source);
   let closing = false;
   let failed = false;
-  let dropped = false;
   let samples = 0;
   let pending: Promise<SourceProgress> | undefined;
   let shutdown: Promise<{ readonly consumedSamples: number }> | undefined;
   // A dropped connection ends the publication: no later frame reaches anyone.
   room.on(RoomEvent.Disconnected, () => {
     failed = true;
-    dropped = true;
   });
   try {
     await room.connect(input.url, input.token, {
@@ -164,9 +162,11 @@ export async function createAudioPublication(input: {
       return pending;
     },
     /**
-     * Ends the publication. A room the server already ended (Round cleanup
-     * deletes it) has nothing left to unpublish and refuses the call, so
-     * close settles rather than failing its claim's stop (ISSUE-789).
+     * Ends the publication by leaving the room, which ends its track for
+     * every subscriber. It never unpublishes first: rtc-node holds the room's
+     * event lock through an unpublish, so a room the server already ended
+     * (Round cleanup deletes it) refuses or never answers that call, and a
+     * claim's stop must settle (ISSUE-789).
      */
     close(): Promise<{ readonly consumedSamples: number }> {
       if (shutdown) return shutdown;
@@ -175,12 +175,6 @@ export async function createAudioPublication(input: {
         try {
           await pending?.catch(() => undefined);
           source.clearQueue();
-          if (!dropped && room.localParticipant && track.sid)
-            await room.localParticipant
-              .unpublishTrack(track.sid, true)
-              .catch((error: unknown) => {
-                if (!dropped) throw error;
-              });
         } finally {
           await track.close();
           await room.disconnect();
