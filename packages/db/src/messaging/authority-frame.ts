@@ -192,7 +192,9 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
  * full cast and every viewer's account are fenced and read once, in the
  * canonical order, and each distinct viewer's own channel fact is read
  * inside that same snapshot. Renewing 500 viewers costs one cohort read,
- * not 500 authority transactions.
+ * not 500 authority transactions: its statements are constant in viewers
+ * (one grant read for a group, none for a DM) apart from one age read per
+ * distinct account.
  */
 export function createMessagingChannelCohortAuthority(
   database: BunSQLDatabase,
@@ -222,16 +224,7 @@ export function createMessagingChannelCohortAuthority(
         tx,
         { channelId: input.channelId, ...first },
         async ({ fact, accounts }) => {
-          const facts = new Map([[first.actorId, fact]]);
-          for (const actorId of others) {
-            const own = await readMessagingChannelFact(
-              tx,
-              input.channelId,
-              actorId,
-            );
-            if (!own) throw createAppError('NOT_FOUND');
-            facts.set(actorId, own);
-          }
+          const facts = await viewerFacts(tx, fact, [first.actorId, ...others]);
           return work({
             tx,
             accounts,
@@ -246,4 +239,51 @@ export function createMessagingChannelCohortAuthority(
       ),
     );
   };
+}
+
+/**
+ * Every viewer's own channel fact, set-based: a DM's fact does not depend on
+ * the reader; a group's differs only in the reader's own grant, read for
+ * every viewer in one statement under the fences already held. The same
+ * derivation as `readMessagingChannelFact`'s group branch.
+ */
+async function viewerFacts(
+  tx: AuthorizationTransaction,
+  fact: MessagingChannelFact,
+  actorIds: readonly string[],
+): Promise<ReadonlyMap<string, MessagingChannelFact>> {
+  const { authority } = fact;
+  if (authority.kind === 'dm')
+    return new Map(actorIds.map((actorId) => [actorId, fact]));
+  const rows = (await tx.execute(sql`
+    select actor_id as "actorId", role, revoked_at as "revokedAt", generation
+    from messaging_group_grants
+    where channel_id = ${fact.channelId} and actor_id = any(array[${sql.join(
+      actorIds.map((actorId) => sql`${actorId}`),
+      sql`, `,
+    )}]::text[])
+  `)) as unknown as {
+    actorId: string;
+    role: 'manager' | 'member';
+    revokedAt: unknown;
+    generation: number;
+  }[];
+  const grants = new Map(rows.map((row) => [row.actorId, row]));
+  return new Map(
+    actorIds.map((actorId): [string, MessagingChannelFact] => {
+      const grant = grants.get(actorId);
+      return [
+        actorId,
+        {
+          ...fact,
+          authority: {
+            ...authority,
+            actorId,
+            role: grant && grant.revokedAt === null ? grant.role : null,
+            generation: Number(grant?.generation ?? 0),
+          },
+        } as MessagingChannelFact,
+      ];
+    }),
+  );
 }

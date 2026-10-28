@@ -166,8 +166,12 @@ export function createRealtimeAuthorization({
           now: resources.clock.now(),
           readAgeFact: bindAuthorizationAgeFact(tx),
         });
-        const viewer = await decideChannelViewer({
-          tx,
+        const session = await loadAuthorizationSession(tx, {
+          ...principal,
+          now: resources.clock.now(),
+        });
+        const viewer = decideChannelViewer({
+          session,
           fact,
           accounts,
           principal,
@@ -198,14 +202,15 @@ export function createRealtimeAuthorization({
 }
 
 /**
- * One viewer's channel decision inside an already fenced read: current
- * session, participant access, reading policy and `channel.subscribe`. The
+ * One viewer's channel decision from facts already read inside one fenced
+ * read: the viewer's current session, participant access, reading policy
+ * and `channel.subscribe`. Pure: no I/O. The
  * topic subscription and the observation permit evaluator share it, so the
  * channel's policy has one home. `revision` fingerprints every fact the
  * decision depended on; `validUntil` is the earliest of their deadlines.
  */
-export async function decideChannelViewer({
-  tx,
+export function decideChannelViewer({
+  session: current,
   fact,
   accounts,
   principal,
@@ -213,7 +218,7 @@ export async function decideChannelViewer({
   clock,
   deadline,
 }: {
-  readonly tx: Parameters<typeof loadAuthorizationSession>[0];
+  readonly session: Awaited<ReturnType<typeof loadAuthorizationSession>>;
   readonly fact: ChannelAuthorizationFact;
   readonly accounts: readonly SocialAccountFact[];
   readonly principal: SocketPrincipal;
@@ -221,10 +226,6 @@ export async function decideChannelViewer({
   readonly clock: { readonly now: () => string };
   readonly deadline: (expiry: string) => number;
 }) {
-  const current = await loadAuthorizationSession(tx, {
-    ...principal,
-    now: clock.now(),
-  });
   if (!current || !participantAccess(current.account)) return null;
   const instant = clock.now();
   const reading = readingPolicy?.({ channel: fact, accounts, now: instant });

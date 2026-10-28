@@ -6,6 +6,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { channelObservationReads } from '../src/messaging/observation-reads';
 import { createMessagingChannelCohortAuthority } from '../src/messaging/authority-frame';
+import { loadAuthorizationSessions } from '../src/authorization';
 import { sqlStateOf } from './constraint-helpers';
 
 setupRitewayBun();
@@ -137,6 +138,95 @@ test('a cohort read fences the cast once for every viewer of a channel', async (
       },
     });
   } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
+test('a cohort read costs the same statements for 2 or 12 viewer sessions, and refuses expired and foreign sessions', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const now = '2026-10-28T12:00:00.000Z';
+  const sessions: string[] = [];
+  const addSession = async (userId: string, expiresAt: string) => {
+    const id = createId();
+    sessions.push(id);
+    await client.unsafe(
+      'insert into session(id, expires_at, token, user_id) values($1,$2,$3,$4)',
+      [id, expiresAt, createId(), userId],
+    );
+    return id;
+  };
+  try {
+    const live = async (userId: string, actorId: string) => ({
+      sessionId: await addSession(userId, '2026-10-29T00:00:00.000Z'),
+      userId,
+      actorId,
+    });
+    const member = { userId: fixture.userId, actorId: fixture.actorId };
+    const other = {
+      userId: fixture.otherUserId,
+      actorId: fixture.otherActorId,
+    };
+    const small = [
+      await live(member.userId, member.actorId),
+      await live(other.userId, other.actorId),
+    ];
+    const large = [...small];
+    for (let index = 0; index < 10; index++)
+      large.push(
+        await live(
+          index % 2 ? member.userId : other.userId,
+          index % 2 ? member.actorId : other.actorId,
+        ),
+      );
+    const expired = {
+      sessionId: await addSession(member.userId, '2026-10-28T11:59:59.000Z'),
+      ...member,
+    };
+    const foreign = { ...small[0]!, actorId: other.actorId };
+    const measure = async (viewers: typeof small) => {
+      let statements = 0;
+      const database = drizzle({
+        client,
+        logger: { logQuery: () => void statements++ },
+      });
+      const answers = await createMessagingChannelCohortAuthority(database)(
+        { channelId: fixture.channelId, viewers },
+        async ({ tx, accounts }) =>
+          loadAuthorizationSessions(tx, { now, sessions: viewers, accounts }),
+      );
+      return { statements, answers };
+    };
+    const two = await measure(small);
+    const twelve = await measure(large);
+    const refused = await measure([...small, expired, foreign]);
+    assert({
+      given:
+        '2 and then 12 viewer sessions of one DM, then an expired and a foreign session',
+      should:
+        'run the same number of statements, accept every live session and refuse the expired and foreign ones',
+      actual: {
+        sameCost: two.statements === twelve.statements,
+        live: twelve.answers.every((answer) => answer !== null),
+        refused: refused.answers.slice(2).map((answer) => answer),
+        kept: refused.answers.slice(0, 2).every((answer) => answer !== null),
+      },
+      expected: {
+        sameCost: true,
+        live: true,
+        refused: [null, null],
+        kept: true,
+      },
+    });
+  } finally {
+    for (const id of sessions)
+      await client.unsafe('delete from session where id = $1', [id]);
+    // Deleting a live session appends its revocation control (G6 trigger).
+    await client.unsafe(
+      "delete from outbox where kind='session.revoked' and topic in ($1,$2)",
+      [`user:${fixture.actorId}:inbox`, `user:${fixture.otherActorId}:inbox`],
+    );
     await fixture.cleanup();
     await client.close();
   }

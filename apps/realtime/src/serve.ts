@@ -4,6 +4,7 @@ import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
 import { createPresenceTracker } from './presence';
 import { startObservationRuntime } from './observation/runtime';
+import { actorsFencedBy } from './observation/controls';
 import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
@@ -129,9 +130,13 @@ export async function serveRealtime({
         throw new Error('Realtime recipient unavailable');
     },
   });
+  let observing: ReturnType<typeof startObservationRuntime> | null = null;
   const drain = await startOutboxDrain({
     database: resources.database,
     sink: (rows) => {
+      // Observation permits stop before the drain closes the revoked sockets.
+      for (const actorId of actorsFencedBy(rows))
+        observing?.node.fenceActor(actorId);
       delivery.registry.sink(rows);
       sink?.(rows);
     },
@@ -139,7 +144,7 @@ export async function serveRealtime({
     ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
-  const observing =
+  observing =
     observation && readingPolicy
       ? startObservationRuntime({
           resources,

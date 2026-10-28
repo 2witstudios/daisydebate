@@ -1,5 +1,6 @@
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
+import { loadAuthorizationSessions } from '@daisy/db/authorization';
 import type {
   ChannelObservationReads,
   RealtimeAuthorityReads,
@@ -100,11 +101,17 @@ export function channelMessagesResource({
               now: clock.now(),
               readAgeFact: bindAuthorizationAgeFact(tx),
             });
+            // Every viewer's session in one statement, bound to the fenced accounts.
+            const sessions = await loadAuthorizationSessions(tx, {
+              now: clock.now(),
+              sessions: principals,
+              accounts: current,
+            });
             const decisions: PermitDecision[] = [];
-            for (const principal of principals) {
+            for (const [index, principal] of principals.entries()) {
               const fact = factFor(principal.actorId);
-              const viewer = await decideChannelViewer({
-                tx,
+              const viewer = decideChannelViewer({
+                session: sessions[index] ?? null,
                 fact,
                 accounts,
                 principal,

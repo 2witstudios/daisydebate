@@ -3,6 +3,7 @@ import {
   dialObservationSubscriber,
   type SubscriberTransport,
 } from '@daisy/redis';
+import { isAppError } from '@daisy/errors';
 import type { RealtimeApp } from '../app';
 import type { RealtimeReadingPolicy } from '../authorization';
 import type { IntervalTimers } from '../outbox-drain';
@@ -41,10 +42,14 @@ export function startObservationRuntime({
   readonly nextId: () => string;
   readonly openSubscriber?: () => SubscriberTransport;
 }) {
-  const report = (operation: string) =>
+  // The code only, never the raw error (ADR 0037); unknown faults are outages.
+  const report = (operation: string, error?: unknown) =>
     resources.logger.log(
       'realtime.observation.unavailable',
-      { operation, errorCode: 'INFRASTRUCTURE' },
+      {
+        operation,
+        errorCode: isAppError(error) ? error.code : 'INFRASTRUCTURE',
+      },
       'Observation work unavailable',
     );
   const definitions = defineObservableResources([
@@ -64,7 +69,7 @@ export function startObservationRuntime({
     open: openSubscriber,
     onHint: (resource, hint) => node.hint(resource, hint),
     onSynchronized: () =>
-      void node.repair().catch(() => report('observation.repair')),
+      void node.repair().catch((error) => report('observation.repair', error)),
     onLost: () => report('observation.subscriber'),
   });
   const node = createObservationNode({
@@ -74,7 +79,7 @@ export function startObservationRuntime({
     cache: resources.redis,
     subscriber,
     fanout: createFanout({ now }),
-    onError: (operation) => report(operation),
+    onError: (operation, error) => report(operation, error),
   });
   const owner =
     resources.database.observation && resources.transport.observationOwner
@@ -84,7 +89,7 @@ export function startObservationRuntime({
           now,
           resources: definitions,
           cache: resources.redis,
-          onError: (operation) => report(operation),
+          onError: (operation, error) => report(operation, error),
         })
       : null;
   subscriber.start();
@@ -95,7 +100,7 @@ export function startObservationRuntime({
       running = true;
       void Promise.resolve()
         .then(work)
-        .catch(() => report(operation))
+        .catch((error) => report(operation, error))
         .finally(() => {
           running = false;
         });
