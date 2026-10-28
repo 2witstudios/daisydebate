@@ -261,13 +261,25 @@ test('the composed export joins the real typing snapshot under its own key, subj
       given:
         'a real database composition and live Redis leases for the subject and an unrelated actor',
       should:
-        'join the subject own strict leases under the distinct typing key beside the database tables, and never answer another account lease',
+        'join each account own strict leases under the distinct typing key beside the database tables, and never answer another account lease',
       actual: [
         exported.messaging_typing_leases,
         Object.keys(exported).includes('users'),
         peerExported.messaging_typing_leases,
+        JSON.stringify(exported.messaging_typing_leases).includes(
+          fixture.otherActorId,
+        ),
+        JSON.stringify(peerExported.messaging_typing_leases).includes(
+          fixture.actorId,
+        ),
       ],
-      expected: [[lease], true, []],
+      expected: [
+        [lease],
+        true,
+        [{ ...lease, actorId: fixture.otherActorId }],
+        false,
+        false,
+      ],
     });
   } finally {
     try {
