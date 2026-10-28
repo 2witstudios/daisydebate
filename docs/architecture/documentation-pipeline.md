@@ -39,7 +39,13 @@ creation workflow.
    then the PR body down to half the budget, then trailing changed files and
    other source refs, then the rest of the body, the title and the task ids.
    It names every cut in trusted text just above the fence, and an event that
-   still cannot fit fails the dispatch rather than overflow. A consult runs an agent, so
+   still cannot fit fails the dispatch rather than overflow. The whole question
+   is capped too, at 10,000 characters for every pipeline
+   (`QUESTION_MAX_CHARS` in `scripts/docs-consult-question.ts`, ISSUE-792):
+   when the prompt and trusted text leave less than 6,000 characters, the
+   event gets what is left. The cap covers the question only; the agent's own
+   run (its system prompt and the pages it reads) can still overflow the
+   model's context, which is ISSUE-787. A consult runs an agent, so
    it is never retried in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
