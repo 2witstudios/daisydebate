@@ -8,6 +8,7 @@ import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import {
   admissionRefusal,
+  capacityRefusal,
   requireAdmissionTarget,
   requireBusyCap,
   requireOwnReservation,
@@ -125,6 +126,34 @@ export async function markLockedRoundBotModelCall(
   await countLockedReservation(tx, reservation);
   return reservation;
 }
+/**
+ * Global bot-debater capacity: live Rounds holding a bot debater seat, ranked
+ * included, whoever pays (ADR 0058). Independent of the allowance's
+ * reservations; an AI judge takes no slot. `exceptRoundId` leaves out the
+ * Round being frozen, whose seats are already written.
+ */
+const liveBotDebaterRounds = (exceptRoundId?: string) =>
+  sql`select count(distinct r.id)::int from rounds r
+    join round_participants p on p.round_id=r.id and p.role in ('affirmative','negative')
+    join actors a on a.id=p.actor_id and a.kind='bot'
+    where r.status in ('scheduled','active') and r.id<>${exceptRoundId ?? ''}`;
+/** The sponsor's AI-round allowance spent this UTC month (DEC-183/DEC-186). */
+const spentAllowance = (actorId: string, period: ReturnType<typeof utcMonth>) =>
+  sql`select count(*)::int from usage_reservations u
+    where u.actor_id=${actorId} and u.kind='ai_round' and u.refunded_at is null
+      and u.reserved_at>=${period.start} and u.reserved_at<${period.end}
+      and (u.counted_at is not null
+        or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('scheduled','active')))`;
+/** Capacity alone, for a freeze that spends no allowance. */
+async function countLiveBotDebaterRounds(
+  tx: BoundedTransactionContext,
+  exceptRoundId: string,
+) {
+  const [row] = await tx.execute(
+    sql`select (${liveBotDebaterRounds(exceptRoundId)}) as busy`,
+  );
+  return (row as { busy: number }).busy;
+}
 async function admissionStatus(
   tx: BoundedTransactionContext,
   input: {
@@ -132,17 +161,15 @@ async function admissionStatus(
     readonly limit: number | null;
     readonly busyCap: number;
     readonly now: Date;
+    readonly exceptRoundId?: string;
   },
 ) {
   const { actorId, limit, busyCap } = input;
   const period = utcMonth(input.now);
+  // Both counts in one statement: a reservation takes this under the lock.
   const [facts] = await tx.execute(sql`select
-    (select count(*)::int from usage_reservations u where u.actor_id=${actorId} and u.kind='ai_round' and u.refunded_at is null
-      and u.reserved_at>=${period.start} and u.reserved_at<${period.end}
-      and (u.counted_at is not null
-        or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('scheduled','active')))) as spent,
-    (select count(distinct u.round_id)::int from usage_reservations u join rounds r on r.id=u.round_id
-      where u.kind='ai_round' and r.status in ('scheduled','active')) as busy`);
+    (${spentAllowance(actorId, period)}) as spent,
+    (${liveBotDebaterRounds(input.exceptRoundId)}) as busy`);
   const value = facts as { spent: number; busy: number };
   return {
     limit: limit ?? 0,
@@ -176,17 +203,35 @@ export function createRoundBotAdmission(input: {
       ),
       busyCap: input.busyCap,
       now,
+      exceptRoundId: target.roundId,
     });
     if (status.refusal)
       throw createAppError(
         'CONFLICT',
-        `Bot admission refused: ${status.refusal}`,
+        status.refusal === 'capacity'
+          ? 'bots-busy'
+          : `Bot admission refused: ${status.refusal}`,
       );
     const id = input.nextId();
     await tx
       .insert(usageReservations)
       .values({ id, ...target, kind: 'ai_round', reservedAt: now });
     return { ...target, id };
+  };
+  /**
+   * A freeze whose bot debater spends no allowance (ranked play) still takes
+   * a capacity slot. Caller holds the admission lock.
+   */
+  const admitCapacityLocked = async (
+    tx: BoundedTransactionContext,
+    roundId: string,
+  ) => {
+    const refusal = capacityRefusal(
+      await countLiveBotDebaterRounds(tx, roundId),
+      input.busyCap,
+    );
+    // The room refusal the Launch answers with (roomRefusalSchema).
+    if (refusal) throw createAppError('CONFLICT', 'bots-busy');
   };
   return {
     lock: lockBotAdmission,
@@ -208,6 +253,7 @@ export function createRoundBotAdmission(input: {
         });
       }),
     reserveLocked,
+    admitCapacityLocked,
     reserve: (target: Target): Promise<Reservation> =>
       input.run(async (tx) => {
         await lockBotAdmission(tx);

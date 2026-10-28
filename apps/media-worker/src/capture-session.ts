@@ -1,5 +1,5 @@
 import type { OpenRouter } from '@daisy/ai-voice';
-import type { createCaptureSubscription } from '@daisy/media/capture';
+import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -10,12 +10,6 @@ import {
   validateCaptureBatch,
   type ClipCarries,
 } from './capture-batch';
-import {
-  ACTIVITY_RELAY_INTERVAL_MS,
-  activityWanted,
-  createActivityRelay,
-  relayActivity,
-} from './capture-activity';
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
@@ -33,7 +27,7 @@ type Dependencies = {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
   /** The LiveKit subscription and the clip consumer (capture-run.ts). */
-  readonly subscribe: typeof createCaptureSubscription;
+  readonly subscribe: typeof createAudioSubscription;
   readonly consume: typeof consumeCaptureClips;
 };
 /** Assigned session only. Discovery and process isolation live at the deployment edge. */
@@ -89,7 +83,6 @@ async function captureSession(
     transcribedClips: 0,
     appendedChunks: 0,
     sealedStreams: 0,
-    relayedBatches: 0,
   };
   const dropped = (n: number) => {
     stats.droppedFrames += n;
@@ -111,7 +104,6 @@ async function captureSession(
     maxBytes: 20 * 1024 * 1024,
     maxDurationMs: 120000,
   });
-  const activity = createActivityRelay();
   const streams = createStreamTracker(16384);
   const carries: ClipCarries = new Map();
   const heard = createHeardReporter({ heard: input.client.heard });
@@ -133,8 +125,7 @@ async function captureSession(
       nowMs: input.nowMs,
       onFrame: (raw) => {
         if (signal.aborted) return;
-        const frame = staging.observe(raw);
-        if (frame && activityWanted(current.state)) activity.observe(frame);
+        staging.observe(raw);
       },
       onTrackStarted: heard.started,
       onTrackClosed: (track) => {
@@ -169,20 +160,6 @@ async function captureSession(
         stop.abort();
       }
     });
-  const relaying = (async () => {
-    while (!signal.aborted) {
-      const due = input.nowMs() + ACTIVITY_RELAY_INTERVAL_MS;
-      if (activityWanted(current.state))
-        stats.relayedBatches += await relayActivity(
-          input.client,
-          epoch,
-          activity.take(),
-          signal,
-        );
-      else activity.clear();
-      await input.waitUntilMs(due, signal).catch(() => undefined);
-    }
-  })();
   const reporting = reportHeardTracks({
     ...input,
     reporter: heard,
@@ -256,8 +233,7 @@ async function captureSession(
     // A failing shutdown step never masks the failure that stopped the session.
     try {
       await capture.close();
-      await Promise.all([relaying, reporting]);
-      activity.clear();
+      await reporting;
       staging.clear();
       stats.sealedStreams += await closeCaptureSession({
         graceful,

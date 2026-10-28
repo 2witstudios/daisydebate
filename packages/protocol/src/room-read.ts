@@ -63,6 +63,8 @@ export const roomRefusalSchema = z.enum([
   'strike-conflict',
   /** The side holding this strike is not yours to strike for. */
   'not-your-turn',
+  /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
+  'bots-busy',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({

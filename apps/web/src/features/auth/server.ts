@@ -7,7 +7,7 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
-import type { AuthEmailSender, AuthDeliveryLedger } from './mail/mail-types';
+import type { EmailSender, DeliveryLedger } from '../mail/types';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
@@ -34,9 +34,8 @@ import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
 } from './abuse/sign-in-address-guard';
-import { deriveRecipientSubkey } from './mail/recipient-key';
-import { createSendMail } from './mail/send-mail';
-import type { Deliver } from './mail/deliver-or-unavailable';
+import { createSendMail } from '../mail/send-mail';
+import type { Deliver } from '../mail/types';
 import {
   createAfterResponse,
   type AfterResponseLimits,
@@ -58,13 +57,9 @@ import { type RateLimiter } from '../../server/rate-limit';
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 
 /** Application-level email contract; the Resend transport plugs in here. */
-export type {
-  AuthEmailMessage,
-  AuthEmailSender,
-  AuthDeliveryLedger,
-} from './mail/mail-types';
+export type { EmailMessage, EmailSender, DeliveryLedger } from '../mail/types';
 /** Composition without a ledger neither suppresses nor records receipts. */
-const noLedger: AuthDeliveryLedger = {
+const noLedger: DeliveryLedger = {
   isSuppressed: async () => false,
   record: async () => {},
 };
@@ -81,7 +76,7 @@ const composeBetterAuth = (dependencies: {
   readonly database: BetterAuthOptions['database'];
   readonly deliver: Deliver;
   readonly limiter: RateLimiter;
-  readonly ledger: AuthDeliveryLedger;
+  readonly ledger: DeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clock: Clock;
@@ -282,14 +277,20 @@ export function createAuthServer<
   readonly getParticipationByUserId: AuthServer['getParticipationByUserId'];
   /** Validated by the composition root (`readAuthConfig`). */
   readonly config: AuthConfig;
+  /**
+   * The recipient-key subkey, derived by composition from the mail
+   * configuration's RECIPIENT_HASH_SECRET (ISSUE-780): the suppression ledger
+   * and per-recipient rate-limit buckets key by it.
+   */
+  readonly recipientSubkey: string;
   readonly database: Database;
-  readonly emailSender: AuthEmailSender;
+  readonly emailSender: EmailSender;
   readonly limiter: RateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
-  readonly ledger?: AuthDeliveryLedger | undefined;
+  readonly ledger?: DeliveryLedger | undefined;
   /** The handed-off work's bounds; the production sizes unless a test narrows them. */
   readonly afterResponseLimits?: AfterResponseLimits | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
@@ -306,8 +307,7 @@ export function createAuthServer<
    */
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
 }): AuthServer {
-  const { config } = dependencies;
-  const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
+  const { config, recipientSubkey } = dependencies;
   const afterResponse = createAfterResponse(
     dependencies.logger,
     dependencies.afterResponseLimits,
@@ -315,7 +315,7 @@ export function createAuthServer<
   // Handed-off work's ledger steps go through its database gate; a request
   // being answered is not gated.
   const baseLedger = dependencies.ledger ?? noLedger;
-  const ledger: AuthDeliveryLedger = {
+  const ledger: DeliveryLedger = {
     isSuppressed: (hash) =>
       afterResponse.dbStep(() => baseLedger.isSuppressed(hash)),
     record: (input) => afterResponse.dbStep(() => baseLedger.record(input)),
@@ -326,7 +326,7 @@ export function createAuthServer<
     emailSender: dependencies.emailSender,
     logger: dependencies.logger,
     clock: dependencies.clock,
-  });
+  })('auth');
   return {
     getActorByUserId: dependencies.getActorByUserId,
     getParticipationByUserId: dependencies.getParticipationByUserId,

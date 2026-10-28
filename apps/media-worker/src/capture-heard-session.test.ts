@@ -62,7 +62,6 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
       heardStarted.resolve();
       await cancelWait(signal);
     },
-    activity: async () => {},
     seal: async () => {
       sealed.resolve();
       return {};

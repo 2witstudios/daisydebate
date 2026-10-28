@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { isCaptureConnectionClosed } from '@daisy/media/capture';
+import { isSubscriptionClosed } from '@daisy/media/subscription';
 import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { tagCaptureFailure, type CaptureFailureStage } from './capture-exit';
 import type { CaptureClient } from './capture-history';
@@ -58,7 +58,7 @@ export function createSessionOutcome(input: {
         failure ??= error;
     },
     closedAsDrop(error: unknown) {
-      if (!isCaptureConnectionClosed(error)) throw error;
+      if (!isSubscriptionClosed(error)) throw error;
       dropRoom();
     },
     watch(closed: Promise<'disconnected' | 'closed'>) {

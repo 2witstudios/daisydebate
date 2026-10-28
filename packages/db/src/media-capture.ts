@@ -19,8 +19,9 @@ import {
 import { mediaWorkerLeases } from './schema/transcript-segments';
 import { readMediaCaptureState } from './media-capture-read';
 import {
+  captureLeaseRefusals,
+  mediaWorkerLeaseEpoch,
   verifyMediaWorkerLease,
-  requireCaptureRenewal,
 } from './media-worker-lease';
 import { appendCapturedTranscript } from './captured-transcript';
 import { observeCapturedStream, sealCapturedStream } from './capture-stream';
@@ -34,7 +35,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     );
   },
   /**
-   * The one capture lease-validity predicate for activity relay: this worker's
+   * The one capture lease-validity predicate for capture's heard report: this worker's
    * epoch, an unexpired lease, a session not ended, unsafe or being deleted,
    * and its segment still open. Read without the Round lock; returns fresh
    * PostgreSQL time.
@@ -83,20 +84,12 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
         input.roundId,
         tick.transcriptAdmissionCutoff,
       );
-      if (
-        current &&
-        current.workerId !== input.workerId &&
-        current.expiresAt > now
-      )
-        throw createAppError('CONFLICT', 'Capture worker lease is held');
-      requireCaptureRenewal(current, input, now);
-      const epoch = !current
-        ? 1
-        : current.expiresAt > now
-          ? current.epoch
-          : current.epoch + 1;
-      if (epoch > 2147483647)
-        throw createAppError('CONFLICT', 'Capture worker epoch exhausted');
+      const epoch = mediaWorkerLeaseEpoch(
+        current,
+        input,
+        now,
+        captureLeaseRefusals,
+      );
       const expiresAt = new Date(now.getTime() + input.leaseMs);
       await tx
         .insert(mediaWorkerLeases)

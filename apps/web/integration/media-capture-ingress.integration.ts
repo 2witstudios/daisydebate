@@ -9,7 +9,6 @@ import {
   mediaDependencies,
   tokenClaims,
   captureWorkerScope,
-  captureActivityRelay,
   captureHeardRelay,
   startCaptureSpeech,
 } from './round-media.test-support';
@@ -31,7 +30,6 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       authentication: () => authentication,
       capture: () => capture,
       token: (input, principal) => broker.captureToken(input, principal),
-      activity: captureActivityRelay(f, capture),
       heard: captureHeardRelay(f, capture),
     });
     const server = Bun.serve({

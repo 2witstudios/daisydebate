@@ -1,3 +1,4 @@
+import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
@@ -25,6 +26,9 @@ const unreachableDatabase = () => {
     getParticipationByUserId: (userId) =>
       database.getParticipationByUserId(userId),
     config: testApp.app.auth().config,
+    recipientSubkey: deriveRecipientSubkey(
+      testApp.app.mailConfig().RECIPIENT_HASH_SECRET,
+    ),
     database: database.authAdapter,
     emailSender: {
       send: async (message) => {

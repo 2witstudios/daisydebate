@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { z } from 'zod';
 import { createMailCapture } from './mail-capture';
-import type { Fetch } from '../../src/features/auth/mail/mail';
-import { resendRequest } from '../../src/features/auth/mail/resend-capture.test-support';
+import type { Fetch } from '../../src/features/mail/resend-sender';
+import { resendRequest } from '../../src/features/mail/resend-capture.test-support';
 
 export const launchMailPath = (id: string) => join(tmpdir(), `drm-${id}.sock`);
 const message = z.strictObject({

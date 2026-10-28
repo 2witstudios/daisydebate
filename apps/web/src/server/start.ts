@@ -113,8 +113,14 @@ const roomMaintenance = startRoomLifecycleMaintenance({
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
-  botToken: mediaRuntime
-    ? (scope, token) => mediaRuntime.operations().botToken(scope, token)
+  botMedia: mediaRuntime
+    ? {
+        botToken: (scope, token) =>
+          mediaRuntime.operations().botToken(scope, token),
+        listenToken: (scope, token) =>
+          mediaRuntime.operations().botListenToken(scope, token),
+        readPeers: (scope) => mediaRuntime.operations().botPeers(scope),
+      }
     : null,
   timers: workerTimers,
 });

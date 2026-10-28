@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { isRefusal } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = {
   readonly roundId: string;
@@ -58,10 +58,7 @@ export function startBotControlService<C extends Claim>(input: {
       );
       return false;
     } catch (error) {
-      return (
-        isAppError(error) &&
-        (error.code === 'AUTHORIZATION' || error.code === 'CONFLICT')
-      );
+      return isRefusal(error);
     }
   };
   const pulse = (entry: Owned<C>): Promise<void> => {

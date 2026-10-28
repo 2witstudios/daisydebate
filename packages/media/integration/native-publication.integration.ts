@@ -2,7 +2,7 @@ import {
   proveNativeCapture,
   proveCalibratedCapture,
   proveCaptureRoomDeletion,
-} from './native-capture.test-support';
+} from './audio-subscription.test-support';
 import {
   withHistoricalSeat,
   waitForCadence,

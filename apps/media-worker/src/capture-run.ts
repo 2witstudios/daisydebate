@@ -3,9 +3,9 @@ import {
   CAPTURE_STT_TIMEOUT_MS,
 } from '@daisy/protocol';
 import {
-  createCaptureSubscription,
-  disposeCaptureRuntime,
-} from '@daisy/media/capture';
+  createAudioSubscription,
+  disposeAudioRuntime,
+} from '@daisy/media/subscription';
 import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
@@ -93,7 +93,7 @@ export async function runCaptureProcess(input: {
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
-        subscribe: createCaptureSubscription,
+        subscribe: createAudioSubscription,
         consume: consumeCaptureClips,
         nowMs: performance.now,
         waitUntilMs: async (due, signal) => {
@@ -107,7 +107,7 @@ export async function runCaptureProcess(input: {
   } catch (error) {
     process.exitCode = startRefusalExit(error);
   } finally {
-    await disposeCaptureRuntime();
+    await disposeAudioRuntime();
   }
 }
 

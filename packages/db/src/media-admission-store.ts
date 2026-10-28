@@ -10,9 +10,8 @@ import type { ParticipantAdmission } from './participant-admission';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { LockedRoundTickInput } from './round-clock-transaction';
 import {
-  verifyLockedBotWorker,
-  requireBotSpeakingWindow,
-  type BotPublicationScope,
+  verifyBotMediaPrincipal,
+  type BotMediaPrincipal,
 } from './bot-publication-context';
 
 export type MediaAdmissionPrincipal =
@@ -20,11 +19,7 @@ export type MediaAdmissionPrincipal =
       readonly kind: 'human';
       readonly actorId: string;
     }
-  | {
-      readonly kind: 'bot';
-      readonly scope: BotPublicationScope;
-      readonly token: string;
-    };
+  | BotMediaPrincipal;
 export type MediaAdmissionContext = MediaSessionSnapshot & {
   readonly binding: MediaSessionSnapshot['bindings'][number];
   readonly participantId: string;
@@ -65,24 +60,14 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
       if (input.principal.kind === 'bot') {
         if (input.principal.scope.roundId !== input.roundId)
           throw createAppError('AUTHORIZATION');
-        await verifyLockedBotWorker(
-          tx,
-          input.principal.scope,
-          input.principal.token,
-        );
-        await requireBotSpeakingWindow(tx, input.principal.scope);
+        await verifyBotMediaPrincipal(tx, input.principal);
         // Run/claim locks can wait. Re-tick at the actual post-lock instant before signing.
         snapshot = await requiredSnapshot(tx, {
           roundId: input.roundId,
           admits: input.admits,
           buildProjection: input.buildProjection,
         });
-        await verifyLockedBotWorker(
-          tx,
-          input.principal.scope,
-          input.principal.token,
-        );
-        await requireBotSpeakingWindow(tx, input.principal.scope);
+        await verifyBotMediaPrincipal(tx, input.principal);
         participantId = input.principal.scope.roundParticipantId;
       } else participantId = snapshot.caller!.id;
       const binding = snapshot.bindings.find(

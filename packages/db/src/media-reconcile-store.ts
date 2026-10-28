@@ -1,6 +1,7 @@
-import { rotateRevokedMediaRoom } from './media-room-rotation';
+import { rotateRevokedMediaSession } from './media-session-rotation';
 import {
   readMediaBotLeases,
+  mediaHearingSeats,
   mediaPublicationParticipants,
 } from './media-publication-authority';
 import { createAppError } from '@daisy/errors';
@@ -119,6 +120,8 @@ export function createMediaReconcileStore(input: {
         readonly authorize: (context: {
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
+          /** Bot seats that may hear, floor or not (ISSUE-764). */
+          readonly hearing: readonly string[];
           readonly bindings: readonly { readonly roundParticipantId: string }[];
           readonly withdrawn: readonly string[];
           readonly now: string;
@@ -175,6 +178,7 @@ export function createMediaReconcileStore(input: {
             round,
             tick.now,
           ),
+          hearing: mediaHearingSeats(session.seats, botLeases, round, tick.now),
           withdrawn: withdrawnSeats(
             session.seats,
             session.accounts,
@@ -276,7 +280,7 @@ export function createMediaReconcileStore(input: {
           );
         const roomName =
           cleaned && !terminal && !session.endedAt
-            ? await rotateRevokedMediaRoom(
+            ? await rotateRevokedMediaSession(
                 tx,
                 session.id,
                 session.seats,

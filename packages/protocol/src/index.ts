@@ -132,10 +132,12 @@ export {
 } from './onboarding';
 export {
   betaAccessProvenances,
+  betaAccessCommandAction,
   betaAccessCommandResultSchema,
   betaAccessStates,
   operatorConsoleOrigin,
   type BetaAccessCommandResult,
+  type BetaAccessCommandState,
   type BetaAccessState,
 } from './beta-access';
 export { closeCodeTable } from './close-codes';

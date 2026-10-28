@@ -1,6 +1,6 @@
 import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
-import type { AuthEmailMessage } from '../auth/mail/mail-types';
+import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
 import { MAIL_INTENT_MAX_ATTEMPTS, mailRetryDelayMs } from './retry-policy';
 
@@ -25,9 +25,7 @@ const LEASE_MS = 60_000;
  */
 export function createMailIntentDelivery(input: {
   readonly store: Store;
-  readonly deliver: (
-    message: AuthEmailMessage,
-  ) => Promise<'sent' | 'suppressed'>;
+  readonly deliver: (message: EmailMessage) => Promise<'sent' | 'suppressed'>;
   /** The owner's digest address; absent, digests are cancelled as unconfigured. */
   readonly ownerAddress: string | undefined;
   readonly appUrl: string;

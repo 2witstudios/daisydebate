@@ -7,10 +7,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
-import {
-  createBotActivityRelay,
-  createBotHeardRelay,
-} from '../src/features/round-bots/activity-relay';
+import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
@@ -179,37 +176,11 @@ export async function waitForMediaFact(fact: () => Promise<boolean>) {
   }
 }
 
-/** A worker lease claimed for the Round, then its first speech opened, as a capture worker sees it. */
-export async function leasedCaptureSpeech(
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-) {
-  const scope = await captureWorkerScope(fixture);
-  const capture = captureOperations(fixture);
-  const lease = await capture.claimMediaWorkerLease({
-    ...scope,
-    leaseMs: 15000,
-  });
-  const identity = { ...scope, epoch: lease.epoch };
-  await startCaptureSpeech(fixture);
-  const segmentId = (await capture.readMediaCaptureState(identity)).segment!.id;
-  return { scope, capture, identity, segmentId };
-}
-
-/** The production activity relay over the fixture's capture operations and Redis. */
-export const captureActivityRelay = (
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-  capture: ReturnType<typeof captureOperations>,
-) =>
-  createBotActivityRelay({
-    readCapture: (identity) => capture.readMediaCaptureState(identity),
-    readLease: (identity) => capture.readCurrentCaptureLease(identity),
-    write: fixture.redis.writeBotActivity,
-  });
 export const captureHeardRelay = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
   capture: ReturnType<typeof captureOperations>,
 ) =>
-  createBotHeardRelay({
+  createCaptureHeardRelay({
     readCapture: (identity) => capture.readMediaCaptureState(identity),
     readLease: (identity) => capture.readCurrentCaptureLease(identity),
     write: fixture.redis.writeCaptureHeard,

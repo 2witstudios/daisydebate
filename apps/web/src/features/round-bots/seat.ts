@@ -15,11 +15,19 @@ export function createBotSeat(input: {
     readonly start: () => void;
     readonly close: () => Promise<void>;
   };
-  /** Present only for cross-examination, where peer activity can cancel a phrase. */
-  readonly feed: { readonly poll: () => Promise<void> } | null;
+  /**
+   * The bot's own hearing, present only for cross-examination, where peer
+   * activity can cancel a phrase: joined with the seat and ended with it
+   * (ISSUE-764).
+   */
+  readonly feed: {
+    readonly start: () => void;
+    readonly poll: () => Promise<void>;
+    readonly close: () => Promise<void>;
+  } | null;
   readonly pollMs: number;
   readonly timers: WorkerTimers;
-  /** `stage` is always poll: the peer activity feed failed. */
+  /** `stage` is always poll: the bot's hearing failed. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   let polling: Promise<void> | null = null;
@@ -37,6 +45,7 @@ export function createBotSeat(input: {
     return polling;
   };
   input.publication.start();
+  input.feed?.start();
   const timer = input.feed
     ? input.timers.setInterval(poll, input.pollMs)
     : null;
@@ -51,7 +60,11 @@ export function createBotSeat(input: {
       try {
         await input.speaker.stop();
       } finally {
-        await input.publication.close();
+        try {
+          await input.publication.close();
+        } finally {
+          await input.feed?.close();
+        }
       }
     },
   };

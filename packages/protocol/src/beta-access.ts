@@ -32,3 +32,21 @@ export const betaAccessCommandResultSchema = z.strictObject({
 export type BetaAccessCommandResult = z.infer<
   typeof betaAccessCommandResultSchema
 >;
+
+/** The operator command action a beta access change is recorded under. */
+export const betaAccessCommandAction = 'account.beta_access.update';
+
+/**
+ * Beta access's variant of an operator command readback: its stored result
+ * and its approval mail's state (null when it owed none).
+ */
+export const betaAccessCommandStateSchema = z.strictObject({
+  action: z.literal(betaAccessCommandAction),
+  result: betaAccessCommandResultSchema,
+  mailState: z
+    .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
+    .nullable(),
+});
+export type BetaAccessCommandState = z.infer<
+  typeof betaAccessCommandStateSchema
+>;

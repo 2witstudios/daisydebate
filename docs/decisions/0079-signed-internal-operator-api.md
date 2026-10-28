@@ -189,9 +189,12 @@ apply later than its signed timestamp + skew + that bound by the
 participant's clock. A PUT delayed behind a lock is proven to write nothing
 by `packages/db/integration/operator-command-deadline.integration.ts`.
 
-**Reconciliation.** `GET /operator/v1/commands/{id}` answers the stored
-result and the approval mail's state. The admin app uses it to settle a
-command whose response it never received.
+**Reconciliation.** `GET /operator/v1/commands/{id}` answers the receipt's
+`action`, its stored result and whatever state that action's owner adds; for
+`account.beta_access.update`, beta access adds its approval mail's state. The
+readback is a union discriminated by `action`, so a new operator command
+brings its own variant rather than reshaping the beta one (ISSUE-781). The
+admin app uses it to settle a command whose response it never received.
 
 **Retention.** Receipts are append-only for the runtime role. A retention
 proposal of 400 days is pending the owner's privacy decision.

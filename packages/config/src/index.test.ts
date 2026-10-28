@@ -1,8 +1,13 @@
 import { env } from './server-env.test-support';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { authEnv, webhookSecret } from './auth-env.test-support';
-import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
+import { authEnv, mailEnv, webhookSecret } from './auth-env.test-support';
+import {
+  readAuthConfig,
+  readBrowserConfig,
+  readMailConfig,
+  readServerConfig,
+} from './index';
 
 setupRitewayBun();
 
@@ -96,53 +101,10 @@ describe('authentication configuration', () => {
       actual: readAuthConfig(authEnv),
       expected: {
         BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
-        RECIPIENT_HASH_SECRET: authEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
-        RESEND_API_KEY: authEnv.RESEND_API_KEY,
-        AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
         AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },
-    });
-  });
-
-  test('refuses a missing RECIPIENT_HASH_SECRET, naming the field only', () => {
-    const withoutRecipientHashSecret = { ...authEnv };
-    Reflect.deleteProperty(withoutRecipientHashSecret, 'RECIPIENT_HASH_SECRET');
-    let message = '';
-    try {
-      readAuthConfig(withoutRecipientHashSecret);
-    } catch (error) {
-      message = String(error);
-    }
-    assert({
-      given:
-        'an otherwise-complete auth environment with no RECIPIENT_HASH_SECRET at all',
-      should:
-        'refuse, naming the field, never treat it as an optional field that defaults to absent',
-      actual: {
-        rejected: message !== '',
-        namesField: message.includes('RECIPIENT_HASH_SECRET'),
-      },
-      expected: { rejected: true, namesField: true },
-    });
-  });
-
-  test('rejects a short RECIPIENT_HASH_SECRET and reports the field name only', () => {
-    let message = '';
-    try {
-      readAuthConfig({ ...authEnv, RECIPIENT_HASH_SECRET: 'too-short' });
-    } catch (error) {
-      message = String(error);
-    }
-    assert({
-      given: 'a 9-character RECIPIENT_HASH_SECRET',
-      should: 'name the field without echoing the value',
-      actual: {
-        namesField: message.includes('RECIPIENT_HASH_SECRET'),
-        echoesValue: message.includes('too-short'),
-      },
-      expected: { namesField: true, echoesValue: false },
     });
   });
 
@@ -161,44 +123,6 @@ describe('authentication configuration', () => {
         echoesValue: message.includes('too-short'),
       },
       expected: { namesField: true, echoesValue: false },
-    });
-  });
-
-  test('rejects blank and malformed values by field name only', () => {
-    let message = '';
-    try {
-      readAuthConfig({
-        ...authEnv,
-        RESEND_API_KEY: ' ',
-        AUTH_EMAIL_FROM: 'not-an-address\r\nBcc: victim@example.com',
-        PUBLIC_APP_URL: 'not-a-url',
-      });
-    } catch (error) {
-      message = String(error);
-    }
-    assert({
-      given: 'a blank API key, a header-injecting sender and a bad URL',
-      should: 'report exactly those three field names and no values',
-      actual: {
-        namesAllThree:
-          message.includes('RESEND_API_KEY') &&
-          message.includes('AUTH_EMAIL_FROM') &&
-          message.includes('PUBLIC_APP_URL'),
-        echoesValue:
-          message.includes('not-an-address') || message.includes('Bcc'),
-      },
-      expected: { namesAllThree: true, echoesValue: false },
-    });
-  });
-
-  test('rejects invalid sender mailbox syntax', () => {
-    assert({
-      given: 'an authentication sender without a valid mailbox',
-      should: 'reject the sender configuration by field name',
-      actual: failureOf(() =>
-        readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy Debate @' }),
-      ),
-      expected: 'Error: Invalid auth configuration: AUTH_EMAIL_FROM',
     });
   });
 
@@ -225,7 +149,6 @@ describe('authentication configuration', () => {
           ...authEnv,
           NODE_ENV: 'production',
           PUBLIC_APP_URL: 'http://daisy.example.com',
-          RESEND_WEBHOOK_SECRET: webhookSecret,
           OPS_PROBE_TOKEN: 'a'.repeat(32),
         }),
       ),
@@ -244,13 +167,10 @@ describe('authentication configuration', () => {
         }),
       ).sort(),
       expected: [
-        'AUTH_EMAIL_FROM',
         'AUTH_SIGN_UP_MAIL_CEILINGS',
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',
-        'RECIPIENT_HASH_SECRET',
-        'RESEND_API_KEY',
       ],
     });
   });
@@ -263,42 +183,106 @@ describe('authentication configuration', () => {
       expected: { PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL },
     });
   });
+});
+describe('mail configuration (ISSUE-780)', () => {
+  test('validates exactly the mail fields', () => {
+    assert({
+      given: 'a complete mail environment',
+      should: 'expose the sender, provider key and recipient hash secret',
+      actual: readMailConfig(mailEnv),
+      expected: {
+        RECIPIENT_HASH_SECRET: mailEnv.RECIPIENT_HASH_SECRET,
+        RESEND_API_KEY: mailEnv.RESEND_API_KEY,
+        EMAIL_FROM: mailEnv.EMAIL_FROM,
+      },
+    });
+  });
 
-  test('production requires the webhook signing secret; development does not', () => {
-    const production = {
-      ...authEnv,
-      NODE_ENV: 'production',
-    };
+  test('an auth-only misconfiguration never breaks mail', () => {
+    assert({
+      given: 'a missing BETTER_AUTH_SECRET and a malformed PUBLIC_APP_URL',
+      should:
+        'still validate the mail configuration, so beta mail keeps sending',
+      actual: readMailConfig({
+        ...authEnv,
+        BETTER_AUTH_SECRET: undefined,
+        PUBLIC_APP_URL: 'not-a-url',
+      }).EMAIL_FROM,
+      expected: mailEnv.EMAIL_FROM,
+    });
+  });
+
+  test('refuses a missing RECIPIENT_HASH_SECRET, naming the field only', () => {
+    const withoutRecipientHashSecret = { ...mailEnv };
+    Reflect.deleteProperty(withoutRecipientHashSecret, 'RECIPIENT_HASH_SECRET');
+    assert({
+      given:
+        'an otherwise-complete mail environment with no RECIPIENT_HASH_SECRET',
+      should: 'refuse, naming the field',
+      actual: failureOf(() => readMailConfig(withoutRecipientHashSecret)),
+      expected: 'Error: Invalid mail configuration: RECIPIENT_HASH_SECRET',
+    });
+  });
+
+  test('rejects short, blank and header-injecting values by field name only', () => {
     let message = '';
     try {
-      readAuthConfig(production);
+      readMailConfig({
+        ...mailEnv,
+        RECIPIENT_HASH_SECRET: 'too-short',
+        RESEND_API_KEY: ' ',
+        EMAIL_FROM: 'not-an-address\r\nBcc: victim@example.com',
+      });
     } catch (error) {
       message = String(error);
     }
     assert({
-      given: 'a production environment without RESEND_WEBHOOK_SECRET',
-      should: 'refuse to start naming the field but never a value',
+      given:
+        'a short hash secret, a blank API key and a header-injecting sender',
+      should: 'report exactly those field names and no values',
       actual: {
-        named: message.includes('RESEND_WEBHOOK_SECRET'),
-        leaked: message.includes(authEnv.BETTER_AUTH_SECRET),
+        namesAll:
+          message.includes('RECIPIENT_HASH_SECRET') &&
+          message.includes('RESEND_API_KEY') &&
+          message.includes('EMAIL_FROM'),
+        echoesValue:
+          message.includes('too-short') ||
+          message.includes('not-an-address') ||
+          message.includes('Bcc'),
       },
-      expected: { named: true, leaked: false },
+      expected: { namesAll: true, echoesValue: false },
     });
+  });
+
+  test('rejects invalid sender mailbox syntax', () => {
     assert({
-      given: 'a production environment with a valid whsec_ secret',
-      should: 'validate and expose the secret',
-      actual: readAuthConfig({
-        ...production,
-        RESEND_WEBHOOK_SECRET: webhookSecret,
-        OPS_PROBE_TOKEN: 'a'.repeat(32),
-      }).RESEND_WEBHOOK_SECRET,
-      expected: webhookSecret,
+      given: 'a sender without a valid mailbox',
+      should: 'reject the sender configuration by field name',
+      actual: failureOf(() =>
+        readMailConfig({ ...mailEnv, EMAIL_FROM: 'Daisy Debate @' }),
+      ),
+      expected: 'Error: Invalid mail configuration: EMAIL_FROM',
     });
+  });
+
+  test('production requires the webhook signing secret; development does not', () => {
+    const production = { ...mailEnv, NODE_ENV: 'production' };
     assert({
-      given: 'a development environment without a webhook secret',
-      should: 'still validate',
-      actual: 'RESEND_WEBHOOK_SECRET' in readAuthConfig(authEnv),
-      expected: false,
+      given:
+        'production without, then with, a valid whsec_ secret, and development without one',
+      should:
+        'refuse naming the field, then validate it, and not require it outside production',
+      actual: [
+        failureOf(() => readMailConfig(production)),
+        readMailConfig({ ...production, RESEND_WEBHOOK_SECRET: webhookSecret })
+          .RESEND_WEBHOOK_SECRET,
+        'RESEND_WEBHOOK_SECRET' in readMailConfig(mailEnv),
+      ],
+      expected: [
+        'Error: Invalid mail configuration: RESEND_WEBHOOK_SECRET',
+        webhookSecret,
+        false,
+      ],
     });
   });
 
@@ -307,9 +291,9 @@ describe('authentication configuration', () => {
       given: 'a webhook secret without the whsec_ shape',
       should: 'reject naming the field',
       actual: failureOf(() =>
-        readAuthConfig({ ...authEnv, RESEND_WEBHOOK_SECRET: 'not a secret' }),
+        readMailConfig({ ...mailEnv, RESEND_WEBHOOK_SECRET: 'not a secret' }),
       ),
-      expected: 'Error: Invalid auth configuration: RESEND_WEBHOOK_SECRET',
+      expected: 'Error: Invalid mail configuration: RESEND_WEBHOOK_SECRET',
     });
   });
 });

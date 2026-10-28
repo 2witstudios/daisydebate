@@ -11,7 +11,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 /**
  * ISSUE-220: a flood that fills the handed-off work's bound sheds sign-in
  * mail with everything else (DEC-73). That must reach an operator: the
- * composed app's logger tap counts every `auth.mail.shed`, and
+ * composed app's logger tap counts every `mail.shed`, and
  * `/api/ops/alerts` (what the AUTH-7.7 probe reads) fires `mail_shed` once
  * the count over its window reaches the documented threshold.
  */
@@ -61,7 +61,7 @@ describe('ISSUE-220 shedding past the bound raises an operator alert', () => {
           Array.from({ length: FLOOD }, () => magicLink(freshEmail())),
         ),
       );
-      const shed = events.filter((event) => event === 'auth.mail.shed').length;
+      const shed = events.filter((event) => event === 'mail.shed').length;
       const after = await edge.alerts();
       release();
       await app.auth().settled();

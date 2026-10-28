@@ -1,6 +1,5 @@
-import { formatClock as formatSeconds } from '../../judge/clock';
+import { formatCountdown, formatSeconds } from '../../../lib/clock-display';
 import { escapeHtml } from '../../../lib/escape-html';
-import { formatClock } from '../clock';
 
 export type Side = 'aff' | 'neg';
 
@@ -99,7 +98,7 @@ function speechPlanTemplate(context: TemplateContext): string {
   );
   return doc([
     heading(1, title),
-    heading(2, `${next.code} · ${formatClock(next.durationMs)}`),
+    heading(2, `${next.code} · ${formatCountdown(next.durationMs)}`),
     bulletList(rows),
   ]);
 }

@@ -131,6 +131,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       oldestAgeMs: 1500,
       pending: 68,
       scope: 'ipv6_48',
+      purpose: 'beta-access',
     };
     const { entry } = emit(
       fields,

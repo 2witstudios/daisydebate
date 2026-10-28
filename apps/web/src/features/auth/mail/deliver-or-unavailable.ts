@@ -1,19 +1,10 @@
 import { APIError } from 'better-auth/api';
 import { unavailable } from '../public-errors';
-import type { AuthEmailMessage } from './mail-types';
+import type { Deliver, EmailMessage } from '../../mail/types';
 import {
   EMAIL_UNDELIVERABLE,
   type UndeliverableCode,
 } from './undeliverable-codes';
-
-/**
- * The one auth mail path (`send-mail.ts`): `suppressed`
- * when the recipient hard-bounced or complained, so nothing was sent
- * (ADR 0025, ISSUE-54).
- */
-export type Deliver = (
-  message: AuthEmailMessage,
-) => Promise<'sent' | 'suppressed'>;
 
 /** The public 422 a suppressed recipient answers: its code and sentence. */
 export type UndeliverableRefusal = {
@@ -40,7 +31,7 @@ const SUPPRESSED_RECIPIENT: UndeliverableRefusal = {
  */
 export const sendOrUnavailable = async (
   deliver: Deliver,
-  message: AuthEmailMessage,
+  message: EmailMessage,
   refusal: UndeliverableRefusal = SUPPRESSED_RECIPIENT,
 ): Promise<void> => {
   let outcome: Awaited<ReturnType<Deliver>>;

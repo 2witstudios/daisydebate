@@ -1,10 +1,11 @@
+import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import type { CompleteEmailChange } from './email-change/email-change';
 import type { RevokeSessionUnlessAddressHeld } from './abuse/sign-in-address-guard';
-import { createAuthServer, type AuthEmailMessage } from './server';
+import { createAuthServer, type EmailMessage } from './server';
 
 /**
  * Shared fixtures for the auth suites: one env (the integration apps are
@@ -19,7 +20,7 @@ export const authTestEnv = {
     'b8a6a86e17fc0067bd98c85480bf6e6ee0d50b18dc11bd5dc6240453c40e8031',
   PUBLIC_APP_URL: 'http://localhost:3000',
   RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy Debate <no-reply@daisy.example.com>',
+  EMAIL_FROM: 'Daisy Debate <no-reply@daisy.example.com>',
 };
 
 /** Fresh in-memory Better Auth tables a test can inspect after the fact. */
@@ -78,10 +79,10 @@ const memorySessionGuard =
 
 /** A mail seam that keeps every message it was asked to send. */
 export function capturingSender() {
-  const sent: AuthEmailMessage[] = [];
+  const sent: EmailMessage[] = [];
   return {
     sent,
-    send: async (input: AuthEmailMessage) => {
+    send: async (input: EmailMessage) => {
       sent.push(input);
     },
   };
@@ -100,6 +101,7 @@ export const composeAuthServer = (
     getActorByUserId: async () => null,
     getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
     config: readAuthConfig(authTestEnv),
+    recipientSubkey: deriveRecipientSubkey(authTestEnv.RECIPIENT_HASH_SECRET),
     database: memoryAdapter(tables),
     completeEmailChange: memoryEmailChange(tables),
     revokeSessionUnlessAddressHeld: memorySessionGuard(tables),

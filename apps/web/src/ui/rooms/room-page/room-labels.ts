@@ -126,6 +126,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'strike-unavailable': 'a resolution still in the draw',
   'strike-conflict': 'the latest strike',
   'not-your-turn': 'the other side to strike',
+  'bots-busy': 'a free bot: bots are busy, try again shortly',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

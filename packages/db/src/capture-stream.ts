@@ -1,4 +1,4 @@
-import { captureRoomInterrupted } from './capture-room-history';
+import { captureSessionInterrupted } from './capture-session-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { updateCaptureStream } from './capture-stream-update';
 import { createAppError } from '@daisy/errors';
@@ -133,7 +133,7 @@ export async function sealCapturedStream(
       ),
     );
   const state = sealState({
-    interrupted: await captureRoomInterrupted(tx, input.sessionId, segment),
+    interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
     epoch: input.epoch,
     observations,
     chunks,

@@ -7,11 +7,11 @@ import {
   composeAuthServer,
   memoryTables,
 } from './auth-server.test-support';
-import type { AuthEmailMessage } from './server';
+import type { EmailMessage } from './server';
 
 setupRitewayBun();
 
-const message: AuthEmailMessage = {
+const message: EmailMessage = {
   to: 'player@daisy.example.com',
   subject: 'Sign in to Daisy Debate',
   text: 'Open the link to continue.',
@@ -28,14 +28,12 @@ describe('auth server composition', () => {
   test('exposes the validated configuration it was given', () => {
     assert({
       given: 'configuration validated from the required auth variables',
-      should: 'expose it with an empty proxy list and default mail ceilings',
+      should:
+        'expose it with an empty proxy list and default mail ceilings, and no mail transport settings (ISSUE-780)',
       actual: composeAuthServer().config,
       expected: {
         BETTER_AUTH_SECRET: authTestEnv.BETTER_AUTH_SECRET,
-        RECIPIENT_HASH_SECRET: authTestEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authTestEnv.PUBLIC_APP_URL,
-        RESEND_API_KEY: authTestEnv.RESEND_API_KEY,
-        AUTH_EMAIL_FROM: authTestEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
         AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },

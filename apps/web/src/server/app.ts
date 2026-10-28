@@ -9,8 +9,10 @@ import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
   readAuthConfig,
+  readMailConfig,
   readServerConfig,
   type AuthConfig,
+  type MailConfig,
 } from '@daisy/config';
 import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
 import { createDatabase } from '@daisy/db';
@@ -18,14 +20,14 @@ import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
-import { createResendSender, type Fetch } from '../features/auth/mail/mail';
+import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
-import { createResendWebhook } from '../features/auth/mail/webhook';
-import { createSendMail } from '../features/auth/mail/send-mail';
-import { deriveRecipientSubkey } from '../features/auth/mail/recipient-key';
-import type { Deliver } from '../features/auth/mail/deliver-or-unavailable';
+import { createResendWebhook } from '../features/mail/webhook';
+import { createSendMail } from '../features/mail/send-mail';
+import { deriveRecipientSubkey } from '../features/mail/recipient-key';
+import type { Deliver, MailPurpose } from '../features/mail/types';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
@@ -108,15 +110,21 @@ export function createApp({
     ...botAdmissionOptions(config),
   });
   let authConfig: AuthConfig | undefined;
+  let mailConfig: MailConfig | undefined;
   let auth: AuthServer | undefined;
   let mailWebhook: ReturnType<typeof createResendWebhook> | undefined;
-  let deliverMail: Deliver | undefined;
-  /** Parsed once, on first use, and shared by auth and the webhook. */
+  let mailTransport: ReturnType<typeof createSendMail> | undefined;
+  /** Parsed once, on first use, by auth alone. */
   const readAuth = (): AuthConfig => (authConfig ??= readAuthConfig(env));
-  const emailSender = (authConfig: AuthConfig) =>
+  /**
+   * Parsed once, on first use, by the mail transport, its webhook and auth's
+   * recipient keys; never through auth's configuration (ISSUE-780).
+   */
+  const readMail = (): MailConfig => (mailConfig ??= readMailConfig(env));
+  const emailSender = (mail: MailConfig) =>
     createResendSender({
-      apiKey: authConfig.RESEND_API_KEY,
-      from: authConfig.AUTH_EMAIL_FROM,
+      apiKey: mail.RESEND_API_KEY,
+      from: mail.EMAIL_FROM,
       ids,
       fetch,
     });
@@ -135,8 +143,9 @@ export function createApp({
       getParticipationByUserId: (userId) =>
         database.getParticipationByUserId(userId),
       config: authConfig,
+      recipientSubkey: deriveRecipientSubkey(readMail().RECIPIENT_HASH_SECRET),
       database: database.authAdapter,
-      emailSender: emailSender(authConfig),
+      emailSender: emailSender(readMail()),
       limiter,
       ledger,
       revokeOtherSessions: (userId, keepToken) =>
@@ -151,13 +160,12 @@ export function createApp({
     });
   };
   const composeMailWebhook = () => {
-    const authConfig = readAuth();
+    const mail = readMail();
     // Refuses rather than accept unsigned deliveries.
-    if (!authConfig.RESEND_WEBHOOK_SECRET)
-      throw createAppError('INFRASTRUCTURE');
+    if (!mail.RESEND_WEBHOOK_SECRET) throw createAppError('INFRASTRUCTURE');
     return createResendWebhook({
-      secret: authConfig.RESEND_WEBHOOK_SECRET,
-      apiKey: authConfig.RESEND_API_KEY,
+      secret: mail.RESEND_WEBHOOK_SECRET,
+      apiKey: mail.RESEND_API_KEY,
       clock,
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
@@ -186,24 +194,25 @@ export function createApp({
     },
     /**
      * The one suppression-honouring mail path (ISSUE-54) for mail outside a
-     * request: the durable mail intent worker (ADR 0075). Built on first use.
+     * request, such as the durable mail intent worker (ADR 0075), bound to
+     * its purpose. Built on first use.
      */
-    deliverMail: (): Deliver => {
-      const authConfig = readAuth();
-      return (deliverMail ??= createSendMail({
-        recipientSubkey: deriveRecipientSubkey(
-          authConfig.RECIPIENT_HASH_SECRET,
-        ),
+    deliverMail: (purpose: MailPurpose): Deliver => {
+      const mail = readMail();
+      return (mailTransport ??= createSendMail({
+        recipientSubkey: deriveRecipientSubkey(mail.RECIPIENT_HASH_SECRET),
         ledger,
-        emailSender: emailSender(authConfig),
+        emailSender: emailSender(mail),
         logger,
         clock,
-      }));
+      }))(purpose);
     },
     /** The shared atomic rate limiter (Redis-backed, fails closed). */
     limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /** The mail transport's configuration (ISSUE-780), validated on first use. */
+    mailConfig: readMail,
     /**
      * `OPS_PROBE_TOKEN` (AUTH-7.7): refuses, like the webhook secret, rather
      * than serve `/api/ops/alerts`/`/api/ops/metrics` unauthenticated.
@@ -230,15 +239,15 @@ export function createApp({
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
     /**
      * Logs how much auth work handed off past its answer is still unfinished
-     * (`auth.mail.abandoned`, a count only) when a shutdown's deadline cuts
+     * (`mail.abandoned`, a count only) when a shutdown's deadline cuts
      * it off (ISSUE-214). Silent when there is none.
      */
     reportUnfinishedWork: () => {
       const pending = auth?.pendingWork() ?? 0;
       if (pending > 0)
         logger.log(
-          'auth.mail.abandoned',
-          { operation: 'server.shutdown', pending },
+          'mail.abandoned',
+          { operation: 'server.shutdown', purpose: 'auth', pending },
           'Auth work after the answer was cut off by the shutdown deadline',
         );
     },

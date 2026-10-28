@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -9,6 +10,7 @@ import {
   betaAllowance,
   testBotAdmission,
 } from './bot-admission.test-support';
+import { createBotActor, createBotSeat } from './bot-seat.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -146,14 +148,17 @@ test('actual global capacity fails closed', async () => {
     const actorId = await admissionSponsor(fixture, [firstRound]);
     const otherActor = await admissionSponsor(fixture, [secondRound]);
     const admission = testBotAdmission(run, 1);
+    await createBotSeat(fixture, firstRound, 'negative');
     await admission.reserve({ actorId, roundId: firstRound });
     await assertRejects({
       given:
         'another approved host with allowance but one occupied global slot',
-      should: 'refuse capacity without guessing settings',
+      should:
+        'refuse capacity without guessing settings, as the bots-busy room refusal',
       actual: () =>
         admission.reserve({ actorId: otherActor, roundId: secondRound }),
       code: 'CONFLICT',
+      message: 'bots-busy',
     });
     assert({
       given: 'invalid capacity configuration',
@@ -173,5 +178,85 @@ test('actual global capacity fails closed', async () => {
       }),
       expected: true,
     });
+  });
+});
+
+test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', async () => {
+  await withBoundedRound(async (fixture, run, firstRound) => {
+    const judged = await fixture.round();
+    const finished = await fixture.round();
+    const unseated = await fixture.round();
+    const refused = await fixture.round();
+    const actorId = await admissionSponsor(fixture, [firstRound, refused]);
+    await createBotSeat(fixture, judged, 'judge');
+    await createBotSeat(fixture, finished, 'negative');
+    await fixture.sql`update rounds set status='completed',started_at=${new Date('2026-10-22T10:00:00.000Z')},completed_at=${new Date('2026-10-22T10:01:00.000Z')},current_stage=null,outcome=null where id=${finished}`;
+    const admission = testBotAdmission(run, 1);
+    const admitted = await admission.reserve({ actorId, roundId: firstRound });
+    assert({
+      given:
+        'a cap of 1, a live Round whose only bot judges and a completed bot-debater Round',
+      should: 'admit: an AI judge and a finished Round take no slot',
+      actual: admitted.roundId,
+      expected: firstRound,
+    });
+    await createBotSeat(fixture, unseated, 'affirmative');
+    await assertRejects({
+      given:
+        'a live bot-debater Round holding no reservation, as ranked play leaves it, at a cap of 1',
+      should: 'refuse the next AI Round for capacity, as bots-busy',
+      actual: () => admission.reserve({ actorId, roundId: refused }),
+      code: 'CONFLICT',
+      message: 'bots-busy',
+    });
+    const status = await admission.readStatus(actorId);
+    assert({
+      given: 'that live bot-debater Round and one spent AI Round',
+      should: 'refuse for capacity while the allowance still has room',
+      actual: [status.refusal, status.remaining],
+      expected: ['capacity', 19],
+    });
+  });
+});
+
+test('two bot-debater Rounds racing for the last capacity slot admit exactly one (ISSUE-773)', async () => {
+  await withBoundedRound(async (fixture, run, firstRound) => {
+    const [second, third] = [await fixture.round(), await fixture.round()];
+    const actorId = await admissionSponsor(fixture, [second, third]);
+    await createBotSeat(fixture, firstRound, 'negative');
+    const bots = [await createBotActor(fixture), await createBotActor(fixture)];
+    const admission = testBotAdmission(run, 2);
+    // As a Launch freezes: the admission lock, then the Round's bot seat,
+    // then the reservation, all in one transaction.
+    const launch = (roundId: string, botActor: string) =>
+      run(async (tx) => {
+        await admission.lock(tx);
+        await tx.execute(sql`insert into round_participants (id, round_id, actor_id, role, slot)
+          values (${createId()}, ${roundId}, ${botActor}, 'negative', 0)`);
+        return admission.reserveLocked(tx, { actorId, roundId });
+      });
+    const attempts = await Promise.allSettled([
+      launch(second, bots[0]!),
+      launch(third, bots[1]!),
+    ]);
+    const [{ n }] =
+      await fixture.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId}`;
+    assert({
+      given:
+        'one live bot-debater Round at a cap of 2 and two more Launches seating a bot and reserving concurrently',
+      should:
+        'serialize on the bot-admission lock and admit exactly one, with one reservation',
+      actual: [attempts.map((a) => a.status).sort(), n],
+      expected: [['fulfilled', 'rejected'], 1],
+    });
+    for (const attempt of attempts)
+      if (attempt.status === 'rejected')
+        await assertRejects({
+          given: 'the Launch that lost the race',
+          should: 'refuse it for capacity, as bots-busy',
+          actual: () => Promise.reject(attempt.reason),
+          code: 'CONFLICT',
+          message: 'bots-busy',
+        });
   });
 });

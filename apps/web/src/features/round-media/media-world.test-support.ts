@@ -29,6 +29,8 @@ export function createMediaWorld(
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
+    /** Runs as the first vendor mutation begins (it may change state or throw). */
+    readonly beforeFirstMutation?: () => void;
   } = {},
 ) {
   let roomName = fixedId('room');
@@ -48,11 +50,10 @@ export function createMediaWorld(
   const rooms = new Set<string>();
   const connected = new Map<string, Grants>();
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
-  const access = new Map<
-    string,
-    Access
-  > // each seat's own fenced facts (ISSUE-714)
-  (seats.map((s) => [s.id, { beta: 'approved', ageBand: 'adult' }]));
+  // Each seat's own fenced facts (ISSUE-714).
+  const access = new Map<string, Access>(
+    seats.map((s) => [s.id, { beta: 'approved', ageBand: 'adult' }]),
+  );
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
   let status = options.status ?? 'scheduled';
@@ -182,6 +183,7 @@ export function createMediaWorld(
       admits: Admits;
       authorize: (context: unknown) => void;
     }) => {
+      if (mutations === 0) options.beforeFirstMutation?.();
       rule = request.admits;
       const participantId =
         bindings.find((b) => b.identity === request.intent.identity)
