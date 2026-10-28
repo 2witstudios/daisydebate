@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  buildDebateTopic,
+  buildRoundTopic,
   buildRoomTopic,
   ENVELOPE_VERSION,
   type ServerMessage,
@@ -24,7 +24,7 @@ const event = (
 
 function harness(
   topic: string,
-  kind: 'room.changed' | 'debate.phase-changed',
+  kind: 'room.changed' | 'round.phase-changed',
   id: string,
 ) {
   let emit: (frame: ServerMessage) => void = () => {};
@@ -79,18 +79,18 @@ describe('attachVersionDoorbell', () => {
   });
 
   test('a round doorbell signals its round version', () => {
-    const topic = buildDebateTopic(roundId);
-    const round = harness(topic, 'debate.phase-changed', roundId);
+    const topic = buildRoundTopic(roundId);
+    const round = harness(topic, 'round.phase-changed', roundId);
     round.emit(
       event(topic, {
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         entityVersion: 4,
         ids: [roundId],
       }),
     );
     round.emit(
       event(topic, {
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         entityVersion: 5,
         ids: ['z'.repeat(24)],
       }),
@@ -137,8 +137,8 @@ describe('attachVersionDoorbell', () => {
   });
 
   test('a subscription the server could not authorize for now is retried after an authorized read, a bounded number of times in a row', () => {
-    const topic = buildDebateTopic(roundId);
-    const round = harness(topic, 'debate.phase-changed', roundId);
+    const topic = buildRoundTopic(roundId);
+    const round = harness(topic, 'round.phase-changed', roundId);
     const unavailable: ServerMessage = {
       v: ENVELOPE_VERSION,
       type: 'error',
@@ -171,8 +171,8 @@ describe('attachVersionDoorbell', () => {
   });
 
   test('a subscription refused for authorization is not retried', () => {
-    const topic = buildDebateTopic(roundId);
-    const round = harness(topic, 'debate.phase-changed', roundId);
+    const topic = buildRoundTopic(roundId);
+    const round = harness(topic, 'round.phase-changed', roundId);
     const refused: ServerMessage = {
       v: ENVELOPE_VERSION,
       type: 'error',

@@ -38,8 +38,8 @@ describe('client message schema', () => {
   test('accepts hello, subscribe, unsubscribe, presence.activity and ping{id}', () => {
     const messages = [
       { ...base, type: 'hello', protocolVersion: PROTOCOL_VERSION, ticket },
-      { ...base, type: 'subscribe', id, topic: `debate:${otherId}` },
-      { ...base, type: 'unsubscribe', id, topic: `debate:${otherId}` },
+      { ...base, type: 'subscribe', id, topic: `round:${otherId}` },
+      { ...base, type: 'unsubscribe', id, topic: `round:${otherId}` },
       { ...base, type: 'presence.activity', activity: 'active' },
       { ...base, type: 'ping', id },
     ];
@@ -133,7 +133,7 @@ describe('client message schema', () => {
       injectedEnvelopeVersion,
       PROTOCOL_VERSION,
     );
-    const topic = `debate:${otherId}`;
+    const topic = `round:${otherId}`;
     const messagesAtV33 = [
       { v: 33, type: 'subscribe', id, topic },
       { v: 33, type: 'unsubscribe', id, topic },
@@ -170,7 +170,7 @@ describe('client message schema', () => {
         ...base,
         type: 'subscribe',
         id,
-        topic: 'debate:not-a-cuid2',
+        topic: 'round:not-a-cuid2',
       }),
       expected: { issues: ['topic'] },
     });
@@ -190,14 +190,14 @@ describe('client message schema', () => {
       ...base,
       type: 'subscribe',
       id,
-      topic: `debate:${otherId}`,
+      topic: `round:${otherId}`,
       since,
     });
     const withoutSince = {
       ...base,
       type: 'subscribe',
       id,
-      topic: `debate:${otherId}`,
+      topic: `round:${otherId}`,
     };
     assert({
       given:

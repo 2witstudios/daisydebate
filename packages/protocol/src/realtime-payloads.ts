@@ -24,13 +24,13 @@ const messagingInboxChangedPayloadSchema = z.strictObject({
 });
 
 /**
- * `debate.presence-changed` is not one of these: presence is never written
+ * `round.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
  * server message instead, which carries no outbox position or kind.
  */
 const doorbellKinds = [
-  'debate.phase-changed',
-  'debate.transcript-changed',
+  'round.phase-changed',
+  'round.transcript-changed',
   'standings.updated',
 ] as const;
 const roomChangedPayloadSchema = z.strictObject({
@@ -77,7 +77,7 @@ const sessionRevokedPayloadSchema = z.strictObject({
 const accessRevokedPayloadSchema = z.strictObject({
   entityVersion: entityVersionSchema,
   kind: z.literal('access.revoked'),
-  /** Always exactly `[actorId, debateId]`: the actor to unsubscribe and the debate topic. */
+  /** Always exactly `[actorId, roundId]`: the actor to unsubscribe and the Round topic. */
   ids: z.array(idSchema).length(2),
 });
 
@@ -112,9 +112,10 @@ type OutboxPayloadKind = OutboxPayload['kind'];
 
 /**
  * Which kinds an outbox row may carry on each topic family. Public families
- * (`debate`, `standings`) carry only their own doorbell. `debate:presence`
- * and `debate:chat` carry nothing: presence is never written to the outbox
- * (ADR 0033 §1) and chat delivery is CHAT-1's later epic. The owner-only
+ * (`round`, `standings`) carry only their own doorbell. `round:presence`
+ * carries nothing: presence is never written to the outbox (ADR 0033 §1).
+ * In-Round chat, when it arrives, is a messaging channel kind, not a topic
+ * family of its own (ISSUE-763). The owner-only
  * `user:inbox` carries its delta plus the three control kinds realtime
  * consumes from the drain and never forwards to a client (plan revision
  * 4.11). `@daisy/db`'s append validates each row against this rule.
@@ -124,9 +125,8 @@ const storageFamilyPayloadKinds: Readonly<
 > = {
   channel: ['channel.changed'],
   room: ['room.changed'],
-  debate: ['debate.phase-changed', 'debate.transcript-changed'],
-  'debate:presence': [],
-  'debate:chat': [],
+  round: ['round.phase-changed', 'round.transcript-changed'],
+  'round:presence': [],
   'user:inbox': [
     'messaging.inbox.changed',
     'user.notification-delivered',

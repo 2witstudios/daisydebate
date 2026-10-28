@@ -2,7 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { initialMockForm } from '../../../features/mock-form/form';
+import { initialFormState } from '../../../features/forms/form-state';
 import { getPreferences } from '../../../features/settings/preferences';
 import { ThemeProvider } from '../../theme/theme-provider';
 
@@ -12,7 +12,7 @@ setupRitewayBun();
 await mockNextRouter();
 const { SettingsPage } = await import('./settings-page');
 
-const action = async () => initialMockForm;
+const action = async () => initialFormState;
 const render = (
   username: string | null,
   saved: 'profile' | 'notifications' | 'privacy' | null = null,

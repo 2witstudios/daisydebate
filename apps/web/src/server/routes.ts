@@ -52,7 +52,7 @@ export function createRoutes(app: App) {
     logger,
     origin,
     identify: (request: Request) => identify(app.auth(), request.headers),
-    limiter: () => app.auth().limiter,
+    limiter: () => app.limiter,
     getActorByUserId: (userId: string) => database.getActorByUserId(userId),
   };
   const confirmAuth = () => {
@@ -120,7 +120,7 @@ export function createRoutes(app: App) {
         logger,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
-        limiter: () => app.auth().limiter,
+        limiter: () => app.limiter,
         claim: (input) => database.claimUsername(input),
         hasRecordedAge: (userId) => database.hasRecordedAge(userId),
       }),
@@ -130,7 +130,7 @@ export function createRoutes(app: App) {
         logger,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
-        limiter: () => app.auth().limiter,
+        limiter: () => app.limiter,
         clock: app.clock,
         floor: ACCOUNT_AGE_FLOOR,
         termsVersion: TERMS_VERSION,
@@ -144,7 +144,7 @@ export function createRoutes(app: App) {
         logger,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
-        limiter: () => app.auth().limiter,
+        limiter: () => app.limiter,
         clock: app.clock,
         save: (input) =>
           database.saveOnboardingStep({
@@ -167,7 +167,7 @@ export function createRoutes(app: App) {
           });
           return found?.session.id ?? null;
         },
-        limiter: () => app.auth().limiter,
+        limiter: () => app.limiter,
         getActorByUserId: (userId) => database.getActorByUserId(userId),
         issueTicket: (input) =>
           app.redis.issueConnectTicket(

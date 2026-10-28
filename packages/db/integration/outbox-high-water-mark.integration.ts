@@ -9,7 +9,7 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 test('the high-water mark follows the same commit-order visibility rule as the drain: an open transaction holds it back even below an already-committed later one', async () => {
-  const topic = `debate:${createId()}`;
+  const topic = `round:${createId()}`;
   const { connA, connB, connC, drizzleC, rowA, rowB, commitA } =
     await openOutOfOrderTransactions(url, topic);
   const positionA = { txid: BigInt(rowA.txid), seq: BigInt(rowA.seq) };

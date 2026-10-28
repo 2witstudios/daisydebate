@@ -3,7 +3,7 @@ import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
 import type { OutboxRow } from '@daisy/db/outbox';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol';
 import {
   bootServer,
   databaseUrl,
@@ -20,7 +20,7 @@ requireTestServices(process.env);
 test('a burst of notifications for many committed, distinct-payload rows produces at most 2 range queries relevant to it, never one per event', async () => {
   const delivered: OutboxRow[] = [];
   const BURST_SIZE = 30;
-  const topic = buildDebateTopic(systemId.next());
+  const topic = buildRoundTopic(systemId.next());
   // Two counters, for two different regressions (RT-2.3b-f1 criterion 2):
   // `relevantQueries` (from the sink) is precise but, on its own, cannot
   // tell one coalesced query that happens to grab every row from many
@@ -89,14 +89,14 @@ test('no notifications still delivers within the poll interval, since the poll i
     pollIntervalMs: 50,
   });
   const client = new SQL(databaseUrl);
-  const topic = buildDebateTopic(systemId.next());
+  const topic = buildRoundTopic(systemId.next());
   try {
     // No pg_notify call: only the poll can ever see this row.
     await insertOutboxRow(client, {
       topic,
-      kind: 'debate.phase-changed',
+      kind: 'round.phase-changed',
       version: 1,
-      payload: { entityVersion: 1, kind: 'debate.phase-changed', ids: [topic] },
+      payload: { entityVersion: 1, kind: 'round.phase-changed', ids: [topic] },
     });
 
     await waitFor(() => delivered.some((row) => row.topic === topic), 2000);
@@ -134,16 +134,16 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
   });
   const client = new SQL(databaseUrl);
   const killer = new SQL(databaseUrl);
-  const topicBefore = buildDebateTopic(systemId.next());
-  const topicAfter = buildDebateTopic(systemId.next());
+  const topicBefore = buildRoundTopic(systemId.next());
+  const topicAfter = buildRoundTopic(systemId.next());
   try {
     const before = await insertOutboxRow(client, {
       topic: topicBefore,
-      kind: 'debate.phase-changed',
+      kind: 'round.phase-changed',
       version: 1,
       payload: {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [topicBefore],
       },
     });
@@ -163,11 +163,11 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     // onNotify path and proves nothing about the catch-up wake specifically.
     await insertOutboxRow(client, {
       topic: topicAfter,
-      kind: 'debate.phase-changed',
+      kind: 'round.phase-changed',
       version: 1,
       payload: {
         entityVersion: 1,
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         ids: [topicAfter],
       },
     });

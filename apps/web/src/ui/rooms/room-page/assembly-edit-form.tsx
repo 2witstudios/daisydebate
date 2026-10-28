@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import {
-  formValues,
-  type MockFormState,
-} from '../../../features/mock-form/form';
+import { formValues, type FormState } from '../../../features/forms/form-state';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -36,7 +33,7 @@ export function AssemblyEditFeedback({
   state,
   roomId,
 }: {
-  readonly state: MockFormState;
+  readonly state: FormState;
   readonly roomId: string;
 }) {
   return (
@@ -61,7 +58,7 @@ export function AssemblyEditForm({
   readonly action: FormAction<RoomFormState>;
   readonly label: string;
   readonly onSaved?: (() => void) | undefined;
-  readonly children: (state: MockFormState, pending: boolean) => ReactNode;
+  readonly children: (state: FormState, pending: boolean) => ReactNode;
 }) {
   const [state, post, pending] = useFormAction(
     action,

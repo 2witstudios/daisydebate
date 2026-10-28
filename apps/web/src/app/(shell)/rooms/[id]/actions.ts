@@ -4,10 +4,7 @@ import { headers } from 'next/headers';
 import { readAssembly } from '../../../../features/rooms/read-assembly';
 import { prepareSettings } from '../../../../features/rooms/prepare-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
-import {
-  refused,
-  type MockFormState,
-} from '../../../../features/mock-form/form';
+import { refused, type FormState } from '../../../../features/forms/form-state';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
@@ -48,7 +45,7 @@ async function submitRoomCommand(id: string, form: FormData) {
 
 export async function submitRoomFormAction(
   id: string,
-  _state: MockFormState,
+  _state: FormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -61,7 +58,7 @@ export async function submitRoomFormAction(
 /** Native posts return to a fresh projection; the hydrated room adopts the answer. */
 export async function roomCommandAction(
   id: string,
-  _state: MockFormState,
+  _state: FormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -74,7 +71,7 @@ export async function roomCommandAction(
 /** Form conversions use the fresh canonical source, preserving the submitted version fence. */
 export async function saveRoomSettingsAction(
   id: string,
-  state: MockFormState,
+  state: FormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const current = await roomAssembly(id);

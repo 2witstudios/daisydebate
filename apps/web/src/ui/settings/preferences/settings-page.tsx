@@ -13,7 +13,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ThemeSwitcher } from '../../components/theme-switcher/theme-switcher';
-import type { MockFormAction } from '../../form-action/mock-form';
+import type { FormStateAction } from '../../form-action/action-form';
 import { cn } from '../../cn';
 import {
   NotificationsForm,
@@ -62,9 +62,9 @@ export type SettingsPageProps = {
   readonly username: string | null;
   readonly preferences: Preferences;
   readonly saved: Section | null;
-  readonly profileAction: MockFormAction;
-  readonly notificationsAction: MockFormAction;
-  readonly privacyAction: MockFormAction;
+  readonly profileAction: FormStateAction;
+  readonly notificationsAction: FormStateAction;
+  readonly privacyAction: FormStateAction;
   /**
    * The member's optional onboarding answers and where each is changed
    * (ISSUE-324); null when they are not asked of this member (under 16, or

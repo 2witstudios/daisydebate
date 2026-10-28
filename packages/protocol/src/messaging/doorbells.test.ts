@@ -53,11 +53,11 @@ test('channel activity is a content-free, topic-bound doorbell', () => {
   for (const [topic, body, expected] of [
     [`channel:${channelId}`, payload, true],
     [`channel:${otherId}`, payload, false],
-    [`debate:${channelId}`, payload, false],
+    [`round:${channelId}`, payload, false],
     [`user:${channelId}:inbox`, payload, false],
     [
       `channel:${channelId}`,
-      { kind: 'debate.phase-changed', entityVersion: 1, ids: [channelId] },
+      { kind: 'round.phase-changed', entityVersion: 1, ids: [channelId] },
       false,
     ],
   ] as const)

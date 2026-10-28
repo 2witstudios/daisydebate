@@ -2,7 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { initialMockForm } from '../../../features/mock-form/form';
+import { initialFormState } from '../../../features/forms/form-state';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -11,7 +11,7 @@ const { CreateRoomPage } = await import('./create-room-page');
 test('create page renders durable-create fields without a placeholder judge', () => {
   const html = renderToString(
     h(CreateRoomPage, {
-      action: async () => initialMockForm,
+      action: async () => initialFormState,
       choices: [],
       commandId: 'n'.repeat(24),
     }),

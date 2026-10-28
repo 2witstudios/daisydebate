@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import {
-  buildDebateTopic,
+  buildRoundTopic,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
@@ -35,8 +35,8 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     roomViewSchema.parse(launched.view);
     const phase = await f.sql`
       select payload from outbox
-      where topic = ${buildDebateTopic(launched.view.roundRef!.id)}
-        and kind = 'debate.phase-changed'
+      where topic = ${buildRoundTopic(launched.view.roundRef!.id)}
+        and kind = 'round.phase-changed'
     `;
     assert({
       given: 'a Room frozen through the canonical command operation',
@@ -44,7 +44,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
       actual: phase.map((row: { readonly payload: unknown }) => row.payload),
       expected: [
         {
-          kind: 'debate.phase-changed',
+          kind: 'round.phase-changed',
           ids: [launched.view.roundRef!.id],
           entityVersion: 1,
         },

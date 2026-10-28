@@ -1,4 +1,5 @@
 import type { Clock } from '@daisy/clock';
+import type { WorkerTimers } from '../lib/worker-timers';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
 
@@ -272,11 +273,6 @@ export function createRetentionSweep({
   };
 }
 
-export type Timers = {
-  readonly setInterval: (tick: () => unknown, ms: number) => unknown;
-  readonly clearInterval: (handle: unknown) => void;
-};
-
 /**
  * Hourly schedule inside the existing server process (no new service).
  * Every instance runs it; that is safe because every batch is race-free
@@ -294,7 +290,7 @@ export function startRetentionSweep({
     readonly run: () => Promise<readonly RetentionResult[]>;
     readonly stop: () => void;
   };
-  readonly timers: Timers;
+  readonly timers: WorkerTimers;
   readonly intervalMs?: number;
   /** Also sweep once now: processes restarted more often than hourly still prune. */
   readonly runOnStart?: boolean;
@@ -315,13 +311,13 @@ export function startRetentionSweep({
 }) {
   let stopped = false;
   let current: Promise<unknown> | undefined;
-  const tick = () => {
-    if (stopped || current) return undefined;
+  const tick = async () => {
+    if (stopped || current) return;
     const run = sweep.run().finally(() => {
       current = undefined;
     });
     current = run;
-    return run;
+    await run;
   };
   const handle = timers.setInterval(tick, intervalMs);
   let initial: Promise<unknown> | undefined;

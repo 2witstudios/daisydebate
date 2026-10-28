@@ -3,7 +3,7 @@ import type { ConnectionStore } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 
 type Versioned =
-  'room.changed' | 'debate.phase-changed' | 'debate.transcript-changed';
+  'room.changed' | 'round.phase-changed' | 'round.transcript-changed';
 
 /**
  * A resource's content-free doorbell as sync signals: the announced version,

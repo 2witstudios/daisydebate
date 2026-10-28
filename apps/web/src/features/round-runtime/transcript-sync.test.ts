@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ENVELOPE_VERSION,
-  buildDebateTopic,
+  buildRoundTopic,
   type RoundTranscriptRead,
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
@@ -32,10 +32,10 @@ test('capture invalidation refreshes independently of competitive Round version'
   edges.emit({
     v: ENVELOPE_VERSION,
     type: 'event',
-    topic: buildDebateTopic(round.id),
+    topic: buildRoundTopic(round.id),
     position: '1:1',
     payload: {
-      kind: 'debate.transcript-changed',
+      kind: 'round.transcript-changed',
       entityVersion: 1,
       ids: [round.id],
     },
@@ -89,7 +89,7 @@ test('the first subscription acknowledgment closes the server-seed gap', async (
     v: ENVELOPE_VERSION,
     type: 'subscribed',
     id: 'transcript-subscribe',
-    topic: buildDebateTopic(round.id),
+    topic: buildRoundTopic(round.id),
     position: '1:99',
   });
   edges.answer({

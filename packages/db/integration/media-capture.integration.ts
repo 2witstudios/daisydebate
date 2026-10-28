@@ -88,7 +88,7 @@ test('capture gaps and mismatching committed chunk counts cannot produce complet
         await store.observeCapturedStream(observation);
         const duplicate = await store.observeCapturedStream(observation);
         const signals: readonly { readonly payload: unknown }[] =
-          await fixture.sql`select payload from outbox where topic=${`debate:${roundId}`} and kind='debate.transcript-changed'`;
+          await fixture.sql`select payload from outbox where topic=${`round:${roundId}`} and kind='round.transcript-changed'`;
         assert({
           given:
             'an explicit silent stream opening, then the same observation retried',
@@ -97,7 +97,7 @@ test('capture gaps and mismatching committed chunk counts cannot produce complet
           actual: signals.map((row) => row.payload),
           expected: [
             {
-              kind: 'debate.transcript-changed',
+              kind: 'round.transcript-changed',
               ids: [roundId],
               entityVersion: 1,
             },

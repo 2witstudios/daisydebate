@@ -75,16 +75,12 @@ test('a sync joining an open shared socket behaves as on a fresh one', () => {
   const made = fakeStore('open');
   const acquire = sharedConnections(() => made.store);
   const round = acquire('wss://rt.example/ws');
-  const stopRound = round.subscribeTopic('debate:r1', () => undefined);
+  const stopRound = round.subscribeTopic('round:r1', () => undefined);
   const transcript = acquire('wss://rt.example/ws');
   const states: string[] = [];
   transcript.subscribe((state) => void states.push(state.status));
-  const stopTranscript = transcript.subscribeTopic(
-    'debate:r1',
-    () => undefined,
-  );
-  const listenersWhileShared =
-    made.record.topicListeners.get('debate:r1')!.size;
+  const stopTranscript = transcript.subscribeTopic('round:r1', () => undefined);
+  const listenersWhileShared = made.record.topicListeners.get('round:r1')!.size;
   stopTranscript();
   assert({
     given:
@@ -95,11 +91,11 @@ test('a sync joining an open shared socket behaves as on a fresh one', () => {
       states,
       resubscribed: made.record.resubscribed,
       listenersWhileShared,
-      listenersAfterLeave: made.record.topicListeners.get('debate:r1')!.size,
+      listenersAfterLeave: made.record.topicListeners.get('round:r1')!.size,
     },
     expected: {
       states: ['open'],
-      resubscribed: ['debate:r1'],
+      resubscribed: ['round:r1'],
       listenersWhileShared: 2,
       listenersAfterLeave: 1,
     },

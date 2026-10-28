@@ -2,15 +2,23 @@
 
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useState } from 'react';
-import { sameDocumentHtml } from '../../../features/debate-room/documents/document-lines';
-import { documentExtensions } from '../../../features/debate-room/documents/document-schema';
-import type { WorkspaceDocument } from '../../../features/debate-room/documents/documents';
-import type { PageTone } from '../room-state';
+import { sameDocumentHtml } from '../../features/documents/document-lines';
+import { documentExtensions } from '../../features/documents/document-schema';
 import { EditorToolbar } from './editor-toolbar';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
+/** The page surface a document is edited on. */
+export type PageTone = 'dark' | 'light';
+
+/** What the editor needs of a document: debate-room documents and prep briefs both satisfy it. */
+type EditableDocument = {
+  readonly id: string;
+  readonly title: string;
+  readonly html: string;
+};
+
 type Props = {
-  readonly document: WorkspaceDocument;
+  readonly document: EditableDocument;
   readonly access: string;
   readonly page: PageTone;
   readonly onPage: (tone: PageTone) => void;
@@ -18,7 +26,7 @@ type Props = {
 };
 
 /**
- * The round document: Tiptap on the room's page surface. One editor per
+ * A rich document (a Round document or a prep brief): Tiptap on a page surface. One editor per
  * document id, kept in step with the stored HTML; base CSS comes from the stylesheet (injectCSS off, the CSP
  * refuses its un-nonced style tag). The text size is the viewer's own and
  * never saved; the page layout is part of the document.

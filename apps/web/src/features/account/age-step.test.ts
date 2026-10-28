@@ -6,7 +6,7 @@ import {
   AGE_HOLD_COOKIE_OPTIONS,
   createAgeStepHandler,
 } from './age-step';
-import { allowEvery } from '../auth/abuse/limiter.test-support';
+import { allowEvery } from '../../server/rate-limit.test-support';
 
 setupRitewayBun();
 

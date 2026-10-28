@@ -8,7 +8,7 @@ import {
   type AgeStepDecision,
 } from '@daisy/auth/age-floor';
 import { z } from 'zod';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
+import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
@@ -70,7 +70,7 @@ type AgeStepDependencies = {
   readonly origin: () => string;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: () => AuthRateLimiter;
+  readonly limiter: () => RateLimiter;
   readonly clock: Clock;
   /** The one trusted floor (`ACCOUNT_AGE_FLOOR`), injected. */
   readonly floor: AgeFloor;

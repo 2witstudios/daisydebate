@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { blockMessagingContact } from './block';
 import { messagingSocialAuthorizationFence } from './social-authorization';
 /** Both participant entry points use the same canonical, age-independent safety fence. */
@@ -14,7 +14,7 @@ export function composeMessagingBlockOperation(app: App) {
       clock: app.clock,
       limit: (actorId) =>
         consumeOrThrow(
-          app.auth().limiter,
+          app.limiter,
           `messaging:social:${actorId}`,
           social.abuse,
         ),

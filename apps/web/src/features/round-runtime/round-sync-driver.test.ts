@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  buildDebateTopic,
+  buildRoundTopic,
   ENVELOPE_VERSION,
   type RoundView,
 } from '@daisy/protocol';
@@ -30,10 +30,10 @@ describe('round sync driver', () => {
     edges.emit({
       v: ENVELOPE_VERSION,
       type: 'event',
-      topic: buildDebateTopic(round.id),
+      topic: buildRoundTopic(round.id),
       position: '1:1',
       payload: {
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         entityVersion: 3,
         ids: [round.id],
       },
@@ -43,17 +43,17 @@ describe('round sync driver', () => {
     edges.emit({
       v: ENVELOPE_VERSION,
       type: 'event',
-      topic: buildDebateTopic(round.id),
+      topic: buildRoundTopic(round.id),
       position: '1:2',
       payload: {
-        kind: 'debate.phase-changed',
+        kind: 'round.phase-changed',
         entityVersion: 3,
         ids: [round.id],
       },
     });
     assert({
       given:
-        'the debate:<id> doorbell for revision 3, then the same doorbell again',
+        'the round:<id> doorbell for revision 3, then the same doorbell again',
       should:
         'read once, adopt revision 3, and skip the doorbell it already covers',
       actual: {
@@ -64,7 +64,7 @@ describe('round sync driver', () => {
         ],
       },
       expected: {
-        log: [`subscribe ${buildDebateTopic(round.id)}`, 'connect', 'read'],
+        log: [`subscribe ${buildRoundTopic(round.id)}`, 'connect', 'read'],
         held: [3, 'completed'],
       },
     });

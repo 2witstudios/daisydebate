@@ -4,12 +4,19 @@ import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from '../authorization';
 import { messagingContactPairs } from '../schema/messaging-social';
 import type { MessagingGroupInvitationFact } from './group-invitation-contracts';
-/** Only requested admission may materialize a pair; all refusals roll the same tx back. */
+/**
+ * Only requested admission may materialize a pair; all refusals roll the same
+ * tx back. A read (`shared`) never materializes and shares the pair rows, so
+ * previews never wait on each other (MSG-2.1-arch1).
+ */
 export async function lockGroupContacts(
   tx: AuthorizationTransaction,
   actors: readonly string[],
   materialize: boolean,
+  shared = false,
 ): Promise<MessagingGroupInvitationFact['contactPairs']> {
+  if (shared && materialize) throw createAppError('INVARIANT');
+  const strength = shared ? sql`for share` : sql`for update`;
   const members = [...new Set(actors)].sort();
   if ((members.length * (members.length - 1)) / 2 > 65535)
     throw createAppError('VALIDATION');
@@ -23,7 +30,7 @@ export async function lockGroupContacts(
           .values({ lowActorId, highActorId })
           .onConflictDoNothing();
       const rows = await tx.execute(
-        sql`select low_blocks_high,high_blocks_low,revision from public.messaging_contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} for update`,
+        sql`select low_blocks_high,high_blocks_low,revision from public.messaging_contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} ${strength}`,
       );
       const pair = rows[0];
       if (!pair) continue;

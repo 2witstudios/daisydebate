@@ -23,11 +23,11 @@ test('DM decisions bind retries to the original own receipt without replaying wr
   let state = 'pending';
   const calls: string[] = [];
   const store: MessagingDmStore = {
+    readRequest: async () => {
+      throw new Error('Decision must not read introduction');
+    },
     withChannel: async (_scope, work) =>
       work({
-        readRequest: async () => {
-          throw new Error('Decision must not read introduction');
-        },
         readDecisionState: async () => ({
           channelId: command.channelId,
           state,

@@ -1,6 +1,6 @@
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeOrThrow } from '../../server/rate-limit';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import {
   runMessagingHandler,
@@ -41,7 +41,7 @@ export function composeMessagingCreationIntentRoutes(app: App) {
               app.database.lookupHumanActorByUsername(username),
             limit: (actorId) =>
               consumeOrThrow(
-                app.auth().limiter,
+                app.limiter,
                 `messaging:discovery:${actorId}`,
                 social.abuse,
               ),

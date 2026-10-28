@@ -2,11 +2,8 @@ import type { Clock } from '@daisy/clock';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import {
-  createRetentionSweep,
-  startRetentionSweep,
-  type Timers,
-} from './retention-sweep';
+import { createRetentionSweep, startRetentionSweep } from './retention-sweep';
+import type { WorkerTimers } from '../lib/worker-timers';
 
 /** Explicit reservation expiry/deletion cadence; no collection or retention approval is inferred. */
 export function startMessagingFileMaintenance(input: {
@@ -17,7 +14,7 @@ export function startMessagingFileMaintenance(input: {
   readonly remove: (key: string) => Promise<void>;
   readonly clock: Clock;
   readonly logger: Logger;
-  readonly timers: Timers;
+  readonly timers: WorkerTimers;
 }) {
   const { intervalMs, maxItems } = input.config;
   if (
