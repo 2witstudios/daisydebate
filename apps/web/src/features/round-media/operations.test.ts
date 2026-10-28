@@ -195,9 +195,10 @@ test('a reachable vendor failure during cleanup is retried on the next run', asy
   await operations.recoverActiveSessions();
   assert({
     given: 'a terminal cleanup whose first absence read fails',
-    should: 'stay unsafe and not ended, then finish on the next recovery',
+    should:
+      'defer without marking the session unsafe, then finish on the next recovery (ISSUE-803)',
     actual: [first.unsafe, first.ended, world.state().ended],
-    expected: [true, false, true],
+    expected: [false, false, true],
   });
 });
 

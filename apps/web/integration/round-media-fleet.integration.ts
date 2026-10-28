@@ -82,12 +82,13 @@ test('one actual provider failure does not prevent cleanup of another terminal m
       assert({
         given: 'actual vendor ingress restored on a later recovery cycle',
         should:
-          'clear unsafe only after provider cleanup while preserving the active Round',
+          'never have marked the active session unsafe or deleted its room for a transient vendor 503 (ISSUE-803)',
         actual: [
           recovered!.unsafe_at,
           (await f.store.getRound(f.roundId))!.status,
+          await f.media.exists(failed!.room_name),
         ],
-        expected: [null, 'scheduled'],
+        expected: [null, 'scheduled', true],
       });
     } finally {
       proxy.stop(true);
