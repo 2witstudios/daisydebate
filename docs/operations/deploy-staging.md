@@ -144,7 +144,8 @@ already running.
 
 ## Security proof against the live app (AUTH-7.8)
 
-`bun scripts/staging-security-probe.ts [--url https://<app>.fly.dev]` proves,
+`bun scripts/staging-security-probe.ts [--url https://beta.daisydebate.com]
+[--app daisy-debate-staging]` proves,
 with non-mutating GET/POST-with-bad-origin requests only, that the deployed
 app redirects plaintext HTTP to HTTPS, sets no credentialed wildcard CORS,
 never shares-caches an account response, refuses a cross-origin state
