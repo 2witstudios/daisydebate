@@ -61,8 +61,8 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `userId`                 | id    |
 | `actorId`                | id    |
 | `providerMessageId`      | id    |
-| `route`                  | path  |
-| `path`                   | path  |
+| `route`                  | route |
+| `path`                   | route |
 | `clientIdHash`           | hash  |
 | `durationMs`             | count |
 | `status`                 | count |
@@ -80,8 +80,9 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `purpose`                | code  |
 
 Kinds: **code**, a letter followed by up to 79 letters, digits, `_`, `.` or
-`-`; **id**, 1–128 letters, digits, `_` or `-`; **path**, `/` followed by
-up to 199 path characters and no query or fragment; **hash**, a 64-character
+`-`; **id**, 1–128 letters, digits, `_` or `-`; **route**, one of the route
+patterns `logRoutes` lists (ADR 0087, ISSUE-832), never a concrete URL, so no
+username or id rides it; **hash**, a 64-character
 lowercase hex digest; **count**, a non-negative safe integer.
 
 A kind limits the shape of a value, not where it came from. A caller that put

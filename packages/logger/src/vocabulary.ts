@@ -74,6 +74,58 @@ export const eventRegistry = {
 export type EventName = keyof typeof eventRegistry;
 
 /**
+ * The route patterns a log line may name (ISSUE-832, ADR 0087): Better
+ * Auth's endpoint paths, which it reports as patterns (`/reset-password/:token`),
+ * and Daisy's own route patterns that a call site logs. A concrete URL is
+ * never one of them, so no username or id rides a `route` or `path` field.
+ * `apps/web` proves every configured Better Auth endpoint is listed.
+ */
+export const logRoutes: ReadonlySet<string> = new Set([
+  '/account-info',
+  '/callback/:id',
+  '/change-email',
+  '/change-password',
+  '/delete-user',
+  '/delete-user/callback',
+  '/email-change/verify',
+  '/error',
+  '/get-access-token',
+  '/get-session',
+  '/link-social',
+  '/list-accounts',
+  '/list-sessions',
+  '/magic-link/verify',
+  '/ok',
+  '/passkey/delete-passkey',
+  '/passkey/generate-authenticate-options',
+  '/passkey/generate-register-options',
+  '/passkey/list-user-passkeys',
+  '/passkey/update-passkey',
+  '/passkey/verify-authentication',
+  '/passkey/verify-registration',
+  '/refresh-token',
+  '/request-password-reset',
+  '/reset-password',
+  '/reset-password/:token',
+  '/revoke-other-sessions',
+  '/revoke-session',
+  '/revoke-sessions',
+  '/send-verification-email',
+  '/sign-in/email',
+  '/sign-in/magic-link',
+  '/sign-in/social',
+  '/sign-out',
+  '/sign-up/email',
+  '/unlink-account',
+  '/update-session',
+  '/update-user',
+  '/verify-email',
+  '/verify-password',
+  '/api/auth/[...all]',
+  '/api/rounds/:id/media/reconcile',
+]);
+
+/**
  * What a field value may be, by kind (ADR 0019). No kind admits an object,
  * an array, whitespace or a URL scheme, so a nested secret, a header pair,
  * a Bearer value or a credential URL cannot pass as any of them.
@@ -85,9 +137,8 @@ export const fieldKinds = {
   /** A request, trace, principal or provider identifier. */
   id: (value: unknown) =>
     typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value),
-  /** A route pattern or URL path, never a query or fragment. */
-  path: (value: unknown) =>
-    typeof value === 'string' && /^\/[A-Za-z0-9_./[\]-]{0,199}$/.test(value),
+  /** One of the listed route patterns, never a concrete URL. */
+  route: (value: unknown) => typeof value === 'string' && logRoutes.has(value),
   /** A SHA3-256 hex digest. */
   hash: (value: unknown) =>
     typeof value === 'string' && /^[0-9a-f]{64}$/.test(value),
@@ -114,8 +165,8 @@ export const loggableFields = {
   userId: 'id',
   actorId: 'id',
   providerMessageId: 'id',
-  route: 'path',
-  path: 'path',
+  route: 'route',
+  path: 'route',
   clientIdHash: 'hash',
   durationMs: 'count',
   status: 'count',

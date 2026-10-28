@@ -3,10 +3,11 @@ import {
   eventRegistry,
   fieldKinds,
   loggableFields,
+  logRoutes,
   type EventName,
 } from './vocabulary';
 
-export { eventRegistry, loggableFields, type EventName };
+export { eventRegistry, loggableFields, logRoutes, type EventName };
 
 export type LogFields = Readonly<Record<string, unknown>> & {
   readonly event?: never;

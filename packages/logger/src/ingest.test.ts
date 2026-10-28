@@ -28,7 +28,7 @@ describe('admitLogLine', () => {
     });
     logger.log(
       'auth.rate_limit.denied',
-      { operation: 'auth.sign-in', path: '/api/auth/sign-in', status: 429 },
+      { operation: 'auth.sign-in', path: '/sign-in/magic-link', status: 429 },
       'Rate limit denied',
     );
     const admitted = admitLogLine(output.trim());
@@ -52,7 +52,7 @@ describe('admitLogLine', () => {
         gitCommit: '7d94b6b153b556dabe0346bc2b727f989905e436',
         fields: {
           operation: 'auth.sign-in',
-          path: '/api/auth/sign-in',
+          path: '/sign-in/magic-link',
           status: 429,
         },
       },

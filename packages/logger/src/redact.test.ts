@@ -180,6 +180,24 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
     });
   });
 
+  test('a route or path field admits only a listed route pattern (ISSUE-832)', () => {
+    const kept = (value: string) =>
+      Object.hasOwn(emit({ route: value, path: value }).entry, 'path');
+    assert({
+      given:
+        'a listed pattern, and concrete URLs naming a member, a Round or a token',
+      should: 'keep the pattern and leave every concrete URL out',
+      actual: [
+        '/reset-password/:token',
+        '/profile/alice',
+        '/rounds/tz4a98xxat96iws9zmbrgj3a',
+        '/reset-password/abc123',
+        '/profile/[username]',
+      ].map(kept),
+      expected: [true, false, false, false, false],
+    });
+  });
+
   test('a message that is not fixed prose is replaced', () => {
     const { entry } = emit({}, 'Dial https://h.example/x failed');
     assert({
