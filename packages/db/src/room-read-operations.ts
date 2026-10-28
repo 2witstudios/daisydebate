@@ -5,7 +5,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -20,6 +20,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
 
 import { botProfiles } from './schema/bot-profiles';
+import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
@@ -244,6 +245,7 @@ export const roomReadOperations = ({
       ),
     );
   },
+  /** Every AI actor a host may seat: bot debaters and the AI judge, each with its seat role (ISSUE-750). */
   async listRoomBots(
     caller: Caller,
     authorize: (account: Account) => boolean,
@@ -254,8 +256,17 @@ export const roomReadOperations = ({
         const rows = await tx
           .select({ id: actors.id })
           .from(actors)
-          .innerJoin(botProfiles, eq(botProfiles.actorId, actors.id))
-          .where(eq(actors.kind, 'bot'));
+          .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
+          .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
+          .where(
+            and(
+              eq(actors.kind, 'bot'),
+              or(
+                isNotNull(botProfiles.actorId),
+                isNotNull(aiJudgeProfiles.actorId),
+              ),
+            ),
+          );
         const bots = await Promise.all(
           rows.map((row) => actorFact(tx, row.id)),
         );

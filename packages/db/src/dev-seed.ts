@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
 import { accountBetaAccess } from './schema/beta-access';
+import { applyBetaEntitlementGrants } from './entitlement-grants';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
@@ -121,6 +122,7 @@ export async function applyDevSeed({
             provenance: 'signup',
           })
           .onConflictDoNothing();
+        await applyBetaEntitlementGrants(tx, person.userId, 'approved');
       }
       await tx
         .insert(rounds)

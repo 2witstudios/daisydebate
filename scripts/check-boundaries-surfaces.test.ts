@@ -1,5 +1,7 @@
 import {
   adminSurfaceIssue,
+  conceptCouplingIssue,
+  reservedWordIssue,
   runnerOnlyIssue,
   testSupportIssue,
 } from './boundaries-rules';
@@ -189,6 +191,77 @@ describe('runner-only code (ISSUE-275)', () => {
         runnerOnlyIssue('../scripts/auth-load/x', 'apps/web/src/y.test.ts'),
       ],
       expected: [null, null, null, null],
+    });
+  });
+});
+
+describe('round analysis and judging stay separate concepts (ISSUE-745..752)', () => {
+  test('flags an import across the two features, either way', () => {
+    assert({
+      given:
+        'round analysis importing round judging, a ballot module and the judging worker, then judging importing round analysis',
+      should: 'report concept coupling each time',
+      actual: [
+        conceptCouplingIssue(
+          '../round-judging/prompt',
+          'apps/web/src/features/round-analysis/operations.ts',
+        ),
+        conceptCouplingIssue(
+          '../../features/round-ballots/reads',
+          'apps/web/src/ui/round-analysis/round-analysis.tsx',
+        ),
+        conceptCouplingIssue(
+          './round-judging-workers',
+          'apps/web/src/server/round-analysis-workers.ts',
+        ),
+        conceptCouplingIssue(
+          '../round-analysis/policy',
+          'apps/web/src/features/round-ballots/composition.ts',
+        ),
+      ].map((issue) => issue?.endsWith('(concept coupling)')),
+      expected: [true, true, true, true],
+    });
+  });
+  test('leaves neutral modules alone', () => {
+    assert({
+      given:
+        'both features importing the neutral transcript evidence and provider budget',
+      should: 'report no issue',
+      actual: [
+        conceptCouplingIssue(
+          '../round-runtime/transcript-evidence',
+          'apps/web/src/features/round-analysis/operations.ts',
+        ),
+        conceptCouplingIssue(
+          '../../server/provider-budget',
+          'apps/web/src/features/round-judging/operations.ts',
+        ),
+      ],
+      expected: [null, null],
+    });
+  });
+});
+
+describe('coach is reserved for human coaches', () => {
+  test('flags the word in product code and allows it in onboarding and tests', () => {
+    assert({
+      given:
+        'coaching in a feature, Coach in UI copy, then the onboarding want choice and a test proving absence',
+      should: 'flag only the product uses',
+      actual: [
+        reservedWordIssue(
+          'apps/web/src/features/round-analysis/x.ts',
+          'canCoach',
+        ),
+        reservedWordIssue('apps/web/src/ui/train/card.tsx', 'Coach prompts'),
+        reservedWordIssue('packages/protocol/src/onboarding.ts', 'coach'),
+        reservedWordIssue(
+          'apps/web/src/ui/round-result/a.test.tsx',
+          'coaching',
+        ),
+        reservedWordIssue('apps/web/src/ui/train/card.tsx', 'Practice prompts'),
+      ].map((issue) => issue !== null),
+      expected: [true, true, false, false, false],
     });
   });
 });

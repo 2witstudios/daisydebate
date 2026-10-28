@@ -136,6 +136,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
           kind: 'bot' as const,
           label: 'Practice bot',
           eligible: true,
+          seatRole: 'debater' as const,
           persona: 'A practice opponent',
           voice: 'neutral',
           difficulty: 'beginner' as const,

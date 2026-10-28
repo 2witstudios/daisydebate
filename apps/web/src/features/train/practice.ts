@@ -33,7 +33,7 @@ export type PracticeConfig = {
   readonly motion: number;
   readonly own: string;
   readonly opponent: Opponent;
-  readonly coach: boolean;
+  readonly prompts: boolean;
   readonly hints: boolean;
   readonly rules: PracticeRules;
 };
@@ -43,7 +43,7 @@ export const defaultConfig: PracticeConfig = {
   motion: 0,
   own: '',
   opponent: 'ai',
-  coach: true,
+  prompts: true,
   hints: true,
   rules: standardRules,
 };
@@ -77,7 +77,7 @@ const configSchema = z.object({
     .transform((value) => value.trim().slice(0, MAX_OWN_LENGTH).trim())
     .catch(defaultConfig.own),
   opponent: z.enum(opponents).catch(defaultConfig.opponent),
-  coach: flag(defaultConfig.coach),
+  prompts: flag(defaultConfig.prompts),
   hints: flag(defaultConfig.hints),
   speech: number(standardRules.speechMinutes, clampSpeech),
   prep: number(standardRules.prepMinutes, clampPrep),
@@ -91,7 +91,7 @@ export function parsePracticeConfig(params: SearchParams): PracticeConfig {
     motion: last(params['motion']),
     own: last(params['own']),
     opponent: last(params['opp']),
-    coach: last(params['coach']),
+    prompts: last(params['prompts']),
     hints: last(params['hints']),
     speech: last(params['speech']),
     prep: last(params['prep']),
@@ -102,7 +102,7 @@ export function parsePracticeConfig(params: SearchParams): PracticeConfig {
     motion: parsed.motion,
     own: parsed.own,
     opponent: parsed.opponent,
-    coach: parsed.coach,
+    prompts: parsed.prompts,
     hints: parsed.hints,
     rules: {
       speechMinutes: parsed.speech,
@@ -150,7 +150,7 @@ export function configParams(config: PracticeConfig): URLSearchParams {
     ...(config.opponent !== defaultConfig.opponent
       ? ([['opp', config.opponent]] as [string, string][])
       : []),
-    ...(config.coach ? [] : ([['coach', 'off']] as [string, string][])),
+    ...(config.prompts ? [] : ([['prompts', 'off']] as [string, string][])),
     ...(config.hints ? [] : ([['hints', 'off']] as [string, string][])),
     ...rulesParams(config.rules),
   ];
@@ -198,8 +198,8 @@ export function practiceSummary(config: PracticeConfig): PracticeSummary {
       ['Motion', motionText(config)],
       ['Opponent', opponentLabels[config.opponent]],
       [
-        'Coaching',
-        `${config.coach ? 'Coach prompts on' : 'Coach prompts off'}, ${config.hints ? 'hints on' : 'hints off'}`,
+        'Prompts',
+        `${config.prompts ? 'Practice prompts on' : 'Practice prompts off'}, ${config.hints ? 'hints on' : 'hints off'}`,
       ],
       ['Rules', isStandard(config.rules) ? 'Standard rules' : 'Custom rules'],
     ],

@@ -44,7 +44,7 @@ export async function readRoundWriteContext(
     round.participants.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);
       if (!actor) throw createAppError('AUTHORIZATION');
-      return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
+      return { ...seat, ...seatEligibility(actor, accounts, seat) };
     }),
   );
   let agentRun: RoundCommandAuthority['agentRun'] = null;

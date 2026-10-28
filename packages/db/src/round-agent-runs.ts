@@ -7,6 +7,7 @@ import { hydrateRoundRows } from './round-hydration';
 import { actors } from './schema/actors';
 import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
+import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { fencedActorIds } from './seat-eligibility';
@@ -57,10 +58,12 @@ export async function lockRoundAgentContext(
     (candidate) => candidate.id === participantId,
   );
   if (!round || !seat) throw createAppError('AUTHORIZATION');
+  // A judge seat's agent is the AI judge; a side's is a bot debater (ISSUE-750).
+  const profile = seat.role === 'judge' ? aiJudgeProfiles : botProfiles;
   const [bot] = await tx
     .select({ id: actors.id })
     .from(actors)
-    .innerJoin(botProfiles, eq(botProfiles.actorId, actors.id))
+    .innerJoin(profile, eq(profile.actorId, actors.id))
     .where(and(eq(actors.id, seat.actorId), eq(actors.kind, 'bot')))
     .for('share');
   if (!bot) throw createAppError('AUTHORIZATION');

@@ -85,7 +85,7 @@ const participantLine = (participant: Participant) => {
 
 /**
  * A receipt of the round as it started and, once the ballot lands, the
- * result. `children` (the decision, coaching and transcript) follow the
+ * result. `children` (the decision and transcript, then the round analysis) follow the
  * result, ahead of the cast and settings.
  */
 export function RoundReceipt({

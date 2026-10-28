@@ -10,9 +10,10 @@ export const botDifficulties = [
 ] as const;
 
 /**
- * The person behind a bot actor (ADR 0058 §8): name, persona and voice for
- * the seat a bot holds. Content rows ship with the bot roster; a bot is a
- * participant implementation, never a different kind of round.
+ * The person behind a bot debater (ADR 0058 §8): name, persona and voice for
+ * the side seat it holds. Content rows ship with the bot roster; a bot is a
+ * participant implementation, never a different kind of round. The AI judge
+ * is not a bot debater and has its own `ai_judge_profiles` row (ISSUE-750).
  */
 export const botProfiles = pgTable(
   'bot_profiles',

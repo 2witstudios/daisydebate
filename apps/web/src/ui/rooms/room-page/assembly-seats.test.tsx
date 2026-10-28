@@ -13,6 +13,7 @@ const bot = {
   actorId: 't'.repeat(24),
   kind: 'bot' as const,
   label: 'Penny',
+  seatRole: 'judge' as const,
   eligible: true,
 };
 const occupied = {
@@ -138,5 +139,22 @@ test('an anonymous human judge (DEC-174)', () => {
       html.includes('undefined'),
     ],
     expected: [true, 2, false],
+  });
+});
+
+test('a bot debater is never offered as the AI judge', () => {
+  const host = renderToStaticMarkup(
+    <AssemblySeats
+      view={assemblySnapshot}
+      viewer={viewer}
+      bots={[{ ...bot, seatRole: 'debater' }]}
+      {...intents}
+    />,
+  );
+  assert({
+    given: 'an open judge seat and only a bot debater in the cast choices',
+    should: 'offer no AI judge assignment (ISSUE-750)',
+    actual: host.includes('>AI judge</button>'),
+    expected: false,
   });
 });

@@ -1,25 +1,10 @@
 import { z } from 'zod';
-import { ballotLimits, ballotSchema } from './ballot';
+import { ballotSchema } from './ballot';
 import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
 
 const ballotStatus = z.enum(['submitted', 'voided']);
-
-/**
- * A debater's own AI coaching for a completed Round (ADR 0071): written,
- * carried on the AI judge's ballot, still being written, or not available.
- */
-const roundCoachingSchema = z.discriminatedUnion('status', [
-  z.strictObject({
-    status: z.literal('ready'),
-    text: z.string().trim().min(1).max(ballotLimits.feedback),
-  }),
-  z.strictObject({ status: z.literal('in-ballot') }),
-  z.strictObject({ status: z.literal('pending') }),
-  z.strictObject({ status: z.literal('unavailable') }),
-]);
-export type RoundCoaching = z.infer<typeof roundCoachingSchema>;
 
 /**
  * A caller's own judge seat is private; other judges' seats never accompany
@@ -62,8 +47,6 @@ export const roundBallotReadSchema = z.strictObject({
       utterances: z.array(roundUtteranceSchema),
     })
     .nullable(),
-  /** The caller's own coaching when they debated the completed Round; null otherwise. */
-  coaching: roundCoachingSchema.nullable(),
 });
 export type RoundBallotRead = z.infer<typeof roundBallotReadSchema>;
 /** Only the caller's own judge assignments; no other judge identity is included. */

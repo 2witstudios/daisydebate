@@ -6,7 +6,7 @@ import { BackLink } from '../back-link/back-link';
 import { TrainCard } from '../card/train-card';
 import { TurnList } from '../turn-list/turn-list';
 import { TrainColumns, TrainPage } from '../train-page/train-page';
-import { CoachCard } from './coach-card';
+import { PromptCard } from './prompt-card';
 import { EndDialog } from './end-dialog';
 import { SpeechCard } from './speech-card';
 import { TranscriptCard } from './transcript-card';
@@ -18,7 +18,7 @@ export type PracticeLiveProps = {
 };
 
 /**
- * A practice turn: the timer and controls, the transcript, the coach and the
+ * A practice turn: the timer and controls, the transcript, the prompts and the
  * debate's turns. The timer is the only client state; every other step is a
  * link, so the screen works with no script.
  */
@@ -40,7 +40,7 @@ export function PracticeLive({ view, links, query }: PracticeLiveProps) {
         }
         aside={
           <>
-            <CoachCard view={view} hintOpen={query.hint} />
+            <PromptCard view={view} hintOpen={query.hint} />
             <TurnList
               rows={view.rows}
               footer={{ label: 'Prep time left', value: view.prepLabel }}

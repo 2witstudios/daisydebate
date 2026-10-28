@@ -3,6 +3,7 @@ import type {
   RoomCommand,
   RoomConsent,
   RoomMutationOutcome,
+  RoomParticipant,
   RoomRefusal,
 } from '@daisy/protocol';
 
@@ -168,6 +169,13 @@ const selectedTopic = (
   if (leavingDraw) return topic;
   return drawAfter ? null : room.topic;
 };
+/** A bot debater never judges and the AI judge never debates (ISSUE-750). */
+const wrongSeatForAi = (
+  target: NonNullable<Edges['target']>,
+  role: RoomParticipant['role'],
+) =>
+  target.kind === 'bot' &&
+  target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
 const seatAdmission = (
   room: RoomAssemblyState,
   actorId: string,
@@ -179,6 +187,7 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (command.type === 'claim-seat' && target.kind !== 'human')
     return 'actor-ineligible';
+  if (wrongSeatForAi(target, command.role)) return 'actor-ineligible';
   if (unjoinedHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
   return null;

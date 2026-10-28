@@ -27,7 +27,7 @@ export async function withRoomRuntime(
     | 'botAdmission'
     | 'judging'
     | 'botPublication'
-    | 'coaching'
+    | 'roundAnalysis'
   > = {},
 ) {
   const f = await fixture(options);
@@ -45,7 +45,7 @@ async function fixture(
     | 'botAdmission'
     | 'judging'
     | 'botPublication'
-    | 'coaching'
+    | 'roundAnalysis'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),
@@ -60,11 +60,20 @@ async function fixture(
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [],
     bots: string[] = [];
+  /** A bot debater: it may hold only a side seat. */
   const bot = async () => {
     const actorId = createId();
     await sql`insert into actors(id,kind) values (${actorId},'bot')`;
     bots.push(actorId);
-    await sql`insert into bot_profiles(actor_id,name,persona,voice) values (${actorId},'Fixture judge','Assess only recorded evidence','test')`;
+    await sql`insert into bot_profiles(actor_id,name,persona,voice) values (${actorId},'Fixture bot','Argue only from the motion','test')`;
+    return { actorId };
+  };
+  /** An AI judge: it may hold only the judge seat (ISSUE-750). */
+  const aiJudge = async () => {
+    const actorId = createId();
+    await sql`insert into actors(id,kind) values (${actorId},'bot')`;
+    bots.push(actorId);
+    await sql`insert into ai_judge_profiles(actor_id,name) values (${actorId},'Fixture judge')`;
     return { actorId };
   };
   const caller = async () => {
@@ -229,6 +238,7 @@ async function fixture(
     /** Another member, cleaned up with the rest. */
     member: caller,
     bot,
+    aiJudge,
     create,
     foundation,
     foundationSelection,

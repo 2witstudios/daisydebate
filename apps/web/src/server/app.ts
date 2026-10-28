@@ -104,10 +104,7 @@ export function createApp({
     url: config.DATABASE_URL,
     eventSink: logger.log,
     nextActorId: () => ids.next(),
-    ...roundWorkerDatabaseOptions(
-      config.ROUND_BOT_WORKER_POLICY,
-      nextWorkerToken,
-    ),
+    ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...botAdmissionOptions(config),
   });
   let authConfig: AuthConfig | undefined;
