@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { assertPrivateIngressLogs } from './admin-ingress-log-check';
 import { randomBytes } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 
@@ -127,11 +128,15 @@ try {
     'try { await fetch("http://127.0.0.1:8080"); process.exit(1); } catch { process.exit(0); }',
   ]);
   if (backend !== '') throw new Error('Unexpected backend proof output');
-  if (/login\.tailscale|https:\/\/.*\/a\//i.test(docker(['logs', name])))
-    throw new Error('Ingress logged an authentication URL');
   docker(['stop', '--time', '20', name]);
   if (docker(['inspect', '--format', '{{.State.ExitCode}}', name]) !== '0')
     throw new Error('Ingress did not drain cleanly');
+  const logs = spawnSync('docker', ['logs', name], { encoding: 'utf8' });
+  if (logs.status !== 0) throw new Error('Cannot read ingress logs');
+  assertPrivateIngressLogs({
+    stdout: logs.stdout ?? '',
+    stderr: logs.stderr ?? '',
+  });
   process.stdout.write(
     'PASS: real image stays awaiting login with private socket, no app listener or login URL logs, immutable root code/dependencies and private state under app UID, writable cache, and clean shutdown\n',
   );

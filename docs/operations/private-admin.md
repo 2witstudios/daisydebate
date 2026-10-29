@@ -15,7 +15,8 @@ only loopback. Serve preserves Host; the app discards Forwarded,
 X-Forwarded-* and Tailscale-* headers before Next. It uses the actual socket
 peer for rate limiting (all proxied operators share that bucket), never
 Tailscale identity headers for authorization. No public Funnel, Tailscale SSH,
-exit node, subnet routes, DNS adoption, tags or policy rewrite is required.
+exit node, subnet routes, Tailscale web interface, DNS adoption, tags or policy
+rewrite is required.
 The existing home Mac Serve configuration on port 3000 is untouched.
 
 Committed non-secret settings in `fly.admin.toml`:
@@ -54,11 +55,29 @@ this does not claim protection from an operator who rewrites daemon state.
 Daemon or app exit ends the supervisor; SIGINT/SIGTERM drains both with a
 15-second bound. Do not enable a second listener or proxy to another backend.
 
+## Human processor gate before live activation
+
+PRIV-H remains open. Before starting a new live Tailscale node or registration,
+including on staging, the parent must verify and record these non-secret
+checks in that existing human sign-off record:
+
+- The Tailscale account/tailnet belongs to the organization.
+- The processor region and applicable transfer safeguards are recorded in
+  `compliance.md` with their evidence reference.
+- The executed DPA is filed and its evidence reference is recorded.
+
+If any check lacks evidence, stop before adoption/live connection. Operational
+setup authorization does not waive these requirements. Isolated CI proof uses
+an unregistered node with networking disabled and is not live activation.
+
 ## Initial volume adoption (parent executes before main merge)
 
 This differs from normal deploy: Fly cannot attach a new volume to an
 existing volumeless machine in place. Main merges automatically deploy admin;
-complete adoption before merging this slice. The workflow also fails closed
+complete adoption before merging this slice. Finish any earlier main deployment
+(including PR522) first, then hold other merges/deploys and confirm the deploy
+rail is idle during adoption: main does not have the targeted preflight until
+this slice merges. The workflow also fails closed
 unless exactly one managed `app` machine has the dedicated encrypted `ord`
 volume at the sole expected mount and every other machine is stopped. It uses
 `--only-machines <selected-id> --strategy immediate --ha=false`; the stopped
@@ -70,12 +89,23 @@ Parent verifies these non-secret facts at action time. Never print or export
 app secrets or complete environment/config values.
 
 From the reviewed candidate checkout, build/push without deploying, recording
-the resulting digest-pinned candidate image reference (`registry.fly.io/...@sha256:...`) and exact Git SHA:
+the resulting Linux amd64 digest-pinned candidate image reference (`registry.fly.io/...@sha256:...`) and exact Git SHA:
 
-```sh
-fly deploy -c fly.admin.toml --build-only --push --local-only \
-  --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
-  --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
+```bash
+(
+  set -euo pipefail
+  admin_source_sha=$(git rev-parse HEAD)
+  admin_build_dir=$(mktemp -d)
+  trap 'rm -rf "$admin_build_dir"' EXIT
+  git archive "$admin_source_sha" | tar -x -C "$admin_build_dir"
+  admin_candidate_tag="registry.fly.io/daisy-debate-staging-admin:mobile-$(git rev-parse --short "$admin_source_sha")-amd64"
+  fly auth docker
+  docker build --platform linux/amd64 -f "$admin_build_dir/apps/web/Dockerfile" \
+    --target admin --build-arg APP_VERSION="$(git rev-parse --short "$admin_source_sha")" \
+    --build-arg GIT_COMMIT="$admin_source_sha" -t "$admin_candidate_tag" "$admin_build_dir"
+  docker image inspect "$admin_candidate_tag" --format '{{.Architecture}}'
+  docker push "$admin_candidate_tag"
+)
 ```
 
 Then stop the original, clone it with the existing new volume and a temporary
@@ -113,7 +143,7 @@ or `--machine` supported by the installed flyctl). Run inside it as root:
 ```sh
 tailscale --socket=/run/tailscale/tailscaled.sock up \
   --hostname=daisy-admin --accept-dns=false --accept-routes=false \
-  --ssh=false --advertise-routes= --advertise-exit-node=false
+  --ssh=false --webclient=false --advertise-routes= --advertise-exit-node=false
 ```
 
 The login URL is sensitive: show it only in the owner's private session, never
@@ -126,7 +156,7 @@ Existing member allow-all policy is unchanged; app passkeys remain mandatory.
 
 Observe BackendState, exact DNSName and node ID privately, then check Serve
 status: private HTTPS 443 to 127.0.0.1:8080 only and no AllowFunnel entry.
-The supervisor refuses unsafe SSH/DNS/route/exit preferences. Check off-tailnet
+The supervisor refuses unsafe SSH/web-interface/DNS/route/exit preferences. Check off-tailnet
 and Fly public hostname access fails; direct 6PN :8080 must also fail because
 the app binds loopback. On-tailnet anonymous `/accounts` must redirect to
 sign-in. Record only sanitized outcomes and candidate SHA.
@@ -162,9 +192,19 @@ the persistent machine. Manual deployments use the same preflight and target:
 admin_machines=$(mktemp)
 admin_volumes=$(mktemp)
 trap 'rm -f "$admin_machines" "$admin_volumes"' EXIT
-fly machine list -a daisy-debate-staging-admin --json > "$admin_machines"
-fly volumes list -a daisy-debate-staging-admin --json > "$admin_volumes"
-admin_target=$(bun scripts/admin-deploy-target.ts "$admin_volumes" < "$admin_machines")
+if ! fly machine list -a daisy-debate-staging-admin --json > "$admin_machines"; then
+  echo "Cannot read admin machines; refusing deployment" >&2
+  exit 1
+fi
+if ! fly volumes list -a daisy-debate-staging-admin --json > "$admin_volumes"; then
+  echo "Cannot read admin volumes; refusing deployment" >&2
+  exit 1
+fi
+if ! admin_target=$(bun scripts/admin-deploy-target.ts "$admin_volumes" < "$admin_machines") ||
+  [ -z "$admin_target" ]; then
+  echo "Cannot select one persistent admin machine; refusing deployment" >&2
+  exit 1
+fi
 fly deploy -c fly.admin.toml --local-only --ha=false --no-public-ips \
   --only-machines "$admin_target" --strategy immediate
 ```

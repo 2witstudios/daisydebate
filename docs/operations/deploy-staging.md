@@ -983,10 +983,49 @@ fly deploy -c fly.admin-migrate.toml --remote-only --update-only  # release_comm
 # Admin: follow private-admin.md initial volume adoption, then targeted deploy.
 fly ips list -a daisy-debate-staging-admin                        # must show no public address
 
-# 5. Owner enrollment and access
-# Follow private-admin.md; owner already exists, so use --name owner --additional
-# only in a private console when the owner is ready. Never capture the bearer link.
+# 5. Owner enrollment and access, only after private-admin.md live activation gates
+# A genuinely fresh database has no owner: initial enrollment omits mode flags.
+# Run privately in the new machine console only when the owner is ready:
+#   bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner
+# Existing staging already has owner: use --name owner --additional instead.
+# Never capture the bearer link or use --replace for mobile setup.
 ```
+
+**Fresh app bootstrap (not existing-machine adoption).** After the human
+processor gate in [private admin operations](private-admin.md), the database,
+least-privilege roles, app secrets and admin migrations above must exist.
+Build/push the reviewed admin image, verify Linux amd64 and its exact commit,
+and set `admin_candidate_image` to its immutable registry digest. A new app
+has neither an old machine nor node state; do not use the clone procedure:
+
+```sh
+fly volumes create admin_tailscale_state -a daisy-debate-staging-admin \
+  --region ord --size 1
+# Encryption is the default; never pass --no-encryption.
+# Set admin_new_volume to the non-secret volume ID just printed.
+if [ -z "${admin_new_volume:-}" ] || [ -z "${admin_candidate_image:-}" ]; then
+  echo "Set the volume ID and reviewed image digest before bootstrap" >&2
+  exit 1
+fi
+fly machine run "$admin_candidate_image" -c fly.admin.toml -a daisy-debate-staging-admin \
+  --name daisy-admin-private --region ord --vm-size shared-cpu-1x --vm-memory 512 \
+  --volume "$admin_new_volume:/var/lib/tailscale" --restart on-failure \
+  --metadata fly_platform_version=v2 --metadata fly_process_group=app \
+  --env ADMIN_ORIGIN=https://daisy-admin.tail51baf2.ts.net \
+  --env ADMIN_HOST=127.0.0.1 --env ADMIN_PORT=8080 \
+  --env OPERATOR_API_URL=http://daisy-debate-staging.internal:8081 \
+  --env OPERATOR_AUDIENCE=daisy-web:staging
+```
+
+No port/service flags are supplied: verify no public services/IP and exactly
+one managed machine with the volume before registration. The app secrets are
+injected by Fly. Follow the private registration/Serve checks in
+[private admin operations](private-admin.md), then use initial enrollment only
+for a database with no owner. If the existing owner/database survived a machine
+rebuild, use `--additional`; never replace or revoke it as bootstrap. After
+this first machine exists, normal deployments use the validated single-target
+procedure. The retained-old-machine adoption/rollback path applies only when
+an old machine actually exists.
 
 **6PN posture.** Admitting `daisy-debate-staging-admin` and
 `daisy-debate-staging-admin-migrate` to the default 6PN, and the web listener

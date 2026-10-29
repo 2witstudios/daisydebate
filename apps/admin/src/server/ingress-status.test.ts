@@ -24,6 +24,7 @@ test('ingressReady', () => {
 test('ingressPreferencesSafe', () => {
   const safe = {
     RunSSH: false,
+    RunWebClient: false,
     RouteAll: false,
     CorpDNS: false,
     ExitNodeID: '',
@@ -38,11 +39,12 @@ test('ingressPreferencesSafe', () => {
       null,
       {},
       { ...safe, RunSSH: true },
+      { ...safe, RunWebClient: true },
       { ...safe, RouteAll: true },
       { ...safe, CorpDNS: true },
       { ...safe, ExitNodeID: 'node' },
       { ...safe, AdvertiseRoutes: ['0.0.0.0/0'] },
     ].map(ingressPreferencesSafe),
-    expected: [true, false, false, false, false, false, false, false],
+    expected: [true, false, false, false, false, false, false, false, false],
   });
 });

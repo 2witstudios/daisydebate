@@ -52,10 +52,15 @@ const server = createServer(
       },
       (result) => {
         response.writeHead(result.statusCode ?? 502, result.headers);
+        result.once('error', () => response.destroy());
         result.pipe(response);
       },
     );
     upstream.once('error', () => {
+      if (response.headersSent) {
+        response.destroy();
+        return;
+      }
       response.writeHead(503);
       response.end('Backend not ready');
     });

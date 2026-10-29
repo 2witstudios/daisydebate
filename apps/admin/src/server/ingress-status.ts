@@ -15,9 +15,9 @@ export function ingressPreferencesSafe(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
   const prefs = value as Record<string, unknown>;
   return (
-    prefs.RunSSH === false &&
-    prefs.RouteAll === false &&
-    prefs.CorpDNS === false &&
+    [prefs.RunSSH, prefs.RunWebClient, prefs.RouteAll, prefs.CorpDNS].every(
+      (value) => value === false,
+    ) &&
     prefs.ExitNodeID === '' &&
     prefs.ExitNodeIP === '' &&
     (prefs.AdvertiseRoutes === null ||
