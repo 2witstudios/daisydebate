@@ -16,6 +16,7 @@
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "@eslint/js": "9.39.5",

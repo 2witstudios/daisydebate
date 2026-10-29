@@ -165,12 +165,12 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NODE_ENV=production
 RUN groupadd --system --gid 1001 daisy \
   && useradd --system --uid 1001 --gid daisy --home-dir /app --shell /usr/sbin/nologin daisy
-COPY --from=prod-deps --chown=daisy:daisy /app /app
-COPY --chown=daisy:daisy packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
-COPY --chown=daisy:daisy packages/clock/src packages/clock/src
-COPY --chown=daisy:daisy packages/logger/src packages/logger/src
-COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
-COPY --chown=daisy:daisy apps/admin/src apps/admin/src
+COPY --from=prod-deps --chown=root:root /app /app
+COPY --chown=root:root packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
+COPY --chown=root:root packages/clock/src packages/clock/src
+COPY --chown=root:root packages/logger/src packages/logger/src
+COPY --chown=root:root packages/protocol/src packages/protocol/src
+COPY --chown=root:root apps/admin/src apps/admin/src
 WORKDIR /app/apps/admin
 USER daisy
 
@@ -179,14 +179,25 @@ USER daisy
 FROM admin-source AS admin-migrate
 CMD ["bun", "src/db/migrate.ts"]
 
-# ---- admin: apps/admin on 6PN only (fly.admin.toml); `fly proxy 4800:8080`.
+# ---- admin: private HTTPS Serve; persistent identity stays on the Fly volume.
+FROM tailscale/tailscale:v1.104.4@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c AS admin-tailscale
 FROM admin-source AS admin
-COPY --chown=daisy:daisy apps/admin/next.config.ts apps/admin/next.config.ts
-COPY --from=admin-build --chown=daisy:daisy /app/apps/admin/.next .next
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates util-linux \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=admin-tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
+COPY --from=admin-tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
+COPY --chown=root:root apps/admin/next.config.ts apps/admin/next.config.ts
+COPY --from=admin-build --chown=root:root /app/apps/admin/.next .next
+# Root executes the supervisor and its imports. The app must never be able
+# to rewrite those files/dependencies or any ancestor on the next restart.
+# Bun installs executable package entrypoints with mode 0777. COPY chown
+# does not clear those write bits or repair pre-existing destination owners.
+RUN chown -R root:root /app && chmod -R go-w /app \
+  && mkdir -p .next/cache && chown daisy:daisy .next/cache
 ENV ADMIN_PORT=8080
-ENV ADMIN_HOST=::
-EXPOSE 8080
-CMD ["bun", "src/server/start.ts"]
+ENV ADMIN_HOST=127.0.0.1
+CMD ["bash", "src/server/private-ingress.sh"]
 
 # ---- runtime: the web app, and the default target (the last stage).
 FROM server-source AS runtime

@@ -4,7 +4,6 @@ import type { AdminDatabase } from '../db/client';
 import { operatorEnrollments, operators } from '../db/schema';
 import { isUniqueViolation } from './attempts';
 import { enrollmentExpiry } from './lifetimes';
-import { ADMIN_ORIGIN } from './origin';
 import { mintSecret, sha3, type RandomBytes } from './secrets';
 import { findActiveOperatorByName, revokeOpenEnrollments } from './store';
 
@@ -52,6 +51,7 @@ export async function issueEnrollment(
     readonly clock: Clock;
     readonly ids: IdGenerator;
     readonly random: RandomBytes;
+    readonly ceremony: { readonly origin: string };
   },
   input: { readonly name: string; readonly mode: EnrollmentMode },
 ): Promise<IssueResult> {
@@ -87,5 +87,5 @@ export async function issueEnrollment(
     throw error;
   }
   // The token rides in the fragment, so it never reaches a server log.
-  return { ok: true, url: `${ADMIN_ORIGIN}/enroll#${token}` };
+  return { ok: true, url: `${deps.ceremony.origin}/enroll#${token}` };
 }

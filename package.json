@@ -119,6 +119,7 @@
     "@daisy/logger": "workspace:*",
     "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "@daisy/redis": "workspace:*"
+    "@daisy/redis": "workspace:*",
+    "zod": "4.6.6"
   }
 }

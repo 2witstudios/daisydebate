@@ -57,8 +57,9 @@ export async function completeSignIn(credential: unknown) {
     presented: jar.get(SESSION_COOKIE)?.value ?? null,
   });
   if (!result.ok) return refused;
-  // No Secure or __Host- prefix: the canonical origin is http on localhost.
+  // HTTPS is configured at the process edge, never inferred from headers.
   jar.set(SESSION_COOKIE, result.sessionToken, {
+    secure: adminRuntime().config.ADMIN_ORIGIN.startsWith('https:'),
     httpOnly: true,
     sameSite: 'strict',
     path: '/',

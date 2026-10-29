@@ -133,6 +133,12 @@ jobs:
         run: |
           docker build --progress=plain -f apps/web/Dockerfile --target admin -t daisy-admin-ci .
           docker build --progress=plain -f apps/web/Dockerfile --target admin-migrate -t daisy-admin-migrate-ci .
+      - name: Set up Bun for the real image proof
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Prove private admin ingress waits safely for registration
+        run: bun scripts/prove-admin-ingress.ts daisy-admin-ci
       - name: Boot each admin image to its configuration refusal
         run: |
           refuses() {

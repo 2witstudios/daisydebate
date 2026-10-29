@@ -900,7 +900,9 @@ The admin app (`apps/admin`) and its release-only migrator are two more Fly
 apps built from this image: the `admin` and `admin-migrate` stages of
 `apps/web/Dockerfile`, configured by `fly.admin.toml` and
 `fly.admin-migrate.toml`. The admin app runs on the org's default 6PN with no
-`[http_service]` and no public address; the owner reaches it with `fly proxy`.
+`[http_service]` and no public address; the owner reaches it through private Tailscale HTTPS Serve. See
+[private mobile admin](private-admin.md) for initial volume adoption before
+merge, targeted stop-first deploys, renewal, mobile enrollment and rollback.
 Its database, `daisy_admin`, sits on the existing staging cluster with its
 own owner and runtime roles and no PUBLIC CONNECT (a separate production
 cluster is a production gate, ADR 0077).
@@ -909,7 +911,8 @@ Until the owner creates the apps and their deploy tokens, `deploy-staging.yml`
 skips both admin steps: each runs only when its token
 (`FLY_ADMIN_MIGRATE_API_TOKEN`, `FLY_ADMIN_API_TOKEN`) is set, and the admin
 deploy also waits for the migrator's. Once both exist, every merge deploys the
-migrator (`--update-only`) and then the admin app (`--no-public-ips`).
+migrator (`--update-only`) and then the one persistent admin machine
+(`--only-machines`, `--strategy immediate`, `--no-public-ips`).
 
 Provisioned on staging 2026-10-27 (BETA-H) under DEC-250, the 6PN sign-off
 of step 0, which the orchestrator recorded on the owner's behalf; it stays
@@ -977,13 +980,52 @@ for app in admin-migrate admin; do
     | gh secret set "FLY_$(echo $app | tr a-z- A-Z_)_API_TOKEN"
 done
 fly deploy -c fly.admin-migrate.toml --remote-only --update-only  # release_command migrates; leaves no runtime machine
-fly deploy -c fly.admin.toml --remote-only --ha=false --no-public-ips
+# Admin: follow private-admin.md initial volume adoption, then targeted deploy.
 fly ips list -a daisy-debate-staging-admin                        # must show no public address
 
-# 5. Owner enrollment and access
-fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner"
-fly proxy 4800:8080 -a daisy-debate-staging-admin               # then open the printed http://localhost:4800/enroll#… URL
+# 5. Owner enrollment and access, only after private-admin.md live activation gates
+# A genuinely fresh database has no owner: initial enrollment omits mode flags.
+# Run privately in the new machine console only when the owner is ready:
+#   bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner
+# Existing staging already has owner: use --name owner --additional instead.
+# Never capture the bearer link or use --replace for mobile setup.
 ```
+
+**Fresh app bootstrap (not existing-machine adoption).** After the human
+processor gate in [private admin operations](private-admin.md), the database,
+least-privilege roles, app secrets and admin migrations above must exist.
+Build/push the reviewed admin image, verify Linux amd64 and its exact commit,
+and set `admin_candidate_image` to its immutable registry digest. A new app
+has neither an old machine nor node state; do not use the clone procedure:
+
+```sh
+fly volumes create admin_tailscale_state -a daisy-debate-staging-admin \
+  --region ord --size 1
+# Encryption is the default; never pass --no-encryption.
+# Set admin_new_volume to the non-secret volume ID just printed.
+if [ -z "${admin_new_volume:-}" ] || [ -z "${admin_candidate_image:-}" ]; then
+  echo "Set the volume ID and reviewed image digest before bootstrap" >&2
+  exit 1
+fi
+fly machine run "$admin_candidate_image" -c fly.admin.toml -a daisy-debate-staging-admin \
+  --name daisy-admin-private --region ord --vm-size shared-cpu-1x --vm-memory 512 \
+  --volume "$admin_new_volume:/var/lib/tailscale" --restart on-failure \
+  --metadata fly_platform_version=v2 --metadata fly_process_group=app \
+  --env ADMIN_ORIGIN=https://daisy-admin.tail51baf2.ts.net \
+  --env ADMIN_HOST=127.0.0.1 --env ADMIN_PORT=8080 \
+  --env OPERATOR_API_URL=http://daisy-debate-staging.internal:8081 \
+  --env OPERATOR_AUDIENCE=daisy-web:staging
+```
+
+No port/service flags are supplied: verify no public services/IP and exactly
+one managed machine with the volume before registration. The app secrets are
+injected by Fly. Follow the private registration/Serve checks in
+[private admin operations](private-admin.md), then use initial enrollment only
+for a database with no owner. If the existing owner/database survived a machine
+rebuild, use `--additional`; never replace or revoke it as bootstrap. After
+this first machine exists, normal deployments use the validated single-target
+procedure. The retained-old-machine adoption/rollback path applies only when
+an old machine actually exists.
 
 **6PN posture.** Admitting `daisy-debate-staging-admin` and
 `daisy-debate-staging-admin-migrate` to the default 6PN, and the web listener
@@ -996,20 +1038,13 @@ admin request is authenticated by its passkey session and authorized by
 /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
 replacement link; consuming it revokes every earlier passkey and session.
 
-**Owner sign-in on staging today.** The `owner` operator already exists:
-BETA-H created it and its first link expired unused, and the ISSUE-685 smoke
-proof (below) added a passkey to it from a throwaway virtual authenticator. So
-the owner's first sign-in uses `--name owner --replace` instead of step 5's
-plain `--name owner`; consuming that link leaves the owner's own passkey as
-the only one.
-
-1. `fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"`
-2. In another terminal, `fly proxy 4800:8080 -a daisy-debate-staging-admin`.
-3. Open the printed `http://localhost:4800/enroll#…` link within 15 minutes,
-   choose **Create passkey**, then **Sign in with a passkey**.
-4. **Accounts** lists pending sign-ups. **Approve** queues the approval email
-   (the page says "Done. Approval email queued."); **Revoke** removes access
-   on the tester's next request. **Audit** shows the hash chain.
+**Owner mobile access.** The `owner` operator already exists. Follow
+[private mobile admin](private-admin.md) to register the persistent Tailscale
+node, then issue `--name owner --additional` privately when the owner is ready.
+Existing credentials stay stored and unrevoked; never substitute `--replace`
+for this setup. The owner performs the biometric ceremony, signs in and views
+Pending; fixture proof covers approval, while any live account approval is a
+separate deliberate owner action.
 
 **Approval smoke proof (ISSUE-685, 2026-10-27; DEC-255).** A browser journey across
 both apps in CI is out of scope: it would need the production web build and

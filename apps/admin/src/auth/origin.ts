@@ -1,18 +1,37 @@
-/**
- * The canonical admin origin (ADR 0077). The owner reaches the app only as
- * `http://localhost:4800` through `fly proxy`; WebAuthn binds credentials to
- * RP ID `localhost`, and the port belongs to the origin alone. Any other
- * Host, `127.0.0.1` and `[::1]` included, is answered 421 before anything
- * runs, which also defeats DNS rebinding.
- */
-const ADMIN_HOST = 'localhost:4800';
-export const ADMIN_ORIGIN = `http://${ADMIN_HOST}`;
-export const ADMIN_RP_ID = 'localhost';
+const isHttpsHostname = (url: URL): boolean =>
+  url.protocol === 'https:' &&
+  /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(url.hostname) &&
+  !/^[0-9.]+$/.test(url.hostname);
+
+/** Exact configured origin: request headers never choose the relying party. */
+export function readAdminOrigin(
+  value: string | undefined,
+  mode: string,
+): string {
+  const origin =
+    value ?? (mode === 'production' ? '' : 'http://localhost:4800');
+  try {
+    const url = new URL(origin);
+    const local = origin === 'http://localhost:4800' && mode !== 'production';
+    if (
+      url.origin !== origin ||
+      url.username ||
+      url.password ||
+      !(local || isHttpsHostname(url))
+    )
+      throw new Error('Invalid origin');
+    return origin;
+  } catch {
+    throw new Error('Invalid admin configuration: ADMIN_ORIGIN');
+  }
+}
+
 export const MISDIRECTED_STATUS = 421;
-
-export const hostAllowed = (host: string | null | undefined): boolean =>
-  host === ADMIN_HOST;
-
-/** Every server action's CSRF check: the browser-sent Origin, exactly. */
-export const sameOrigin = (origin: string | null | undefined): boolean =>
-  origin === ADMIN_ORIGIN;
+export const hostAllowed = (
+  host: string | null | undefined,
+  origin: string,
+): boolean => host === new URL(origin).host;
+export const sameOrigin = (
+  candidate: string | null | undefined,
+  origin: string,
+): boolean => candidate === origin;
