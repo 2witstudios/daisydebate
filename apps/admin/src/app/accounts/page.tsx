@@ -51,6 +51,9 @@ function CommandForm({
         aria-label={`${verb} ${account.username ?? account.userId}`}
       >
         {verb}
+        <span className="account-target">
+          {account.username ?? account.userId}
+        </span>
       </button>
     </form>
   );

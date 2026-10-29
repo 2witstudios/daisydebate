@@ -254,7 +254,7 @@ jobs:
           retention-days: 30
 
   # ADR 0077: the admin app's operator journey on its own canonical origin
-  # (http://localhost:4800) and its own database; Chromium only, through
+  # (ephemeral local HTTPS) and its own database; Chromium only, through
   # the CDP virtual authenticator.
   admin:
     name: Admin E2E

@@ -110,9 +110,9 @@ try {
     writeFileSync(cache, 'replacement');
     denied(() => renameSync(cache, startup));
     denied(() => unlinkSync(config));
-    for (const path of ['/app/apps', '/app/apps/admin', '/app/apps/admin/src', '/app/apps/admin/src/server', '/app/node_modules']) {
+    for (const path of ['/app', '/app/apps', '/app/apps/admin', '/app/apps/admin/src', '/app/apps/admin/src/server', '/app/node_modules']) {
       denied(() => writeFileSync(path + '/replacement-proof', 'replacement'));
-      denied(() => renameSync(path, '/app/apps/admin/.next/cache/ancestor-proof'));
+      denied(() => renameSync(path, '/tmp/ancestor-proof'));
     }
     unlinkSync(cache);
   `,

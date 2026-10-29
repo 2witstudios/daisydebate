@@ -85,6 +85,9 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
   await expect(pending).toContainText('2026-10-25T09:00:00.123456Z');
   const approve = page.getByRole('button', { name: 'Approve pending-player' });
   await approve.scrollIntoViewIfNeeded();
+  await expect(
+    approve.getByText('pending-player', { exact: true }),
+  ).toBeVisible();
   expect((await approve.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await page.screenshot({ path: testInfo.outputPath('mobile-pending.png') });
   await approve.click();
