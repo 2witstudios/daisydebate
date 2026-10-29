@@ -1,3 +1,4 @@
+import { art } from '../src/ui/assets';
 import { expect, test } from './support/fixtures';
 import { watchCspViolations } from './support/csp';
 
@@ -7,9 +8,7 @@ test('the dashboard renders under the production CSP without violations', async 
   const violations = await watchCspViolations(page);
 
   await page.goto('/');
-  const hero = page.getByRole('img', {
-    name: 'A green mountain ridge at dawn with rolling fog',
-  });
+  const hero = page.getByRole('img', { name: art.heroAgon.alt });
   await expect(hero).toBeVisible();
 
   // `next/image` with `fill` sizes itself through an inline style attribute;
