@@ -152,6 +152,7 @@ const appRoutes = [
   '/coming-soon/[destination]',
   '/enroll',
   '/foundation',
+  '/foundation/share/[format]/[scheme]',
   '/friends',
   '/help',
   '/judge',
