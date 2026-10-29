@@ -54,7 +54,9 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
     <span className="group relative block">
       <Link
         href={href}
-        title={extended ? undefined : (title ?? label)}
+        // The tooltip stays at every width: CSS alone hides the extended
+        // words below 1101px, and a hover name is the only discovery left.
+        title={title ?? label}
         className={navItemClass(active, extended)}
         aria-current={active ? 'page' : undefined}
       >
@@ -67,8 +69,10 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
             <span className="sr-only">{label}</span>
           </>
         ) : (
+          // The accessible name is always the full label; the word is the
+          // extended rail's visible decoration only.
           <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
-            {word ?? label}
+            {extended ? (word ?? label) : label}
           </span>
         )}
         {badge}
