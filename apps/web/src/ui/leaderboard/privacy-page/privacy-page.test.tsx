@@ -25,19 +25,20 @@ describe('PrivacyPage', () => {
     });
   });
 
-  test('the settings show their current answers and link to Settings', () => {
+  test('publishes only real ladder privacy behavior', () => {
     assert({
-      given: 'the account privacy settings',
+      given: 'the live leaderboard privacy disclosure',
       should:
-        'show the ladder setting on with no switches and no region setting, and link to change it',
+        'describe public rated records without a fake opt-out, profile fields or sample rating',
       actual: [
         html.includes('Your privacy settings'),
-        html.includes('role="switch"'),
-        html.includes('>On<'),
-        /region/i.test(html),
-        html.includes('href="/settings#privacy"'),
+        html.includes('Change in settings'),
+        html.includes('Display name and image'),
+        html.includes('1538'),
+        html.includes('Never listed, and never rated'),
+        html.includes('Room visibility does not turn off rating'),
       ],
-      expected: [true, false, true, false, true],
+      expected: [false, false, false, false, false, true],
     });
   });
 });

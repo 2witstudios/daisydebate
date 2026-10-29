@@ -110,6 +110,20 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
       ).toContainText(`${row.rating} · Provisional (+${row.delta})`);
       await capture(`${row.ladder}-round-rating`);
     }
+    await page.goto('/leaderboard/privacy');
+    await expect(
+      page.getByText('Your privacy settings', { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(/Room visibility does not turn off rating/),
+    ).toBeVisible();
+    await page.goto('/settings');
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Appear on the public ladder',
+        exact: true,
+      }),
+    ).toHaveCount(0);
   } finally {
     await context.close();
   }
