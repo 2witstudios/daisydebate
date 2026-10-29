@@ -93,4 +93,26 @@ describe('nav-item presentation', () => {
       expected: [true, true],
     });
   });
+
+  test('opens a bottom-aligned flyout upward, so a foot item stays on screen', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/settings',
+          icon: 'dots',
+          label: 'More',
+          active: false,
+          flyoutAlign: 'bottom',
+          subItems: [{ href: '/help', label: 'Help' }],
+        }),
+      ),
+    );
+    const flyout = html.slice(html.lastIndexOf('<span class="'));
+    assert({
+      given: 'a rail link at the foot with sub-items and a bottom flyout',
+      should: 'anchor its flyout to the link’s bottom, not its top',
+      actual: [/\bbottom-0\b/.test(flyout), /\btop-0\b/.test(flyout)],
+      expected: [true, false],
+    });
+  });
 });

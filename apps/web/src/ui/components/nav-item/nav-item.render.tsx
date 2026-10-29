@@ -5,6 +5,7 @@ import {
   navFlyoutClass,
   navFlyoutLinkClass,
   navItemClass,
+  type NavFlyoutAlign,
 } from './nav-item-class';
 
 export type NavItemChild = {
@@ -22,13 +23,16 @@ export type NavItemRenderProps = {
   readonly active: boolean;
   /** Optional sub-navigation revealed on hover and keyboard focus. */
   readonly subItems?: readonly NavItemChild[] | undefined;
+  /** Which way its flyout opens; a link at the foot opens upward. */
+  readonly flyoutAlign?: NavFlyoutAlign | undefined;
   /** A decorative count over the icon; the label already says it. */
   readonly badge?: ReactNode;
 };
 
 /** One icon-only rail link: the label is screen-reader text and a tooltip. */
 export function renderNavItem(props: NavItemRenderProps): ReactNode {
-  const { href, icon, label, title, active, subItems, badge } = props;
+  const { href, icon, label, title, active, subItems, flyoutAlign, badge } =
+    props;
   const hasChildren = subItems !== undefined && subItems.length > 0;
   return (
     <span className="group relative block">
@@ -43,7 +47,7 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         {badge}
       </Link>
       {hasChildren ? (
-        <span className={navFlyoutClass}>
+        <span className={navFlyoutClass(flyoutAlign)}>
           {subItems.map((child) => (
             <Link
               key={child.href}

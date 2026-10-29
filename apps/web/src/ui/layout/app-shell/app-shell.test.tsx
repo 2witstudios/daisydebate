@@ -93,7 +93,7 @@ describe('AppShell', () => {
 
   test('the rail is pinned to the viewport at every height, so its foot stays at the bottom', () => {
     const [rail] = navs(render(member));
-    const classes = rail.match(/class="([^"]*)"/)?.[1].split(' ') ?? [];
+    const classes = rail.match(/class="([^"]*)"/)?.[1]?.split(' ') ?? [];
     assert({
       given: "a member's rail on any window height",
       should:
@@ -117,8 +117,9 @@ describe('AppShell', () => {
         foot.includes('border-t'),
         foot.indexOf('href="/settings"') <
           foot.indexOf('aria-label="Your profile, ada-byron"'),
+        /class="[^"]*\bbottom-0\b/.test(foot),
       ],
-      expected: [true, true, false, true],
+      expected: [true, true, false, true, true],
     });
   });
 

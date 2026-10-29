@@ -98,7 +98,7 @@ export function Rail({ account }: { readonly account: ShellAccount }) {
         </ul>
         <ul className="mt-auto flex list-none flex-col items-center gap-1">
           <li>
-            <NavItem {...moreDestination} />
+            <NavItem {...moreDestination} flyoutAlign="bottom" />
           </li>
           <AccountItem account={account} />
         </ul>
