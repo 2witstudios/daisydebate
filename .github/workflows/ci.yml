@@ -304,12 +304,12 @@ jobs:
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          set -- $RESULTS
-          if [ "$#" -ne 7 ]; then
+          read -r -a results <<< "$RESULTS"
+          if [ "${#results[@]}" -ne 7 ]; then
             echo "CI gate: missing required job result"
             exit 1
           fi
-          for result in "$@"; do
+          for result in "${results[@]}"; do
             if [ "$result" != success ]; then
               echo "CI gate: a required job ended $result"
               exit 1

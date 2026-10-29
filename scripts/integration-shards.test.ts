@@ -3,7 +3,7 @@ import { partitionSuites, selectShard } from './integration-shards';
 import timings from './integration-timings.json';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 setupRitewayBun();
 
@@ -189,6 +189,38 @@ describe('isolated integration shards', () => {
           shard: '4/4',
           files: [],
         },
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  test('an empty discovered inventory is an error, not an empty shard', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'daisy-no-suites-'));
+    try {
+      const result = Bun.spawnSync(
+        ['bun', resolve('scripts/test-integration.ts')],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            DAISY_INTEGRATION_SHARD: '4/4',
+            TEST_DATABASE_URL: '',
+            TEST_REDIS_URL: '',
+          },
+        },
+      );
+      assert({
+        given:
+          'a valid shard selector in a workspace with no discovered suites',
+        should: 'refuse before services instead of reporting success',
+        actual: {
+          code: result.exitCode,
+          reason: result.stderr
+            .toString()
+            .includes('no suites under integration/'),
+        },
+        expected: { code: 1, reason: true },
       });
     } finally {
       rmSync(directory, { recursive: true, force: true });

@@ -22,6 +22,12 @@ export function recordIntegrationReceipt(
 
 type Inventory = Readonly<Record<string, readonly string[]>>;
 
+const sameFiles = (
+  actual: readonly string[] = [],
+  expected: readonly string[],
+) =>
+  JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
+
 function isReceipt(value: unknown): value is IntegrationReceipt {
   if (typeof value !== 'object' || value === null) return false;
   const { workspace, shard, files, elapsedMs } =
@@ -47,7 +53,9 @@ export function verifyIntegrationReceipts(
   if (!Number.isInteger(count) || count < 1 || count > 64)
     return ['Invalid integration shard count'];
   const seen = new Set<string>();
-  const coverage = new Map<string, string[]>();
+  const coverage: Record<string, string[]> = Object.fromEntries(
+    Object.keys(inventory).map((workspace) => [workspace, []]),
+  );
   const selectors = Array.from(
     { length: count },
     (_, index) => `${index + 1}/${count}`,
@@ -67,7 +75,7 @@ export function verifyIntegrationReceipts(
     const key = `${workspace}:${shard}`;
     if (seen.has(key)) problems.push(`Duplicate receipt: ${key}`);
     seen.add(key);
-    coverage.set(workspace, [...(coverage.get(workspace) ?? []), ...files]);
+    coverage[workspace].push(...files);
   }
   for (const [workspace, files] of Object.entries(inventory)) {
     if (files.length === 0)
@@ -77,10 +85,7 @@ export function verifyIntegrationReceipts(
       if (!seen.has(key)) problems.push(`Missing receipt: ${key}`);
     }
     // Sorting, not a set: a duplicated file cannot hide a missing one.
-    if (
-      JSON.stringify([...(coverage.get(workspace) ?? [])].sort()) !==
-      JSON.stringify([...files].sort())
-    )
+    if (!sameFiles(coverage[workspace], files))
       problems.push(
         `Incomplete or overlapping integration coverage: ${workspace}`,
       );

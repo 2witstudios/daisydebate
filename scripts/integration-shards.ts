@@ -1,4 +1,4 @@
-export type SuiteDurations = Readonly<Record<string, number>>;
+type SuiteDurations = Readonly<Record<string, number>>;
 
 const invalidShard =
   'Integration shard must be INDEX/COUNT with 1 <= INDEX <= COUNT <= 64';

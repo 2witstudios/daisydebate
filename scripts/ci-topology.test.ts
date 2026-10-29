@@ -102,7 +102,7 @@ describe('CI quick prerequisite topology', () => {
     for (const job of required) {
       const results = ['failure', 'cancelled', 'skipped', '', 'success'].map(
         (state) =>
-          Bun.spawnSync(['sh', '-c', command], {
+          Bun.spawnSync(['bash', '-c', command], {
             env: {
               ...process.env,
               RESULTS: required
