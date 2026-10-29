@@ -1,6 +1,7 @@
 #!/bin/sh
 # Installs Playwright's OS packages and the named browsers for a CI job, plus
-# zip/unzip for scripts/e2e-artifact-sanitizer.ts. Usage:
+# OpenSSL for ephemeral HTTPS fixture certificates and zip/unzip for
+# scripts/e2e-artifact-sanitizer.ts. Usage:
 #   sh scripts/ci-browsers.sh <browser>...
 #
 # The runner's Ubuntu mirror sometimes trickles .debs at a few KB/s, and an
@@ -34,7 +35,7 @@ attempt=1
 until sudo timeout -k 10 "$attempt_seconds" \
   "$bun" "$cli" install-deps "$@" &&
   sudo timeout -k 10 "$attempt_seconds" \
-    apt-get install -y --no-install-recommends zip unzip; do
+    apt-get install -y --no-install-recommends openssl zip unzip; do
   if [ "$attempt" -ge 3 ]; then
     echo "Browser OS dependencies failed after $attempt attempts" >&2
     exit 1

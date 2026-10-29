@@ -2,6 +2,16 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
+test('browser TLS fixtures have their system certificate generator', async () => {
+  const script = await Bun.file('scripts/ci-browsers.sh').text();
+  assert({
+    given: 'the browser runner provisions OS packages',
+    should: 'install OpenSSL for ephemeral HTTPS fixture certificates',
+    actual: /apt-get install[^\n]*\bopenssl\b/.test(script),
+    expected: true,
+  });
+});
+
 type Step = {
   id?: string;
   if?: string;

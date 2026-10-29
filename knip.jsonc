@@ -78,10 +78,14 @@
     // ADR 0077: the custom server and the two CLIs are process entries
     // (`start`, fly.admin-migrate.toml's release command, `fly ssh console`).
     "apps/admin": {
+      // External system OpenSSL generates the declared HTTPS fixture's test certificate.
+      "ignoreBinaries": ["openssl"],
       "entry": [
         "src/server/start.ts",
         "src/db/migrate.ts",
         "src/scripts/operator-enroll.ts",
+        // Playwright launches this TLS proxy through webServer.command.
+        "e2e/support/https-proxy.ts",
         "e2e/support/prepare.ts",
         "e2e/support/operator-api-server.ts",
         "integration/**/*.integration.ts",
