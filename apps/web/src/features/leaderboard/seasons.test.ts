@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from './ladder.test-support';
-import { readLadder } from './read-leaderboard';
+import { readLadder } from './read-leaderboard.test-support';
 import { buildSeasonsView, parseSeasonsQuery, seasonsHref } from './seasons';
 
 setupRitewayBun();
@@ -11,18 +11,18 @@ describe('parseSeasonsQuery', () => {
       given: 'a valid, a missing, a bad and a repeated season',
       should: 'read the number or fall back to the current season',
       actual: [
-        parseSeasonsQuery({ season: '3' }),
+        parseSeasonsQuery({ season: 'ssssssssssssssssssssssss' }),
         parseSeasonsQuery({}),
         parseSeasonsQuery({ season: 'x' }),
-        parseSeasonsQuery({ season: ['2', '3'] }),
-        seasonsHref(3),
+        parseSeasonsQuery({ season: ['tttttttttttttttttttttttt', '3'] }),
+        seasonsHref('3'),
         seasonsHref(null),
       ],
       expected: [
-        3,
+        'ssssssssssssssssssssssss',
         null,
         null,
-        2,
+        'tttttttttttttttttttttttt',
         '/leaderboard/seasons?season=3',
         '/leaderboard/seasons',
       ],
@@ -67,7 +67,7 @@ describe('buildSeasonsView', () => {
   });
 
   test('a closed season', () => {
-    const view = buildSeasonsView(readLadder(3, NOW, null).data, NOW);
+    const view = buildSeasonsView(readLadder('3', NOW, null).data, NOW);
     assert({
       given: 'a closed season',
       should: 'name the champion, freeze the standings and fill the bar',
@@ -97,5 +97,21 @@ describe('buildSeasonsView', () => {
       actual: [view.champion, view.snapshot],
       expected: [null, []],
     });
+  });
+});
+
+test('season navigation preserves the selected independent ladder', () => {
+  const data = readLadder(null, NOW, null).data;
+  const view = buildSeasonsView(data, NOW, null, 'policy');
+  assert({
+    given: 'a Policy season overview',
+    should: 'label the ladder and preserve it in chips, detail and return URLs',
+    actual: [
+      view.ladderLabel,
+      view.chips.every((c) => c.href.includes('ladder=policy')),
+      view.ladderHref.includes('ladder=policy'),
+      view.snapshot.every((r) => r.href.includes('ladder=policy')),
+    ],
+    expected: ['Policy', true, true, true],
   });
 });

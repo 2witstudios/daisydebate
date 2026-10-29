@@ -42,3 +42,16 @@ export function deriveRoundOutcome(
       ? 'affirmative'
       : 'negative';
 }
+
+/** The exact rulings admitted by the partial finalizer; preserves caller-owned IDs. */
+export const participatingRulings = <
+  T extends Pick<Ruling, 'judgeParticipantId' | 'status'>,
+>(
+  judgeSeatIds: readonly string[],
+  ballots: readonly T[],
+): readonly T[] =>
+  ballots.filter(
+    (ballot) =>
+      ballot.status === 'submitted' &&
+      judgeSeatIds.includes(ballot.judgeParticipantId),
+  );

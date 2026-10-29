@@ -17,7 +17,7 @@ kill_timeout = 30
 
 [env]
   # The origin it posts signed capture to.
-  PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
+  PUBLIC_APP_URL = "https://beta.daisydebate.com"
 
 # No [http_service] or [[services]]: the worker only calls out, so nothing
 # reaches it and Fly never stops it for idleness.

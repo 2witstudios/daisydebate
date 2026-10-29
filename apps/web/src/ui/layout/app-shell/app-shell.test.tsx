@@ -79,6 +79,7 @@ describe('AppShell', () => {
           '/',
           '/',
           '/lobby',
+          '/leaderboard',
           '/judge',
           '/settings',
           '/settings',
@@ -157,6 +158,7 @@ describe('AppShell', () => {
       should: 'list their places, Settings and the help and legal pages',
       actual: sheet,
       expected: [
+        '/leaderboard',
         '/friends',
         '/profile/ada-byron',
         '/settings',

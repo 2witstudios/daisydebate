@@ -1,5 +1,6 @@
 import {
   competitionTypes,
+  canonicalRatingLadder,
   debateSides,
   type CompetitionType,
   emptyRuntimeCheckpoint,
@@ -42,10 +43,12 @@ import { formats } from './formats';
 import { rooms } from './rooms';
 import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
-/** The ladder a Round rates on, as `rounds_rated_ladder_check` requires: Ranked, or none. */
+/** Canonical mapping frozen at construction; null denotes casual play. */
 export const roundLadder = (
   competitionType: CompetitionType,
-): RatingLadder | null => (competitionType === 'ranked' ? 'ranked' : null);
+  formatId: string,
+): RatingLadder | null =>
+  competitionType === 'ranked' ? canonicalRatingLadder(formatId) : null;
 
 /** A side wins, or nobody does. Abandonment is a status, not an outcome. */
 export const roundOutcomes = [...debateSides, 'draw'] as const;
@@ -197,7 +200,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_rated_ladder_check',
-        sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
+        sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null and ${table.ladderId} = ${table.formatId}) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
       ),
       check(
         'rounds_ranked_has_preset_check',

@@ -9,12 +9,12 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  * into it goes to its explainer, never to sample data.
  */
 export const launched: LaunchConfig = {
-  ranked: false,
+  ranked: true,
   lobby: true,
   watch: false,
   judge: true,
   tournaments: false,
-  leaderboard: false,
+  leaderboard: true,
   train: false,
   prep: false,
 };

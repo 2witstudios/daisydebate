@@ -35,6 +35,10 @@
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
         "e2e/support/server.ts",
+        // Explicit Bun workers for isolated rated setup/rendering evidence.
+        "e2e/support/rating-season-worker.ts",
+        "e2e/support/rating-display-worker.ts",
+        "integration/rating-recovery-worker.test-support.ts",
         "e2e/support/realtime-config.ts",
         "e2e/support/realtime-runner.ts",
         "e2e/support/messaging-realtime-config.ts",
@@ -65,7 +69,12 @@
         "scripts/auth-load/instance-process.ts",
       ],
     },
-    "packages/db": { "entry": ["integration/**/*.integration.ts"] },
+    "packages/db": {
+      "entry": [
+        "integration/**/*.integration.ts",
+        "scripts/rating-preflight.ts",
+      ],
+    },
     // ADR 0077: the custom server and the two CLIs are process entries
     // (`start`, fly.admin-migrate.toml's release command, `fly ssh console`).
     "apps/admin": {

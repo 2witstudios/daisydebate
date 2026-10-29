@@ -144,7 +144,7 @@ describe('competition vocabulary', () => {
       given: 'the rating ladder vocabulary',
       should: 'be exactly ranked: Rounds are full length only (DEC-237)',
       actual: ratingLadders,
-      expected: ['ranked'],
+      expected: ['freestyle', 'policy', 'value'],
     });
     assert({
       given: 'the status vocabulary',

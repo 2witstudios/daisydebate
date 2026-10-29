@@ -9,7 +9,7 @@ const at = new Date('2026-10-05T12:00:00.000Z');
 describe('standings reads', () => {
   test('lists ladder seasons and ranked formats as records', async () => {
     const { database } = createTestDatabase([
-      [['s2', 'Season 2', at, null, 'active', at, at, 1]],
+      [['s2', 'Season 2', null, at, null, 'active', at, at, 1]],
       [['parli', 'Parliamentary']],
     ]);
     assert({
@@ -42,8 +42,7 @@ describe('standings reads', () => {
       should: 'return empty standings without a query',
       actual: [
         await database.readStandings({
-          formatId: 'parli',
-          ladder: 'ranked',
+          ladder: 'freestyle',
           seasonIds: [],
         }),
         queries.length,
@@ -57,18 +56,28 @@ describe('standings reads', () => {
       // The snapshot's SET TRANSACTION statement.
       [],
       [
-        ['s1', 'a1', 'ada', 1516, 290],
-        ['s1', 'a2', null, 1484, 290],
+        ['s1', 'a1', 'ada', null, 1516, 290, 0.06],
+        ['s1', 'a2', null, null, 1484, 290, 0.06],
       ],
       [
-        ['s1', 'a1', 'd1', 1500, 1516, at, 'affirmative', 'affirmative'],
-        ['s1', 'a2', 'd1', 1500, 1484, at, 'negative', 'affirmative'],
-        ['s1', 'a1', 'd2', 1516, 1516, at, 'affirmative', 'draw'],
+        [
+          's1',
+          'a1',
+          'd1',
+          1500,
+          1516,
+          350,
+          290,
+          at,
+          'affirmative',
+          'affirmative',
+        ],
+        ['s1', 'a2', 'd1', 1500, 1484, 350, 290, at, 'negative', 'affirmative'],
+        ['s1', 'a1', 'd2', 1516, 1516, 290, 250, at, 'affirmative', 'draw'],
       ],
     ]);
     const read = await database.readStandings({
-      formatId: 'parli',
-      ladder: 'ranked',
+      ladder: 'freestyle',
       seasonIds: ['s1'],
     });
     assert({
@@ -96,8 +105,7 @@ describe('standings reads', () => {
   test('reads both sets from one read-only snapshot', async () => {
     const { database, queries } = createTestDatabase([[], [], []]);
     await database.readStandings({
-      formatId: 'parli',
-      ladder: 'ranked',
+      ladder: 'freestyle',
       seasonIds: ['s1'],
     });
     assert({
@@ -120,15 +128,14 @@ describe('standings reads', () => {
       const { database } = createTestDatabase([
         [],
         [],
-        [['s1', 'a1', 'd1', 1500, 1516, at, role, outcome]],
+        [['s1', 'a1', 'd1', 1500, 1516, 350, 290, at, role, outcome]],
       ]);
       await assertRejects({
         given: `a ledger row with ${given}`,
         should: 'refuse as an internal error rather than guess a result',
         actual: () =>
           database.readStandings({
-            formatId: 'parli',
-            ladder: 'ranked',
+            ladder: 'freestyle',
             seasonIds: ['s1'],
           }),
         code: 'INTERNAL',

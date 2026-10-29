@@ -2,7 +2,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
-import type { FormatSettings } from '@daisy/protocol';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
 
@@ -12,17 +11,6 @@ import { testDatabaseUrl, withSql } from './fixtures';
  * rated through `rateCompletedRound` with the engine's own decision.
  * `cleanup` removes everything it made, ledger rows first.
  */
-
-/** The format settings the arena's presets sanction (ISSUE-775). */
-const config: FormatSettings = {
-  preRoundPrep: { enabled: false },
-  resolutionDraw: { enabled: false },
-  inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
-  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
-  yielding: { allowed: true, returnsTime: true },
-};
 
 /** The one-speech arena rules: the shared fixture cut to its opening segment. */
 const rules = {
@@ -35,6 +23,7 @@ export const minute = (n: number) =>
   new Date(Date.UTC(2026, 9, 5, 12, n)).toISOString();
 
 type RoundInput = {
+  readonly ladder?: 'freestyle' | 'policy' | 'value';
   readonly affirmative: string;
   readonly negative: string;
   /** `ladderId` null marks an unrated (casual) round. */
@@ -62,7 +51,7 @@ export async function arena(
     url: testDatabaseUrl,
     nextActorId: createId,
   });
-  const formatId = `fmt-${createId()}`;
+  const formatId = 'freestyle';
   const seasonIds: string[] = [];
   const users: string[] = [];
   const actors: string[] = [];
@@ -77,12 +66,6 @@ export async function arena(
     );
     return id;
   };
-  await withSql(async (sql) => {
-    await sql`insert into format_revisions (format_id, version, definition)
-      values (${formatId}, 1, ${{ version: 1, seats: rules.seats, segments: [], configurable: { timing: { segmentDurationMs: {}, countdownMs: { min: 0, max: 60_000 } }, inRoundPrep: null, preRoundPrep: null, resolutionDraw: null, interaction: { crossExModes: ['ordered'], interruptions: null, yield: null } } }}::jsonb)`;
-    await sql`insert into formats (id, name, current_version)
-      values (${formatId}, 'Ranked fixture', 1)`;
-  });
   const seasonId =
     options.season === false
       ? null
@@ -100,11 +83,12 @@ export async function arena(
   };
 
   const round = async (input: RoundInput) => {
+    const formatId = input.ladder ?? 'freestyle';
     const id = createId();
     rounds.push(id);
     const status = input.status ?? 'completed';
     const competitionType = input.competitionType ?? 'ranked';
-    const ladderId = competitionType === 'ranked' ? 'ranked' : null;
+    const ladderId = competitionType === 'ranked' ? formatId : null;
     // Abandonment is lifecycle, not outcome: it carries completed_at like any
     // ended round (ADR 0058 §8).
     const completedAt =
@@ -113,10 +97,6 @@ export async function arena(
       // A ranked round is constructed from a sanctioned preset, so it pins
       // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
       // presets, so the arena only has to name the version it resolved from.
-      if (competitionType === 'ranked')
-        await sql`insert into format_presets (format_id, version, format_version, config, approved_at)
-          values (${formatId}, 1, 1, ${config}::jsonb, statement_timestamp())
-          on conflict (format_id, version) do nothing`;
       await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, outcome, ladder_id)
         values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
                 ${status === 'active' ? 'live' : null},
@@ -129,6 +109,12 @@ export async function arena(
       ] as const)
         await sql`insert into round_participants (id, round_id, actor_id, role, slot)
           values (${createId()}, ${id}, ${actorId}, ${role}, 0)`;
+      if (competitionType === 'ranked' && status === 'completed') {
+        const commandId = createId();
+        await sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
+          values(${commandId},${id},${input.affirmative},'forfeit',${'a'.repeat(64)},${{}},1,${new Date(completedAt!)} )`;
+        await sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${commandId},1)`;
+      }
     });
     return id;
   };
@@ -149,7 +135,7 @@ export async function arena(
   const ratings = (actorId: string) =>
     withSql(
       (sql) => sql`select ladder, rating, deviation, version from ratings
-        where actor_id = ${actorId} and format_id = ${formatId} order by season_id = ${seasonId ?? ''} desc, ladder`,
+        where actor_id = ${actorId} order by season_id = ${seasonId ?? ''} desc, ladder`,
     ) as Promise<
       Array<{
         ladder: string;
@@ -161,18 +147,18 @@ export async function arena(
 
   const cleanup = async () => {
     await withSql(async (sql) => {
-      await sql`delete from rating_changes where format_id = ${formatId}`;
-      await sql`delete from ratings where format_id = ${formatId}`;
-      for (const id of rounds) await sql`delete from rounds where id = ${id}`;
+      for (const id of rounds) {
+        await sql`delete from rating_changes where round_id=${id}`;
+        await sql`delete from round_finalization_ballots where round_id=${id}`;
+        await sql`delete from round_finalizations where round_id=${id}`;
+        await sql`delete from rounds where id = ${id}`;
+      }
+      for (const id of actors)
+        await sql`delete from ratings where actor_id=${id}`;
       for (const id of seasonIds)
         await sql`delete from seasons where id = ${id}`;
       for (const id of actors) await sql`delete from actors where id = ${id}`;
       for (const id of users) await sql`delete from users where id = ${id}`;
-      await sql`delete from formats where id = ${formatId}`;
-      // Presets point into the revision, so they go before it and after the
-      // format whose current_version points there too (ADR 0058 §2a).
-      await sql`delete from format_presets where format_id = ${formatId}`;
-      await sql`delete from format_revisions where format_id = ${formatId}`;
     });
     await database.close();
   };

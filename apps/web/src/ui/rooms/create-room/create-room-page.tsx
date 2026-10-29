@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { destinationHref } from '../../../features/coming-soon/launch';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -16,8 +15,10 @@ export function CreateRoomPage({
   commandId,
   choices,
   freshRoom = false,
+  initialRated = false,
 }: {
   readonly freshRoom?: boolean;
+  readonly initialRated?: boolean;
   readonly action: FormStateAction;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
@@ -48,19 +49,18 @@ export function CreateRoomPage({
           className="flex min-w-0 flex-1 flex-col gap-6 rounded-xl bg-surface p-6 shadow-1 max-compact:w-full"
         >
           <CreateAssemblyForm
+            initialRated={initialRated}
             action={action}
             commandId={commandId}
             choices={choices}
           />
         </section>
         <aside
-          aria-label="About casual rooms"
+          aria-label="About rated rooms"
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
-          <Notice tone="accent" icon="trophy" title="This room is unranked">
-            <Link href={destinationHref('ranked', { path: '/ranked/host' })}>
-              Host a ranked room
-            </Link>
+          <Notice tone="accent" icon="trophy" title="Three ladders">
+            <Link href="/leaderboard">View standings</Link>
           </Notice>
         </aside>
       </div>

@@ -105,7 +105,7 @@ export const persistRoomMutation = async (
       visibility: next.visibility,
       rulesSnapshot: next.rules,
       status: 'scheduled',
-      ladderId: roundLadder(next.competitionType),
+      ladderId: roundLadder(next.competitionType, next.formatId),
       createdAt: new Date(now),
       updatedAt: new Date(now),
     });

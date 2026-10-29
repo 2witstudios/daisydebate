@@ -83,7 +83,8 @@ package; this map lists only packages that exist today.
   bundles that share only that) and binds each `app/**/route.ts` export to
   it; `apps/realtime/src/start.ts` builds `createRealtimeApp`. Next renders
   pages and layouts itself, so server components cannot take arguments:
-  they read this request's session through `lib/request-session.ts`, the one
+  they read this request's session and published feature reads through
+  `lib/request-session.ts`, the one
   non-route module that takes the process app (`processApp().auth()`) and
   passes it on to `lib/identity.ts`. Only route bindings (`processRoute`),
   that module, `proxy.ts`, `instrumentation.ts` and `server/start.ts` may
@@ -177,3 +178,14 @@ Detailed documents: persistence and Redis semantics
 (`docs/architecture/persistence.md`), engine boundary
 (`docs/domains/engine.md`), the Room and Round lifecycle
 (`docs/domains/rooms.md`), decision records (`docs/decisions/`).
+
+### Rating publication
+
+The ratings feature owns actor+ladder+season standing reads, aggregation, rank,
+full-precision provisional classification and viewer blinding. Leaderboard,
+profile and Round consume that named published output; leaderboard shapes
+display rows and navigation. The frozen Round ladder is authoritative. Shared
+Round finalization owns immutable terminal command/freeze/ballot membership;
+ratings consumes its finalized outcome without re-aggregating ballots.
+See [ADR0090](../decisions/0090-three-rating-ladders.md) for admission, lock
+ordering, durable recovery and beta activation boundaries.

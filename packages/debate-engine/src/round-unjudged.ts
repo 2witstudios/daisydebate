@@ -6,7 +6,7 @@ import type {
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 import type { CommandContext } from './round-commands';
-import { deriveRoundOutcome } from './round-outcome';
+import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
 type Ruling = {
   readonly judgeParticipantId: string;
@@ -73,11 +73,7 @@ export function decideUnjudgedCompletion(
       outcome: null,
       noRuling: [],
     };
-  const submitted = input.ballots.filter(
-    (ballot) =>
-      ballot.status === 'submitted' &&
-      input.judgeSeatIds.includes(ballot.judgeParticipantId),
-  );
+  const submitted = participatingRulings(input.judgeSeatIds, input.ballots);
   const ruled = new Set(submitted.map((ballot) => ballot.judgeParticipantId));
   const noRuling = input.judgeSeatIds.filter((id) => !ruled.has(id));
   const pastDeadline = input.nowMs >= input.ballotDeadlineAtMs;

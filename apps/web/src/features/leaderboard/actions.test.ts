@@ -13,7 +13,7 @@ describe('destinations', () => {
       actual: [
         leaderboardDestinations.findMatch,
         everyoneHref({ ...defaultQuery, q: 'abc', page: 3 }),
-        seasonHref(3),
+        seasonHref('3'),
       ],
       expected: [
         '/ranked',

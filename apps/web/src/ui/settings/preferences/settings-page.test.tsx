@@ -174,3 +174,13 @@ describe('onboarding answers in Settings (ISSUE-324)', () => {
     });
   });
 });
+
+test('rated standings have no unsupported privacy switch', () => {
+  const html = render('debater-a');
+  assert({
+    given: 'Settings while rated standings have no persisted opt-out',
+    should: 'offer no ladder visibility toggle or private-debater promise',
+    actual: [html.includes('name="ladder"'), html.includes('private debater')],
+    expected: [false, false],
+  });
+});

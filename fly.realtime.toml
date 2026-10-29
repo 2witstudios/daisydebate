@@ -16,7 +16,7 @@ kill_timeout = 35
   build-target = "realtime"
 
 [env]
-  PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
+  PUBLIC_APP_URL = "https://beta.daisydebate.com"
   # The ticket namespace the web app issues into (fly.toml).
   REDIS_NAMESPACE = "daisy"
   LOG_LEVEL = "info"

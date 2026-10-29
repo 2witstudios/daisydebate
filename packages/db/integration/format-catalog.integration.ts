@@ -1,3 +1,4 @@
+import { ratingLadders } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { catalogFormats } from '../src/catalog-formats';
@@ -35,7 +36,7 @@ test('the migrations seed the catalog with a current preset each', async () => {
     assert({
       given: 'a migrated database',
       should:
-        'list every catalog format at preset 1, none ranked, and keep the One-on-one preset ranked',
+        'list every catalog format at preset1 and admit exactly the three canonical rated IDs',
       actual: { listed, oneOnOneRanked: oneOnOne[0]?.ranked },
       expected: {
         listed: catalogFormats.map(({ id, role, family }) => ({
@@ -43,9 +44,9 @@ test('the migrations seed the catalog with a current preset each', async () => {
           role,
           family,
           version: 1,
-          ranked: false,
+          ranked: ratingLadders.some((ladder) => ladder === id),
         })),
-        oneOnOneRanked: true,
+        oneOnOneRanked: false,
       },
     });
   });

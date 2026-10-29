@@ -1,9 +1,3 @@
-import {
-  sampleMatchTimings,
-  sampleOpponent,
-  sampleRankedFacts,
-  sampleStanding,
-} from '../../ui/mock/ranked';
 import { rankedDestinations } from './actions';
 import {
   advanceFrom,
@@ -132,18 +126,4 @@ export function screenFor(
     case 'entering':
       return { step, opponent, enterHref: room, advance };
   }
-}
-
-/**
- * The Ranked page's one data seam (matchmaking, MTCH-1.1 onward). Today it
- * plays the sample flow from the URL step; the server's matchmaking state
- * replaces this function and nothing else.
- */
-export function driveMatch(query: RankedQuery): RankedScreen {
-  return screenFor(query, {
-    standing: sampleStanding,
-    opponent: sampleOpponent,
-    timings: sampleMatchTimings,
-    facts: sampleRankedFacts,
-  });
 }

@@ -1,17 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { buildDetail } from './detail';
 import { NOW } from './ladder.test-support';
-import { readDebater, readLadder } from './read-leaderboard';
+import { readDebater, readLadder } from './read-leaderboard.test-support';
 
 setupRitewayBun();
 
-const season = (id: number) => {
+const season = (id: string) => {
   const found = readLadder(id, NOW, null).data.season;
   return found;
 };
 const detail = (
   username: string,
-  seasonId: number,
+  seasonId: string,
   viewer: { username: string; blinded: readonly string[] } | null = null,
   query: { view: 'chart' | 'table'; step: number | null } = {
     view: 'chart',
@@ -28,7 +28,7 @@ const detail = (
 
 describe('buildDetail', () => {
   test('an established debater', () => {
-    const view = detail('debater-b', 4);
+    const view = detail('debater-b', '4');
     assert({
       given: 'the top debater in the live season',
       should:
@@ -76,7 +76,7 @@ describe('buildDetail', () => {
 
   test('the viewer, provisional', () => {
     const viewer = { username: 'sam', blinded: [] };
-    const view = detail('sam', 4, viewer, { view: 'table', step: 4 });
+    const view = detail('sam', '4', viewer, { view: 'table', step: 4 });
     assert({
       given:
         'the signed-in viewer with seven ranked debates, on the table view at step 4',
@@ -97,7 +97,7 @@ describe('buildDetail', () => {
         true,
         'Unranked',
         false,
-        '7 of 10 ranked debates',
+        'Provisional',
         null,
         'table',
         4,
@@ -110,7 +110,7 @@ describe('buildDetail', () => {
   test('step is clamped', () => {
     const view = detail(
       'sam',
-      4,
+      '4',
       { username: 'sam', blinded: [] },
       {
         view: 'chart',
@@ -130,7 +130,7 @@ describe('buildDetail', () => {
     assert({
       given: 'the viewer in a season before their first debate, and a stranger',
       should: 'say no ranked debates, in first or third person',
-      actual: [detail('sam', 2, viewer), detail('nobody-here', 4)].map(
+      actual: [detail('sam', '2', viewer), detail('nobody-here', '4')].map(
         (view) => view.kind === 'none' && view.text,
       ),
       expected: [
@@ -141,7 +141,7 @@ describe('buildDetail', () => {
   });
 
   test('a debater the viewer is judging', () => {
-    const view = detail('debater-b', 4, {
+    const view = detail('debater-b', '4', {
       username: 'sam',
       blinded: ['debater-b'],
     });

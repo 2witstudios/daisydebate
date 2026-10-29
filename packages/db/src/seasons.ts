@@ -106,6 +106,40 @@ const seasonOperations = (database: BunSQLDatabase) => ({
     return rows.map(toSeasonRecord);
   },
 
+  /** Explicit activation only. Retries preserve the first actual activation. */
+  activateBetaSeason(input: { readonly id: string }): Promise<SeasonRecord> {
+    return database.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+      const [existing] = await tx
+        .select()
+        .from(seasons)
+        .where(eq(seasons.activationKey, 'beta-season-1'));
+      if (existing) return toSeasonRecord(existing);
+      const [other] = await tx
+        .select({ id: seasons.id })
+        .from(seasons)
+        .limit(1);
+      if (other)
+        throw createAppError(
+          'CONFLICT',
+          'Beta activation requires no competing season',
+        );
+      const [opened] = await tx
+        .insert(seasons)
+        .values({
+          id: input.id,
+          name: 'Season 1',
+          activationKey: 'beta-season-1',
+          startsAt: sql`clock_timestamp()`,
+          status: 'active',
+        })
+        .returning();
+      if (!opened)
+        throw createAppError('INTERNAL', 'Season insert returned no row');
+      return toSeasonRecord(opened);
+    });
+  },
+
   openSeason(input: NewSeason): Promise<SeasonRecord> {
     return database.transaction((tx) => open(tx, input));
   },
@@ -122,13 +156,10 @@ const seasonOperations = (database: BunSQLDatabase) => ({
     readonly closeId: string;
     readonly open: NewSeason;
   }): Promise<{ closed: SeasonRecord; opened: SeasonRecord }> {
-    return database.transaction(async (tx) => {
-      const closed = await close(tx, {
-        id: input.closeId,
-        endsAt: input.open.startsAt,
-      });
-      return { closed, opened: await open(tx, input.open) };
-    });
+    void input;
+    return Promise.reject(
+      createAppError('CONFLICT', 'Season rollover requires DEC-111 resolution'),
+    );
   },
 });
 

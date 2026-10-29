@@ -1,7 +1,10 @@
 # 0055: Glicko-2 calculation, ladders and season carry-over
 
-Status: proposed. Implements [ADR 0029](0029-competitive-schema-foundation.md)
-item 8 (Glicko-2, one debate is one rating period) and the Ranked ladder.
+Status: partially accepted. DEC-110 confirms calculation parameters and
+DEC-119 confirms posting order; DEC-111 season/provisional calibration
+remains unresolved. [ADR 0090](0090-three-rating-ladders.md) supersedes the
+single-ladder vocabulary with three ladders. Implements [ADR 0029](0029-competitive-schema-foundation.md)
+item 8 (Glicko-2, one debate is one rating period).
 When this record is accepted it amends, in its own `## Amendment` section,
 [ADR 0029](0029-competitive-schema-foundation.md) item 8 (the rating key
 gains `ladder`). Decisions marked open at the end
@@ -10,13 +13,11 @@ overrules them.
 
 ## Context
 
-The schema has held Glicko-2 state since the baseline (`seasons`, `ratings`,
-`rating_changes`), but nothing computes a rating, opens a season or writes
-the ledger, and the leaderboard reads sample data. The owner fixed the model
-on 2026-10-05: Glicko-2, no debater tiers, and the Ranked ladder (one human
-judge, Daisy's promoted ladder). Before code can be written, the calculation needs parameters,
-Daisy's one-debate periods need an answer for idle time, and a new season
-needs a starting point.
+The ratings feature composes the pure Glicko-2 calculation with durable
+finalized-Round discovery, transactional ledger posting and published standing
+reads. Freestyle, Policy and Value are independent pools under ADR 0090.
+Beta activation remains an explicit post-deploy operation with live evidence
+tracked under RATE-5; production retains RATE-H.1.
 
 ## Decision
 
@@ -34,7 +35,7 @@ rated, the outcome and the debate's completion time.
 | τ                      | 0.5                                               |
 | Volatility search      | ε = 1e-6, at most 100 steps                       |
 | Inactivity period      | one day                                           |
-| Season deviation floor | 150                                               |
+| Season deviation floor | unresolved; rollover refused                      |
 | Provisional above      | deviation 110                                     |
 | Bounds                 | rating 0–4000, deviation 30–350, volatility ≤ 0.1 |
 
@@ -55,14 +56,14 @@ lost. A debate is posted at its completion. If either debater was already
 posted at or after that instant, it is posted one millisecond after the
 latest such posting instead. This happens when another debate sharing a
 debater was rated first, or when a retry was delayed. So `before(n) =
-after(n - 1)` holds in `occurred_at` order for every debater, and the
-result never depends on which transaction committed first.
+after(n - 1)` holds in `occurred_at` order for every debater, and late results are retained. Sequential Glicko updates still depend on
+posting order; this rule does not claim order-independent results.
 
 ### 3. Idle time widens the deviation
 
 Because every period holds one debate, Glicko-2's per-period growth alone
 would never reflect a debater who stops playing. Before rating, each side's
-deviation is widened for the days since it was last rated on that format and
+deviation is widened for the days since it was last rated on that
 ladder: φ* = √(φ² + t·σ²), with t in days, capped at 350. A deviation of 60
 reaches about 83 after a month idle and about 208 after a year. The ledger's
 `*_before` columns record the stored state before widening, so within a
@@ -77,25 +78,25 @@ or any value that is not finite, is refused with the invariant
 refused with `debate.rating.volatility-converges`. Both are registered in
 `spec/invariants.json`.
 
-### 5. One ladder, one key
+### 5. Rating pool identity
 
-`ratings` and `rating_changes` carry `ladder` (`ranked`), which joins the key
-`(actor, format, season, ladder)`. The ladder vocabulary lives in
-`@daisy/protocol` beside the debate roles, and the CHECKs derive from it. A
-ranked Round rates on the Ranked ladder; casual never rates. Ranked requires
-canonical rules on a ranked-eligible format (ADR 0030).
+The standing identity is `(actor, ladder, season)`, with ladder exactly
+`freestyle`, `policy` or `value`. Format revision belongs to Round and ledger
+provenance, never to the standing key. Frozen Round `ladder_id` is the sole
+authority; a database constraint binds each canonical format ID to its identical
+ladder ID. Casual has no ladder.
 
-### 6. Seasons carry the rating forward
+### 6. Season activation and unresolved carry-over
 
-A season is opened, closed or rolled over by the `bun season` CLI, never by a
-route in `apps/web` (ADR 0043). At most one season is active. Carry-over is
-lazy: nothing is written at rollover. On a debater's first rated debate in a
-season, their latest earlier-season state on the same format and ladder
-starts the season with the rating and volatility kept and the deviation
-raised to at least 150. A debater with no earlier state starts at 1500.
-A debate is posted to the season that is active when it is rated, and its
-`occurred_at` is its posting instant (section 2): the debate's
-`completed_at`, unless a debater was already posted later.
+`bun season activate-beta` opens the shared Season 1 at the database's actual
+activation instant under key `beta-season-1`. Concurrent invocations return the
+same record. A retry returns even a closed Season 1 unchanged; another season
+causes refusal. Startup never activates a season.
+
+A debate posts to the active season with DEC-119 ordering. New actors start
+from the confirmed initial parameters. Prior-season carry-over and rollover
+refuse pending DEC-111: the proposed floor150 is not authorized by beta RD110
+policy. No prior-season history is invented.
 
 ### 7. Provisional is derived from the deviation
 
@@ -106,22 +107,28 @@ bands.
 
 ## Consequences
 
-- One forward migration adds `ladder` to both rating tables. The rating
-  tables are empty in every environment, so there is no default or backfill.
-- The rating write is one transaction that locks the debate, posts two ledger
-  rows and updates the projection under its version. Re-rating a debate is a
-  no-op. `@daisy/db`'s `rateDebate` decides nothing: the engine's
-  `ratingEligibility` and `planRating` are injected as its decision, because
-  the adapter sits below the domain and never imports it. The
-  `apps/web` ratings feature (`rateCompletedDebate`) composes the two.
-  Nothing calls it yet. Wiring it into the debate completion path is task
-  RATE-2.
-- The leaderboard and profile read real standings on the Ranked ladder. They
-  are empty until a ranked-eligible format and an
-  active season exist; opening the first production season is a human-only
-  task.
+- Ratings owns durable discovery, calculation composition, ledger posting,
+  standing aggregation, ranking, classification and viewer blinding. Leaderboard,
+  profile and Round displays consume its named published output.
+- Posting locks Round, active season SHARE, then sorted ratings-owned actor/ladder
+  advisory keys before reading state. Two ledger rows and both projections commit
+  atomically. Duplicate posting is a no-op. See ADR0090 for lock interoperation.
+- Human and system-AI judged results and eligible forfeits consume shared Round
+  terminal provenance. No ballot result is recomputed by ratings.
+- Closed-season standing classification uses the closure instant. Historical
+  Round badges use the actual posting's deviation. Current displays widen at one
+  injected read instant and classify before rounding.
 
-## Open decisions (made on the owner's behalf)
+## Calibration decisions
+
+DEC-110 confirms items 1 and 5. DEC-111 retains the unresolved future season floor in item 2. Delegated
+DEC-266 selects widened RD >110 for beta provisional display, explicitly as beta
+policy rather than empirically optimal calibration. DEC-266 remains open for
+owner confirmation; point-guard delegation authorizes execution. Eligible forfeits retain the outcome
+policy in section 2; this record does not newly approve ranked admission.
+The original parameter list is preserved below.
+
+### Original decisions made on the owner's behalf
 
 1. **τ 0.5 and the one-day inactivity period.** τ is Glickman's example
    value, inside his recommended 0.3–1.2.
@@ -141,3 +148,11 @@ removed: `ratingLadders` is `['ranked']`, and the forward migration
 `20261025223110_full_length_only` deletes any Quick-ladder ratings and ledger
 rows (DEC-240) before the ladder CHECKs tighten. `ladder` stays in the rating
 key as the pool a rating belongs to.
+
+## Amendment (2026-10-28, DEC-265)
+
+[ADR 0090](0090-three-rating-ladders.md) selects Freestyle, Policy and Value
+for current delivery and retains one frozen ladder authority. The previous
+Quick removal remains; the generic Ranked pool is removed by a fail-closed
+forward migration. Existing rated data requires explicit disposition before any
+DDL. No relabel, reset or compatibility pool is supplied.

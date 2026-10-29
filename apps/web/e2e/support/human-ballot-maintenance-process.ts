@@ -27,6 +27,9 @@ if (import.meta.main) {
   try {
     const instanceId = createId();
     const operation = createRoundMaintenanceOperations({
+      ratingFailed: (_id, error) => {
+        throw error;
+      },
       startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
       store: database,

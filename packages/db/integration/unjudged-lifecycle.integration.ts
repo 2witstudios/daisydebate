@@ -100,16 +100,15 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
 
 test('ranked completion retains the required outcome and practice is no competition type (DEC-233)', async () => {
   await withFixture(databaseUrl, async (f) => {
-    const formatId = await f.format();
-    await f.preset(formatId);
     const ranked = await rejectedBy(() =>
       f.round({
         ...completed,
         rules_snapshot: zeroRules,
         competition_type: 'ranked',
-        ladder_id: 'ranked',
+        format_id: 'freestyle',
+        format_version: 1,
+        ladder_id: 'freestyle',
         preset_version: 1,
-        format_id: formatId,
       }),
     );
     const practice = await rejectedBy(() =>

@@ -29,13 +29,6 @@ const statusOf = async (fixture: Fixture, id: string) => {
     : null;
 };
 
-const seasonCount = async (fixture: Fixture) => {
-  const [row] = (await fixture.sql.unsafe(
-    'select count(*)::int as count from seasons',
-  )) as Array<{ count: number }>;
-  return row?.count ?? 0;
-};
-
 describe('season operations (RATE-1.2)', () => {
   test('opens one active season and refuses a second', async () => {
     await withFixture(url, async (fixture) => {
@@ -111,56 +104,7 @@ describe('season operations (RATE-1.2)', () => {
     });
   });
 
-  test('rolls over atomically', async () => {
-    await withFixture(url, async (fixture) => {
-      const current = tracked(fixture);
-      const next = tracked(fixture);
-      const refused = tracked(fixture);
-      await withSeasons(url, async (seasons) => {
-        await seasons.openSeason({
-          id: current,
-          name: 'Season 1',
-          startsAt: october,
-        });
-        await assertRejects({
-          given: 'a next season starting before the current one',
-          should: 'refuse the rollover as invalid',
-          actual: () =>
-            seasons.rolloverSeason({
-              closeId: current,
-              open: {
-                id: refused,
-                name: 'Too early',
-                startsAt: new Date('2026-09-01T00:00:00.000Z'),
-              },
-            }),
-          code: 'VALIDATION',
-        });
-        assert({
-          given: 'a refused rollover',
-          should: 'leave the current season active and open nothing',
-          actual: [
-            await statusOf(fixture, current),
-            await statusOf(fixture, refused),
-          ],
-          expected: [{ status: 'active', endsAt: undefined }, null],
-        });
-        const { closed, opened } = await seasons.rolloverSeason({
-          closeId: current,
-          open: { id: next, name: 'Season 2', startsAt: january },
-        });
-        assert({
-          given: 'a rollover to a later season',
-          should:
-            'close the current season at the next start and open the next',
-          actual: [closed.status, closed.endsAt, opened.status, opened.id],
-          expected: ['closed', january.toISOString(), 'active', next],
-        });
-      });
-    });
-  });
-
-  test('rolls back the close when opening the next season fails', async () => {
+  test('rollover refuses every next-season shape pending DEC-111 without changing any season', async () => {
     await withFixture(url, async (fixture) => {
       const current = tracked(fixture);
       await withSeasons(url, async (seasons) => {
@@ -169,26 +113,30 @@ describe('season operations (RATE-1.2)', () => {
           name: 'Season 1',
           startsAt: october,
         });
-        const before = await seasonCount(fixture);
-        await assertRejects({
-          given:
-            'a rollover whose close succeeds but whose next season reuses an existing id',
-          should: 'refuse the rollover',
-          actual: () =>
-            seasons.rolloverSeason({
-              closeId: current,
-              open: { id: current, name: 'Season 2', startsAt: january },
-            }),
-          code: 'CONFLICT',
-        });
-        const after = await seasonCount(fixture);
-        assert({
-          given: 'an open that fails after the close ran in the same rollover',
-          should:
-            'roll the close back, leaving the current season active with no end and no row added',
-          actual: [await statusOf(fixture, current), after - before],
-          expected: [{ status: 'active', endsAt: undefined }, 0],
-        });
+        const before = await seasons.listSeasons();
+        for (const [id, startsAt] of [
+          [tracked(fixture), january],
+          [tracked(fixture), new Date('2026-09-01T00:00:00Z')],
+          [current, january],
+        ] as const) {
+          await assertRejects({
+            given:
+              'unresolved DEC-111 with future, earlier or competing season ID',
+            should: 'refuse rollover before any close or insert',
+            actual: () =>
+              seasons.rolloverSeason({
+                closeId: current,
+                open: { id, name: 'Season 2', startsAt },
+              }),
+            code: 'CONFLICT',
+          });
+          assert({
+            given: 'a refused rollover',
+            should: 'preserve every original season field',
+            actual: await seasons.listSeasons(),
+            expected: before,
+          });
+        }
       });
     });
   });

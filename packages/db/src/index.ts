@@ -31,7 +31,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import { readUnratedAttendanceForfeits } from './attendance-rating';
+import { readUnratedRatingRounds } from './rating-discovery';
 import { deliverObservationPurges } from './observation-purge-jobs';
 import { duePrivacyJobs } from './privacy/vendor-jobs';
 import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
@@ -183,9 +183,9 @@ export function createDatabase({
       nextId: nextActorId,
     }),
     ...availabilityOperations(controlLane.client, dedicated),
-    readUnratedAttendanceForfeits: (
-      input: Parameters<typeof readUnratedAttendanceForfeits>[1],
-    ) => readUnratedAttendanceForfeits(database, input),
+    readUnratedRatingRounds: (
+      input: Parameters<typeof readUnratedRatingRounds>[1],
+    ) => readUnratedRatingRounds(database, input),
     ...databaseHealthOperations({
       database: control,
       dedicated,

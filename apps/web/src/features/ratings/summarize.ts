@@ -10,6 +10,7 @@ export type StandingSummary = {
   readonly accountClosed: boolean;
   readonly rating: number;
   readonly deviation: number;
+  readonly volatility: number;
   readonly played: number;
   readonly wins: number;
   readonly losses: number;
@@ -58,6 +59,7 @@ export function summarizeStandings(
       accountClosed: rating.accountClosed,
       rating: rating.rating,
       deviation: rating.deviation,
+      volatility: rating.volatility,
       played: own.length,
       wins: count('wins'),
       losses: count('losses'),

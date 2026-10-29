@@ -24,7 +24,7 @@ export const openRoomHref = '/play/room';
 const choices: readonly PlayChoice[] = [
   {
     id: 'ranked',
-    title: 'Ranked match',
+    title: 'Rated debate',
     blurb: 'Matched near your rating. Rated.',
     href: '/ranked',
     launch: 'ranked',

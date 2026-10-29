@@ -169,12 +169,6 @@ export function PrivacyForm({
     <ActionForm action={action} label="Privacy" className="flex flex-col gap-4">
       {({ error, pending }) => (
         <>
-          <Check
-            name="ladder"
-            label="Appear on the public ladder"
-            helper="Hidden debaters keep their rating and show as a private debater so ranks do not shift."
-            checked={prefs.ladder}
-          />
           <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
             <legend className="mb-1 text-sm font-strong text-ink">
               Data we may use

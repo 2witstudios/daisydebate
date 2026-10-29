@@ -9,6 +9,7 @@ import {
   type SelectionTuple,
 } from './format-operations';
 
+import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -84,6 +85,13 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
+        if (input.room.competitionType === 'ranked') {
+          const active = await tx.execute(
+            sql`select id from seasons where status='active' for share`,
+          );
+          if (active.length !== 1)
+            throw createAppError('CONFLICT', 'No season is active');
+        }
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
           ...newRoomValues(input.room, 'assembling'),

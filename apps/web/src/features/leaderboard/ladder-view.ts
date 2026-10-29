@@ -1,6 +1,6 @@
 import type { LadderStatus } from './query';
 import type { Season } from './season';
-import type { LadderEntry } from './standing';
+import type { RatingEntry } from '../ratings/rank';
 
 /** Rows per page of the table. */
 export const PAGE_SIZE = 15;
@@ -43,7 +43,7 @@ export type LadderRow = {
 };
 
 export type Champion = {
-  readonly season: number;
+  readonly season: string;
   readonly username: string;
   readonly rating: number;
 };
@@ -52,7 +52,7 @@ export type Champion = {
 export type LadderData = {
   readonly season: Season;
   readonly seasons: readonly Season[];
-  readonly entries: readonly LadderEntry[];
+  readonly entries: readonly RatingEntry[];
   /** The previous season's champion, for a season that has just opened. */
   readonly previousChampion: Champion | null;
   /** Standings changes waiting on the feed since the page loaded. */

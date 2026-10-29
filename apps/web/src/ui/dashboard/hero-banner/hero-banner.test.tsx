@@ -22,7 +22,7 @@ describe('HeroBanner', () => {
         /<h1[^>]*>Better arguments\. A more thoughtful world\.<\/h1>/.test(
           html,
         ),
-        html.includes(`alt="${art.heroRidge.alt}"`),
+        html.includes(`alt="${art.heroAgon.alt}"`),
       ],
       expected: [true, true],
     });

@@ -1,17 +1,11 @@
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
-import { driveHost } from '../../../../features/ranked/drive-host';
-import { parseHostQuery } from '../../../../features/ranked/host-query';
 import { requireAccess } from '../../../../lib/access';
-import { Host } from '../../../../ui/ranked/host';
-
-export const metadata: Metadata = { title: 'Host a ranked room' };
-
-export default async function HostRankedTablePage({
+export default async function HostRankedRoomPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  readonly searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/ranked/host', searchParams);
-  return <Host screen={driveHost(parseHostQuery(await searchParams))} />;
+  redirect('/play/room?rated=1');
 }

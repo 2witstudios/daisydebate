@@ -145,6 +145,7 @@ export const roundCommandOperations = ({
             result: { ...receipt },
           },
           resultingVersion,
+          { before: current.status, projection },
         );
         await writeSpeakingProjection(tx, {
           roundId: input.roundId,

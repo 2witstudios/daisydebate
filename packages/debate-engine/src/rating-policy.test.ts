@@ -109,3 +109,33 @@ describe('RATING_CALCULATION_VERSION', () => {
     });
   });
 });
+
+describe('beta provisional display (DEC-266)', () => {
+  test('classifies widened full precision before display rounding', () => {
+    const state = { rating: 1500, deviation: 110, volatility: 0.06 };
+    const read = (days: number) =>
+      inflateDeviation(state, daysBefore(days), at).deviation;
+    assert({
+      given:
+        'RD110 at posting and one, thirty or365 idle days at the shared read instant',
+      should:
+        'classify from widened full precision without changing the rating',
+      actual: [0, 1, 30, 365].map((days) => ({
+        rd: read(days).toFixed(4),
+        provisional: isProvisional(read(days)),
+      })),
+      expected: [
+        { rd: '110.0000', provisional: false },
+        { rd: '110.4927', provisional: true },
+        { rd: '123.9323', provisional: true },
+        { rd: '227.4945', provisional: true },
+      ],
+    });
+    assert({
+      given: 'a full precision deviation just above110 which rounds to110',
+      should: 'remain provisional',
+      actual: isProvisional(110.000001),
+      expected: true,
+    });
+  });
+});

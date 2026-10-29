@@ -40,12 +40,14 @@ export function ActionTile({
       href={href}
       className="group flex h-full flex-col gap-4 rounded-xl bg-surface p-6 text-ink no-underline shadow-1 transition duration-140 ease-standard hover:bg-surface-raised hover:no-underline"
     >
-      <Icon
-        name={glyph}
-        size={28}
-        strokeWidth={1.6}
-        className={actionTileTintClass(tint)}
-      />
+      <span className="inline-flex size-10 items-center justify-center rounded-lg bg-accent-soft">
+        <Icon
+          name={glyph}
+          size={28}
+          strokeWidth={1.6}
+          className={actionTileTintClass(tint)}
+        />
+      </span>
       <div className="flex flex-1 flex-col gap-1">
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}

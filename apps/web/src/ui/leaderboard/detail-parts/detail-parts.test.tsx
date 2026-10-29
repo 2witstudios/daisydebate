@@ -6,18 +6,18 @@ import { NOW } from '../../../features/leaderboard/ladder.test-support';
 import {
   readDebater,
   readLadder,
-} from '../../../features/leaderboard/read-leaderboard';
+} from '../../../features/leaderboard/read-leaderboard.test-support';
 import { RatingSummary } from './detail-parts';
 
 setupRitewayBun();
 
 describe('RatingSummary', () => {
   test('the stats carry no tier', () => {
-    const season = readLadder(4, NOW, null).data.season;
+    const season = readLadder('4', NOW, null).data.season;
     const detail = buildDetail(
       'debater-b',
       season,
-      readDebater('debater-b', 4, NOW, null),
+      readDebater('debater-b', '4', NOW, null),
       { view: 'chart', step: null },
       null,
     );

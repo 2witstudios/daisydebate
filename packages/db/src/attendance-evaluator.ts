@@ -117,6 +117,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           ...adjudicationCommand(round.id, target.id, resolution),
         },
         resultingVersion,
+        { before: current.status, projection: resolution.projection },
       );
       await tx.execute(sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,effective_deadline,settled_horizon)
     values(${round.id},${target.id},${input.commandId},${resolution.decision},${resolution.effectiveDeadline}::timestamptz,${resolution.settledHorizon}::timestamptz)`);
