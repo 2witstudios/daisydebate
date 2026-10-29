@@ -97,7 +97,8 @@ test('a new member walks onboarding with JavaScript and the answers stay saved',
   await page.getByRole('button', { name: 'Not now' }).click();
   await walkOnboarding(page);
 
-  // Edit reopens a step with the saved answers ticked.
+  // Settings reopens a step with the saved answers ticked.
+  await page.goto('/settings');
   await page.getByRole('link', { name: 'Edit topics' }).click();
   await expect(page.getByRole('checkbox', { name: 'Law' })).toBeChecked();
   await expect(
@@ -117,7 +118,7 @@ test('Skip finishes onboarding from any step and lands on the last step', async 
   await page.goto('/onboarding/daisy?next=%2Franked');
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)ranked$/);
-  await page.getByRole('link', { name: 'Go to home' }).click();
+  await page.getByRole('link', { name: 'Enter the lobby' }).click();
   await expect(page).toHaveURL(/\/ranked$/);
 });
 
@@ -127,7 +128,13 @@ test('a member who follows a link from another site to any onboarding step gets 
   await signUpMember(page.request);
   // A top-level navigation from another site carries these headers; the
   // page render must not run an API's cross-site read check on them.
-  for (const step of ['welcome', 'about', 'ready', 'passkey'] as const) {
+  for (const step of [
+    'daisy',
+    'styles',
+    'about',
+    'ready',
+    'passkey',
+  ] as const) {
     const response = await page.request.get(
       `/onboarding/${step}?next=%2Flobby`,
       {
@@ -147,10 +154,10 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   page,
   request,
 }) => {
-  await page.goto('/onboarding/welcome');
-  // Sign-in returns to the welcome step with its own validated next.
+  await page.goto('/onboarding/daisy');
+  // Sign-in returns to the opening step with its own validated next.
   await expect(page).toHaveURL(
-    /\/sign-in\?next=%2Fonboarding%2Fwelcome%3Fnext%3D%252Flobby$/,
+    /\/sign-in\?next=%2Fonboarding%2Fdaisy%3Fnext%3D%252Flobby$/,
   );
   const email = freshEmail();
   await requestSignInLink(page, email);
@@ -160,11 +167,11 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
   await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
-  // The destination is already the welcome step: no onboarding inside it.
-  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
+  // The destination is already the opening step: no onboarding inside it.
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=(\/|%2F)lobby$/);
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
-  await page.getByRole('link', { name: 'Go to home' }).click();
+  await page.getByRole('link', { name: 'Enter the lobby' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 });
 

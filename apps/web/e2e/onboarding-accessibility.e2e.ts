@@ -6,8 +6,8 @@ import { gotoWithTheme } from './support/theme';
 // The onboarding steps after the passkey offer, in both themes and at the
 // narrowest supported width (WCAG 1.4.10 reflow).
 const onboardingSteps = [
-  '/onboarding/welcome?next=%2Flobby',
   '/onboarding/daisy?next=%2Flobby',
+  '/onboarding/styles?next=%2Flobby',
   '/onboarding/debate?next=%2Flobby',
   '/onboarding/about?next=%2Flobby',
   '/onboarding/experience?next=%2Flobby',
@@ -17,7 +17,7 @@ const onboardingSteps = [
 
 test('every onboarding step has no serious or critical accessibility findings in dark or light', async ({
   page,
-}) => {
+}, testInfo) => {
   test.slow();
   await signUpMember(page.request);
   for (const path of onboardingSteps)
@@ -25,6 +25,11 @@ test('every onboarding step has no serious or critical accessibility findings in
       await gotoWithTheme(page, path, theme);
       await expect(page.getByRole('dialog')).toBeVisible();
       await assertNoSeriousFindings(page);
+      if (/\/(daisy|styles|debate|ready)\?/.test(path))
+        await testInfo.attach(`${path.split('/')[2]?.split('?')[0]}-${theme}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        });
     }
 });
 

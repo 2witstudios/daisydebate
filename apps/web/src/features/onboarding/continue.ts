@@ -1,6 +1,6 @@
 import {
   onboardingStepHref,
-  welcomeHref,
+  introductionHref,
   type OnboardingStep,
   type SearchParams,
 } from '../access/decision';
@@ -21,7 +21,7 @@ export const afterPasskeyHref = (
   completedAt: string | null,
 ): string =>
   completedAt === null && !isOnboardingPath(destination)
-    ? welcomeHref(destination)
+    ? introductionHref(destination)
     : destination;
 
 const following: Record<QuestionStep, OnboardingStep> = {

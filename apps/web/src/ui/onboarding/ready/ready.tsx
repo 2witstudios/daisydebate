@@ -1,95 +1,42 @@
 import Link from 'next/link';
-import { destinationHref } from '../../../features/coming-soon/launch';
-import type { OnboardingAnswers } from '../../../features/onboarding/answers';
-import { Icon } from '../../components/icon/icon';
-import { SampleAction } from '../../components/sample-action/sample-action';
-import { SampleActionNotice } from '../../components/sample-action/sample-action-notice';
 import { OnboardingFrame } from '../frame/frame';
-import {
-  AnswerSummary,
-  type AnswerEditHrefs,
-} from '../answer-summary/answer-summary';
 
 export type ReadyStepProps = {
-  readonly answers: OnboardingAnswers;
-  /** The Train bots by name, for the bot card. */
-  readonly botNames: readonly string[];
+  /**
+   * The validated destination after onboarding: the lobby for an approved
+   * member. A still-pending account is sent on to the beta page by the
+   * access gate (ADR 0075).
+   */
   readonly homeHref: string;
-  /** Null when optional answers are not asked of this member: no summary, nothing to edit. */
-  readonly editHrefs: AnswerEditHrefs | null;
 };
 
-/** "Juno, Wren or Bram". */
-const orList = (names: readonly string[]) =>
-  names.length < 2
-    ? (names[0] ?? '')
-    : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
+const cta =
+  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round bg-accent px-8 text-md font-strong text-accent-ink no-underline hover:bg-accent-strong';
 
-/** The club row's action, or null when the member has no club plans. */
-export function clubAction(answers: OnboardingAnswers): string | null {
-  if (answers.club === 'starting' || answers.wants.includes('coach'))
-    return 'Create your club';
-  if (answers.club === 'joining') return 'Join your club';
-  return null;
-}
-
-const card =
-  'flex min-h-onboarding-cta flex-1 basis-onboarding-col flex-col justify-between gap-3 rounded-lg border-2 border-accent px-6 py-5 no-underline hover:no-underline';
-
-/** The last step: start a first debate, and the answers to edit. */
-export function ReadyStep({
-  answers,
-  botNames,
-  homeHref,
-  editHrefs,
-}: ReadyStepProps) {
-  const club = clubAction(answers);
+/** The last step: one simple send-off to the lobby. */
+export function ReadyStep({ homeHref }: ReadyStepProps) {
   return (
     <OnboardingFrame step={null} titleId="onboarding-title">
-      <SampleActionNotice />
-      <h1
-        id="onboarding-title"
-        tabIndex={-1}
-        className="font-display text-2xl leading-tight font-semibold tracking-tight text-ink"
-      >
-        Your first debate
-      </h1>
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href={destinationHref('train')}
-          className={`${card} bg-surface-raised text-ink`}
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-6 text-center">
+        <h1
+          id="onboarding-title"
+          tabIndex={-1}
+          className="font-display text-3xl leading-tight font-semibold tracking-tight text-ink"
         >
-          <span className="flex items-center gap-3 font-display text-2xl font-semibold max-narrow:text-xl">
-            <Icon name="bolt" size={22} />
-            Debate a bot
-          </span>
-          <span className="text-base text-ink-muted">{orList(botNames)}</span>
+          {`You're ready`}
+        </h1>
+        <p className="max-w-reading text-md text-ink-muted">
+          Everything is set up. The lobby is where debates start. Jump in
+          whenever you like.
+        </p>
+
+        <Link href={homeHref} className={`${cta} mt-2`}>
+          Enter the lobby
         </Link>
-        <Link href="/play" className={`${card} bg-accent text-accent-ink`}>
-          <span className="flex items-center gap-3 font-display text-2xl font-semibold max-narrow:text-xl">
-            <Icon name="users" size={22} />
-            Debate a real person
-          </span>
-          <span className="text-base">Ranked or casual</span>
-        </Link>
+        <p className="text-base text-ink-muted">
+          {`You're one of the first inside. More is landing every week.`}
+        </p>
       </div>
-      {club === null ? null : (
-        <SampleAction
-          label={club}
-          className="flex min-h-onboarding-touch items-center rounded-md bg-surface-sunken px-5 text-md font-strong text-ink"
-        >
-          {club}
-        </SampleAction>
-      )}
-      {editHrefs === null ? null : (
-        <AnswerSummary answers={answers} editHrefs={editHrefs} />
-      )}
-      <Link
-        href={homeHref}
-        className="inline-flex min-h-onboarding-touch items-center self-start text-base font-strong"
-      >
-        Go to home
-      </Link>
     </OnboardingFrame>
   );
 }

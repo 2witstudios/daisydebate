@@ -6,12 +6,12 @@ setupRitewayBun();
 describe('afterPasskeyHref', () => {
   test('onboarding path boundaries', () => {
     const destinations = [
-      '/onboarding/welcome',
-      '/onboarding/welcome?next=%2Franked',
-      '/onboarding/welcome#intro',
-      '/onboarding/welcome/',
-      '/onboarding/welcome/?next=%2Franked',
-      '/onboarding/welcome/#intro',
+      '/onboarding/daisy',
+      '/onboarding/daisy?next=%2Franked',
+      '/onboarding/daisy#intro',
+      '/onboarding/daisy/',
+      '/onboarding/daisy/?next=%2Franked',
+      '/onboarding/daisy/#intro',
     ];
     assert({
       given:
@@ -22,7 +22,7 @@ describe('afterPasskeyHref', () => {
       ),
       expected: destinations,
     });
-    const nestedPaths = ['/onboarding/welcome/extra', '/onboarding/welcome//'];
+    const nestedPaths = ['/onboarding/daisy/extra', '/onboarding/daisy//'];
     assert({
       given: 'paths with extra segments or a second trailing slash',
       should: 'still lead into onboarding',
@@ -30,8 +30,8 @@ describe('afterPasskeyHref', () => {
         afterPasskeyHref(destination, null),
       ),
       expected: [
-        '/onboarding/welcome?next=%2Fonboarding%2Fwelcome%2Fextra',
-        '/onboarding/welcome?next=%2Fonboarding%2Fwelcome%2F%2F',
+        '/onboarding/daisy?next=%2Fonboarding%2Fdaisy%2Fextra',
+        '/onboarding/daisy?next=%2Fonboarding%2Fdaisy%2F%2F',
       ],
     });
   });
@@ -39,9 +39,9 @@ describe('afterPasskeyHref', () => {
   test('where the passkey offer leads', () => {
     assert({
       given: 'a member who has not finished onboarding',
-      should: 'lead to the welcome step, carrying the destination',
+      should: 'lead to the opening step, carrying the destination',
       actual: afterPasskeyHref('/ranked?tab=a', null),
-      expected: '/onboarding/welcome?next=%2Franked%3Ftab%3Da',
+      expected: '/onboarding/daisy?next=%2Franked%3Ftab%3Da',
     });
     assert({
       given: 'a member who finished onboarding before',
@@ -53,16 +53,16 @@ describe('afterPasskeyHref', () => {
       given: 'a new member whose destination is already an onboarding step',
       should: 'go to that step once, not wrap onboarding inside onboarding',
       actual: [
-        afterPasskeyHref('/onboarding/welcome', null),
+        afterPasskeyHref('/onboarding/daisy', null),
         afterPasskeyHref('/onboarding/about?next=%2Franked', null),
       ],
-      expected: ['/onboarding/welcome', '/onboarding/about?next=%2Franked'],
+      expected: ['/onboarding/daisy', '/onboarding/about?next=%2Franked'],
     });
     assert({
       given: 'a destination that only starts like an onboarding path',
       should: 'still lead into onboarding',
       actual: afterPasskeyHref('/onboardingx', null),
-      expected: '/onboarding/welcome?next=%2Fonboardingx',
+      expected: '/onboarding/daisy?next=%2Fonboardingx',
     });
   });
 });

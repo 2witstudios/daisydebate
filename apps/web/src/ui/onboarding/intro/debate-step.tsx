@@ -108,7 +108,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
             The motion
           </span>
           <span className="font-display text-xl text-ink">
-            This house would ban homework
+            Homework does more harm than good in elementary school.
           </span>
         </div>
         <div className="flex flex-wrap gap-2">

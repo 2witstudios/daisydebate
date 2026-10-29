@@ -20,8 +20,8 @@ export default async function OnboardingDaisyStepPage({
   const { destination } = await readStepEntry(searchParams, 'daisy');
   return (
     <DaisyStep
-      nextHref={onboardingStepHref('debate', destination)}
-      backHref={onboardingStepHref('welcome', destination)}
+      nextHref={onboardingStepHref('styles', destination)}
+      backHref={null}
       skip={stepSkip(destination)}
     />
   );
