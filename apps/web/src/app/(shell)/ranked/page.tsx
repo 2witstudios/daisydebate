@@ -29,7 +29,9 @@ export default async function RankedPage({
         <Link href="/lobby?mode=ranked" className={buttonClass('secondary')}>
           Browse rated rooms
         </Link>
-        <Link href="/leaderboard">Leaderboard</Link>
+        <Link href="/leaderboard" className={buttonClass('ghost')}>
+          Leaderboard
+        </Link>
       </div>
     </div>
   );
