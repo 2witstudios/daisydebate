@@ -137,6 +137,20 @@ test('exporting a member includes their competitive record and nothing of anothe
       )[0].formatId as string;
     const formatId = await roundFormat(mine.id);
     const otherFormat = await roundFormat(theirs.id);
+    // Exactly what a real signup populates: the age step recorded Terms
+    // acceptance (its adopter serializes accepted_at for export) and the
+    // onboarding answers saved their own dated row.
+    await fixture.insert('account_terms', {
+      user_id: subject.userId,
+      terms_version: 'draft-0',
+      accepted_at: at(1),
+    });
+    await fixture.insert('member_onboarding', {
+      user_id: subject.userId,
+      club: 'own',
+      experience: 'class',
+      completed_at: at(1, 9),
+    });
     const hostedRoom = createId();
     await fixture.insert('rooms', {
       id: hostedRoom,
@@ -288,9 +302,12 @@ test('exporting a member includes their competitive record and nothing of anothe
     const otherStrike = await draw(fixture, otherRoom, other.actorId);
     const database = drizzle({ client: fixture.sql });
     const exported = await exportPrivacySubject(database, subject, rooms);
+    // Compare declared sets deterministically: the export orders rows by id,
+    // the fixture created them in test order.
+    const sorted = (values: unknown[]) => [...values].sort();
     const ids = (
       rows?: readonly Readonly<Record<string, unknown>>[],
-    ): unknown[] => (rows ?? []).map((row) => row.id);
+    ): unknown[] => sorted((rows ?? []).map((row) => row.id));
     assert({
       given:
         'two members with played Rounds, ratings and one judged ballot, one exporting',
@@ -314,17 +331,28 @@ test('exporting a member includes their competitive record and nothing of anothe
         peerStrikeExported: ids(exported.room_resolution_strikes).includes(
           otherStrike,
         ),
+        // Real signup rows export their timestamps as ISO strings, never a
+        // driver Date: checkedExport refuses anything JSON cannot carry.
+        termsAcceptedAt: typeof (exported.account_terms ?? [])[0]?.accepted_at,
+        onboardingDates: ['completed_at', 'created_at', 'updated_at'].map(
+          (column) =>
+            typeof (
+              exported.member_onboarding as Readonly<Record<string, unknown>>[]
+            )[0]?.[column],
+        ),
         leaksOtherMember: JSON.stringify(exported).includes(other.actorId),
       },
       expected: {
-        rooms: [hostedRoom],
-        rounds: [mine.id, judgedRound],
+        rooms: sorted([hostedRoom]),
+        rounds: sorted([mine.id, judgedRound]),
         roundSeats: [subject.actorId, subject.actorId],
-        ballots: [ballotId],
+        ballots: sorted([ballotId]),
         ratingActors: [subject.actorId],
         changeActors: [subject.actorId],
         strikes: [[subjectStrike, subject.actorId]],
         peerStrikeExported: false,
+        termsAcceptedAt: 'string',
+        onboardingDates: ['string', 'string', 'string'],
         leaksOtherMember: false,
       },
     });
