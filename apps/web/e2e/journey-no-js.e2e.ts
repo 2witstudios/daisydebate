@@ -162,7 +162,9 @@ test.describe('with JavaScript off', () => {
     page,
     request,
   }) => {
-    const { email } = await signUpMember(page.request);
+    const { email } = await signUpMember(request);
+    // The page's own jar is a fresh anonymous browser: this member signs in
+    // through the native form, like the other no-JS proofs above.
     await page.goto('/sign-in?next=%2Flobby');
     await requestSignInLink(page, email);
     await confirmSignIn(page, await emailedLink(request, email));
