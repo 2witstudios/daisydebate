@@ -1,65 +1,356 @@
+/* Operator console tokens: the Daisy palette (ADR 0045) in the same light-dark()
+   pairs as apps/web, so the console reads as the same product. The scheme
+   follows the operator's system preference. */
 :root {
   color-scheme: light dark;
-  --ink: #1f1b16;
-  --paper: #faf6ee;
-  --muted: #6b6257;
-  --rule: #d9cfbf;
-  --ok: #2f6b3a;
-  --bad: #9a2b20;
+  --background: light-dark(#f5f0e4, #0d1812);
+  --surface: light-dark(#faf7ef, #122019);
+  --surface-raised: light-dark(#fffdf8, #182a20);
+  --border: light-dark(#ddd6c4, #24382c);
+  --border-strong: light-dark(#bfbfa9, #3e5a48);
+  --text: light-dark(#173b2a, #f5f0e4);
+  --text-muted: light-dark(#4a5f51, #b4c2ae);
+  --forest: light-dark(#173b2a, #4a8a64);
+  --accent: light-dark(#173b2a, #a7c09c);
+  --accent-text: light-dark(#f5f0e4, #173b2a);
+  --accent-soft: light-dark(rgba(23, 59, 42, 0.08), rgba(167, 192, 156, 0.12));
+  --online: light-dark(#2f7a4b, #8ccb94);
+  --live: light-dark(#b0343a, #f26a6e);
+  --gold: light-dark(#7e5c12, #f0cf7a);
+  --gold-soft: light-dark(rgba(126, 92, 18, 0.1), rgba(240, 207, 122, 0.12));
+  --gold-border: light-dark(rgba(126, 92, 18, 0.4), rgba(240, 207, 122, 0.35));
+  --font-body:
+    var(--font-face-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-display: var(--font-face-display), Georgia, serif;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f1ebe0;
-    --paper: #1b1814;
-    --muted: #a99d8d;
-    --rule: #3d362d;
-    --ok: #8fcf98;
-    --bad: #f0978c;
-  }
-}
+
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font:
-    16px/1.5 system-ui,
-    sans-serif;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
 }
+
+/* main is the full-width shell. The header runs edge to edge; every other
+   child of main is the content column. */
 main {
-  max-width: 56rem;
+  min-height: 100vh;
+}
+main > :not(header) {
+  box-sizing: border-box;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 40px 40px 56px;
 }
-nav {
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+h1 {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.1;
+}
+h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.mark-forest {
+  fill: var(--forest);
+}
+.mark-sage {
+  fill: #a7c09c;
+}
+.mark-yolk {
+  fill: #f2c14e;
+}
+
+/* Header: brand, the three console sections, and the signed-in operator. */
+.site-header {
   display: flex;
-  gap: 1rem;
   align-items: center;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0.75rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  height: 64px;
+  padding: 0 40px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
-nav form {
-  margin-left: auto;
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
 }
+.site-brand:hover {
+  text-decoration: none;
+}
+.site-sections {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 100%;
+}
+.site-sections a {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+.site-sections a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.site-operator {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+}
+.site-operator form {
+  margin: 0;
+}
+
+/* Tabs: the Pending, Approved and Revoked switch and the Security views. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 32px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs a {
+  padding: 0 0 12px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tabs a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* Buttons. A primary action is the forest fill; the rest are outlined. */
 button {
   font: inherit;
-  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+button:hover {
+  background: var(--accent-soft);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.button-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.button-primary:hover {
+  background: var(--accent);
+  opacity: 0.9;
+}
+.button-small {
+  height: 32px;
+  padding: 0 12px;
+}
+.row-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+/* Inputs: the search, the window and the other filters. */
+input[type='search'],
+select {
+  font: inherit;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.section {
+  margin-top: 40px;
+}
+
+/* Notices sit above the content: the result of the last action, an unknown
+   outcome to reconcile, or a failed read. */
+.notice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.notice-ok {
+  background: rgba(47, 122, 75, 0.1);
+}
+.notice-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  border: 1px solid var(--gold-border);
+  background: var(--gold-soft);
+}
+.notice-warn p {
+  margin: 0;
+}
+
+/* Page heading: an eyebrow over the title, the status to its right. */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Tables: hairline rows, quiet headers, numbers that line up. */
+.table-wrap {
+  overflow-x: auto;
 }
 table {
-  border-collapse: collapse;
   width: 100%;
+  border-collapse: collapse;
 }
 th,
 td {
   text-align: left;
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--rule);
+  padding: 14px 16px 14px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
 }
+th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom-color: var(--border-strong);
+}
+tbody th {
+  font-weight: 600;
+}
+td:last-child,
+th:last-child {
+  padding-right: 0;
+}
+td.numeric,
+th.numeric {
+  text-align: right;
+}
+td.mono {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 13px;
+}
+
 .muted {
-  color: var(--muted);
+  color: var(--text-muted);
 }
-.badge-ok {
-  color: var(--ok);
+
+/* Status: a dot and the words, so the state never rests on colour alone. */
+.badge-ok,
+.badge-bad {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge-ok::before,
+.badge-bad::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.badge-ok::before {
+  background: var(--online);
 }
 .badge-bad {
-  color: var(--bad);
+  color: var(--live);
+}
+.badge-bad::before {
+  background: var(--live);
+}
+
+/* The window picker and its Show button sit on one line above the table. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 8px;
+  font-size: 14px;
+}
+.toolbar select {
+  height: 36px;
+}
+
+/* Sign-in and passkey enrollment: one centred column. */
+.auth {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 72px 24px;
+}
+.auth h1 {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 640px) {
+  .site-header {
+    height: auto;
+    padding: 12px 16px;
+  }
+  main > :not(header) {
+    padding: 28px 16px 40px;
+  }
+  h1 {
+    font-size: 32px;
+  }
 }
