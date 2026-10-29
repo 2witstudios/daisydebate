@@ -176,10 +176,17 @@ jobs:
 
   integration:
     needs: quick-check
-    name: Infrastructure contracts
+    name: Infrastructure contracts (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # Each matrix job owns its service containers. Files and workspaces remain
+    # serial within a worker because their cleanup inspects global test state.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
+      DAISY_INTEGRATION_SHARD: ${{ matrix.shard }}/4
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
@@ -234,9 +241,45 @@ jobs:
           bun -e "const sql = new Bun.SQL(process.env.DATABASE_URL); await sql.unsafe('create database daisy_admin_test'); await sql.close();"
           ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
           ADMIN_MIGRATION_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" bun apps/admin/src/db/migrate.ts
-      - run: bun test:integration
+      - name: Run and measure integration shard
+        run: |
+          started=$SECONDS
+          result=0
+          export DAISY_INTEGRATION_RECEIPTS="$RUNNER_TEMP/integration-receipts"
+          bun run test:integration || result=$?
+          echo "### Integration shard $DAISY_INTEGRATION_SHARD — $((SECONDS - started)) seconds; exit $result" >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
+      - name: Publish successful workspace receipts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-receipts-${{ matrix.shard }}
+          path: ${{ runner.temp }}/integration-receipts/*.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
       # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
       # per-PR cost at one Chromium run; bun evidence enforces the split).
+
+  integration-coverage:
+    needs: integration
+    name: Complete integration coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: integration-receipts-*
+          path: ${{ runner.temp }}/integration-receipts
+          merge-multiple: true
+      - name: Require every workspace and shard with exact suite coverage
+        run: bun scripts/check-integration-receipts.ts "$RUNNER_TEMP/integration-receipts"
 
   # The one required check for the main ruleset (policy/github/repository.json)
   # and the CI half of deploy-staging's condition: it passes only when every
@@ -245,14 +288,28 @@ jobs:
     name: CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [quick-check, checks, image, audit, migrations, integration]
+    needs:
+      [
+        quick-check,
+        checks,
+        image,
+        audit,
+        migrations,
+        integration,
+        integration-coverage,
+      ]
     if: always()
     steps:
       - name: Require every CI job to pass
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          for result in $RESULTS; do
+          read -r -a results <<< "$RESULTS"
+          if [ "${#results[@]}" -ne 7 ]; then
+            echo "CI gate: missing required job result"
+            exit 1
+          fi
+          for result in "${results[@]}"; do
             if [ "$result" != success ]; then
               echo "CI gate: a required job ended $result"
               exit 1
@@ -263,7 +320,17 @@ jobs:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [quick-check, checks, reports, image, audit, migrations, integration]
+    needs:
+      [
+        quick-check,
+        checks,
+        reports,
+        image,
+        audit,
+        migrations,
+        integration,
+        integration-coverage,
+      ]
     if: failure()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
