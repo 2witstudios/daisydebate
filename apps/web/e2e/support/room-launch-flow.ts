@@ -88,11 +88,18 @@ export async function submitCreateRoom(
   if (rated)
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
   await form.getByLabel('Who can join').selectOption('public');
-  await form.getByRole('button', { name: 'Create room', exact: true }).click();
-  await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  return reread(page.request, id);
+  return createConfiguredRoom(page);
 }
+/** Submits the settings already configured by the host, then reads the durable Room. */
+export async function createConfiguredRoom(page: Page) {
+  await page
+    .getByRole('form', { name: 'Create a room' })
+    .getByRole('button', { name: 'Create room', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
+  return reread(page.request, new URL(page.url()).pathname.split('/').at(-1)!);
+}
+
 export async function createFromPlay(
   page: Page,
   title: string,

@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage, test } from './support/fixtures';
 import { signUpMember, origin } from './support/accounts';
-import { closeRoom, reread } from './support/room-launch-flow';
+import { closeRoom, createConfiguredRoom } from './support/room-launch-flow';
 import { hydrated } from './support/hydration';
 
 const formOf = (page: import('@playwright/test').Page) =>
@@ -59,11 +59,9 @@ test('Custom POI, exact timing and custom resolution persist through the real cr
   await form.locator('[name="duration.segment.0"]').fill('4:32.123');
   await form.getByText('Questions and floor rules', { exact: true }).click();
   await form.locator('[name="questionStyle"]').selectOption('poi');
-  await form.getByRole('button', { name: 'Create room', exact: true }).click();
-  await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  const view = await createConfiguredRoom(page);
+  const id = view.id;
   try {
-    const view = await reread(page.request, id);
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.competitionType).toBe('casual');
     expect(view.format.standing.kind).toBe('custom');
@@ -129,12 +127,8 @@ test('native format, resolution and speech editing create a room without JavaScr
       .getByRole('button', { name: 'Add affirmative speech', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await form
-      .getByRole('button', { name: 'Create room', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-    roomId = new URL(page.url()).pathname.split('/').at(-1)!;
-    const view = await reread(context.request, roomId);
+    const view = await createConfiguredRoom(page);
+    roomId = view.id;
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.format.standing.kind).toBe('custom');
   } finally {

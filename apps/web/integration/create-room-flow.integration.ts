@@ -11,23 +11,29 @@ import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
+type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
+async function createPublishedValueRoom(f: Fixture) {
+  const catalog = await f.operations.catalog(f.host);
+  const choice = catalog.choices.find((entry) => entry.formatId === 'value')!;
+  const publication = catalog.resolutions.find(
+    (entry) => entry.kind === 'value',
+  )!;
+  const created = await f.create({
+    resolution: { kind: 'value', id: publication.id },
+    selection: {
+      kind: 'catalog',
+      formatId: choice.formatId,
+      formatVersion: choice.formatVersion,
+      presetVersion: choice.preset.version,
+      competitionType: 'casual',
+    },
+  });
+  return { publication, created };
+}
+
 test('published creation pins authoritative text; metadata preserves the standard and custom text leaves it', async () => {
   await withRoomRuntime(async (f) => {
-    const catalog = await f.operations.catalog(f.host);
-    const choice = catalog.choices.find((entry) => entry.formatId === 'value')!;
-    const publication = catalog.resolutions.find(
-      (entry) => entry.kind === 'value',
-    )!;
-    const created = await f.create({
-      resolution: { kind: 'value', id: publication.id },
-      selection: {
-        kind: 'catalog',
-        formatId: choice.formatId,
-        formatVersion: choice.formatVersion,
-        presetVersion: choice.preset.version,
-        competitionType: 'casual',
-      },
-    });
+    const { publication, created } = await createPublishedValueRoom(f);
     const renamed = (
       await f.command(f.host, created.view, {
         type: 'update-details',
@@ -125,23 +131,8 @@ test('the native Custom editor persists exact settings, POI and its template bas
 
 test('publication replacement cannot alter existing Room or frozen Round wording and provenance', async () => {
   await withRoomRuntime(async (f) => {
-    const catalog = await f.operations.catalog(f.host);
-    const choice = catalog.choices.find((entry) => entry.formatId === 'value')!;
-    const publication = catalog.resolutions.find(
-      (entry) => entry.kind === 'value',
-    )!;
-    let room = (
-      await f.create({
-        resolution: { kind: 'value', id: publication.id },
-        selection: {
-          kind: 'catalog',
-          formatId: choice.formatId,
-          formatVersion: choice.formatVersion,
-          presetVersion: choice.preset.version,
-          competitionType: 'casual',
-        },
-      })
-    ).view;
+    const { publication, created } = await createPublishedValueRoom(f);
+    let room = created.view;
     const judge = await f.member();
     const seats = [
       { caller: f.host, role: 'affirmative' },
