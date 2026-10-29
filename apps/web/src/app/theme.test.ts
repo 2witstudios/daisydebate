@@ -20,6 +20,19 @@ const compile = async (classes: string): Promise<string> => {
   return result.css;
 };
 
+/** The enclosing media condition, shared by both compiled-rule views. */
+const mediaOf = (rule: postcss.Rule): string | undefined => {
+  let media: string | undefined;
+  for (
+    let node: postcss.Node | undefined = rule.parent;
+    node;
+    node = node.parent
+  )
+    if (node.type === 'atrule' && (node as postcss.AtRule).name === 'media')
+      media = (node as postcss.AtRule).params;
+  return media;
+};
+
 /**
  * The compiled rules, parsed: each selector's declarations and the media
  * query around it, so assertions read values, never substrings.
@@ -30,14 +43,7 @@ const rulesOf = (css: string) => {
     { media: string | undefined; declarations: Record<string, string> }
   >();
   postcss.parse(css).walkRules((rule) => {
-    let media: string | undefined;
-    for (
-      let node: postcss.Node | undefined = rule.parent;
-      node;
-      node = node.parent
-    )
-      if (node.type === 'atrule' && (node as postcss.AtRule).name === 'media')
-        media = (node as postcss.AtRule).params;
+    const media = mediaOf(rule);
     const declarations: Record<string, string> = {};
     rule.walkDecls((declaration) => {
       declarations[declaration.prop] = declaration.value;
@@ -56,14 +62,7 @@ const everyRuleOf = (css: string) => {
     declarations: Record<string, string>;
   }[] = [];
   postcss.parse(css).walkRules((rule) => {
-    let media: string | undefined;
-    for (
-      let node: postcss.Node | undefined = rule.parent;
-      node;
-      node = node.parent
-    )
-      if (node.type === 'atrule' && (node as postcss.AtRule).name === 'media')
-        media = (node as postcss.AtRule).params;
+    const media = mediaOf(rule);
     const declarations: Record<string, string> = {};
     for (const node of rule.nodes ?? [])
       if (node.type === 'decl') {

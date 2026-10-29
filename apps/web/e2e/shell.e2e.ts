@@ -1,4 +1,30 @@
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
+
+const desktopRail = async (page: Page) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  return page.getByRole('navigation', { name: 'Primary' });
+};
+
+const columnWidth = (rail: Locator) =>
+  rail.evaluate((nav) =>
+    Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
+  );
+
+// An sr-only span retains a one-pixel box, so visibility alone is insufficient.
+const wordHeight = (rail: Locator) =>
+  rail
+    .locator('a[href="/lobby"] span')
+    .first()
+    .evaluate((span) => span.getBoundingClientRect().height);
+
+const expectRailMode = async (rail: Locator, mode: 'mini' | 'extended') => {
+  await expect(
+    rail.getByRole('button', { name: mode === 'mini' ? 'Expand' : 'Minimize' }),
+  ).toBeVisible();
+  expect(await columnWidth(rail)).toBe(mode === 'mini' ? 56 : 184);
+};
 
 test.describe('dashboard shell chrome', () => {
   test('the rail marks the active route and navigates from the shell', async ({
@@ -57,63 +83,40 @@ test.describe('dashboard shell chrome', () => {
   test('the rail defaults to extended, minimizes on request, and the choice sticks', async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/');
-    const rail = page.getByRole('navigation', { name: 'Primary' });
-    const columnWidth = () =>
-      rail.evaluate((nav) =>
-        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
-      );
-    // The word beside the icon is a text box; in mini it clips to nothing.
-    // (An sr-only span still has a one-pixel box, so visibility lies here.)
-    const wordHeight = () =>
-      rail
-        .locator('a[href="/lobby"] span')
-        .first()
-        .evaluate((span) => span.getBoundingClientRect().height);
+    const rail = await desktopRail(page);
+
     // Words beside the icons at rail widths (ADR 0091).
-    expect(await wordHeight()).toBeGreaterThan(10);
-    expect(await columnWidth()).toBe(184);
+    expect(await wordHeight(rail)).toBeGreaterThan(10);
+    expect(await columnWidth(rail)).toBe(184);
 
     await rail.getByRole('button', { name: 'Minimize' }).click();
     await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
-    expect(await wordHeight()).toBeLessThanOrEqual(2);
-    expect(await columnWidth()).toBe(56);
+    expect(await wordHeight(rail)).toBeLessThanOrEqual(2);
+    expect(await columnWidth(rail)).toBe(56);
 
     // The saved choice survives a visit: the server renders mini again.
     await page.reload();
-    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
-    expect(await columnWidth()).toBe(56);
+    await expectRailMode(rail, 'mini');
 
     await rail.getByRole('button', { name: 'Expand' }).click();
     await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
-    expect(await wordHeight()).toBeGreaterThan(10);
-    expect(await columnWidth()).toBe(184);
+    expect(await wordHeight(rail)).toBeGreaterThan(10);
+    expect(await columnWidth(rail)).toBe(184);
   });
 
   test('below the rail breakpoint it is icon-only whatever the choice', async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/');
-    const rail = page.getByRole('navigation', { name: 'Primary' });
-    const columnWidth = () =>
-      rail.evaluate((nav) =>
-        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
-      );
-    const wordHeight = () =>
-      rail
-        .locator('a[href="/lobby"] span')
-        .first()
-        .evaluate((span) => span.getBoundingClientRect().height);
+    const rail = await desktopRail(page);
+
     await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
 
     // Narrow the viewport with the extended choice saved: CSS alone
     // keeps the rail mini and hides the toggle.
     await page.setViewportSize({ width: 1000, height: 800 });
-    expect(await wordHeight()).toBeLessThanOrEqual(2);
+    expect(await wordHeight(rail)).toBeLessThanOrEqual(2);
     await expect(rail.getByRole('button', { name: 'Minimize' })).toBeHidden();
-    expect(await columnWidth()).toBe(56);
+    expect(await columnWidth(rail)).toBe(56);
     const play = rail.getByRole('link', { name: 'Play', exact: true });
     const box = await play.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
@@ -129,7 +132,7 @@ test.describe('dashboard shell chrome', () => {
     await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
     await page.setViewportSize({ width: 1000, height: 800 });
     await expect(rail.getByRole('button', { name: 'Expand' })).toBeHidden();
-    expect(await columnWidth()).toBe(56);
+    expect(await columnWidth(rail)).toBe(56);
     expect((await play.boundingBox())?.width).toBeGreaterThanOrEqual(44);
   });
 
@@ -255,32 +258,22 @@ test.describe('with JavaScript off', () => {
   test('the rail toggle flips the rail through a plain POST', async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/');
-    const rail = page.getByRole('navigation', { name: 'Primary' });
-    const columnWidth = () =>
-      rail.evaluate((nav) =>
-        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
-      );
+    const rail = await desktopRail(page);
     await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
 
     // The form's server action runs without script and the answer is the
     // same page re-rendered with the flipped cookie (ADR 0091).
     await rail.getByRole('button', { name: 'Minimize' }).click();
-    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
-    expect(await columnWidth()).toBe(56);
+    await expectRailMode(rail, 'mini');
 
     // A fresh visit (a reload here would resubmit the form POST and flip
     // the toggle a second time) renders mini from the stored cookie.
     await page.goto('/');
-    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
-    expect(await columnWidth()).toBe(56);
+    await expectRailMode(rail, 'mini');
 
     await rail.getByRole('button', { name: 'Expand' }).click();
-    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
-    expect(await columnWidth()).toBe(184);
+    await expectRailMode(rail, 'extended');
     await page.goto('/');
-    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
-    expect(await columnWidth()).toBe(184);
+    await expectRailMode(rail, 'extended');
   });
 });
