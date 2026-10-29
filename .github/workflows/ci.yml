@@ -187,7 +187,6 @@ jobs:
         shard: [1, 2, 3, 4]
     env:
       DAISY_INTEGRATION_SHARD: ${{ matrix.shard }}/4
-      DAISY_INTEGRATION_RECEIPTS: ${{ runner.temp }}/integration-receipts
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
@@ -246,6 +245,7 @@ jobs:
         run: |
           started=$SECONDS
           result=0
+          export DAISY_INTEGRATION_RECEIPTS="$RUNNER_TEMP/integration-receipts"
           bun run test:integration || result=$?
           echo "### Integration shard $DAISY_INTEGRATION_SHARD — $((SECONDS - started)) seconds; exit $result" >> "$GITHUB_STEP_SUMMARY"
           exit "$result"
