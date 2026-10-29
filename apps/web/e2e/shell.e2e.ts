@@ -150,41 +150,18 @@ test.describe('dashboard shell chrome', () => {
     expect(spread).toBeLessThanOrEqual(1);
   });
 
-  test('rail flyouts reveal sub-navigation on hover and focus', async ({
+  test('a visitor’s rail has no More control, only the way in', async ({
     page,
   }) => {
     await page.goto('/');
-    // Hidden flyout links are outside the accessibility tree until revealed,
-    // so the hidden state is asserted with a structural locator.
-    // The rail is the first Primary nav; the phone tab bar, hidden here,
-    // lists Terms in its More sheet too.
+    // The rail is the first Primary nav; the phone tab bar, hidden here, keeps
+    // its own More sheet. More now lives in the member account menu.
     const rail = page.locator('nav[aria-label="Primary"]').first();
-    const terms = rail.locator('a[href="/terms"]');
-    await expect(terms).toBeAttached();
-    await expect(terms).not.toBeVisible();
-
-    await rail.getByRole('link', { name: 'More', exact: true }).hover();
-    await expect(terms).toBeVisible();
-
-    // Paint order: the hero must not cover the revealed flyout.
-    const covered = await terms.evaluate((el) => {
-      const box = el.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        box.x + box.width / 2,
-        box.y + box.height / 2,
-      );
-      return hit !== el && !el.contains(hit);
-    });
-    expect(covered).toBe(false);
-
-    await terms.click();
-    await expect(page).toHaveURL(/\/terms$/);
-
-    // Keyboard: focusing the parent link opens the flyout via :focus-within.
-    await page.goto('/');
-    await expect(terms).not.toBeVisible();
-    await rail.getByRole('link', { name: 'More', exact: true }).focus();
-    await expect(terms).toBeVisible();
+    await expect(
+      rail.getByRole('link', { name: 'More', exact: true }),
+    ).toHaveCount(0);
+    await expect(rail.locator('details')).toHaveCount(0);
+    await expect(rail.getByRole('link', { name: 'Sign in' })).toBeVisible();
   });
 
   test('interactive controls carry accessible names', async ({ page }) => {

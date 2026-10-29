@@ -34,11 +34,6 @@ export type NavItemRenderProps = {
   readonly badge?: ReactNode;
   /** The rail's mode: extended shows words, mini is icon-only (ADR 0091). */
   readonly extended?: boolean | undefined;
-  /**
-   * A square icon button with no visible word at any width, for the rail's
-   * foot controls. Its name stays as screen-reader text.
-   */
-  readonly iconOnly?: boolean | undefined;
 };
 
 /**
@@ -50,9 +45,7 @@ function linkName({
   label,
   word,
   extended,
-  iconOnly,
-}: Pick<NavItemRenderProps, 'label' | 'word' | 'extended' | 'iconOnly'>) {
-  if (iconOnly) return <span className="sr-only">{label}</span>;
+}: Pick<NavItemRenderProps, 'label' | 'word' | 'extended'>) {
   if (extended && word !== undefined && word !== label) {
     return (
       <>
@@ -85,7 +78,6 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
     badge,
     extended,
     word,
-    iconOnly,
   } = props;
   const hasChildren = subItems !== undefined && subItems.length > 0;
   return (
@@ -95,11 +87,11 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         // The tooltip stays at every width: CSS alone hides the extended
         // words below 1101px, and a hover name is the only discovery left.
         title={title ?? label}
-        className={navItemClass(active, extended && !iconOnly)}
+        className={navItemClass(active, extended)}
         aria-current={active ? 'page' : undefined}
       >
         <Icon name={icon} size={20} />
-        {linkName({ label, word, extended, iconOnly })}
+        {linkName({ label, word, extended })}
         {badge}
       </Link>
       {hasChildren ? (

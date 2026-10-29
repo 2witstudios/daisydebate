@@ -328,8 +328,8 @@ test('a visitor can reach home, and Sign in at the rail foot or in the bottom ta
   const nav = page.getByRole('navigation', { name: 'Primary' });
   const signIn = nav.getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
-  // Where a member's own places are: the foot of the rail, below the logo;
-  // on a phone, the tab after Prep, on Home's line.
+  // Where the visitor's way in sits: the foot of the rail, below the links;
+  // on a phone, a bottom tab, on Home's line.
   const [start, way] = await Promise.all([
     nav.getByRole('link', { name: home, exact: true }).boundingBox(),
     signIn.boundingBox(),
