@@ -43,7 +43,15 @@ main > :not(header) {
   box-sizing: border-box;
   max-width: 1040px;
   margin: 0 auto;
-  padding: 40px 40px 56px;
+  padding-inline: 40px;
+}
+/* The page's vertical padding applies once, to the first block under the
+   header and the last block of the page, not to every block between. */
+main > header + :not(header) {
+  padding-top: 40px;
+}
+main > :last-child:not(.auth) {
+  padding-bottom: 56px;
 }
 
 h1,
@@ -88,7 +96,7 @@ a:hover {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px 24px;
-  height: 64px;
+  min-height: 64px;
   padding: 0 40px;
   box-sizing: border-box;
   background: var(--surface);
@@ -157,7 +165,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
+  min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -186,7 +194,7 @@ select:focus-visible {
   opacity: 0.9;
 }
 .button-small {
-  height: 32px;
+  min-height: 32px;
   padding: 0 12px;
 }
 .row-actions {
@@ -344,11 +352,16 @@ td.mono {
 
 @media (max-width: 640px) {
   .site-header {
-    height: auto;
     padding: 12px 16px;
   }
   main > :not(header) {
-    padding: 28px 16px 40px;
+    padding-inline: 16px;
+  }
+  main > header + :not(header) {
+    padding-top: 28px;
+  }
+  main > :last-child:not(.auth) {
+    padding-bottom: 40px;
   }
   h1 {
     font-size: 32px;
