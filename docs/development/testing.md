@@ -19,7 +19,9 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    `test:integration` runs `scripts/test-integration.ts`, which runs every
    `integration/**/*.integration.ts`. The root `bun test:integration` runs
    one workspace at a time (`--concurrency=1`) to bound load on the shared
-   stack; every run has a database of its own (below), so workspaces cannot
+   stack. CI runs four isolated workers, each with its own service containers,
+   with serial workspace/file execution inside each worker (see below).
+   Every run has a database of its own (below), so workspaces cannot
    interfere through rows or triggers. A suite that
    drains the outbox, or triggers a drain with the poll switched off, first
    waits for its row with `waitForOutboxFinality` (`@daisy/db/testing`):
@@ -582,3 +584,48 @@ cascades into browser reds.
   bound to GitHub Actions. Absent, unreadable or incomplete enforcement keeps
   the full spec set. Every selected spec must have a passed result in its
   report. The zero-discovery, skipped-test and retry guards stay enforced.
+
+### Isolated integration shards (ISSUE-869)
+
+CI's Infrastructure contracts matrix runs four workers on separate GitHub
+runners, each provisioning its own PostgreSQL, Redis, LiveKit, clamd and
+ClickHouse services. `DAISY_INTEGRATION_SHARD=INDEX/COUNT` selects a partition
+of every workspace's discovered suites; Turbo explicitly forwards this value
+and `DAISY_INTEGRATION_RECEIPTS`. Each workspace partitions its complete
+inventory deterministically, longest estimated suites first, placing each on
+the least-loaded shard. No test is excluded. Files still run with
+`--parallel=1`, and Turbo still runs workspaces with `--concurrency=1`.
+
+`scripts/integration-timings.json` records sums of passing test durations
+from CI run 40812076331. These are scheduling estimates, not performance
+promises or cached test evidence: setup/teardown is not fully represented.
+New suites receive a 1000 ms weight, and stale entries cannot add or remove
+suites. Refresh estimates from successful CI logs when the work becomes
+unbalanced; retain the source run URL and review the data diff.
+
+Without a shard selector, the runner executes the complete local inventory
+or the explicitly named suites exactly as before. Invalid selectors and
+combining sharding with any test arguments fail before service access.
+A valid empty partition reports zero selected and does not open services;
+an empty discovered workspace still fails. Do not launch parallel shards
+against one local slot: the Redis hygiene checks inspect that slot's entire
+test database. Local heavy admission remains unchanged.
+
+Successful runners emit receipts containing only workspace/suite paths,
+shard identity and elapsed milliseconds, after database teardown and all
+row/Redis/liveness checks succeed. Empty partitions also emit a receipt.
+CI uploads these in per-shard artifacts retained for seven days. The
+coverage job reads only this workflow run's artifacts and independently
+requires all four receipts per discovered integration workspace, with an
+exact, disjoint union of the current suite inventory. Missing, malformed,
+duplicate or incomplete receipts fail. Both the matrix and coverage job
+are required by CI gate; failure, cancellation or skipping cannot pass.
+Matrix fail-fast is disabled so other workers finish their evidence.
+
+Compare wall-clock latency and aggregate runner time, including repeated
+service startup and coverage verification, rather than claiming a fourfold
+speedup from worker count. The historical single-worker baseline integration
+step took 614 seconds; its whole Infrastructure contracts job took 675
+seconds. Shard summaries report execution duration and exit status; Actions
+job timestamps include setup and artifact overhead. The full unsplit local
+run remains available for diagnosing order-dependent failures.

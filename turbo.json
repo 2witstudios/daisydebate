@@ -78,6 +78,8 @@
     "test:integration": {
       "cache": false,
       "passThroughEnv": [
+        "DAISY_INTEGRATION_SHARD",
+        "DAISY_INTEGRATION_RECEIPTS",
         "CLAMD_TEST_PORT",
         "TEST_CLICKHOUSE_URL",
         "TEST_CLICKHOUSE_SHIPPER_PASSWORD",
