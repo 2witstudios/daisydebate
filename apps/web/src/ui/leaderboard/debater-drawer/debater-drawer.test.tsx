@@ -10,14 +10,14 @@ import {
 import {
   readDebater,
   readLadder,
-} from '../../../features/leaderboard/read-leaderboard';
+} from '../../../features/leaderboard/read-leaderboard.test-support';
 import { DebaterDrawer } from './debater-drawer';
 
 setupRitewayBun();
 
 const render = (
   username: string,
-  seasonId: number,
+  seasonId: string,
   viewer: { username: string; blinded: readonly string[] } | null,
   overrides: Partial<LadderQuery> = {},
 ) => {
@@ -44,7 +44,7 @@ const render = (
 
 describe('DebaterDrawer', () => {
   test('an established debater', () => {
-    const html = render('debater-b', 4, null);
+    const html = render('debater-b', '4', null);
     assert({
       given: 'the top debater with the chart view',
       should:
@@ -85,7 +85,7 @@ describe('DebaterDrawer', () => {
   test('the table alternative', () => {
     const html = render(
       'sam',
-      4,
+      '4',
       { username: 'sam', blinded: [] },
       { view: 'table' },
     );
@@ -107,7 +107,7 @@ describe('DebaterDrawer', () => {
   });
 
   test('no ranked debates', () => {
-    const html = render('sam', 2, { username: 'sam', blinded: [] });
+    const html = render('sam', '2', { username: 'sam', blinded: [] });
     assert({
       given: 'a season before the viewer’s first debate',
       should: 'say so',
@@ -120,7 +120,7 @@ describe('DebaterDrawer', () => {
   });
 
   test('a debater being judged', () => {
-    const html = render('debater-b', 4, {
+    const html = render('debater-b', '4', {
       username: 'sam',
       blinded: ['debater-b'],
     });
@@ -137,7 +137,7 @@ describe('DebaterDrawer', () => {
   });
 
   test('close targets', () => {
-    const html = render('debater-b', 4, null);
+    const html = render('debater-b', '4', null);
     assert({
       given: 'the open detail',
       should: 'close from the button and from the scrim, both plain links',

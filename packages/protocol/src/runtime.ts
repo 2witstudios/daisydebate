@@ -102,6 +102,11 @@ export type RoundSpeakingChange =
 
 /** The durable writes that materialize the runtime's state. */
 export type RoundProjection = {
+  /** Exact finalizer inputs, never reselected later from mutable ballot state. */
+  readonly finalization?: {
+    readonly freezeRevision: number;
+    readonly ballotIds: readonly string[];
+  };
   /** Actual final segment close, independent of ballot completion. */
   readonly finalSegmentEndedAt?: string;
   /** The engine's ruling that this Round holds its Room's members no longer (ADR 0070). */

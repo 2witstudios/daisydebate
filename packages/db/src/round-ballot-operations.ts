@@ -215,6 +215,7 @@ async function persistBallotResult(
       result: { ...receipt },
     },
     resultingVersion,
+    { before: current.status, projection },
   );
   if (projection)
     await writeSpeakingProjection(tx, {

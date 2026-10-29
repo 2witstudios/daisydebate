@@ -40,7 +40,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           'rated',
           [
             {
-              ladder: 'ranked',
+              ladder: 'freestyle',
               rating: expected.negative.after.rating,
               deviation: expected.negative.after.deviation,
               version: 1,
@@ -48,7 +48,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           ],
           [
             {
-              ladder: 'ranked',
+              ladder: 'freestyle',
               rating: expected.affirmative.after.rating,
               deviation: expected.affirmative.after.deviation,
               version: 1,
@@ -85,8 +85,8 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           stateOf((await ratings(first))[0]),
         ],
         expected: [
-          'ranked',
-          ['ranked'],
+          'freestyle',
+          ['freestyle'],
           {
             rating: draw.affirmative.after.rating,
             deviation: draw.affirmative.after.deviation,
@@ -188,26 +188,28 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
     );
   });
 
-  test('carries an earlier season into the active one', async () => {
-    await inArena(async ({ formatId, season, actor, round, rate, ledger }) => {
+  test('refuses unresolved prior-season carry-over without changing the ledger', async () => {
+    await inArena(async ({ season, actor, round, rate, ledger }) => {
       const veteran = await actor();
       const earlier = await season('closed', '2026-06-01T00:00:00.000Z');
       await withSql(
         (
           sql,
-        ) => sql`insert into ratings (actor_id, format_id, season_id, ladder, rating, deviation, volatility)
-          values (${veteran}, ${formatId}, ${earlier}, 'ranked', 1720, 60, 0.05)`,
+        ) => sql`insert into ratings (actor_id, season_id, ladder, rating, deviation, volatility)
+          values (${veteran}, ${earlier}, 'freestyle', 1720, 60, 0.05)`,
       );
-      await rate(
-        await round({ affirmative: veteran, negative: await actor() }),
-      );
-      const [row] = await ledger(veteran);
+      const id = await round({ affirmative: veteran, negative: await actor() });
+      await assertRejects({
+        given: 'prior-season history while DEC-111 remains unresolved',
+        should: 'refuse carry-over',
+        actual: () => rate(id),
+        code: 'CONFLICT',
+      });
       assert({
-        given: 'a debater rated only in an earlier season',
-        should:
-          'start this season from the carried rating with the deviation widened to 150',
-        actual: [row?.rating_before, row?.deviation_before],
-        expected: [1720, 150],
+        given: 'a refused carry-over',
+        should: 'preserve the old state and write no new ledger',
+        actual: await ledger(veteran),
+        expected: [],
       });
     });
   });

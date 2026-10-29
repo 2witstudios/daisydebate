@@ -15,6 +15,8 @@ import {
   ratedResult,
   ratingChangeRows,
 } from './rating-decisions';
+import { finalizedRatingInput } from './rating-finalization';
+import { assertRoundAttendanceSettled } from './attendance-settlement';
 import { retryStale } from './retry-stale';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -47,14 +49,12 @@ async function loadStanding(
   tx: Tx,
   scope: {
     readonly actorId: string;
-    readonly formatId: string;
     readonly ladder: RatingLadder;
     readonly seasonId: string | null;
   },
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
-    eq(ratings.formatId, scope.formatId),
     eq(ratings.ladder, scope.ladder),
   );
   const [current] =
@@ -85,9 +85,13 @@ async function loadStanding(
     .where(
       and(
         eq(ratingChanges.actorId, scope.actorId),
-        eq(ratingChanges.formatId, scope.formatId),
         eq(ratingChanges.ladder, scope.ladder),
       ),
+    );
+  if (!current && previous)
+    throw createAppError(
+      'CONFLICT',
+      'Season carry-over requires DEC-111 resolution',
     );
   return {
     current: current
@@ -101,7 +105,6 @@ async function loadStanding(
 async function writeProjection(
   tx: Tx,
   scope: {
-    readonly formatId: string;
     readonly seasonId: string;
     readonly ladder: RatingLadder;
   },
@@ -124,7 +127,6 @@ async function writeProjection(
           .where(
             and(
               eq(ratings.actorId, change.actorId),
-              eq(ratings.formatId, scope.formatId),
               eq(ratings.seasonId, scope.seasonId),
               eq(ratings.ladder, scope.ladder),
               eq(ratings.version, change.expectedVersion),
@@ -159,6 +161,19 @@ async function rateOnce(
     alreadyRated: rated !== undefined,
   });
   if (eligibility.kind !== 'rated') return eligibility;
+  const [finalized] = await tx.execute(sql`select r.id from rounds r
+    where r.id=${roundId} and ${finalizedRatingInput}`);
+  if (!finalized)
+    throw createAppError('CONFLICT', 'rating-input-not-finalized');
+  const [forfeit] =
+    await tx.execute(sql`select r.id from rounds r where r.id=${roundId}
+    and (exists(select 1 from round_attendance_adjudications a join round_finalizations z on z.round_id=a.round_id and z.command_id=a.command_id where a.round_id=r.id and a.decision='forfeit')
+      or exists(select 1 from round_commands c join round_finalizations z on z.round_id=c.round_id and z.command_id=c.command_id where c.round_id=r.id and c.type='forfeit'))`);
+  if (!forfeit)
+    await assertRoundAttendanceSettled(tx, {
+      roundId,
+      now: round.completedAt!.toISOString(),
+    });
 
   const seats = await tx
     .select({
@@ -177,12 +192,22 @@ async function rateOnce(
     .from(seasons)
     .where(eq(seasons.status, 'active'))
     .for('share');
-  const seasonId = season?.id ?? null;
+  if (!season) throw createAppError('CONFLICT', 'No season is active');
+  const seasonId = season.id;
+  // Two-int advisory namespace59090 belongs to ratings, disjoint from the
+  // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
+  // a hash collision only serializes unrelated ladder/actor pairs.
+  const keys =
+    await tx.execute(sql`select key::text as key from (select distinct
+    hashtext(${eligibility.ladder} || ':' || actor_id) as key
+    from round_participants where round_id=${roundId} and role in ('affirmative','negative')) locks
+    order by locks.key`);
+  for (const { key } of keys as unknown as { key: string }[])
+    await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {
       actorId,
-      formatId: round.formatId,
       ladder: eligibility.ladder,
       seasonId,
     });
@@ -197,7 +222,6 @@ async function rateOnce(
     changeIds,
   });
   const scope = {
-    formatId: round.formatId,
     seasonId: plan.seasonId,
     ladder: plan.ladder,
   };

@@ -10,7 +10,8 @@ import {
 setupRitewayBun();
 
 const season: Season = {
-  id: 4,
+  id: '4',
+  name: 'Season 4',
   startsAt: '2026-09-01T00:00:00.000Z',
   endsAt: '2026-09-29T00:00:00.000Z',
   status: 'active',

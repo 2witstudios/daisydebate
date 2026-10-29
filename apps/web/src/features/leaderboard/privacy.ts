@@ -31,16 +31,10 @@ export const privacySections: readonly PrivacySection[] = [
         visibility: 'public',
       },
       {
-        title: 'Display name and image',
-        where: 'Detail and profile',
-        tag: 'personal',
-        visibility: 'public',
-      },
-      {
         title: 'Rating, rank, W–L',
         where: 'Everywhere on the ladder',
-        note: 'Competitive result, not personal data.',
-        tag: 'none',
+        note: 'Rated competitive records remain after account closure.',
+        tag: 'competitive record',
       },
       {
         title: 'Rating history and recent ranked results',
@@ -58,19 +52,19 @@ export const privacySections: readonly PrivacySection[] = [
     rows: [
       {
         title: 'Email',
-        where: 'Sign-in only',
+        where: 'Not shown on the leaderboard',
         tag: 'personal',
         visibility: 'private',
       },
       {
         title: 'IP address and user agent',
-        where: 'Security only',
+        where: 'Not shown on the leaderboard',
         tag: 'personal',
         visibility: 'private',
       },
       {
         title: 'Consent choices',
-        where: 'Yours to see',
+        where: 'Not shown on the leaderboard',
         tag: 'personal',
         visibility: 'private',
       },
@@ -78,11 +72,6 @@ export const privacySections: readonly PrivacySection[] = [
         title: 'Who judged a debate, and ballots',
         where: 'Never on the ladder or profiles',
         tag: 'identifier',
-      },
-      {
-        title: 'Your private and unlisted debates',
-        where: 'Never listed, and never rated',
-        tag: 'none',
       },
     ],
   },
@@ -97,7 +86,8 @@ export const privacySections: readonly PrivacySection[] = [
       },
       {
         title: 'Closed accounts',
-        where: 'Username stays, marked closed. Email and image removed.',
+        where:
+          'Username stays reserved and is marked closed. Email is removed.',
         tag: 'closed',
       },
       {
@@ -113,28 +103,3 @@ export const privacySections: readonly PrivacySection[] = [
     ],
   },
 ];
-
-type PrivacySetting = {
-  readonly id: 'appear-on-ladder';
-  readonly label: string;
-  readonly help: string;
-};
-
-export type PrivacySettingRow = PrivacySetting & { readonly on: boolean };
-
-const privacySettings: readonly PrivacySetting[] = [
-  {
-    id: 'appear-on-ladder',
-    label: 'Appear on public leaderboards',
-    help: 'Hidden debaters keep a rating and show as “private debater”.',
-  },
-];
-
-/**
- * The ladder setting with the account's current answer. It is changed in
- * Settings, which is the one place a privacy choice is made.
- */
-export const privacySettingRows = (privacy: {
-  readonly ladder: boolean;
-}): readonly PrivacySettingRow[] =>
-  privacySettings.map((setting) => ({ ...setting, on: privacy.ladder }));

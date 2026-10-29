@@ -42,6 +42,7 @@ export const seasons = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    activationKey: text('activation_key').unique(),
     startsAt: timestampColumn('starts_at').notNull(),
     endsAt: timestampColumn('ends_at'),
     status: text('status').notNull(),
@@ -69,18 +70,15 @@ const ratingScope = () => ({
   actorId: text('actor_id')
     .notNull()
     .references(() => actors.id, { onDelete: 'restrict' }),
-  formatId: text('format_id')
-    .notNull()
-    .references(() => formats.id, { onDelete: 'restrict' }),
   seasonId: text('season_id')
     .notNull()
     .references(() => seasons.id, { onDelete: 'restrict' }),
-  /** The rating ladder (ADR 0055); Ranked is the one ladder (DEC-238). */
+  /** One of the three Daisy ladders (ADR 0090). */
   ladder: text('ladder').$type<RatingLadder>().notNull(),
 });
 
 /**
- * Current Glicko-2 state per actor, format, season and ladder: a projection of
+ * Current Glicko-2 state per actor, ladder and season: a projection of
  * `rating_changes`, written in the same transaction. Provisional status,
  * tier, games played, peak and last-rated time are derived, never stored.
  */
@@ -96,10 +94,9 @@ export const ratings = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.actorId, table.formatId, table.seasonId, table.ladder],
+      columns: [table.actorId, table.ladder, table.seasonId],
     }),
     index('ratings_leaderboard_idx').on(
-      table.formatId,
       table.seasonId,
       table.ladder,
       table.rating.desc(),
@@ -127,6 +124,9 @@ export const ratingChanges = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'restrict' }),
     ...ratingScope(),
+    formatId: text('format_id')
+      .notNull()
+      .references(() => formats.id, { onDelete: 'restrict' }),
     ratingBefore: doublePrecision('rating_before').notNull(),
     ratingAfter: doublePrecision('rating_after').notNull(),
     deviationBefore: doublePrecision('deviation_before').notNull(),

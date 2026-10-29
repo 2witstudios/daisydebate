@@ -68,18 +68,22 @@ export function prepareRoundBallotSubmission(
           };
         }),
       );
-      return createRoundRuntime({
+      const projection = createRoundRuntime({
+        ...context.round,
         round: context.round,
-        rules: context.round.rules,
-        participants: context.round.participants,
-        checkpoint: context.round.checkpoint,
-        segments: context.round.segments,
         nextSegmentId: input.nextSegmentId,
       }).execute({
         command: { type: 'complete', outcome },
         actorId: null,
         now: context.now,
       });
+      return {
+        ...projection,
+        finalization: {
+          freezeRevision: context.frozen.revision,
+          ballotIds: context.ballots.map((b) => b.id),
+        },
+      };
     },
   };
 }

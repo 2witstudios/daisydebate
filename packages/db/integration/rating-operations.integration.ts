@@ -13,7 +13,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 const ledgerRow = (actor: string, after: number, season: string) => ({
   actor,
-  ladder: 'ranked',
+  ladder: 'freestyle',
   before: 1500,
   after,
   version: 'stub-v1',
@@ -30,7 +30,7 @@ describe('rateDebate (RATE-1.3)', () => {
         given: 'a completed ranked debate',
         should: 'report it rated on the ranked ladder in the active season',
         actual: result.kind === 'rated' && [result.ladder, result.seasonId],
-        expected: ['ranked', seasonId],
+        expected: ['freestyle', seasonId],
       });
       assert({
         given: 'the decided changes',
@@ -58,8 +58,8 @@ describe('rateDebate (RATE-1.3)', () => {
           await ratingsOf(fixture, negative),
         ],
         expected: [
-          [{ ladder: 'ranked', rating: 1510, deviation: 349, version: 1 }],
-          [{ ladder: 'ranked', rating: 1490, deviation: 349, version: 1 }],
+          [{ ladder: 'freestyle', rating: 1510, deviation: 349, version: 1 }],
+          [{ ladder: 'freestyle', rating: 1490, deviation: 349, version: 1 }],
         ],
       });
       const rerun = await rate(roundId);
@@ -128,7 +128,7 @@ describe('rateDebate (RATE-1.3)', () => {
             [1510, 1520],
           ],
           projection: [
-            { ladder: 'ranked', rating: 1520, deviation: 348, version: 2 },
+            { ladder: 'freestyle', rating: 1520, deviation: 348, version: 2 },
           ],
         },
       });

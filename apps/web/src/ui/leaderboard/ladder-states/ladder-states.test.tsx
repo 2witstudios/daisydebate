@@ -158,7 +158,7 @@ describe('empty ladder', () => {
     const html = empty({
       kind: 'new-season',
       previousSeasonHref: '/leaderboard?season=4',
-      previousSeason: 4,
+      previousSeason: '4',
     }).replace(/<!-- -->/g, '');
     assert({
       given: 'a season nobody is ranked in',
@@ -182,7 +182,7 @@ describe('empty ladder', () => {
         ).includes('href="/ranked"'),
         renderToString(
           h(PreviousChampion, {
-            champion: { season: 4, username: 'ada', rating: 1758 },
+            champion: { season: '4', username: 'ada', rating: 1758 },
           }),
         ).includes('@ada'),
       ],

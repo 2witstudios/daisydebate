@@ -16,11 +16,8 @@ export async function settleAttendanceFixture(
   const round = (await f.store.getRound(roundId))!;
   const seasonId = createId();
   await f.sql`insert into seasons(id,name,starts_at,status) values(${seasonId},'RT rating fixture','2000-01-01T00:00:00Z','active')`;
-  const preset = ranked
-    ? await f.sql`insert into format_presets(format_id,version,format_version,config,approved_at) select format_id,1,format_version,config,statement_timestamp() from rooms where id=(select room_id from rounds where id=${roundId}) on conflict do nothing returning format_id`
-    : [];
   if (ranked)
-    await f.sql`update rounds set competition_type='ranked',preset_version=1,ladder_id='ranked' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
   await f.sql`update rounds set started_at=started_at-interval '50 seconds' where id=${roundId}`;
   await f.sql`update round_segments set started_at=started_at-interval '50 seconds' where id=${segmentId}`;
   const samples = await f.sql.begin(async (tx) => {
@@ -42,7 +39,5 @@ export async function settleAttendanceFixture(
     await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
     await f.sql`delete from rounds where id=${roundId}`;
     await f.sql`delete from seasons where id=${seasonId}`;
-    if (preset.length)
-      await f.sql`delete from format_presets where format_id=${round.formatId} and version=1`;
   };
 }

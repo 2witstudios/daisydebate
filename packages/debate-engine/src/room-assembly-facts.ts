@@ -55,7 +55,16 @@ export const castGate = (
   room: RoomAssemblyState,
   consent: RoomConsent,
 ): RoomRefusal | null => {
-  if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
+  if (
+    room.participants.some(
+      (p) =>
+        !p.eligible ||
+        (room.competitionType === 'ranked' &&
+          p.role !== 'judge' &&
+          p.kind !== 'human'),
+    )
+  )
+    return 'actor-ineligible';
   if (!consent.available) return 'readiness-unavailable';
   return room.participants.some(
     (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),

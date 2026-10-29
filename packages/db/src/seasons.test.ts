@@ -58,6 +58,7 @@ const seasonRow = (
 ) => [
   id,
   'Season 1',
+  null,
   startsAt,
   endsAt === null ? null : new Date(endsAt),
   status,
@@ -159,27 +160,24 @@ describe('season operations', () => {
     });
   });
 
-  test('rolls over by closing at the next start and opening', async () => {
-    const { result } = scripted(
-      [
-        [seasonRow('s1', 'active')],
-        [seasonRow('s1', 'closed', later.toISOString(), 2)],
-        [seasonRow('s2', 'active')],
-      ],
-      (seasons) =>
-        seasons.rolloverSeason({
-          closeId: 's1',
-          open: { id: 's2', name: 'Season 1', startsAt: later },
-        }),
+  test('refuses rollover while DEC111 carry-over remains unresolved', async () => {
+    const { result, queries } = scripted([], (seasons) =>
+      seasons.rolloverSeason({
+        closeId: 's1',
+        open: { id: 's2', name: 'Season 2', startsAt: later },
+      }),
     );
+    await assertRejects({
+      given: 'an attempted rollover before DEC111 resolution',
+      should: 'refuse without reading or mutating either season',
+      actual: () => result,
+      code: 'CONFLICT',
+    });
     assert({
-      given: 'an active season and a later next start',
-      should: 'return the closed and the opened season',
-      actual: await result,
-      expected: {
-        closed: record('s1', 'closed', later.toISOString(), 2),
-        opened: record('s2', 'active'),
-      },
+      given: 'the refused rollover',
+      should: 'issue no SQL',
+      actual: queries.length,
+      expected: 0,
     });
   });
 });

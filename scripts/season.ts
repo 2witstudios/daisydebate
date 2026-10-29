@@ -12,6 +12,7 @@ import { idSchema } from '@daisy/protocol';
 
 const usage = `usage:
   bun season list
+  bun season activate-beta
   bun season open --name "<name>" [--starts <ISO 8601>]
   bun season close --id <seasonId> [--ends <ISO 8601>]
   bun season rollover --name "<name>" [--starts <ISO 8601>]`;
@@ -20,6 +21,7 @@ type NewSeason = { id: string; name: string; startsAt: Date };
 
 export type SeasonCommand =
   | { readonly kind: 'list' }
+  | { readonly kind: 'activate-beta'; readonly id: string }
   | { readonly kind: 'open'; readonly season: NewSeason }
   | { readonly kind: 'close'; readonly id: string; readonly endsAt: Date }
   | { readonly kind: 'rollover'; readonly season: NewSeason }
@@ -60,6 +62,7 @@ const instant = (value: string | undefined): Date | null | undefined => {
 /** The flags each command takes; any other flag is refused, never ignored. */
 const allowedFlags: Readonly<Record<string, readonly string[]>> = {
   list: [],
+  'activate-beta': [],
   open: ['name', 'starts'],
   rollover: ['name', 'starts'],
   close: ['id', 'ends'],
@@ -124,6 +127,8 @@ export function parseSeasonCommand(
   if (!flags) return refusal;
   const { command, name, id, starts, ends } = flags;
   if (command === 'list') return { kind: 'list' };
+  if (command === 'activate-beta')
+    return { kind: 'activate-beta', id: edge.newId() };
   if ((command === 'open' || command === 'rollover') && name)
     return {
       kind: command,
@@ -172,6 +177,9 @@ async function main() {
       case 'list':
         for (const season of await seasons.listSeasons())
           console.log(line(season));
+        return;
+      case 'activate-beta':
+        console.log(line(await seasons.activateBetaSeason({ id: command.id })));
         return;
       case 'open':
         console.log(line(await seasons.openSeason(command.season)));

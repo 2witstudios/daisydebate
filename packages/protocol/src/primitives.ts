@@ -34,7 +34,7 @@ export type DebateRole = (typeof debateRoles)[number];
  * and the ladder CHECKs on `ratings`, `rating_changes` and `rounds` derive
  * from this array.
  */
-export const ratingLadders = ['ranked'] as const;
+export const ratingLadders = ['freestyle', 'policy', 'value'] as const;
 export type RatingLadder = (typeof ratingLadders)[number];
 
 /**
@@ -65,3 +65,7 @@ export const errorSchema = z.strictObject({
   invariantId: z.string().trim().min(1).max(128).optional(),
 });
 export type ProtocolError = z.infer<typeof errorSchema>;
+
+/** Stable catalog identities, never mutable format names or revisions. */
+export const canonicalRatingLadder = (formatId: string): RatingLadder | null =>
+  ratingLadders.find((ladder) => ladder === formatId) ?? null;

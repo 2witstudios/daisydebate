@@ -21,6 +21,7 @@ type FieldsProps = {
   readonly choices: readonly RoomTemplate[];
   readonly state: CreateState;
   readonly pending: boolean;
+  readonly initialRated?: boolean;
 };
 
 export function CreateAssemblyFields({
@@ -28,6 +29,7 @@ export function CreateAssemblyFields({
   choices,
   state,
   pending,
+  initialRated = false,
 }: FieldsProps) {
   return (
     <>
@@ -65,6 +67,19 @@ export function CreateAssemblyFields({
         choices={choices}
         defaultValue={state.values.selection}
       />
+      <FormField id="assembly-competition" label="Rating">
+        <select
+          id="assembly-competition"
+          name="competition"
+          defaultValue={
+            state.values.competition ?? (initialRated ? 'ranked' : 'casual')
+          }
+          className={controlClass}
+        >
+          <option value="casual">Casual</option>
+          <option value="ranked">Rated · Freestyle, Policy or Value</option>
+        </select>
+      </FormField>
       <FormField id="assembly-visibility" label="Who can join">
         <select
           id="assembly-visibility"
@@ -97,10 +112,12 @@ export function CreateAssemblyForm({
   action,
   commandId,
   choices,
+  initialRated = false,
 }: {
   readonly action: FormAction<CreateState>;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
+  readonly initialRated?: boolean;
 }) {
   const [state, post, pending] = useFormAction(
     action,
@@ -122,6 +139,7 @@ export function CreateAssemblyForm({
         choices={choices}
         state={state}
         pending={pending}
+        initialRated={initialRated}
       />
     </form>
   );

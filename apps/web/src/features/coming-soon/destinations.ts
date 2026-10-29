@@ -21,14 +21,13 @@ export type Destination = {
 };
 
 /**
- * Explainer copy for every destination. Daisy has one debate, called Ranked,
- * with one rating per player per season, so no format is named.
+ * Explainer copy for every destination. Rated play shares the normal Room lifecycle.
  */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   ranked: {
     slug: 'ranked',
     title: 'Ranked',
-    tagline: 'Rated debates, one ladder per season.',
+    tagline: 'Freestyle, Policy and Value ratings each season.',
   },
   lobby: {
     slug: 'lobby',

@@ -18,6 +18,7 @@ export default async function OpenRoomPage({
   if (templates.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   return (
     <CreateRoomPage
+      initialRated={(await searchParams).rated === '1'}
       action={createRoomAction}
       choices={templates.choices}
       commandId={systemId.next()}

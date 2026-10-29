@@ -1,4 +1,3 @@
-import { sampleStanding } from '../../ui/mock/ranked';
 import { rankedDestinations } from './actions';
 import {
   bandLabel,
@@ -49,12 +48,3 @@ export function hostScreenFor(
     closeHref: hostHref({ step: 'edit', band }),
   };
 }
-
-/**
- * The host page's one data seam. Posting a room is the ranked
- * `debate.create` (ADR 0048) and opens a ranked room (ADR 0049 section 6);
- * today "Post room" only moves to the mock confirmation. The backend read of
- * the viewer's standing and the real post replace this and `actions.ts`.
- */
-export const driveHost = (query: HostQuery): HostScreen =>
-  hostScreenFor(query, sampleStanding);

@@ -1,3 +1,5 @@
+import { requestMemberStandings } from '../../../../lib/request-session';
+import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
@@ -38,8 +40,10 @@ export default async function ProfileRoute({
   // Round the viewer may list. Either way there is no such page.
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
+  const standings = await requestMemberStandings(profile.username);
   return (
     <ProfilePage
+      ratings={<MemberStandings standings={standings} />}
       profile={profile}
       paged={query.data.before !== undefined}
       actions={

@@ -157,41 +157,6 @@ test('select-format refuses what the policy refuses and leaves the room unchange
   });
 });
 
-test('ranked One-on-one stays creatable outside the picker', async () => {
-  await withRoomRuntime(async (f) => {
-    const [current] = await f.sql`
-      select f.current_version as "formatVersion", p.version as "presetVersion"
-        from formats f
-        join format_presets p
-          on p.format_id = f.id and p.format_version = f.current_version
-         and p.superseded_at is null
-       where f.id = 'one-on-one'`;
-    const catalog = await f.operations.catalog(f.host);
-    const view = (
-      await f.create({
-        selection: { kind: 'ranked', formatId: 'one-on-one', ...current },
-      })
-    ).view;
-    assert({
-      given: 'the current eligible One-on-one preset',
-      should:
-        'create a ranked room with no basis while the picker never lists One-on-one',
-      actual: {
-        competitionType: view.competitionType,
-        formatId: view.formatId,
-        basis: view.format.basis,
-        listed: catalog.some((choice) => choice.formatId === 'one-on-one'),
-      },
-      expected: {
-        competitionType: 'ranked',
-        formatId: 'one-on-one',
-        basis: null,
-        listed: false,
-      },
-    });
-  });
-});
-
 test('a room switches into and out of a striking format (FMT-2b)', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = await f.operations.catalog(f.host);

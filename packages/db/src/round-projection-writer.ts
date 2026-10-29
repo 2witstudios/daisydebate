@@ -1,3 +1,4 @@
+import { freezeRoundFinalization } from './round-finalization-writer';
 import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
@@ -160,6 +161,10 @@ export async function insertCommandRow(
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null,
   resultingVersion: number,
+  transition?: {
+    readonly before: LockedRound['status'];
+    readonly projection: RoundProjection | null;
+  },
 ): Promise<void> {
   if (command === null) return;
   await tx.insert(roundCommands).values({
@@ -173,6 +178,20 @@ export async function insertCommandRow(
     resultingVersion,
     appliedAt: sql`statement_timestamp()` as unknown as Date,
   });
+  if (
+    transition &&
+    !terminal.has(transition.before) &&
+    transition.projection?.round &&
+    terminal.has(transition.projection.round.status)
+  )
+    await freezeRoundFinalization(tx, {
+      roundId,
+      commandId: command.commandId,
+      resultingVersion,
+      freezeRevision:
+        transition.projection.finalization?.freezeRevision ?? null,
+      ballotIds: transition.projection.finalization?.ballotIds ?? [],
+    });
 }
 
 /** Lifecycle instants belong to the post-lock database sample. Existing stamps remain fixed. */

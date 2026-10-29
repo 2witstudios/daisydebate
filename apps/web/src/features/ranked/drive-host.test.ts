@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { driveHost, hostScreenFor } from './drive-host';
+import { hostScreenFor } from './drive-host';
+import { driveHost } from './drive.test-support';
 
 setupRitewayBun();
 

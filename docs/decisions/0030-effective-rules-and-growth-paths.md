@@ -4,6 +4,10 @@ Status: accepted. Extends [ADR 0029](0029-competitive-schema-foundation.md).
 Amended by [ADR 0048](0048-authorization-core.md): ranked belongs to Daisy
 and leagues are tournament tenants, and `visibility` is now read.
 
+Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
+standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.
+Format and revision remain Round/ledger provenance, never another standing pool.
+
 ## Context
 
 Custom lobbies are a launch feature: a player may start Foundation with

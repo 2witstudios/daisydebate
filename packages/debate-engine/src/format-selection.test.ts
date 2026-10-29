@@ -151,10 +151,10 @@ describe('decideFormatSelection', () => {
   test('ranked admission is separate from picker visibility', () => {
     const ranked = request({
       intent: 'create-ranked',
-      formatId: 'one-on-one',
+      formatId: 'freestyle',
     });
     const oneOnOne = facts({
-      format: { id: 'one-on-one', role: null },
+      format: { id: 'freestyle', role: null },
       preset: { rankedEligible: true },
     });
     const outcome = decideFormatSelection(ranked, oneOnOne);
@@ -176,7 +176,7 @@ describe('decideFormatSelection', () => {
           'an ineligible preset',
           ranked,
           facts({
-            format: { id: 'one-on-one', role: null },
+            format: { id: 'freestyle', role: null },
             preset: { rankedEligible: false },
           }),
         ),

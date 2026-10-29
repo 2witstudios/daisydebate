@@ -99,12 +99,13 @@ const completedRound = async (
     competitionType?: CompetitionType;
     outcome?: string;
     minute?: number;
+    terminalEvidence?: boolean;
   },
 ) => {
   const id = createId();
   const competitionType = input.competitionType ?? 'ranked';
   const ranked = competitionType === 'ranked';
-  if (ranked) await fixture.preset(input.formatId);
+
   await fixture.insert('rounds', {
     id,
     room_id: null,
@@ -118,12 +119,35 @@ const completedRound = async (
     status: 'completed',
     current_stage: null,
     outcome: input.outcome ?? 'affirmative',
-    ladder_id: ranked ? 'ranked' : null,
+    ladder_id: ranked ? input.formatId : null,
     started_at: completedAt(0),
     completed_at: completedAt(input.minute ?? 30),
   });
   await fixture.participant(id, 'affirmative', 0, input.affirmative);
   await fixture.participant(id, 'negative', 0, input.negative);
+  if (ranked && input.terminalEvidence !== false) {
+    const commandId = createId();
+    await fixture.insert(
+      'round_commands',
+      {
+        command_id: commandId,
+        round_id: id,
+        actor_id: input.affirmative,
+        service_id: null,
+        type: 'forfeit',
+        applied_at: completedAt(input.minute ?? 30),
+        payload_digest: 'a'.repeat(64),
+        result: {},
+        resulting_version: 1,
+      },
+      'command_id',
+    );
+    await fixture.insert(
+      'round_finalizations',
+      { round_id: id, command_id: commandId, resulting_version: 1 },
+      'round_id',
+    );
+  }
   return id;
 };
 
@@ -217,7 +241,7 @@ export const withRatings = (
     let season: string | undefined;
     const seated: RatingContext['seated'] = async (overrides = {}) => {
       season ??= await activeSeason(fixture);
-      const formatId = overrides.formatId ?? (await fixture.format());
+      const formatId = overrides.formatId ?? 'freestyle';
       const affirmative = overrides.affirmative ?? (await fixture.actor());
       const negative = overrides.negative ?? (await fixture.actor());
       const roundId = await completedRound(fixture, {

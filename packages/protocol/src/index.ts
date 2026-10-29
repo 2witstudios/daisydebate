@@ -10,6 +10,7 @@ export {
   debateSides,
   debateRoles,
   ratingLadders,
+  canonicalRatingLadder,
   errorSchema,
 } from './primitives';
 export type {

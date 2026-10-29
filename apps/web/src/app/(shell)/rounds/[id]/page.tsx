@@ -1,3 +1,5 @@
+import { requestRoundRatings } from '../../../../lib/request-session';
+import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
@@ -81,6 +83,7 @@ export default async function RoundPage({
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
+        <RoundRatings view={await requestRoundRatings(result.round)} />
         {ballots ? <RoundResult view={ballots} /> : null}
         {analysis ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />

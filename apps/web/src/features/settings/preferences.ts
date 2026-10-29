@@ -20,7 +20,6 @@ export type NotificationPrefs = {
   readonly newsletter: boolean;
 };
 export type PrivacyPrefs = {
-  readonly ladder: boolean;
   readonly analytics: boolean;
   readonly replay: boolean;
 };
@@ -46,7 +45,7 @@ export const getPreferences = (): Preferences => ({
     results: true,
     newsletter: false,
   },
-  privacy: { ladder: true, analytics: false, replay: false },
+  privacy: { analytics: false, replay: false },
 });
 
 const on = (form: FormData, name: string): boolean =>
@@ -74,10 +73,9 @@ export const parseNotificationsForm = (
     newsletter: on(form, 'newsletter'),
   });
 
-/** What is public and what is optional, read from the posted checkboxes. */
+/** Optional data categories, read from the posted checkboxes. */
 export const parsePrivacyForm = (form: FormData): Parsed<PrivacyPrefs> =>
   accept({
-    ladder: on(form, 'ladder'),
     analytics: on(form, 'analytics'),
     replay: on(form, 'replay'),
   });

@@ -1,6 +1,6 @@
 import type { RatingPoint } from '../../features/leaderboard/history';
 import type { Season } from '../../features/leaderboard/season';
-import type { LadderEntry } from '../../features/leaderboard/standing';
+import type { RatingEntry } from '../ratings/rank';
 
 /**
  * Sample leaderboard data: two hundred forty debaters per season, made from
@@ -22,7 +22,8 @@ const daysFrom = (now: string, days: number): string =>
 export const sampleSeasons = (now: string): readonly Season[] => {
   const start = (id: number) => daysFrom(now, -16 - SEASON_DAYS * (4 - id));
   const season = (id: number, status: Season['status']): Season => ({
-    id,
+    id: String(id),
+    name: `Season ${id}`,
     startsAt: start(id),
     endsAt: daysFrom(start(id), SEASON_DAYS),
     status,
@@ -61,10 +62,10 @@ const viewerLines: Readonly<
   3: { rating: 1502, played: 40, wins: 23, change: 52 },
 };
 
-const generated = (season: number): readonly LadderEntry[] =>
-  Array.from({ length: FIELD }, (_, i): LadderEntry => {
+const generated = (season: string): readonly RatingEntry[] =>
+  Array.from({ length: FIELD }, (_, i): RatingEntry => {
     const stable = seeded(i * 131 + 7);
-    const varying = seeded(i * 53 + season * 104729);
+    const varying = seeded(i * 53 + Number(season) * 104729);
     const p = (i + 0.5) / FIELD;
     const tail = Math.log((1 - p) / p);
     const provisional = stable() < 0.12;
@@ -93,6 +94,7 @@ const generated = (season: number): readonly LadderEntry[] =>
       deviation,
       played,
       wins: Math.round(played * winRate),
+      draws: 0,
       weekChange,
       seasonChange,
     };
@@ -103,10 +105,10 @@ const generated = (season: number): readonly LadderEntry[] =>
  * where they have one (none in seasons before their first ranked debate).
  */
 export function sampleEntries(
-  season: number,
+  season: string,
   viewer: string | null,
-): readonly LadderEntry[] {
-  const line = viewerLines[season];
+): readonly RatingEntry[] {
+  const line = viewerLines[Number(season)];
   const field = generated(season);
   if (viewer === null || line === undefined) return field;
   return [
@@ -119,6 +121,7 @@ export function sampleEntries(
       deviation: line.played < 10 ? 170 : 62,
       played: line.played,
       wins: line.wins,
+      draws: 0,
       weekChange: line.change > 0 ? 3 : -2,
       seasonChange: line.change,
     },
@@ -129,7 +132,7 @@ export function sampleEntries(
  * The rating history behind a sample line: a smooth climb from the starting
  * rating to the final one with seeded noise, deviation shrinking as it goes.
  */
-export function sampleHistory(entry: LadderEntry): readonly RatingPoint[] {
+export function sampleHistory(entry: RatingEntry): readonly RatingPoint[] {
   const noise = seeded(entry.id.length * 991 + entry.rating);
   const points: RatingPoint[] = [
     {

@@ -76,9 +76,10 @@ function Pager({ view, query }: Omit<LadderTableProps, 'toolbar'>) {
  */
 export function LadderTable({ view, query, toolbar }: LadderTableProps) {
   const closed = isClosed(view.season);
-  const before = view.seasons.find(
-    (season) => season.id === view.season.id - 1,
-  );
+  const before =
+    view.seasons[
+      view.seasons.findIndex((season) => season.id === view.season.id) + 1
+    ];
   return (
     <>
       {view.podium.length > 0 ? (

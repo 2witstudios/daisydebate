@@ -1,3 +1,4 @@
+import { ratingLadders } from '@daisy/protocol';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
@@ -147,6 +148,15 @@ export function LadderFilters({
           <span aria-hidden="true" className="mt-3 h-px basis-full bg-border" />
           <label className="flex items-center gap-2 text-sm text-ink-faint">
             <span>Season</span>
+            <Select
+              name="ladder"
+              label="Ladder"
+              value={query.ladder}
+              options={ratingLadders.map((value) => ({
+                value,
+                label: value[0]!.toUpperCase() + value.slice(1),
+              }))}
+            />
             <Select
               name="season"
               label="Season"

@@ -182,17 +182,21 @@ export function ProfilePage({
   profile,
   paged,
   actions,
+  ratings,
 }: {
   readonly profile: MemberProfile;
   /** Whether this is an older page of the history. */
   readonly paged: boolean;
   /** The viewer's actions toward this member, if any. */
   readonly actions?: ReactNode;
+  /** Published rating display composed by the request page. */
+  readonly ratings?: ReactNode;
 }) {
   const base = profileHref(profile.username);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <ProfileHeader profile={profile} actions={actions} />
+      {ratings}
       <RecordSummary profile={profile} />
       <section aria-label="Match history" className={card}>
         <h2 className={heading}>Match history</h2>

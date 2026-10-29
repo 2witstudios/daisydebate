@@ -1,12 +1,8 @@
-import Link from 'next/link';
 import {
   privacySections,
-  privacySettingRows,
   type PrivacyRow,
 } from '../../../features/leaderboard/privacy';
-import { getPreferences } from '../../../features/settings/preferences';
 import { Badge } from '../../components/badge/badge';
-import { Icon } from '../../components/icon/icon';
 
 const card = 'flex flex-col gap-4 rounded-lg bg-surface p-5 shadow-1';
 
@@ -25,60 +21,6 @@ function Row({ row }: { readonly row: PrivacyRow }) {
         {row.visibility ? <Badge tone="accent">{row.visibility}</Badge> : null}
       </div>
     </li>
-  );
-}
-
-/** The ladder setting as the account has it, changed in Settings. */
-function YourSettings() {
-  const rows = privacySettingRows(getPreferences().privacy);
-  return (
-    <section className={card}>
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-bold">Your privacy settings</h2>
-      </div>
-      <p className="text-sm text-ink-muted">
-        Where you control what the ladder shows.
-      </p>
-      <ul className="flex flex-col gap-4">
-        {rows.map((setting) => (
-          <li
-            key={setting.id}
-            className="flex items-start justify-between gap-4"
-          >
-            <span className="flex min-w-0 flex-col">
-              <span className="font-strong">{setting.label}</span>
-              <span className="text-sm text-ink-muted">{setting.help}</span>
-            </span>
-            <Badge tone={setting.on ? 'accent' : 'neutral'}>
-              {setting.on ? 'On' : 'Off'}
-            </Badge>
-          </li>
-        ))}
-      </ul>
-      <Link href="/settings#privacy" className="text-sm font-bold">
-        Change in settings
-      </Link>
-    </section>
-  );
-}
-
-/** What another debater sees of you. */
-function Preview() {
-  return (
-    <section className={card}>
-      <h2 className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
-        What another debater sees of you
-      </h2>
-      <p className="flex items-center gap-3">
-        <Icon name="person" size={24} />
-        <span className="flex flex-col">
-          <span className="font-strong">@your-username</span>
-          <span className="text-sm text-ink-muted tabular-nums">
-            #63 · 1538 · 19–12
-          </span>
-        </span>
-      </p>
-    </section>
   );
 }
 
@@ -102,10 +44,11 @@ export function PrivacyPage() {
           </section>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
-        <YourSettings />
-        <Preview />
-      </div>
+      <p className="text-sm text-ink-muted">
+        Room visibility does not turn off rating. Eligible rated outcomes still
+        affect public standings. Private and unlisted Room content follows its
+        own audience rules.
+      </p>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   ddlTimeoutMs,
   scratchDatabase,
 } from './scratch-migrations.test-support';
-import { change, rating, season } from './standings-fixtures';
+import { change, season } from './standings-fixtures';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -118,13 +118,20 @@ test(
             after: 1510,
             occurredAt: ended,
           });
-          await rating(f, {
-            actorId,
-            formatId: 'one-on-one',
-            seasonId,
-            ladder,
-            rating: 1510,
-          });
+          // This historical predecessor still has format in its standing key.
+          await f.insert(
+            'ratings',
+            {
+              actor_id: actorId,
+              format_id: 'one-on-one',
+              season_id: seasonId,
+              ladder,
+              rating: 1510,
+              deviation: 300,
+              volatility: 0.06,
+            },
+            'actor_id',
+          );
         }
 
       await scratch.migrate((folder) => folder <= migration);

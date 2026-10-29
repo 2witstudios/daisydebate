@@ -1,3 +1,5 @@
+import { requestRoundRatings } from '../../../../../lib/request-session';
+import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
@@ -122,10 +124,13 @@ export default async function RoundRoomPage({
       <MediaDocument />
       <LiveRoundRoom
         attendanceSlot={
-          <RoundNativeAttendance
-            view={result.round}
-            state={await readPersistedAttendance(id)}
-          />
+          <>
+            <RoundRatings view={await requestRoundRatings(result.round)} />
+            <RoundNativeAttendance
+              view={result.round}
+              state={await readPersistedAttendance(id)}
+            />
+          </>
         }
         transcript={transcript}
         commandAction={roundCommandAction.bind(null, id)}

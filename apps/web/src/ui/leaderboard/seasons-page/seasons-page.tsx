@@ -5,7 +5,6 @@ import {
   ratingText,
   recordText,
 } from '../../../features/leaderboard/labels';
-import { PROVISIONAL_AFTER } from '../../../features/leaderboard/standing';
 import type { SeasonsView } from '../../../features/leaderboard/seasons';
 import { Badge } from '../../components/badge/badge';
 import { LadderRow } from '../ladder-row/ladder-row';
@@ -30,10 +29,10 @@ const howItWorks: readonly { title: string; body: string }[] = [
   },
   {
     title: 'Provisional until the range settles',
-    body: `Unranked until ${PROVISIONAL_AFTER} ranked debates.`,
+    body: 'Provisional while rating deviation is above 110.',
   },
   {
-    title: 'One ladder per season',
+    title: 'Three ladders per season',
     body: 'A new season starts a new ladder.',
   },
 ];
@@ -92,7 +91,9 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
       </header>
       <section className={card}>
         <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
-        <h2 className="font-display text-2xl font-bold">{view.label}</h2>
+        <h2 className="font-display text-2xl font-bold">
+          {view.ladderLabel} · {view.label}
+        </h2>
         <p className="text-base text-ink-muted">{view.dates}</p>
         <progress
           value={view.percent}

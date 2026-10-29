@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
-import { createAttendanceRatingSweep } from '../src/features/attendance/rating';
+import { createRatingSweep } from '../src/features/ratings/sweep';
 import { withAttendanceRound } from './attendance.test-support';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 setupRitewayBun();
@@ -19,7 +19,10 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
       );
       try {
         const sweep = () =>
-          createAttendanceRatingSweep({
+          createRatingSweep({
+            onFailure: (_id, error) => {
+              throw error;
+            },
             database: f.store,
             ids: { next: createId },
           })({ limit: 100 });
@@ -41,7 +44,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
             status: committed?.status,
             outcome: committed?.outcome,
             ledger: ledger.length,
-            rediscover: await f.store.readUnratedAttendanceForfeits({
+            rediscover: await f.store.readUnratedRatingRounds({
               limit: 100,
             }),
           },

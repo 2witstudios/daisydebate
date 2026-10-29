@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, debateRoleSchema } from './primitives';
+import { idSchema, debateRoleSchema, ratingLadders } from './primitives';
 import { frozenRoomConfigSchema } from './room';
 import { resolutionAuditSchema } from './resolution-draw';
 import { roundRulesSchema, segmentTypes } from './format';
@@ -46,6 +46,7 @@ export const roundViewSchema = z.strictObject({
   version: z.int().positive(),
   status: roundStatusSchema,
   competitionType: z.enum(competitionTypes),
+  ladderId: z.enum(ratingLadders).nullable(),
   topic: z.string().min(1),
   visibility: z.enum(['public', 'unlisted', 'private']),
   config: frozenRoomConfigSchema,

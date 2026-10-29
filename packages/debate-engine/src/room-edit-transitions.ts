@@ -188,6 +188,12 @@ const seatAdmission = (
   if (command.type === 'claim-seat' && target.kind !== 'human')
     return 'actor-ineligible';
   if (wrongSeatForAi(target, command.role)) return 'actor-ineligible';
+  if (
+    room.competitionType === 'ranked' &&
+    command.role !== 'judge' &&
+    target.kind !== 'human'
+  )
+    return 'actor-ineligible';
   if (unjoinedHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
   return null;

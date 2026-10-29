@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { entry } from './standing.test-support';
+import { entry } from '../ratings/standing.test-support';
 import { field, ladder } from './ladder.test-support';
 
 setupRitewayBun();
@@ -59,7 +59,7 @@ describe('Around me', () => {
 
   test('a provisional viewer', () => {
     const view = ladder(
-      [...field(30), { ...me, played: 4 }],
+      [...field(30), { ...me, played: 4, deviation: 200 }],
       { scope: 'around' },
       viewer,
     );
