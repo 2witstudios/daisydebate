@@ -64,10 +64,12 @@ const themeColors = (page: Page) =>
       ),
     );
 
-const moreLink = (page: Page) =>
-  page
-    .getByRole('navigation', { name: 'Primary' })
-    .getByRole('link', { name: 'More' });
+/** Settings sits in the phone tab bar's More sheet; the rail has no More. */
+const openSettingsFromMore = async (page: Page) => {
+  const tabs = page.getByRole('navigation', { name: 'Primary' });
+  await tabs.getByText('More', { exact: true }).click();
+  await tabs.getByRole('link', { name: 'Settings', exact: true }).click();
+};
 
 const DARK_CHROME = [
   '(prefers-color-scheme: light) → #0d1812',
@@ -117,8 +119,9 @@ test.describe('theme preference', () => {
     page,
   }) => {
     const verifyClean = await watchForProblems(page);
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await moreLink(page).click();
+    await openSettingsFromMore(page);
     await expect(page).toHaveURL(/\/settings$/);
     const group = await hydratedSwitcher(page);
 
@@ -131,7 +134,7 @@ test.describe('theme preference', () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
-    await moreLink(page).click();
+    await openSettingsFromMore(page);
     await expect(page).toHaveURL(/\/settings$/);
     await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
     await verifyClean();
