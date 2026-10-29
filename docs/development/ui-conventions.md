@@ -124,27 +124,37 @@ the gaps it cannot.
 ## App shell
 
 Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
-RRD-1). Every shell page is one 56px navigation rail beside the page. The
-rail never collapses: the logo (home), the eight destinations (Home, Play,
-Tournaments, Leaderboard, Watch, Judge, Train, Prep) and More at the top; at
-the foot a member's Messages, Notifications, Friends (with the online count)
-and their profile avatar, or a visitor's Sign in (Finish sign-up mid
-sign-up). Each rail link is a 44px icon whose name is screen-reader text,
-counts included ("Friends, 5 online"), with a tooltip. Watch (Spectate live,
-Recordings) and More (Settings, Help, Terms, Privacy) reveal their
-sub-links in a flyout on hover and keyboard focus. Friends is its own page,
-`/friends`.
+RRD-1), amended 2026-10-29 by [ADR 0091](../decisions/0091-extended-nav-rail-default.md).
+Every shell page is one navigation rail beside the page. The rail defaults
+to extended at desktop widths: each destination's name shows as text beside
+its icon — the logo (home) and the launched destinations (Home, Play,
+Tournaments, Leaderboard, Watch, Judge, Train, Prep) at the top, then a
+member's Messages, Notifications (once launched) and Friends (with the
+online count); More, their profile avatar (or a visitor's Sign in, Finish
+sign-up mid sign-up) and the rail toggle pinned to the foot. The full
+accessible name is unchanged in both modes: counts stay in it
+("Friends, 5 online"), hover flyouts (Watch: Spectate live, Recordings;
+More: Settings, Help, Terms, Privacy) reveal on hover and keyboard focus —
+a link at the foot opens its flyout upward — badges are unchanged, and
+Friends is its own page, `/friends`. The toggle is a form posting a server
+action, so it works without JavaScript; it offers Minimize when extended
+and Expand when mini.
 
-On a phone (below 641px) a tab bar fixed along the bottom replaces the rail:
-Home, Play, Prep, a member's Inbox (a visitor's way in), and More, a native
-disclosure whose sheet lists every other destination. Both navigations are
-in the markup and CSS shows one, so the shell is right before any script
-runs.
+The choice to minimize to the icon-only rail — names as screen-reader text
+with a tooltip, the 56px column — persists in a cookie the server reads per
+request (`daisy.rail=mini`; absent is extended), so the first HTML carries
+the right width. Below 1101px the viewport cannot hold words: the rail is
+icon-only whatever the choice says and the toggle is hidden, decided by CSS
+alone (`max-rail:sr-only` keeps every accessible name). On a phone (below
+641px) a tab bar fixed along the bottom replaces the rail: Home, Play, Prep,
+a member's Inbox (a visitor's way in), and More, a native disclosure whose
+sheet lists every other destination. Both navigations are in the markup and
+CSS shows one, so the shell is right before any script runs.
 
-The rail's column always runs the page's full height. Its content is
-pinned to the viewport only when the viewport can hold all of it (the
-`tall:` variant); on a shorter one it scrolls with the page. It never
-becomes a scroll box of its own, because that would clip the nav flyouts.
+The rail sticks to the viewport at every height, so its foot (More, the
+profile, the toggle) never scrolls with the page, and its column always
+runs the page's full height. It never becomes a scroll box of its own,
+because that would clip the nav flyouts.
 
 While a member holds a Room, a slim bar opens every shell page's
 column with the Room's title, its phase and "Return to room". Home and the

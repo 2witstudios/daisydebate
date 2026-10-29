@@ -102,6 +102,22 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M9 4v16" />
     </>
   ),
+  /* The rail toggle (ADR 0091): the panel with its divider, the chevron
+     showing which way the rail is about to go. */
+  railMinimize: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      <path d="m16 15-3-3 3-3" />
+    </>
+  ),
+  railExpand: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      <path d="m13 9 3 3-3 3" />
+    </>
+  ),
   chevronRight: <path d="m9 18 6-6-6-6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   calendar: (

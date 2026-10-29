@@ -5,6 +5,7 @@
   --spacing-shell-logo: 34px;
   /* The navigation rail, and each of its targets. */
   --spacing-nav-rail: 56px;
+  --spacing-nav-rail-extended: 184px;
   --spacing-nav-target: 44px;
   /* The phone's bottom tab bar, safe area excluded: 4 + 48 + 8. */
   --spacing-tab-bar: 60px;
@@ -27,6 +28,15 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'main';
     padding-bottom: calc(var(--spacing-tab-bar) + env(safe-area-inset-bottom));
+  }
+}
+
+/* The extended rail's wide column (ADR 0091). The saved choice is a class
+   on the shell grid; CSS alone keeps it mini wherever the viewport cannot
+   hold words, so the server-rendered choice needs no script to be safe. */
+@utility grid-shell-extended {
+  @media (width >= 1101px) {
+    grid-template-columns: var(--spacing-nav-rail-extended) minmax(0, 1fr);
   }
 }
 

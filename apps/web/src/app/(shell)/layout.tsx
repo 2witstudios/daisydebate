@@ -1,10 +1,16 @@
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
+import {
+  parseRailPreference,
+  RAIL_COOKIE,
+} from '../../ui/layout/app-shell/rail-preference';
 import { UiStoreProvider } from '../../ui/store/store';
 import { shellAccount } from '../../lib/shell-account';
 import { requestIdentity } from '../../lib/request-session';
 import { requestActiveRoom } from './active-room';
+import { toggleRail } from './rail-actions';
 
 /**
  * The signed-in product shell: renders AppShell's landmarks once (header,
@@ -13,7 +19,10 @@ import { requestActiveRoom } from './active-room';
  * page composing it for itself. The root layout above keeps only <html>,
  * theme and fonts. The sample-action banner sits above every page: a control
  * with no backend answers with it on the same page. A member's active
- * Room (ADR 0070) shows its way back on every page but its own.
+ * Room (ADR 0070) shows its way back on every page but its own. The rail
+ * width is a cookie read per request (validated: it is untrusted), so the
+ * served HTML already carries the viewer's rail (ADR 0091), and the toggle's
+ * server action travels down as a prop: ui/ never imports from app/.
  */
 export default async function ShellLayout({
   children,
@@ -21,9 +30,15 @@ export default async function ShellLayout({
   const identity = await requestIdentity();
   const activeRoom =
     identity.state === 'member' ? await requestActiveRoom() : null;
+  const rail = parseRailPreference((await cookies()).get(RAIL_COOKIE)?.value);
   return (
     <UiStoreProvider>
-      <AppShell account={shellAccount(identity)} activeRoom={activeRoom}>
+      <AppShell
+        account={shellAccount(identity)}
+        activeRoom={activeRoom}
+        rail={rail}
+        toggleRail={toggleRail}
+      >
         <Suspense fallback={null}>
           <SampleActionNotice />
         </Suspense>

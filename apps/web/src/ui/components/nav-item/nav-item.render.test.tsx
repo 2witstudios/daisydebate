@@ -115,4 +115,106 @@ describe('nav-item presentation', () => {
       expected: [true, false],
     });
   });
+
+  test('extended, the label shows beside the icon and the tooltip stays', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/ranked',
+          icon: 'swords',
+          label: 'Ranked',
+          active: false,
+          extended: true,
+        }),
+      ),
+    );
+    assert({
+      given: 'an extended rail item',
+      should:
+        'render the label as text that survives every width (max-rail:sr-only), with no sr-only duplicate, and keep the tooltip for the widths where CSS hides the words',
+      actual: [
+        html.includes('<span class="max-rail:sr-only">Ranked</span>'),
+        html.includes('<span class="sr-only">Ranked</span>'),
+        html.includes('title="Ranked"'),
+      ],
+      expected: [true, false, true],
+    });
+  });
+
+  test('mini, the accessible name stays the full label whatever word says', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/friends',
+          icon: 'users',
+          label: 'Friends, 4 online',
+          title: 'Friends',
+          active: false,
+          word: 'Friends',
+        }),
+      ),
+    );
+    assert({
+      given:
+        'a minimized rail item whose visible word is shorter than its name',
+      should:
+        'keep the whole name, counts included, as screen-reader text, with the word nowhere in the markup',
+      actual: [
+        html.includes('<span class="sr-only">Friends, 4 online</span>'),
+        !html.includes('<span aria-hidden="true"'),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('extended, a shortened word keeps the full label as the accessible name', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/friends',
+          icon: 'users',
+          label: 'Friends, 4 online',
+          title: 'Friends',
+          active: false,
+          extended: true,
+          word: 'Friends',
+          badge: h('span', { 'aria-hidden': true }, '4'),
+        }),
+      ),
+    );
+    assert({
+      given: 'an extended item whose visible word is shorter than its name',
+      should:
+        'show the word as decoration and keep the whole name, counts included, as screen-reader text',
+      actual: [
+        html.includes(
+          '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
+        ),
+        html.includes('<span class="sr-only">Friends, 4 online</span>'),
+        html.includes('<span aria-hidden="true">4</span>'),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
+  test('extended, sub-navigation still reveals beside the link', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/watch',
+          icon: 'eye',
+          label: 'Watch',
+          active: false,
+          extended: true,
+          subItems: [{ href: '/recordings', label: 'Recordings' }],
+        }),
+      ),
+    );
+    assert({
+      given: 'an extended rail link with sub-items',
+      should: 'render the flyout unchanged',
+      actual: html.includes('href="/recordings"'),
+      expected: true,
+    });
+  });
 });

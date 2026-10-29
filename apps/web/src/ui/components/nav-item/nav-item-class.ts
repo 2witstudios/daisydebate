@@ -1,12 +1,18 @@
 import { cn } from '../../cn';
 
 const navItemBase =
-  'relative flex size-nav-target items-center justify-center rounded-md no-underline transition-colors duration-120 ease-standard hover:no-underline';
+  'relative flex items-center rounded-md no-underline transition-colors duration-120 ease-standard hover:no-underline';
+
+/* Mini: the 44px square. Extended: a full-width row, icon and words. */
+const miniLayout = 'size-nav-target justify-center';
+const extendedLayout =
+  'h-nav-target w-full justify-start gap-3 px-2 max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0';
 
 /** Classes for a rail link; each state owns its colors. */
-export const navItemClass = (active: boolean): string =>
+export const navItemClass = (active: boolean, extended = false): string =>
   cn(
     navItemBase,
+    extended ? extendedLayout : miniLayout,
     active
       ? 'bg-accent text-accent-ink hover:bg-accent-strong hover:text-accent-ink'
       : 'text-ink-muted hover:bg-surface-overlay hover:text-ink',

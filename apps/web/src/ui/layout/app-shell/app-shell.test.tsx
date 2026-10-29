@@ -4,6 +4,7 @@ import { AppShell } from './app-shell';
 import { notificationsDestination } from './components/destinations';
 import { launchedPlaces } from '../../../features/coming-soon/launch';
 import type { ShellAccount } from './account';
+import type { RailPreference } from './rail-preference';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
@@ -16,9 +17,16 @@ const roomHref = `/rooms/${'a'.repeat(24)}`;
 const render = (
   account: ShellAccount = { state: 'anonymous' },
   activeRoom: ActiveRoomSummary | null = null,
+  rail: RailPreference = 'extended',
 ): string =>
   renderInStore(
-    h(AppShell, { account, activeRoom, children: h('p', null, 'page') }),
+    h(AppShell, {
+      account,
+      activeRoom,
+      rail,
+      toggleRail: async () => {},
+      children: h('p', null, 'page'),
+    }),
   );
 
 /** The markup of the rail (the first nav) or the tab bar (the second). */
@@ -36,17 +44,37 @@ describe('AppShell', () => {
     assert({
       given: 'the shell for a member',
       should:
-        'render the rail, one main and the phone tab bar, both navs named Primary, and no header, aside or collapse control',
+        'render the rail, one main and the phone tab bar, both navs named Primary, and no header or aside',
       actual: [
         occurrences(html, '<nav'),
         (html.match(/<nav[^>]* aria-label="Primary"/g) ?? []).length,
         occurrences(html, '<main'),
         occurrences(html, '<header'),
         occurrences(html, '<aside'),
-        /Collapse|Expand/.test(html),
         html.indexOf('<nav') < html.indexOf('<main'),
       ],
-      expected: [2, 2, 1, 0, 0, false, true],
+      expected: [2, 2, 1, 0, 0, true],
+    });
+  });
+
+  test('the rail shows words by default and names its collapse control (ADR 0091)', () => {
+    const [extended] = navs(render(member));
+    const [mini] = navs(render(member, null, 'mini'));
+    assert({
+      given: "a member's rail served extended and served mini",
+      should:
+        'carry every name as text at rail widths in extended and as screen-reader text in mini, with the toggle offering Minimize and Expand',
+      actual: [
+        extended.includes('<span class="max-rail:sr-only">Home</span>'),
+        extended.includes('<span class="max-rail:sr-only">More</span>'),
+        extended.includes('<form'),
+        extended.includes('<span class="max-rail:sr-only">Minimize</span>'),
+        mini.includes('<span class="sr-only">Messages</span>'),
+        mini.includes('max-rail:sr-only'),
+        mini.includes('<span class="sr-only">Expand</span>'),
+        mini.includes('type="submit"'),
+      ],
+      expected: [true, true, true, true, true, false, true, true],
     });
   });
 
@@ -126,19 +154,22 @@ describe('AppShell', () => {
   test('every rail link has a name, counts included', () => {
     const [rail] = navs(render(member));
     assert({
-      given: "a member's rail",
+      given: "a member's extended rail",
       should:
-        'name the icon links as screen-reader text, Friends with its online count, and the profile by username',
+        'name every link — words at rail widths, the full name as screen-reader text when the word is shorter — and the profile by username',
       actual: [
-        rail.includes('<span class="sr-only">Messages</span>'),
+        rail.includes('<span class="max-rail:sr-only">Messages</span>'),
         /<span class="sr-only">Friends, \d+ online<\/span>/.test(rail),
+        rail.includes(
+          '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
+        ),
         rail.includes('aria-label="Your profile, ada-byron"'),
-        rail.includes('<span class="sr-only">More</span>'),
+        rail.includes('<span class="max-rail:sr-only">More</span>'),
         ['/help', '/terms', '/privacy'].every((href) =>
           rail.includes(`href="${href}"`),
         ),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -151,13 +182,14 @@ describe('AppShell', () => {
         'end the rail with Sign in or Finish sign-up, and no Messages or Friends',
       actual: [
         visitor.includes('href="/sign-in"'),
-        visitor.includes('<span class="sr-only">Sign in</span>'),
+        visitor.includes('title="Sign in"'),
+        visitor.includes('<span class="max-rail:sr-only">Sign in</span>'),
         provisional.includes('href="/onboarding/username"'),
         ['/messages', '/friends'].some((href) =>
           visitor.includes(`href="${href}"`),
         ),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true, true, false],
     });
   });
 
