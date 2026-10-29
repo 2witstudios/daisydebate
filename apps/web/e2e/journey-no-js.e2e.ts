@@ -13,6 +13,7 @@ import {
   answerAgeStep,
 } from './support/accounts';
 import { reachSentState, requestConfirmLink } from './support/confirm-page';
+import { approveBetaAccounts } from './support/beta-access';
 import { walkOnboarding } from './support/onboarding';
 import {
   changeEmail,
@@ -52,7 +53,7 @@ test.describe('with JavaScript off', () => {
   });
 
   test('the username form renders, refuses and claims', async ({ page }) => {
-    await signUpProvisional(page.request);
+    const { email } = await signUpProvisional(page.request);
     await page.goto('/onboarding/username?next=%2Flobby');
 
     // A refusal comes back from the server with the name as typed.
@@ -76,7 +77,9 @@ test.describe('with JavaScript off', () => {
     expect(await sessionUsername(page)).toBe(name);
 
     // The onboarding flow the offer leads into: every step is a link or a
-    // form POST, so it saves and moves on with no script at all.
+    // form POST, so it saves and moves on with no script at all. Approved by
+    // an operator (ADR 0075), so the last step's send-off is the member's.
+    await approveBetaAccounts(email);
     await walkOnboarding(page);
   });
 

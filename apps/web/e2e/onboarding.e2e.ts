@@ -118,6 +118,9 @@ test('a waitlisted account never sees the send-off and waits on the beta page', 
   await page.goto('/onboarding/username?next=%2Flobby');
   await effectsRan(page);
   await claimUsername(page, uniqueName('waiter'));
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
   await page.goto('/onboarding/ready?next=%2Flobby');
   await expect(page).toHaveURL(/\/beta\?next=(\/|%2F)lobby$/);
   await expect(
