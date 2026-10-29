@@ -141,9 +141,10 @@ Open a private interactive Fly console on the replacement (use the selector
 or `--machine` supported by the installed flyctl). Run inside it as root:
 
 ```sh
+tailscale --socket=/run/tailscale/tailscaled.sock set --webclient=false
 tailscale --socket=/run/tailscale/tailscaled.sock up \
   --hostname=daisy-admin --accept-dns=false --accept-routes=false \
-  --ssh=false --webclient=false --advertise-routes= --advertise-exit-node=false
+  --ssh=false --advertise-routes= --advertise-exit-node=false
 ```
 
 The login URL is sensitive: show it only in the owner's private session, never
