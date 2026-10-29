@@ -22,6 +22,8 @@ export type NavItemProps = {
   readonly badge?: ReactNode;
   /** The rail's mode: extended shows words, mini is icon-only (ADR 0091). */
   readonly extended?: boolean | undefined;
+  /** A foot control: a square icon with its name as screen-reader text only. */
+  readonly iconOnly?: boolean | undefined;
 };
 
 /** Exact for `/`; otherwise also active for that route's own descendants. */
@@ -49,6 +51,7 @@ export const itemActive = (
   subItems.some((child) => matchesRoute(pathname, child.href)) ||
   alsoActive.some((route) => matchesRoute(pathname, route));
 
+/** A rail destination: a link with its flyout, marked active on its route. */
 export function NavItem({
   href,
   icon,
@@ -60,6 +63,7 @@ export function NavItem({
   flyoutAlign,
   badge,
   extended,
+  iconOnly,
 }: NavItemProps) {
   // The URL is the single source of truth for the active route, so
   // deep links and back/forward mark the right item, including on a
@@ -76,5 +80,6 @@ export function NavItem({
     flyoutAlign,
     badge,
     extended,
+    iconOnly,
   });
 }

@@ -127,19 +127,22 @@ Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
 RRD-1), amended 2026-10-29 by [ADR 0091](../decisions/0091-extended-nav-rail-default.md).
 Every shell page is one navigation rail beside the page. The rail defaults
 to extended at desktop widths: each destination's name shows as text beside
-its icon — the logo (home) and the account row at the top: a member's
-profile avatar with their username beside it when extended (a visitor's Sign
-in, Finish sign-up mid sign-up), then the launched destinations (Home, Play,
-Tournaments, Leaderboard, Watch, Judge, Train, Prep), then a member's
-Messages, Notifications (once launched) and Friends (with the online count);
-More and the rail toggle pinned to the foot. The full
-accessible name is unchanged in both modes: counts stay in it
-("Friends, 5 online"), hover flyouts (Watch: Spectate live, Recordings;
-More: Settings, Help, Terms, Privacy) reveal on hover and keyboard focus —
-a link at the foot opens its flyout upward — badges are unchanged, and
-Friends is its own page, `/friends`. The toggle is a form posting a server
-action, so it works without JavaScript; it offers Minimize when extended
-and Expand when mini.
+its icon — the logo (home) with the "Daisy Debate" wordmark beside it, and
+the launched destinations (Home, Play, Tournaments, Leaderboard, Watch,
+Judge, Train, Prep) at the top, then a member's Messages, Notifications
+(once launched) and Friends (with the online count). The foot is one row
+above a divider: their profile (avatar and username) on the left, then More
+and the rail toggle as icon-only buttons on the right. A visitor's Sign in or
+Finish sign-up is too wide to share that row, so it takes a full-width row of
+its own and More and the toggle sit right-aligned beneath it. Mini stacks the same foot in its column:
+More, the avatar, then the toggle. The full accessible name is unchanged in
+both modes: counts stay in it ("Friends, 5 online"), the icon-only More and
+toggle keep their names as screen-reader text, hover flyouts (Watch: Spectate
+live, Recordings; More: Settings, Help, Terms, Privacy) reveal on hover and
+keyboard focus — a link at the foot opens its flyout upward — badges are
+unchanged, and Friends is its own page, `/friends`. The toggle is a form
+posting a server action, so it works without JavaScript; it is named
+Minimize when extended and Expand when mini.
 
 The choice to minimize to the icon-only rail — names as screen-reader text
 with a tooltip, the 56px column — persists in a cookie the server reads per
@@ -153,7 +156,7 @@ sheet lists every other destination. Both navigations are in the markup and
 CSS shows one, so the shell is right before any script runs.
 
 The rail sticks to the viewport at every height, so its foot (More, the
-toggle) never scrolls with the page, and its column always
+profile, the toggle) never scrolls with the page, and its column always
 runs the page's full height. It never becomes a scroll box of its own,
 because that would clip the nav flyouts.
 
