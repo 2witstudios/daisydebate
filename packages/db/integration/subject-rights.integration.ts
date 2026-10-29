@@ -1,10 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
+import { ratingLadders } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { rejectedBy, withFixture } from './constraint-helpers';
+import { rejectedBy, withFixture, type Fixture } from './constraint-helpers';
 import { played } from './member-profile.test-support';
 import { bindings, now } from './privacy.test-support';
 import { validConfig, validRules } from './round-fixtures';
@@ -177,11 +178,14 @@ test('exporting a member includes their competitive record and nothing of anothe
       status: 'submitted',
       submitted_at: at(3),
     });
+    // The ladder name comes from the protocol's own catalog, so the fixture
+    // can never drift from the merged ratings vocabulary.
+    const ladder = ratingLadders[0];
     await rating(fixture, {
       actorId: subject.actorId,
       formatId,
       seasonId,
-      ladder: 'ranked',
+      ladder,
       rating: 1520,
     });
     await change(fixture, {
@@ -189,7 +193,7 @@ test('exporting a member includes their competitive record and nothing of anothe
       actorId: subject.actorId,
       formatId,
       seasonId,
-      ladder: 'ranked',
+      ladder,
       before: 1500,
       after: 1520,
       occurredAt: at(3),
@@ -198,7 +202,7 @@ test('exporting a member includes their competitive record and nothing of anothe
       actorId: other.actorId,
       formatId: otherFormat,
       seasonId,
-      ladder: 'ranked',
+      ladder,
       rating: 1490,
     });
     await change(fixture, {
@@ -206,11 +210,82 @@ test('exporting a member includes their competitive record and nothing of anothe
       actorId: other.actorId,
       formatId: otherFormat,
       seasonId,
-      ladder: 'ranked',
+      ladder,
       before: 1500,
       after: 1490,
       occurredAt: at(3),
     });
+    // A draw over the subject's hosted Room, with one strike they authored
+    // and one authored by the other member in their own Room's draw: the
+    // export must return exactly the subject's.
+    const draw = (
+      fixture: Fixture,
+      room: string,
+      striker: string,
+    ): Promise<string> => {
+      const id = createId();
+      return (async () => {
+        await fixture.insert('room_resolution_draws', {
+          id,
+          room_id: room,
+          source_kind: 'host',
+          draw_size: 2,
+          manifest: {
+            version: 1,
+            algorithm: 'daisy-draw-v1',
+            roomId: room,
+            drawId: id,
+            source: { kind: 'host', count: 2 },
+            drawSize: 2,
+            firstStriker: 'affirmative',
+            strikeWindowMs: 10_000,
+            controllers: { affirmative: 'human', negative: 'human' },
+            inputCommitment: '0'.repeat(64),
+          },
+          manifest_digest: '0'.repeat(64),
+          commitment: '0'.repeat(64),
+          seed: '1'.repeat(64),
+          started_at: at(2),
+        });
+        await fixture.insert('room_resolution_draw_items', {
+          draw_id: id,
+          position: 0,
+          source_kind: 'host',
+          draw_size: 2,
+          candidate_id: createId(),
+          text: 'A hosted resolution',
+        });
+        await fixture.insert('room_resolution_strikes', {
+          draw_id: id,
+          ordinal: 0,
+          position: 0,
+          draw_size: 2,
+          side: 'affirmative',
+          kind: 'debater',
+          actor_id: striker,
+          command_id: createId(),
+          struck_at: at(3),
+        });
+        return id;
+      })();
+    };
+    const subjectStrike = await draw(fixture, hostedRoom, subject.actorId);
+    const otherRoom = createId();
+    await fixture.insert('rooms', {
+      id: otherRoom,
+      host_actor_id: other.actorId,
+      title: 'Theirs',
+      topic: 'Motion',
+      visibility: 'public',
+      format_id: otherFormat,
+      format_version: 1,
+      competition_type: 'casual',
+      config: validConfig,
+      execution_plan: {},
+      rules_snapshot: validRules,
+      status: 'assembling',
+    });
+    const otherStrike = await draw(fixture, otherRoom, other.actorId);
     const database = drizzle({ client: fixture.sql });
     const exported = await exportPrivacySubject(database, subject, rooms);
     const ids = (
@@ -232,6 +307,10 @@ test('exporting a member includes their competitive record and nothing of anothe
         changeActors: (exported.rating_changes ?? []).map(
           (row) => row.actor_id,
         ),
+        strikes: (exported.room_resolution_strikes ?? []).map((row) => [
+          row.draw_id,
+          row.actor_id,
+        ]),
         leaksOtherMember: JSON.stringify(exported).includes(other.actorId),
       },
       expected: {
@@ -241,6 +320,7 @@ test('exporting a member includes their competitive record and nothing of anothe
         ballots: [ballotId],
         ratingActors: [subject.actorId],
         changeActors: [subject.actorId],
+        strikes: [[subjectStrike, subject.actorId]],
         leaksOtherMember: false,
       },
     });
