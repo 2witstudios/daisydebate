@@ -68,17 +68,17 @@ function AccountItem({ account }: { readonly account: ShellAccount }) {
  * The one navigation rail on every shell page, beside the page: the logo,
  * the launched destinations, a member's messages, notifications (once
  * launched) and friends at the top; More and the profile (or a visitor's way
- * in) pinned to the foot. Icons only; each link carries its name as
- * screen-reader text and a tooltip. Its column runs the page's full height;
- * its content is pinned to the viewport only where the viewport can hold all
- * of it. Gives way to the tab bar on a phone.
+ * in) pinned to the foot of the viewport. Icons only; each link carries its
+ * name as screen-reader text and a tooltip. The rail sticks to the viewport
+ * at every height, so the foot never scrolls with the page. Gives way to the
+ * tab bar on a phone.
  */
 export function Rail({ account }: { readonly account: ShellAccount }) {
   return (
     <div className="z-20 self-stretch border-r border-border bg-surface area-rail max-narrow:hidden">
       <nav
         aria-label="Primary"
-        className="flex flex-col items-center gap-2 py-2 tall:sticky tall:top-0 tall:h-screen"
+        className="sticky top-0 flex h-screen flex-col items-center gap-2 py-2"
       >
         <Link
           href="/"
