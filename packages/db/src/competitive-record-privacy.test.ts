@@ -7,7 +7,7 @@ setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 
 test('the competitive-record step erases nothing and reads only the subject rows', async () => {
-  const fake = fakeSql([[], [], [], [], [], [], []]);
+  const fake = fakeSql([[], [], [], [], [], [], [], []]);
   const tx = drizzle({ client: fake.client });
   await competitiveRecordPrivacyAdopter.erase(tx, subject, {
     now: '2026-10-28T00:00:00.000Z',
@@ -29,6 +29,7 @@ test('the competitive-record step erases nothing and reads only the subject rows
         'rating_changes',
         'ratings',
         'room_participants',
+        'room_resolution_strikes',
         'rooms',
         'round_participants',
         'rounds',
@@ -50,6 +51,6 @@ test('the competitive-record step erases nothing and reads only the subject rows
           !query.includes('users'),
       ),
     ],
-    expected: [7, true, false],
+    expected: [8, true, false],
   });
 });

@@ -14,12 +14,13 @@ const rows = (query: Promise<unknown>) =>
  * The competitive record's subject-rights step (ADR 0087, ISSUE-833): export
  * returns the member's own Rooms (hosted), Room and Round seats, the Rounds
  * they sat in (with resolution and draw evidence) and judged (their ballots),
- * and their ladder ratings and changes. Erasure is a deliberate no-op: the
- * competitive record is kept whole — the username shows closed and stays
- * reserved — so this step deletes nothing (DEC-261). The member's hosted
- * resolution lists export through the Room-closure step; the draw's private
- * inputs and strikes stay with their Room on the record and are not copied
- * here. Like every adopter, it reads only the subject's own rows.
+ * their ladder ratings and changes, and the draw strikes they authored.
+ * Erasure is a deliberate no-op: the competitive record is kept whole — the
+ * username shows closed and stays reserved — so this step deletes nothing
+ * (DEC-261). The member's hosted resolution lists export through the
+ * Room-closure step; the draw's private inputs stay with their Room on the
+ * record and are not copied here. Like every adopter, it reads only the
+ * subject's own rows.
  */
 export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
   id: 'competitive-record',
@@ -35,6 +36,12 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
     room_participants: await rows(
       tx.execute(sql`select id, room_id, actor_id, role, slot
         from room_participants where actor_id = ${subject.actorId} order by id`),
+    ),
+    room_resolution_strikes: await rows(
+      tx.execute(sql`select draw_id, ordinal, position, draw_size, side,
+          kind, actor_id, command_id, ${iso('struck_at', 'struck_at')}
+        from room_resolution_strikes
+        where actor_id = ${subject.actorId} order by draw_id, ordinal`),
     ),
     round_participants: await rows(
       tx.execute(sql`select id, round_id, actor_id, role, slot
@@ -61,10 +68,10 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         order by b.id`),
     ),
     ratings: await rows(
-      tx.execute(sql`select actor_id, format_id, season_id, ladder, rating,
+      tx.execute(sql`select actor_id, season_id, ladder, rating,
           deviation, volatility, ${iso('updated_at', 'updated_at')}
         from ratings where actor_id = ${subject.actorId}
-        order by format_id, season_id, ladder`),
+        order by season_id, ladder`),
     ),
     rating_changes: await rows(
       tx.execute(sql`select id, round_id, actor_id, format_id, season_id,
