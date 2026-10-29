@@ -211,6 +211,22 @@ describe('AppShell', () => {
     });
   });
 
+  test('a visitor’s way in takes its own full-width row, with More and the toggle on the row below', () => {
+    const [visitor] = navs(render());
+    const foot = visitor.slice(visitor.lastIndexOf('<ul'));
+    assert({
+      given: 'an anonymous visitor on the extended rail',
+      should:
+        'let the way-in wrap onto its own full-width row, so its label never shares a row with the 44px controls, and push More and the toggle to the right of the row below',
+      actual: [
+        /<ul class="[^"]*\bflex-wrap\b/.test(foot),
+        /<li class="w-full"><a [^>]*href="\/sign-in"/.test(foot),
+        /<li class="ml-auto">/.test(foot),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
   test('the phone tab bar: Home, Play, Judge, Inbox and More', () => {
     const [, bar] = navs(render(member));
     const [, visitorBar] = navs(render());

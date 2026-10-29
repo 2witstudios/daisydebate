@@ -60,8 +60,10 @@ function AccountItem({
   const grow = extended ? 'min-w-0 flex-1 max-rail:flex-none' : undefined;
   if (account.state !== 'member') {
     const { href, label } = wayIn(account);
+    // A visitor's words need more than the row's free width, so the way in
+    // wraps onto a row of its own (ADR 0091).
     return (
-      <li className={grow}>
+      <li className={extended ? 'w-full' : undefined}>
         <Link
           href={href}
           title={label}
@@ -102,6 +104,31 @@ function AccountItem({
   );
 }
 
+/** The rail toggle: an icon-only form posting the saved choice, hidden below the breakpoint. */
+function ToggleItem({
+  extended,
+  toggleRail,
+}: {
+  readonly extended: boolean;
+  readonly toggleRail: () => Promise<void>;
+}) {
+  const name = extended ? 'Minimize' : 'Expand';
+  return (
+    <li className="max-rail:hidden">
+      <form action={toggleRail}>
+        <button
+          type="submit"
+          aria-label={name}
+          title={name}
+          className={navItemClass(false, false)}
+        >
+          <Icon name={extended ? 'railMinimize' : 'railExpand'} size={20} />
+        </button>
+      </form>
+    </li>
+  );
+}
+
 export type RailProps = {
   readonly account: ShellAccount;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
@@ -127,8 +154,10 @@ export type RailProps = {
  */
 export function Rail({ account, rail, toggleRail }: RailProps) {
   const extended = rail === 'extended';
+  // Extended, More and the toggle sit at the row's right edge, below a wrapped
+  // visitor's way in and beside a member's avatar.
   const more = (
-    <li>
+    <li className={extended ? 'ml-auto' : undefined}>
       <NavItem
         {...moreDestination}
         iconOnly
@@ -181,7 +210,7 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
           className={cn(
             'mt-auto flex list-none gap-1',
             extended
-              ? 'w-full items-center border-t border-border pt-2 max-rail:flex-col max-rail:items-center'
+              ? 'w-full flex-wrap items-center border-t border-border pt-2 max-rail:flex-col max-rail:items-center'
               : 'flex-col items-center',
           )}
         >
@@ -196,21 +225,7 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
               <AccountItem account={account} extended={false} />
             </>
           )}
-          <li className="max-rail:hidden">
-            <form action={toggleRail}>
-              <button
-                type="submit"
-                aria-label={extended ? 'Minimize' : 'Expand'}
-                title={extended ? 'Minimize' : 'Expand'}
-                className={navItemClass(false, false)}
-              >
-                <Icon
-                  name={extended ? 'railMinimize' : 'railExpand'}
-                  size={20}
-                />
-              </button>
-            </form>
-          </li>
+          <ToggleItem extended={extended} toggleRail={toggleRail} />
         </ul>
       </nav>
     </div>

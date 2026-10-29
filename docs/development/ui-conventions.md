@@ -131,9 +131,10 @@ its icon — the logo (home) with the "Daisy Debate" wordmark beside it, and
 the launched destinations (Home, Play, Tournaments, Leaderboard, Watch,
 Judge, Train, Prep) at the top, then a member's Messages, Notifications
 (once launched) and Friends (with the online count). The foot is one row
-above a divider: their profile (avatar and username, or a visitor's Sign in,
-Finish sign-up mid sign-up) on the left, then More and the rail toggle as
-icon-only buttons on the right. Mini stacks the same foot in its column:
+above a divider: their profile (avatar and username) on the left, then More
+and the rail toggle as icon-only buttons on the right. A visitor's Sign in or
+Finish sign-up is too wide to share that row, so it takes a full-width row of
+its own and More and the toggle sit right-aligned beneath it. Mini stacks the same foot in its column:
 More, the avatar, then the toggle. The full accessible name is unchanged in
 both modes: counts stay in it ("Friends, 5 online"), the icon-only More and
 toggle keep their names as screen-reader text, hover flyouts (Watch: Spectate
