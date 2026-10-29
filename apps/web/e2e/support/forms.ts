@@ -23,7 +23,7 @@ export const changeEmail = async (page: Page, newEmail: string) => {
  * first step, then Enter the lobby on the last, landing on the destination.
  */
 export const skipOnboarding = async (page: Page, destination: RegExp) => {
-  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=/);
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=/);
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=/);
   await page.getByRole('link', { name: 'Enter the lobby' }).click();
@@ -57,7 +57,7 @@ export const declineByKeyboard = async (
     await page.keyboard.press('Tab');
   await expect(control).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=(\/|%2F)lobby$/);
 };
 
 /** Drops every server-action POST the page makes, as a lost connection would. */

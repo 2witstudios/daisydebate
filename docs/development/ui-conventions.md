@@ -116,8 +116,8 @@ the gaps it cannot.
   arguments. Sharpen your mind.") outside the landing hero and the auth
   brand panel.
 - Exception, owner decision 2026-10-05: the three onboarding intro steps
-  (`/onboarding/welcome`, `/onboarding/daisy`, `/onboarding/debate`) may
-  explain why debate matters, how Daisy works and how a debate runs. They
+  (`/onboarding/daisy`, `/onboarding/styles`, `/onboarding/debate`) may
+  explain how Daisy works, the three debate styles and how a debate runs. They
   are the one place that teaches the product, shown once after sign-up and
   reopened from Help; every other onboarding step follows the rule.
 

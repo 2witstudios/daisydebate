@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LaddersFigure } from './ladders-figure';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 
@@ -11,69 +12,28 @@ export type IntroStepProps = {
 export const heading =
   'font-display text-2xl leading-tight font-semibold tracking-tight text-ink';
 
-/** Step 1: the pitch — competitive debate without the tournament. The one hero copy in the flow (ui-conventions.md). */
-export function WhyStep({ nextHref, backHref, skip }: IntroStepProps) {
-  const pillars = [
-    ['Any time', 'A competitive round fits into an evening, not a weekend.'],
-    ['Anyone', 'No club or bracket needed. Sign up and debate.'],
-    [
-      'Real',
-      "Real opponents, real stakes: a judge's written verdict decides every round.",
-    ],
-  ] as const;
-  return (
-    <OnboardingFrame step={1} titleId="onboarding-title" skip={skip}>
-      <div className="flex flex-col gap-8 rounded-lg border border-border bg-surface-raised p-10 text-ink shadow-1 max-narrow:p-6">
-        <h1
-          id="onboarding-title"
-          className="max-w-reading font-display text-display-sm leading-display font-semibold tracking-display text-balance max-narrow:text-2xl"
-        >
-          {`You don't have to wait for a tournament to `}
-          <span className="bg-yolk box-decoration-clone px-2 text-stage-accent-ink">
-            compete
-          </span>
-          .
-        </h1>
-        <dl className="grid grid-cols-3 border-t-2 border-ink max-narrow:grid-cols-1">
-          {pillars.map(([title, line]) => (
-            <div key={title} className="flex flex-col gap-2 pt-4 pr-5">
-              <dt className="font-display text-2xl font-semibold text-accent">
-                {title}
-              </dt>
-              <dd className="text-md leading-normal">{line}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-      <StepFooter
-        backHref={backHref}
-        next={<NextLink href={nextHref}>Next</NextLink>}
-      />
-    </OnboardingFrame>
-  );
-}
-
 const marker =
   'flex size-8 shrink-0 items-center justify-center rounded-round text-sm font-strong';
 
-/** Step 2: how Daisy works, from joining to the ladders. Striking is left to each format's own primer (three ladders launch the beta). */
+/** The opening slide introduces the product loop and its independent ladders. */
 export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
   const steps: ReadonlyArray<readonly [string, ReactNode]> = [
     [
-      'Join a debate',
-      "Ranked or casual. You're matched with someone at your rating.",
+      'Lobby',
+      'Choose ranked or casual and get matched with someone near your rating.',
     ],
-    ['Debate', 'Live and on the clock, against a real person.'],
-    [
-      'Climb the ladders',
-      'Ranked wins raise your rating. The beta starts with three ladders — one per format.',
-    ],
+    ['Debate', 'Go live, make your case, and let a judge decide.'],
+    ['Ladder', 'Ranked results move your rating on that format’s ladder.'],
   ];
   return (
-    <OnboardingFrame step={2} titleId="onboarding-title" skip={skip}>
+    <OnboardingFrame step={1} titleId="onboarding-title" skip={skip}>
       <h1 id="onboarding-title" className={heading}>
         How Daisy works
       </h1>
+      <p className="max-w-reading text-md leading-normal text-ink-muted">
+        Debate is a competitive sport. Now anyone can compete: no tournament, no
+        travel, no weekend required.
+      </p>
       <ol className="flex flex-col gap-4">
         {steps.map(([title, detail], index) => (
           <li key={title} className="flex gap-4">
@@ -96,6 +56,7 @@ export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
           </li>
         ))}
       </ol>
+      <LaddersFigure />
       <StepFooter
         backHref={backHref}
         next={<NextLink href={nextHref}>Next</NextLink>}

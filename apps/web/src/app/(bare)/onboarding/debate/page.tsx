@@ -25,7 +25,7 @@ export default async function OnboardingDebateStepPage({
         (await requestOptionalAnswersAdmitted()) ? 'about' : 'ready',
         destination,
       )}
-      backHref={onboardingStepHref('daisy', destination)}
+      backHref={onboardingStepHref('styles', destination)}
       skip={stepSkip(destination)}
     />
   );

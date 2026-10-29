@@ -5,8 +5,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationHref } from '../../../features/coming-soon/launch';
 import { routeExists } from '../../test-support/route-exists';
 import { stageColourClasses } from '../../test-support/stage-palette';
+import { StylesStep } from './styles-step';
 import { DebateStep } from './debate-step';
-import { DaisyStep, WhyStep, type IntroStepProps } from './intro';
+import { DaisyStep, type IntroStepProps } from './intro';
 
 setupRitewayBun();
 
@@ -18,7 +19,7 @@ const props: IntroStepProps = {
   skip: null,
 };
 
-const render = (step: typeof WhyStep) =>
+const render = (step: typeof DaisyStep) =>
   renderToString(h(step, props)).replaceAll('<!-- -->', '');
 
 const text = (html: string) =>
@@ -28,76 +29,73 @@ const text = (html: string) =>
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ');
 
-/** The h1's own text, with its inline highlight span flattened into it. */
-const headline = (html: string) =>
-  (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&#x27;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-
 const hrefs = (html: string) =>
   [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1] as string);
 
-describe('WhyStep', () => {
-  test('the hero', () => {
-    const page = text(render(WhyStep));
+describe('DaisyStep', () => {
+  test('the beta introduction', () => {
+    const html = render(DaisyStep);
+    const page = text(html);
     assert({
-      given: 'the first step',
-      should: 'state the headline and the three pillars with their lines',
+      given: 'the approved A variant',
+      should:
+        'open with the competitive promise, the product loop and three ladders',
       actual: [
-        headline(render(WhyStep)) ===
-          `You don't have to wait for a tournament to compete.`,
+        page.includes('1 of 6'),
         page.includes(
-          'Any time A competitive round fits into an evening, not a weekend.',
+          'Debate is a competitive sport. Now anyone can compete: no tournament, no travel, no weekend required.',
         ),
-        page.includes('Anyone No club or bracket needed. Sign up and debate.'),
         page.includes(
-          "Real Real opponents, real stakes: a judge's written verdict decides every round.",
+          'Lobby Choose ranked or casual and get matched with someone near your rating.',
         ),
+        page.includes(
+          'Debate Go live, make your case, and let a judge decide.',
+        ),
+        page.includes(
+          'Ladder Ranked results move your rating on that format’s ladder.',
+        ),
+        ...['Three ladders', 'Season 1', 'Freestyle', 'Policy', 'Value'].map(
+          (label) => page.includes(label),
+        ),
+        stageColourClasses(html),
       ],
-      expected: [true, true, true, true],
-    });
-  });
-
-  test('the hero sits on the page palette', () => {
-    const html = render(WhyStep);
-    assert({
-      given: 'the hero card',
-      should: 'draw on a raised page surface with no stage colour',
-      actual: {
-        raised: html.includes('bg-surface-raised'),
-        stage: stageColourClasses(html),
-      },
-      expected: { raised: true, stage: [] },
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        [],
+      ],
     });
   });
 });
 
-describe('DaisyStep', () => {
-  test('the three steps', () => {
-    const html = render(DaisyStep);
-    const page = text(html);
-    const order = ['Join a debate', 'Debate', 'Climb the ladders'].map(
-      (title) => page.indexOf(title),
-    );
+describe('StylesStep', () => {
+  test('three styles and the Freestyle draw', () => {
+    const page = text(render(StylesStep));
     assert({
-      given: 'how Daisy works',
-      should: 'list the three steps in order',
-      actual: order.every((at, index) => at > (order[index - 1] ?? -1)),
-      expected: true,
-    });
-    assert({
-      given: 'no orientation video and three ladders at launch',
+      given: 'the second step',
       should:
-        'offer no video and no strike lesson: striking belongs to each format',
+        'distinguish advance resolutions from the alternating five-resolution draw',
       actual: [
-        page.includes('Play the orientation'),
-        html.includes('did='),
-        page.includes('strike'),
-        page.includes('three ladders — one per format'),
-      ],
-      expected: [false, false, false, true],
+        '2 of 6',
+        'Three ways to debate',
+        'All three run the same round: same speeches, same clock, same judges.',
+        'Schools should ban smartphones during the school day.',
+        'Privacy ought to be valued above public safety.',
+        'Five resolutions are drawn at the table.',
+        'Neg strikes first',
+        '20 minutes of prep after',
+        'Cities should make public transit free to ride.',
+        'You debate',
+      ].map((line) => page.includes(line)),
+      expected: Array(10).fill(true),
     });
   });
 });

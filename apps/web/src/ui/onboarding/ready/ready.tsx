@@ -26,7 +26,7 @@ export function ReadyStep({ homeHref }: ReadyStepProps) {
           {`You're ready`}
         </h1>
         <p className="text-md text-ink-muted">
-          Everything is set up. The lobby is where debates start — jump in
+          Everything is set up. The lobby is where debates start. Jump in
           whenever you like.
         </p>
       </div>
@@ -35,7 +35,7 @@ export function ReadyStep({ homeHref }: ReadyStepProps) {
           Enter the lobby
         </Link>
         <p className="text-base text-ink-muted">
-          {`You're one of the first inside — more is landing every week.`}
+          {`You're one of the first inside. More is landing every week.`}
         </p>
       </div>
     </OnboardingFrame>

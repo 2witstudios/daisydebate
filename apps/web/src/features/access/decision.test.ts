@@ -7,7 +7,7 @@ import {
   onboardingStepHref,
   passkeyOfferHref,
   requirementFor,
-  welcomeHref,
+  introductionHref,
   signInHref,
   isGuardedPath,
   requestedPath,
@@ -259,15 +259,15 @@ describe('return links', () => {
 
   test('build the onboarding step links', () => {
     assert({
-      given: 'the welcome step and a later step, each with a destination',
+      given: 'the opening step and a later step, each with a destination',
       should: 'carry the destination as one encoded next value',
       actual: [
-        welcomeHref('/ranked?tab=a'),
+        introductionHref('/ranked?tab=a'),
         onboardingStepHref('topics', '/lobby'),
         onboardingStepHref('ready', '/lobby'),
       ],
       expected: [
-        '/onboarding/welcome?next=%2Franked%3Ftab%3Da',
+        '/onboarding/daisy?next=%2Franked%3Ftab%3Da',
         '/onboarding/topics?next=%2Flobby',
         '/onboarding/ready?next=%2Flobby',
       ],

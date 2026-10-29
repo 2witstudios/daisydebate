@@ -102,7 +102,7 @@ export const passkeyOfferHref = (destination: string): string =>
 
 /** The onboarding steps after the passkey offer. */
 export type OnboardingStep =
-  'welcome' | 'daisy' | 'debate' | 'about' | 'experience' | 'topics' | 'ready';
+  'daisy' | 'styles' | 'debate' | 'about' | 'experience' | 'topics' | 'ready';
 
 /** One onboarding step, then the already validated destination. */
 export const onboardingStepHref = (
@@ -111,8 +111,8 @@ export const onboardingStepHref = (
 ): string => `/onboarding/${step}?next=${encodeURIComponent(destination)}`;
 
 /** The first onboarding step, where the passkey offer's exits lead. */
-export const welcomeHref = (destination: string): string =>
-  onboardingStepHref('welcome', destination);
+export const introductionHref = (destination: string): string =>
+  onboardingStepHref('daisy', destination);
 
 /** The requested page as a local path with its query, for the return trip. */
 export const requestedPath = (path: string, search: SearchParams): string => {

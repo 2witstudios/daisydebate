@@ -26,7 +26,7 @@ describe('ReadyStep', () => {
       actual: [
         page.includes(`You're ready`),
         page.includes(
-          'Everything is set up. The lobby is where debates start — jump in whenever you like.',
+          'Everything is set up. The lobby is where debates start. Jump in whenever you like.',
         ),
         page.includes('Enter the lobby'),
         html.includes('href="/lobby"'),

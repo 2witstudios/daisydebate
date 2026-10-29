@@ -11,15 +11,15 @@ const choose = (page: Page, label: string) =>
  * journey-no-js.e2e.ts without.
  */
 export const walkOnboarding = async (page: Page) => {
-  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=(\/|%2F)lobby$/);
   await expect(
     page.getByRole('heading', {
-      name: /wait for a tournament to compete/i,
+      name: 'How Daisy works',
     }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(
-    page.getByRole('heading', { name: 'How Daisy works' }),
+    page.getByRole('heading', { name: 'Three ways to debate' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(

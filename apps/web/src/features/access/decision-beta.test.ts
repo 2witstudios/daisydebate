@@ -43,7 +43,7 @@ describe('decideAccess for the beta gate (ADR 0075)', () => {
       should:
         'leave the onboarding steps ungated and send /ranked to /beta carrying it',
       actual: [
-        requirementFor('/onboarding/welcome'),
+        requirementFor('/onboarding/daisy'),
         requirementFor('/onboarding/ready'),
         requirementFor('/beta'),
         decideAccess({

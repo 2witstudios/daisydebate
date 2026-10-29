@@ -16,7 +16,7 @@ export const helpTopics: readonly HelpTopic[] = [
     question: 'Where do I see the introduction again?',
     answer:
       'The introduction covers why debate, how Daisy works and how a debate runs, then asks what you want to do here. Your answers stay editable from its last step.',
-    links: [{ label: 'Start the introduction', href: '/onboarding/welcome' }],
+    links: [{ label: 'Start the introduction', href: '/onboarding/daisy' }],
   },
   {
     id: 'start-a-debate',
