@@ -1,12 +1,4 @@
-# The admin app (ADR 0077): its own deployable, database and operator
-# accounts, on the org's default 6PN with no public address (`fly deploy
-# --no-public-ips`, checked with `fly ips list`). There is no
-# [http_service] or [[services]]: fly-proxy never routes to it. The owner
-# reaches it with `fly proxy 4800:8080 -a daisy-debate-staging-admin` and
-# opens http://localhost:4800, the only Host the app answers. Its secrets
-# (ADMIN_DATABASE_URL as daisy_admin_app, ADMIN_ATTEMPT_KEY,
-# OPERATOR_API_KEY_ID and OPERATOR_API_KEY) are Fly secrets, never written
-# here.
+# Private admin: HTTPS Serve on the tailnet only. See docs/operations/private-admin.md.
 app = "daisy-debate-staging-admin"
 primary_region = "ord"
 # The server drains for at most 10 s (SHUTDOWN_DEADLINE_MS in start.ts).
@@ -17,8 +9,8 @@ kill_timeout = 20
   build-target = "admin"
 
 [env]
-  # `[::]:8080`: fly proxy arrives over 6PN (IPv6).
-  ADMIN_HOST = "::"
+  ADMIN_HOST = "127.0.0.1"
+  ADMIN_ORIGIN = "https://daisy-admin.tail51baf2.ts.net"
   ADMIN_PORT = "8080"
   # The signed operator API (ADR 0079): web's private listener on 6PN, and
   # the audience web verifies against. With the two key secrets these make
@@ -29,3 +21,10 @@ kill_timeout = 20
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
+
+[deploy]
+  strategy = "immediate"
+
+[[mounts]]
+  source = "admin_tailscale_state"
+  destination = "/var/lib/tailscale"

@@ -238,7 +238,17 @@ jobs:
             echo "Admin deploy tokens are not set; the admin app is not deployed yet"
             exit 0
           fi
+          # Initial volume adoption is a reviewed parent operation before merge.
+          # Select only the persistent machine; a stopped rollback machine must
+          # never be updated or started by an automatic main deployment.
+          admin_machines=$(mktemp)
+          admin_volumes=$(mktemp)
+          trap 'rm -f "$admin_machines" "$admin_volumes"' EXIT
+          flyctl machine list -a daisy-debate-staging-admin --json > "$admin_machines"
+          flyctl volumes list -a daisy-debate-staging-admin --json > "$admin_volumes"
+          admin_target=$(bun scripts/admin-deploy-target.ts "$admin_volumes" < "$admin_machines")
           flyctl deploy -c fly.admin.toml --local-only --ha=false --no-public-ips \
+            --only-machines "$admin_target" --strategy immediate \
             --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
             --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: readiness

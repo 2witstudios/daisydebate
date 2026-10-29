@@ -41,7 +41,7 @@ test('readAdminConfig', () => {
   });
 });
 
-test('a non-loopback bind outside production', () => {
+test('a non-loopback bind', () => {
   const refusal = (env: Record<string, string>) => {
     try {
       return readAdminConfig({ ...valid, ...env }).ADMIN_HOST;
@@ -51,17 +51,20 @@ test('a non-loopback bind outside production', () => {
   };
   assert({
     given: 'ADMIN_HOST "::" with NODE_ENV unset, development or production',
-    should:
-      'refuse unless production, so a deployed process never runs as development and skips the role refusal',
+    should: 'refuse wildcard listeners in every mode',
     actual: [
       refusal({ ADMIN_HOST: '::' }),
       refusal({ ADMIN_HOST: '::', NODE_ENV: 'development' }),
-      refusal({ ADMIN_HOST: '::', NODE_ENV: 'production' }),
+      refusal({
+        ADMIN_HOST: '::',
+        NODE_ENV: 'production',
+        ADMIN_ORIGIN: 'https://admin.example',
+      }),
     ],
     expected: [
-      'Invalid admin configuration: NODE_ENV',
-      'Invalid admin configuration: NODE_ENV',
-      '::',
+      'Invalid admin configuration: ADMIN_HOST',
+      'Invalid admin configuration: ADMIN_HOST',
+      'Invalid admin configuration: ADMIN_HOST',
     ],
   });
 });

@@ -900,7 +900,9 @@ The admin app (`apps/admin`) and its release-only migrator are two more Fly
 apps built from this image: the `admin` and `admin-migrate` stages of
 `apps/web/Dockerfile`, configured by `fly.admin.toml` and
 `fly.admin-migrate.toml`. The admin app runs on the org's default 6PN with no
-`[http_service]` and no public address; the owner reaches it with `fly proxy`.
+`[http_service]` and no public address; the owner reaches it through private Tailscale HTTPS Serve. See
+[private mobile admin](private-admin.md) for initial volume adoption before
+merge, targeted stop-first deploys, renewal, mobile enrollment and rollback.
 Its database, `daisy_admin`, sits on the existing staging cluster with its
 own owner and runtime roles and no PUBLIC CONNECT (a separate production
 cluster is a production gate, ADR 0077).
@@ -909,7 +911,8 @@ Until the owner creates the apps and their deploy tokens, `deploy-staging.yml`
 skips both admin steps: each runs only when its token
 (`FLY_ADMIN_MIGRATE_API_TOKEN`, `FLY_ADMIN_API_TOKEN`) is set, and the admin
 deploy also waits for the migrator's. Once both exist, every merge deploys the
-migrator (`--update-only`) and then the admin app (`--no-public-ips`).
+migrator (`--update-only`) and then the one persistent admin machine
+(`--only-machines`, `--strategy immediate`, `--no-public-ips`).
 
 Provisioned on staging 2026-10-27 (BETA-H) under DEC-250, the 6PN sign-off
 of step 0, which the orchestrator recorded on the owner's behalf; it stays
@@ -977,12 +980,12 @@ for app in admin-migrate admin; do
     | gh secret set "FLY_$(echo $app | tr a-z- A-Z_)_API_TOKEN"
 done
 fly deploy -c fly.admin-migrate.toml --remote-only --update-only  # release_command migrates; leaves no runtime machine
-fly deploy -c fly.admin.toml --remote-only --ha=false --no-public-ips
+# Admin: follow private-admin.md initial volume adoption, then targeted deploy.
 fly ips list -a daisy-debate-staging-admin                        # must show no public address
 
 # 5. Owner enrollment and access
-fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner"
-fly proxy 4800:8080 -a daisy-debate-staging-admin               # then open the printed http://localhost:4800/enroll#… URL
+# Follow private-admin.md; owner already exists, so use --name owner --additional
+# only in a private console when the owner is ready. Never capture the bearer link.
 ```
 
 **6PN posture.** Admitting `daisy-debate-staging-admin` and
@@ -996,20 +999,13 @@ admin request is authenticated by its passkey session and authorized by
 /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
 replacement link; consuming it revokes every earlier passkey and session.
 
-**Owner sign-in on staging today.** The `owner` operator already exists:
-BETA-H created it and its first link expired unused, and the ISSUE-685 smoke
-proof (below) added a passkey to it from a throwaway virtual authenticator. So
-the owner's first sign-in uses `--name owner --replace` instead of step 5's
-plain `--name owner`; consuming that link leaves the owner's own passkey as
-the only one.
-
-1. `fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"`
-2. In another terminal, `fly proxy 4800:8080 -a daisy-debate-staging-admin`.
-3. Open the printed `http://localhost:4800/enroll#…` link within 15 minutes,
-   choose **Create passkey**, then **Sign in with a passkey**.
-4. **Accounts** lists pending sign-ups. **Approve** queues the approval email
-   (the page says "Done. Approval email queued."); **Revoke** removes access
-   on the tester's next request. **Audit** shows the hash chain.
+**Owner mobile access.** The `owner` operator already exists. Follow
+[private mobile admin](private-admin.md) to register the persistent Tailscale
+node, then issue `--name owner --additional` privately when the owner is ready.
+Existing credentials stay stored and unrevoked; never substitute `--replace`
+for this setup. The owner performs the biometric ceremony, signs in and views
+Pending; fixture proof covers approval, while any live account approval is a
+separate deliberate owner action.
 
 **Approval smoke proof (ISSUE-685, 2026-10-27; DEC-255).** A browser journey across
 both apps in CI is out of scope: it would need the production web build and

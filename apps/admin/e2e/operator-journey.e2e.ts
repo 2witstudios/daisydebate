@@ -17,7 +17,7 @@ const enrollmentUrl = (): string => {
     [fileURLToPath(enrollCli), '--name', 'owner'],
     { encoding: 'utf8', env: { ...process.env, ...serverEnv() } },
   );
-  const url = output.split('\n').find((line) => line.startsWith('http://'));
+  const url = output.split('\n').find((line) => line.startsWith('https://'));
   if (!url) throw new Error('operator-enroll printed no URL');
   return url;
 };
@@ -28,6 +28,7 @@ function serverEnv() {
   owner.password = 'admin-e2e-loopback-only';
   return {
     ADMIN_DATABASE_URL: owner.toString(),
+    ADMIN_ORIGIN: 'https://localhost:4800',
     ADMIN_ATTEMPT_KEY: 'admin-e2e-attempt-key-loopback-only-000000',
   };
 }
@@ -68,11 +69,17 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
     ({ name }) => name === 'daisy_admin_session',
   );
   expect(cookie).toMatchObject({
+    secure: true,
     httpOnly: true,
     sameSite: 'Strict',
     path: '/',
   });
 
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   const pending = page.getByRole('row', { name: /pending-player/ });
   await expect(pending).toContainText('2026-10-25T09:00:00.123456Z');
   await page.getByRole('button', { name: 'Approve pending-player' }).click();
@@ -116,7 +123,7 @@ const statusOf = (input: {
 }) =>
   new Promise<number | undefined>((resolve, reject) => {
     const sent = request(
-      { host: 'localhost', port: 4800, ...input },
+      { host: 'localhost', port: 4802, ...input },
       (response) => {
         response.resume();
         resolve(response.statusCode);

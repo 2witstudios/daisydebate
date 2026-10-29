@@ -3,6 +3,7 @@ import {
   operatorKeyIdSchema,
 } from '@daisy/protocol/operator';
 import { z } from 'zod';
+import { readAdminOrigin } from './auth/origin';
 import type { OperatorClientConfig } from './features/operator-client/client';
 import type { LogStoreConfig } from './features/security/store';
 
@@ -15,28 +16,21 @@ const postgresUrl = z
   .string()
   .regex(/^postgres(?:ql)?:\/\/[^\s]+$/, 'must be a postgres:// URL');
 
-const adminConfigSchema = z
-  .object({
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
-    ADMIN_DATABASE_URL: postgresUrl,
-    // Keys the stored client digest of the rate limiter (never a raw IP).
-    ADMIN_ATTEMPT_KEY: z.string().min(32),
-    ADMIN_PORT: z.coerce.number().int().min(1).max(65_535).default(4800),
-    ADMIN_HOST: z.string().min(1).default('localhost'),
-    APP_VERSION: z.string().min(1).default('development'),
-    GIT_COMMIT: z.string().min(1).default('unknown'),
-  })
-  // Fail closed: Bun defaults NODE_ENV to development, which would serve Next
-  // in dev mode and skip the role refusal, so only a loopback bind may run
-  // outside production.
-  .refine(
-    ({ NODE_ENV, ADMIN_HOST }) =>
-      NODE_ENV === 'production' || ADMIN_HOST === 'localhost',
-    { path: ['NODE_ENV'], message: 'must be production off loopback' },
-  );
-export type AdminConfig = z.infer<typeof adminConfigSchema>;
+const adminConfigSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  ADMIN_DATABASE_URL: postgresUrl,
+  // Keys the stored client digest of the rate limiter (never a raw IP).
+  ADMIN_ATTEMPT_KEY: z.string().min(32),
+  ADMIN_PORT: z.coerce.number().int().min(1).max(65_535).default(4800),
+  ADMIN_HOST: z.enum(['localhost', '127.0.0.1']).default('localhost'),
+  APP_VERSION: z.string().min(1).default('development'),
+  GIT_COMMIT: z.string().min(1).default('unknown'),
+});
+export type AdminConfig = z.infer<typeof adminConfigSchema> & {
+  readonly ADMIN_ORIGIN: string;
+};
 
 /** Parses settings or refuses startup, naming fields and never values. */
 function parseOrRefuse<T>(
@@ -54,7 +48,11 @@ function parseOrRefuse<T>(
 export function readAdminConfig(
   env: Readonly<Record<string, string | undefined>>,
 ): AdminConfig {
-  return parseOrRefuse(adminConfigSchema, env);
+  const config = parseOrRefuse(adminConfigSchema, env);
+  return {
+    ...config,
+    ADMIN_ORIGIN: readAdminOrigin(env.ADMIN_ORIGIN, config.NODE_ENV),
+  };
 }
 
 /** The release-only migrate app's one secret (ADR 0041 pattern). */

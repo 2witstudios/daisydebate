@@ -2,7 +2,6 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createLogger, type Logger } from '@daisy/logger';
 import type { AuthDeps } from '../auth/attempts';
 import { systemRandom } from '../auth/secrets';
-import { canonicalCeremony } from '../auth/webauthn';
 import {
   readAdminConfig,
   readLogStoreConfig,
@@ -59,7 +58,10 @@ export function adminRuntime(): AdminRuntime {
       ids: systemId,
       random: systemRandom,
       attemptKey: config.ADMIN_ATTEMPT_KEY,
-      ceremony: canonicalCeremony,
+      ceremony: {
+        origin: config.ADMIN_ORIGIN,
+        rpId: new URL(config.ADMIN_ORIGIN).hostname,
+      },
     },
     commands: operatorApi && {
       db: database.db,

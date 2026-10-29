@@ -179,14 +179,19 @@ USER daisy
 FROM admin-source AS admin-migrate
 CMD ["bun", "src/db/migrate.ts"]
 
-# ---- admin: apps/admin on 6PN only (fly.admin.toml); `fly proxy 4800:8080`.
+# ---- admin: private HTTPS Serve; persistent identity stays on the Fly volume.
+FROM tailscale/tailscale:v1.104.4@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c AS admin-tailscale
 FROM admin-source AS admin
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates util-linux \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=admin-tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
+COPY --from=admin-tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
 COPY --chown=daisy:daisy apps/admin/next.config.ts apps/admin/next.config.ts
 COPY --from=admin-build --chown=daisy:daisy /app/apps/admin/.next .next
 ENV ADMIN_PORT=8080
-ENV ADMIN_HOST=::
-EXPOSE 8080
-CMD ["bun", "src/server/start.ts"]
+ENV ADMIN_HOST=127.0.0.1
+CMD ["bash", "src/server/private-ingress.sh"]
 
 # ---- runtime: the web app, and the default target (the last stage).
 FROM server-source AS runtime

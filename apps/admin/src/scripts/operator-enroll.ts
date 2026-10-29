@@ -8,7 +8,7 @@ import { parseEnrollArgs } from './enroll-args';
 /**
  * `bun apps/admin/src/scripts/operator-enroll.ts --name <n> [--replace|--additional]`
  * over `fly ssh console`: prints the one-time enrollment URL to open through
- * `fly proxy 4800:8080` (docs/operations/deploy-staging.md §12).
+ * the configured private origin (docs/operations/private-admin.md).
  */
 const args = parseEnrollArgs(process.argv.slice(2));
 if (!args.ok) {
@@ -24,13 +24,12 @@ try {
       clock: systemClock,
       ids: systemId,
       random: systemRandom,
+      ceremony: { origin: config.ADMIN_ORIGIN },
     },
     args,
   );
   if (result.ok)
-    process.stdout.write(
-      `Open within 15 minutes, through fly proxy 4800:8080:\n${result.url}\n`,
-    );
+    process.stdout.write(`Open privately within 15 minutes:\n${result.url}\n`);
   else process.stderr.write(`${result.reason}\n`);
   process.exitCode = result.ok ? 0 : 1;
 } finally {

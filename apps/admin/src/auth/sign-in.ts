@@ -70,7 +70,10 @@ export async function beginSignIn(
     now,
     expiresAt: challengeExpiry(now),
   });
-  return { ok: true, options: await authenticationOptions(bytes) };
+  return {
+    ok: true,
+    options: await authenticationOptions(bytes, deps.ceremony),
+  };
 }
 
 export const auditSession = (

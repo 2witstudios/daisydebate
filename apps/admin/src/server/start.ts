@@ -9,8 +9,7 @@ import { adminRuntime } from './runtime';
 /**
  * The admin process (ADR 0077). It refuses a schema-altering database role
  * before serving, then answers every request through the Host and Origin
- * gate; Next renders only what the gate admits. Production binds `[::]:8080`, which
- * `fly proxy 4800:8080` reaches over 6PN; there is no public service.
+ * gate; Next renders only what the gate admits. Production binds loopback behind private HTTPS Serve; there is no public service.
  */
 const SHUTDOWN_DEADLINE_MS = 10_000;
 
@@ -23,7 +22,7 @@ if (refusal) {
 const app = next({
   dev: config.NODE_ENV !== 'production',
   // Next's own fetches go to this process: the canonical host name and the
-  // port it listens on (4800 locally, 8080 behind `fly proxy`).
+  // port it listens on (4800 locally, 8080 behind Serve).
   hostname: 'localhost',
   port: config.ADMIN_PORT,
   dir: fileURLToPath(new URL('../..', import.meta.url)),
@@ -32,7 +31,7 @@ const handle = app.getRequestHandler();
 await app.prepare();
 
 const server = createServer((request, response) => {
-  const decision = gateRequest({
+  const decision = gateRequest(config.ADMIN_ORIGIN, {
     host: request.headers.host,
     method: request.method,
     origin: request.headers.origin,
@@ -43,6 +42,15 @@ const server = createServer((request, response) => {
     response.end('Misdirected request');
     return;
   }
+  // Serve preserves Host. Forwarded headers must not override that gate or
+  // supply a principal, scheme or client identity to Next/server actions.
+  for (const name of Object.keys(request.headers))
+    if (
+      name === 'forwarded' ||
+      name.startsWith('x-forwarded-') ||
+      name.startsWith('tailscale-')
+    )
+      delete request.headers[name];
   request.headers[PEER_HEADER] = decision.peer;
   void handle(request, response);
 });
