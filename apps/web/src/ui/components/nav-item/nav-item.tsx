@@ -51,6 +51,7 @@ export const itemActive = (
   subItems.some((child) => matchesRoute(pathname, child.href)) ||
   alsoActive.some((route) => matchesRoute(pathname, route));
 
+/** A rail destination: a link with its flyout, marked active on its route. */
 export function NavItem({
   href,
   icon,

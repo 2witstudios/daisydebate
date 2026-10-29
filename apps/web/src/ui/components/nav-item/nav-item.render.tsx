@@ -72,6 +72,7 @@ function linkName({
   );
 }
 
+/** The markup of a rail link and its flyout, shared by every rail mode. */
 export function renderNavItem(props: NavItemRenderProps): ReactNode {
   const {
     href,
