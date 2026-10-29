@@ -30,11 +30,11 @@ export function OnboardingFrame({
   children,
 }: OnboardingFrameProps) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background p-6 text-ink max-narrow:p-0">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-3 text-ink max-narrow:p-0">
       <section
         role="dialog"
         aria-labelledby={titleId}
-        className="flex min-h-onboarding-card w-full max-w-onboarding flex-col gap-6 rounded-xl border border-border bg-surface-raised px-12 pt-6 pb-10 shadow-3 max-narrow:min-h-dvh max-narrow:rounded-none max-narrow:border-0 max-narrow:px-5 max-narrow:pt-4 max-narrow:pb-6"
+        className="flex min-h-onboarding-card w-full max-w-onboarding flex-col gap-4 rounded-xl border border-border bg-surface-raised px-10 pt-4 pb-5 shadow-3 max-narrow:min-h-dvh max-narrow:rounded-none max-narrow:border-0 max-narrow:px-5 max-narrow:pt-4 max-narrow:pb-6"
       >
         <div className="flex min-h-onboarding-touch flex-wrap items-center justify-between gap-4">
           {step === null ? (
@@ -59,7 +59,7 @@ export function OnboardingFrame({
           )}
           {skip}
         </div>
-        <div className="flex flex-1 flex-col gap-8">{children}</div>
+        <div className="flex flex-1 flex-col gap-4">{children}</div>
       </section>
     </div>
   );
@@ -113,7 +113,7 @@ export function StepFooter({
   readonly next: ReactNode;
 }) {
   return (
-    <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-5">
+    <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
       {backHref === null ? (
         <span />
       ) : (
