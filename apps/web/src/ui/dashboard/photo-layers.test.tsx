@@ -27,7 +27,7 @@ const HeroBannerWithLink = () =>
 
 describe('dashboard photographs (ISSUE-19)', () => {
   const surfaces: ReadonlyArray<[string, ComponentType, string, string]> = [
-    ['HeroBanner', HeroBannerWithLink, '2200', '1311'],
+    ['HeroBanner', HeroBannerWithLink, '1925', '817'],
     ['FeaturedTournament', FeaturedTournament, '1600', '1065'],
   ];
 

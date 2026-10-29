@@ -3,7 +3,7 @@
  * the product (not a decorative asset): swap the path to replace the art.
  * Temporary photography is sourced under the Unsplash license.
  */
-export type ArtKey = 'heroRidge' | 'earthNight' | 'quoteRidge';
+export type ArtKey = 'heroAgon' | 'earthNight' | 'quoteRidge';
 
 export const art: Record<
   ArtKey,
@@ -15,11 +15,11 @@ export const art: Record<
     readonly height: number;
   }
 > = {
-  heroRidge: {
-    src: '/images/hero-ridge.jpg',
-    alt: 'A green mountain ridge at dawn with rolling fog',
-    width: 2200,
-    height: 1311,
+  heroAgon: {
+    src: '/images/hero-agon.webp',
+    alt: 'Two figures in ancient Greek dress locked in an arm wrestle, with the Acropolis behind them',
+    width: 1925,
+    height: 817,
   },
   earthNight: {
     src: '/images/earth-night.jpg',
