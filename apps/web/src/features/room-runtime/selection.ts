@@ -25,7 +25,7 @@ const fingerprint = (
 /**
  * What a create body selects, decided by the one selection policy (FMT-1):
  * a catalog format at its canonical preset, ranked play at an eligible
- * preset, or a private custom definition. The client never supplies a
+ * preset, or a custom definition. The client never supplies a
  * catalog config or a basis.
  */
 export async function resolveRoomSelection(

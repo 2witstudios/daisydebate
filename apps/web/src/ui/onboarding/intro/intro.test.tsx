@@ -94,7 +94,7 @@ describe('StylesStep', () => {
         '20 minutes of prep after',
         'Cities should make public transit free to ride.',
         'You debate',
-        'Host a custom debate in a private room',
+        'Want your own rules? Host a custom debate.',
       ].map((line) => page.includes(line)),
       expected: Array(11).fill(true),
     });

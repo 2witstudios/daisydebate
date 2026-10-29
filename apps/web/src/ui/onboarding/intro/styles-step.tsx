@@ -38,7 +38,7 @@ export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
       <p className="max-w-reading text-md leading-normal text-ink-muted">
         All three run the same round: same speeches, same clock, same judges.
         What changes is how you get your resolution. Want your own rules? Host a
-        custom debate in a private room.
+        custom debate.
       </p>
       <div className="grid grid-cols-3 gap-4 max-narrow:grid-cols-1">
         {formats.map(([name, quote, detail, tag]) => (

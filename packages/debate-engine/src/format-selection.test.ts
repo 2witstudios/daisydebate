@@ -95,7 +95,7 @@ describe('decideFormatSelection', () => {
       actual: [
         refusal('an unknown format', request(), null),
         refusal(
-          'a private custom format',
+          'a custom format',
           request(),
           facts({ format: { catalogOwned: false, role: null } }),
         ),
@@ -128,7 +128,7 @@ describe('decideFormatSelection', () => {
       ],
       expected: [
         { given: 'an unknown format', refused: 'format-unavailable' },
-        { given: 'a private custom format', refused: 'format-unavailable' },
+        { given: 'a custom format', refused: 'format-unavailable' },
         { given: 'a role-null catalog format', refused: 'format-unavailable' },
         {
           given: 'a superseded preset (a stale form)',
@@ -181,7 +181,7 @@ describe('decideFormatSelection', () => {
           }),
         ),
         refusal(
-          'a private format',
+          'a custom format',
           ranked,
           facts({
             format: { id: 'one-on-one', catalogOwned: false, role: null },
@@ -202,7 +202,7 @@ describe('decideFormatSelection', () => {
       ],
       expected: [
         { given: 'an ineligible preset', refused: 'format-unavailable' },
-        { given: 'a private format', refused: 'format-unavailable' },
+        { given: 'a custom format', refused: 'format-unavailable' },
         { given: 'a two-a-side format', refused: 'format-unavailable' },
         { given: 'a superseded preset', refused: 'format-unavailable' },
       ],

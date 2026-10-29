@@ -103,7 +103,7 @@ export type FormatSelectionFacts = {
     readonly id: string;
     readonly name: string;
     readonly leagues: readonly string[];
-    /** No owning actor: a publisher catalog row, never a private custom format. */
+    /** No owning actor: a publisher catalog row, never a custom format. */
     readonly catalogOwned: boolean;
     /** Null when the picker does not offer it (One-on-one, Foundation). */
     readonly role: 'standard' | 'template' | null;

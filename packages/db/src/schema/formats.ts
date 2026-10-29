@@ -32,14 +32,14 @@ export const formats = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
-    /** Null only for publisher-owned catalog entries; custom room formats stay private. */
+    /** Null only for publisher-owned catalog entries; custom room formats have an owning actor. */
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
     currentVersion: integer('current_version').notNull(),
     /**
      * Whether the picker offers it (FMT-1): a Daisy standard, a league
-     * template, or null for formats it never lists — private custom
+     * template, or null for formats it never lists — custom
      * formats, One-on-one (ranked and history) and Foundation. Ranked
      * admission does not read it.
      */
