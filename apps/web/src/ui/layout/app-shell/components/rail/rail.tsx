@@ -59,7 +59,7 @@ function AccountItem({
       <li>
         <Link
           href={href}
-          title={extended ? undefined : label}
+          title={label}
           className={navItemClass(false, extended)}
         >
           <Icon name="person" size={20} />
@@ -114,7 +114,9 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
         aria-label="Primary"
         className={cn(
           'sticky top-0 flex h-screen flex-col gap-2 py-2',
-          extended ? 'items-stretch px-2' : 'items-center',
+          extended
+            ? 'items-stretch px-2 max-rail:items-center max-rail:px-0'
+            : 'items-center',
         )}
       >
         <Link
@@ -128,7 +130,7 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
         <ul
           className={cn(
             'flex list-none flex-col gap-1',
-            extended && 'w-full items-stretch',
+            extended && 'w-full items-stretch max-rail:items-center',
           )}
         >
           {primaryDestinations.map((item) => (
@@ -141,7 +143,9 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
         <ul
           className={cn(
             'mt-auto flex list-none flex-col gap-1',
-            extended ? 'w-full items-stretch' : 'items-center',
+            extended
+              ? 'w-full items-stretch max-rail:items-center'
+              : 'items-center',
           )}
         >
           <li>

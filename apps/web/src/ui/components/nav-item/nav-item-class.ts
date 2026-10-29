@@ -5,7 +5,8 @@ const navItemBase =
 
 /* Mini: the 44px square. Extended: a full-width row, icon and words. */
 const miniLayout = 'size-nav-target justify-center';
-const extendedLayout = 'h-nav-target w-full justify-start gap-3 px-2';
+const extendedLayout =
+  'h-nav-target w-full justify-start gap-3 px-2 max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0';
 
 /** Classes for a rail link; each state owns its colors. */
 export const navItemClass = (active: boolean, extended = false): string =>

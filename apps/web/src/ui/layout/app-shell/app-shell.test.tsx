@@ -182,13 +182,14 @@ describe('AppShell', () => {
         'end the rail with Sign in or Finish sign-up, and no Messages or Friends',
       actual: [
         visitor.includes('href="/sign-in"'),
+        visitor.includes('title="Sign in"'),
         visitor.includes('<span class="max-rail:sr-only">Sign in</span>'),
         provisional.includes('href="/onboarding/username"'),
         ['/messages', '/friends'].some((href) =>
           visitor.includes(`href="${href}"`),
         ),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true, true, false],
     });
   });
 

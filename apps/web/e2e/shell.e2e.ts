@@ -114,6 +114,23 @@ test.describe('dashboard shell chrome', () => {
     expect(await wordHeight()).toBeLessThanOrEqual(2);
     await expect(rail.getByRole('button', { name: 'Minimize' })).toBeHidden();
     expect(await columnWidth()).toBe(56);
+    const play = rail.getByRole('link', { name: 'Play', exact: true });
+    const box = await play.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    await expect(rail.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'title',
+      'Sign in',
+    );
+
+    // The saved mini choice obeys the same responsive layout.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await rail.getByRole('button', { name: 'Minimize' }).click();
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeHidden();
+    expect(await columnWidth()).toBe(56);
+    expect((await play.boundingBox())?.width).toBeGreaterThanOrEqual(44);
   });
 
   test('menu tiles share one uniform shape', async ({ page }) => {
@@ -258,5 +275,12 @@ test.describe('with JavaScript off', () => {
     await page.goto('/');
     await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
     expect(await columnWidth()).toBe(56);
+
+    await rail.getByRole('button', { name: 'Expand' }).click();
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
+    expect(await columnWidth()).toBe(184);
+    await page.goto('/');
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
+    expect(await columnWidth()).toBe(184);
   });
 });

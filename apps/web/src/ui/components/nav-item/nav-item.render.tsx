@@ -18,7 +18,7 @@ export type NavItemRenderProps = {
   readonly icon: IconName;
   /** The accessible name, counts included ("Friends, 4 online"). */
   readonly label: string;
-  /** The tooltip; the label when omitted. Mini only: extended shows words. */
+  /** The tooltip; the label when omitted. Retained at responsive icon-only widths. */
   readonly title?: string | undefined;
   readonly active: boolean;
   /**

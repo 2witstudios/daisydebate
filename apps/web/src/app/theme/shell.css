@@ -33,7 +33,7 @@
 
 /* The extended rail's wide column (ADR 0091). The saved choice is a class
    on the shell grid; CSS alone keeps it mini wherever the viewport cannot
-   hold words, so the server-rendere choice needs no script to be safe. */
+   hold words, so the server-rendered choice needs no script to be safe. */
 @utility grid-shell-extended {
   @media (width >= 1101px) {
     grid-template-columns: var(--spacing-nav-rail-extended) minmax(0, 1fr);

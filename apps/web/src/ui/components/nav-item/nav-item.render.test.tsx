@@ -155,7 +155,8 @@ describe('nav-item presentation', () => {
       ),
     );
     assert({
-      given: 'a minimized rail item whose visible word is shorter than its name',
+      given:
+        'a minimized rail item whose visible word is shorter than its name',
       should:
         'keep the whole name, counts included, as screen-reader text, with the word nowhere in the markup',
       actual: [
