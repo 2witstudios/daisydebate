@@ -127,18 +127,21 @@ Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
 RRD-1), amended 2026-10-29 by [ADR 0091](../decisions/0091-extended-nav-rail-default.md).
 Every shell page is one navigation rail beside the page. The rail defaults
 to extended at desktop widths: each destination's name shows as text beside
-its icon — the logo (home) and the launched destinations (Home, Play,
-Tournaments, Leaderboard, Watch, Judge, Train, Prep) at the top, then a
-member's Messages, Notifications (once launched) and Friends (with the
-online count); More, their profile avatar (or a visitor's Sign in, Finish
-sign-up mid sign-up) and the rail toggle pinned to the foot. The full
-accessible name is unchanged in both modes: counts stay in it
-("Friends, 5 online"), hover flyouts (Watch: Spectate live, Recordings;
-More: Settings, Help, Terms, Privacy) reveal on hover and keyboard focus —
-a link at the foot opens its flyout upward — badges are unchanged, and
-Friends is its own page, `/friends`. The toggle is a form posting a server
-action, so it works without JavaScript; it offers Minimize when extended
-and Expand when mini.
+its icon — the logo (home) with the "Daisy Debate" wordmark beside it, and
+the launched destinations (Home, Play, Tournaments, Leaderboard, Watch,
+Judge, Train, Prep) at the top, then a member's Messages, Notifications
+(once launched) and Friends (with the online count). The foot is one row
+above a divider: their profile (avatar and username, or a visitor's Sign in,
+Finish sign-up mid sign-up) on the left, then More and the rail toggle as
+icon-only buttons on the right. Mini stacks the same foot in its column:
+More, the avatar, then the toggle. The full accessible name is unchanged in
+both modes: counts stay in it ("Friends, 5 online"), the icon-only More and
+toggle keep their names as screen-reader text, hover flyouts (Watch: Spectate
+live, Recordings; More: Settings, Help, Terms, Privacy) reveal on hover and
+keyboard focus — a link at the foot opens its flyout upward — badges are
+unchanged, and Friends is its own page, `/friends`. The toggle is a form
+posting a server action, so it works without JavaScript; it is named
+Minimize when extended and Expand when mini.
 
 The choice to minimize to the icon-only rail — names as screen-reader text
 with a tooltip, the 56px column — persists in a cookie the server reads per

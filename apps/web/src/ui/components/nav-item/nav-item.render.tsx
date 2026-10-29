@@ -34,7 +34,43 @@ export type NavItemRenderProps = {
   readonly badge?: ReactNode;
   /** The rail's mode: extended shows words, mini is icon-only (ADR 0091). */
   readonly extended?: boolean | undefined;
+  /**
+   * A square icon button with no visible word at any width, for the rail's
+   * foot controls. Its name stays as screen-reader text.
+   */
+  readonly iconOnly?: boolean | undefined;
 };
+
+/**
+ * The name inside a rail link: the visible word beside the icon when the rail
+ * is extended, the label as screen-reader text otherwise, and only the
+ * screen-reader label for an icon-only foot control.
+ */
+function linkName({
+  label,
+  word,
+  extended,
+  iconOnly,
+}: Pick<NavItemRenderProps, 'label' | 'word' | 'extended' | 'iconOnly'>) {
+  if (iconOnly) return <span className="sr-only">{label}</span>;
+  if (extended && word !== undefined && word !== label) {
+    return (
+      <>
+        <span aria-hidden="true" className="max-rail:sr-only">
+          {word}
+        </span>
+        <span className="sr-only">{label}</span>
+      </>
+    );
+  }
+  // The accessible name is always the full label; the word is the extended
+  // rail's visible decoration only.
+  return (
+    <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+      {extended ? (word ?? label) : label}
+    </span>
+  );
+}
 
 export function renderNavItem(props: NavItemRenderProps): ReactNode {
   const {
@@ -48,6 +84,7 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
     badge,
     extended,
     word,
+    iconOnly,
   } = props;
   const hasChildren = subItems !== undefined && subItems.length > 0;
   return (
@@ -57,24 +94,11 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         // The tooltip stays at every width: CSS alone hides the extended
         // words below 1101px, and a hover name is the only discovery left.
         title={title ?? label}
-        className={navItemClass(active, extended)}
+        className={navItemClass(active, extended && !iconOnly)}
         aria-current={active ? 'page' : undefined}
       >
         <Icon name={icon} size={20} />
-        {extended && word !== undefined && word !== label ? (
-          <>
-            <span aria-hidden="true" className="max-rail:sr-only">
-              {word}
-            </span>
-            <span className="sr-only">{label}</span>
-          </>
-        ) : (
-          // The accessible name is always the full label; the word is the
-          // extended rail's visible decoration only.
-          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
-            {extended ? (word ?? label) : label}
-          </span>
-        )}
+        {linkName({ label, word, extended, iconOnly })}
         {badge}
       </Link>
       {hasChildren ? (
