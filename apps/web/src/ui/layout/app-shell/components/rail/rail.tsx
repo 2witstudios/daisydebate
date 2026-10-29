@@ -1,24 +1,20 @@
 import Link from 'next/link';
-import { Avatar } from '../../../../components/avatar/avatar';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { navItemClass } from '../../../../components/nav-item/nav-item-class';
-import { viewerStatus } from '../../../../friends/friends';
 import { cn } from '../../../../cn';
 import type { RailPreference } from '../../rail-preference';
-import type { ShellAccount } from '../../account';
+import type { ShellAccount, ShellRatings } from '../../account';
 import {
   memberDestinations,
-  moreDestination,
   notificationsDestination,
   primaryDestinations,
-  profileHref,
-  wayIn,
 } from '../destinations';
+import { AccountMenu } from './account-menu';
 import { FriendsLink } from './friends-link';
 
-/** A member's own places, listed after the launched destinations. */
+/** A member's own places: their inbox, notifications (once launched) and friends. */
 function MemberPlaces({
   account,
   extended,
@@ -46,65 +42,10 @@ function MemberPlaces({
 }
 
 /**
- * The foot's account item: a member's avatar, with the username beside it
- * when extended, or a visitor's way in. Extended, it takes the row's free
- * width; below the rail breakpoint it is the avatar alone.
+ * The rail's collapse control, a row like the links above it: Minimize when
+ * extended, Expand when mini. It posts the saved choice, and it is hidden
+ * below the rail breakpoint, where the rail is icon-only whatever is saved.
  */
-function AccountItem({
-  account,
-  extended,
-}: {
-  readonly account: ShellAccount;
-  readonly extended: boolean;
-}) {
-  const grow = extended ? 'min-w-0 flex-1 max-rail:flex-none' : undefined;
-  if (account.state !== 'member') {
-    const { href, label } = wayIn(account);
-    // A visitor's words need more than the row's free width, so the way in
-    // wraps onto a row of its own (ADR 0091).
-    return (
-      <li className={extended ? 'w-full' : undefined}>
-        <Link
-          href={href}
-          title={label}
-          className={navItemClass(false, extended)}
-        >
-          <Icon name="person" size={20} />
-          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
-            {label}
-          </span>
-        </Link>
-      </li>
-    );
-  }
-  return (
-    <li className={grow}>
-      <Link
-        href={profileHref(account.username)}
-        aria-label={`Your profile, ${account.username}`}
-        title="Profile"
-        className={cn(
-          'flex items-center rounded-md no-underline hover:bg-surface-overlay hover:no-underline',
-          extended
-            ? 'h-nav-target w-full min-w-0 gap-3 px-2 max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0'
-            : 'size-nav-target justify-center',
-        )}
-      >
-        <Avatar name={account.username} presence={viewerStatus} size="sm" />
-        {extended ? (
-          <span
-            aria-hidden="true"
-            className="min-w-0 truncate text-sm font-semibold text-ink max-rail:hidden"
-          >
-            {account.username}
-          </span>
-        ) : null}
-      </Link>
-    </li>
-  );
-}
-
-/** The rail toggle: an icon-only form posting the saved choice, hidden below the breakpoint. */
 function ToggleItem({
   extended,
   toggleRail,
@@ -118,11 +59,13 @@ function ToggleItem({
       <form action={toggleRail}>
         <button
           type="submit"
-          aria-label={name}
-          title={name}
-          className={navItemClass(false, false)}
+          title={extended ? undefined : name}
+          className={navItemClass(false, extended)}
         >
           <Icon name={extended ? 'railMinimize' : 'railExpand'} size={20} />
+          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+            {name}
+          </span>
         </button>
       </form>
     </li>
@@ -133,38 +76,32 @@ export type RailProps = {
   readonly account: ShellAccount;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
   readonly rail: RailPreference;
+  /** A member's ratings for the account menu; null for anyone else. */
+  readonly ratings: Promise<ShellRatings> | null;
   /** The server action the toggle form posts; it flips the saved choice. */
   readonly toggleRail: () => Promise<void>;
 };
 
 /**
- * The one navigation rail on every shell page, beside the page: the logo,
- * the launched destinations and a member's messages, notifications (once
- * launched) and friends at the top; the foot pinned to the viewport. Extended
- * (the default), the logo carries the Daisy Debate wordmark, each
- * destination's name shows beside its icon, and the foot is one row above a
- * divider: the profile on the left, then More and the minimize control as
- * icon buttons. Mini is icons only, with names as screen-reader text and a
- * tooltip; its foot stacks More, the profile and the expand control. Below
- * the rail breakpoint CSS alone keeps every name intact and hides the
- * wordmark, the username and the toggle (ADR 0091). Hover flyouts (Watch,
- * More) and badges are the same in both modes; a link at the foot opens its
- * flyout upward. The rail sticks to the viewport at every height, so the
- * foot never scrolls with the page. Gives way to the tab bar on a phone.
+ * The one navigation rail on every shell page, beside the page. Top to
+ * bottom: the logo (with the Daisy Debate wordmark when extended), the
+ * launched destinations, a divider, a member's messages, notifications (once
+ * launched) and friends with Minimize as the last row of that group, then
+ * the account at the foot. The account opens a menu with the member's
+ * ratings and the account pages; More is that menu now. Extended (the
+ * default) each name shows beside its icon; mini is icons only, with names
+ * as screen-reader text and tooltips. Below the rail breakpoint CSS alone
+ * keeps every name intact and hides the wordmark, the username and Minimize
+ * (ADR 0091). Badges and the flyout on Watch are the same in both modes; the
+ * account menu opens sideways, so it never needs the foot's space. The rail
+ * sticks to the viewport at every height, so it never scrolls with the page.
+ * Gives way to the tab bar on a phone.
  */
-export function Rail({ account, rail, toggleRail }: RailProps) {
+export function Rail({ account, rail, ratings, toggleRail }: RailProps) {
   const extended = rail === 'extended';
-  // Extended, More and the toggle sit at the row's right edge, below a wrapped
-  // visitor's way in and beside a member's avatar.
-  const more = (
-    <li className={extended ? 'ml-auto' : undefined}>
-      <NavItem
-        {...moreDestination}
-        iconOnly
-        flyoutAlign="bottom"
-        extended={extended}
-      />
-    </li>
+  const group = cn(
+    'flex list-none flex-col gap-1',
+    extended && 'w-full items-stretch max-rail:items-center',
   );
   return (
     <div className="z-20 self-stretch border-r border-border bg-surface area-rail max-narrow:hidden">
@@ -193,40 +130,32 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
             Daisy Debate
           </span>
         </Link>
-        <ul
-          className={cn(
-            'flex list-none flex-col gap-1',
-            extended && 'w-full items-stretch max-rail:items-center',
-          )}
-        >
+        <ul className={group}>
           {primaryDestinations.map((item) => (
             <li key={item.label}>
               <NavItem {...item} extended={extended} />
             </li>
           ))}
-          <MemberPlaces account={account} extended={extended} />
         </ul>
-        <ul
+        <hr
           className={cn(
-            'mt-auto flex list-none gap-1',
+            'my-1 border-border',
             extended
-              ? 'w-full flex-wrap items-center border-t border-border pt-2 max-rail:flex-col max-rail:items-center'
-              : 'flex-col items-center',
+              ? 'mx-2 max-rail:mx-auto max-rail:w-nav-target'
+              : 'w-nav-target',
           )}
-        >
-          {extended ? (
-            <>
-              <AccountItem account={account} extended />
-              {more}
-            </>
-          ) : (
-            <>
-              {more}
-              <AccountItem account={account} extended={false} />
-            </>
-          )}
+        />
+        <ul className={group}>
+          <MemberPlaces account={account} extended={extended} />
           <ToggleItem extended={extended} toggleRail={toggleRail} />
         </ul>
+        <div className={cn('mt-auto', extended && 'w-full')}>
+          <AccountMenu
+            account={account}
+            extended={extended}
+            ratings={ratings}
+          />
+        </div>
       </nav>
     </div>
   );

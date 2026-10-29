@@ -1,3 +1,5 @@
+import type { MemberStanding } from '../../../features/ratings/read-member';
+
 /** Who the shell is showing: derived on the server from the durable session. */
 export type ShellAccount =
   | { readonly state: 'anonymous' }
@@ -5,3 +7,15 @@ export type ShellAccount =
   /** Signed in with a username, waiting for beta access (ADR 0075). */
   | { readonly state: 'waitlisted' }
   | { readonly state: 'member'; readonly username: string };
+
+/**
+ * A member's standing on each ladder, read once per request for the account
+ * menu. `unavailable` when the read fails, so the menu says so instead of
+ * blocking the page.
+ */
+export type ShellRatings =
+  | {
+      readonly state: 'ready';
+      readonly standings: readonly MemberStanding[];
+    }
+  | { readonly state: 'unavailable' };

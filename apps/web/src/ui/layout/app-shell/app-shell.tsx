@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ActiveRoomBar } from '../../active-room/active-room-bar';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { cn } from '../../cn';
-import type { ShellAccount } from './account';
+import type { ShellAccount, ShellRatings } from './account';
 import type { RailPreference } from './rail-preference';
 import { Rail } from './components/rail/rail';
 import { TabBar } from './components/tab-bar/tab-bar';
@@ -16,6 +16,8 @@ export type AppShellProps = {
   readonly activeRoom: ActiveRoomSummary | null;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
   readonly rail: RailPreference;
+  /** A member's ratings for the account menu, still reading; null for anyone else. */
+  readonly ratings: Promise<ShellRatings> | null;
   /** The server action the rail's toggle form posts to flip that choice. */
   readonly toggleRail: () => Promise<void>;
 };
@@ -35,6 +37,7 @@ export function AppShell({
   account,
   activeRoom,
   rail,
+  ratings,
   toggleRail,
 }: AppShellProps) {
   return (
@@ -44,7 +47,12 @@ export function AppShell({
         rail === 'extended' && 'grid-shell-extended',
       )}
     >
-      <Rail account={account} rail={rail} toggleRail={toggleRail} />
+      <Rail
+        account={account}
+        rail={rail}
+        ratings={ratings}
+        toggleRail={toggleRail}
+      />
       <main className="min-w-0 area-main">
         {account.state === 'member' ? (
           <ActiveRoomBar room={activeRoom} />

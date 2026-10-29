@@ -8,7 +8,11 @@ import {
 } from '../../ui/layout/app-shell/rail-preference';
 import { UiStoreProvider } from '../../ui/store/store';
 import { shellAccount } from '../../lib/shell-account';
-import { requestIdentity } from '../../lib/request-session';
+import {
+  requestIdentity,
+  requestMemberStandings,
+} from '../../lib/request-session';
+import type { ShellRatings } from '../../ui/layout/app-shell/account';
 import { requestActiveRoom } from './active-room';
 import { toggleRail } from './rail-actions';
 
@@ -22,7 +26,9 @@ import { toggleRail } from './rail-actions';
  * Room (ADR 0070) shows its way back on every page but its own. The rail
  * width is a cookie read per request (validated: it is untrusted), so the
  * served HTML already carries the viewer's rail (ADR 0091), and the toggle's
- * server action travels down as a prop: ui/ never imports from app/.
+ * server action travels down as a prop: ui/ never imports from app/. The
+ * member's ratings start reading here but are not awaited: the account menu
+ * streams them in, so the page never waits on them.
  */
 export default async function ShellLayout({
   children,
@@ -31,12 +37,20 @@ export default async function ShellLayout({
   const activeRoom =
     identity.state === 'member' ? await requestActiveRoom() : null;
   const rail = parseRailPreference((await cookies()).get(RAIL_COOKIE)?.value);
+  const ratings: Promise<ShellRatings> | null =
+    identity.state === 'member'
+      ? requestMemberStandings(identity.username).then(
+          (standings): ShellRatings => ({ state: 'ready', standings }),
+          (): ShellRatings => ({ state: 'unavailable' }),
+        )
+      : null;
   return (
     <UiStoreProvider>
       <AppShell
         account={shellAccount(identity)}
         activeRoom={activeRoom}
         rail={rail}
+        ratings={ratings}
         toggleRail={toggleRail}
       >
         <Suspense fallback={null}>

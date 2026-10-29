@@ -98,13 +98,17 @@ export const onPhone = (page: Page): boolean =>
   (page.viewportSize()?.width ?? narrowBreakpoint) < narrowBreakpoint;
 
 /**
- * A member's link to their own profile: the avatar at the rail's foot, or
- * Profile in the phone's More sheet, which this opens.
+ * A member's link to their own profile: Profile in the rail's account menu,
+ * which this opens, or in the phone's More sheet.
  */
 export async function profileLink(page: Page, username: string) {
   const nav = page.getByRole('navigation', { name: 'Primary' });
-  if (!onPhone(page))
-    return nav.getByRole('link', { name: `Your profile, ${username}` });
+  if (!onPhone(page)) {
+    await nav
+      .locator(`summary[aria-label="Your account, ${username}"]`)
+      .click();
+    return nav.getByRole('link', { name: 'Profile', exact: true });
+  }
   await nav.locator('summary').click();
   return nav
     .getByRole('list', { name: 'More' })

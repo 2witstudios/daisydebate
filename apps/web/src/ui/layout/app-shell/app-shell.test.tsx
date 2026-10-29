@@ -3,7 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
 import { notificationsDestination } from './components/destinations';
 import { launchedPlaces } from '../../../features/coming-soon/launch';
-import type { ShellAccount } from './account';
+import type { ShellAccount, ShellRatings } from './account';
 import type { RailPreference } from './rail-preference';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { occurrences, renderInStore } from '../../test-support/render-in-store';
@@ -18,12 +18,14 @@ const render = (
   account: ShellAccount = { state: 'anonymous' },
   activeRoom: ActiveRoomSummary | null = null,
   rail: RailPreference = 'extended',
+  ratings: Promise<ShellRatings> | null = null,
 ): string =>
   renderInStore(
     h(AppShell, {
       account,
       activeRoom,
       rail,
+      ratings,
       toggleRail: async () => {},
       children: h('p', null, 'page'),
     }),
@@ -57,26 +59,24 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail shows words by default and names its collapse control (ADR 0091)', () => {
+  test('the rail shows words by default, with Minimize as a labeled row and More in the account menu (ADR 0091)', () => {
     const [extended] = navs(render(member));
     const [mini] = navs(render(member, null, 'mini'));
     assert({
       given: "a member's rail served extended and served mini",
       should:
-        'carry every destination name as text at rail widths in extended and as screen-reader text in mini, with the icon-only toggle named Minimize or Expand and More named only for screen readers',
+        'carry every destination name as text at rail widths in extended and as screen-reader text in mini, with Minimize as a labeled row in extended and Expand as screen-reader text in mini, and no More control in the rail',
       actual: [
         extended.includes('<span class="max-rail:sr-only">Home</span>'),
-        extended.includes('<span class="sr-only">More</span>'),
-        extended.includes('<span class="max-rail:sr-only">More</span>'),
-        extended.includes('<form'),
-        extended.includes('aria-label="Minimize"'),
         extended.includes('<span class="max-rail:sr-only">Minimize</span>'),
+        extended.includes('<form'),
+        extended.includes('>More<'),
         mini.includes('<span class="sr-only">Messages</span>'),
+        mini.includes('<span class="sr-only">Expand</span>'),
+        mini.includes('title="Expand"'),
         mini.includes('max-rail:sr-only'),
-        mini.includes('aria-label="Expand"'),
-        mini.includes('type="submit"'),
       ],
-      expected: [true, true, false, true, true, false, true, false, true, true],
+      expected: [true, true, true, false, true, true, true, false],
     });
   });
 
@@ -106,12 +106,12 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, launched destinations and member places at the top, More and the profile at the foot', () => {
+  test('the rail: logo, launched destinations, then member places, with the account at the foot', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations, Messages and Friends, then the profile and More at the foot',
+        'link home from the logo, then the launched destinations, then Messages and Friends, then the account menu with the profile and account pages',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -129,7 +129,6 @@ describe('AppShell', () => {
           '/messages',
           '/friends',
           '/profile/ada-byron',
-          '/settings',
           '/settings',
         ],
       ],
@@ -150,22 +149,22 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail foot is one row above a divider: the profile, then More and the toggle as icon buttons', () => {
+  test('the foot is the account menu: the avatar and username open a menu with the ratings and account pages', () => {
     const [rail] = navs(render(member));
-    const foot = rail.slice(rail.lastIndexOf('<ul'));
+    const foot = rail.slice(rail.indexOf('<details'));
     assert({
       given: "a member's extended rail",
       should:
-        'pin the foot above a divider, with the profile on the left and More then the toggle on the right, More flying out upward',
+        'put the avatar and username in the summary, with the account pages and sign-out in the menu beside it',
       actual: [
-        foot.includes('border-t'),
-        foot.indexOf('aria-label="Your profile, ada-byron"') <
-          foot.indexOf('href="/settings"'),
-        foot.indexOf('href="/settings"') <
-          foot.indexOf('aria-label="Minimize"'),
-        /class="[^"]*\bbottom-0\b/.test(foot),
+        foot.includes('<summary'),
+        foot.includes('aria-label="Your account, ada-byron"'),
+        /<span aria-hidden="true" class="[^"]*">ada-byron<\/span>/.test(foot),
+        /class="[^"]*\babsolute\b[^"]*\bleft-full\b/.test(foot),
+        foot.includes('href="/settings"'),
+        foot.includes('action="/auth/sign-out"'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -174,20 +173,19 @@ describe('AppShell', () => {
     assert({
       given: "a member's extended rail",
       should:
-        'name every link — words at rail widths, the full name as screen-reader text when the word is shorter — and the profile by username',
+        'name every link — words at rail widths, the full name as screen-reader text when the word is shorter — and the account by username',
       actual: [
         rail.includes('<span class="max-rail:sr-only">Messages</span>'),
         /<span class="sr-only">Friends, \d+ online<\/span>/.test(rail),
         rail.includes(
           '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
         ),
-        rail.includes('aria-label="Your profile, ada-byron"'),
-        rail.includes('<span class="sr-only">More</span>'),
+        rail.includes('aria-label="Your account, ada-byron"'),
         ['/help', '/terms', '/privacy'].every((href) =>
           rail.includes(`href="${href}"`),
         ),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -211,19 +209,15 @@ describe('AppShell', () => {
     });
   });
 
-  test('a visitor’s way in takes its own full-width row, with More and the toggle on the row below', () => {
+  test('a visitor’s way in takes the foot, with no account menu', () => {
     const [visitor] = navs(render());
-    const foot = visitor.slice(visitor.lastIndexOf('<ul'));
+    const foot = visitor.slice(visitor.lastIndexOf('<hr') + 1);
     assert({
       given: 'an anonymous visitor on the extended rail',
       should:
-        'let the way-in wrap onto its own full-width row, so its label never shares a row with the 44px controls, and push More and the toggle to the right of the row below',
-      actual: [
-        /<ul class="[^"]*\bflex-wrap\b/.test(foot),
-        /<li class="w-full"><a [^>]*href="\/sign-in"/.test(foot),
-        /<li class="ml-auto">/.test(foot),
-      ],
-      expected: [true, true, true],
+        'put the Sign in link at the foot, and no account menu or ratings',
+      actual: [/href="\/sign-in"/.test(foot), foot.includes('<details')],
+      expected: [true, false],
     });
   });
 
