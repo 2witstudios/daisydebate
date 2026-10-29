@@ -126,7 +126,7 @@ describe('AppShell', () => {
       given: "a member's rail on any window height",
       should:
         'stick to the top and fill the viewport, never scroll with the page',
-      actual: ['sticky', 'top-0', 'h-screen'].map((name) =>
+      actual: ['sticky', 'top-0', 'h-dvh'].map((name) =>
         classes.includes(name),
       ),
       expected: [true, true, true],
