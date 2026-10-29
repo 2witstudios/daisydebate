@@ -1,9 +1,18 @@
+// Reuse this checkout's reserved E2E port block; never touch another
+// session's localhost:4800 listener. CI without a slot uses the fixed block.
+const port = Number(process.env.E2E_PORT ?? 4800);
+export const e2eAdmin = {
+  port,
+  backendPort: port + 1,
+  origin: `https://localhost:${port}`,
+};
+
 /**
  * The browser journey's operator API settings, shared by the stub server and
  * the admin server under test. Loopback only; the key exists for this suite.
  */
 export const e2eOperatorApi = {
-  port: 4801,
+  port: port + 2,
   keyId: 'admine2e',
   key: Buffer.from(new Uint8Array(32).fill(42)).toString('base64url'),
   audience: 'daisy-web:local',

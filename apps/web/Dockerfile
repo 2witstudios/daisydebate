@@ -165,12 +165,12 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NODE_ENV=production
 RUN groupadd --system --gid 1001 daisy \
   && useradd --system --uid 1001 --gid daisy --home-dir /app --shell /usr/sbin/nologin daisy
-COPY --from=prod-deps --chown=daisy:daisy /app /app
-COPY --chown=daisy:daisy packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
-COPY --chown=daisy:daisy packages/clock/src packages/clock/src
-COPY --chown=daisy:daisy packages/logger/src packages/logger/src
-COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
-COPY --chown=daisy:daisy apps/admin/src apps/admin/src
+COPY --from=prod-deps --chown=root:root /app /app
+COPY --chown=root:root packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
+COPY --chown=root:root packages/clock/src packages/clock/src
+COPY --chown=root:root packages/logger/src packages/logger/src
+COPY --chown=root:root packages/protocol/src packages/protocol/src
+COPY --chown=root:root apps/admin/src apps/admin/src
 WORKDIR /app/apps/admin
 USER daisy
 
@@ -187,8 +187,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
   && rm -rf /var/lib/apt/lists/*
 COPY --from=admin-tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
 COPY --from=admin-tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --chown=daisy:daisy apps/admin/next.config.ts apps/admin/next.config.ts
-COPY --from=admin-build --chown=daisy:daisy /app/apps/admin/.next .next
+COPY --chown=root:root apps/admin/next.config.ts apps/admin/next.config.ts
+COPY --from=admin-build --chown=root:root /app/apps/admin/.next .next
+# Root executes the supervisor and its imports. The app must never be able
+# to rewrite those files/dependencies or any ancestor on the next restart.
+RUN mkdir -p .next/cache && chown daisy:daisy .next/cache
 ENV ADMIN_PORT=8080
 ENV ADMIN_HOST=127.0.0.1
 CMD ["bash", "src/server/private-ingress.sh"]

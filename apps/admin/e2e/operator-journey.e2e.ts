@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { e2eAdmin } from './support/operator-api-fixture';
 
 /**
  * The owner's first visit (BETA-4, BETA-5): the bootstrap CLI mints a link,
@@ -28,7 +29,7 @@ function serverEnv() {
   owner.password = 'admin-e2e-loopback-only';
   return {
     ADMIN_DATABASE_URL: owner.toString(),
-    ADMIN_ORIGIN: 'https://localhost:4800',
+    ADMIN_ORIGIN: e2eAdmin.origin,
     ADMIN_ATTEMPT_KEY: 'admin-e2e-attempt-key-loopback-only-000000',
   };
 }
@@ -123,7 +124,7 @@ const statusOf = (input: {
 }) =>
   new Promise<number | undefined>((resolve, reject) => {
     const sent = request(
-      { host: 'localhost', port: 4802, ...input },
+      { host: 'localhost', port: e2eAdmin.backendPort, ...input },
       (response) => {
         response.resume();
         resolve(response.statusCode);
@@ -145,14 +146,17 @@ test('the real server answers a foreign Host or Origin with 421', async () => {
     await statusOf({
       method: 'POST',
       path: '/sign-in',
-      headers: { host: 'localhost:4800', origin: 'http://attacker.example' },
+      headers: {
+        host: new URL(e2eAdmin.origin).host,
+        origin: 'http://attacker.example',
+      },
     }),
   ).toBe(421);
   expect(
     await statusOf({
       method: 'GET',
       path: '/sign-in',
-      headers: { host: 'localhost:4800' },
+      headers: { host: new URL(e2eAdmin.origin).host },
     }),
   ).toBe(200);
 });

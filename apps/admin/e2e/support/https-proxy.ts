@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { request as proxyRequest } from 'node:http';
+import { createServer } from 'node:https';
+import { e2eAdmin } from './operator-api-fixture';
 
 // Ephemeral, local test key only; no certificates or keys enter the repository.
 const directory = mkdtempSync(join(tmpdir(), 'daisy-admin-https-'));
@@ -28,32 +31,41 @@ execFileSync(
   ],
   { stdio: 'ignore' },
 );
-const server = Bun.serve({
-  hostname: 'localhost',
-  port: 4800,
-  tls: { key: readFileSync(key), cert: readFileSync(cert) },
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === '/proxy-ready') return new Response('ready');
-    const upstream = new URL(
-      url.pathname + url.search,
-      'http://localhost:4802',
+const server = createServer(
+  { key: readFileSync(key), cert: readFileSync(cert) },
+  (request, response) => {
+    if (request.url === '/proxy-ready') {
+      response.end('ready');
+      return;
+    }
+    const upstream = proxyRequest(
+      {
+        hostname: 'localhost',
+        port: e2eAdmin.backendPort,
+        path: request.url,
+        method: request.method,
+        headers: {
+          ...request.headers,
+          host: new URL(e2eAdmin.origin).host,
+          'x-forwarded-proto': 'https',
+        },
+      },
+      (result) => {
+        response.writeHead(result.statusCode ?? 502, result.headers);
+        result.pipe(response);
+      },
     );
-    const headers = new Headers(request.headers);
-    headers.set('host', 'localhost:4800');
-    headers.set('x-forwarded-proto', 'https');
-    return fetch(upstream, {
-      method: request.method,
-      headers,
-      body: ['GET', 'HEAD'].includes(request.method)
-        ? null
-        : await request.arrayBuffer(),
-      redirect: 'manual',
+    upstream.once('error', () => {
+      response.writeHead(503);
+      response.end('Backend not ready');
     });
+    request.pipe(upstream);
   },
-});
+);
+server.listen(e2eAdmin.port, 'localhost');
 const stop = () => {
-  server.stop(true);
+  server.closeAllConnections();
+  server.close();
   rmSync(directory, { recursive: true, force: true });
   process.exit(0);
 };

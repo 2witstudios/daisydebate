@@ -60,6 +60,63 @@ try {
   }
   if (!ready)
     throw new Error('Ingress never exposed its private registration socket');
+  const writable = docker([
+    'exec',
+    '--user',
+    'daisy',
+    name,
+    'find',
+    '/app',
+    '-writable',
+    '!',
+    '-path',
+    '/app/apps/admin/.next/cache',
+    '!',
+    '-path',
+    '/app/apps/admin/.next/cache/*',
+  ]);
+  if (writable !== '')
+    throw new Error('App can rewrite root-executed code or dependencies');
+  docker([
+    'exec',
+    '--user',
+    'daisy',
+    name,
+    'bun',
+    '-e',
+    'import { writeFileSync, unlinkSync, accessSync, constants } from "node:fs"; const file = "/app/apps/admin/.next/cache/permission-proof"; writeFileSync(file, "fixture"); unlinkSync(file); for (const path of ["/var/lib/tailscale", "/run/tailscale"]) { let denied = false; try { accessSync(path, constants.R_OK | constants.X_OK); } catch { denied = true; } if (!denied) process.exit(1); }',
+  ]);
+  docker([
+    'exec',
+    '--user',
+    'daisy',
+    name,
+    'bun',
+    '-e',
+    `
+    import { writeFileSync, renameSync, unlinkSync } from 'node:fs';
+    const denied = (operation) => {
+      try { operation(); } catch (error) {
+        if (['EACCES', 'EPERM', 'EROFS'].includes(error.code)) return;
+        throw error;
+      }
+      throw new Error('App rewrote root startup code or ancestor');
+    };
+    const startup = '/app/apps/admin/src/server/private-ingress.sh';
+    const config = '/app/apps/admin/src/config.ts';
+    const cache = '/app/apps/admin/.next/cache/replace-proof';
+    denied(() => writeFileSync(startup, 'replacement'));
+    denied(() => writeFileSync(config, 'replacement'));
+    writeFileSync(cache, 'replacement');
+    denied(() => renameSync(cache, startup));
+    denied(() => unlinkSync(config));
+    for (const path of ['/app/apps', '/app/apps/admin', '/app/apps/admin/src', '/app/apps/admin/src/server', '/app/node_modules']) {
+      denied(() => writeFileSync(path + '/replacement-proof', 'replacement'));
+      denied(() => renameSync(path, '/app/apps/admin/.next/cache/ancestor-proof'));
+    }
+    unlinkSync(cache);
+  `,
+  ]);
   const backend = docker([
     'exec',
     name,
@@ -74,7 +131,7 @@ try {
   if (docker(['inspect', '--format', '{{.State.ExitCode}}', name]) !== '0')
     throw new Error('Ingress did not drain cleanly');
   process.stdout.write(
-    'PASS: real image stays awaiting login with private socket, no app listener or login URL logs, and clean shutdown\n',
+    'PASS: real image stays awaiting login with private socket, no app listener or login URL logs, immutable root code/dependencies and private state under app UID, writable cache, and clean shutdown\n',
   );
 } finally {
   if (created) docker(['rm', '--force', name]);
