@@ -4,8 +4,8 @@ import { OnboardingFrame } from '../frame/frame';
 export type ReadyStepProps = {
   /**
    * The validated destination after onboarding: the lobby for an approved
-   * member. A still-pending account is sent on to the beta page by the
-   * access gate (ADR 0075).
+   * member. The page sends a still-pending account to the beta page first
+   * (ADR 0075), so this step only renders for a member.
    */
   readonly homeHref: string;
 };

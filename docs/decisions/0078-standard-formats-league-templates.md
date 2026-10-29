@@ -27,7 +27,7 @@ made it rankable.
    on a standard needs no new key or store.
 2. **Catalog role is picker visibility.** `formats.catalog_role` is
    `standard`, `template` or null. Null means the picker never offers it:
-   private custom formats, One-on-one (ranked and history until FMT-14)
+   custom formats, One-on-one (ranked and history until FMT-14)
    and Foundation. `family` groups templates for the league browser;
    `leagues` are display labels for governing bodies, never organizations
    or authorization tenants (ADR 0048). Null-safe CHECKs bind role, family,

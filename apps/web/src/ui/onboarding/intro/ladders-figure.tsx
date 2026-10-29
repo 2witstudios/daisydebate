@@ -5,7 +5,6 @@ const ladders = [
       ['Sam', 1560],
       ['Priya', 1502],
       ['You', 1447],
-      ['Mei', 1389],
     ],
   },
   {
@@ -30,10 +29,10 @@ const ladders = [
 export function LaddersFigure() {
   return (
     <figure
-      className="rounded-lg bg-surface-sunken p-5"
+      className="rounded-lg bg-surface-sunken p-4"
       aria-label="Illustration of the three rating ladders"
     >
-      <figcaption className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <span className="text-xs font-strong tracking-widest text-ink-muted uppercase">
           Three ladders
         </span>

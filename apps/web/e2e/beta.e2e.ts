@@ -4,7 +4,7 @@ import {
   signUpWaitlisted,
   uniqueName,
 } from './support/accounts';
-import { claimUsername, skipOnboarding } from './support/forms';
+import { claimUsername } from './support/forms';
 import { approveBetaAccounts } from './support/beta-access';
 
 /**
@@ -45,8 +45,11 @@ test('a fresh sign-up from a protected page finishes onboarding on /beta and rea
   const username = uniqueName('waiting');
   await claimUsername(page, username);
   await page.getByRole('button', { name: 'Not now' }).click();
-  // Onboarding finishes as usual; the destination waits behind the list.
-  await skipOnboarding(page, /\/beta\?next=%2Franked$/);
+  // Skipping ends on the list: a waitlisted account never sees the send-off,
+  // and the destination waits behind it.
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=/);
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page).toHaveURL(/\/beta\?next=%2Franked$/);
   await expect(
     page.getByRole('heading', { name: `You're on the list, @${username}` }),
   ).toBeVisible();

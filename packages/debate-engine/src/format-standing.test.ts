@@ -63,11 +63,11 @@ const withoutSegment = (key: string): FormatDefinition => ({
   },
 });
 
-/** A private custom definition's standing against the Value basis. */
+/** A custom definition's standing against the Value basis. */
 const customStanding = (definition: FormatDefinition) =>
   formatStanding({
     active: active(oneOnOneSettings, {
-      formatId: 'private-format',
+      formatId: 'custom-format',
       definition,
     }),
     basis: basis(),
@@ -167,12 +167,12 @@ describe('formatStanding', () => {
     });
     assert({
       given:
-        'a private custom definition that compiles exactly like its standard basis',
+        'a custom definition that compiles exactly like its standard basis',
       should:
         'be Custom because its identity differs, without claiming a speech or seat change',
       actual: formatStanding({
         active: active(oneOnOneSettings, {
-          formatId: 'private-format',
+          formatId: 'custom-format',
           formatVersion: 1,
         }),
         basis: basis(),

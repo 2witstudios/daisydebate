@@ -77,25 +77,43 @@ describe('DaisyStep', () => {
 });
 
 describe('StylesStep', () => {
-  test('three styles and the Freestyle draw', () => {
+  test('three ranked ladders and the custom format', () => {
     const page = text(render(StylesStep));
     assert({
       given: 'the second step',
       should:
-        'distinguish advance resolutions from the alternating five-resolution draw',
+        'present Freestyle, Policy and Value as ranked ladders and custom debates as unranked',
       actual: [
         '2 of 6',
-        'Three ways to debate',
-        'All three run the same round: same speeches, same clock, same judges.',
+        'Ranked ladders and custom formats',
+        'each have a ladder',
+        'The topic is a surprise: five resolutions are drawn',
+        'strike them in turn until one is left',
         'Schools should ban smartphones during the school day.',
         'Privacy ought to be valued above public safety.',
-        'Five resolutions are drawn at the table.',
-        'Neg strikes first',
-        '20 minutes of prep after',
-        'Cities should make public transit free to ride.',
-        'You debate',
+        'Want your own rules? Host a custom debate',
+        'Practice or compete, just not ranked.',
       ].map((line) => page.includes(line)),
-      expected: Array(10).fill(true),
+      expected: Array(9).fill(true),
+    });
+  });
+
+  test('ladder order and the one Unranked label', () => {
+    const page = text(render(StylesStep));
+    assert({
+      given: 'the second step',
+      should:
+        'list Freestyle before Policy and Value, with no badge on the ladders and one Unranked card',
+      actual: [
+        page.indexOf('Freestyle') < page.indexOf('Policy'),
+        page.indexOf('Policy') < page.indexOf('Value'),
+        (page.match(/Ranked ladder(?!s)/g) ?? []).length,
+        page.split('Unranked').length - 1,
+        page.includes('Three ways to debate'),
+        page.includes('A Freestyle draw'),
+        page.includes('set ahead of time'),
+      ],
+      expected: [true, true, 0, 1, false, false, false],
     });
   });
 });

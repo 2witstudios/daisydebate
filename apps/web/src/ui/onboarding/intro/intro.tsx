@@ -34,9 +34,9 @@ export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
         Debate is a competitive sport. Now anyone can compete: no tournament, no
         travel, no weekend required.
       </p>
-      <ol className="flex flex-col gap-4">
+      <ol className="grid grid-cols-3 gap-6 max-narrow:grid-cols-1 max-narrow:gap-4">
         {steps.map(([title, detail], index) => (
-          <li key={title} className="flex gap-4">
+          <li key={title} className="flex gap-3">
             <span
               className={cn(
                 marker,
