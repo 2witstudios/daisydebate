@@ -11,7 +11,7 @@ import { HeroPhoto } from '../hero-banner/hero-photo';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
 const primaryClass = `${buttonClass('primary')} no-underline hover:no-underline`;
-const secondaryClass = `${buttonClass('secondary')} no-underline hover:no-underline`;
+const secondaryClass = `${buttonClass('on-media')} no-underline hover:no-underline`;
 
 /**
  * A member's Home hero: the way back into their Room while they hold one,

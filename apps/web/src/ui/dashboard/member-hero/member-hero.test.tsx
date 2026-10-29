@@ -65,4 +65,22 @@ describe('MemberHero', () => {
       expected: [true, []],
     });
   });
+
+  test('gives its secondary action an opaque surface over the photograph', () => {
+    const html = renderToStaticMarkup(
+      <MemberHero username="ada-byron" activeRoom={null} />,
+    );
+    const newRoomTag =
+      /<a [^>]*href="\/play\/room"[^>]*>/.exec(html)?.[0] ?? '';
+    assert({
+      given: 'a member hero laid over the Home photograph',
+      should:
+        'style New room on the raised surface, not the transparent outline that reads dark-on-dark',
+      actual: [
+        /\bbg-surface-raised\b/.test(newRoomTag),
+        /\bbg-transparent\b/.test(newRoomTag),
+      ],
+      expected: [true, false],
+    });
+  });
 });
