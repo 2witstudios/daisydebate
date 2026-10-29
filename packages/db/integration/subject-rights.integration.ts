@@ -311,6 +311,9 @@ test('exporting a member includes their competitive record and nothing of anothe
           row.draw_id,
           row.actor_id,
         ]),
+        peerStrikeExported: ids(exported.room_resolution_strikes).includes(
+          otherStrike,
+        ),
         leaksOtherMember: JSON.stringify(exported).includes(other.actorId),
       },
       expected: {
@@ -321,6 +324,7 @@ test('exporting a member includes their competitive record and nothing of anothe
         ratingActors: [subject.actorId],
         changeActors: [subject.actorId],
         strikes: [[subjectStrike, subject.actorId]],
+        peerStrikeExported: false,
         leaksOtherMember: false,
       },
     });
