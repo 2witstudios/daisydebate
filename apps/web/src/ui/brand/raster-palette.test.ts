@@ -10,7 +10,7 @@ test('raster colors stay pinned to the shipped theme', () => {
     paper: '--surface-raised',
     ink: '--text',
     muted: '--text-muted',
-    petal: '--sage',
+    petal: '--mark-diagonal',
     bloom: '--mark-cardinal',
     disc: '--yolk',
   } as const;

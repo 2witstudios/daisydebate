@@ -12,7 +12,7 @@ export const rasterPalette = {
     paper: '#182a20',
     ink: '#f5f0e4',
     muted: '#b4c2ae',
-    petal: '#a7c09c',
+    petal: '#f5f0e4',
     bloom: '#f5f0e4',
     disc: '#f2c14e',
   },
