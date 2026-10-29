@@ -191,7 +191,10 @@ COPY --chown=root:root apps/admin/next.config.ts apps/admin/next.config.ts
 COPY --from=admin-build --chown=root:root /app/apps/admin/.next .next
 # Root executes the supervisor and its imports. The app must never be able
 # to rewrite those files/dependencies or any ancestor on the next restart.
-RUN mkdir -p .next/cache && chown daisy:daisy .next/cache
+# Bun installs executable package entrypoints with mode 0777. COPY chown
+# does not clear those write bits or repair pre-existing destination owners.
+RUN chown -R root:root /app && chmod -R go-w /app \
+  && mkdir -p .next/cache && chown daisy:daisy .next/cache
 ENV ADMIN_PORT=8080
 ENV ADMIN_HOST=127.0.0.1
 CMD ["bash", "src/server/private-ingress.sh"]

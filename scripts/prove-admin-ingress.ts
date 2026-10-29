@@ -76,7 +76,9 @@ try {
     '/app/apps/admin/.next/cache/*',
   ]);
   if (writable !== '')
-    throw new Error('App can rewrite root-executed code or dependencies');
+    throw new Error(
+      `App can rewrite root-executed code or dependencies (paths only):\n${writable}`,
+    );
   docker([
     'exec',
     '--user',
