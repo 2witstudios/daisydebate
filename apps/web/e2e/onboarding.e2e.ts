@@ -117,7 +117,7 @@ test('Skip finishes onboarding from any step and lands on the last step', async 
   await page.goto('/onboarding/daisy?next=%2Franked');
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)ranked$/);
-  await page.getByRole('link', { name: 'Go to home' }).click();
+  await page.getByRole('link', { name: 'Enter the lobby' }).click();
   await expect(page).toHaveURL(/\/ranked$/);
 });
 
@@ -164,7 +164,7 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
-  await page.getByRole('link', { name: 'Go to home' }).click();
+  await page.getByRole('link', { name: 'Enter the lobby' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 });
 

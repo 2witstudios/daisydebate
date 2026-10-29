@@ -6,15 +6,15 @@ const choose = (page: Page, label: string) =>
 
 /**
  * The whole flow after the passkey offer: three intro steps, the three
- * questionnaire steps saved one by one, and the last step showing both
- * ways into a first debate and the saved answers. onboarding.e2e.ts runs
- * it with JavaScript and journey-no-js.e2e.ts without.
+ * questionnaire steps saved one by one, and the last step's simple send-off
+ * to the lobby. onboarding.e2e.ts runs it with JavaScript and
+ * journey-no-js.e2e.ts without.
  */
 export const walkOnboarding = async (page: Page) => {
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
   await expect(
     page.getByRole('heading', {
-      name: 'Debate is self-defense for free speech.',
+      name: /wait for a tournament to compete/i,
     }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
@@ -45,17 +45,9 @@ export const walkOnboarding = async (page: Page) => {
 
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
   await expect(
-    page.getByRole('link', { name: /Debate a bot/ }),
-  ).toHaveAttribute('href', '/coming-soon/train');
+    page.getByRole('heading', { name: /you're ready/i }),
+  ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: /Debate a real person/ }),
-  ).toHaveAttribute('href', '/play');
-  for (const answer of [
-    'Debate, Watch',
-    'On my own',
-    'Debated in class or a club',
-    'One-on-one',
-    'Ethics, Law',
-  ])
-    await expect(page.getByText(answer, { exact: true })).toBeVisible();
+    page.getByRole('link', { name: 'Enter the lobby' }),
+  ).toHaveAttribute('href', '/lobby');
 };

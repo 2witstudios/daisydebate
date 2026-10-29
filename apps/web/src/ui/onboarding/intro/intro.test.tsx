@@ -28,6 +28,14 @@ const text = (html: string) =>
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ');
 
+/** The h1's own text, with its inline highlight span flattened into it. */
+const headline = (html: string) =>
+  (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#x27;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const hrefs = (html: string) =>
   [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1] as string);
 
@@ -38,12 +46,15 @@ describe('WhyStep', () => {
       given: 'the first step',
       should: 'state the headline and the three pillars with their lines',
       actual: [
-        page.includes('Debate is self-defense for free speech.'),
-        page.includes('Learn Research the motion before you argue it.'),
+        headline(render(WhyStep)) ===
+          `You don't have to wait for a tournament to compete.`,
         page.includes(
-          'Reason Build a case, then defend it under cross-examination.',
+          'Any time A competitive round fits into an evening, not a weekend.',
         ),
-        page.includes('Communicate Argue it out live with a real person.'),
+        page.includes('Anyone No club or bracket needed. Sign up and debate.'),
+        page.includes(
+          "Real Real opponents, real stakes: a judge's written verdict decides every round.",
+        ),
       ],
       expected: [true, true, true, true],
     });
@@ -64,40 +75,29 @@ describe('WhyStep', () => {
 });
 
 describe('DaisyStep', () => {
-  test('the five steps and the draw', () => {
+  test('the three steps', () => {
     const html = render(DaisyStep);
     const page = text(html);
-    const order = [
-      'Watch the orientation',
-      'Join a debate',
-      'Prep the resolution',
-      'Debate Live',
-      'Climb the ladder',
-    ].map((title) => page.indexOf(title));
+    const order = ['Join a debate', 'Debate', 'Climb the ladders'].map(
+      (title) => page.indexOf(title),
+    );
     assert({
       given: 'how Daisy works',
-      should: 'list the five steps in order',
+      should: 'list the three steps in order',
       actual: order.every((at, index) => at > (order[index - 1] ?? -1)),
       expected: true,
     });
     assert({
-      given: 'no orientation video yet',
-      should: 'offer it as a sample action, never a placeholder',
+      given: 'no orientation video and three ladders at launch',
+      should:
+        'offer no video and no strike lesson: striking belongs to each format',
       actual: [
         page.includes('Play the orientation'),
-        html.includes('did=Play'),
-        page.includes('['),
+        html.includes('did='),
+        page.includes('strike'),
+        page.includes('three ladders — one per format'),
       ],
-      expected: [true, true, false],
-    });
-    assert({
-      given: 'the resolution draw',
-      should: 'strike four motions and leave one to debate',
-      actual: [
-        (html.match(/<del /g) ?? []).length,
-        page.includes('This house would ban homework Debating'),
-      ],
-      expected: [4, true],
+      expected: [false, false, false, true],
     });
   });
 });

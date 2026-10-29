@@ -20,13 +20,13 @@ export const changeEmail = async (page: Page, newEmail: string) => {
 
 /**
  * Skips the onboarding flow the passkey offer leads into: Skip on the
- * first step, then Go to home on the last, landing on the destination.
+ * first step, then Enter the lobby on the last, landing on the destination.
  */
 export const skipOnboarding = async (page: Page, destination: RegExp) => {
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=/);
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=/);
-  await page.getByRole('link', { name: 'Go to home' }).click();
+  await page.getByRole('link', { name: 'Enter the lobby' }).click();
   await expect(page).toHaveURL(destination);
 };
 
