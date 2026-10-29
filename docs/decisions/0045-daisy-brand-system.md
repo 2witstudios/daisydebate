@@ -164,6 +164,11 @@ BRAND-2.1 builds these lockups. The rules are fixed here.
   only carrier of meaning.
 - The brand is generated in code: parametric TypeScript produces SVG,
   React renders it, and Next's `ImageResponse` rasterises the icons.
+  The share canvas uses the same geometry with inline style objects required
+  by Satori. This is raster-only markup, never browser HTML: the gated
+  foundation sheet embeds the generated PNGs. Its one-file, time-bounded
+  `inline-style` policy exception does not change ADR 0028's browser styling
+  rules or the CSP. Static raster colours are pinned to CSS tokens by test.
 - Where each graphic may appear is in the usage guide.
 
 ### 6. Brand sheet previews

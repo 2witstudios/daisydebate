@@ -27,6 +27,15 @@
       "category": "tooling",
       "owner": "platform",
       "reason": "The lint contract fixture intentionally names forbidden ambient APIs."
+    },
+    {
+      "path": "apps/web/src/ui/brand/share-canvas.tsx",
+      "adr": "docs/decisions/0045-daisy-brand-system.md",
+      "reviewBy": "2027-01-29",
+      "rule": "inline-style",
+      "category": "framework",
+      "owner": "brand",
+      "reason": "Next ImageResponse/Satori requires inline style objects. This pure canvas is rasterized server-side only; browser previews embed PNGs and retain the strict CSP. Colors are pinned to stylesheet tokens by raster-palette.test.ts."
     }
   ]
 }
