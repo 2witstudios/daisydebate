@@ -45,7 +45,11 @@ function MemberPlaces({
   );
 }
 
-/** The foot's account item: a member's profile, or a visitor's way in. */
+/**
+ * The account row at the top of the rail: a member's profile, avatar and
+ * username (the username shows when extended and has the row's full width),
+ * or a visitor's way in.
+ */
 function AccountItem({
   account,
   extended,
@@ -76,9 +80,14 @@ function AccountItem({
         href={profileHref(account.username)}
         aria-label={`Your profile, ${account.username}`}
         title="Profile"
-        className="flex size-nav-target items-center justify-center rounded-round no-underline hover:bg-surface-overlay hover:no-underline"
+        className={navItemClass(false, extended)}
       >
         <Avatar name={account.username} presence={viewerStatus} size="md" />
+        {extended ? (
+          <span className="min-w-0 truncate max-rail:sr-only">
+            {account.username}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
@@ -94,9 +103,9 @@ export type RailProps = {
 
 /**
  * The one navigation rail on every shell page, beside the page: the logo,
- * the launched destinations and a member's messages, notifications (once
- * launched) and friends at the top; More, the profile (or a visitor's way
- * in) and the rail toggle pinned to the foot of the viewport. Extended (the
+ * the account row (profile or a visitor's way in), the launched destinations
+ * and a member's messages, notifications (once launched) and friends at the
+ * top; More and the rail toggle pinned to the foot of the viewport. Extended (the
  * default), each destination's name shows beside its icon and the toggle
  * offers Minimize; mini is icons only with names as screen-reader text and
  * a tooltip, and the toggle offers Expand. Below the rail breakpoint CSS
@@ -133,6 +142,7 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
             extended && 'w-full items-stretch max-rail:items-center',
           )}
         >
+          <AccountItem account={account} extended={extended} />
           {primaryDestinations.map((item) => (
             <li key={item.label}>
               <NavItem {...item} extended={extended} />
@@ -155,7 +165,6 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
               extended={extended}
             />
           </li>
-          <AccountItem account={account} extended={extended} />
         </ul>
         <form action={toggleRail} className="max-rail:hidden">
           <button

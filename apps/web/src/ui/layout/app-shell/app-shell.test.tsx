@@ -89,12 +89,12 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, launched destinations and member places at the top, More and the profile at the foot', () => {
+  test('the rail: logo, the profile, launched destinations and member places at the top, More at the foot', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations, Messages and Friends, then More and the profile at the foot',
+        'link home from the logo, then the profile, the launched destinations, Messages and Friends, then More at the foot',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -105,6 +105,7 @@ describe('AppShell', () => {
         true,
         [
           '/',
+          '/profile/ada-byron',
           '/',
           '/lobby',
           '/leaderboard',
@@ -113,7 +114,6 @@ describe('AppShell', () => {
           '/friends',
           '/settings',
           '/settings',
-          '/profile/ada-byron',
         ],
       ],
     });
@@ -138,16 +138,29 @@ describe('AppShell', () => {
     const foot = rail.slice(rail.lastIndexOf('<ul'));
     assert({
       given: "a member's rail",
-      should: 'pin More and the profile to the foot without a border above',
+      should: 'pin More to the foot without a border above',
       actual: [
         foot.includes('href="/settings"'),
-        foot.includes('aria-label="Your profile, ada-byron"'),
+        foot.includes('Your profile'),
         foot.includes('border-t'),
-        foot.indexOf('href="/settings"') <
-          foot.indexOf('aria-label="Your profile, ada-byron"'),
         /class="[^"]*\bbottom-0\b/.test(foot),
       ],
-      expected: [true, true, false, true, true],
+      expected: [true, false, false, true],
+    });
+  });
+
+  test("a member's extended rail shows the username beside the avatar at the top", () => {
+    const [rail] = navs(render(member));
+    const top = rail.slice(0, rail.lastIndexOf('<ul'));
+    assert({
+      given: "a member's extended rail",
+      should: 'show the username as the profile row, at the top of the rail',
+      actual: [
+        /<span class="[^"]*truncate[^"]*">ada-byron<\/span>/.test(top),
+        top.indexOf('aria-label="Your profile, ada-byron"') <
+          top.indexOf('href="/lobby"'),
+      ],
+      expected: [true, true],
     });
   });
 
