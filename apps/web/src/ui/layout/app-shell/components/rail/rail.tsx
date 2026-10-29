@@ -184,7 +184,7 @@ export function Rail({ account, rail, toggleRail }: RailProps) {
           className={cn(
             'flex items-center no-underline hover:no-underline',
             extended
-              ? 'h-nav-target w-full gap-2 px-2 text-md font-strong text-forest max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0'
+              ? 'h-nav-target w-full gap-2 px-2 text-md font-strong text-ink max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0'
               : 'size-nav-target justify-center',
           )}
         >
