@@ -17,7 +17,7 @@ const cta =
 export function ReadyStep({ homeHref }: ReadyStepProps) {
   return (
     <OnboardingFrame step={null} titleId="onboarding-title">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-6 text-center">
         <h1
           id="onboarding-title"
           tabIndex={-1}
@@ -25,13 +25,12 @@ export function ReadyStep({ homeHref }: ReadyStepProps) {
         >
           {`You're ready`}
         </h1>
-        <p className="text-md text-ink-muted">
+        <p className="max-w-reading text-md text-ink-muted">
           Everything is set up. The lobby is where debates start. Jump in
           whenever you like.
         </p>
-      </div>
-      <div className="flex flex-col gap-3">
-        <Link href={homeHref} className={cta}>
+
+        <Link href={homeHref} className={`${cta} mt-2`}>
           Enter the lobby
         </Link>
         <p className="text-base text-ink-muted">

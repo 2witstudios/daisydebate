@@ -97,7 +97,8 @@ test('a new member walks onboarding with JavaScript and the answers stay saved',
   await page.getByRole('button', { name: 'Not now' }).click();
   await walkOnboarding(page);
 
-  // Edit reopens a step with the saved answers ticked.
+  // Settings reopens a step with the saved answers ticked.
+  await page.goto('/settings');
   await page.getByRole('link', { name: 'Edit topics' }).click();
   await expect(page.getByRole('checkbox', { name: 'Law' })).toBeChecked();
   await expect(
