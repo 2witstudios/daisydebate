@@ -63,18 +63,35 @@ describe('AppShell', () => {
     assert({
       given: "a member's rail served extended and served mini",
       should:
-        'carry every name as text at rail widths in extended and as screen-reader text in mini, with the toggle offering Minimize and Expand',
+        'carry every destination name as text at rail widths in extended and as screen-reader text in mini, with the icon-only toggle named Minimize or Expand and More named only for screen readers',
       actual: [
         extended.includes('<span class="max-rail:sr-only">Home</span>'),
+        extended.includes('<span class="sr-only">More</span>'),
         extended.includes('<span class="max-rail:sr-only">More</span>'),
         extended.includes('<form'),
+        extended.includes('aria-label="Minimize"'),
         extended.includes('<span class="max-rail:sr-only">Minimize</span>'),
         mini.includes('<span class="sr-only">Messages</span>'),
         mini.includes('max-rail:sr-only'),
-        mini.includes('<span class="sr-only">Expand</span>'),
+        mini.includes('aria-label="Expand"'),
         mini.includes('type="submit"'),
       ],
-      expected: [true, true, true, true, true, false, true, true],
+      expected: [true, true, false, true, true, false, true, false, true, true],
+    });
+  });
+
+  test('the logo carries the Daisy Debate wordmark beside it in extended, and only the mark in mini', () => {
+    const [extended] = navs(render(member));
+    const [mini] = navs(render(member, null, 'mini'));
+    assert({
+      given: "a member's rail served extended and served mini",
+      should:
+        'show the wordmark next to the logo in extended and hide it below the rail breakpoint, and show only the mark in mini',
+      actual: [
+        extended.includes('<span class="max-rail:hidden">Daisy Debate</span>'),
+        mini.includes('<span class="hidden">Daisy Debate</span>'),
+      ],
+      expected: [true, true],
     });
   });
 
@@ -94,7 +111,7 @@ describe('AppShell', () => {
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations, Messages and Friends, then More and the profile at the foot',
+        'link home from the logo, then the launched destinations, Messages and Friends, then the profile and More at the foot',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -111,9 +128,9 @@ describe('AppShell', () => {
           '/judge',
           '/messages',
           '/friends',
-          '/settings',
-          '/settings',
           '/profile/ada-byron',
+          '/settings',
+          '/settings',
         ],
       ],
     });
@@ -133,21 +150,22 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail foot is a plain group, with no divider above it', () => {
+  test('the rail foot is one row above a divider: the profile, then More and the toggle as icon buttons', () => {
     const [rail] = navs(render(member));
     const foot = rail.slice(rail.lastIndexOf('<ul'));
     assert({
-      given: "a member's rail",
-      should: 'pin More and the profile to the foot without a border above',
+      given: "a member's extended rail",
+      should:
+        'pin the foot above a divider, with the profile on the left and More then the toggle on the right, More flying out upward',
       actual: [
-        foot.includes('href="/settings"'),
-        foot.includes('aria-label="Your profile, ada-byron"'),
         foot.includes('border-t'),
+        foot.indexOf('aria-label="Your profile, ada-byron"') <
+          foot.indexOf('href="/settings"'),
         foot.indexOf('href="/settings"') <
-          foot.indexOf('aria-label="Your profile, ada-byron"'),
+          foot.indexOf('aria-label="Minimize"'),
         /class="[^"]*\bbottom-0\b/.test(foot),
       ],
-      expected: [true, true, false, true, true],
+      expected: [true, true, true, true],
     });
   });
 
@@ -164,7 +182,7 @@ describe('AppShell', () => {
           '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
         ),
         rail.includes('aria-label="Your profile, ada-byron"'),
-        rail.includes('<span class="max-rail:sr-only">More</span>'),
+        rail.includes('<span class="sr-only">More</span>'),
         ['/help', '/terms', '/privacy'].every((href) =>
           rail.includes(`href="${href}"`),
         ),
@@ -190,6 +208,22 @@ describe('AppShell', () => {
         ),
       ],
       expected: [true, true, true, true, false],
+    });
+  });
+
+  test('a visitor’s way in takes its own full-width row, with More and the toggle on the row below', () => {
+    const [visitor] = navs(render());
+    const foot = visitor.slice(visitor.lastIndexOf('<ul'));
+    assert({
+      given: 'an anonymous visitor on the extended rail',
+      should:
+        'let the way-in wrap onto its own full-width row, so its label never shares a row with the 44px controls, and push More and the toggle to the right of the row below',
+      actual: [
+        /<ul class="[^"]*\bflex-wrap\b/.test(foot),
+        /<li class="w-full"><a [^>]*href="\/sign-in"/.test(foot),
+        /<li class="ml-auto">/.test(foot),
+      ],
+      expected: [true, true, true],
     });
   });
 
