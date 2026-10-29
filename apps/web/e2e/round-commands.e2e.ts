@@ -271,17 +271,17 @@ for (const javaScriptEnabled of [false, true])
       await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
         '',
       );
-      await expect(form.getByLabel('Resolution', { exact: true })).toHaveValue(
-        'value',
-      );
+      await expect(
+        form.getByRole('combobox', { name: 'Resolution', exact: true }),
+      ).toHaveValue('value');
       await form
         .getByLabel('Room name', { exact: true })
         .fill('A genuinely fresh Room');
       await form
-        .getByLabel('Resolution', { exact: true })
+        .getByRole('combobox', { name: 'Resolution', exact: true })
         .selectOption('custom');
       const applyResolution = form.getByRole('button', {
-        name: 'Apply resolution choice',
+        name: 'Apply resolution',
         exact: true,
       });
       if (await applyResolution.count()) await applyResolution.click();

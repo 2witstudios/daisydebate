@@ -287,7 +287,7 @@ test('actual Room device checks gate human Ready, withdrawal and durable Launch'
   await proveHumanLaunch(browser, info);
 });
 
-test('catalog dialog previews real speech defaults and commits the selected template through native creation', async ({
+test('Custom library previews real speech defaults and commits the selected template without JavaScript', async ({
   browser,
 }) => {
   await proveFormatPicker(browser);
