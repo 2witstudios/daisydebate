@@ -8,6 +8,8 @@ import { privateGroupsOffered } from '../../../lib/request-session';
 import type { SearchParams } from '../../../features/access/decision';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
+import { buttonClass } from '../../../ui/components/button/button-class';
+import { InboxEmpty } from '../../../ui/messaging/inbox-empty';
 import { InboxRow } from '../../../ui/messaging/inbox-row';
 import { RetainedConversationList } from '../../../ui/messaging/retained-list';
 import { GET } from '../../api/messaging/inbox/route';
@@ -53,14 +55,27 @@ export default async function MessagesPage({
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
         title="Messages"
-        actions={<Link href="/lobby">Back to lobby</Link>}
+        actions={
+          <>
+            <Link href="/messages/new" className={buttonClass('primary')}>
+              New message
+            </Link>
+            <Link href="/lobby" className={buttonClass('ghost')}>
+              Back to lobby
+            </Link>
+          </>
+        }
       />
-      <nav aria-label="Start a conversation" className="flex gap-4">
-        <Link href="/messages/new">Message someone</Link>
+      <nav
+        aria-label="Messaging tools"
+        className="flex flex-wrap gap-x-6 gap-y-2 text-sm"
+      >
         {privateGroupsOffered() ? (
-          <Link href="/messages/new?kind=group">Create private group</Link>
+          <Link href="/messages/new?kind=group" className="font-strong">
+            Create private group
+          </Link>
         ) : null}
-        <Link href="/messages/contacts" className="text-accent hover:underline">
+        <Link href="/messages/contacts" className="font-strong">
           Contact safety
         </Link>
       </nav>
@@ -73,17 +88,30 @@ export default async function MessagesPage({
           snapshotId={systemId.next()}
         >
           {inbox.entries.length === 0 ? (
-            <p className="text-ink-muted">
-              {inbox.nextAfter === null && params.after === undefined
-                ? 'No conversations yet. Message someone to start one.'
-                : 'No conversations or requests on this page.'}
-            </p>
+            inbox.nextAfter === null && params.after === undefined ? (
+              <InboxEmpty />
+            ) : (
+              <p className="text-ink-muted">
+                No conversations or requests on this page.
+              </p>
+            )
           ) : (
-            <ul aria-label="Conversations" className="flex flex-col gap-3">
-              {inbox.entries.map((entry) => (
-                <InboxRow key={entry.channelId} entry={entry} now={now} />
-              ))}
-            </ul>
+            <section
+              aria-labelledby="conversations-heading"
+              className="flex flex-col gap-3"
+            >
+              <h2
+                id="conversations-heading"
+                className="text-sm font-semibold text-ink-muted"
+              >
+                Conversations
+              </h2>
+              <ul aria-label="Conversations" className="flex flex-col gap-3">
+                {inbox.entries.map((entry) => (
+                  <InboxRow key={entry.channelId} entry={entry} now={now} />
+                ))}
+              </ul>
+            </section>
           )}
           {inbox.nextAfter ? (
             <Link
