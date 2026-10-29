@@ -45,7 +45,12 @@ test('published Policy and Value resolutions are authoritative immutable records
     assert({
       given: 'the forward Season 1 publication migration',
       should: 'retire prior records without rewriting their wording',
-      actual: old.map((row) => [row.text, row.retired_at !== null]),
+      actual: old.map(
+        (row: { readonly text: string; readonly retired_at: Date | null }) => [
+          row.text,
+          row.retired_at !== null,
+        ],
+      ),
       expected: [
         [
           'The United States federal government should substantially increase its investment in high-speed rail.',
