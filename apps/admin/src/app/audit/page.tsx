@@ -44,32 +44,34 @@ function UnknownCommands({
 
 function EventsTable({ rows }: { readonly rows: readonly AuditRow[] }) {
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Seq</th>
-          <th>When (UTC)</th>
-          <th>Event</th>
-          <th>Command</th>
-          <th>Outcome</th>
-          <th>Detail</th>
-          <th>Operator</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.seq}>
-            <td>{row.seq}</td>
-            <td>{row.at}</td>
-            <td>{row.kind}</td>
-            <td>{row.commandId ?? ''}</td>
-            <td>{row.outcome ?? ''}</td>
-            <td>{row.detail ?? ''}</td>
-            <td>{row.operatorId ?? ''}</td>
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th className="numeric">Seq</th>
+            <th>When (UTC)</th>
+            <th>Event</th>
+            <th>Command</th>
+            <th>Outcome</th>
+            <th>Detail</th>
+            <th>Operator</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.seq}>
+              <td className="numeric">{row.seq}</td>
+              <td className="muted">{row.at}</td>
+              <td>{row.kind}</td>
+              <td className="mono">{row.commandId ?? ''}</td>
+              <td>{row.outcome ?? ''}</td>
+              <td className="muted">{row.detail ?? ''}</td>
+              <td className="muted">{row.operatorId ?? ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -79,7 +81,7 @@ export default async function AuditPage({
   readonly searchParams: Promise<{ readonly before?: string }>;
 }) {
   const { operator, allowed } = await requireOperator('audit.read');
-  const nav = <OperatorNav name={operator.displayName} />;
+  const nav = <OperatorNav name={operator.displayName} current="audit" />;
   if (!allowed)
     return (
       <>
@@ -104,22 +106,31 @@ export default async function AuditPage({
   return (
     <>
       {nav}
-      <h1>Audit</h1>
-      <p
-        className={badge.ok ? 'badge-ok' : 'badge-bad'}
-        data-testid="chain-badge"
-      >
-        {badge.text}
-      </p>
-      <h2>Unknown outcomes</h2>
-      <UnknownCommands commands={unknown} />
-      <h2>Events</h2>
-      <EventsTable rows={rows} />
-      {rows.length === pageSize && oldest !== undefined && oldest > 1 ? (
-        <p>
-          <a href={`/audit?before=${oldest}`}>Older events</a>
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Operator actions</p>
+          <h1>Audit</h1>
+        </div>
+        <p
+          className={badge.ok ? 'badge-ok' : 'badge-bad'}
+          data-testid="chain-badge"
+        >
+          {badge.text}
         </p>
-      ) : null}
+      </div>
+      <section className="section">
+        <h2>Unknown outcomes</h2>
+        <UnknownCommands commands={unknown} />
+      </section>
+      <section className="section">
+        <h2>Events</h2>
+        <EventsTable rows={rows} />
+        {rows.length === pageSize && oldest !== undefined && oldest > 1 ? (
+          <p>
+            <a href={`/audit?before=${oldest}`}>Older events</a>
+          </p>
+        ) : null}
+      </section>
     </>
   );
 }

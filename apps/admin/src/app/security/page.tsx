@@ -58,26 +58,28 @@ function SectionTable({
     <>
       <h2>{section.title}</h2>
       {rows.length === 0 ? (
-        <p>None in this window.</p>
+        <p className="muted">None in this window.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              {section.columns.map((column) => (
-                <th key={column.key}>{column.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={index}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
                 {section.columns.map((column) => (
-                  <td key={column.key}>{row[column.key] ?? '—'}</td>
+                  <th key={column.key}>{column.label}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={index}>
+                  {section.columns.map((column) => (
+                    <td key={column.key}>{row[column.key] ?? '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );
@@ -150,7 +152,7 @@ export default async function SecurityPage({
   readonly searchParams: Promise<Readonly<Record<string, unknown>>>;
 }) {
   const { operator, allowed } = await requireOperator('security.read');
-  const nav = <OperatorNav name={operator.displayName} />;
+  const nav = <OperatorNav name={operator.displayName} current="security" />;
   if (!allowed)
     return (
       <>
@@ -164,7 +166,12 @@ export default async function SecurityPage({
     return (
       <>
         {nav}
-        <h1>Security</h1>
+        <div className="page-head">
+          <div>
+            <p className="eyebrow">Log views</p>
+            <h1>Security</h1>
+          </div>
+        </div>
         <p role="status">
           The log store is not configured (CLICKHOUSE_URL and
           CLICKHOUSE_READER_PASSWORD).
@@ -180,9 +187,14 @@ export default async function SecurityPage({
   return (
     <>
       {nav}
-      <h1>Security</h1>
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Log views</p>
+          <h1>Security</h1>
+        </div>
+      </div>
       <CoverageBanner read={coverage} now={now} />
-      <nav aria-label="Security views">
+      <nav aria-label="Security views" className="tabs">
         {securityViews.map((view) => (
           <Link
             key={view}
@@ -193,7 +205,7 @@ export default async function SecurityPage({
           </Link>
         ))}
       </nav>
-      <form method="get" action="/security">
+      <form method="get" action="/security" className="toolbar">
         <input type="hidden" name="view" value={query.view} />
         <label>
           Window{' '}
