@@ -87,31 +87,33 @@ describe('StylesStep', () => {
         '2 of 6',
         'Ranked ladders and custom formats',
         'each have a ladder',
-        'Five resolutions are drawn at the table.',
+        'The topic is a surprise: five resolutions are drawn',
+        'strike them in turn until one is left',
         'Schools should ban smartphones during the school day.',
         'Privacy ought to be valued above public safety.',
         'Want your own rules? Host a custom debate',
         'Practice or compete, just not ranked.',
       ].map((line) => page.includes(line)),
-      expected: Array(8).fill(true),
+      expected: Array(9).fill(true),
     });
   });
 
-  test('ladder order and ranked labels', () => {
+  test('ladder order and the one Unranked label', () => {
     const page = text(render(StylesStep));
     assert({
       given: 'the second step',
       should:
-        'list Freestyle before Policy and Value, mark exactly three ranked ladders and one unranked card',
+        'list Freestyle before Policy and Value, with no badge on the ladders and one Unranked card',
       actual: [
         page.indexOf('Freestyle') < page.indexOf('Policy'),
         page.indexOf('Policy') < page.indexOf('Value'),
-        page.match(/Ranked ladder(?!s)/g)?.length,
+        (page.match(/Ranked ladder(?!s)/g) ?? []).length,
         page.split('Unranked').length - 1,
         page.includes('Three ways to debate'),
         page.includes('A Freestyle draw'),
+        page.includes('set ahead of time'),
       ],
-      expected: [true, true, 3, 1, false, false],
+      expected: [true, true, 0, 1, false, false, false],
     });
   });
 });

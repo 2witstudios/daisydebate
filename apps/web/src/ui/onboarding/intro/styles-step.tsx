@@ -6,20 +6,20 @@ const ladders = [
   [
     'Freestyle',
     'Parli-style, on the spot.',
-    'Five resolutions are drawn at the table. Strike in turn until one is left.',
-    'Drawn and struck at the table',
+    'The topic is a surprise: five resolutions are drawn and you strike them in turn until one is left.',
+    'Topic revealed at the table',
   ],
   [
     'Policy',
     '“Schools should ban smartphones during the school day.”',
-    'What we should do, set ahead of time.',
-    'Resolution known in advance',
+    'Argue whether we should take an action.',
+    'Topic known in advance',
   ],
   [
     'Value',
     '“Privacy ought to be valued above public safety.”',
-    'What we believe, set ahead of time.',
-    'Resolution known in advance',
+    'Argue which value matters more.',
+    'Topic known in advance',
   ],
 ] as const;
 
@@ -42,14 +42,9 @@ export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
             key={name}
             className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-4"
           >
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-xl font-semibold text-ink">
-                {name}
-              </h2>
-              <span className={`${pill} bg-accent text-accent-ink`}>
-                Ranked ladder
-              </span>
-            </div>
+            <h2 className="font-display text-xl font-semibold text-ink">
+              {name}
+            </h2>
             <p className="font-display text-sm leading-normal text-ink-muted italic">
               {quote}
             </p>
