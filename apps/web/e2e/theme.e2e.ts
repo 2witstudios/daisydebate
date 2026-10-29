@@ -19,10 +19,6 @@ const watchForProblems = async (page: Page) => {
   const problems: string[] = [];
   page.on('console', (message) => {
     if (message.type() !== 'error') return;
-    // No favicon ships yet; headed/branded Chromium requests it and 404s.
-    const source = message.location().url;
-    if (URL.canParse(source) && new URL(source).pathname === '/favicon.ico')
-      return;
     problems.push(message.text());
   });
   page.on('pageerror', (error) => problems.push(error.message));

@@ -160,3 +160,7 @@ export async function requestRoundRatings(
       identity.state === 'member' ? identity.principal.actorId : null,
   });
 }
+
+/** Canonical deployment URL, never derived from a caller-controlled Host. */
+export const requestMetadataBase = (): URL =>
+  new URL(processApp().config.PUBLIC_APP_URL);

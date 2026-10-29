@@ -33,6 +33,9 @@ const config: NextConfig = {
     '@daisy/errors',
     '@daisy/auth',
   ],
+  async rewrites() {
+    return [{ source: '/favicon.ico', destination: '/icon' }];
+  },
   async headers() {
     return [
       {

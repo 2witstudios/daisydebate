@@ -7,7 +7,10 @@ import {
   parseThemePreference,
   THEME_COOKIE,
 } from '../ui/theme/theme-preference';
-import { sessionRefreshDueNow } from '../lib/request-session';
+import {
+  requestMetadataBase,
+  sessionRefreshDueNow,
+} from '../lib/request-session';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
 import './globals.css';
 
@@ -27,10 +30,15 @@ const display = Fraunces({
   axes: ['SOFT', 'WONK', 'opsz'],
 });
 
-export const metadata: Metadata = {
-  title: { default: 'Daisy Debate', template: '%s · Daisy Debate' },
-  description: 'Competitive debate, structured like chess.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    metadataBase: requestMetadataBase(),
+    openGraph: { type: 'website', siteName: 'Daisy Debate' },
+    twitter: { card: 'summary_large_image' },
+    title: { default: 'Daisy Debate', template: '%s · Daisy Debate' },
+    description: 'Competitive debate, structured like chess.',
+  };
+}
 
 export default async function RootLayout({
   children,
