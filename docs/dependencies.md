@@ -183,8 +183,10 @@ multiarch image `tailscale/tailscale:v1.104.4`, pinned to manifest digest
 Only the admin serving image uses it. It runs userspace networking with a
 persistent root-owned state volume, interactive one-time login and private
 HTTPS Serve. Debian `ca-certificates` supports TLS and `util-linux` supplies
-`mountpoint`/`setpriv`; the app retains uid/gid daisy. No JS dependency or
-additional validation/state library is introduced.
+`mountpoint`/`setpriv`; the app retains uid/gid daisy. The root deploy-target CLI declares the existing Zod 4.6.6 directly, rather
+than relying on a transitive install; no second validation/state library is
+introduced. Version-matched bundled Zod source (`src/v4/classic/schemas.ts`)
+and package README were read before this direct declaration.
 
 Version-matched official source read 2026-10-29:
 [daemon flags](https://github.com/tailscale/tailscale/blob/v1.104.4/cmd/tailscaled/tailscaled.go),
