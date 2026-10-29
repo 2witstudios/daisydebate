@@ -1,3 +1,4 @@
+import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   canReadRound,
   canReadTranscript,
@@ -156,3 +157,29 @@ export const readBallotAs = (
     authorize: (r, a) => canReadRound(caller, r, a),
     authorizeTranscript: (r, a) => canReadTranscript(caller, r, a),
   });
+
+/** A real human submission against its exact current Round version and freeze. */
+export async function submitHumanBallot(
+  f: RoomFixture,
+  roundId: string,
+  actorId: string,
+  freezeRevision: number,
+  ballot: Ballot,
+) {
+  const round = (await f.store.getRound(roundId))!;
+  const judge = round.participants.find(
+    (p) => p.actorId === actorId && p.role === 'judge',
+  )!;
+  return createRoundBallotOperations({
+    store: f.store,
+    nextBallotId: createId,
+    nextSegmentId: createId,
+  }).submit({ kind: 'human', actorId }, roundId, {
+    version: 1,
+    commandId: createId(),
+    expectedVersion: round.version,
+    judgeParticipantId: judge.id,
+    freezeRevision,
+    ballot,
+  });
+}

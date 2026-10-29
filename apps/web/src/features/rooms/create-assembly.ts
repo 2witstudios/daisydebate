@@ -55,6 +55,19 @@ export async function createAssembly(
   } catch {
     return { kind: 'invalid' };
   }
+  if (
+    field(form, 'competition') === 'ranked' &&
+    selection &&
+    typeof selection === 'object' &&
+    'kind' in selection &&
+    selection.kind === 'catalog'
+  ) {
+    const { formatId, formatVersion, presetVersion } = selection as Record<
+      string,
+      unknown
+    >;
+    selection = { kind: 'ranked', formatId, formatVersion, presetVersion };
+  }
   const parsed = roomCreateSchema.safeParse({
     commandId: field(form, 'commandId'),
     title: field(form, 'title'),

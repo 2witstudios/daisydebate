@@ -3,19 +3,12 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import type { PrivacyVerificationBinding } from '../src/privacy';
+import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
 import { withFixture } from './constraint-helpers';
 const { databaseUrl } = requireTestServices(process.env);
 export const now = '2026-10-09T18:00:00.000Z';
-export const bindings: readonly PrivacyVerificationBinding[] = [
-  { purpose: 'sign-in', subject: 'email' },
-  { purpose: 'email-change-approve', subject: 'userId' },
-  { purpose: 'email-change-verify', subject: 'userId' },
-  {
-    jsonTypes: ['registration', 'authentication'],
-    subjectPath: ['userData', 'id'],
-  },
-];
+/** The production bindings, so the proof deletes exactly what erasure deletes. */
+export const bindings = subjectRightsVerificationBindings;
 export async function withPrivacySubject(
   run: (input: {
     client: SQL;

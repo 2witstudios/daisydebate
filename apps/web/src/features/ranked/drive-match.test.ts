@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { driveMatch, screenFor } from './drive-match';
+import { screenFor } from './drive-match';
+import { driveMatch } from './drive.test-support';
 import { defaultRankedQuery } from './ranked-query';
 import { testSources } from './ranked.test-support';
 

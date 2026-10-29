@@ -1,14 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { PROVISIONAL_AFTER, rankEntries } from './standing';
-import { entry } from './standing.test-support';
+import { rankRatingEntries } from '../ratings/rank';
+import { entry } from '../ratings/standing.test-support';
 
 setupRitewayBun();
 
-describe('rankEntries', () => {
+describe('rankRatingEntries', () => {
   test('ranks established debaters only, in rating order', () => {
-    const ranked = rankEntries([
+    const ranked = rankRatingEntries([
       entry({ id: 'a', rating: 1500 }),
-      entry({ id: 'p', rating: 1800, played: PROVISIONAL_AFTER - 1 }),
+      entry({ id: 'p', rating: 1800, deviation: 200 }),
       entry({ id: 'b', rating: 1600 }),
     ]);
     assert({
@@ -27,7 +27,7 @@ describe('rankEntries', () => {
     assert({
       given: 'two debaters with the same rating',
       should: 'order them by id so the ranks are stable',
-      actual: rankEntries([
+      actual: rankRatingEntries([
         entry({ id: 'b', rating: 1500 }),
         entry({ id: 'a', rating: 1500 }),
       ]).map((row) => row.id),
@@ -36,9 +36,9 @@ describe('rankEntries', () => {
   });
 
   test('derived fields', () => {
-    const [top, prov] = rankEntries([
+    const [top, prov] = rankRatingEntries([
       entry({ id: 'a', rating: 1720, played: 20, wins: 15 }),
-      entry({ id: 'p', rating: 1400, played: 4, wins: 1 }),
+      entry({ id: 'p', rating: 1400, played: 4, deviation: 200, wins: 1 }),
     ]);
     assert({
       given: 'an established and a provisional entry',
@@ -59,7 +59,7 @@ describe('rankEntries', () => {
       entry({ id: 'b', rating: 1 }),
       entry({ id: 'a', rating: 2 }),
     ];
-    rankEntries(input);
+    rankRatingEntries(input);
     assert({
       given: 'an input array',
       should: 'not reorder the caller’s array',

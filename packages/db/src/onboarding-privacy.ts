@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
 import {
   memberInterests,
@@ -31,8 +32,10 @@ export const onboardingPrivacyAdopter: PrivacyAdopter = {
     member_topics: (await tx.execute(
       sql`select user_id,topic from ${memberTopics} where user_id=${subject.userId} order by topic`,
     )) as unknown as Record<string, unknown>[],
-    member_onboarding: (await tx.execute(
-      sql`select user_id,club,experience,formats,completed_at,created_at,updated_at,version from ${memberOnboarding} where user_id=${subject.userId}`,
-    )) as unknown as Record<string, unknown>[],
+    member_onboarding: exportRows(
+      (await tx.execute(
+        sql`select user_id,club,experience,formats,completed_at,created_at,updated_at,version from ${memberOnboarding} where user_id=${subject.userId}`,
+      )) as unknown as Record<string, unknown>[],
+    ),
   }),
 };

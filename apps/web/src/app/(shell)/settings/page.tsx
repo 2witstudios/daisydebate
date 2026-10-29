@@ -6,6 +6,7 @@ import {
   parseSettingsQuery,
 } from '../../../features/settings/preferences';
 import { requireAccess } from '../../../lib/access';
+import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
 import {
   requestIdentity,
   requestOnboardingAnswers,
@@ -28,6 +29,7 @@ export default async function SettingsRoute({
 }) {
   await requireAccess('/settings', searchParams);
   const identity = await requestIdentity();
+  const query = await searchParams;
   // ISSUE-324: optional answers only where they are asked (16+, ISSUE-645).
   const [admitted, ownAnswers] = await Promise.all([
     requestOptionalAnswersAdmitted(),
@@ -38,7 +40,8 @@ export default async function SettingsRoute({
     <SettingsPage
       username={claimedUsername(identity)}
       preferences={getPreferences()}
-      saved={parseSettingsQuery(await searchParams)}
+      saved={parseSettingsQuery(query)}
+      dataRightsNotices={parseDataRightsQuery(query)}
       profileAction={saveProfileAction}
       notificationsAction={saveNotificationsAction}
       privacyAction={savePrivacyAction}

@@ -8,12 +8,16 @@
  * claiming every suite in the workspace's integration folder.
  */
 import { constants } from 'node:os';
+import { relative, resolve } from 'node:path';
 import { RedisClient, SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
 import { sweepIdleNamespaces } from '@daisy/redis/namespaces';
 import { deleteAllKeysWithoutExpiry } from './redis-whole-database';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 import { superviseRun, withRunDatabase } from './test-run-database';
+import { selectShard } from './integration-shards';
+import timings from './integration-timings.json';
+import { recordIntegrationReceipt } from './integration-receipts';
 
 export const INTEGRATION_RUNNER = 'bun ../../scripts/test-integration.ts';
 
@@ -176,12 +180,44 @@ async function rowCounts(databaseUrl: string): Promise<RowCounts> {
 }
 
 if (import.meta.main) {
+  const started = performance.now();
   const suites = discoverSuites('.');
   if (suites.length === 0) {
     process.stderr.write('test-integration: no suites under integration/\n');
     process.exit(1);
   }
-  const { files, rest } = withSelectedSuites(suites, process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const shard = process.env.DAISY_INTEGRATION_SHARD;
+  if (shard !== undefined && args.length > 0)
+    throw new Error('Cannot combine integration sharding with test arguments');
+  const selected = withSelectedSuites(suites, args);
+  const workspace = relative(resolve(import.meta.dir, '..'), process.cwd());
+  const durations = Object.fromEntries(
+    Object.entries(timings.durationsMs).map(([file, ms]) => [
+      relative(workspace, file),
+      ms,
+    ]),
+  );
+  const files = selectShard(selected.files, shard, durations);
+  const rest = selected.rest;
+  const record = () => {
+    if (shard !== undefined)
+      recordIntegrationReceipt(process.env.DAISY_INTEGRATION_RECEIPTS, {
+        workspace,
+        shard,
+        files,
+        elapsedMs: Math.round(performance.now() - started),
+      });
+  };
+  process.stdout.write(
+    `test-integration: ${workspace} shard ${shard ?? 'all'}: ${files.length}/${suites.length} suites\n`,
+  );
+  // Small workspaces need not contribute to every shard. Discovery and shard
+  // validation already succeeded; no database or Redis cleanup runs here.
+  if (files.length === 0) {
+    record();
+    process.exit(0);
+  }
   const { databaseUrl, redisUrl } = requireTestSlotServices(process.env);
   // ISSUE-237: whatever a crashed, killed or timed-out run left in this
   // slot's test Redis database goes first, so no run pays for an earlier one.
@@ -262,5 +298,9 @@ if (import.meta.main) {
       );
     },
   });
+  process.stdout.write(
+    `test-integration: ${workspace} shard ${shard ?? 'all'}: ${files.length} suites, ${Math.round(performance.now() - started)} ms, exit ${code}\n`,
+  );
+  if (code === 0) record();
   process.exit(code);
 }

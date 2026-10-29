@@ -45,6 +45,9 @@ function CommandForm({
       <input type="hidden" name="access" value={access} />
       <button
         type="submit"
+        className={
+          state === 'approved' ? 'button-primary button-small' : 'button-small'
+        }
         aria-label={`${verb} ${account.username ?? account.userId}`}
       >
         {verb}
@@ -62,43 +65,47 @@ function AccountsTable({
 }) {
   if (page.items.length === 0) return <p>No {access} accounts.</p>;
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Signed up (UTC)</th>
-          <th>Decided (UTC)</th>
-          <th>Revision</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {page.items.map((account) => (
-          <tr key={account.userId}>
-            <td>{account.username ?? '—'}</td>
-            <td>{account.requestedAt}</td>
-            <td>{account.decidedAt ?? '—'}</td>
-            <td>{account.accessRevision}</td>
-            <td>
-              {account.accessState === 'approved' ? null : (
-                <CommandForm
-                  account={account}
-                  access={access}
-                  state="approved"
-                />
-              )}
-              {account.accessState === 'revoked' ? null : (
-                <CommandForm
-                  account={account}
-                  access={access}
-                  state="revoked"
-                />
-              )}
-            </td>
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Signed up (UTC)</th>
+            <th>Decided (UTC)</th>
+            <th className="numeric">Revision</th>
+            <th>Actions</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {page.items.map((account) => (
+            <tr key={account.userId}>
+              <th scope="row">{account.username ?? '—'}</th>
+              <td className="muted">{account.requestedAt}</td>
+              <td className="muted">{account.decidedAt ?? '—'}</td>
+              <td className="numeric">{account.accessRevision}</td>
+              <td>
+                <div className="row-actions">
+                  {account.accessState === 'approved' ? null : (
+                    <CommandForm
+                      account={account}
+                      access={access}
+                      state="approved"
+                    />
+                  )}
+                  {account.accessState === 'revoked' ? null : (
+                    <CommandForm
+                      account={account}
+                      access={access}
+                      state="revoked"
+                    />
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -108,7 +115,15 @@ export default async function AccountsPage({
   readonly searchParams: Promise<Readonly<Record<string, unknown>>>;
 }) {
   const { operator, allowed } = await requireOperator('accounts.read');
-  const nav = <OperatorNav name={operator.displayName} />;
+  const nav = <OperatorNav name={operator.displayName} current="accounts" />;
+  const heading = (
+    <div className="page-head">
+      <div>
+        <p className="eyebrow">Beta access</p>
+        <h1>Accounts</h1>
+      </div>
+    </div>
+  );
   if (!allowed)
     return (
       <>
@@ -122,8 +137,10 @@ export default async function AccountsPage({
     return (
       <>
         {nav}
-        <h1>Accounts</h1>
-        <p role="status">{noticeText('unconfigured', null)}</p>
+        {heading}
+        <p role="status" className="notice">
+          {noticeText('unconfigured', null)}
+        </p>
       </>
     );
   const { open } = await reconcileOpenCommands(commands, operator.id);
@@ -135,13 +152,26 @@ export default async function AccountsPage({
   return (
     <>
       {nav}
-      <h1>Accounts</h1>
+      {heading}
       {query.notice ? (
-        <p role="status" data-testid="command-notice">
+        <p
+          role="status"
+          data-testid="command-notice"
+          className="notice notice-ok"
+        >
           {noticeText(query.notice, query.mail)}
         </p>
       ) : null}
-      <nav aria-label="Beta access">
+      {open > 0 ? (
+        <form action={reconcileAction} className="notice notice-warn">
+          <p>
+            {open} {open === 1 ? 'command has' : 'commands have'} an unknown
+            outcome.
+          </p>
+          <button type="submit">Reconcile</button>
+        </form>
+      ) : null}
+      <nav aria-label="Beta access" className="tabs">
         {accessTabs.map((tab) => (
           <Link
             key={tab}
@@ -152,15 +182,6 @@ export default async function AccountsPage({
           </Link>
         ))}
       </nav>
-      {open > 0 ? (
-        <form action={reconcileAction}>
-          <p>
-            {open} {open === 1 ? 'command has' : 'commands have'} an unknown
-            outcome.
-          </p>
-          <button type="submit">Reconcile</button>
-        </form>
-      ) : null}
       {page.kind === 'ok' ? (
         <>
           <AccountsTable page={page.value} access={query.access} />

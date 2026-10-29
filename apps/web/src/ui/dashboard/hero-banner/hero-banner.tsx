@@ -1,7 +1,6 @@
-import Image from 'next/image';
-import { art } from '../../assets';
 import type { RequestLinkAction } from '../../auth/sign-in-flow/sign-in-flow';
 import { HeroJoin } from './hero-join';
+import { HeroPhoto } from './hero-photo';
 
 /**
  * The signed-out landing hero: the owner's copy and a one-email join that
@@ -13,26 +12,7 @@ export function HeroBanner({
   readonly requestLink: RequestLinkAction;
 }) {
   return (
-    <HeroJoin
-      requestLink={requestLink}
-      backdrop={
-        <>
-          <Image
-            src={art.heroRidge.src}
-            alt={art.heroRidge.alt}
-            width={art.heroRidge.width}
-            height={art.heroRidge.height}
-            priority
-            sizes="(max-width: 1100px) 100vw, 1180px"
-            className="absolute inset-0 -z-2 size-full object-cover object-hero-photo brightness-82 saturate-85"
-          />
-          <div
-            className="absolute inset-0 -z-1 scrim-hero"
-            aria-hidden="true"
-          />
-        </>
-      }
-    >
+    <HeroJoin requestLink={requestLink} backdrop={<HeroPhoto />}>
       <h1 className="font-display text-display-sm leading-display font-semibold tracking-display text-balance text-ink-on-media text-shadow-hero-headline max-tiles:text-3xl">
         Better arguments. A more thoughtful world.
       </h1>

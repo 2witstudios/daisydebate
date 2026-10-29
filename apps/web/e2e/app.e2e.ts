@@ -11,7 +11,7 @@ const publicTitles: Record<string, string> = {
 // Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /prep and /train too).
 const guardedTitles: Record<string, string> = {
   '/play': 'Play',
-  '/ranked': 'Ranked',
+  '/ranked': 'Rated debate',
   '/lobby': 'Lobby',
   '/judge': 'Judge',
   '/recordings': 'Recordings',

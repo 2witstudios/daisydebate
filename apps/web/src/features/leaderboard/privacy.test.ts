@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { privacySections, privacySettingRows } from './privacy';
+import { privacySections } from './privacy';
 
 setupRitewayBun();
 
@@ -34,21 +34,6 @@ describe('privacy rows', () => {
         (row) => row.visibility === 'public',
       ),
       expected: false,
-    });
-  });
-});
-
-describe('privacySettingRows', () => {
-  test('rows follow the account answers', () => {
-    assert({
-      given: 'the account on the ladder and then off it',
-      should:
-        'show the one ladder setting as the account has it, and no region setting',
-      actual: [
-        privacySettingRows({ ladder: true }).map((s) => [s.id, s.on]),
-        privacySettingRows({ ladder: false }).map((s) => s.on),
-      ],
-      expected: [[['appear-on-ladder', true]], [false]],
     });
   });
 });

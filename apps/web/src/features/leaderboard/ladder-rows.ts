@@ -1,12 +1,12 @@
 import { debaterHref, type LadderQuery, type LadderStatus } from './query';
 import type { Change, LadderRow, LadderViewer } from './ladder-view';
 import { isClosed, type Season } from './season';
-import type { LadderEntry, RankedEntry } from './standing';
+import type { RatingEntry, RankedRatingEntry } from '../ratings/rank';
 
 /** Rows shown either side of the viewer in "Around me". */
 const AROUND = 5;
 
-const change = (entry: LadderEntry, closed: boolean): Change => {
+const change = (entry: RatingEntry, closed: boolean): Change => {
   const amount = closed ? entry.seasonChange : entry.weekChange;
   if (amount === 0) return { kind: 'flat', amount: 0 };
   return { kind: amount > 0 ? 'up' : 'down', amount: Math.abs(amount) };
@@ -14,15 +14,15 @@ const change = (entry: LadderEntry, closed: boolean): Change => {
 
 const needle = (q: string): string => q.toLowerCase().replace(/^@/, '');
 
-export const matchesSearch = (entry: RankedEntry, q: string): boolean =>
+export const matchesSearch = (entry: RankedRatingEntry, q: string): boolean =>
   q === '' || entry.username.toLowerCase().includes(needle(q));
 
 /** The entries that satisfy the status filter and the search. */
 export const applyFilters = (
-  ranked: readonly RankedEntry[],
+  ranked: readonly RankedRatingEntry[],
   query: LadderQuery,
   status: LadderStatus,
-): readonly RankedEntry[] =>
+): readonly RankedRatingEntry[] =>
   ranked.filter(
     (entry) =>
       (status === 'everyone' ||
@@ -38,14 +38,17 @@ export type RowContext = {
   readonly season: Season;
   readonly query: LadderQuery;
   readonly viewer: LadderViewer | null;
-  readonly mine: RankedEntry | undefined;
+  readonly mine: RankedRatingEntry | undefined;
 };
 
 /**
  * One entry as a row. A judged debater's numbers never leave this function,
  * so no screen can show them by mistake.
  */
-export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
+export function toRow(
+  entry: RankedRatingEntry,
+  context: RowContext,
+): LadderRow {
   const { query, viewer, mine } = context;
   const masked = (viewer?.blinded ?? []).includes(entry.username);
   const base = {
@@ -71,8 +74,8 @@ export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
   return {
     ...base,
     rank: entry.rank,
-    rating: entry.rating,
-    range: 2 * entry.deviation,
+    rating: Math.round(entry.rating),
+    range: Math.round(2 * entry.deviation),
     provisional: entry.provisional,
     wins: entry.wins,
     losses: entry.losses,
@@ -84,9 +87,9 @@ export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
 
 /** The eleven-row window around the viewer, and its note. */
 export function aroundWindow(
-  ranked: readonly RankedEntry[],
-  mine: RankedEntry,
-): { readonly shown: readonly RankedEntry[]; readonly note: string } {
+  ranked: readonly RankedRatingEntry[],
+  mine: RankedRatingEntry,
+): { readonly shown: readonly RankedRatingEntry[]; readonly note: string } {
   const window = ranked.filter((entry) => !entry.provisional || entry === mine);
   const at = window.indexOf(mine);
   const shown = window.slice(Math.max(0, at - AROUND), at + AROUND + 1);

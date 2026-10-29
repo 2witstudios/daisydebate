@@ -51,6 +51,8 @@ async function fixture(
   const sql = new SQL(services.databaseUrl),
     client = createBoundedTestClient(services.redisUrl),
     namespace = testNamespace(createId());
+  // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
+  await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
     url: services.databaseUrl,

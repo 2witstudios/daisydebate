@@ -68,7 +68,7 @@ occupied by a human or an AI do not create different round types.
 (`ranked | casual`; casual is the one unranked type, DEC-233) and `ladder_id`, the one
 authority for ratedness. Every Round is full length (DEC-237), so there is no length
 column. The selected ladder pools are Freestyle, Policy and Value
-([ADR 0090](0090-three-rating-ladders.md), DEC-265; implementation pending).
+([ADR 0090](0090-three-rating-ladders.md), DEC-265).
 
 ### 2. Three-layer identity
 
@@ -334,7 +334,7 @@ leaves, and the PageSpace boundary remains open.
   prevent.
 - **`role_grants` stays unread.** Scoped grants and a membership primitive remain a separate
   ADR. Clubs are a social layer over rounds, structurally excluded from competitive pairing
-  because `ratingScope` is `(actor, format, season, ladder)` with no social input.
+  because `ratingScope` is `(actor, ladder, season)` with no social input.
   `'coach'` is a demand signal in `wantChoices`, stored correctly in `member_interests`;
   interest is not capability, and no coach table is warranted.
 - **Account erasure must delete documents explicitly.** `users` keeps its tombstone row, so

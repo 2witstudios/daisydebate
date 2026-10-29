@@ -31,6 +31,9 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
+  requestLadder: async () => null,
+  requestRoundRatings: async () => null,
+  requestMemberStandings: async () => [],
   privateGroupsOffered: () => false,
   // Settings reads the member's own onboarding answers (ISSUE-324); a
   // visitor has none admitted.

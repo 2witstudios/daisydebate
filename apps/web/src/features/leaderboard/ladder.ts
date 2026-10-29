@@ -16,7 +16,7 @@ import {
 import type { LadderQuery } from './query';
 import type { LadderStatus } from './query';
 import { isClosed, type Season } from './season';
-import { rankEntries, type RankedEntry } from './standing';
+import { rankRatingEntries, type RankedRatingEntry } from '../ratings/rank';
 
 type Empty = LadderView['empty'];
 
@@ -33,12 +33,12 @@ const emptyKind = (
 type Paging = {
   readonly page: number;
   readonly pageCount: number;
-  readonly slice: readonly RankedEntry[];
+  readonly slice: readonly RankedRatingEntry[];
 };
 
 /** One page of the table; the around-me window is a single fixed page. */
 function paginate(
-  shown: readonly RankedEntry[],
+  shown: readonly RankedRatingEntry[],
   fixed: boolean,
   requested: number,
 ): Paging {
@@ -53,7 +53,7 @@ function paginate(
 }
 
 const provisionalHitsFor = (
-  ranked: readonly RankedEntry[],
+  ranked: readonly RankedRatingEntry[],
   query: LadderQuery,
   status: string,
 ): number =>
@@ -71,10 +71,10 @@ type Visible = Paging & {
 
 /** Which entries show, on which page, and whether the podium leads. */
 function visibleRows(
-  ranked: readonly RankedEntry[],
+  ranked: readonly RankedRatingEntry[],
   query: LadderQuery,
   status: LadderStatus,
-  mine: RankedEntry | undefined,
+  mine: RankedRatingEntry | undefined,
   quiet: boolean,
 ): Visible {
   const window =
@@ -102,7 +102,7 @@ export function buildLadder(
   viewer: LadderViewer | null,
 ): LadderView {
   const { season } = data;
-  const ranked = rankEntries(data.entries);
+  const ranked = rankRatingEntries(data.entries);
   const established = ranked.filter((entry) => !entry.provisional).length;
   const early = isEarly(season, established);
   const status =
@@ -112,7 +112,7 @@ export function buildLadder(
   const filtered = hasFilters(query);
   const visible = visibleRows(ranked, query, status, mine, !filtered && !early);
   const provisionalHits = provisionalHitsFor(ranked, query, status);
-  const row = (entry: RankedEntry) => toRow(entry, context);
+  const row = (entry: RankedRatingEntry) => toRow(entry, context);
   const lead = visible.podium ? 3 : 0;
 
   return {

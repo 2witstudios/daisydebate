@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { renderNavItem } from './nav-item.render';
 import type { IconName } from '../icon/icon';
 import type { NavItemChild } from './nav-item.render';
+import type { NavFlyoutAlign } from './nav-item-class';
 
 export type NavItemProps = {
   readonly href: string;
@@ -14,6 +15,8 @@ export type NavItemProps = {
   readonly subItems?: readonly NavItemChild[] | undefined;
   /** Other routes that belong to this item without a link of their own. */
   readonly alsoActive?: readonly string[] | undefined;
+  /** Which way its flyout opens; a link at the foot opens upward. */
+  readonly flyoutAlign?: NavFlyoutAlign | undefined;
   readonly badge?: ReactNode;
 };
 
@@ -49,6 +52,7 @@ export function NavItem({
   title,
   subItems,
   alsoActive,
+  flyoutAlign,
   badge,
 }: NavItemProps) {
   // The URL is the single source of truth for the active route, so
@@ -62,6 +66,7 @@ export function NavItem({
     title,
     active: itemActive(pathname, href, subItems, alsoActive),
     subItems,
+    flyoutAlign,
     badge,
   });
 }

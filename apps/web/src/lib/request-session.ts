@@ -1,3 +1,7 @@
+import { createAppError } from '@daisy/errors';
+import { readLadder } from '../features/leaderboard/read-leaderboard';
+import { readMemberStandings } from '../features/ratings/read-member';
+import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
@@ -111,3 +115,48 @@ export const requestMemberProfile = async (
       query,
     },
   );
+
+/** Process binding for the public ladder and its signed-in blinding context. */
+export async function requestLadder(input: {
+  readonly seasonId: string | null;
+  readonly ladder: import('@daisy/protocol').RatingLadder;
+  readonly now: string;
+}) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  return readLadder(processApp().database, {
+    ...input,
+    username: identity.state === 'member' ? identity.username : null,
+    ...(identity.state === 'member' && identity.principal.actorId
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
+}
+
+export async function requestMemberStandings(username: string) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  const app = processApp();
+  return readMemberStandings(app.database, {
+    username,
+    now: app.clock.now(),
+    ...(identity.state === 'member' && identity.principal.actorId
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
+}
+
+/** The renderer supplies a Round it already read under its audience policy. */
+export async function requestRoundRatings(
+  round: import('@daisy/protocol').RoundView,
+) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  const app = processApp();
+  return readRoundRatings(app.database, {
+    round,
+    now: app.clock.now(),
+    viewerActorId:
+      identity.state === 'member' ? identity.principal.actorId : null,
+  });
+}

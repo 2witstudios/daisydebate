@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../cn';
-import { buttonClass } from './button-class';
+import { buttonClass, type ButtonVariant } from './button-class';
 
 export type ButtonProps = {
-  readonly variant?: 'primary' | 'secondary' | 'ghost';
+  readonly variant?: ButtonVariant;
   readonly children: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 

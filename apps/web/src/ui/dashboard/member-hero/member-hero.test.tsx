@@ -51,18 +51,36 @@ describe('MemberHero', () => {
     });
   });
 
-  test('a raised page card, not the forest stage', () => {
+  test('keeps the Home photograph, not the forest stage', () => {
     const html = renderToStaticMarkup(
       <MemberHero username="ada-byron" activeRoom={null} />,
     );
     assert({
       given: 'the member hero (ADR 0069: the stage is for video)',
-      should: 'draw on the raised surface with no stage colour',
+      should: 'lay the Home photograph under the hero with no stage colour',
       actual: [
-        /<section class="[^"]*\bbg-surface-raised\b/.test(html),
+        /<img\b[^>]*\bobject-hero-photo\b/.test(html),
         stageColourClasses(html),
       ],
       expected: [true, []],
+    });
+  });
+
+  test('gives its secondary action an opaque surface over the photograph', () => {
+    const html = renderToStaticMarkup(
+      <MemberHero username="ada-byron" activeRoom={null} />,
+    );
+    const newRoomTag =
+      /<a [^>]*href="\/play\/room"[^>]*>/.exec(html)?.[0] ?? '';
+    assert({
+      given: 'a member hero laid over the Home photograph',
+      should:
+        'style New room on the raised surface, not the transparent outline that reads dark-on-dark',
+      actual: [
+        /\bbg-surface-raised\b/.test(newRoomTag),
+        /\bbg-transparent\b/.test(newRoomTag),
+      ],
+      expected: [true, false],
     });
   });
 });

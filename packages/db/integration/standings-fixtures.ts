@@ -36,7 +36,7 @@ export const completed = async (
 ) => {
   const id = createId();
   // A ranked round is constructed from a sanctioned preset, so it pins one.
-  await fixture.preset(input.formatId);
+
   await fixture.insert('rounds', {
     id,
     room_id: null,
@@ -50,7 +50,7 @@ export const completed = async (
     status: 'completed',
     current_stage: null,
     outcome: input.outcome,
-    ladder_id: 'ranked',
+    ladder_id: input.formatId,
     started_at: at(5, 11),
     completed_at: at(5),
   });
@@ -103,7 +103,6 @@ export const rating = (
     'ratings',
     {
       actor_id: row.actorId,
-      format_id: row.formatId,
       season_id: row.seasonId,
       ladder: row.ladder,
       rating: row.rating,
@@ -112,17 +111,3 @@ export const rating = (
     },
     'actor_id',
   );
-
-/**
- * A named format. A ranked round is constructed from a sanctioned preset
- * (ADR 0058 §4), so a fixture that needs one calls `preset` against the
- * format this returns; ranked eligibility belongs to the preset, not here.
- */
-export const formatNamed = async (fixture: Fixture, name: string) => {
-  const id = await fixture.format();
-  await fixture.sql.unsafe('update formats set name = $2 where id = $1', [
-    id,
-    name,
-  ]);
-  return id;
-};

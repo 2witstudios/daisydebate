@@ -41,6 +41,7 @@ const view = {
   version: 3,
   status: 'active',
   competitionType: 'ranked',
+  ladderId: 'freestyle',
   topic: 'A topic',
   visibility: 'public',
   config: plainRoomConfig,

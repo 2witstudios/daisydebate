@@ -90,6 +90,7 @@ describe('CI quick prerequisite topology', () => {
       'audit',
       'migrations',
       'integration',
+      'integration-coverage',
     ];
     assert({
       given: 'the terminal CI gate',
@@ -99,9 +100,9 @@ describe('CI quick prerequisite topology', () => {
     });
     const command = gate.steps?.[0]?.run ?? 'exit 99';
     for (const job of required) {
-      const results = ['failure', 'cancelled', 'skipped', 'success'].map(
+      const results = ['failure', 'cancelled', 'skipped', '', 'success'].map(
         (state) =>
-          Bun.spawnSync(['sh', '-c', command], {
+          Bun.spawnSync(['bash', '-c', command], {
             env: {
               ...process.env,
               RESULTS: required
@@ -111,10 +112,10 @@ describe('CI quick prerequisite topology', () => {
           }).exitCode,
       );
       assert({
-        given: `${job} failure, cancellation, skipping, then success`,
+        given: `${job} failure, cancellation, skipping, missing result, then success`,
         should: 'only accept all-success using the actual gate shell',
         actual: results,
-        expected: [1, 1, 1, 0],
+        expected: [1, 1, 1, 1, 0],
       });
     }
   });

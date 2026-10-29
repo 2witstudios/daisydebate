@@ -83,7 +83,6 @@ describe('checkbox forms', () => {
       expected: {
         ok: true,
         value: {
-          ladder: false,
           analytics: false,
           replay: false,
         },

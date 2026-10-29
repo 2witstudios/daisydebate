@@ -4,11 +4,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
 import { parseLadderQuery } from '../../../features/leaderboard/query';
-import {
-  readDebater,
-  readLadder,
-} from '../../../features/leaderboard/read-leaderboard';
-import { requestIdentity } from '../../../lib/request-session';
+import { requestLadder } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
@@ -20,10 +16,20 @@ export default async function LeaderboardPage({
   searchParams: Promise<SearchParams>;
 }) {
   const query = parseLadderQuery(await searchParams);
-  const identity = await requestIdentity();
-  const username = identity.state === 'member' ? identity.username : null;
   const now = systemClock.now();
-  const { data, viewer } = readLadder(query.season, now, username);
+  const read = await requestLadder({
+    seasonId: query.season,
+    ladder: query.ladder,
+    now,
+  });
+  if (!read)
+    return (
+      <div className="p-6">
+        <h1>Leaderboard</h1>
+        <p>No season is active.</p>
+      </div>
+    );
+  const { data, viewer } = read;
   const view = buildLadder(data, query, viewer);
   const detail =
     query.debater === null
@@ -31,7 +37,7 @@ export default async function LeaderboardPage({
       : buildDetail(
           query.debater,
           data.season,
-          readDebater(query.debater, data.season.id, now, username),
+          read.debater(query.debater),
           query,
           viewer,
         );

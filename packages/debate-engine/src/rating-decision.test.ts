@@ -10,7 +10,7 @@ const at = '2026-10-05T12:00:00.000Z';
 
 const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladderId: 'ranked',
+  ladderId: 'freestyle',
   status: 'completed',
   outcome: 'affirmative',
   completedAt: at,
@@ -25,7 +25,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility(completed),
       expected: {
         kind: 'rated',
-        ladder: 'ranked',
+        ladder: 'freestyle',
         outcome: 'affirmative',
         occurredAt: at,
       },
@@ -39,7 +39,7 @@ describe('ratingEligibility', () => {
       }),
       expected: {
         kind: 'rated',
-        ladder: 'ranked',
+        ladder: 'freestyle',
         outcome: 'draw',
         occurredAt: at,
       },
@@ -119,7 +119,7 @@ const plan = (
   overrides: Partial<Parameters<typeof planRating>[0]> = {},
 ) =>
   planRating({
-    ladder: 'ranked',
+    ladder: 'freestyle',
     outcome: 'affirmative',
     occurredAt: at,
     seasonId: 'season-1',
@@ -143,7 +143,7 @@ describe('planRating', () => {
         'plan one change per side equal to rateDebate, inserting new rows',
       actual: plan({ aff: newcomer, neg: newcomer }),
       expected: {
-        ladder: 'ranked',
+        ladder: 'freestyle',
         seasonId: 'season-1',
         occurredAt: at,
         calculationVersion: 'glicko2-v1',

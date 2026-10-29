@@ -123,3 +123,21 @@ describe('refusalLine', () => {
     });
   });
 });
+
+describe('beta Season 1 activation command', () => {
+  test('has an explicit retry-safe command without a historical start override', () => {
+    assert({
+      given: 'activate-beta at the operator edge',
+      should:
+        'provide a candidate identity but let the database sample actual activation time',
+      actual: parseSeasonCommand(['activate-beta'], edge),
+      expected: { kind: 'activate-beta', id },
+    });
+    assert({
+      given: 'activate-beta with a backdated start',
+      should: 'refuse it',
+      actual: parseSeasonCommand(['activate-beta', '--starts', now], edge).kind,
+      expected: 'usage',
+    });
+  });
+});

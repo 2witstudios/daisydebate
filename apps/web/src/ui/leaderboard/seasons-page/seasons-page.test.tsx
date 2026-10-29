@@ -2,13 +2,13 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from '../../../features/leaderboard/ladder.test-support';
-import { readLadder } from '../../../features/leaderboard/read-leaderboard';
+import { readLadder } from '../../../features/leaderboard/read-leaderboard.test-support';
 import { buildSeasonsView } from '../../../features/leaderboard/seasons';
 import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
 
-const render = (season: number | null, entries?: 'none') => {
+const render = (season: string | null, entries?: 'none') => {
   const data = readLadder(season, NOW, null).data;
   const view = buildSeasonsView(entries ? { ...data, entries: [] } : data, NOW);
   return renderToString(h(SeasonsPage, { view })).replace(/<!-- -->/g, '');
@@ -28,7 +28,7 @@ describe('SeasonsPage', () => {
         html.includes('Standings now'),
         html.match(/<li class="border-t/g)?.length,
         html.includes('id="how-rating-works"'),
-        html.includes('Unranked until 10 ranked debates.'),
+        html.includes('Provisional while rating deviation is above 110.'),
         html.includes('Current season'),
         html.match(/href="\/leaderboard\?season=4"/g)?.length,
       ],
@@ -37,7 +37,7 @@ describe('SeasonsPage', () => {
   });
 
   test('a closed season', () => {
-    const html = render(3);
+    const html = render('3');
     assert({
       given: 'a closed season',
       should:

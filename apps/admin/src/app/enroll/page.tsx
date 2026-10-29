@@ -1,3 +1,4 @@
+import { DaisyMark } from '../operator-nav';
 import { PasskeyCeremony } from '../passkey-ceremony';
 
 export const dynamic = 'force-dynamic';
@@ -5,7 +6,8 @@ export const dynamic = 'force-dynamic';
 /** Rendering consumes nothing: the token stays in the fragment until used. */
 export default function EnrollPage() {
   return (
-    <>
+    <div className="auth">
+      <DaisyMark size={34} />
       <h1>Create your admin passkey</h1>
       <p className="muted">
         This link works once and expires 15 minutes after it was issued.
@@ -17,6 +19,6 @@ export default function EnrollPage() {
           runs.
         </p>
       </noscript>
-    </>
+    </div>
   );
 }

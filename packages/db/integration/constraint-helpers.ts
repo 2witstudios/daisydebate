@@ -271,6 +271,16 @@ export class Fixture {
   }
 
   async purge() {
+    // Predecessor-schema migration proofs deliberately lack these forward tables.
+    const [provenance] = await this
+      .sql`select to_regclass('public.round_finalizations') is not null as present`;
+    if (provenance?.present)
+      for (const roundId of this.tracked.get('rounds') ?? []) {
+        await this
+          .sql`delete from round_finalization_ballots where round_id=${roundId}`;
+        await this
+          .sql`delete from round_finalizations where round_id=${roundId}`;
+      }
     // A round may append canonical phase events through an accepted write.
     // Remove only this fixture's topics before deleting their owning rows.
     for (const roundId of this.tracked.get('rounds') ?? [])

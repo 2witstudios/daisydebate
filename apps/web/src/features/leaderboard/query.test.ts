@@ -30,7 +30,7 @@ describe('parseLadderQuery', () => {
         'every parameter set to a valid value, plus retired band and region filters',
       should: 'parse each one and read no band or region',
       actual: parseLadderQuery({
-        season: '3',
+        season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '  @Debater-A ',
         status: 'everyone',
@@ -42,7 +42,8 @@ describe('parseLadderQuery', () => {
         step: '7',
       }),
       expected: {
-        season: 3,
+        ladder: 'freestyle',
+        season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '@Debater-A',
         status: 'everyone',
@@ -102,7 +103,12 @@ describe('hrefs', () => {
       should: 'link the bare path, then only what differs',
       actual: [
         ladderHref(defaultQuery),
-        ladderHref({ ...defaultQuery, season: 3, status: 'everyone', page: 2 }),
+        ladderHref({
+          ...defaultQuery,
+          season: '3',
+          status: 'everyone',
+          page: 2,
+        }),
       ],
       expected: [
         '/leaderboard',
@@ -114,7 +120,7 @@ describe('hrefs', () => {
   test('filters', () => {
     const query = {
       ...defaultQuery,
-      season: 3,
+      season: '3',
       q: 'abc',
       status: 'everyone',
       page: 2,
@@ -135,7 +141,7 @@ describe('hrefs', () => {
   test('detail, page and scope links', () => {
     const query = {
       ...defaultQuery,
-      season: 3,
+      season: '3',
       view: 'table',
       step: 4,
     } as const;

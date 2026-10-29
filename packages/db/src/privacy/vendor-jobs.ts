@@ -5,6 +5,51 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { privacyVendors, type PrivacyVendor } from './planner';
 
 /** A committed-pool port. Never pass the local erasure transaction here. */
+type Execute = Pick<BunSQLDatabase, 'execute'>;
+
+/** One due pending vendor deletion job, read for delivery. */
+export type DuePrivacyJob = {
+  readonly id: string;
+  readonly vendor: PrivacyVendor;
+  readonly attempts: number;
+};
+
+const MAX_DUE_BATCH = 128;
+
+/**
+ * Every pending vendor deletion job due at `now`, oldest first, bounded
+ * (ADR 0087): the scheduled worker reads a batch, then delivers each row
+ * through `deliverPrivacyJob`, which owns claiming, retry and success.
+ */
+export async function duePrivacyJobs(
+  database: Execute,
+  input: { readonly now: string; readonly limit: number },
+): Promise<readonly DuePrivacyJob[]> {
+  const due = new Date(input.now);
+  if (
+    !Number.isFinite(due.getTime()) ||
+    due.toISOString() !== input.now ||
+    !Number.isSafeInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > MAX_DUE_BATCH
+  )
+    throw createAppError('VALIDATION');
+  const read =
+    (await database.execute(sql`select id, vendor, attempts from privacy_jobs
+    where status = 'pending' and retry_at <= ${input.now}::timestamptz
+    order by retry_at, id limit ${input.limit}`)) as unknown as DuePrivacyJob[];
+  // A row the database checks admit is malformed: refuse before delivery.
+  if (
+    !read.every(
+      (row) =>
+        idSchema.safeParse(row.id).success &&
+        privacyVendors.some((known) => known === row.vendor),
+    )
+  )
+    throw createAppError('VALIDATION');
+  return read;
+}
+
 export async function deliverPrivacyJob(
   database: Pick<BunSQLDatabase, 'execute'>,
   input: {

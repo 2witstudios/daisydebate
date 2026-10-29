@@ -7,6 +7,7 @@ import {
   type SearchParams,
 } from '../../../features/access/decision';
 import { SignIn } from '../../../ui/auth/sign-in/sign-in';
+import { ACCOUNT_CLOSED_QUERY } from '../../../features/account/data-rights/notices-keys';
 import { requestLinkAction } from './actions';
 
 export const metadata: Metadata = {
@@ -25,14 +26,28 @@ export default async function SignInPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { destination, identity } = await readAuthEntry(searchParams);
+  const query = await searchParams;
+  // The erasure handler's fixed answer: the account is closed (ISSUE-833).
+  const closed = query[ACCOUNT_CLOSED_QUERY] === '1';
   // A waitlisted account goes on too: the destination's guard sends it to
   // the beta page when it needs approval (ADR 0075).
   if (claimedUsername(identity) !== null) redirect(destination);
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return (
-    <SignIn
-      destination={destination}
-      requestLink={requestLinkAction.bind(null, destination)}
-    />
+    <>
+      {closed ? (
+        <p role="status" className="px-6 pt-4 text-center text-base text-ink">
+          Your account is closed. Read the{' '}
+          <a href="/privacy" className="underline">
+            privacy policy
+          </a>{' '}
+          for what erasure keeps.
+        </p>
+      ) : null}
+      <SignIn
+        destination={destination}
+        requestLink={requestLinkAction.bind(null, destination)}
+      />
+    </>
   );
 }

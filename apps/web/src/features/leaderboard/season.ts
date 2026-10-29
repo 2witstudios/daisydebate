@@ -1,13 +1,14 @@
 /** A season: one ladder, renewed on a schedule (ADR 0029 `seasons`). */
 export type Season = {
-  readonly id: number;
+  readonly id: string;
+  readonly name: string;
   readonly startsAt: string;
-  readonly endsAt: string;
+  readonly endsAt: string | null;
   readonly status: 'active' | 'closed';
 };
 
-export const seasonLabel = (season: Pick<Season, 'id'>): string =>
-  `Season ${season.id}`;
+export const seasonLabel = (season: Pick<Season, 'name'>): string =>
+  season.name;
 
 export const isClosed = (season: Season): boolean => season.status === 'closed';
 
@@ -23,9 +24,13 @@ export type SeasonProgress = {
 /** How far through its schedule a season is at the injected `now`. */
 export function seasonProgress(season: Season, now: string): SeasonProgress {
   const start = Date.parse(season.startsAt);
+  if (season.endsAt === null) {
+    const day = Math.max(1, Math.floor((Date.parse(now) - start) / DAY_MS) + 1);
+    return { day, length: day, percent: 0 };
+  }
   const length = Math.max(
     1,
-    Math.round((Date.parse(season.endsAt) - start) / DAY_MS),
+    Math.round((Date.parse(season.endsAt ?? now) - start) / DAY_MS),
   );
   const elapsed = Math.floor((Date.parse(now) - start) / DAY_MS);
   const current = Math.min(length, Math.max(1, elapsed + 1));
@@ -38,6 +43,7 @@ export function seasonProgress(season: Season, now: string): SeasonProgress {
 
 /** "Ends in 25 days." or "Ends today." for a live season. */
 export function seasonCountdown(season: Season, now: string): string {
+  if (season.endsAt === null) return '';
   const { day, length } = seasonProgress(season, now);
   const left = length - day;
   if (left === 0) return 'Ends today.';
@@ -66,4 +72,6 @@ const day = (iso: string): string => {
 
 /** "1 Sep 2026 to 29 Sep 2026", always in UTC so server and test agree. */
 export const seasonDates = (season: Season): string =>
-  `${day(season.startsAt)} to ${day(season.endsAt)}`;
+  season.endsAt === null
+    ? `Since ${day(season.startsAt)}`
+    : `${day(season.startsAt)} to ${day(season.endsAt)}`;

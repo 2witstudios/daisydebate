@@ -20,11 +20,10 @@ describe('launch config', () => {
 
   test('opens only the destinations with real screens', () => {
     assert({
-      given: 'the launch config for the unranked beta',
-      should:
-        'open the Lobby and the Judge hub and keep the rest behind explainers',
+      given: 'the launch config for the three-ladder beta',
+      should: 'open rated play, Lobby, Judge and the real leaderboard',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['lobby', 'judge'],
+      expected: ['ranked', 'lobby', 'judge', 'leaderboard'],
     });
   });
 });

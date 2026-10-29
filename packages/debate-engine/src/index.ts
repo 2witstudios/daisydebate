@@ -5,7 +5,12 @@ export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
 export { resolveRoomConfiguration } from './resolve-room-configuration';
 export { ratePeriod } from './glicko2';
-export { rateDebate, ratingPolicy } from './rating';
+export {
+  rateDebate,
+  ratingPolicy,
+  inflateDeviation,
+  isProvisional,
+} from './rating';
 export { planRating, ratingEligibility } from './rating-decision';
 export {
   eraseSeats,
@@ -18,7 +23,7 @@ export { activeRoomMembers, projectActiveRoom } from './room-membership';
 /** Pure transitions the privacy erasure applies under its own authority. */
 export { closeRoom } from './room-consent-transitions';
 export { maintainRoom } from './room-expiry';
-export { deriveRoundOutcome } from './round-outcome';
+export { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
 export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
 export { decideStartHorizon } from './round-start-horizon';

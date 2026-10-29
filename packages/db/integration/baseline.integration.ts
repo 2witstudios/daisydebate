@@ -226,8 +226,8 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
           and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
           and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
-        -- ADR 0075: the beta access audit and operator receipts are append-only.
-        when c.relname in ('account_access_events', 'operator_command_receipts') then
+        -- ADR 0075 / ADR 0090: audit receipts and terminal provenance are append-only.
+        when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')

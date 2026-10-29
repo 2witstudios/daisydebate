@@ -18,6 +18,14 @@ const messaging = [
   'apps/web/src/ui/messaging/',
 ];
 export const browserOwners: Readonly<Record<string, readonly string[]>> = {
+  'rating-entry.e2e.ts': [
+    ...room,
+    ...round,
+    'apps/web/src/features/ratings/',
+    'apps/web/src/features/leaderboard/',
+    'apps/web/src/ui/ranked/',
+    'packages/db/',
+  ],
   'app.e2e.ts': ['apps/web/src/ui/dashboard/'],
   'shell.e2e.ts': ['apps/web/src/ui/shell/'],
   'csp.e2e.ts': auth,

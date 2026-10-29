@@ -42,6 +42,9 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         instanceId,
       });
       const ops = createRoundMaintenanceOperations({
+        ratingFailed: (_id, error) => {
+          throw error;
+        },
         startHorizonMs: ROUND_START_HORIZON_MS,
         probeRoundId: null,
         store: f.store,
@@ -144,6 +147,9 @@ for (const waitAt of ['Round', 'receipt'] as const)
           instanceId,
         });
         const ops = createRoundMaintenanceOperations({
+          ratingFailed: (_id, error) => {
+            throw error;
+          },
           startHorizonMs: ROUND_START_HORIZON_MS,
           probeRoundId: null,
           store: f.store,
