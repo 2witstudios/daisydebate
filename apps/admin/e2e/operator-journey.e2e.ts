@@ -37,7 +37,7 @@ function serverEnv() {
 test('enroll a passkey, sign in, and approve a pending account', async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   const { authenticatorId } = await cdp.send(
@@ -83,7 +83,11 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
   ).toBe(true);
   const pending = page.getByRole('row', { name: /pending-player/ });
   await expect(pending).toContainText('2026-10-25T09:00:00.123456Z');
-  await page.getByRole('button', { name: 'Approve pending-player' }).click();
+  const approve = page.getByRole('button', { name: 'Approve pending-player' });
+  await approve.scrollIntoViewIfNeeded();
+  expect((await approve.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: testInfo.outputPath('mobile-pending.png') });
+  await approve.click();
   await expect(page.getByTestId('command-notice')).toHaveText(
     'Done. Approval email queued.',
   );

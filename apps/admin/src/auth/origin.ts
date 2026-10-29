@@ -1,3 +1,8 @@
+const isHttpsHostname = (url: URL): boolean =>
+  url.protocol === 'https:' &&
+  /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(url.hostname) &&
+  !/^[0-9.]+$/.test(url.hostname);
+
 /** Exact configured origin: request headers never choose the relying party. */
 export function readAdminOrigin(
   value: string | undefined,
@@ -8,15 +13,11 @@ export function readAdminOrigin(
   try {
     const url = new URL(origin);
     const local = origin === 'http://localhost:4800' && mode !== 'production';
-    const https =
-      url.protocol === 'https:' &&
-      /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(url.hostname) &&
-      !/^[0-9.]+$/.test(url.hostname);
     if (
       url.origin !== origin ||
       url.username ||
       url.password ||
-      !(local || https)
+      !(local || isHttpsHostname(url))
     )
       throw new Error('Invalid origin');
     return origin;
