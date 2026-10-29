@@ -3,6 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
@@ -143,8 +144,10 @@ export const accountTermsPrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => ({
-    account_terms: (await tx.execute(
-      sql`select user_id,terms_version,accepted_at from ${accountTerms} where user_id=${subject.userId}`,
-    )) as unknown as Record<string, unknown>[],
+    account_terms: exportRows(
+      (await tx.execute(
+        sql`select user_id,terms_version,accepted_at from ${accountTerms} where user_id=${subject.userId}`,
+      )) as unknown as Record<string, unknown>[],
+    ),
   }),
 };

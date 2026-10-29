@@ -157,4 +157,42 @@ test.describe('with JavaScript off', () => {
     await continueLink.click();
     await expect(page).not.toHaveURL(/\/sign-in/);
   });
+
+  test('the data-rights forms export a download and close the account (ISSUE-833)', async ({
+    page,
+    request,
+  }) => {
+    const { email } = await signUpMember(request);
+    // The page's own jar is a fresh anonymous browser: this member signs in
+    // through the native form, like the other no-JS proofs above.
+    await page.goto('/sign-in?next=%2Flobby');
+    await requestSignInLink(page, email);
+    await confirmSignIn(page, await emailedLink(request, email));
+    await page.goto('/settings#privacy');
+
+    // The export is the download the native form post itself answers.
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download your data' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^daisy-export-.*\.json$/);
+    await expect(page).toHaveURL(/\/settings/);
+
+    // Erasure needs its confirmation: without it, the fixed notice returns.
+    await page.getByRole('button', { name: 'Close your account' }).click();
+    await expect(page).toHaveURL(/privacyErase=confirm$/);
+    await expect(
+      page.getByText('Tick the box to confirm you want your account closed.'),
+    ).toBeVisible();
+
+    // A confirmed erasure closes the account and signs this browser out.
+    await page
+      .getByRole('checkbox', { name: 'I understand this cannot be undone.' })
+      .check();
+    await page.getByRole('button', { name: 'Close your account' }).click();
+    await expect(page).toHaveURL(/\/sign-in\?closed=1$/);
+    await expect(page.getByText('Your account is closed.')).toBeVisible();
+    // The closed session is really gone: the settings guard sends them away.
+    await page.goto('/settings');
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
 });

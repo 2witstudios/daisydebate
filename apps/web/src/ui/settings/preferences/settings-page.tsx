@@ -9,12 +9,14 @@ import type {
   Preferences,
   Section,
 } from '../../../features/settings/preferences';
+import type { DataRightsNotices } from '../../../features/account/data-rights/notices';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ThemeSwitcher } from '../../components/theme-switcher/theme-switcher';
 import type { FormStateAction } from '../../form-action/action-form';
 import { cn } from '../../cn';
+import { DataRights } from './data-rights';
 import {
   NotificationsForm,
   PrivacyForm,
@@ -65,6 +67,8 @@ export type SettingsPageProps = {
   readonly profileAction: FormStateAction;
   readonly notificationsAction: FormStateAction;
   readonly privacyAction: FormStateAction;
+  /** The member's data-rights notices, parsed from the handlers' fixed keys. */
+  readonly dataRightsNotices: DataRightsNotices;
   /**
    * The member's optional onboarding answers and where each is changed
    * (ISSUE-324); null when they are not asked of this member (under 16, or
@@ -88,6 +92,7 @@ export function SettingsPage({
   profileAction,
   notificationsAction,
   privacyAction,
+  dataRightsNotices,
   onboarding,
 }: SettingsPageProps) {
   return (
@@ -159,6 +164,7 @@ export function SettingsPage({
               Read the <Link href="/privacy">privacy policy</Link> and the{' '}
               <Link href="/terms">terms of service</Link>.
             </p>
+            <DataRights notices={dataRightsNotices} />
           </Section>
           <Section id="appearance" title="Appearance">
             <ThemeSwitcher />

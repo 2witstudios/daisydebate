@@ -1,6 +1,7 @@
 import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
+import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import {
@@ -31,4 +32,6 @@ export const subjectRightsAdoption = (
   entitlementGrantPrivacyAdopter,
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
+  // The record reads last: it only reads, and erasure keeps it (DEC-261).
+  competitiveRecordPrivacyAdopter,
 ];

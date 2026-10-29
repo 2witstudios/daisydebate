@@ -22,6 +22,7 @@ import { TERMS_VERSION } from '../features/legal/versions';
 import { provisionalMailCleanup } from '../features/auth/mail/provisional-mail';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import { createUsernameHandler } from '../features/account/username';
+import { composeDataRightsRoutes } from '../features/account/data-rights/composition';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
@@ -89,6 +90,7 @@ export function createRoutes(app: App) {
     signOut: {
       POST: createSignOutFormHandler({ logger, origin, signOut: auth.POST }),
     },
+    privacy: composeDataRightsRoutes(app),
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
     sessions: {

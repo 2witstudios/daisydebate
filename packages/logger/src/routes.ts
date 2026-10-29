@@ -122,6 +122,8 @@ const appRoutes = [
   '/api/ops/alerts',
   '/api/ops/metrics',
   '/api/presence',
+  '/api/privacy/erase',
+  '/api/privacy/export',
   '/api/realtime/ticket',
   '/api/rooms',
   '/api/rooms/[roomId]',
