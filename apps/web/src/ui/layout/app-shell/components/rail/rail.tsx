@@ -5,6 +5,8 @@ import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { navItemClass } from '../../../../components/nav-item/nav-item-class';
 import { viewerStatus } from '../../../../friends/friends';
+import { cn } from '../../../../cn';
+import type { RailPreference } from '../../rail-preference';
 import type { ShellAccount } from '../../account';
 import {
   memberDestinations,
@@ -17,35 +19,53 @@ import {
 import { FriendsLink } from './friends-link';
 
 /** A member's own places, listed after the launched destinations. */
-function MemberPlaces({ account }: { readonly account: ShellAccount }) {
+function MemberPlaces({
+  account,
+  extended,
+}: {
+  readonly account: ShellAccount;
+  readonly extended: boolean;
+}) {
   if (account.state !== 'member') return null;
   const notifications = notificationsDestination();
   return (
     <>
       <li>
-        <NavItem {...memberDestinations.messages} />
+        <NavItem {...memberDestinations.messages} extended={extended} />
       </li>
       {notifications ? (
         <li>
-          <NavItem {...notifications} />
+          <NavItem {...notifications} extended={extended} />
         </li>
       ) : null}
       <li>
-        <FriendsLink />
+        <FriendsLink extended={extended} />
       </li>
     </>
   );
 }
 
 /** The foot's account item: a member's profile, or a visitor's way in. */
-function AccountItem({ account }: { readonly account: ShellAccount }) {
+function AccountItem({
+  account,
+  extended,
+}: {
+  readonly account: ShellAccount;
+  readonly extended: boolean;
+}) {
   if (account.state !== 'member') {
     const { href, label } = wayIn(account);
     return (
       <li>
-        <Link href={href} title={label} className={navItemClass(false)}>
+        <Link
+          href={href}
+          title={extended ? undefined : label}
+          className={navItemClass(false, extended)}
+        >
           <Icon name="person" size={20} />
-          <span className="sr-only">{label}</span>
+          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+            {label}
+          </span>
         </Link>
       </li>
     );
@@ -64,21 +84,38 @@ function AccountItem({ account }: { readonly account: ShellAccount }) {
   );
 }
 
+export type RailProps = {
+  readonly account: ShellAccount;
+  /** The viewer's saved rail width, resolved per request (ADR 0091). */
+  readonly rail: RailPreference;
+  /** The server action the toggle form posts; it flips the saved choice. */
+  readonly toggleRail: () => Promise<void>;
+};
+
 /**
  * The one navigation rail on every shell page, beside the page: the logo,
- * the launched destinations, a member's messages, notifications (once
- * launched) and friends at the top; More and the profile (or a visitor's way
- * in) pinned to the foot of the viewport. Icons only; each link carries its
- * name as screen-reader text and a tooltip. The rail sticks to the viewport
- * at every height, so the foot never scrolls with the page. Gives way to the
- * tab bar on a phone.
+ * the launched destinations and a member's messages, notifications (once
+ * launched) and friends at the top; More, the profile (or a visitor's way
+ * in) and the rail toggle pinned to the foot of the viewport. Extended (the
+ * default), each destination's name shows beside its icon and the toggle
+ * offers Minimize; mini is icons only with names as screen-reader text and
+ * a tooltip, and the toggle offers Expand. Below the rail breakpoint CSS
+ * alone keeps every name intact and hides the toggle (ADR 0091). Hover
+ * flyouts (Watch, More), badges and the avatar are the same in both modes;
+ * a link at the foot opens its flyout upward. The rail sticks to the
+ * viewport at every height, so the foot never scrolls with the page. Gives
+ * way to the tab bar on a phone.
  */
-export function Rail({ account }: { readonly account: ShellAccount }) {
+export function Rail({ account, rail, toggleRail }: RailProps) {
+  const extended = rail === 'extended';
   return (
     <div className="z-20 self-stretch border-r border-border bg-surface area-rail max-narrow:hidden">
       <nav
         aria-label="Primary"
-        className="sticky top-0 flex h-screen flex-col items-center gap-2 py-2"
+        className={cn(
+          'sticky top-0 flex h-screen flex-col gap-2 py-2',
+          extended ? 'items-stretch px-2' : 'items-center',
+        )}
       >
         <Link
           href="/"
@@ -88,20 +125,46 @@ export function Rail({ account }: { readonly account: ShellAccount }) {
         >
           <DaisyLogo />
         </Link>
-        <ul className="flex list-none flex-col gap-1">
+        <ul
+          className={cn(
+            'flex list-none flex-col gap-1',
+            extended && 'w-full items-stretch',
+          )}
+        >
           {primaryDestinations.map((item) => (
             <li key={item.label}>
-              <NavItem {...item} />
+              <NavItem {...item} extended={extended} />
             </li>
           ))}
-          <MemberPlaces account={account} />
+          <MemberPlaces account={account} extended={extended} />
         </ul>
-        <ul className="mt-auto flex list-none flex-col items-center gap-1">
+        <ul
+          className={cn(
+            'mt-auto flex list-none flex-col gap-1',
+            extended ? 'w-full items-stretch' : 'items-center',
+          )}
+        >
           <li>
-            <NavItem {...moreDestination} flyoutAlign="bottom" />
+            <NavItem
+              {...moreDestination}
+              flyoutAlign="bottom"
+              extended={extended}
+            />
           </li>
-          <AccountItem account={account} />
+          <AccountItem account={account} extended={extended} />
         </ul>
+        <form action={toggleRail} className="max-rail:hidden">
+          <button
+            type="submit"
+            title={extended ? undefined : 'Expand rail'}
+            className={navItemClass(false, extended)}
+          >
+            <Icon name={extended ? 'railMinimize' : 'railExpand'} size={20} />
+            <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+              {extended ? 'Minimize' : 'Expand'}
+            </span>
+          </button>
+        </form>
       </nav>
     </div>
   );

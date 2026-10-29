@@ -5,15 +5,17 @@ import { useFriendsOnline } from '../../../../friends/use-friends-online';
 import { friendsLabel, memberDestinations } from '../destinations';
 
 /** Friends in the rail, with how many are online on the icon and in its name. */
-export function FriendsLink() {
+export function FriendsLink({ extended }: { readonly extended?: boolean }) {
   const online = useFriendsOnline(true) ?? 0;
-  const { href, icon, label } = memberDestinations.friends;
+  const { href, icon, label, word } = memberDestinations.friends;
   return (
     <NavItem
       href={href}
       icon={icon}
       label={friendsLabel(online)}
       title={label}
+      word={word}
+      extended={extended}
       badge={
         online > 0 ? (
           <span

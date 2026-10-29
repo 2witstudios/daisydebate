@@ -11,6 +11,11 @@ type Destination = {
   readonly href: string;
   readonly icon: IconName;
   readonly label: string;
+  /**
+   * The word beside the icon when the rail is extended (ADR 0091); the
+   * label when omitted. It never changes the accessible name.
+   */
+  readonly word?: string;
   readonly subItems?: readonly {
     readonly href: string;
     readonly label: string;
@@ -83,7 +88,13 @@ export const moreDestination: Destination = {
 /** A member's own places: their inbox and friends. */
 export const memberDestinations = {
   messages: { href: '/messages', icon: 'message', label: 'Messages' },
-  friends: { href: '/friends', icon: 'users', label: 'Friends' },
+  friends: {
+    href: '/friends',
+    icon: 'users',
+    label: 'Friends',
+    // The count rides in the accessible name and the badge, not the word.
+    word: 'Friends',
+  },
 } as const satisfies Readonly<Record<string, Destination>>;
 
 const notifications = {

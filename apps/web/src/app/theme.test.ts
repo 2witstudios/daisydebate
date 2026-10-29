@@ -47,6 +47,34 @@ const rulesOf = (css: string) => {
   return rules;
 };
 
+/** The same, but every rule with a selector is kept, in source order,
+    with the rule's own declarations — nested at-rules are not flattened. */
+const everyRuleOf = (css: string) => {
+  const rules: {
+    selector: string;
+    media: string | undefined;
+    declarations: Record<string, string>;
+  }[] = [];
+  postcss.parse(css).walkRules((rule) => {
+    let media: string | undefined;
+    for (
+      let node: postcss.Node | undefined = rule.parent;
+      node;
+      node = node.parent
+    )
+      if (node.type === 'atrule' && (node as postcss.AtRule).name === 'media')
+        media = (node as postcss.AtRule).params;
+    const declarations: Record<string, string> = {};
+    for (const node of rule.nodes ?? [])
+      if (node.type === 'decl') {
+        const declaration = node as postcss.Declaration;
+        declarations[declaration.prop] = declaration.value;
+      }
+    rules.push({ selector: rule.selector, media, declarations });
+  });
+  return rules;
+};
+
 describe('Tailwind theme (ADR 0028)', () => {
   test('generates nothing for default-theme utilities', async () => {
     const css = await compile(
@@ -102,6 +130,45 @@ describe('Tailwind theme (ADR 0028)', () => {
         media: '(width < 1101px)',
         declarations: { padding: 'var(--spacing-2)' },
       },
+    });
+  });
+
+  test('wides the rail column only where the viewport holds words (ADR 0091)', async () => {
+    const css = await compile('grid-shell grid-shell-extended');
+    const rules = everyRuleOf(css);
+    const unconditional = (selector: string) =>
+      rules.find(
+        (rule) => rule.selector === selector && rule.media === undefined,
+      );
+    assert({
+      given: 'the shell grid and its extended modifier',
+      should:
+        'keep the mini track unconditional and apply the extended track from the token only at >=1101px',
+      actual: [
+        unconditional('.grid-shell')?.declarations['grid-template-columns'],
+        rules.find((rule) => rule.selector === '.grid-shell-extended')?.media,
+        rules.find((rule) => rule.selector === '.grid-shell-extended')
+          ?.declarations['grid-template-columns'],
+      ],
+      expected: [
+        'var(--spacing-nav-rail) minmax(0, 1fr)',
+        '(width >= 1101px)',
+        'var(--spacing-nav-rail-extended) minmax(0, 1fr)',
+      ],
+    });
+  });
+
+  test('defines the extended rail width once, as a shell token', async () => {
+    const css = await compile('grid-shell-extended');
+    const tokens = rulesOf(css).get(':root, :host')?.declarations;
+    assert({
+      given: 'the compiled stylesheet',
+      should: 'emit the 184px token on :root beside the 56px mini rail',
+      actual: [
+        tokens?.['--spacing-nav-rail-extended'],
+        tokens?.['--spacing-nav-rail'],
+      ],
+      expected: ['184px', '56px'],
     });
   });
 });

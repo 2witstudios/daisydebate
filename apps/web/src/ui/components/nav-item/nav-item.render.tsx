@@ -18,32 +18,59 @@ export type NavItemRenderProps = {
   readonly icon: IconName;
   /** The accessible name, counts included ("Friends, 4 online"). */
   readonly label: string;
-  /** The tooltip; the label when omitted. */
+  /** The tooltip; the label when omitted. Mini only: extended shows words. */
   readonly title?: string | undefined;
   readonly active: boolean;
+  /**
+   * The word beside the icon when the rail is extended; the label when
+   * omitted. It never changes the accessible name.
+   */
+  readonly word?: string | undefined;
   /** Optional sub-navigation revealed on hover and keyboard focus. */
   readonly subItems?: readonly NavItemChild[] | undefined;
   /** Which way its flyout opens; a link at the foot opens upward. */
   readonly flyoutAlign?: NavFlyoutAlign | undefined;
   /** A decorative count over the icon; the label already says it. */
   readonly badge?: ReactNode;
+  /** The rail's mode: extended shows words, mini is icon-only (ADR 0091). */
+  readonly extended?: boolean | undefined;
 };
 
-/** One icon-only rail link: the label is screen-reader text and a tooltip. */
 export function renderNavItem(props: NavItemRenderProps): ReactNode {
-  const { href, icon, label, title, active, subItems, flyoutAlign, badge } =
-    props;
+  const {
+    href,
+    icon,
+    label,
+    title,
+    active,
+    subItems,
+    flyoutAlign,
+    badge,
+    extended,
+    word,
+  } = props;
   const hasChildren = subItems !== undefined && subItems.length > 0;
   return (
     <span className="group relative block">
       <Link
         href={href}
-        title={title ?? label}
-        className={navItemClass(active)}
+        title={extended ? undefined : (title ?? label)}
+        className={navItemClass(active, extended)}
         aria-current={active ? 'page' : undefined}
       >
         <Icon name={icon} size={20} />
-        <span className="sr-only">{label}</span>
+        {extended && word !== undefined && word !== label ? (
+          <>
+            <span aria-hidden="true" className="max-rail:sr-only">
+              {word}
+            </span>
+            <span className="sr-only">{label}</span>
+          </>
+        ) : (
+          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+            {word ?? label}
+          </span>
+        )}
         {badge}
       </Link>
       {hasChildren ? (

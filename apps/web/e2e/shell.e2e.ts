@@ -49,9 +49,71 @@ test.describe('dashboard shell chrome', () => {
       expect([Math.round(top), Math.round(bottom), Math.round(width)]).toEqual([
         0,
         document,
-        56,
+        184,
       ]);
     }
+  });
+
+  test('the rail defaults to extended, minimizes on request, and the choice sticks', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const columnWidth = () =>
+      rail.evaluate((nav) =>
+        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
+      );
+    // The word beside the icon is a text box; in mini it clips to nothing.
+    // (An sr-only span still has a one-pixel box, so visibility lies here.)
+    const wordHeight = () =>
+      rail
+        .locator('a[href="/lobby"] span')
+        .first()
+        .evaluate((span) => span.getBoundingClientRect().height);
+    // Words beside the icons at rail widths (ADR 0091).
+    expect(await wordHeight()).toBeGreaterThan(10);
+    expect(await columnWidth()).toBe(184);
+
+    await rail.getByRole('button', { name: 'Minimize' }).click();
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+    expect(await wordHeight()).toBeLessThanOrEqual(2);
+    expect(await columnWidth()).toBe(56);
+
+    // The saved choice survives a visit: the server renders mini again.
+    await page.reload();
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+    expect(await columnWidth()).toBe(56);
+
+    await rail.getByRole('button', { name: 'Expand' }).click();
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
+    expect(await wordHeight()).toBeGreaterThan(10);
+    expect(await columnWidth()).toBe(184);
+  });
+
+  test('below the rail breakpoint it is icon-only whatever the choice', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const columnWidth = () =>
+      rail.evaluate((nav) =>
+        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
+      );
+    const wordHeight = () =>
+      rail
+        .locator('a[href="/lobby"] span')
+        .first()
+        .evaluate((span) => span.getBoundingClientRect().height);
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
+
+    // Narrow the viewport with the extended choice saved: CSS alone
+    // keeps the rail mini and hides the toggle.
+    await page.setViewportSize({ width: 1000, height: 800 });
+    expect(await wordHeight()).toBeLessThanOrEqual(2);
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeHidden();
+    expect(await columnWidth()).toBe(56);
   });
 
   test('menu tiles share one uniform shape', async ({ page }) => {
@@ -167,5 +229,34 @@ test.describe('dashboard shell chrome', () => {
     // Keyboard focus scrolls it into view, above the bar.
     await link.focus();
     expect(await covered()).toBe(false);
+  });
+});
+
+test.describe('with JavaScript off', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('the rail toggle flips the rail through a plain POST', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const columnWidth = () =>
+      rail.evaluate((nav) =>
+        Math.round(nav.parentElement?.getBoundingClientRect().width ?? 0),
+      );
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
+
+    // The form's server action runs without script and the answer is the
+    // same page re-rendered with the flipped cookie (ADR 0091).
+    await rail.getByRole('button', { name: 'Minimize' }).click();
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+    expect(await columnWidth()).toBe(56);
+
+    // A fresh visit (a reload here would resubmit the form POST and flip
+    // the toggle a second time) renders mini from the stored cookie.
+    await page.goto('/');
+    await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+    expect(await columnWidth()).toBe(56);
   });
 });

@@ -56,3 +56,8 @@ Amendment, 2026-10-12 (RRD-1): the shell's only transactions (sidebar and
 friends-column collapse, `shell-plugin.ts`) were deleted with the columns
 they drove; the one navigation rail has no state. The store keeps the seeded
 snapshots and `setUiState`; a future transaction returns as a plugin module.
+
+Amendment, 2026-10-29 (ADR 0091): the rail gained a persisted width choice —
+but as a plain cookie read per request, not store state: the store cannot be
+sticky by construction, exactly as the original constraint anticipated. See
+[ADR 0091](0091-extended-nav-rail-default.md).

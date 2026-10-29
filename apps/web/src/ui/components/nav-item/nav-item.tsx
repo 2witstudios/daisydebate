@@ -12,12 +12,16 @@ export type NavItemProps = {
   readonly icon: IconName;
   readonly label: string;
   readonly title?: string | undefined;
+  /** The word beside the icon when the rail is extended; the label when omitted. */
+  readonly word?: string | undefined;
   readonly subItems?: readonly NavItemChild[] | undefined;
   /** Other routes that belong to this item without a link of their own. */
   readonly alsoActive?: readonly string[] | undefined;
   /** Which way its flyout opens; a link at the foot opens upward. */
   readonly flyoutAlign?: NavFlyoutAlign | undefined;
   readonly badge?: ReactNode;
+  /** The rail's mode: extended shows words, mini is icon-only (ADR 0091). */
+  readonly extended?: boolean | undefined;
 };
 
 /** Exact for `/`; otherwise also active for that route's own descendants. */
@@ -50,10 +54,12 @@ export function NavItem({
   icon,
   label,
   title,
+  word,
   subItems,
   alsoActive,
   flyoutAlign,
   badge,
+  extended,
 }: NavItemProps) {
   // The URL is the single source of truth for the active route, so
   // deep links and back/forward mark the right item, including on a
@@ -64,9 +70,11 @@ export function NavItem({
     icon,
     label,
     title,
+    word,
     active: itemActive(pathname, href, subItems, alsoActive),
     subItems,
     flyoutAlign,
     badge,
+    extended,
   });
 }
