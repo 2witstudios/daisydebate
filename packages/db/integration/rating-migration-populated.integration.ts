@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
+import { z } from 'zod';
 import { Fixture } from './constraint-helpers';
 import {
   ddlTimeoutMs,
@@ -88,6 +89,19 @@ test(
         preflight.exited,
         new Response(preflight.stdout).json(),
       ]);
+      const report = z
+        .object({
+          counts: z.object({
+            standings: z.number().int(),
+            postings: z.number().int(),
+            rated_rounds: z.number().int(),
+            rated_rooms: z.number().int(),
+            seasons: z.number().int(),
+          }),
+          disposition: z.string(),
+          dependents: z.array(z.object({ constraint: z.string() })),
+        })
+        .parse(output);
       assert({
         given:
           'the exact operator preflight command against the populated predecessor database',
@@ -95,9 +109,9 @@ test(
           'refuse with only counts/catalog metadata and preserve the complete database state',
         actual: {
           exitCode,
-          counts: output.counts,
-          refusal: output.disposition.startsWith('REFUSE:'),
-          includesMembership: output.dependents.some(
+          counts: report.counts,
+          refusal: report.disposition.startsWith('REFUSE:'),
+          includesMembership: report.dependents.some(
             (d: { constraint: string }) =>
               d.constraint === 'rating_changes_participant_fk',
           ),
