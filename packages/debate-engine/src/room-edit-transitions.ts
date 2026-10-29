@@ -48,6 +48,8 @@ export const updateConfig = (
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
     topic,
+    publishedResolutionId:
+      topic === room.topic ? room.publishedResolutionId : null,
     prepStartedAt: null,
     prepRemainingMs: resolved.roomPlan.preRoundPrep.enabled
       ? resolved.roomPlan.preRoundPrep.durationMs
@@ -83,11 +85,15 @@ export const selectFormat = (
   const { rules, roomPlan } = decision.resolved;
   if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
     return refuse('seat-unavailable');
-  const topic = selectedTopic(
-    room,
-    roomPlan.resolutionDraw.enabled,
-    command.topic,
-  );
+  const fixedStandard =
+    edges.formatFacts?.format.role === 'standard' &&
+    !roomPlan.resolutionDraw.enabled;
+  const publication = edges.resolutionPublication;
+  const topic = fixedStandard
+    ? publication?.kind === command.formatId && command.topic === undefined
+      ? publication.text
+      : undefined
+    : selectedTopic(room, roomPlan.resolutionDraw.enabled, command.topic);
   if (topic === undefined) return refuse('illegal-config');
   // The policy refuses role-null facts for `choose`; a reset to a retired
   // basis keeps its pinned provenance but is no longer a standard.
@@ -115,6 +121,7 @@ export const selectFormat = (
     rules,
     executionPlan: roomPlan,
     topic,
+    publishedResolutionId: fixedStandard ? publication!.id : null,
     prepStartedAt: null,
     prepRemainingMs: roomPlan.preRoundPrep.enabled
       ? roomPlan.preRoundPrep.durationMs
@@ -126,16 +133,29 @@ export const updateDetails = (
   _actorId: string,
   command: Extract<RoomCommand, { type: 'update-details' }>,
   _consent: RoomConsent,
-  _edges: Edges,
+  edges: Edges,
 ): RoomMutationOutcome => {
   const draw = room.executionPlan.resolutionDraw.enabled;
   if (draw === (command.topic !== undefined)) return refuse('illegal-config');
-  return acceptedRoomMutation({
-    ...room,
-    title: command.title,
-    topic: command.topic ?? null,
-    visibility: command.visibility,
-  });
+  const topicChanged =
+    command.topic !== undefined && command.topic !== room.topic;
+  if (topicChanged && room.competitionType === 'ranked')
+    return refuse('illegal-config');
+  const publishDefinition =
+    topicChanged && room.catalogFormat.role === 'standard';
+  return acceptedRoomMutation(
+    {
+      ...room,
+      title: command.title,
+      topic: command.topic ?? null,
+      publishedResolutionId: topicChanged ? null : room.publishedResolutionId,
+      visibility: command.visibility,
+      ...(publishDefinition
+        ? { formatId: edges.formatId, formatVersion: 1 }
+        : {}),
+    },
+    { publishDefinition },
+  );
 };
 
 /**

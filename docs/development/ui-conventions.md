@@ -46,6 +46,8 @@ JavaScript only enhances it.
   `apps/web/next.config.ts`, ISSUE-79). Next reads and decodes the body
   before the action's own gates run, so a form that needs more (a file
   upload) needs its own route and a recorded decision, not a higher cap.
+  The full create-room editor uses a streaming 128 KiB POST route, with
+  five-minute member-scoped native preview answers (ADR 0092).
 - A form's action state comes from `useFormAction`
   (`apps/web/src/ui/form-action/form-action.ts`), not a bare
   `useActionState`. With JavaScript on, the action is a fetch the page makes.

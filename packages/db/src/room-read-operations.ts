@@ -176,6 +176,7 @@ export const roomReadOperations = ({
             version: formatPresets.version,
             formatVersion: formatPresets.formatVersion,
             config: formatPresets.config,
+            rankedEligible: formatPresets.rankedEligible,
           })
           .from(formatPresets)
           .where(isNull(formatPresets.supersededAt));

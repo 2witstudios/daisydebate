@@ -21,6 +21,7 @@ export const catalog = [
     sourceUrl: null,
     definition: oneOnOneDefinition,
     preset: {
+      rankedEligible: true,
       formatId: 'value',
       version: 1,
       formatVersion: 1,
@@ -40,6 +41,7 @@ export const catalog = [
     sourceUrl: 'https://example.test/rules',
     definition: foundationDefinition,
     preset: {
+      rankedEligible: false,
       formatId: 'proof-template',
       version: 2,
       formatVersion: 1,

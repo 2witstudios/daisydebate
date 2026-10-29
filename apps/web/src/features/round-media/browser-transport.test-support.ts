@@ -4,6 +4,15 @@ import { RoomEvent, Track } from 'livekit-client';
 const capturedTrack = (source: string) => ({
   source,
   ended: false,
+  muted: false,
+  async mute() {
+    this.muted = true;
+    return this;
+  },
+  async unmute() {
+    this.muted = false;
+    return this;
+  },
   stop() {
     this.ended = true;
   },

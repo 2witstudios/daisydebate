@@ -211,6 +211,7 @@ const hydrateRoom = async (
     changeVersion: row.changeVersion,
     title: row.title,
     topic: row.topic,
+    publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
     hostActorId: row.hostActorId,
     hostLabel: host?.label ?? '',

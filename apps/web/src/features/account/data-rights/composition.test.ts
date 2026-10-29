@@ -20,7 +20,7 @@ const fakeApp = (port: {
       exportPrivacySubject: async () => databaseExport,
       messagingTypingPrivacyPort: () => port,
     },
-    redis: {},
+    redis: { get: async () => null },
   }) as unknown as Parameters<typeof exportSubjectData>[0];
 
 test('the composed export joins the typing snapshot under its own key', async () => {
@@ -34,9 +34,10 @@ test('the composed export joins the typing snapshot under its own key', async ()
     actual: [
       exported.users,
       exported.messaging_typing_leases,
+      exported.room_creation_draft,
       Object.keys(exported).length,
     ],
-    expected: [databaseExport.users, leases, 2],
+    expected: [databaseExport.users, leases, [], 3],
   });
 });
 

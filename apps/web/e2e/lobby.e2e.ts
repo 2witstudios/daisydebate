@@ -1,7 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
-import { closeRoom, createFromPlay } from './support/room-launch-flow';
+import {
+  closeRoom,
+  createFromPlay,
+  createConfiguredRoom,
+} from './support/room-launch-flow';
 
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
@@ -109,12 +113,11 @@ test.describe('Room lobby with JavaScript off', () => {
       await page.goto('/play/room');
       const form = page.getByRole('form', { name: 'Create a room' });
       await form.getByLabel('Room name', { exact: true }).fill(title);
-      await form.getByLabel('Resolution').fill('Native lobby topic');
-      await form
-        .getByRole('button', { name: 'Create room', exact: true })
-        .click();
-      await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-      roomId = new URL(page.url()).pathname.split('/').at(-1)!;
+      await expect(
+        form.getByRole('combobox', { name: 'Resolution', exact: true }),
+      ).toHaveValue('value');
+      await form.getByLabel('Who can join').selectOption('public');
+      roomId = (await createConfiguredRoom(page)).id;
 
       await page.goto('/lobby');
       await expect(roomRows(page).filter({ hasText: title })).toHaveCount(1);

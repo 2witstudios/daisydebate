@@ -7,7 +7,7 @@ setupRitewayBun();
 test('catalog unavailability stays distinct from an authoritative empty list', async () => {
   const results = [];
   for (const response of [
-    Response.json({ choices: [], bots: [] }),
+    Response.json({ choices: [], bots: [], resolutions: [] }),
     new Response(null, { status: 404 }),
     Response.json({ choices: [{ label: 'Invented' }] }),
     new Response('bad json'),
@@ -20,7 +20,7 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
       'enable no invented template and preserve an explicit unavailable state',
     actual: results,
     expected: [
-      { kind: 'found', choices: [], bots: [] },
+      { kind: 'found', choices: [], bots: [], resolutions: [] },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
@@ -30,13 +30,18 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
 
 test('catalog retains exact template revisions, unequal seat counts and producer defaults', async () => {
   const result = await readRoomTemplates(async () =>
-    Response.json({ choices: [unequalTemplate], bots: [] }),
+    Response.json({ choices: [unequalTemplate], bots: [], resolutions: [] }),
   );
   assert({
     given:
       'the stored template with unequal team seats and explicit default configuration',
     should: 'keep every rendered field without replacing the producer choices',
     actual: result,
-    expected: { kind: 'found', choices: [unequalTemplate], bots: [] },
+    expected: {
+      kind: 'found',
+      choices: [unequalTemplate],
+      bots: [],
+      resolutions: [],
+    },
   });
 });

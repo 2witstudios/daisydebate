@@ -29,7 +29,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
     should:
       'project legal defaults, withhold human cast entries, and return only lightweight discovery metadata',
     actual: {
-      catalog: choices.map((choice) => [
+      catalog: choices.choices.map((choice) => [
         choice.formatId,
         choice.role,
         choice.family,
@@ -104,7 +104,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   const body: RoomCreate = {
     commandId: 'c7n6p8r2t4v6x8z1k3b5c7d9',
     title: 'A persisted casual room',
-    topic: 'Cities should make transit free',
+    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
     visibility: 'public',
     selection: {
       kind: 'catalog',
@@ -178,7 +178,7 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
       .create(caller, {
         commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
         title: 'Policy room',
-        topic: 'Motion',
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
         visibility: 'public',
         selection,
       })
@@ -236,7 +236,7 @@ test('Room creation asks the create transaction to recheck its catalog selection
   await run.operations.create(caller, {
     commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
     title: 'Policy room',
-    topic: 'Motion',
+    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
     visibility: 'public',
     selection: {
       kind: 'catalog',

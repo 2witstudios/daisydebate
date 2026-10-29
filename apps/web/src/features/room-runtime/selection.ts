@@ -35,6 +35,22 @@ export async function resolveRoomSelection(
 ) {
   const selection = body.selection;
   if (selection.kind === 'custom') {
+    const basisRequest = selection.basis && {
+      ...selection.basis,
+      intent: 'create-casual' as const,
+      basis: null,
+    };
+    const basisDecision =
+      basisRequest &&
+      decideFormatSelection(
+        basisRequest,
+        await store.getFormatSelectionFacts(basisRequest),
+      );
+    if (basisDecision && !basisDecision.ok)
+      throw createAppError('VALIDATION', basisDecision.refusal);
+    const basisFingerprint = basisDecision?.ok
+      ? fingerprint(basisDecision)
+      : null;
     const resolved = resolveRoomConfiguration(
       selection.definition,
       selection.config,
@@ -47,10 +63,18 @@ export async function resolveRoomSelection(
       formatId: ids.next(),
       formatVersion: 1,
       presetVersion: null,
-      basis: null,
+      basis: basisDecision?.ok ? basisDecision.basis : null,
       competitionType: selection.competitionType,
       resolved,
-      recheck: null,
+      recheck: basisRequest
+        ? {
+            tuple: selection.basis!,
+            admits: (facts: FormatSelectionFacts | null) => {
+              const again = decideFormatSelection(basisRequest, facts);
+              return again.ok && fingerprint(again) === basisFingerprint;
+            },
+          }
+        : null,
     };
   }
   const tuple = {

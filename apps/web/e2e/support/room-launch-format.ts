@@ -1,19 +1,55 @@
-import { clockText } from './room-launch-flow';
-import type { Browser } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { roomCatalogChoiceSchema } from '@daisy/protocol';
+import {
+  roomCatalogChoiceSchema,
+  type RoomCatalogChoice,
+} from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
+import { origin } from './accounts';
+import { hydrated } from './hydration';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { closeSettledLaunchContexts } from './room-launch-settled';
-import { reread } from './room-launch-flow';
+import { clockText, createConfiguredRoom } from './room-launch-flow';
+
+/** The rendered schedule must show the catalog's actual ordered speech defaults. */
+async function expectTemplatePreview(page: Page, chosen: RoomCatalogChoice) {
+  const preview = page.getByRole('complementary', { name: 'Room preview' });
+  await expect(preview).toContainText(`Based on ${chosen.label}`);
+  const rows = preview.locator('dl > div');
+  const prep = chosen.preset.config.preRoundPrep;
+  const offset = prep.enabled ? 1 : 0;
+  await expect(rows).toHaveCount(
+    chosen.definition.segments.length + offset + 3,
+  );
+  if (prep.enabled) {
+    await expect(rows.nth(0).locator('dt')).toHaveText('Prep before the round');
+    await expect(rows.nth(0).locator('dd')).toHaveText(
+      clockText(prep.durationMs),
+    );
+  }
+  for (const [index, segment] of chosen.definition.segments.entries()) {
+    const row = rows.nth(index + offset);
+    await expect(row.locator('dt')).toHaveText(segment.label);
+    await expect(row.locator('dd')).toHaveText(
+      clockText(
+        chosen.preset.config.speechTiming.segmentDurationOverrides[
+          segment.key
+        ] ?? segment.defaultDurationMs,
+      ),
+    );
+  }
+}
 
 export async function proveFormatPicker(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 1);
+  const host = accounts.members[0]!.context;
+  const noScript = await browser.newContext({
+    baseURL: origin,
+    javaScriptEnabled: false,
+    storageState: await host.storageState(),
+  });
   try {
-    const page = await openPage(
-      accounts.members[0]!.context,
-      'format picker host',
-    );
+    const page = await openPage(host, 'Custom library host');
     await page.goto('/train?bot=bram');
     await page
       .getByRole('link', { name: 'Create a debate', exact: true })
@@ -21,74 +57,88 @@ export async function proveFormatPicker(browser: Browser) {
     await expect(page).toHaveURL(/\/play\/room$/);
     const catalog = await page.request.get('/api/rooms/catalog');
     expect(catalog.status()).toBe(200);
-    const body = await catalog.json();
-    const choices = roomCatalogChoiceSchema.array().parse(body.choices);
-    const chosen = choices.at(-1);
+    const choices = roomCatalogChoiceSchema
+      .array()
+      .parse((await catalog.json()).choices);
+    const chosen = choices
+      .filter((choice) => choice.role === 'template')
+      .at(-1);
     if (!chosen)
-      throw new Error('Format picker proof needs an actual catalog choice');
+      throw new Error('Custom library proof needs an actual league template');
+    const key = `${chosen.formatId}@${chosen.formatVersion}@${chosen.preset.version}`;
     const form = page.getByRole('form', { name: 'Create a room' });
-    const native = form.getByLabel('Format', { exact: true });
-    const before = await native.inputValue();
-    const browse = form.getByRole('button', {
-      name: 'Browse formats',
+    await hydrated(form);
+    await form.locator('[name="format"][value="custom"]').check();
+    const disclosure = form.getByText('Start from a league template', {
       exact: true,
     });
-    await browse.click();
-    const dialog = page.getByRole('dialog', { name: 'Choose a format' });
-    // The dialog opens on one family; a search spans them all.
-    const find = async () => {
-      await dialog
-        .getByRole('searchbox', { name: 'Search formats and leagues' })
-        .fill(chosen.label);
-      // A listing reads its label then its leagues.
-      await dialog.getByRole('button', { name: chosen.label }).click();
-    };
-    await find();
-    const preview = dialog.getByRole('region', { name: 'Format preview' });
-    const ordered = preview.getByRole('list').getByRole('listitem');
-    await expect(ordered).toHaveCount(chosen.definition.segments.length);
-    for (const [index, segment] of chosen.definition.segments.entries()) {
-      await expect(ordered.nth(index)).toContainText(segment.label);
-      const duration =
-        chosen.preset.config.speechTiming.segmentDurationOverrides[
-          segment.key
-        ] ?? segment.defaultDurationMs;
-      await expect(ordered.nth(index)).toContainText(clockText(duration));
-    }
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(native).toHaveValue(before);
-    await expect(browse).toBeFocused();
-    await browse.click();
-    await find();
-    await dialog
-      .getByRole('button', { name: 'Use this format', exact: true })
+    const before = await form.locator('[name="basis"]').inputValue();
+    await disclosure.click();
+    await form
+      .getByRole('searchbox', { name: 'Search formats and leagues' })
+      .fill(chosen.label);
+    const templates = form.getByRole('combobox', {
+      name: 'League template',
+      exact: true,
+    });
+    await expect(templates.locator('option')).toHaveCount(2);
+    // Browsing and dismissing the library never changes the current draft.
+    await disclosure.click();
+    await expect(form.locator('[name="basis"]')).toHaveValue(before);
+    await expect(disclosure).toBeFocused();
+    await disclosure.click();
+    await templates.selectOption(key);
+    await expect(form.locator('[name="basis"]')).toHaveValue(key);
+    await expectTemplatePreview(page, chosen);
+
+    // Repeat the selection and submit through the real native form with scripts off.
+    const nativePage = await openPage(
+      noScript,
+      'Custom template, no JavaScript',
+    );
+    await nativePage.goto('/play/room');
+    const native = nativePage.getByRole('form', { name: 'Create a room' });
+    await native.locator('[name="format"][value="custom"]').check();
+    await native
+      .getByRole('button', { name: 'Apply format', exact: true })
       .click();
-    const selected = JSON.parse(await native.inputValue());
-    expect(selected).toMatchObject({
+    await native
+      .getByText('Start from a league template', { exact: true })
+      .click();
+    await native
+      .getByRole('combobox', { name: 'League template', exact: true })
+      .selectOption(key);
+    await native
+      .getByRole('button', { name: 'Apply template', exact: true })
+      .click();
+    await expect(native.locator('[name="basis"]')).toHaveValue(key);
+    await expect(
+      native.locator('[name="format"][value="custom"]'),
+    ).toBeChecked();
+    await expect(
+      native.getByRole('checkbox', { name: 'Ranked', exact: true }),
+    ).toBeDisabled();
+    await expectTemplatePreview(nativePage, chosen);
+    await native
+      .getByLabel('Room name', { exact: true })
+      .fill(`Library ${createId().slice(0, 8)}`);
+    if (!chosen.preset.config.resolutionDraw.enabled)
+      await native
+        .getByLabel('Custom resolution', { exact: true })
+        .fill('Proof cities should fund transit');
+    const stored = await createConfiguredRoom(nativePage);
+    expect(stored.competitionType).toBe('casual');
+    expect(stored.format.standing.kind).toBe('custom');
+    expect(stored.format.basis).toMatchObject({
       formatId: chosen.formatId,
       formatVersion: chosen.formatVersion,
       presetVersion: chosen.preset.version,
     });
-    await form
-      .getByLabel('Room name', { exact: true })
-      .fill(`Picker ${createId().slice(0, 8)}`);
-    // A striking format draws its resolution: the field stays empty.
-    if (!chosen.preset.config.resolutionDraw.enabled)
-      await form
-        .getByLabel('Resolution')
-        .fill('Proof cities should fund transit');
-    await form
-      .getByRole('button', { name: 'Create room', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-    const id = new URL(page.url()).pathname.split('/').at(-1)!;
-    const stored = await reread(page.request, id);
-    expect(stored).toMatchObject({
-      formatId: chosen.formatId,
-      formatVersion: chosen.formatVersion,
-      config: chosen.preset.config,
-    });
+    expect(stored.config).toEqual(chosen.preset.config);
+    expect(stored.definition.seats).toEqual(chosen.definition.seats);
+    expect(stored.definition.segments).toEqual(chosen.definition.segments);
   } finally {
+    await noScript.close();
     await closeSettledLaunchContexts(accounts);
   }
 }

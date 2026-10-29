@@ -50,7 +50,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
         },
       ],
     });
-    (await f.operations.catalog(f.host)).forEach((choice) =>
+    (await f.operations.catalog(f.host)).choices.forEach((choice) =>
       roomCatalogChoiceSchema.parse(choice),
     );
     (await f.operations.castChoices(f.host)).forEach((choice) =>

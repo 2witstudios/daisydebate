@@ -49,6 +49,11 @@ export {
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
 export { formatSettingsSchema } from './format-settings';
+export { publishedResolutionSchema } from './room-resolution';
+export type {
+  PublishedResolution,
+  RoomResolutionSelection,
+} from './room-resolution';
 export type { FormatSettings } from './format-settings';
 export type {
   HydratedRound,

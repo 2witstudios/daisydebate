@@ -30,7 +30,7 @@ export async function proveNoScriptFormatChoice(browser: Browser) {
       data: {
         commandId: createId(),
         title: `Format proof ${createId().slice(0, 8)}`,
-        topic: 'Proof cities should fund transit',
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
         visibility: 'public',
         selection: {
           kind: 'catalog',

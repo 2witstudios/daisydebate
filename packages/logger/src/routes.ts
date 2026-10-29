@@ -190,6 +190,7 @@ const appRoutes = [
   '/onboarding/username',
   '/play',
   '/play/room',
+  '/play/room/submit',
   '/prep',
   '/prep/briefs/[id]',
   '/prep/briefs/[id]/review',

@@ -77,30 +77,29 @@ export async function submitCreateRoom(
   page: Page,
   title: string,
   formatId = 'value',
+  rated = false,
 ) {
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
-  const templates = form.getByLabel('Format', { exact: true });
-  const values = await templates
-    .locator('option')
-    .evaluateAll((options) =>
-      options.map((option) => (option as HTMLOptionElement).value),
-    );
-  const selected = values.find(
-    (value) => JSON.parse(value).formatId === formatId,
-  );
-  if (!selected) throw new Error('Required actual format template is missing');
-  await templates.selectOption(selected);
+  await form.locator(`input[name="format"][value="${formatId}"]`).check();
+  const apply = form.getByRole('button', { name: 'Apply format', exact: true });
+  if (await apply.count()) await apply.click();
   await form.getByLabel('Room name', { exact: true }).fill(title);
-  await form
-    .getByLabel('Resolution')
-    .fill(formatId === 'freestyle' ? '' : 'Proof cities should fund transit');
+  if (rated)
+    await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
   await form.getByLabel('Who can join').selectOption('public');
-  await form.getByRole('button', { name: 'Create room', exact: true }).click();
-  await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  return reread(page.request, id);
+  return createConfiguredRoom(page);
 }
+/** Submits the settings already configured by the host, then reads the durable Room. */
+export async function createConfiguredRoom(page: Page) {
+  await page
+    .getByRole('form', { name: 'Create a room' })
+    .getByRole('button', { name: 'Create room', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
+  return reread(page.request, new URL(page.url()).pathname.split('/').at(-1)!);
+}
+
 export async function createFromPlay(
   page: Page,
   title: string,
@@ -123,7 +122,7 @@ export async function createProofRoom(page: Page, title: string) {
     data: {
       commandId: createId(),
       title,
-      topic: 'Proof cities should fund transit',
+      resolution: { kind: 'custom', text: 'Proof cities should fund transit' },
       visibility: 'public',
       selection: foundationSelection,
     },

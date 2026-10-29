@@ -51,9 +51,52 @@ const run = (
   executeRoomCommand(room, actor, command, consent, {
     ...edges,
     formatFacts: facts,
+    resolutionPublication:
+      facts?.format.id === 'value' || facts?.format.id === 'policy'
+        ? {
+            id: 'v'.repeat(24),
+            kind: facts.format.id,
+            text: 'Motion',
+            provenance: 'Test publication',
+            edition: null,
+            theme: null,
+            publishedAt: '2026-10-29T00:00:00.000Z',
+          }
+        : null,
   });
 
 describe('select-format', () => {
+  test('a standard selection takes its published resolution instead of retaining host text', () => {
+    const room = state();
+    const outcome = executeRoomCommand(
+      room,
+      'host',
+      selectFormat(room),
+      consent,
+      {
+        ...edges,
+        formatFacts: valueFacts,
+        resolutionPublication: {
+          id: 'v'.repeat(24),
+          kind: 'value',
+          text: 'Published Value resolution',
+          provenance: 'Test publication',
+          edition: null,
+          theme: null,
+          publishedAt: '2026-10-29T00:00:00.000Z',
+        },
+      },
+    );
+    assert({
+      given: 'choosing Value from a room with host-written text',
+      should: 'adopt and pin the trusted Value publication',
+      actual: outcome.ok && [
+        outcome.mutation.state.topic,
+        outcome.mutation.state.publishedResolutionId,
+      ],
+      expected: ['Published Value resolution', 'v'.repeat(24)],
+    });
+  });
   test('choosing a catalog format', () => {
     const room = state();
     const outcome = run(room, selectFormat(room));
@@ -232,7 +275,7 @@ describe('select-format', () => {
       given:
         'switching into a draw, out of one, and between draws, with and without a topic',
       should:
-        'clear the topic entering a draw, require new text leaving one, and refuse any topic the change does not need',
+        'clear text entering a draw, load the publication for Value, and refuse host text for standards',
       actual: {
         intoDraw: topicOf(freestyle(state())),
         intoDrawWithText: topicOf(freestyle(state(), 'A motion')),
@@ -244,8 +287,8 @@ describe('select-format', () => {
       expected: {
         intoDraw: null,
         intoDrawWithText: 'illegal-config',
-        outOfDraw: 'A new motion',
-        outOfDrawWithoutText: 'illegal-config',
+        outOfDraw: 'illegal-config',
+        outOfDrawWithoutText: 'Motion',
         betweenDraws: null,
         betweenDrawsWithText: 'illegal-config',
       },

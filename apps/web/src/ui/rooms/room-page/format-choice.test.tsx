@@ -48,6 +48,7 @@ const strike = {
 const freestyle: RoomCatalogChoice = {
   ...standard('freestyle', 'Freestyle', 3),
   preset: {
+    rankedEligible: false,
     version: 1,
     config: { ...unequalTemplate.preset.config, resolutionDraw: strike },
   },
@@ -270,10 +271,9 @@ describe('FormatChoice', () => {
     );
     assert({
       given: 'a room running a draw',
-      should:
-        'ask for the resolution a set-resolution format needs, in the standards and league forms',
+      should: 'ask for host text only in the league template form',
       actual: html.match(/name="topic"/g)?.length,
-      expected: 2,
+      expected: 1,
     });
   });
 
@@ -302,10 +302,9 @@ describe('FormatChoice', () => {
     assert({
       given:
         'a Value room whose host turned a strike on, and a room whose pinned basis itself strikes',
-      should:
-        'ask Back for the resolution only when the pinned basis sets one, whatever the catalog now offers',
+      should: 'restore a standard publication without asking for host text',
       actual: [fields(false), fields(true)],
-      expected: [3, 2],
+      expected: [1, 1],
     });
   });
 });

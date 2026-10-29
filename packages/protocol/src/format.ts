@@ -94,7 +94,12 @@ export const crossExModeSchema = z.enum(crossExModes);
  * A three-state policy, not a boolean: "interruptions on" and "interruptions
  * during cross-examination only" are different debates (ADR 0058).
  */
-const interruptionModes = ['disabled', 'cross_ex_only', 'enabled'] as const;
+const interruptionModes = [
+  'disabled',
+  'cross_ex_only',
+  'enabled',
+  'open',
+] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
 /** An inclusive millisecond range a room's chosen value must land inside. */

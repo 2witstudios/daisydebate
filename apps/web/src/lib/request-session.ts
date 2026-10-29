@@ -1,3 +1,4 @@
+import { readRoomDraftAnswer } from '../features/rooms/create-room-draft-answer';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
@@ -164,3 +165,18 @@ export async function requestRoundRatings(
 /** Canonical deployment URL, never derived from a caller-controlled Host. */
 export const requestMetadataBase = (): URL =>
   new URL(processApp().config.PUBLIC_APP_URL);
+
+/** Native create-room preview answers are scoped to this authenticated member. */
+export async function requestRoomDraftAnswer(
+  commandId: unknown,
+  source: string | null = null,
+) {
+  const identity = await requestIdentity();
+  if (identity.state !== 'member') return { values: {} };
+  return readRoomDraftAnswer(
+    processApp().redis,
+    identity.principal.userId,
+    commandId,
+    source,
+  );
+}

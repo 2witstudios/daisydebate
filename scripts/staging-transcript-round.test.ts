@@ -11,7 +11,7 @@ test('the staging proof posts the foundation format itself, not a catalog entry'
   const parsed = roomCreateSchema.safeParse({
     commandId: 'cmd1x2y3z4a5b6c7d8e9f0g1',
     title: 'Staging transcript provider proof',
-    topic: 'Cities should fund transit',
+    resolution: { kind: 'custom', text: 'Cities should fund transit' },
     visibility: 'unlisted',
     selection: stagingProofSelection(),
   });

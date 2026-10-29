@@ -16,7 +16,8 @@ type Created =
   | { readonly kind: 'refused'; readonly reason: CreateRefusal }
   | { readonly kind: 'invalid' | 'unavailable' };
 /** What a 4xx refusal of creation means to the person who sent it. */
-type CreateRefusal = 'settings' | 'forbidden' | 'rate-limited' | 'replayed';
+type CreateRefusal =
+  'settings' | 'forbidden' | 'rate-limited' | 'replayed' | 'ranked-unavailable';
 const refusalBodySchema = z.object({
   refusal: roomRefusalSchema,
   activeRoom: activeRoomSchema.nullable().optional(),
@@ -29,6 +30,8 @@ async function refusalOf(response: Response): Promise<Created> {
   const body = refusalBodySchema.safeParse(
     await response.json().catch(() => null),
   );
+  if (body.success && body.data.refusal === 'ranked-unavailable')
+    return { kind: 'refused', reason: 'ranked-unavailable' };
   if (body.success && body.data.refusal === 'active-room')
     return { kind: 'active-room', href: body.data.activeRoom?.href ?? null };
   // The format and the resolution disagree, or the catalog moved on.
@@ -71,8 +74,15 @@ export async function createAssembly(
   const parsed = roomCreateSchema.safeParse({
     commandId: field(form, 'commandId'),
     title: field(form, 'title'),
-    // Empty for a format that strikes its resolution: the reveal names it.
-    topic: field(form, 'topic').trim() || null,
+    resolution:
+      field(form, 'resolutionMethod') === 'strike'
+        ? { kind: 'strike' }
+        : field(form, 'resolutionMethod') === 'custom'
+          ? { kind: 'custom', text: field(form, 'customResolution') }
+          : {
+              kind: field(form, 'resolutionMethod'),
+              id: field(form, `${field(form, 'resolutionMethod')}ResolutionId`),
+            },
     visibility: field(form, 'visibility'),
     selection,
   });

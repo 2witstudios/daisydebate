@@ -1,36 +1,40 @@
 import Link from 'next/link';
+import type { PublishedResolution } from '@daisy/protocol';
 import { buttonClass } from '../../components/button/button-class';
-import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
-import type { FormStateAction } from '../../form-action/action-form';
+import type { FormState } from '../../../features/forms/form-state';
 import { cn } from '../../cn';
 import { CreateAssemblyForm } from './create-assembly-form';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 
-const linkButton = 'no-underline hover:no-underline';
-
-/** Select a stored template, then configure and cast the durable room. */
 export function CreateRoomPage({
-  action,
+  initialState,
+  sourceRoomId,
   commandId,
   choices,
+  resolutions = [],
   freshRoom = false,
   initialRated = false,
 }: {
   readonly freshRoom?: boolean;
   readonly initialRated?: boolean;
-  readonly action: FormStateAction;
+  readonly initialState?: FormState;
+  readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
+  readonly resolutions?: readonly PublishedResolution[];
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
+    <div className="create-room-page">
       <PageHeader
         title={freshRoom ? 'Create a new room' : 'Create a room'}
         actions={
           <Link
             href="/lobby"
-            className={cn(buttonClass('secondary'), linkButton)}
+            className={cn(
+              buttonClass('secondary'),
+              'no-underline hover:no-underline',
+            )}
           >
             Browse open rooms
           </Link>
@@ -38,32 +42,17 @@ export function CreateRoomPage({
       />
       {freshRoom ? (
         <p role="status">
-          The finished room stays as it was. Choose a format for the new room.
-          Everyone joins and gets ready again; seats, device checks and
-          readiness don’t carry over.
+          Everyone joins and gets ready again in the new room.
         </p>
       ) : null}
-      <div className="flex items-start gap-6 max-compact:flex-col max-compact:gap-4">
-        <section
-          aria-label="Room settings"
-          className="flex min-w-0 flex-1 flex-col gap-6 rounded-xl bg-surface p-6 shadow-1 max-compact:w-full"
-        >
-          <CreateAssemblyForm
-            initialRated={initialRated}
-            action={action}
-            commandId={commandId}
-            choices={choices}
-          />
-        </section>
-        <aside
-          aria-label="About rated rooms"
-          className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
-        >
-          <Notice tone="accent" icon="trophy" title="Three ladders">
-            <Link href="/leaderboard">View standings</Link>
-          </Notice>
-        </aside>
-      </div>
+      <CreateAssemblyForm
+        initialRated={initialRated}
+        {...(initialState ? { initialState } : {})}
+        {...(sourceRoomId ? { sourceRoomId } : {})}
+        commandId={commandId}
+        choices={choices}
+        resolutions={resolutions}
+      />
     </div>
   );
 }

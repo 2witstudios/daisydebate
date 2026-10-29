@@ -227,7 +227,10 @@ test('canonical browser custom-create preserves declared unequal seats and order
       data: {
         commandId: createId(),
         title: 'Custom sequence proof',
-        topic: `Proof transit motion with ${'longlabel'.repeat(10)}`,
+        resolution: {
+          kind: 'custom',
+          text: `Proof transit motion with ${'longlabel'.repeat(10)}`,
+        },
         visibility: 'public',
         selection: launchCustomSelection,
       },
@@ -284,7 +287,7 @@ test('actual Room device checks gate human Ready, withdrawal and durable Launch'
   await proveHumanLaunch(browser, info);
 });
 
-test('catalog dialog previews real speech defaults and commits the selected template through native creation', async ({
+test('Custom library previews real speech defaults and commits the selected template without JavaScript', async ({
   browser,
 }) => {
   await proveFormatPicker(browser);

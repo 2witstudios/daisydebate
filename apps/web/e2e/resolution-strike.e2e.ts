@@ -31,7 +31,7 @@ async function createDrawRoom(
     data: {
       commandId: createId(),
       title: `Strike proof ${createId().slice(0, 8)}`,
-      topic: null,
+      resolution: { kind: 'strike' },
       visibility: 'public',
       selection: {
         kind: 'custom',
@@ -214,7 +214,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
       data: {
         commandId: createId(),
         title: `Freestyle proof ${createId().slice(0, 8)}`,
-        topic: null,
+        resolution: { kind: 'strike' },
         visibility: 'public',
         selection: {
           kind: 'catalog',

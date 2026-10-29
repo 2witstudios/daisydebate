@@ -7,6 +7,7 @@ import type {
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
+  PublishedResolution,
 } from '@daisy/protocol';
 
 import { createAppError } from '@daisy/errors';
@@ -24,6 +25,10 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
+import {
+  readPublishedResolution,
+  readPublishedResolutions,
+} from './published-resolutions';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -67,6 +72,7 @@ type CommandInput = {
       account: Account,
       draw: RoomDrawFacts,
       formatFacts: FormatSelectionFactsRecord | null,
+      resolutionPublication: PublishedResolution | null,
     ) => RoomMutationOutcome
   >;
 };
@@ -153,6 +159,16 @@ async function executeOnce(
   const formatFacts = input.formatTuple
     ? await readFormatSelectionFacts(tx, input.formatTuple)
     : null;
+  const selectedKind = formatFacts?.format.id;
+  const current =
+    selectedKind === 'policy' || selectedKind === 'value'
+      ? (await readPublishedResolutions(tx)).find(
+          (resolution) => resolution.kind === selectedKind,
+        )
+      : undefined;
+  const publication = current
+    ? await readPublishedResolution(tx, current.id, current.kind)
+    : null;
   const outcome = execute(
     state,
     now,
@@ -160,6 +176,7 @@ async function executeOnce(
     account,
     await drawFacts(tx, input.type, state, drawSeed),
     formatFacts,
+    publication,
   );
   if (!outcome.ok)
     throw createAppError(refusalCode(outcome.refusal), outcome.refusal);

@@ -204,3 +204,56 @@ test('a terminal stop ends the kept microphone whose unpublish is still in fligh
     ],
   });
 });
+test('POI local mute changes audio without changing server publish grants', async () => {
+  const stub = stubSdk({ settles: true });
+  const browser = createBrowserMediaTransport(
+    { ...events, microphoneMuted: true },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish(['camera', 'microphone']));
+  const microphone = stub.captured.find(
+    (track) => track.source === 'microphone',
+  )!;
+  const initiallyMuted = microphone.muted;
+  await browser.setMicrophoneMuted(false);
+  const unmuted = microphone.muted;
+  await browser.transport.apply(publish(['camera']));
+  await browser.setMicrophoneMuted(false);
+  assert({
+    given:
+      'a POI microphone, an explicit unmute, and then a revoked speaking grant',
+    should:
+      'start muted, permit unmuting and never republish against server authority',
+    actual: [initiallyMuted, unmuted, sources(stub.published)],
+    expected: [true, false, ['camera']],
+  });
+  browser.transport.stopTracks();
+});
+
+test('a failed local microphone change stops capture before offering device recovery', async () => {
+  const stub = stubSdk({ settles: true });
+  const browser = createBrowserMediaTransport(
+    { ...events, microphoneMuted: true },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish(['camera', 'microphone']));
+  const microphone = stub.captured.find(
+    (track) => track.source === 'microphone',
+  )!;
+  microphone.unmute = async () => {
+    throw new Error('Device disconnected');
+  };
+  let failed = false;
+  try {
+    await browser.setMicrophoneMuted(false);
+  } catch {
+    failed = true;
+  }
+  assert({
+    given: 'unmuting fails with an unknown track outcome',
+    should:
+      'fail and stop every captured track instead of leaving unknown audio live',
+    actual: [failed, stub.captured.every((track) => track.ended)],
+    expected: [true, true],
+  });
+});

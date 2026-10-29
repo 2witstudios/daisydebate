@@ -23,7 +23,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     const createBody = (visibility: string) => ({
       commandId: createId(),
       title: 'Authenticated Launch',
-      topic: 'Cities should fund transit',
+      resolution: { kind: 'custom', text: 'Cities should fund transit' },
       visibility,
       selection: foundationSelection,
     });

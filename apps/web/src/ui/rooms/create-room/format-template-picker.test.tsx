@@ -18,7 +18,7 @@ test('format browsing preserves native authoritative selection and unequal order
   const parsed = roomCreateSchema.safeParse({
     commandId: 'a'.repeat(24),
     title: 'Template proof',
-    topic: 'Transit motion',
+    resolution: { kind: 'custom', text: 'Transit motion' },
     visibility: 'unlisted',
     selection,
   });

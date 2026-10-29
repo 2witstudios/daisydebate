@@ -62,6 +62,18 @@ test('rules read in plain words, never as raw values', () => {
 });
 
 test('a round’s length is derived from its speeches, countdowns and prep', () => {
+  assert({
+    given:
+      'the shared standard schedule and twenty minutes of shared pre-round prep',
+    should: 'include pre-round prep once in the scheduled duration',
+    actual: roundLength({
+      speechesMs: [5, 2, 6, 2, 3, 5, 3].map((minutes) => minutes * 60_000),
+      countdownMs: 10_000,
+      prepPerSideMs: null,
+      preRoundPrepMs: 1_200_000,
+    }),
+    expected: 'about 45 min',
+  });
   const quick = [150, 60, 180, 60, 150, 150, 90].map((s) => s * 1000);
   assert({
     given:
