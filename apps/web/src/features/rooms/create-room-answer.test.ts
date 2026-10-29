@@ -34,3 +34,18 @@ test('draft transport retains edits on refusal, network failure and malformed na
     ],
   });
 });
+
+test('a live active-room destination is a valid canonical continuation', async () => {
+  const next = `/rounds/${'r'.repeat(24)}/room`;
+  const answered = await postRoomDraft(
+    async () => Response.json({ values: {}, next }),
+    new FormData(),
+  );
+  assert({
+    given: 'the existing active-room refusal points at its live Round',
+    should:
+      'continue to the authorized Round room instead of showing a transport error',
+    actual: answered.next,
+    expected: next,
+  });
+});

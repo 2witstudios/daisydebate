@@ -144,7 +144,14 @@ export function prepareRoomDraft(
   submitted.set('competition', draft.ranked ? 'ranked' : 'casual');
   submitted.set('resolutionMethod', method);
   submitted.set('customResolution', draft.customResolution);
-  if (publication)
+  if (publication) {
+    if (form.get(`${publication.kind}ResolutionId`) !== publication.id)
+      return {
+        kind: 'invalid',
+        error:
+          'That published resolution changed. Review the new wording before creating your room.',
+      };
     submitted.set(`${publication.kind}ResolutionId`, publication.id);
+  }
   return { kind: 'submit', form: submitted };
 }

@@ -8,6 +8,9 @@ export const publishedResolutionSchema = z.strictObject({
   text: z.string().trim().min(1).max(300),
   provenance: z.string().trim().min(1),
   publishedAt: z.iso.datetime({ offset: true }),
+  /** Descriptive publication edition, independent from rating-season authority. */
+  edition: z.string().trim().min(1).max(100).nullable(),
+  theme: z.string().trim().min(1).max(200).nullable(),
 });
 export type PublishedResolution = z.infer<typeof publishedResolutionSchema>;
 

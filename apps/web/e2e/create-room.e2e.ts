@@ -91,6 +91,23 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form
       .getByLabel('Room name', { exact: true })
       .fill('Native custom room');
+    const prep = form.locator('[name="duration.inRound"]');
+    const originalPrep = await prep.inputValue();
+    await form.getByText('Preparation and timing', { exact: true }).click();
+    await prep.fill('1:23');
+    await form
+      .getByRole('button', { name: 'Update preview', exact: true })
+      .click();
+    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
+    await form.locator('[name="format"][value="value"]').check();
+    await form
+      .getByRole('button', { name: 'Apply format', exact: true })
+      .click();
+    await expect(form.locator('[name="format"][value="value"]')).toBeChecked();
+    await expect(prep).toHaveValue(originalPrep);
+    await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
+      'Native custom room',
+    );
     await form.locator('[name="format"][value="policy"]').check();
     await form
       .getByRole('button', { name: 'Apply format', exact: true })
@@ -192,4 +209,43 @@ test('Custom offers searchable league starting points and Strike stays one optio
   await expect(
     page.getByRole('complementary', { name: 'Room preview' }),
   ).toContainText('Strike time is additional.');
+});
+
+test('current selection surfaces show exact owner-confirmed Season 1 publications and labels', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/play/room');
+  const form = formOf(page);
+  await hydrated(form);
+  const publication = form.locator('.create-room-publication');
+  await expect(publication.locator('blockquote')).toHaveText(
+    'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
+  );
+  await expect(publication).toContainText(
+    'Beta Season 1 · Culture and social priorities',
+  );
+  const valueId = await form.locator('[name="valueResolutionId"]').inputValue();
+  await form.locator('[name="format"][value="policy"]').check();
+  await expect(publication.locator('blockquote')).toHaveText(
+    'Resolved: Competitive debate should be a mandatory component of the core curriculum in American public education.',
+  );
+  await expect(publication).toContainText(
+    'Beta Season 1 · Education and institutional adoption',
+  );
+  const current = await (await page.request.get('/api/rooms/catalog')).json();
+  const value = current.resolutions.find(
+    (entry: { kind: string }) => entry.kind === 'value',
+  );
+  const policy = current.resolutions.find(
+    (entry: { kind: string }) => entry.kind === 'policy',
+  );
+  expect(value.id).toBe(valueId);
+  expect(policy.id).toBe(
+    await form.locator('[name="policyResolutionId"]').inputValue(),
+  );
+  expect([value.provenance, policy.provenance]).toEqual([
+    'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
+    'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
+  ]);
 });

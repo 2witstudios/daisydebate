@@ -24,6 +24,8 @@ const catalog = async () =>
         kind: 'value',
         text: 'A published Value resolution',
         provenance: 'Test publication',
+        edition: null,
+        theme: null,
         publishedAt: at,
       },
     ],

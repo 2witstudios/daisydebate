@@ -14,6 +14,8 @@ const publication = (
     kind: row.kind,
     text: row.text,
     provenance: row.provenance,
+    edition: row.edition,
+    theme: row.theme,
     publishedAt: row.publishedAt.toISOString(),
   });
 
@@ -35,7 +37,7 @@ export async function readPublishedResolution(
   kind: 'policy' | 'value',
 ): Promise<PublishedResolution | null> {
   const rows = await database.execute(
-    sql`select id,kind,text,provenance,published_at as "publishedAt" from public.daisy_current_published_resolution(${id},${kind})`,
+    sql`select id,kind,text,provenance,edition,theme,published_at as "publishedAt" from public.daisy_current_published_resolution(${id},${kind})`,
   );
   const row = rows[0];
   if (!row) return null;

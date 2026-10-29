@@ -144,3 +144,29 @@ test('native standard switching never carries a checked Ranked flag into the rep
     expected: ['policy', false, 'policy'],
   });
 });
+
+test('Custom floor rules do not inherit a template prohibition on ending a speech', () => {
+  const base = choice();
+  const source = {
+    ...base,
+    preset: {
+      ...base.preset,
+      config: { ...base.preset.config, yielding: null },
+    },
+  };
+  const read = readRoomDraft(
+    {
+      ...draftFormValues(createRoomDraft(source)),
+      format: 'custom',
+      yielding: 'on',
+      returnsTime: 'on',
+    },
+    [source],
+  );
+  assert({
+    given: 'a template with no yielding rule and a host enabling it in Custom',
+    should: 'apply the host’s chosen floor rule',
+    actual: read.ok && read.draft.config.yielding,
+    expected: { allowed: true, returnsTime: true },
+  });
+});

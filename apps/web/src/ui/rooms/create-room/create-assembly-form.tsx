@@ -4,7 +4,10 @@ import { useState, useTransition } from 'react';
 import type { FormState } from '../../../features/forms/form-state';
 import type { PublishedResolution } from '@daisy/protocol';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
-import { postRoomDraft } from '../../../features/rooms/create-room-answer';
+import {
+  postRoomDraft,
+  type RoomDraftAnswer,
+} from '../../../features/rooms/create-room-answer';
 import { defaultChoice } from '../../../features/rooms/format-browser';
 import { FormError } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
@@ -85,7 +88,7 @@ export function CreateAssemblyForm({
   readonly resolutions?: readonly PublishedResolution[];
   readonly initialRated?: boolean;
 }) {
-  const [state, setState] = useState(initialState);
+  const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
   useMovedOn(state.next);
   useFocusAfterAnswer(
@@ -122,7 +125,7 @@ export function CreateAssemblyForm({
         key={JSON.stringify(state.values)}
         commandId={commandId}
         choices={choices}
-        resolutions={resolutions}
+        resolutions={state.resolutions ?? resolutions}
         state={state}
         pending={pending}
         initialRated={initialRated}

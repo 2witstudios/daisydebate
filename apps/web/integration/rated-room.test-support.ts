@@ -21,8 +21,8 @@ export async function readyRatedRoom(
             kind: ladder,
             id:
               ladder === 'policy'
-                ? 'g0c8gv3cg20oee0g5pvifxeu'
-                : 'se5d9pwcwp7cbvb0fi7mku4a',
+                ? 's3vycbr7v7fl6a2xzmgneize'
+                : 'd3qrq2srlk8wpa3qhzefly0y',
           },
     selection: {
       kind: 'ranked',

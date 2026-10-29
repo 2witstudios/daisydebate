@@ -1,17 +1,29 @@
 import { z } from 'zod';
+import {
+  publishedResolutionSchema,
+  type PublishedResolution,
+} from '@daisy/protocol';
 import { formValues, type FormState } from '../forms/form-state';
+
+export type RoomDraftAnswer = FormState & {
+  readonly resolutions?: readonly PublishedResolution[];
+};
 
 export const roomDraftAnswerSchema = z
   .object({
     values: z.record(z.string().max(100), z.string().max(131072)),
     error: z.string().optional(),
+    resolutions: z.array(publishedResolutionSchema).readonly().optional(),
     next: z
       .string()
-      .regex(/^\/rooms\/[a-z0-9]{24}$/)
+      .regex(/^\/(?:rooms\/[a-z0-9]{24}|rounds\/[a-z0-9]{24}\/room)$/)
       .optional(),
   })
-  .transform((answer): FormState => ({
+  .transform((answer): RoomDraftAnswer => ({
     values: answer.values,
+    ...(answer.resolutions === undefined
+      ? {}
+      : { resolutions: answer.resolutions }),
     ...(answer.error === undefined ? {} : { error: answer.error }),
     ...(answer.next === undefined ? {} : { next: answer.next }),
   }));
@@ -20,7 +32,7 @@ export const roomDraftAnswerSchema = z
 export async function postRoomDraft(
   fetch: (url: string, init: RequestInit) => Promise<Response>,
   form: FormData,
-): Promise<FormState> {
+): Promise<RoomDraftAnswer> {
   try {
     const response = await fetch('/play/room/submit', {
       method: 'POST',

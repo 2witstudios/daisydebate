@@ -247,7 +247,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
             basis: 'value',
             standing: 'standard',
           },
-          'Privacy ought to be valued above public safety.',
+          'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
         ],
         fresh: [
           {

@@ -112,7 +112,7 @@ export async function withHumanJudgeHttpRound(
         {
           commandId: createId(),
           title: 'Private judge response proof',
-          topic: 'Cities should fund transit',
+          resolution: { kind: 'custom', text: 'Cities should fund transit' },
           visibility: 'public',
           selection,
         },

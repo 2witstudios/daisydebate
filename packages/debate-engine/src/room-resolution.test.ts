@@ -7,6 +7,8 @@ const publication = {
   kind: 'value' as const,
   text: 'Privacy ought to be valued above public safety.',
   provenance: 'Daisy original',
+  edition: null,
+  theme: null,
   publishedAt: '2026-10-29T00:00:00.000Z',
 };
 

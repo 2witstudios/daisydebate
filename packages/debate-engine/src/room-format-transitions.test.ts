@@ -58,6 +58,8 @@ const run = (
             kind: facts.format.id,
             text: 'Motion',
             provenance: 'Test publication',
+            edition: null,
+            theme: null,
             publishedAt: '2026-10-29T00:00:00.000Z',
           }
         : null,
@@ -79,6 +81,8 @@ describe('select-format', () => {
           kind: 'value',
           text: 'Published Value resolution',
           provenance: 'Test publication',
+          edition: null,
+          theme: null,
           publishedAt: '2026-10-29T00:00:00.000Z',
         },
       },

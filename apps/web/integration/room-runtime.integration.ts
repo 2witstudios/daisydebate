@@ -160,7 +160,7 @@ test('create replay survives catalog advancement and refuses a changed payload w
     const body = {
       commandId: createId(),
       title: 'Pinned create',
-      resolution: { kind: 'value' as const, id: 'se5d9pwcwp7cbvb0fi7mku4a' },
+      resolution: { kind: 'value' as const, id: 'd3qrq2srlk8wpa3qhzefly0y' },
       visibility: 'public' as const,
       selection: {
         kind: 'catalog' as const,

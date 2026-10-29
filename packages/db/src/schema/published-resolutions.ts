@@ -10,6 +10,8 @@ export const publishedResolutions = pgTable(
     kind: text('kind').$type<'policy' | 'value'>().notNull(),
     text: text('text').notNull(),
     provenance: text('provenance').notNull(),
+    edition: text('edition'),
+    theme: text('theme'),
     publishedAt: timestampColumn('published_at').notNull().defaultNow(),
     retiredAt: timestampColumn('retired_at'),
   },
@@ -25,6 +27,14 @@ export const publishedResolutions = pgTable(
     check(
       'published_resolutions_provenance_check',
       sql`length(trim(${table.provenance})) > 0`,
+    ),
+    check(
+      'published_resolutions_edition_check',
+      sql`${table.edition} is null or length(trim(${table.edition})) between 1 and 100`,
+    ),
+    check(
+      'published_resolutions_theme_check',
+      sql`${table.theme} is null or length(trim(${table.theme})) between 1 and 200`,
     ),
     check(
       'published_resolutions_retirement_check',

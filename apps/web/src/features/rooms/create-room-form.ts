@@ -1,6 +1,7 @@
 import { createAssembly } from './create-assembly';
 import { refused, type FormState } from '../forms/form-state';
 import type { readRoomTemplates } from './read-catalog';
+import type { RoomDraftAnswer } from './create-room-answer';
 import { prepareRoomDraft } from './prepare-room-draft';
 
 /** Preview actions and creation share the same authority-backed native draft decoder. */
@@ -10,7 +11,7 @@ export async function submitConfiguredRoomCreation(
   form: unknown,
   catalog: Awaited<ReturnType<typeof readRoomTemplates>>,
   path = '/api/rooms',
-): Promise<FormState> {
+): Promise<RoomDraftAnswer> {
   const submitted = form instanceof FormData ? form : new FormData();
   if (catalog.kind !== 'found')
     return refused(submitted, 'Room settings are unavailable. Try again.');
@@ -19,8 +20,13 @@ export async function submitConfiguredRoomCreation(
     catalog.choices,
     catalog.resolutions,
   );
-  if (prepared.kind === 'invalid') return refused(submitted, prepared.error);
-  if (prepared.kind === 'preview') return { values: prepared.values };
+  if (prepared.kind === 'invalid')
+    return {
+      ...refused(submitted, prepared.error),
+      resolutions: catalog.resolutions,
+    };
+  if (prepared.kind === 'preview')
+    return { values: prepared.values, resolutions: catalog.resolutions };
   return submitRoomCreation(fetch, incoming, prepared.form, path);
 }
 

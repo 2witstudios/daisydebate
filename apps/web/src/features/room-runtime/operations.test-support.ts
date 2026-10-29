@@ -162,6 +162,8 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       kind,
       text: state.topic!,
       provenance: 'Daisy-original test publication',
+      edition: null,
+      theme: null,
       publishedAt: now,
     }),
     getFormatSelectionFacts: async (tuple: {

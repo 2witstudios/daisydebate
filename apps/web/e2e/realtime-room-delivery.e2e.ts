@@ -108,7 +108,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       data: roomCreateSchema.parse({
         commandId: createId(),
         title: 'Realtime isolated proof',
-        resolution: { kind: 'value', id: 'se5d9pwcwp7cbvb0fi7mku4a' },
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
         visibility: 'unlisted',
         selection: {
           kind: 'catalog',

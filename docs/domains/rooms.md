@@ -87,7 +87,9 @@ membership. Every terminal state frees its members:
 Creation offers Policy res, Value res, Strike and Custom. Policy and Value
 use immutable published resolutions, selected by ID and rechecked under the
 write transaction; their text and publication reference freeze onto the
-Round. Only Custom asks for host-authored wording. Strike exposes no custom
+Round. Beta Season 1 publication labels and themes are descriptive metadata,
+independent from rating-season authority. Only Custom asks for host-authored
+wording. Strike exposes no custom
 draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
 
 A Room either names its resolution (its topic) or draws one before the

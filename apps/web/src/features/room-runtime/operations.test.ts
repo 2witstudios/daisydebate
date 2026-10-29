@@ -104,7 +104,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   const body: RoomCreate = {
     commandId: 'c7n6p8r2t4v6x8z1k3b5c7d9',
     title: 'A persisted casual room',
-    resolution: { kind: 'value', id: 'se5d9pwcwp7cbvb0fi7mku4a' },
+    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
     visibility: 'public',
     selection: {
       kind: 'catalog',
@@ -178,7 +178,7 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
       .create(caller, {
         commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
         title: 'Policy room',
-        resolution: { kind: 'value', id: 'se5d9pwcwp7cbvb0fi7mku4a' },
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
         visibility: 'public',
         selection,
       })
@@ -236,7 +236,7 @@ test('Room creation asks the create transaction to recheck its catalog selection
   await run.operations.create(caller, {
     commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
     title: 'Policy room',
-    resolution: { kind: 'value', id: 'se5d9pwcwp7cbvb0fi7mku4a' },
+    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
     visibility: 'public',
     selection: {
       kind: 'catalog',

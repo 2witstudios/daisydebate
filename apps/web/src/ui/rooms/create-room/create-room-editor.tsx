@@ -126,6 +126,14 @@ export function CreateRoomEditor({
           value={kept.commandId ?? commandId}
         />
         <input type="hidden" name="basis" value={values.basis} />
+        {resolutions.map((resolution) => (
+          <input
+            key={resolution.kind}
+            type="hidden"
+            name={`${resolution.kind}ResolutionId`}
+            value={resolution.id}
+          />
+        ))}
         <div className="create-room-section">
           <label className="create-room-field" htmlFor="assembly-title">
             <span>Room name</span>
@@ -188,7 +196,7 @@ export function CreateRoomEditor({
             <button
               type="submit"
               name="intent"
-              value="configure"
+              value="format"
               formNoValidate
               className={buttonClass('secondary')}
             >
@@ -308,11 +316,20 @@ export function CreateRoomEditor({
                 formNoValidate
                 className={buttonClass('secondary')}
               >
-                Apply resolution choice
+                Apply resolution
               </button>
             </noscript>
             {publication ? (
-              <blockquote>{publication.text}</blockquote>
+              <div className="create-room-publication">
+                {publication.edition || publication.theme ? (
+                  <p className="create-room-eyebrow">
+                    {[publication.edition, publication.theme]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                ) : null}
+                <blockquote>{publication.text}</blockquote>
+              </div>
             ) : missingPublication ? (
               <p role="status">
                 That resolution is unavailable. Choose another option or try

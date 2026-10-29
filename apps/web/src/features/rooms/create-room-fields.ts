@@ -94,7 +94,12 @@ export function readRoomDraft(
           (choice) =>
             choice.role === 'standard' && choice.formatId === values.format,
         );
-  if (selected && roomChoiceKey(selected) !== roomChoiceKey(source)) {
+  const resetSelectedPreset =
+    selected &&
+    (roomChoiceKey(selected) !== roomChoiceKey(source) ||
+      (values.intent === 'format' && selected.role === 'standard') ||
+      (values.intent === 'template' && selected.role === 'template'));
+  if (selected && resetSelectedPreset) {
     const draft = createRoomDraft(selected);
     return {
       ok: true,
@@ -201,7 +206,9 @@ export function readRoomDraft(
       ? { mode: 'open', minRemainingMs: 0 }
       : source.preset.config.interruptions,
     yielding:
-      source.preset.config.yielding === null
+      source.preset.config.yielding === null &&
+      values.yielding !== 'on' &&
+      values.returnsTime !== 'on'
         ? null
         : {
             allowed: values.yielding === 'on',

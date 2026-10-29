@@ -401,3 +401,7 @@
   font-size: 0.6875rem;
   color: var(--text-muted);
 }
+@utility create-room-publication {
+  display: grid;
+  gap: 0.625rem;
+}
