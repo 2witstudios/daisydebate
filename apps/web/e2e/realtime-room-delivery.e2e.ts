@@ -108,7 +108,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       data: roomCreateSchema.parse({
         commandId: createId(),
         title: 'Realtime isolated proof',
-        topic: 'Cities should fund public transit',
+        resolution: { kind: 'value', id: 'se5d9pwcwp7cbvb0fi7mku4a' },
         visibility: 'unlisted',
         selection: {
           kind: 'catalog',

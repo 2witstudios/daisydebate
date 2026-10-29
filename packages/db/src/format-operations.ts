@@ -9,6 +9,10 @@ import { createAppError } from '@daisy/errors';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
+import {
+  readPublishedResolution,
+  readPublishedResolutions,
+} from './published-resolutions';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 type FormatRevisionRecord = {
@@ -132,6 +136,14 @@ export const formatOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  listPublishedResolutions: () =>
+    instrumented(eventSink, 'listPublishedResolutions', () =>
+      readPublishedResolutions(database),
+    ),
+  getPublishedResolution: (id: string, kind: 'policy' | 'value') =>
+    instrumented(eventSink, 'getPublishedResolution', () =>
+      readPublishedResolution(database, id, kind),
+    ),
   /** The format's current definition revision, or null when absent. */
   async getFormat(id: string): Promise<FormatRevisionRecord | null> {
     return instrumented(eventSink, 'getFormat', async () => {

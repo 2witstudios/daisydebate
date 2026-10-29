@@ -120,6 +120,7 @@ describe('competitive schema rules', () => {
             'rooms_host_actor_idx',
             'rooms_lobby_idx',
             'rooms_preset_version_idx',
+            'rooms_published_resolution_idx',
           ],
           uniques: ['rooms_id_format_unique'],
           namedKeys: [
@@ -154,6 +155,7 @@ describe('competitive schema rules', () => {
             'rounds_discovery_live_room_idx',
             'rounds_format_completed_idx',
             'rounds_preset_provenance_idx',
+            'rounds_published_resolution_idx',
             'rounds_status_competition_created_idx',
           ],
           uniques: ['rounds_id_format_unique', 'rounds_room_unique'],

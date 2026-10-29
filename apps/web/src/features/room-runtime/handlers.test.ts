@@ -141,7 +141,7 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
       body: JSON.stringify({
         commandId: id,
         title: 'Room',
-        topic: 'Motion',
+        resolution: { kind: 'custom', text: 'Motion' },
         visibility: 'public',
         selection: {
           kind: 'ranked',

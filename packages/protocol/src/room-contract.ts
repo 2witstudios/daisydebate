@@ -14,6 +14,7 @@ import {
   type RoomExecutionPlan,
 } from './room';
 import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
+import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
   roundStageSchema,
@@ -56,6 +57,14 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     definition: formatDefinitionSchema,
     competitionType: z.literal('casual'),
     config: roomConfigSchema,
+    basis: z
+      .strictObject({
+        formatId: textSchema,
+        formatVersion: versionSchema,
+        presetVersion: versionSchema,
+      })
+      .nullable()
+      .optional(),
   }),
 ]);
 /**
@@ -67,18 +76,18 @@ export const roomCreateSchema = z
   .strictObject({
     commandId: idSchema,
     title: textSchema,
-    topic: textSchema.nullable(),
+    resolution: roomResolutionSelectionSchema,
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
   })
   .refine(
     (create) =>
       create.selection.kind !== 'custom' ||
-      (create.topic === null) ===
+      (create.resolution.kind === 'strike') ===
         create.selection.config.resolutionDraw.enabled,
     {
       message: 'A draw room has no topic; any other room needs one',
-      path: ['topic'],
+      path: ['resolution'],
     },
   );
 
@@ -189,6 +198,7 @@ export type RoomAssemblyState = {
   readonly title: string;
   /** Null exactly while a draw Room has not revealed its resolution. */
   readonly topic: string | null;
+  readonly publishedResolutionId: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly hostActorId: string;
   readonly hostLabel: string;

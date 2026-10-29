@@ -81,11 +81,13 @@ export const presetSpeechMs = (choice: RoomCatalogChoice) =>
 
 /** "1v1 · about 34 min", plus "resolution by strike" for a format that strikes. */
 export function choiceSummary(choice: RoomCatalogChoice): string {
-  const { inRoundPrep, speechTiming, resolutionDraw } = choice.preset.config;
+  const { inRoundPrep, preRoundPrep, speechTiming, resolutionDraw } =
+    choice.preset.config;
   const length = `${shapeLabel(choice.definition.seats)} · ${roundLength({
     speechesMs: presetSpeechMs(choice),
     countdownMs: speechTiming.countdownMs,
     prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
+    preRoundPrepMs: preRoundPrep.enabled ? preRoundPrep.durationMs : 0,
   })}`;
   return resolutionDraw.enabled ? `${length} · resolution by strike` : length;
 }

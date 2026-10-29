@@ -71,6 +71,7 @@ export function createBrowserMediaTransport(
     readonly tracks: (tracks: readonly MediaTrack[]) => void;
     readonly invalidated: () => void;
     readonly reconnect: () => void;
+    readonly microphoneMuted?: boolean;
     readonly devices?: {
       readonly camera?: string;
       readonly microphone?: string;
@@ -87,6 +88,7 @@ export function createBrowserMediaTransport(
   let granted: readonly Source[] = [];
   /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
   let warm: LocalTrack | null = null;
+  let microphoneMuted = events.microphoneMuted ?? false;
   // Unrestricted sources (canPublish with none listed) are never what the
   // server sets, so they read as unknown rather than as every source.
   const permitted = (): readonly Source[] | null => {
@@ -238,6 +240,7 @@ export function createBrowserMediaTransport(
       }
       tracks.set(source, track);
       try {
+        if (source === 'microphone' && microphoneMuted) await track.mute();
         await room.localParticipant.publishTrack(track, {
           source:
             source === 'camera' ? Track.Source.Camera : Track.Source.Microphone,
@@ -283,5 +286,20 @@ export function createBrowserMediaTransport(
       room.removeAllListeners();
     },
   };
-  return { transport, startAudio: () => room.startAudio() };
+  return {
+    transport,
+    startAudio: () => room.startAudio(),
+    setMicrophoneMuted: async (muted: boolean) => {
+      const previousMuted = microphoneMuted;
+      microphoneMuted = muted;
+      const microphone = tracks.get('microphone') ?? warm;
+      try {
+        if (microphone) await (muted ? microphone.mute() : microphone.unmute());
+      } catch (error) {
+        microphoneMuted = previousMuted;
+        stopTracks();
+        throw error;
+      }
+    },
+  };
 }

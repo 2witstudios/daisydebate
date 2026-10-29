@@ -227,7 +227,10 @@ test('canonical browser custom-create preserves declared unequal seats and order
       data: {
         commandId: createId(),
         title: 'Custom sequence proof',
-        topic: `Proof transit motion with ${'longlabel'.repeat(10)}`,
+        resolution: {
+          kind: 'custom',
+          text: `Proof transit motion with ${'longlabel'.repeat(10)}`,
+        },
         visibility: 'public',
         selection: launchCustomSelection,
       },

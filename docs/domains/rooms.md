@@ -43,8 +43,9 @@ Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
 policy, Public Forum and others) whose rules Daisy runs faithfully; a template
 always reads as Custom. IPDA and Team IPDA templates strike their
 resolution the way the IPDA bylaws do. Choosing a format that strikes its
-resolution clears the topic; leaving one asks for the resolution the new
-format debates. Standing is derived from the Room and its basis, never
+resolution clears the topic; choosing Policy or Value loads its current
+published resolution. League-template and Custom rooms may author a
+resolution. Standing is derived from the Room and its basis, never
 stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
 run their format unchanged. See ADR 0078.
 
@@ -83,6 +84,12 @@ membership. Every terminal state frees its members:
 
 ## Choosing the resolution
 
+Creation offers Policy res, Value res, Strike and Custom. Policy and Value
+use immutable published resolutions, selected by ID and rechecked under the
+write transaction; their text and publication reference freeze onto the
+Round. Only Custom asks for host-authored wording. Strike exposes no custom
+draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
+
 A Room either names its resolution (its topic) or draws one before the
 round ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). In a draw
 Room the host's Start pre-round draws N resolutions from Daisy's curated
@@ -113,6 +120,11 @@ clock and the speech order) with no controls and no media. The spectator
 view is the seed of spectating: `SpectatorAudience` names why a viewer
 watches, today only `host`, and later audiences join that union without a
 second view. Everyone else gets the Round's public page.
+
+Unranked Custom rules can use points of information (POI): both sides have
+permission to speak and begin with their local microphones muted, with a
+simple mute/unmute control. This is distinct from cross-examination floor
+control. Raised-hand requests and acceptance are roadmap work (ISSUE-871).
 
 Media is a scoped LiveKit session. The capture worker turns the published
 audio of every debater, human or bot, into the transcript; bot speech enters

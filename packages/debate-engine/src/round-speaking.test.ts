@@ -1,8 +1,36 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { oneOnOneCast, runtimeWorld } from './runtime.test-support';
+import {
+  oneOnOneCast,
+  oneOnOneSeats,
+  runtimeWorld,
+} from './runtime.test-support';
+import { speakingParticipants } from './round-speaking';
 setupRitewayBun();
 const { at, person, opponent, rules } = oneOnOneCast();
+test('Custom POI permits both sides to speak without transferring the scheduled floor', () => {
+  const poi = {
+    ...rules,
+    interaction: {
+      ...rules.interaction,
+      crossExMode: 'free' as const,
+      interruptions: { allowed: 'open' as const, minRemainingMs: 0 },
+    },
+  };
+  assert({
+    given: 'open questioning during a speech or question period',
+    should:
+      'grant both debaters speaking permission and keep the judge excluded',
+    actual: [0, 1].map((sequence) =>
+      speakingParticipants(poi, oneOnOneSeats, sequence, null),
+    ),
+    expected: [0, 1].map(() =>
+      oneOnOneSeats
+        .filter((seat) => seat.role !== 'judge')
+        .map((seat) => seat.id),
+    ),
+  });
+});
 test('free CX commits both sides while ordered CX transfers exclusive speaking authority', async () => {
   for (const mode of ['ordered', 'free'] as const) {
     const world = runtimeWorld({

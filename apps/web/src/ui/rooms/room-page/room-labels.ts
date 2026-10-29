@@ -91,6 +91,9 @@ export function formatLine(
   return `${shapeLabel(view.definition.seats)} · ${roundLength({
     speechesMs: view.rules.segments.map((segment) => segment.durationMs),
     countdownMs: config.speechTiming.countdownMs,
+    preRoundPrepMs: config.preRoundPrep.enabled
+      ? config.preRoundPrep.durationMs
+      : 0,
     prepPerSideMs: config.inRoundPrep.enabled
       ? config.inRoundPrep.budgetMsPerSide
       : null,
@@ -122,6 +125,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
   'format-unavailable': 'a format that is currently offered',
+  'ranked-unavailable': 'an active Ranked season',
   'draw-unavailable': 'enough resolutions to draw from',
   'strike-unavailable': 'a resolution still in the draw',
   'strike-conflict': 'the latest strike',

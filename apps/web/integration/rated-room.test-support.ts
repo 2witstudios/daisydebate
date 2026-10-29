@@ -14,7 +14,16 @@ export async function readyRatedRoom(
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
   let room = await f.assemble({
-    topic: ladder === 'freestyle' ? null : 'Cities should make transit free',
+    resolution:
+      ladder === 'freestyle'
+        ? { kind: 'strike' }
+        : {
+            kind: ladder,
+            id:
+              ladder === 'policy'
+                ? 'g0c8gv3cg20oee0g5pvifxeu'
+                : 'se5d9pwcwp7cbvb0fi7mku4a',
+          },
     selection: {
       kind: 'ranked',
       formatId: ladder,

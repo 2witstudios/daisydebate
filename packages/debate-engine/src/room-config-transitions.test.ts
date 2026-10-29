@@ -4,6 +4,48 @@ import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
+test('a custom resolution leaves a standard and cannot alter a ranked room', () => {
+  const original = state();
+  const room = {
+    ...original,
+    formatId: 'value',
+    catalogFormat: { name: 'Value', role: 'standard' as const, leagues: [] },
+  };
+  const command = {
+    type: 'update-details' as const,
+    commandId: 'resolution-edit',
+    expectedVersion: room.version,
+    title: room.title,
+    visibility: 'unlisted' as const,
+    topic: 'A custom resolution',
+  };
+  const custom = executeRoomCommand(room, 'host', command, consent, {
+    ...edges,
+    formatId: 'custom-resolution-format',
+  });
+  const ranked = executeRoomCommand(
+    { ...room, competitionType: 'ranked' },
+    'host',
+    command,
+    consent,
+    edges,
+  );
+  assert({
+    given:
+      'host-written replacement text for an unranked standard or a ranked room',
+    should:
+      'make the standard private Custom and refuse changing the ranked proposition',
+    actual: [
+      custom.ok && [
+        custom.mutation.state.formatId,
+        custom.mutation.publishDefinition,
+      ],
+      ranked.ok,
+    ],
+    expected: [['custom-resolution-format', true], false],
+  });
+});
+
 /** The Room with one judge seat added to its rules and definition. */
 const withJudgeSeat = (room: ReturnType<typeof state>) => ({
   ...room,

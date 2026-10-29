@@ -35,6 +35,7 @@ export const state = (): RoomAssemblyState => ({
   changeVersion: 1,
   title: 'Room',
   topic: 'Motion',
+  publishedResolutionId: null,
   visibility: 'public',
   hostActorId: 'host',
   hostLabel: 'Host',

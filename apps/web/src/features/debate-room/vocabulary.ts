@@ -39,6 +39,7 @@ export const interruptionLabel: Readonly<
   disabled: 'Off',
   cross_ex_only: 'Only during cross-examination',
   enabled: 'During any speech',
+  open: 'Open microphones (POI)',
 };
 
 /**
@@ -114,14 +115,17 @@ export function roundLength({
   speechesMs,
   countdownMs,
   prepPerSideMs,
+  preRoundPrepMs = 0,
 }: {
   readonly speechesMs: readonly number[];
   readonly countdownMs: number;
   readonly prepPerSideMs: number | null;
+  readonly preRoundPrepMs?: number;
 }): string {
   const total =
     speechesMs.reduce((sum, ms) => sum + ms + countdownMs, 0) +
-    2 * (prepPerSideMs ?? 0);
+    2 * (prepPerSideMs ?? 0) +
+    preRoundPrepMs;
   const rounded = Math.max(
     FIVE_MINUTES,
     Math.round(total / FIVE_MINUTES) * FIVE_MINUTES,

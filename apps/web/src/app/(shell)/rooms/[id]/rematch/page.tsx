@@ -8,7 +8,7 @@ import { requireAccess } from '../../../../../lib/access';
 import { CreateRoomPage } from '../../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../../../play/actions';
 import { roomAssembly } from '../actions';
-import { createFreshRoomAction } from './actions';
+import { requestRoomDraftAnswer } from '../../../../../lib/request-session';
 export default async function FreshRoomPage({
   params,
   searchParams,
@@ -31,8 +31,13 @@ export default async function FreshRoomPage({
   return (
     <CreateRoomPage
       freshRoom
-      action={createFreshRoomAction.bind(null, id)}
+      sourceRoomId={id}
+      initialState={await requestRoomDraftAnswer(
+        (await searchParams).draft,
+        id,
+      )}
       choices={templates.choices}
+      resolutions={templates.resolutions}
       commandId={systemId.next()}
     />
   );

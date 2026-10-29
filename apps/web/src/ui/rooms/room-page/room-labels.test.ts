@@ -156,6 +156,7 @@ describe('room lobby labels', () => {
         config: {
           ...oneOnOne.config,
           inRoundPrep: { enabled: false },
+          preRoundPrep: { enabled: false },
         },
       }),
       expected: '1v1 · about 5 min',

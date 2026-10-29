@@ -5,6 +5,20 @@ import { createAssembly } from './create-assembly';
 setupRitewayBun();
 const form = () => rankedCreateForm();
 
+test('an unavailable ranked season is not mistaken for an already submitted form', async () => {
+  const result = await createAssembly(
+    async () =>
+      Response.json({ refusal: 'ranked-unavailable' }, { status: 409 }),
+    form(),
+  );
+  assert({
+    given: 'a valid Ranked request while no season is active',
+    should: 'identify temporary Ranked unavailability',
+    actual: result,
+    expected: { kind: 'refused', reason: 'ranked-unavailable' },
+  });
+});
+
 test('create forwards the selected immutable revision and verifies the returned room identity', async () => {
   const calls: unknown[] = [];
   const result = await createAssembly(async (path, init) => {
@@ -27,7 +41,7 @@ test('create forwards the selected immutable revision and verifies the returned 
           {
             commandId: 'h'.repeat(24),
             title: 'My room',
-            topic: 'A real topic',
+            resolution: { kind: 'custom', text: 'A real topic' },
             visibility: 'unlisted',
             selection: {
               kind: 'ranked',
@@ -107,9 +121,9 @@ test('invalid create selections refuse before transport; server refusals never b
 test('a striking format leaves the resolution empty; its refusals name the settings (PR #472 review)', async () => {
   const posted: unknown[] = [];
   const empty = form();
-  empty.set('topic', '   ');
+  empty.set('resolutionMethod', 'strike');
   await createAssembly(async (_path, init) => {
-    posted.push(JSON.parse(String(init.body)).topic);
+    posted.push(JSON.parse(String(init.body)).resolution);
     return Response.json(
       { receipt: { roomId: 'i'.repeat(24) }, view: assemblySnapshot },
       { status: 201 },
@@ -131,7 +145,7 @@ test('a striking format leaves the resolution empty; its refusals name the setti
       await refused('format-unavailable'),
     ],
     expected: [
-      [null],
+      [{ kind: 'strike' }],
       { kind: 'refused', reason: 'settings' },
       { kind: 'refused', reason: 'settings' },
     ],

@@ -37,14 +37,14 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
     const rooms: { ladder: string; id: string }[] = [];
     for (const ladder of ['freestyle', 'policy', 'value']) {
       await page.goto('/play/room');
-      await expect(page.getByLabel('Rating', { exact: true })).toHaveValue(
-        'casual',
-      );
-      await page.getByLabel('Rating', { exact: true }).selectOption('ranked');
+      await expect(
+        page.getByRole('checkbox', { name: 'Ranked', exact: true }),
+      ).not.toBeChecked();
       const room = await submitCreateRoom(
         page,
         `Rated ${ladder} ${createId().slice(0, 8)}`,
         ladder,
+        true,
       );
       try {
         rooms.push({ ladder, id: room.id });

@@ -109,7 +109,9 @@ test.describe('Room lobby with JavaScript off', () => {
       await page.goto('/play/room');
       const form = page.getByRole('form', { name: 'Create a room' });
       await form.getByLabel('Room name', { exact: true }).fill(title);
-      await form.getByLabel('Resolution').fill('Native lobby topic');
+      await expect(form.getByLabel('Resolution', { exact: true })).toHaveValue(
+        'value',
+      );
       await form
         .getByRole('button', { name: 'Create room', exact: true })
         .click();

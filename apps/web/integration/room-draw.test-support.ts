@@ -19,7 +19,7 @@ export const drawRoomOverrides = async (
 ): Promise<Partial<RoomCreate>> => {
   const foundation = await f.foundation();
   return {
-    topic: null,
+    resolution: { kind: 'strike' },
     selection: {
       kind: 'custom',
       competitionType: 'casual',

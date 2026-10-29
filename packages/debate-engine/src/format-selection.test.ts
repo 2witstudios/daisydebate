@@ -9,6 +9,44 @@ import {
 
 setupRitewayBun();
 
+test('open POI speaking is never admitted to Ranked even on an eligible published preset', () => {
+  const source = facts({
+    preset: {
+      rankedEligible: true,
+      config: {
+        ...oneOnOneSettings,
+        interruptions: { mode: 'open', minRemainingMs: 0 },
+      },
+    },
+  });
+  const loaded: FormatSelectionFacts = {
+    ...source,
+    definition: {
+      ...source.definition,
+      configurable: {
+        ...source.definition.configurable,
+        interaction: {
+          ...source.definition.configurable.interaction,
+          interruptions: {
+            modes: ['open'],
+            minRemainingMs: { min: 0, max: 0 },
+          },
+        },
+      },
+    },
+  };
+  const outcome = decideFormatSelection(
+    request({ intent: 'create-ranked' }),
+    loaded,
+  );
+  assert({
+    given: 'a standard whose publisher marked an open POI preset eligible',
+    should: 'refuse Ranked admission independently of that flag',
+    actual: outcome.ok,
+    expected: false,
+  });
+});
+
 const facts = (
   overrides: {
     readonly format?: Partial<FormatSelectionFacts['format']>;

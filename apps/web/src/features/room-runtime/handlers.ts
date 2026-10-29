@@ -162,7 +162,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
       })),
     catalog: (request: Request) =>
       run(request, 'read', false, async (caller) => ({
-        choices: await dependencies.operations.catalog(caller),
+        ...(await dependencies.operations.catalog(caller)),
         bots: await dependencies.operations.castChoices(caller),
       })),
     read: (request: Request, roomId: string) =>

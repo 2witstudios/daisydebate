@@ -42,7 +42,7 @@ async function createProbeRoom(
   const created = await json(members[0]!, '/api/rooms', {
     commandId: createId(),
     title: 'Public ingress receipt resource',
-    topic: 'Cities should fund transit',
+    resolution: { kind: 'custom', text: 'Cities should fund transit' },
     visibility: 'public',
     selection: humanRoundSelection(foundationChoice, 1),
   });

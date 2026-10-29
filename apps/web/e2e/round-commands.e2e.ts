@@ -271,12 +271,22 @@ for (const javaScriptEnabled of [false, true])
       await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
         '',
       );
-      await expect(form.getByLabel('Resolution')).toHaveValue('');
+      await expect(form.getByLabel('Resolution', { exact: true })).toHaveValue(
+        'value',
+      );
       await form
         .getByLabel('Room name', { exact: true })
         .fill('A genuinely fresh Room');
       await form
-        .getByLabel('Resolution')
+        .getByLabel('Resolution', { exact: true })
+        .selectOption('custom');
+      const applyResolution = form.getByRole('button', {
+        name: 'Apply resolution choice',
+        exact: true,
+      });
+      if (await applyResolution.count()) await applyResolution.click();
+      await form
+        .getByLabel('Custom resolution', { exact: true })
         .fill('Libraries should remain public');
       await form
         .getByRole('button', { name: 'Create room', exact: true })

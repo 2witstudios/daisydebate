@@ -1,6 +1,28 @@
 import { createAssembly } from './create-assembly';
 import { refused, type FormState } from '../forms/form-state';
-import { moveOn } from '../../server/form-action';
+import type { readRoomTemplates } from './read-catalog';
+import { prepareRoomDraft } from './prepare-room-draft';
+
+/** Preview actions and creation share the same authority-backed native draft decoder. */
+export async function submitConfiguredRoomCreation(
+  fetch: Parameters<typeof createAssembly>[0],
+  incoming: Headers,
+  form: unknown,
+  catalog: Awaited<ReturnType<typeof readRoomTemplates>>,
+  path = '/api/rooms',
+): Promise<FormState> {
+  const submitted = form instanceof FormData ? form : new FormData();
+  if (catalog.kind !== 'found')
+    return refused(submitted, 'Room settings are unavailable. Try again.');
+  const prepared = prepareRoomDraft(
+    submitted,
+    catalog.choices,
+    catalog.resolutions,
+  );
+  if (prepared.kind === 'invalid') return refused(submitted, prepared.error);
+  if (prepared.kind === 'preview') return { values: prepared.values };
+  return submitRoomCreation(fetch, incoming, prepared.form, path);
+}
 
 /** The assembling Room an active-room answer names, if it is one. */
 const assemblingRoomOf = (href: string) =>
@@ -39,6 +61,10 @@ export async function submitRoomCreation(
   form: unknown,
   path = '/api/rooms',
   beforeMoveOn: BeforeMoveOn = async () => {},
+  moveOn: (incoming: Headers, to: string) => { readonly next: string } = (
+    _incoming,
+    to,
+  ) => ({ next: to }),
 ): Promise<FormState> {
   const submitted = form instanceof FormData ? form : new FormData();
   const result = await createAssembly(
@@ -60,6 +86,8 @@ export async function submitRoomCreation(
 }
 
 const refusals = {
+  'ranked-unavailable':
+    'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
   settings:
     'The room could not be created. Review your settings and try again.',
   forbidden: 'Your account cannot create rooms right now.',

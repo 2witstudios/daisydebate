@@ -104,7 +104,6 @@ const drawing = (view: RoomView) => view.executionPlan.resolutionDraw.enabled;
 function StandardsForm({ view, choices, ids, action }: FormProps) {
   const legendId = useId();
   const standing = view.format.standing;
-  const draws = drawing(view);
   return (
     <AssemblyCommandForm action={action} className="flex flex-col gap-3">
       <CommandFields view={view} commandId={ids.choose} intent="choose" />
@@ -151,7 +150,6 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
           </span>
         </label>
       </div>
-      {draws ? <ResolutionField id="room-format-topic" /> : null}
       <button type="submit" className={buttonClass('secondary')}>
         Use this format
       </button>
@@ -182,9 +180,6 @@ function CustomCard({ view, ids, action }: FormProps) {
         <AssemblyCommandForm action={action}>
           <CommandFields view={view} commandId={ids.reset} intent="reset" />
           <input type="hidden" name="format" value={tuple(basis)} />
-          {drawing(view) && !basis.strikes ? (
-            <ResolutionField id="room-reset-topic" />
-          ) : null}
           <button type="submit" className={buttonClass('secondary')}>
             Back to {basis.name}
           </button>
