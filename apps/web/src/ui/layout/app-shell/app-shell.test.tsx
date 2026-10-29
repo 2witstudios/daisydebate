@@ -61,12 +61,12 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, launched destinations and More, then the member places', () => {
+  test('the rail: logo, launched destinations and member places at the top, More and the profile at the foot', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations and More in order, then Messages, Friends and the profile',
+        'link home from the logo, then the launched destinations, Messages and Friends, then More and the profile at the foot',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -81,13 +81,45 @@ describe('AppShell', () => {
           '/lobby',
           '/leaderboard',
           '/judge',
-          '/settings',
-          '/settings',
           '/messages',
           '/friends',
+          '/settings',
+          '/settings',
           '/profile/ada-byron',
         ],
       ],
+    });
+  });
+
+  test('the rail is pinned to the viewport at every height, so its foot stays at the bottom', () => {
+    const [rail] = navs(render(member));
+    const classes = rail.match(/class="([^"]*)"/)?.[1]?.split(' ') ?? [];
+    assert({
+      given: "a member's rail on any window height",
+      should:
+        'stick to the top and fill the viewport, never scroll with the page',
+      actual: ['sticky', 'top-0', 'h-screen'].map((name) =>
+        classes.includes(name),
+      ),
+      expected: [true, true, true],
+    });
+  });
+
+  test('the rail foot is a plain group, with no divider above it', () => {
+    const [rail] = navs(render(member));
+    const foot = rail.slice(rail.lastIndexOf('<ul'));
+    assert({
+      given: "a member's rail",
+      should: 'pin More and the profile to the foot without a border above',
+      actual: [
+        foot.includes('href="/settings"'),
+        foot.includes('aria-label="Your profile, ada-byron"'),
+        foot.includes('border-t'),
+        foot.indexOf('href="/settings"') <
+          foot.indexOf('aria-label="Your profile, ada-byron"'),
+        /class="[^"]*\bbottom-0\b/.test(foot),
+      ],
+      expected: [true, true, false, true, true],
     });
   });
 
