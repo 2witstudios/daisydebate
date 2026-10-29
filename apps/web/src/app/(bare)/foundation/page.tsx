@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { prose } from '../../ui/prose-class';
 import { BrandSheet } from './brand-sheet';
+import { ShareSheet } from './share-sheet';
 
 export const metadata: Metadata = { title: 'Foundation proof' };
 // Reachable only when the deployment enables the proof: the proxy refuses
@@ -29,6 +30,7 @@ export default function FoundationProofPage() {
         the re-validated representation.
       </p>
       <BrandSheet />
+      <ShareSheet />
     </section>
   );
 }

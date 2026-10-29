@@ -93,3 +93,29 @@ Every text and UI pairing you add in markup (a new `text-*` on a new
 holds each pair to WCAG AA in both schemes: 4.5:1 for text and 3:1 for UI.
 The marks are exempt as decoration, but the forest petals are still held
 to 3:1 on the page.
+
+## Browser tab and share images
+
+`app/icon.tsx` (32px) and `app/apple-icon.tsx` (180px) rasterise the
+committed tile geometry through `next/og`; `/favicon.ico` rewrites to `/icon`.
+Next's metadata conventions emit their link tags on every route.
+
+`ui/brand/share-canvas.tsx` owns the inline-styled artwork. The light
+Open Graph (1200 × 630) and X (1600 × 900) cards are public metadata image
+routes; `metadataBase` uses validated `PUBLIC_APP_URL`, never the request
+Host. `raster-palette.ts` is pinned to the stylesheet by test. The local
+OFL-licensed WOFF faces are Fraunces 600 (optical size 144) and Instrument
+Sans 400, obtained from Google Fonts; license notices sit beside the files.
+Satori cannot read the site's WOFF2 faces or CSS variables.
+
+With `FOUNDATION_PROOF_ENABLED=true`, `/foundation` also shows light and
+dark PNGs for those two formats, Instagram square (1080 × 1080),
+Story/Reels/TikTok (1080 × 1920), and YouTube thumbnail (1280 × 720).
+Each image keeps its original pixel dimensions in a scrollable viewport;
+open the PNG link to save it or screenshot the image element at 1:1.
+The gated `/foundation/share/<format>/<scheme>` routes use the same renderer,
+so exports and served cards have identical font rasterisation. Browser
+inline-style exceptions are unnecessary and the production CSP stays intact.
+These are brand artwork dimensions, not a guarantee about a platform's crop.
+Web manifest icons, per-Room cards and future wordmark lockups remain separate
+product intent.

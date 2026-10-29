@@ -50,6 +50,12 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
     'apps/web/src/app/(bare)/beta/',
   ],
   'theme.e2e.ts': theme,
+  'brand-share.e2e.ts': [
+    'apps/web/src/ui/brand/',
+    'apps/web/src/lib/share-image',
+    'apps/web/src/app/(bare)/foundation/',
+    'apps/web/public/fonts/',
+  ],
   'visual.e2e.ts': [...theme, ...auth],
   'device-checks.e2e.ts': [...room, ...media],
   'media-navigation.e2e.ts': [...room, ...media],
