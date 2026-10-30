@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { EMAIL_BRAND_PALETTE } from '../../mail/brand-palette';
 import {
   inlineColoursWithoutDarkOverride,
   parseDarkRules,
@@ -80,15 +79,15 @@ describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)'
     });
   });
 
-  test('paints the brand dot with the dark accent in a dark client', () => {
-    const dot = elements.find((element) =>
-      element.classes.includes('auth-mail-accent-bg'),
+  test('renders the Daisy mark in the brand row', () => {
+    const mark = elements.find((element) =>
+      element.classes.includes('auth-mail-logo-cardinal'),
     );
     assert({
-      given: 'the brand dot, whose light accent is set inline',
-      should: 'resolve to the dark accent under prefers-color-scheme: dark',
-      actual: dot && resolved(dot, 'background', 'dark', darkRules),
-      expected: EMAIL_BRAND_PALETTE.dark.accent,
+      given: 'the rendered email header',
+      should: 'include the Daisy mark rather than a plain brand dot',
+      actual: mark !== undefined,
+      expected: true,
     });
   });
 
