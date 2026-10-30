@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
+import { canOfferFreshRoom } from '../room-runtime/fresh-room';
 import { roundEntry } from './round-entry';
 import { assemblySnapshot } from './assembly.test-support';
 import type { RoomCommandIds } from './room-command-ids';
@@ -184,15 +185,16 @@ test('terminal entry remains closed across stale or nonmonotonic Room sync reads
   ] as const;
   for (const status of ['completed', 'abandoned'] as const) {
     const held = seedRoomSync(
-      view(5, { participants, roundRef: { id: 'round', status } }),
+      view(5, {
+        participants,
+        roundRef: { id: 'round', status },
+        status: 'started',
+        hostActorId: 'member',
+      }),
       ids('a'),
       0,
     );
-    const terminal = roundEntry(
-      held.value.view,
-      'member',
-      null,
-    ).terminalRoundId;
+    const terminal = roundEntry(held.value.view, 'member', null).terminal;
     for (const changeVersion of [4, 5, 6]) {
       const next = roomSync(held, {
         type: 'accepted',
@@ -200,16 +202,25 @@ test('terminal entry remains closed across stale or nonmonotonic Room sync reads
           view: view(changeVersion, {
             participants,
             roundRef: { id: 'round', status: 'active' },
+            status: 'started',
+            hostActorId: 'member',
           }),
           ids: ids('b'),
         },
         at: 1,
       });
+      const entry = roundEntry(next.value.view, 'member', terminal);
       assert({
         given: `${status} observed before an active snapshot at Room version ${changeVersion}`,
         should: 'never re-trigger automatic entry after a terminal observation',
-        actual: roundEntry(next.value.view, 'member', terminal).href,
-        expected: null,
+        actual: [
+          entry.href,
+          canOfferFreshRoom(
+            { ...next.value.view, roundRef: entry.roundRef },
+            'member',
+          ),
+        ],
+        expected: [null, true],
       });
     }
   }

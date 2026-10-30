@@ -2,7 +2,7 @@
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
@@ -99,15 +99,22 @@ export function RoomLive(props: Props) {
     [driver],
   );
   const now = useNow(roomDeadline(sync) !== null, sync.readAt);
-  const view = useMemo(() => presentedView(sync, now), [sync, now]);
+  const syncedView = useMemo(() => presentedView(sync, now), [sync, now]);
+  const [terminalRound, setTerminalRound] = useState<Pick<
+    RoomView,
+    'id' | 'roundRef'
+  > | null>(() => roundEntry(seedView, props.actorId, null).terminal);
+  const entry = roundEntry(syncedView, props.actorId, terminalRound);
+  if (entry.terminal !== terminalRound) setTerminalRound(entry.terminal);
+  const view = useMemo(
+    () => ({ ...syncedView, roundRef: entry.roundRef }),
+    [syncedView, entry.roundRef],
+  );
   const { ids } = sync.value;
   const router = useRouter();
-  const terminalRoundId = useRef<string | null>(null);
   useEffect(() => {
-    const entry = roundEntry(view, props.actorId, terminalRoundId.current);
-    terminalRoundId.current = entry.terminalRoundId;
     if (entry.href) replaceRoute(router, browserDocument(), entry.href);
-  }, [view, props.actorId, router]);
+  }, [entry.href, router]);
   return (
     <RoomSyncContext value={handle}>
       <AssemblyHeader

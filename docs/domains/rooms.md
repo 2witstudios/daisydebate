@@ -228,4 +228,7 @@ at direct launch. Synced seated clients enter the same scheduled or active Round
 appears, using a document navigation where media permissions require it. Completed
 and abandoned Round references leave the Room and its rematch action accessible.
 An observed terminal Round cannot trigger entry again through delayed snapshots,
-even when its status changes independently of the Room revision.
+even when its status changes independently of the Room revision. Navigation and
+rematch presentation share that terminal observation, scoped to Room and Round
+identity; current ownership and all server-side mutation authorization remain
+authoritative. A distinct rematch Room starts with fresh observation state.

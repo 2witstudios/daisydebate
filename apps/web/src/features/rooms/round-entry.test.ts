@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
+import { canOfferFreshRoom } from '../room-runtime/fresh-room';
 import { roundEntry } from './round-entry';
 setupRitewayBun();
 const seat = {
@@ -15,6 +16,7 @@ const seat = {
   eligible: true,
 } as const;
 const view = (status: NonNullable<RoomView['roundRef']>['status']) => ({
+  id: 'room',
   participants: [seat],
   roundRef: { id: 'round', status },
 });
@@ -64,7 +66,7 @@ test('observed terminal Rounds cannot be reopened by delayed nonmonotonic snapsh
           roundEntry(
             view(status as 'scheduled' | 'active'),
             'member',
-            held.terminalRoundId,
+            held.terminal,
           ).href,
       ),
       expected: [null, null],
@@ -88,9 +90,61 @@ test('refresh and a fresh rematch retain independent entry lifetimes', () => {
           roundRef: { id: 'next-round', status: 'scheduled' },
         },
         'member',
-        terminal.terminalRoundId,
+        terminal.terminal,
       ).href,
     ],
     expected: [null, '/rounds/round/room', null, '/rounds/next-round/room'],
+  });
+});
+
+test('terminal observation keeps rematch presentation while current ownership stays authoritative', () => {
+  for (const status of ['completed', 'abandoned'] as const) {
+    const held = roundEntry(view(status), 'member', null);
+    const next = {
+      ...view('active'),
+      status: 'started' as const,
+      hostActorId: 'member',
+    };
+    const entry = roundEntry(next, 'member', held.terminal);
+    assert({
+      given: `${status} observed before a regressed active Round status`,
+      should: 'preserve rematch only for the current host of the started Room',
+      actual: [
+        canOfferFreshRoom({ ...next, roundRef: entry.roundRef }, 'member'),
+        canOfferFreshRoom(
+          { ...next, roundRef: entry.roundRef, hostActorId: 'other' },
+          'member',
+        ),
+        canOfferFreshRoom(
+          { ...next, roundRef: entry.roundRef, status: 'closed' },
+          'member',
+        ),
+      ],
+      expected: [true, false, false],
+    });
+  }
+});
+
+test('terminal knowledge never attaches a prior Round to a fresh rematch Room', () => {
+  const held = roundEntry(view('completed'), 'member', null).terminal;
+  const fresh = roundEntry(
+    { ...view('active'), id: 'fresh-room', roundRef: null },
+    'member',
+    held,
+  );
+  const live = roundEntry(
+    {
+      ...view('active'),
+      id: 'fresh-room',
+      roundRef: { id: 'new-round', status: 'scheduled' },
+    },
+    'member',
+    fresh.terminal,
+  );
+  assert({
+    given: 'a new rematch Room after a terminal Round',
+    should: 'clear prior terminal knowledge and admit its own new live Round',
+    actual: [fresh.roundRef, fresh.terminal, fresh.href, live.href],
+    expected: [null, null, null, '/rounds/new-round/room'],
   });
 });
