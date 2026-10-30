@@ -53,6 +53,7 @@ export default async function RootLayout({
   const jar = await cookies();
   const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
   const refreshSession = await sessionRefreshDueNow();
+  const analytics = await requestAnalytics();
   return (
     <html
       lang="en"
@@ -63,8 +64,25 @@ export default async function RootLayout({
         <ThemeProvider initialPreference={theme}>
           {children}
           {refreshSession ? <SessionRefresh /> : null}
+          {analytics.keyValue ? (
+            <>
+              <AnalyticsClient {...analytics} />
+              <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
+                <ConsentControls {...analytics} banner />
+              </div>
+              <footer className="p-4 text-center text-sm">
+                <Link href="/analytics" className="text-ink-muted underline">
+                  Analytics preferences
+                </Link>
+              </footer>
+            </>
+          ) : null}
         </ThemeProvider>
       </body>
     </html>
   );
 }
+import Link from 'next/link';
+import { AnalyticsClient } from '../ui/analytics/analytics-client';
+import { ConsentControls } from '../ui/analytics/consent-controls';
+import { requestAnalytics } from '../lib/request-session';

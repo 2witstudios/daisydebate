@@ -23,6 +23,8 @@ describe('secret configuration keys', () => {
         'OPENROUTER_API_KEY',
         'OPERATOR_API_KEYS',
         'OPS_PROBE_TOKEN',
+        'POSTHOG_API_KEY',
+        'POSTHOG_PERSONAL_API_KEY',
         'RECIPIENT_HASH_SECRET',
         'REDIS_URL',
         'RESEND_API_KEY',

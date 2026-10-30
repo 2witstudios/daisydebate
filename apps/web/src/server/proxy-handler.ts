@@ -31,6 +31,7 @@ export type ProxySettings = {
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
+  readonly analyticsHost?: string | null;
 };
 
 /**
@@ -79,6 +80,17 @@ function signInHint(
   return response;
 }
 
+function posthogSources(host: string | null | undefined) {
+  if (!host) return { apiHost: '', assetHost: '' };
+
+  if (!['https://us.i.posthog.com', 'https://eu.i.posthog.com'].includes(host))
+    return { apiHost: '', assetHost: '' };
+  return {
+    apiHost: host,
+    assetHost: host.replace('.i.', '-assets.i.'),
+  };
+}
+
 function contentSecurityPolicy(
   pathname: string,
   settings: ProxySettings,
@@ -90,9 +102,10 @@ function contentSecurityPolicy(
     settings.mediaPublicUrl,
     development,
   );
+  const posthog = posthogSources(settings.analyticsHost);
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${posthog.assetHost ? ` ${posthog.assetHost}` : ''}${development ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
     ...(development
       ? []
@@ -103,7 +116,8 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${development ? ' ws:' : ''}`,
+    `connect-src 'self'${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${development ? ' ws:' : ''}`,
+    ...(posthog.assetHost ? ['worker-src blob:'] : []),
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

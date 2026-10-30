@@ -100,6 +100,15 @@ for (const workspace of workspaces) {
       true,
     );
     const check = (specifier: string) => {
+      if (
+        /^posthog-(js|node)(\/|$)/.test(specifier) &&
+        !/^apps\/web\/src\/features\/analytics\/(client|server)-adapter\.ts$/.test(
+          relative(root, file),
+        )
+      )
+        issues.push(
+          `${relative(root, file)}: PostHog SDK imports belong to analytics adapters (ADR 0037)`,
+        );
       const runnerOnly = runnerOnlyIssue(specifier, relative(root, file));
       if (runnerOnly) issues.push(`${relative(root, file)}: ${runnerOnly}`);
       const operatorApi = operatorApiIssue(specifier, relative(root, file));

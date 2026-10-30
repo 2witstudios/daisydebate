@@ -386,3 +386,7 @@ export {
   createChannelMessagesProjector,
 } from './messaging/channel-messages';
 export type { ChannelMessageRecord } from './messaging/channel-messages';
+export {
+  analyticsConsentSchema,
+  type AnalyticsConsent,
+} from './analytics-consent';

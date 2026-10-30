@@ -1,3 +1,4 @@
+import { analyticsConsentPrivacyAdopter } from '../analytics-consent';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
@@ -26,6 +27,7 @@ export const subjectRightsAdoption = (
   createRoomAccountClosureAdopter(rooms),
   ...socialPrivacyAdoption(),
   onboardingPrivacyAdopter,
+  analyticsConsentPrivacyAdopter,
   accountAgePrivacyAdopter,
   accountTermsPrivacyAdopter,
   betaAccessPrivacyAdopter,

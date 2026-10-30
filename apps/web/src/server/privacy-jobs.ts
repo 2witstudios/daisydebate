@@ -19,6 +19,11 @@ import type { WorkerTimers } from '../lib/worker-timers';
  */
 export const privacyJobVendors = ['messaging-typing'] as const;
 
+export const configuredPrivacyJobVendors = (
+  app: App,
+): readonly PrivacyVendor[] =>
+  app.posthogErasure ? [...privacyJobVendors, 'posthog'] : privacyJobVendors;
+
 /**
  * The vendor deletion port a queued job is delivered through: the Redis
  * typing-lease erasure for `messaging-typing`. Any other vendor is a
@@ -28,6 +33,7 @@ export const privacyJobPort = (
   app: App,
   vendor: PrivacyVendor,
 ): { readonly erase: (subjectRef: string) => Promise<void> } => {
+  if (vendor === 'posthog' && app.posthogErasure) return app.posthogErasure;
   if (vendor !== 'messaging-typing') throw createAppError('INFRASTRUCTURE');
   return app.database.messagingTypingPrivacyPort({
     exportSubject: (actorId) => app.redis.exportSubjectTyping(actorId),
