@@ -300,3 +300,36 @@ test('late success cannot restore a readiness problem after commitment', async (
     expected: [false, false, false],
   });
 });
+
+test('late conflict reread cannot restore a warning after commitment', async () => {
+  const read =
+    Promise.withResolvers<
+      Awaited<ReturnType<Parameters<typeof createLocalConsent>[0]['read']>>
+    >();
+  const started = Promise.withResolvers<void>();
+  const c = createLocalConsent({
+    view: consentView(false),
+    ...unreadyEdges,
+    read: () => {
+      started.resolve();
+      return read.promise;
+    },
+    send: async () => ({ kind: 'refused', reason: 'consent-conflict' }),
+  });
+  await c.devices(true);
+  const pending = c.ready();
+  await started.promise;
+  c.updateView({
+    ...consentView(true, 2),
+    changeVersion: assemblySnapshot.changeVersion + 1,
+    capabilities: { ...assemblySnapshot.capabilities, canReady: false },
+  });
+  read.resolve({ kind: 'found', view: consentView(false) });
+  await pending;
+  assert({
+    given: 'commitment adopted during an older conflict reread',
+    should: 'retain settled consent without an obsolete warning',
+    actual: [c.readSnapshot().pending, c.readSnapshot().problem],
+    expected: [false, false],
+  });
+});

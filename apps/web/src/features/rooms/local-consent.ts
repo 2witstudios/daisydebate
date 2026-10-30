@@ -42,6 +42,10 @@ export function createLocalConsent({
     snapshot = { ...snapshot, ...patch };
     for (const listener of listeners) listener();
   };
+  const reportProblem = () => {
+    if (!disposed && snapshot.view.capabilities.canReady)
+      publish({ problem: true });
+  };
   const adopt = (next: RoomView) => {
     const nextOwn = next.participants
       .filter(isNamedSeat)
@@ -114,7 +118,7 @@ export function createLocalConsent({
         if (!snapshot.view.capabilities.canReady) break;
         if (acknowledge(result, intent.expectedConsentVersion)) continue;
         if (await recoverConflict(result, conflicts++)) continue;
-        publish({ problem: true });
+        reportProblem();
         return;
       }
       if (!disposed) {
@@ -122,8 +126,7 @@ export function createLocalConsent({
         publish({ pending: false, problem: false });
       }
     } catch {
-      if (!disposed && snapshot.view.capabilities.canReady)
-        publish({ problem: true });
+      reportProblem();
     }
   };
   const drive = () => {
@@ -167,17 +170,17 @@ export function createLocalConsent({
       return disposed ? Promise.resolve() : intent(false);
     },
     async retry() {
-      if (disposed || running) return;
+      if (disposed || running || !snapshot.view.capabilities.canReady) return;
       publish({ pending: true, problem: false });
       try {
         if (!(await reread())) {
-          publish({ problem: true });
+          reportProblem();
           return;
         }
         if (!snapshot.devicesPassed) desired = false;
         await drive();
       } catch {
-        publish({ problem: true });
+        reportProblem();
       }
     },
     dispose() {
