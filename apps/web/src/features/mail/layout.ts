@@ -66,6 +66,36 @@ function htmlParagraphs(paragraphs: readonly string[]): string {
  * (default) styles, which are explicit on every surface so no client
  * auto-inverts them (AUTH-3.9 AC2).
  */
+const CARDINAL_PATHS = [
+  'M12 9.3 C14.004 8.869 14.05 5.646 14.05 4.428 C14.05 2.479 13.132 0.9 12 0.9 C10.868 0.9 9.95 2.479 9.95 4.428 C9.95 5.646 9.996 8.869 12 9.3 Z',
+  'M14.7 12 C15.131 14.004 18.354 14.05 19.572 14.05 C21.521 14.05 23.1 13.132 23.1 12 C23.1 10.868 21.521 9.95 19.572 9.95 C18.354 9.95 15.131 9.996 14.7 12 Z',
+  'M12 14.7 C9.996 15.131 9.95 18.354 9.95 19.572 C9.95 21.521 10.868 23.1 12 23.1 C13.132 23.1 14.05 21.521 14.05 19.572 C14.05 18.354 14.004 15.131 12 14.7 Z',
+  'M9.3 12 C8.869 9.996 5.646 9.95 4.428 9.95 C2.479 9.95 0.9 10.868 0.9 12 C0.9 13.132 2.479 14.05 4.428 14.05 C5.646 14.05 8.869 14.004 9.3 12 Z',
+];
+
+const DIAGONAL_PATHS = [
+  'M13.909 10.091 C15.631 11.203 17.943 8.957 18.804 8.095 C20.182 6.718 20.649 4.952 19.849 4.151 C19.048 3.351 17.282 3.818 15.905 5.196 C15.043 6.057 12.797 8.369 13.909 10.091 Z',
+  'M13.909 13.909 C12.797 15.631 15.043 17.943 15.905 18.804 C17.282 20.182 19.048 20.649 19.849 19.849 C20.649 19.048 20.182 17.282 18.804 15.905 C17.943 15.043 15.631 12.797 13.909 13.909 Z',
+  'M10.091 13.909 C8.369 12.797 6.057 15.043 5.196 15.905 C3.818 17.282 3.351 19.048 4.151 19.849 C4.952 20.649 6.718 20.182 8.095 18.804 C8.957 17.943 11.203 15.631 10.091 13.909 Z',
+  'M10.091 10.091 C11.203 8.369 8.957 6.057 8.095 5.196 C6.718 3.818 4.952 3.351 4.151 4.151 C3.351 4.952 3.818 6.718 5.196 8.095 C6.057 8.957 8.369 11.203 10.091 10.091 Z',
+];
+
+function daisyLogoSvg(): string {
+  return (
+    '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="display:block;">' +
+    CARDINAL_PATHS.map(
+      (d) =>
+        `<path d="${d}" fill="${EMAIL_BRAND_PALETTE.light.markCardinal}" class="auth-mail-logo-cardinal"/>`,
+    ).join('') +
+    DIAGONAL_PATHS.map(
+      (d) =>
+        `<path d="${d}" fill="${EMAIL_BRAND_PALETTE.light.markDiagonal}" class="auth-mail-logo-diagonal"/>`,
+    ).join('') +
+    `<circle cx="12" cy="12" r="2.6" fill="${EMAIL_BRAND_PALETTE.light.yolk}" class="auth-mail-logo-disc"/>` +
+    '</svg>'
+  );
+}
+
 export function renderEmailLayout(content: EmailContent): {
   readonly subject: string;
   readonly text: string;
@@ -89,7 +119,9 @@ export function renderEmailLayout(content: EmailContent): {
     .auth-mail-ink p { color: ${DARK.ink} !important; }
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
-    .auth-mail-accent-bg { background: ${DARK.accent} !important; }
+    .auth-mail-logo-cardinal { fill: ${EMAIL_BRAND_PALETTE.dark.markCardinal} !important; }
+    .auth-mail-logo-diagonal { fill: ${EMAIL_BRAND_PALETTE.dark.markDiagonal} !important; }
+    .auth-mail-logo-disc { fill: ${EMAIL_BRAND_PALETTE.dark.yolk} !important; }
     .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
     .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }
@@ -102,7 +134,7 @@ export function renderEmailLayout(content: EmailContent): {
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="auth-mail-surface" style="width:100%;max-width:600px;background:${LIGHT.surface};border:1px solid ${LIGHT.border};border-radius:12px;">
 <tr><td style="padding:32px 40px 0;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td width="20" height="20" style="background:${LIGHT.accent};border-radius:999px;font-size:0;line-height:0;" class="auth-mail-accent-bg">&nbsp;</td>
+<td width="20" height="20" style="font-size:0;line-height:0;">${daisyLogoSvg()}</td>
 <td style="padding-left:10px;font-family:${FONT_BODY};font-size:17px;font-weight:700;letter-spacing:-0.01em;color:${LIGHT.ink};" class="auth-mail-ink">Daisy Debate</td>
 </tr></table>
 </td></tr>
