@@ -2,7 +2,7 @@ import { captureAnalytics } from './support/analytics-capture';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { AnalyticsBrowser } from './support/analytics-browser-entry';
-import { expect, test } from './support/fixtures';
+import { expect, test, openPage } from './support/fixtures';
 
 const entry = fileURLToPath(
   new URL('./support/analytics-browser-entry.ts', import.meta.url),
@@ -92,7 +92,7 @@ test('the real browser SDK is opt-in, scrubbed and resets on sign-out', async ({
     expect(event).not.toHaveProperty('$set_once');
     expect(event.properties.token).toBe('phc_browser_fixture');
   }
-  const other = await page.context().newPage();
+  const other = await openPage(page.context(), 'second analytics tab');
   await other.goto('/analytics?secret=private@example.test');
   await other.evaluate(bundle);
   await other.evaluate(() => {

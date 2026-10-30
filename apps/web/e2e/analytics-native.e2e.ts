@@ -1,4 +1,4 @@
-import { expect, test } from './support/fixtures';
+import { expect, test, openPage } from './support/fixtures';
 import { captureAnalytics } from './support/analytics-capture';
 import { signUpMember } from './support/accounts';
 
@@ -43,7 +43,7 @@ test('native opt-in survives reload and sign-in; Settings withdrawal stops every
       .$anon_distinct_id,
   ).toBe(anonymous);
   await expect(page.getByLabel('Masked session replay')).not.toBeVisible();
-  const other = await context.newPage();
+  const other = await openPage(context, 'analytics preferences');
   await other.goto('/settings');
   await expect(other.getByLabel('Product analytics')).toBeChecked();
   await expect
@@ -89,7 +89,7 @@ test('consent acceptance and withdrawal work with JavaScript disabled', async ({
   });
   const { requests } = await captureAnalytics(context);
   try {
-    const page = await context.newPage();
+    const page = await openPage(context, 'analytics preferences');
     await page.goto('/');
     await page.getByRole('button', { name: 'Accept optional' }).click();
     await expect(page).toHaveURL(/\/analytics\?saved=1$/);
