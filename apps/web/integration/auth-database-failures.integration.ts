@@ -2,6 +2,7 @@ import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { validRules } from '@daisy/db/testing';
+import { noopErrorReporter } from '@daisy/observability';
 import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
@@ -164,6 +165,7 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
     const handlers = createAuthRouteHandlers(
       () => ({ handler: auth.instance.handler, config: auth.config }),
       auth.logger,
+      noopErrorReporter,
     );
     const response = await handlers.POST(
       new Request(`${auth.config.PUBLIC_APP_URL}/api/auth/sign-in/magic-link`, {

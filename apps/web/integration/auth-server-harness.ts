@@ -1,6 +1,7 @@
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { createId } from '@paralleldrive/cuid2';
 import { readAuthConfig } from '@daisy/config';
+import { noopErrorReporter } from '@daisy/observability';
 import { createDatabase } from '@daisy/db';
 import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -92,6 +93,7 @@ export const redeemMagicLink = (
   createConfirmHandlers({
     auth: () => ({ handler: auth.instance.handler, config: auth.config }),
     logger: silentLogger,
+    reporter: noopErrorReporter,
   }).POST(
     new Request(`${auth.config.PUBLIC_APP_URL}/auth/confirm`, {
       method: 'POST',

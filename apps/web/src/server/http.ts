@@ -3,8 +3,10 @@ import { isCapacityRefusal } from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
+  noopErrorReporter,
   requestId,
   withSpan,
+  type ErrorReporter,
 } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
@@ -40,13 +42,17 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
 /**
  * The one wrapper every route handler runs in: correlation and no-store
  * headers, a request-scoped child of the injected logger, completion and
- * failure logging, and the public error contract for anything thrown.
+ * failure logging, and the public error contract for anything thrown. The
+ * injected reporter sees the raw error of a failure worth an operator's
+ * attention — a 5xx or an invariant violation — after scrubbing, and never
+ * a handled client error (ADR 0037).
  */
 export async function handleOperation(
   baseLogger: Logger,
   request: Request,
   operation: string,
   handler: (id: string, logger: Logger) => Promise<Response>,
+  reporter: ErrorReporter = noopErrorReporter,
 ): Promise<Response> {
   const id = requestId(request.headers.get('x-request-id'));
   const start = performance.now();
@@ -121,6 +127,19 @@ export async function handleOperation(
           },
           'Request failed',
         );
+        // ADR 0037: the raw error goes to the scrubbed reporter only, and
+        // only when someone must look: a 5xx or an invariant violation. A
+        // failing reporter never fails the response (the ISSUE-789 rule).
+        if (mapped.status >= 500 || mapped.body.error.invariantId !== undefined)
+          try {
+            reporter.capture(error, {
+              requestId: id,
+              route: operation,
+              errorCode: mapped.body.error.code,
+            });
+          } catch {
+            /* Reporting is best-effort at the response boundary. */
+          }
         return Response.json(mapped.body, {
           status: mapped.status,
           headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },

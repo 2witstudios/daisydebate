@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMessagingTypingHandler } from './typing-route';
@@ -21,6 +22,7 @@ test('typing HTTP admits only current identified boolean intent and strict own-c
     maxBodyBytes: 256,
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => ({
         state: 'member',

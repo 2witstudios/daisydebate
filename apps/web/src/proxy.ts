@@ -9,6 +9,11 @@ export function proxy(request: NextRequest) {
     publicAppUrl: app.config.PUBLIC_APP_URL,
     websocketEndpoint: app.websocketEndpoint,
     mediaPublicUrl: app.config.LIVEKIT_PUBLIC_URL ?? null,
+    // ADR 0037: the browser's capture origin, present only when the client
+    // DSN is configured; absent otherwise, so the CSP names no vendor host.
+    sentryEndpoint: app.config.NEXT_PUBLIC_SENTRY_DSN
+      ? new URL(app.config.NEXT_PUBLIC_SENTRY_DSN).origin
+      : null,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
   });

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { unequalTemplate } from './assembly.test-support';
@@ -16,6 +17,7 @@ const member: Identity = {
 };
 const dependencies = (identity: Identity = member) => ({
   logger: silentLogger,
+  reporter: noopErrorReporter,
   origin: () => origin,
   identify: async () => identity,
   limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },

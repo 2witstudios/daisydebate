@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { systemClock, systemId } from '@daisy/clock';
+import { noopErrorReporter } from '@daisy/observability';
 import { readAuthConfig, readMailConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createRedis, redisKey } from '@daisy/redis';
@@ -140,6 +141,7 @@ export function createSecondInstances(testApp: TestApp) {
       handlers: createAuthRouteHandlers(
         () => ({ handler: server.instance.handler, config: server.config }),
         silentLogger,
+        noopErrorReporter,
       ),
     };
   };

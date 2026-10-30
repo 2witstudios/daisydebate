@@ -37,6 +37,7 @@ export function composeMediaCaptureRoutes(app: App) {
   };
   return createMediaCaptureHandlers({
     logger: app.logger,
+    reporter: app.reporter,
     authentication: () => {
       const secret = app.config.MEDIA_WORKER_SECRET;
       if (!secret) throw createAppError('INFRASTRUCTURE');

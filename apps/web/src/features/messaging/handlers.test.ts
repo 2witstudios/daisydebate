@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMessagingHandlers } from './handlers';
 setupRitewayBun();
@@ -6,6 +7,7 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
   const calls: string[] = [];
   const handlers = createMessagingHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://daisy.example',
     maxBodyBytes: 1024,
     bounds: { messageUnits: 100, pageItems: 10 },
@@ -117,6 +119,7 @@ function authorizedHandlers(typingRefetchMs?: number) {
     ...operations,
     ...(typingRefetchMs === undefined ? {} : { typingRefetchMs }),
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://daisy.example',
     maxBodyBytes: 1024,
     bounds: { messageUnits: 100, pageItems: 10 },

@@ -3,6 +3,7 @@ import { identify } from '../../lib/identity';
 /** One session/origin/actor/rate policy composition for both shared competitive write contracts. */
 export const composeRoundMemberDependencies = (app: App) => ({
   logger: app.logger,
+  reporter: app.reporter,
   identify: (request: Request) => identify(app.auth(), request.headers),
   origin: () => app.auth().config.PUBLIC_APP_URL,
   getActorByUserId: (id: string) => app.database.getActorByUserId(id),

@@ -1,3 +1,4 @@
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 
 /** Shared member ingress for attendance route tests; callers supply their own limiter and writes. */
@@ -6,6 +7,7 @@ export const attendanceMemberGates = (
   actorId: () => string,
 ) => ({
   logger: silentLogger,
+  reporter: noopErrorReporter,
   origin: () => origin,
   active: () => true,
   identify: async () => ({

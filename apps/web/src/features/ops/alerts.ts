@@ -1,5 +1,6 @@
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import {
   evaluateAlerts,
   readAlertSnapshot,
@@ -22,12 +23,15 @@ import { requireProbeToken } from './probe-auth';
  */
 export function createAlertsHandler({
   logger,
+  reporter,
   redis,
   local,
   clock,
   token,
 }: {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly redis: AlertStateRedis;
   /** What this process saw itself, readable when Redis is not (ISSUE-191). */
   readonly local: LocalAlertState;
@@ -36,13 +40,19 @@ export function createAlertsHandler({
   readonly token: () => string;
 }) {
   return (request: Request) =>
-    handleOperation(logger, request, 'ops.alerts', async () => {
-      requireProbeToken(request, token());
-      const snapshot = await readAlertSnapshot({ redis, local, clock });
-      return Response.json({
-        now: snapshot.nowIso,
-        conditions: evaluateAlerts(snapshot),
-        snapshot,
-      });
-    });
+    handleOperation(
+      logger,
+      request,
+      'ops.alerts',
+      async () => {
+        requireProbeToken(request, token());
+        const snapshot = await readAlertSnapshot({ redis, local, clock });
+        return Response.json({
+          now: snapshot.nowIso,
+          conditions: evaluateAlerts(snapshot),
+          snapshot,
+        });
+      },
+      reporter,
+    );
 }

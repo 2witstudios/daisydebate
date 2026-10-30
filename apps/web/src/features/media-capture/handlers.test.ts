@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMediaCaptureHandlers } from './handlers';
@@ -22,6 +23,7 @@ const fixture = (
     };
   const handlers = createMediaCaptureHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     authentication: () =>
       ({
         verify: (signed: { signature: string }) => {

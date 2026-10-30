@@ -14,7 +14,6 @@ import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
-import { noopErrorReporter } from '@daisy/observability';
 import {
   drainWithDeadline,
   installShutdownSignals,
@@ -63,9 +62,9 @@ const { server, started } = startProductionServer({
 });
 await started;
 // ADR 0079: the private operator listener, only when keys are configured.
-// Its unexpected failures go to the error reporter: none is wired yet, so
-// this stays noop until the ADR 0037 adapter lands here.
-const operatorApi = await startOperatorApi(app, noopErrorReporter);
+// Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
+// uninitialized without a DSN, so an unconfigured deployment stays inert.
+const operatorApi = await startOperatorApi(app, app.reporter);
 const mediaRuntime = [
   app.config.LIVEKIT_URL,
   app.config.LIVEKIT_PUBLIC_URL,
@@ -113,10 +112,12 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,
   timers: workerTimers,
+  reporter: app.reporter,
 });
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
   timers: workerTimers,
+  reporter: app.reporter,
 });
 const roundWorkers = startRoundWorkers({
   app,
@@ -132,6 +133,7 @@ const roundWorkers = startRoundWorkers({
     : null,
   timers: workerTimers,
   deadlineTimer: oneShotTimer,
+  reporter: app.reporter,
 });
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
@@ -163,6 +165,7 @@ const retention = startRetentionSweep({
 const betaMail = startBetaMail({
   app,
   timers: workerTimers,
+  reporter: app.reporter,
 });
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance

@@ -78,10 +78,14 @@ describe('proxy trace context propagation', () => {
   });
 });
 
-const directives = (env: 'production' | 'development') => {
+const directives = (
+  env: 'production' | 'development',
+  overrides: Partial<ProxySettings> = {},
+) => {
   const policy =
     proxy(new NextRequest('https://daisy.invalid/'), {
       development: env === 'development',
+      ...overrides,
     }).headers.get('Content-Security-Policy') ?? '';
   return new Map(
     policy.split('; ').map((directive) => {
@@ -185,6 +189,27 @@ describe('proxy content security policy', () => {
       should: 'not emit a separate style attribute directive',
       actual: directives('development').has('style-src-attr'),
       expected: false,
+    });
+  });
+
+  test('names the Sentry ingest origin in connect-src only when the client DSN is configured (ADR 0037)', () => {
+    const connectSrc = (overrides: Partial<ProxySettings>) =>
+      (directives('production', overrides).get('connect-src') ?? []).filter(
+        (source) => source.startsWith('https://'),
+      );
+    assert({
+      given: 'no NEXT_PUBLIC_SENTRY_DSN',
+      should: 'name no vendor host at all',
+      actual: connectSrc({ sentryEndpoint: null }),
+      expected: [],
+    });
+    assert({
+      given: 'a configured client DSN',
+      should: 'allow the browser capture to reach exactly that origin',
+      actual: connectSrc({
+        sentryEndpoint: 'https://o0.ingest.sentry.io',
+      }),
+      expected: ['https://o0.ingest.sentry.io'],
     });
   });
 });

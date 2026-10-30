@@ -1,5 +1,6 @@
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
@@ -13,6 +14,8 @@ export type RoundCaller = { readonly userId: string; readonly actorId: string };
 type Rule = { readonly max: number; readonly windowSeconds: number };
 export type RoundMemberRouteDependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from these gates' raw errors goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly origin: () => string;
   readonly getActorByUserId: (
@@ -69,5 +72,6 @@ export function createRoundMemberGate(d: RoundMemberRouteDependencies) {
           return response;
         }
       },
+      d.reporter,
     );
 }

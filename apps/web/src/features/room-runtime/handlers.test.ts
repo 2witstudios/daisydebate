@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { createRoomHandlers } from './handlers';
 import type { RoomRuntimeOperations } from './operations';
@@ -17,6 +18,7 @@ const dependencies = (
   operations: Partial<Record<keyof RoomRuntimeOperations, unknown>>,
 ) => ({
   logger: silentLogger,
+  reporter: noopErrorReporter,
   origin: () => origin,
   identify: async () => identity,
   getActorByUserId: async () => ({ id }),

@@ -109,6 +109,16 @@ const serverFields = {
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
+  /**
+   * ADR 0037: the error tracker's gates. Optional and never secret — a DSN
+   * names where scrubbed events go and is designed to be public. With
+   * `SENTRY_DSN` unset, no server capture path makes any Sentry network
+   * call; `NEXT_PUBLIC_SENTRY_DSN` gates the browser capture only and is
+   * inlined into the client bundle at build time.
+   */
+  SENTRY_DSN: z.url().optional(),
+  SENTRY_ENVIRONMENT: z.string().min(1).optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
 };
 /**
  * AI judging and bot debaters run only inside the competitive provider
@@ -177,7 +187,15 @@ export function readServerConfig(
  * use for yet.
  */
 const realtimeConfigSchema = z
-  .object(deploymentIdentityFields)
+  .object({
+    ...deploymentIdentityFields,
+    /**
+     * ADR 0037: realtime's own adapter reads the same variable names from
+     * its own process environment as a separate deployment.
+     */
+    SENTRY_DSN: z.url().optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).optional(),
+  })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
     requireDeploymentIdentity(config, ctx);

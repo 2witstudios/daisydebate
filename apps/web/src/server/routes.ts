@@ -53,6 +53,7 @@ export function createRoutes(app: App) {
   /** Same origin, signed-in member, rate limit and actor: the member routes' gates. */
   const memberGates = {
     logger,
+    reporter: app.reporter,
     origin,
     identify: (request: Request) => identify(app.auth(), request.headers),
     limiter: () => app.limiter,
@@ -63,7 +64,7 @@ export function createRoutes(app: App) {
     return { handler: instance.handler, config };
   };
   const rooms = composeRoomRoutes(app);
-  const auth = createAuthRouteHandlers(confirmAuth, logger);
+  const auth = createAuthRouteHandlers(confirmAuth, logger, app.reporter);
   const provisionalMail = provisionalMailCleanup(
     () => app.mailConfig().RECIPIENT_HASH_SECRET,
   );
@@ -91,11 +92,20 @@ export function createRoutes(app: App) {
       POST: createSignOutFormHandler({ logger, origin, signOut: auth.POST }),
     },
     privacy: composeDataRightsRoutes(app),
-    confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
-    confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
+    confirm: createConfirmHandlers({
+      auth: confirmAuth,
+      logger,
+      reporter: app.reporter,
+    }),
+    confirmEmail: createConfirmEmailHandlers({
+      auth: confirmAuth,
+      logger,
+      reporter: app.reporter,
+    }),
     sessions: {
       GET: createListSessionsHandler({
         logger,
+        reporter: app.reporter,
         origin,
         listSessions: async (headers) =>
           app.auth().instance.api.listSessions({ headers }),
@@ -111,6 +121,7 @@ export function createRoutes(app: App) {
     revokeSession: {
       POST: createRevokeSessionHandler({
         logger,
+        reporter: app.reporter,
         origin,
         listSessions: async (headers) =>
           app.auth().instance.api.listSessions({ headers }),
@@ -124,6 +135,7 @@ export function createRoutes(app: App) {
     username: {
       POST: createUsernameHandler({
         logger,
+        reporter: app.reporter,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.limiter,
@@ -134,6 +146,7 @@ export function createRoutes(app: App) {
     age: {
       POST: createAgeStepHandler({
         logger,
+        reporter: app.reporter,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.limiter,
@@ -148,6 +161,7 @@ export function createRoutes(app: App) {
     onboarding: {
       POST: createOnboardingHandler({
         logger,
+        reporter: app.reporter,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.limiter,
@@ -163,6 +177,7 @@ export function createRoutes(app: App) {
     ticket: {
       POST: createTicketHandler({
         logger,
+        reporter: app.reporter,
         websocketEndpoint: () => app.websocketEndpoint,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
@@ -194,8 +209,12 @@ export function createRoutes(app: App) {
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
     mailWebhook: {
       POST: (request: Request) =>
-        handleOperation(logger, request, 'mail.webhook', () =>
-          app.mailWebhook().handle(request),
+        handleOperation(
+          logger,
+          request,
+          'mail.webhook',
+          () => app.mailWebhook().handle(request),
+          app.reporter,
         ),
     },
     foundationProof: createProofHandlers({
@@ -204,6 +223,7 @@ export function createRoutes(app: App) {
       database,
       ids: app.ids,
       logger,
+      reporter: app.reporter,
     }),
     ready: {
       GET: createReadinessHandler({
@@ -211,12 +231,14 @@ export function createRoutes(app: App) {
         redis: app.redis,
         isDraining: app.isDraining,
         logger,
+        reporter: app.reporter,
       }),
     },
     ops: {
       alerts: {
         GET: createAlertsHandler({
           logger,
+          reporter: app.reporter,
           redis: app.redis,
           local: app.localAlertState,
           clock: app.clock,
@@ -226,6 +248,7 @@ export function createRoutes(app: App) {
       metrics: {
         GET: createMetricsHandler({
           logger,
+          reporter: app.reporter,
           metrics: app.metrics,
           token: () => app.opsProbeToken(),
         }),

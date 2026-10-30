@@ -68,7 +68,13 @@ export function unavailableMessagingHandler(
   request: Request,
   name = 'messaging.unavailable',
 ) {
-  return handleOperation(app.logger, request, name, async () => {
-    throw createAppError('INFRASTRUCTURE');
-  });
+  return handleOperation(
+    app.logger,
+    request,
+    name,
+    async () => {
+      throw createAppError('INFRASTRUCTURE');
+    },
+    app.reporter,
+  );
 }

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMessagingPreferenceHandler } from './preference-route';
@@ -18,6 +19,7 @@ function fixture() {
   const handler = createMessagingPreferenceHandler({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => {
         calls.push('identity');

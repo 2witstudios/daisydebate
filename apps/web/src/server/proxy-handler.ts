@@ -5,8 +5,7 @@ import type { IdGenerator } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
 import { returnableDestination } from '../features/auth/redirect';
-import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
-// A nonce never authorizes a `style="…"` attribute, and `next/image` always
+import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
 // Next upgrade changes them. CSP mandates SHA-2 here; nothing secret is hashed.
@@ -28,6 +27,12 @@ export type ProxySettings = {
   readonly publicAppUrl: string;
   readonly websocketEndpoint?: string | null;
   readonly mediaPublicUrl?: string | null;
+  /**
+   * The configured Sentry ingest origin (ADR 0037): the browser capture may
+   * connect only there, and only when `NEXT_PUBLIC_SENTRY_DSN` is set, so
+   * an unconfigured deployment's CSP names no vendor host at all.
+   */
+  readonly sentryEndpoint?: string | null;
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
@@ -103,7 +108,7 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${development ? ' ws:' : ''}`,
+    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

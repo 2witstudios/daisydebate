@@ -9,6 +9,19 @@ deploy-time keys — see [compliance](compliance.md) for the consent rules
 those adapters must follow. Any other vendor SDK still
 requires its own ADR before it may be added.
 
+The Sentry adapters are wired at `apps/web/src/features/telemetry/`
+(`@sentry/nextjs`, server/edge/client configs and the reporter) and
+`apps/realtime/src/telemetry/` (`@sentry/bun`). Each runtime initializes
+only when its own variable is present (`SENTRY_DSN` for every server
+capture path, `NEXT_PUBLIC_SENTRY_DSN` for the browser), runs the pure
+`scrubEvent` as `beforeSend`, and collects nothing at the SDK level
+(Sentry 11 `dataCollection`: no cookies, headers, query parameters,
+bodies, user info, database payloads or stack-frame variables). An
+unconfigured deployment's CSP names no vendor host, and the only
+`@sentry/*` imports lint allows are inside those adapters plus
+`apps/web/next.config.ts`, whose source-map upload runs only when a
+deploy-time `SENTRY_AUTH_TOKEN` exists.
+
 ## Source of truth
 
 The structured event stream emitted by `@daisy/logger` is the operational

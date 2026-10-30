@@ -19,6 +19,7 @@ import { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
+import { createSentryErrorReporter } from '../features/telemetry/sentry-reporter';
 import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
@@ -210,6 +211,12 @@ export function createApp({
     clock,
     ids,
     logger,
+    /**
+     * ADR 0037: the app's scrubbed raw-error destination. Inert until a
+     * runtime config initializes the SDK with its DSN; every consumer
+     * receives it as an argument, never through a locator.
+     */
+    reporter: createSentryErrorReporter(),
     database,
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */

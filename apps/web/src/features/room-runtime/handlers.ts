@@ -1,6 +1,7 @@
 import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import {
   idSchema,
   roomCommandSchema,
@@ -23,6 +24,8 @@ import type { RoomRuntimeOperations } from './operations';
 type Rule = { readonly max: number; readonly windowSeconds: number };
 type Dependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from these handlers' raw errors goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly getActorByUserId: (
@@ -110,6 +113,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
           return response;
         }
       },
+      dependencies.reporter,
     );
   const doorbell = dependencies.websocketEndpoint
     ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }

@@ -11,16 +11,17 @@
     "start": "NODE_ENV=production bun src/start.ts"
   },
   "dependencies": {
+    "@daisy/auth": "workspace:*",
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/errors": "workspace:*",
+    "@daisy/ingress": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
-    "@daisy/ingress": "workspace:*",
-    "@daisy/auth": "workspace:*"
+    "@sentry/bun": "11.10.0"
   },
   "devDependencies": {
     "riteway": "9.3.0"

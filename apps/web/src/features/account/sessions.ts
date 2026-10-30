@@ -1,4 +1,5 @@
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { APIError } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
@@ -61,6 +62,8 @@ const mapBetterAuthError = (error: unknown) => {
 
 type SessionsDependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly listSessions: (
     headers: Headers,
@@ -95,6 +98,7 @@ export function createListSessionsHandler(dependencies: SessionsDependencies) {
           sessions: rows.map((row) => toDto(row, currentSessionId)),
         });
       },
+      dependencies.reporter,
     );
 }
 
@@ -102,6 +106,8 @@ const revokeBody = z.strictObject({ id: z.string().min(1) });
 
 type RevokeSessionDependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly listSessions: (
     headers: Headers,
@@ -142,5 +148,6 @@ export function createRevokeSessionHandler(
         logAuthLifecycle(logger, '/revoke-session');
         return Response.json({ status: true });
       },
+      dependencies.reporter,
     );
 }

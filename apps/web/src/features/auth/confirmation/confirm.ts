@@ -1,4 +1,5 @@
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation, requireSameOriginForm } from '../../../server/http';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
 import {
@@ -27,6 +28,8 @@ const SHOWN_CODES = new Set([
 type ConfirmDependencies = {
   readonly auth: ConfirmAuth;
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
 };
 
 const hiddenFrom = (params: URLSearchParams): Hidden => {
@@ -117,6 +120,7 @@ function retryView(
 export function createConfirmHandlers({
   auth,
   logger: baseLogger,
+  reporter,
 }: ConfirmDependencies) {
   const forward = createForward(auth);
 
@@ -195,7 +199,7 @@ export function createConfirmHandlers({
   };
 
   return {
-    ...createViewHeadHandlers(baseLogger, 'auth.confirm.view', view),
+    ...createViewHeadHandlers(baseLogger, 'auth.confirm.view', view, reporter),
     POST: (request: Request) =>
       handleOperation(
         baseLogger,
@@ -208,6 +212,7 @@ export function createConfirmHandlers({
             ? resend(request, form)
             : redeem(request, form, logger);
         },
+        reporter,
       ),
   };
 }

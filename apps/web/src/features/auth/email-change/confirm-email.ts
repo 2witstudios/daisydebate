@@ -1,4 +1,5 @@
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation, requireSameOriginForm } from '../../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
 import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
@@ -23,6 +24,8 @@ const DESTINATION = '/settings/security';
 type ConfirmEmailDependencies = {
   readonly auth: ConfirmAuth;
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
 };
 
 /**
@@ -45,6 +48,7 @@ async function refusal(
 export function createConfirmEmailHandlers({
   auth,
   logger: baseLogger,
+  reporter,
 }: ConfirmEmailDependencies) {
   const forward = createForward(auth);
 
@@ -104,7 +108,12 @@ export function createConfirmEmailHandlers({
   };
 
   return {
-    ...createViewHeadHandlers(baseLogger, 'auth.confirm_email.view', view),
+    ...createViewHeadHandlers(
+      baseLogger,
+      'auth.confirm_email.view',
+      view,
+      reporter,
+    ),
     POST: (request: Request) =>
       handleOperation(
         baseLogger,
@@ -115,6 +124,7 @@ export function createConfirmEmailHandlers({
           const form = await readForm(request, MAX_FORM_BYTES);
           return redeem(request, form, logger);
         },
+        reporter,
       ),
   };
 }

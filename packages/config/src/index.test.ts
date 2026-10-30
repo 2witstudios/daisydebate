@@ -6,6 +6,7 @@ import {
   readAuthConfig,
   readBrowserConfig,
   readMailConfig,
+  readRealtimeConfig,
   readServerConfig,
 } from './index';
 
@@ -294,6 +295,52 @@ describe('mail configuration (ISSUE-780)', () => {
         readMailConfig({ ...mailEnv, RESEND_WEBHOOK_SECRET: 'not a secret' }),
       ),
       expected: 'Error: Invalid mail configuration: RESEND_WEBHOOK_SECRET',
+    });
+  });
+
+  test('accepts optional Sentry gates and refuses a malformed DSN by name (ADR 0037)', () => {
+    const dsn = 'https://examplePublicKey@o0.ingest.sentry.io/456';
+    const server = readServerConfig({
+      ...env,
+      SENTRY_DSN: dsn,
+      SENTRY_ENVIRONMENT: 'production',
+      NEXT_PUBLIC_SENTRY_DSN: dsn,
+    });
+    assert({
+      given: 'valid Sentry variables',
+      should: 'carry them on the validated server configuration',
+      actual: {
+        dsn: server.SENTRY_DSN,
+        environment: server.SENTRY_ENVIRONMENT,
+        publicDsn: server.NEXT_PUBLIC_SENTRY_DSN,
+      },
+      expected: { dsn, environment: 'production', publicDsn: dsn },
+    });
+    assert({
+      given: 'no Sentry variables',
+      should: 'leave every gate unset, so the adapters stay inert',
+      actual: {
+        dsn: readServerConfig(env).SENTRY_DSN,
+        publicDsn: readServerConfig(env).NEXT_PUBLIC_SENTRY_DSN,
+      },
+      expected: { dsn: undefined, publicDsn: undefined },
+    });
+    assert({
+      given: 'a SENTRY_DSN that is not a URL',
+      should: 'refuse naming the field only',
+      actual: failureOf(() => readServerConfig({ ...env, SENTRY_DSN: 'dsn' })),
+      expected: 'Error: Invalid server configuration: SENTRY_DSN',
+    });
+    assert({
+      given: 'realtime environment carrying the same variable names',
+      should: 'validate them on realtime configuration',
+      actual: readRealtimeConfig({
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
+        REDIS_URL: 'redis://localhost:6379',
+        SENTRY_DSN: dsn,
+      }).SENTRY_DSN,
+      expected: dsn,
     });
   });
 });

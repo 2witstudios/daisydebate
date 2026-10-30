@@ -119,6 +119,7 @@ export function composeMessagingRoutes(app: App) {
         );
     const handlers = createMessagingHandlers({
       logger: app.logger,
+      reporter: app.reporter,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
       bounds: policy.bounds,

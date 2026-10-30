@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMessagingSocialHandlers } from './social-handlers';
 setupRitewayBun();
@@ -10,6 +11,7 @@ test('social HTTP checks origin and current participant identity before untruste
   };
   const handlers = createMessagingSocialHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://daisy.example',
     maxBodyBytes: 512,
     bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },

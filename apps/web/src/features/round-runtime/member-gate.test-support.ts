@@ -1,8 +1,10 @@
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 
 /** An admitted member behind permissive limits, as every Round route gate sees it. */
 export const memberGate = (id: string, origin: string) => ({
   logger: silentLogger,
+  reporter: noopErrorReporter,
   identify: async () => ({
     state: 'member' as const,
     username: 'Member',

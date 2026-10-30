@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createRoundMediaHandlers } from './handlers';
@@ -47,6 +48,7 @@ test('media boundary refuses identity claims, foreign origins, anonymous callers
   ]) {
     const handlers = createRoundMediaHandlers({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => input.identity,
       getActorByUserId: async () => ({ id }),

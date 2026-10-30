@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import { createConfirmHandlers } from './confirm';
 
@@ -10,6 +11,7 @@ const token = 'a'.repeat(32);
 const handlers = (location: string) =>
   createConfirmHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     auth: () => ({
       config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
       handler: async () =>
@@ -34,6 +36,7 @@ const post = (headers: Record<string, string>) =>
 describe('confirm submit when the forwarded auth request fails', () => {
   const throwingHandlers = createConfirmHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     auth: () => ({
       config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
       handler: async () => {
@@ -113,6 +116,7 @@ describe('confirm destinations never return to sign-in, auth or api routes (ISSU
     const forwarded: URL[] = [];
     const recording = createConfirmHandlers({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       auth: () => ({
         config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
         handler: async (request: Request) => {

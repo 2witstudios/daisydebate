@@ -9,7 +9,8 @@ export function startRealtimeServiceLease(input: {
     readonly deliveredThrough: OutboxPosition;
   }) => Promise<void>;
   readonly deliveredThrough: () => OutboxPosition;
-  readonly failed: () => void;
+  /** The renewal's own failure; the log keeps the code, never the content. */
+  readonly failed: (error: unknown) => void;
   readonly timers: {
     readonly setInterval: (tick: () => void, ms: number) => unknown;
     readonly clearInterval: (handle: unknown) => void;
@@ -25,7 +26,7 @@ export function startRealtimeServiceLease(input: {
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       })
-      .catch(() => input.failed())
+      .catch((error: unknown) => input.failed(error))
       .finally(() => {
         work = null;
       });

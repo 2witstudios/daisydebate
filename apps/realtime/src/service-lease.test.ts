@@ -59,3 +59,34 @@ test('realtime lease samples actual delivery cursor and shutdown waits for its o
     ],
   });
 });
+
+test('a failed renewal surfaces its error to the failed sink and the lease keeps renewing', async () => {
+  let tick = () => {};
+  const failures: unknown[] = [];
+  let attempt = 0;
+  const lease = startRealtimeServiceLease({
+    instanceId: 'b'.repeat(24),
+    deliveredThrough: () => ({ txid: '1', seq: 1n }),
+    renew: async () => {
+      attempt += 1;
+      throw new Error(`renewal outage ${attempt}`);
+    },
+    failed: (error) => void failures.push(error),
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+  });
+  await tick();
+  await tick();
+  await lease.stop();
+  assert({
+    given: 'two renewals that both reject',
+    should: 'report each renewal’s own error to the failed sink',
+    actual: failures.map((error) => (error as Error).message.split(' ').at(-1)),
+    expected: ['1', '2'],
+  });
+});
