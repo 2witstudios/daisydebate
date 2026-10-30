@@ -34,7 +34,7 @@ const expectShell = async (page: Page, route: string, title: string) => {
   );
   await expect(page.locator('main h1')).toHaveText(
     route === '/'
-      ? 'Better arguments. A more thoughtful world.'
+      ? 'The arena for competitive debate'
       : (headings[route] ?? title),
   );
 };

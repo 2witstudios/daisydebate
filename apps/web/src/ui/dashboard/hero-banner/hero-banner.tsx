@@ -14,11 +14,10 @@ export function HeroBanner({
   return (
     <HeroJoin requestLink={requestLink} backdrop={<HeroPhoto />}>
       <h1 className="font-display text-display-sm leading-display font-semibold tracking-display text-balance text-ink-on-media text-shadow-hero-headline max-tiles:text-3xl">
-        Better arguments. A more thoughtful world.
+        The arena for competitive debate
       </h1>
       <p className="text-lg text-ink-on-media/85 text-shadow-hero-sub">
-        Daisy Debate is opening in stages. Explore what is coming, and be the
-        first to know when each part opens.
+        Better arguments. A more thoughtful world.
       </p>
     </HeroJoin>
   );
