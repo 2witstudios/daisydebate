@@ -59,6 +59,21 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
     });
 };
 const serverFields = {
+  NEXT_PUBLIC_POSTHOG_KEY: z
+    .string()
+    .regex(/^phc_[A-Za-z0-9_-]+$/)
+    .optional(),
+  NEXT_PUBLIC_POSTHOG_HOST: z
+    .enum(['https://us.i.posthog.com', 'https://eu.i.posthog.com'])
+    .optional(),
+  POSTHOG_API_KEY: secret(z.string().regex(/^phc_[A-Za-z0-9_-]+$/)).optional(),
+  POSTHOG_PERSONAL_API_KEY: secret(
+    z.string().regex(/^phx_[A-Za-z0-9_-]+$/),
+  ).optional(),
+  POSTHOG_PROJECT_ID: z
+    .string()
+    .regex(/^[1-9][0-9]*$/)
+    .optional(),
   AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */

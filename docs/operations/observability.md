@@ -4,8 +4,9 @@ Provider-neutral OpenTelemetry instrumentation exists from day one; tracing
 exporters belong to deployment, not the repository. Error tracking and
 product analytics are the deliberate exception:
 [ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md) ships
-in-repo Sentry and PostHog adapters that stay inert without their
-deploy-time keys — see [compliance](compliance.md) for the consent rules
+the [PostHog product analytics adapters](product-analytics.md), inert without
+deployment configuration and consent. Sentry remains planned. See
+[compliance](compliance.md) for the consent rules
 those adapters must follow. Any other vendor SDK still
 requires its own ADR before it may be added.
 

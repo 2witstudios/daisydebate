@@ -29,9 +29,13 @@ if (import.meta.main) {
     `${process.env.RUNNER_TEMP ?? '.turbo'}/e2e-selection.json`,
   ).json();
   const native = Bun.argv[2] === 'room-launch';
-  const report = await Bun.file(
-    `apps/web/test-results/${native ? 'room-launch-' : ''}results.json`,
-  ).json();
+  const paths = native
+    ? ['apps/web/test-results/room-launch-results.json']
+    : [
+        'apps/web/test-results/results.json',
+        'apps/web/test-results/analytics-native/results.json',
+      ];
+  const report = await Promise.all(paths.map((path) => Bun.file(path).json()));
   if (native) selection.specs = selection.nativeSpecs;
   if (!Array.isArray(selection.specs) || selection.specs.length === 0)
     throw new Error('Missing selected browser specs');

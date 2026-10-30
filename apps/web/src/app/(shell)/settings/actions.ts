@@ -3,7 +3,6 @@
 import type { FormState } from '../../../features/forms/form-state';
 import {
   parseNotificationsForm,
-  parsePrivacyForm,
   parseProfileForm,
   savedHref,
 } from '../../../features/settings/preferences';
@@ -28,11 +27,4 @@ export async function saveNotificationsAction(
   return runMockForm(form, parseNotificationsForm, () =>
     savedHref('notifications'),
   );
-}
-
-export async function savePrivacyAction(
-  _state: FormState,
-  form: unknown,
-): Promise<FormState> {
-  return runMockForm(form, parsePrivacyForm, () => savedHref('privacy'));
 }

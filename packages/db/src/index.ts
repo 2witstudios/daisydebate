@@ -1,3 +1,4 @@
+import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import { friendshipReadOperations } from './friends/reads';
 import { createFriendStore } from './friends/store';
@@ -316,6 +317,7 @@ export function createDatabase({
       mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
+    ...analyticsConsentOperations(control),
     ...onboardingOperations({ database: control, eventSink }),
     ...ageStepOperations({ database: control, eventSink }),
     ...standingsOperations({ database: audience, eventSink }),

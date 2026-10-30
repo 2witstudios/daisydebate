@@ -1,3 +1,7 @@
+import { createServerAnalytics } from '../features/analytics/server-adapter';
+import { createAnalyticsDelivery } from '../features/analytics/delivery';
+import { analyticsConfiguration } from '../features/analytics/config';
+import { createPostHogErasure } from '../features/analytics/erase-vendor';
 import {
   botAdmissionOptions,
   roundWorkerDatabaseOptions,
@@ -98,6 +102,7 @@ export function createApp({
   redisClient,
 }: AppDependencies) {
   const config = readServerConfig(env);
+  const analytics = analyticsConfiguration(config);
   const baseLogger = createLogger({
     service: 'web',
     level: config.LOG_LEVEL,
@@ -125,6 +130,17 @@ export function createApp({
     nextActorId: () => ids.next(),
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...botAdmissionOptions(config),
+  });
+  const analyticsServer = createServerAnalytics({
+    key: analytics.serverKey,
+    host: analytics.host,
+    fetch,
+  });
+  const analyticsDelivery = createAnalyticsDelivery({
+    deliver: async (message) => {
+      const consent = await database.readAnalyticsConsent(message.userId);
+      if (consent) await analyticsServer.track({ ...message, consent });
+    },
   });
   let authConfig: AuthConfig | undefined;
   let mailConfig: MailConfig | undefined;
@@ -284,6 +300,18 @@ export function createApp({
           'Auth work after the answer was cut off by the shutdown deadline',
         );
     },
+    posthogErasure:
+      (analytics.key || analytics.serverKey) &&
+      config.POSTHOG_PERSONAL_API_KEY &&
+      config.POSTHOG_PROJECT_ID
+        ? createPostHogErasure({
+            host: analytics.managementHost,
+            key: config.POSTHOG_PERSONAL_API_KEY,
+            projectId: config.POSTHOG_PROJECT_ID,
+            fetch,
+          })
+        : null,
+    analyticsDelivery,
     isDraining: drainState.isDraining,
     /** The client network the ingress runs each request in; the lanes' fairness key. */
     requestNetwork,
@@ -294,6 +322,8 @@ export function createApp({
      */
     close: async () => {
       drainState.drain();
+      await analyticsDelivery.close();
+      await analyticsServer.close();
       await auth?.settled();
       await drainState.close();
     },

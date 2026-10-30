@@ -154,3 +154,7 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
   - Pending members cannot yet remove a friend or cancel a friend request ([ISSUE-726](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/lgf98lco05ycbwn1gi2xgv2l)); the terms list only what the code admits today (leaving a room and forfeiting a round; blocking is also admitted but is switched off with messaging in the beta).
   - The terms reserve the right to reserve and reclaim usernames and to correct results; neither has a mechanism yet.
   - The documents.test.ts guard (every placeholder is OWNER or COUNSEL, none survives a non-draft version) should come back when WAIT-6.3 imports this text into the app.
+
+## Proposed beta analytics addition — requires counsel approval before activation
+
+With your optional consent, PostHog would receive bounded product usage facts (which product area you visit, successful Room creation and rematches) and a pseudonymous browser or account identifier. We would not send names, email addresses, debate content, raw page URLs or form contents as analytics properties. You could reject optional analytics or change your choice at `/analytics`; necessary storage remains enabled. Session replay would remain off. Account analytics deletion would be requested with account erasure. [OWNER: approve and state the PostHog region, organization account and event retention period.] [COUNSEL: approve this addition and reconcile the processor/cookie sections before publication; the preceding exclusion continues to describe the unactivated beta.]

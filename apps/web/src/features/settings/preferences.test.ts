@@ -2,9 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
 import {
   bioLimit,
-  getPreferences,
   parseNotificationsForm,
-  parsePrivacyForm,
   parseProfileForm,
   parseSettingsQuery,
   savedHref,
@@ -74,47 +72,25 @@ describe('checkbox forms', () => {
       },
     });
   });
-
-  test('privacy', () => {
-    assert({
-      given: 'nothing ticked',
-      should: 'turn everything off, since not answering is declining',
-      actual: parsePrivacyForm(postedForm({})),
-      expected: {
-        ok: true,
-        value: {
-          analytics: false,
-          replay: false,
-        },
-      },
-    });
-  });
 });
 
 describe('defaults and the saved notice', () => {
-  test('optional consent starts off', () => {
-    assert({
-      given: 'a new account',
-      should: 'start with analytics and replay off',
-      actual: [
-        getPreferences().privacy.analytics,
-        getPreferences().privacy.replay,
-      ],
-      expected: [false, false],
-    });
-  });
-
   test('the saved section', () => {
     assert({
       given: 'a saved section, nothing and nonsense',
       should: 'read the section or none',
       actual: [
-        parseSettingsQuery({ saved: 'privacy' }),
+        parseSettingsQuery({ saved: 'notifications' }),
         parseSettingsQuery({}),
         parseSettingsQuery({ saved: 'billing' }),
         savedHref('profile'),
       ],
-      expected: ['privacy', null, null, '/settings?saved=profile#profile'],
+      expected: [
+        'notifications',
+        null,
+        null,
+        '/settings?saved=profile#profile',
+      ],
     });
   });
 });

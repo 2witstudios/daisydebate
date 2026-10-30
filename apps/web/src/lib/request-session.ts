@@ -1,3 +1,6 @@
+import { cookies } from 'next/headers';
+import { analyticsConfiguration } from '../features/analytics/config';
+import { CONSENT_COOKIE, parseConsent } from '../features/analytics/consent';
 import { readRoomDraftAnswer } from '../features/rooms/create-room-draft-answer';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
@@ -35,6 +38,45 @@ export const privateGroupsOffered = (): boolean =>
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
+
+/** Public adapter config only; management credentials never enter a rendered prop. */
+export const requestAnalytics = cache(async () => {
+  const app = processApp();
+  const config = analyticsConfiguration(app.config);
+  const cookie = parseConsent((await cookies()).get(CONSENT_COOKIE)?.value);
+  if (!config.key)
+    return {
+      needsAdoption: false,
+      keyValue: null,
+      host: null,
+      userId: null,
+      consent: cookie,
+      available: config.available,
+    };
+  const identity = await requestIdentity();
+  const userId =
+    identity.state === 'anonymous' || identity.state === 'unavailable'
+      ? null
+      : identity.principal.userId;
+  const stored = userId
+    ? await app.database.readAnalyticsConsent(userId)
+    : null;
+  const consent = stored ?? cookie;
+  const needsAdoption = Boolean(
+    userId &&
+    (stored
+      ? JSON.stringify(stored) !== JSON.stringify(cookie)
+      : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered'),
+  );
+  return {
+    needsAdoption,
+    keyValue: identity.state === 'unavailable' ? null : config.key,
+    host: config.host,
+    userId,
+    consent,
+    available: config.available,
+  };
+});
 
 /**
  * Whether the browser should slide this request's session now: only for a

@@ -1,3 +1,4 @@
+import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
 import { composeRoundAnalysisRoutes } from '../features/round-analysis/composition';
@@ -69,6 +70,7 @@ export function createRoutes(app: App) {
     () => app.mailConfig().RECIPIENT_HASH_SECRET,
   );
   return {
+    analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
     roundMedia: createRoundMediaHandlers({
       ...memberGates,

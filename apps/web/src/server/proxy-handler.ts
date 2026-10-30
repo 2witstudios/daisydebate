@@ -36,6 +36,7 @@ export type ProxySettings = {
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
+  readonly analyticsHost?: string | null;
 };
 
 /**
@@ -84,6 +85,16 @@ function signInHint(
   return response;
 }
 
+function posthogSources(host: string | null | undefined) {
+  if (!host) return { apiHost: '' };
+
+  if (!['https://us.i.posthog.com', 'https://eu.i.posthog.com'].includes(host))
+    return { apiHost: '' };
+  return {
+    apiHost: host,
+  };
+}
+
 function contentSecurityPolicy(
   pathname: string,
   settings: ProxySettings,
@@ -95,6 +106,7 @@ function contentSecurityPolicy(
     settings.mediaPublicUrl,
     development,
   );
+  const posthog = posthogSources(settings.analyticsHost);
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -108,7 +120,7 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
+    `connect-src 'self'${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

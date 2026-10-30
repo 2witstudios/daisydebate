@@ -1,3 +1,8 @@
+import { ConsentControls } from '../../analytics/consent-controls';
+import type {
+  Consent,
+  AnalyticsAvailability,
+} from '../../../features/analytics/consent';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
@@ -17,11 +22,7 @@ import { ThemeSwitcher } from '../../components/theme-switcher/theme-switcher';
 import type { FormStateAction } from '../../form-action/action-form';
 import { cn } from '../../cn';
 import { DataRights } from './data-rights';
-import {
-  NotificationsForm,
-  PrivacyForm,
-  ProfileForm,
-} from './preferences-forms';
+import { NotificationsForm, ProfileForm } from './preferences-forms';
 
 const panel =
   'flex scroll-mt-20 flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -30,7 +31,6 @@ const heading = 'font-display text-xl font-bold text-ink';
 const savedText: Readonly<Record<Section, string>> = {
   profile: 'Profile saved.',
   notifications: 'Notification settings saved.',
-  privacy: 'Privacy settings saved.',
 };
 
 const nav = [
@@ -66,7 +66,10 @@ export type SettingsPageProps = {
   readonly saved: Section | null;
   readonly profileAction: FormStateAction;
   readonly notificationsAction: FormStateAction;
-  readonly privacyAction: FormStateAction;
+  readonly analytics: {
+    readonly consent: Consent;
+    readonly available: AnalyticsAvailability;
+  };
   /** The member's data-rights notices, parsed from the handlers' fixed keys. */
   readonly dataRightsNotices: DataRightsNotices;
   /**
@@ -91,7 +94,7 @@ export function SettingsPage({
   saved,
   profileAction,
   notificationsAction,
-  privacyAction,
+  analytics,
   dataRightsNotices,
   onboarding,
 }: SettingsPageProps) {
@@ -159,7 +162,7 @@ export function SettingsPage({
             <p className="text-sm text-ink-muted">
               Not answering counts as no.
             </p>
-            <PrivacyForm action={privacyAction} prefs={preferences.privacy} />
+            <ConsentControls {...analytics} />
             <p className="text-sm text-ink-muted">
               Read the <Link href="/privacy">privacy policy</Link> and the{' '}
               <Link href="/terms">terms of service</Link>.

@@ -89,6 +89,12 @@ export function createTestApp(
   overrides: Readonly<Record<string, string | undefined>> = {},
   afterResponseLimits?: AfterResponseLimits,
   clock = systemClock,
+  wrapFetch?: (
+    downstream: (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => Promise<Response>,
+  ) => (input: string | URL | Request, init?: RequestInit) => Promise<Response>,
 ) {
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
@@ -110,7 +116,7 @@ export function createTestApp(
   const app = createApp({
     messagingPolicy: betaMessagingPolicy,
     env,
-    fetch: mailbox.fetch,
+    fetch: wrapFetch ? wrapFetch(mailbox.fetch) : mailbox.fetch,
     clock,
     ids: systemId,
     logDestination: { write: (line) => logLines.push(line) },
@@ -378,6 +384,7 @@ const removeAccounts = (
       actors.map(({ id }) => buildUserInboxTopic(id)),
       'text',
     )}::text[])`;
+    await sql`DELETE FROM privacy_jobs WHERE subject_ref IN (${owned})`;
     await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
     await sql`DELETE FROM users WHERE id IN (${owned})`;
     // A claim owes its window an owner digest (ADR 0075); it goes once

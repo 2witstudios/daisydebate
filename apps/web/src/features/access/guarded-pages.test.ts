@@ -40,6 +40,15 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
+  requestAnalytics: async () => ({
+    consent: {
+      version: 1,
+      necessary: 'granted',
+      analytics: 'unanswered',
+      replay: 'unanswered',
+    },
+    available: { analytics: false, replay: false },
+  }),
 }));
 // The settings screen's client component is not under test here; loading it
 // would only add code this suite never runs.
