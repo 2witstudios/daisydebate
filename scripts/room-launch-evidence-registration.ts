@@ -17,6 +17,7 @@ export function roomLaunchClaimProblems(input: BrowserRegistration) {
       '**/round-journeys.e2e.ts',
       '**/attendance.e2e.ts',
       '**/round-media.e2e.ts',
+      '**/media-stage.e2e.ts',
       '**/debate-room.e2e.ts',
       '**/round-commands.e2e.ts',
       '**/round-command-recovery.e2e.ts',

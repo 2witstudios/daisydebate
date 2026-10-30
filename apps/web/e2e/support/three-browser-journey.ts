@@ -74,6 +74,42 @@ export async function launch(host: Page) {
 export const readRound = async (page: Page, id: string): Promise<RoundView> =>
   readBallotRound(page.request, id);
 
+/** Untouched seated clients follow the authoritative launch, with their own cast identity. */
+export async function expectAutomaticRoundEntry(
+  players: readonly Player[],
+  room: RoomView,
+  roundId: string,
+) {
+  for (const { page, seat } of players) {
+    await expect(page).toHaveURL(
+      seat === 'Judge 1'
+        ? new RegExp(`/rounds/${roundId}(/room)?$`)
+        : `/rounds/${roundId}/room`,
+    );
+    const role =
+      seat === 'Judge 1'
+        ? 'judge'
+        : seat === 'Affirmative 1'
+          ? 'affirmative'
+          : 'negative';
+    const expected = room.participants
+      .filter(isNamedSeat)
+      .find((p) => p.role === role && p.slot === 0)!;
+    const actual = await readRound(page, roundId);
+    const own = actual.participants
+      .filter(isNamedSeat)
+      .find((p) => p.actorId === expected.actorId);
+    expect([
+      actual.id,
+      actual.roomId,
+      own?.actorId,
+      own?.role,
+      own?.slot,
+    ]).toEqual([roundId, room.id, expected.actorId, role, 0]);
+    expect((await reread(page.request, room.id)).roundRef?.id).toBe(roundId);
+  }
+}
+
 type Debaters = Record<'affirmative' | 'negative', Page>;
 
 /** Waits on the persisted Round until `key`'s segment is open (`ended` false) or closed. */
@@ -257,13 +293,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     room = await skipPreRoundPrep(aff!, room);
     room = await assemble(players, room);
     const first = await launch(aff!);
-    // The members who did not press Start round follow the live room page's link.
-    for (const page of [neg!, judge!])
-      await page.getByRole('link', { name: 'View the round' }).click();
-    await expect(neg!).toHaveURL(`/rounds/${first.roundId}/room`);
-    await expect(judge!).toHaveURL(
-      new RegExp(`/rounds/${first.roundId}(/room)?$`),
-    );
+    await expectAutomaticRoundEntry(players, room, first.roundId);
     // Both debaters' first subscribe to the Round is accepted, not retried.
     await expect
       .poll(() => [ledger.refusals, ledger.subscribed])
@@ -306,6 +336,8 @@ export async function proveThreeBrowserRound(browser: Browser) {
     expect(started.roundRef?.id).toBe(first.roundId);
 
     await host.goto(`/rooms/${room.id}`);
+    await host.reload();
+    await expect(host).toHaveURL(`/rooms/${room.id}`);
     await host
       .getByRole('link', { name: 'Create a new room', exact: true })
       .click();

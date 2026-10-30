@@ -1,3 +1,4 @@
+import type { RoomView } from '@daisy/protocol';
 import { refused, type FormState } from '../forms/form-state';
 
 type CommandAction = (state: FormState, form: FormData) => Promise<FormState>;
@@ -6,6 +7,7 @@ type Consent = {
   readonly readSnapshot: () => {
     readonly devicesPassed: boolean;
     readonly pending: boolean;
+    readonly view: Pick<RoomView, 'prep' | 'resolutionDraw'>;
   };
   readonly ready: () => Promise<void>;
   readonly unready: () => Promise<void>;
@@ -24,7 +26,13 @@ export function createLocalCommandAction(
       await (type === 'ready' ? consent.ready() : consent.unready());
       return { values: {} };
     }
-    if (type === 'start-round' && (local.pending || !local.devicesPassed))
+    const committed =
+      local.view.prep.startedAt !== null || local.view.resolutionDraw !== null;
+    if (
+      type === 'start-round' &&
+      !committed &&
+      (local.pending || !local.devicesPassed)
+    )
       return refused(form, 'Confirm your current readiness before Launch.');
     return action(state, form);
   };

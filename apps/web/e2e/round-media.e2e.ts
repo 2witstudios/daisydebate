@@ -31,6 +31,36 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
         openPage(member.context, `media debater ${index + 1}`),
       ),
     );
+    // Controlled alternating audio exercises real LiveKit active-speaker events.
+    for (const page of pages)
+      await page.addInitScript(() => {
+        const capture = navigator.mediaDevices.getUserMedia.bind(
+          navigator.mediaDevices,
+        );
+        navigator.mediaDevices.getUserMedia = async (constraints) => {
+          const stream = await capture(constraints);
+          if (constraints?.audio) {
+            const audio = new AudioContext();
+            const tone = audio.createOscillator();
+            const gain = audio.createGain();
+            const output = audio.createMediaStreamDestination();
+            tone.connect(gain).connect(output);
+            for (let i = 0; i < 120; i++) {
+              gain.gain.setValueAtTime(0.3, audio.currentTime + i * 2);
+              gain.gain.setValueAtTime(0, audio.currentTime + i * 2 + 0.5);
+            }
+            tone.start();
+            await audio.resume();
+            for (const track of stream.getAudioTracks()) {
+              stream.removeTrack(track);
+              track.stop();
+            }
+            for (const track of output.stream.getAudioTracks())
+              stream.addTrack(track);
+          }
+          return stream;
+        };
+      });
     await Promise.all(
       pages.map((page) => page.goto(`/rounds/${round.id}/room`)),
     );
@@ -57,6 +87,75 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
         )
         .toBe(true);
     }
+    const observer = pages[1]!;
+    await observer.evaluate(() => {
+      const node = document.querySelector<HTMLVideoElement>(
+        'video[aria-label="Participant camera"]',
+      )!;
+      const native = Object.getOwnPropertyDescriptor(
+        HTMLMediaElement.prototype,
+        'srcObject',
+      )!;
+      const proof = {
+        writes: 0,
+        states: [] as string[],
+        node,
+        stream: node.srcObject,
+      };
+      Object.defineProperty(node, 'srcObject', {
+        get: () => native.get!.call(node),
+        set: (value) => {
+          proof.writes++;
+          native.set!.call(node, value);
+        },
+      });
+      const caption = node.closest('figure')!.querySelector('figcaption')!;
+      const record = () => {
+        const text = caption.textContent ?? '';
+        if (!proof.states.includes(text)) proof.states.push(text);
+      };
+      new MutationObserver(record).observe(caption, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      record();
+      Object.assign(window, { activityProof: proof });
+    });
+    await expect
+      .poll(
+        () =>
+          observer.evaluate(() => {
+            const proof = (
+              window as unknown as { activityProof: { states: string[] } }
+            ).activityProof;
+            return [
+              proof.states.some((s) => s.includes('Speaking')),
+              proof.states.some((s) => s.includes('Microphone open')),
+            ];
+          }),
+        MEDIA_POLL,
+      )
+      .toEqual([true, true]);
+    expect(
+      await observer.evaluate(() => {
+        const proof = (
+          window as unknown as {
+            activityProof: {
+              writes: number;
+              node: HTMLVideoElement;
+              stream: MediaProvider | null;
+            };
+          }
+        ).activityProof;
+        return {
+          writes: proof.writes,
+          sameNode: document.contains(proof.node),
+          sameStream: proof.node.srcObject === proof.stream,
+          playing: proof.node.videoWidth > 0 && proof.node.readyState >= 2,
+        };
+      }),
+    ).toEqual({ writes: 0, sameNode: true, sameStream: true, playing: true });
     const judge = accounts.members[2]!;
     await judge.context.clearPermissions();
     const judgePage = await openPage(judge.context, 'assigned judge media');

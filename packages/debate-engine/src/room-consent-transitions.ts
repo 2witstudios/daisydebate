@@ -9,7 +9,7 @@ import type {
 } from '@daisy/protocol';
 
 import { startBlocker, type Edges } from './room-assembly-facts';
-import { prepFinished } from './pre-round-phase';
+import { preRoundBegun, prepFinished } from './pre-round-phase';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -21,6 +21,7 @@ export const ready = (
   consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
+  if (preRoundBegun(room)) return refuse('prep-running');
   let next = room;
   let consentEffect: Extract<
     RoomMutationOutcome,

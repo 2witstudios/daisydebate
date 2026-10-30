@@ -215,3 +215,20 @@ on subsequent pages. Launching does not move the key. Clients restart from
 page one when changing sort, status, mode or search. The query/URL helper
 preserves sort on subsequent pages; interactive controls are owned by the
 separate Lobby design lane.
+
+### Start commitment
+
+Starting strikes or pre-round prep atomically validates a complete, eligible,
+Ready cast before persisting its start anchor. That anchor commits readiness:
+Ready and Not ready commands are refused afterward, including submissions from
+stale tabs. Expendable readiness leases and local device health cannot withdraw
+that commitment. Launch still validates participant eligibility and all other
+competitive gates. A Room without strikes or prep validates current readiness
+at direct launch. Synced seated clients enter the same scheduled or active Round when `roundRef`
+appears, using a document navigation where media permissions require it. Completed
+and abandoned Round references leave the Room and its rematch action accessible.
+An observed terminal Round cannot trigger entry again through delayed snapshots,
+even when its status changes independently of the Room revision. Navigation and
+rematch presentation share that terminal observation, scoped to Room and Round
+identity; current ownership and all server-side mutation authorization remain
+authoritative. A distinct rematch Room starts with fresh observation state.

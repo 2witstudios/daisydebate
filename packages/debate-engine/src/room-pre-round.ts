@@ -171,6 +171,8 @@ export const startPreRound = (
   if (preRoundBegun(room) || !needsStart(room))
     return refuse('prep-unavailable');
   if (!complete(room)) return refuse('incomplete-cast');
+  const gate = castGate(room, consent);
+  if (gate) return refuse(gate);
   if (room.executionPlan.resolutionDraw.enabled)
     return beginDraw(room, consent, edges);
   return acceptedRoomMutation({ ...room, prepStartedAt: edges.now });

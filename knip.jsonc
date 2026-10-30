@@ -35,6 +35,8 @@
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
         "e2e/support/server.ts",
+        // Bundled by the media-stage browser proof via the Bun CLI.
+        "e2e/support/media-stage-fixture.tsx",
         // Explicit Bun workers for isolated rated setup/rendering evidence.
         "e2e/support/rating-season-worker.ts",
         "e2e/support/rating-display-worker.ts",

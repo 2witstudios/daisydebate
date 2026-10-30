@@ -5,15 +5,16 @@ import type { MediaTrack } from './browser-transport';
 
 function TrackElement({ track }: { readonly track: MediaTrack }) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
+  const mediaTrack = track.track;
   useEffect(() => {
     const node = element.current;
     if (!node) return;
-    track.track.attach(node);
+    mediaTrack.attach(node);
     return () => {
-      track.track.detach(node);
+      mediaTrack.detach(node);
       node.srcObject = null;
     };
-  }, [track]);
+  }, [mediaTrack]);
   return track.source === 'camera' ? (
     <video
       ref={element}

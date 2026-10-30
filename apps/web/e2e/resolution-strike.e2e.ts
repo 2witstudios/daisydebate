@@ -122,6 +122,26 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
       .getByRole('button', { name: 'Draw the resolutions', exact: true })
       .click();
 
+    // Both intents came from a page held before the commitment boundary.
+    for (const type of ['ready', 'unready']) {
+      const own = view.participants.find(
+        (p) => 'actorId' in p && p.role === 'negative',
+      );
+      const response = await guest.context.request.post(
+        `/api/rooms/${view.id}/commands`,
+        {
+          headers: { origin },
+          data: {
+            type,
+            commandId: createId(),
+            expectedVersion: view.version,
+            expectedConsentVersion:
+              own && 'consentVersion' in own ? own.consentVersion : 0,
+          },
+        },
+      );
+      expect(response.status()).toBe(409);
+    }
     const spectator = await openPage(watcher.context, 'Strike spectator');
     await spectator.goto(`/rooms/${view.id}`);
     await expect(
@@ -294,6 +314,11 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await page
       .getByRole('button', { name: 'End prep', exact: true })
       .click({ timeout: 30_000 });
+    // A reload drops local device checks; committed readiness still permits Launch.
+    await page.reload();
+    await expect(
+      page.getByRole('button', { name: 'Not ready', exact: true }),
+    ).toHaveCount(0);
     const roundId = await startRoundInBrowser(page);
     const round = await readBallotRound(host.context.request, roundId);
     expect(round.topic).toBe(survivor);

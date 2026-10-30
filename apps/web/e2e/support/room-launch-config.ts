@@ -29,6 +29,7 @@ export default defineConfig({
     '**/resolution-strike.e2e.ts',
     '**/attendance.e2e.ts',
     '**/round-media.e2e.ts',
+    '**/media-stage.e2e.ts',
   ],
   testIgnore: [],
   use: {
