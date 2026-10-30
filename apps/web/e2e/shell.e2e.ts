@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
+import { resetRateLimits, signUpMember } from './support/accounts';
 
 const desktopRail = async (page: Page) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -229,6 +230,43 @@ test.describe('dashboard shell chrome', () => {
   });
 });
 
+test.describe('rail account menu', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
+
+  test('opens on the avatar, closes on an outside click or Escape, and stays open on inside clicks', async ({
+    page,
+    request,
+  }) => {
+    const { username } = await signUpMember(request);
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const details = rail.locator('details');
+    const summary = rail.locator(
+      `summary[aria-label="Your account, ${username}"]`,
+    );
+
+    await summary.click();
+    await expect(details).toHaveAttribute('open', '');
+
+    // A click inside the menu keeps it open.
+    const inside = details.locator('span').filter({ hasText: username }).nth(1);
+    await inside.click();
+    await expect(details).toHaveAttribute('open', '');
+
+    // A click elsewhere closes it.
+    await page.locator('main').click();
+    await expect(details).not.toHaveAttribute('open', '');
+
+    // Reopen, then Escape closes it.
+    await summary.click();
+    await expect(details).toHaveAttribute('open', '');
+    await page.keyboard.press('Escape');
+    await expect(details).not.toHaveAttribute('open', '');
+  });
+});
+
 test.describe('with JavaScript off', () => {
   test.use({ javaScriptEnabled: false });
 
@@ -252,5 +290,25 @@ test.describe('with JavaScript off', () => {
     await expectRailMode(rail, 'extended');
     await page.goto('/');
     await expectRailMode(rail, 'extended');
+  });
+
+  test('the account menu opens and closes as a native disclosure', async ({
+    page,
+    request,
+  }) => {
+    await resetRateLimits(request);
+    const { username } = await signUpMember(request);
+    await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const details = rail.locator('details');
+    const summary = rail.locator(
+      `summary[aria-label="Your account, ${username}"]`,
+    );
+
+    await expect(details).not.toHaveAttribute('open', '');
+    await summary.click();
+    await expect(details).toHaveAttribute('open', '');
+    await summary.click();
+    await expect(details).not.toHaveAttribute('open', '');
   });
 });
