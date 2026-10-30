@@ -1,5 +1,8 @@
 import { expect, test, openPage } from './support/fixtures';
-import { captureAnalytics } from './support/analytics-capture';
+import {
+  captureAnalytics,
+  expectAnalyticsPrivacy,
+} from './support/analytics-capture';
 import { signUpMember } from './support/accounts';
 
 test('native opt-in survives reload and sign-in; Settings withdrawal stops every tab', async ({
@@ -70,11 +73,7 @@ test('native opt-in survives reload and sign-in; Settings withdrawal stops every
       (cookie) => cookie.name === 'ph_daisy_analytics',
     ),
   ).toEqual([]);
-  expect(JSON.stringify(captures)).not.toContain('private@example.test');
-  for (const event of captures) {
-    expect(event).not.toHaveProperty('$set');
-    expect(event).not.toHaveProperty('$set_once');
-  }
+  expectAnalyticsPrivacy(captures);
   await other.close();
 });
 

@@ -15,7 +15,7 @@ import type { WorkerTimers } from '../lib/worker-timers';
  * together; object storage has its own file-deletion worker. Other planned
  * processors stay absent until their delivery ports exist (ADR 0037).
  */
-export const privacyJobVendors = ['messaging-typing'] as const;
+const privacyJobVendors = ['messaging-typing'] as const;
 
 export const configuredPrivacyJobVendors = (
   app: App,

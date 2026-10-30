@@ -11,24 +11,24 @@ export async function trackRequest(
   productEvent: ProductEvent,
 ) {
   const config = analyticsConfiguration(app.config);
-  if (
-    !config.serverKey ||
-    cookieConsent(request.headers.get('cookie')).analytics !== 'granted'
-  )
-    return;
+  const requestConsent = cookieConsent(request.headers.get('cookie'));
+  if (!config.serverKey || requestConsent.analytics !== 'granted') return;
   try {
     const identity = await identify(app.auth(), request.headers);
     if (identity.state === 'anonymous' || identity.state === 'unavailable')
       return;
     const userId = identity.principal.userId;
-    await app.database.saveAnalyticsConsent({
-      userId,
-      consent: cookieConsent(request.headers.get('cookie')),
-      now: app.clock.now(),
-      adopt: true,
-    });
-    const consent = await app.database.readAnalyticsConsent(userId);
-    if (consent)
+    let consent = await app.database.readAnalyticsConsent(userId);
+    if (!consent) {
+      await app.database.saveAnalyticsConsent({
+        userId,
+        consent: requestConsent,
+        now: app.clock.now(),
+        adopt: true,
+      });
+      consent = await app.database.readAnalyticsConsent(userId);
+    }
+    if (consent?.analytics === 'granted')
       app.analyticsDelivery.enqueue({
         userId,
         consent,

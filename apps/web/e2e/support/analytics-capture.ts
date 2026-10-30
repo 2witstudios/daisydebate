@@ -1,11 +1,21 @@
 import type { BrowserContext } from '@playwright/test';
+import { expect } from './fixtures';
 
-export type AnalyticsEnvelope = {
+type AnalyticsEnvelope = {
   event: string;
   properties: Record<string, unknown>;
   $set?: unknown;
   $set_once?: unknown;
 };
+
+export function expectAnalyticsPrivacy(captures: readonly AnalyticsEnvelope[]) {
+  expect(JSON.stringify(captures)).not.toContain('private@example.test');
+  for (const event of captures) {
+    expect(event).not.toHaveProperty('$set');
+    expect(event).not.toHaveProperty('$set_once');
+    expect(event.properties.token).toBe('phc_browser_fixture');
+  }
+}
 
 /** Vendor transport terminates locally. Synthetic credentials never reach PostHog. */
 export async function captureAnalytics(context: BrowserContext) {

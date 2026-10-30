@@ -9,6 +9,7 @@ import { createAppError } from '@daisy/errors';
 import { consentRecord } from './schema/consent-record';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
+import { lockOpenAccount } from './lock-open-account';
 
 export const analyticsConsentOperations = (
   database: Pick<BunSQLDatabase, 'transaction'>,
@@ -49,10 +50,7 @@ export const analyticsConsentOperations = (
     )
       throw createAppError('VALIDATION');
     await database.transaction(async (tx) => {
-      const [user] = (await tx.execute(
-        sql`select deleted_at is not null as erased from users where id=${input.userId} for update`,
-      )) as unknown as { erased: boolean }[];
-      if (!user || user.erased) throw createAppError('AUTHORIZATION');
+      await lockOpenAccount(tx, input.userId);
       const values = { ...result.data, recordedAt: new Date(input.now) };
       const insert = tx
         .insert(consentRecord)

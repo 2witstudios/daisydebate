@@ -39,7 +39,9 @@ export function AnalyticsClient(props: {
         .then((response) => {
           if (active && response.ok) router.refresh();
         })
-        .catch(() => {});
+        .catch(() => {
+          /* Remain paused; retry on navigation or an identity/consent change, never in a hot loop. */
+        });
       return () => {
         active = false;
       };

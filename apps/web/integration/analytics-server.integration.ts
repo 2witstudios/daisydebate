@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { systemClock } from '@daisy/clock';
 import { createTestApp, cookieHeader } from './fixtures';
 import { createFlows } from './auth-mounted-flows';
@@ -9,6 +10,7 @@ import {
 } from '../src/features/analytics/consent';
 
 setupRitewayBun();
+requireTestServices(process.env);
 test('server capture requires both request and durable consent and never waits for the vendor', async () => {
   const sent: unknown[] = [];
   let release = () => {};
@@ -35,11 +37,9 @@ test('server capture requires both request and durable consent and never waits f
   const flows = createFlows(fixture);
   const signup = await flows.startSignup();
   const signed = await flows.redeem(signup.token);
-  const session = await fixture.app
-    .auth()
-    .instance.api.getSession({
-      headers: new Headers({ cookie: cookieHeader(signed) }),
-    });
+  const session = await fixture.app.auth().instance.api.getSession({
+    headers: new Headers({ cookie: cookieHeader(signed) }),
+  });
   if (!session)
     throw new Error('The capture proof requires its own signed-in account');
   const consent = { ...unansweredConsent, analytics: 'granted' } as const;

@@ -1,9 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createTestApp, cookieHeader, type TestApp } from './fixtures';
 import { createFlows } from './auth-mounted-flows';
 import { cookieConsent } from '../src/features/analytics/handlers';
 
 setupRitewayBun();
+requireTestServices(process.env);
 const configured = () =>
   createTestApp({
     NEXT_PUBLIC_POSTHOG_KEY: 'phc_fixture',
@@ -84,11 +86,9 @@ test('anonymous consent adoption on sign-in is durable and never overrides refus
   );
   const signup = await flows.startSignup();
   const signedIn = await flows.redeem(signup.token);
-  const session = await fixture.app
-    .auth()
-    .instance.api.getSession({
-      headers: new Headers({ cookie: cookieHeader(signedIn) }),
-    });
+  const session = await fixture.app.auth().instance.api.getSession({
+    headers: new Headers({ cookie: cookieHeader(signedIn) }),
+  });
   if (!session)
     throw new Error('The consent proof requires its own signed-in account');
   const cookie = `${cookieHeader(signedIn)}; ${cookieHeader(anonymous)}`;

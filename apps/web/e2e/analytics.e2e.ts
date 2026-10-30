@@ -1,4 +1,7 @@
-import { captureAnalytics } from './support/analytics-capture';
+import {
+  captureAnalytics,
+  expectAnalyticsPrivacy,
+} from './support/analytics-capture';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { AnalyticsBrowser } from './support/analytics-browser-entry';
@@ -86,12 +89,7 @@ test('the real browser SDK is opt-in, scrubbed and resets on sign-out', async ({
   expect(pageEvents()[4]?.properties.anonymousId).toBeTruthy();
   expect(pageEvents()[4]?.properties.distinct_id).not.toBe('u'.repeat(24));
   expect(pageEvents()[4]?.properties).not.toHaveProperty('userId');
-  expect(JSON.stringify(captures)).not.toContain('private@example.test');
-  for (const event of captures) {
-    expect(event).not.toHaveProperty('$set');
-    expect(event).not.toHaveProperty('$set_once');
-    expect(event.properties.token).toBe('phc_browser_fixture');
-  }
+  expectAnalyticsPrivacy(captures);
   const other = await openPage(page.context(), 'second analytics tab');
   await other.goto('/analytics?secret=private@example.test');
   await other.evaluate(bundle);

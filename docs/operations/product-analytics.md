@@ -44,7 +44,8 @@ Vendor erasure joins the existing durable privacy-job worker only when its
 delivery port is configured. It requests person, event and recording deletion
 with a project-scoped management credential. Delivery completes only after
 the vendor acknowledges durable acceptance of both deletion requests without
-errors. PostHog performs physical deletion asynchronously. Local erasure does
+errors, or explicitly reports an already-absent person (`persons_found: 0`, both
+queue flags false, no errors), on HTTP 202. An HTTP 404 is never an acknowledgement. PostHog performs physical deletion asynchronously. Local erasure does
 not wait for the vendor; outages leave jobs pending for bounded-backoff retry.
 
 ## Configuration and activation
@@ -100,3 +101,15 @@ answers management deletion in the test server's explicit fixture transport.
 It exercises the production app and CSP, real sign-in and consent persistence,
 Settings withdrawal, document reload, cross-tab refresh and JavaScript-disabled
 native forms. CI runs it after the ordinary browser suite.
+
+Anonymous consent POSTs are same-origin and bounded to 1 KiB. They change only
+the response cookie, so they perform no durable write, vendor call or shared
+missing-identity rate-limit lookup. Account mutations retain their own
+principal-keyed 30/minute budget.
+
+Before PRIV-H activation, repeat the bulk-delete proof for the same dedicated
+staging subject after its person record has disappeared. Verify the explicit
+zero-person acknowledgement as well as the first queued deletion. This
+empty-match contract was checked in the upstream [PostHog server implementation](https://github.com/PostHog/posthog/blob/327ba7b2aa835f006f987ac05aa183e2fea51718/posthog/api/person.py)
+and is covered by the adapter's repeat-deletion test; the live project still
+needs its human activation proof.

@@ -204,7 +204,7 @@ jobs:
           E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
 
-      # AUTH-6.2-AC7: three consecutive full-suite runs, retries disabled
+      # PHOG: configured production-app consent and identity proof with local vendor transport.
       - name: Run configured analytics native lifecycle
         run: bun run --cwd apps/web test:e2e:analytics
         env:

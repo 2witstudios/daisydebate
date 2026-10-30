@@ -2,13 +2,20 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 
-const accepted = z.object({
+const queued = z.object({
   events_queued_for_deletion: z.literal(true),
   recordings_queued_for_deletion: z.literal(true),
   deletion_errors: z.array(z.unknown()).max(0),
 });
+const absent = z.object({
+  persons_found: z.literal(0),
+  events_queued_for_deletion: z.literal(false),
+  recordings_queued_for_deletion: z.literal(false),
+  deletion_errors: z.array(z.unknown()).max(0),
+});
+const accepted = z.union([queued, absent]);
 
-/** Acknowledges only the vendor's durable acceptance of event and recording deletion. */
+/** Accept durable deletion acknowledgement or an explicit authenticated empty match. */
 export const createPostHogErasure = (input: {
   readonly host: string;
   readonly projectId: string;
@@ -40,7 +47,10 @@ export const createPostHogErasure = (input: {
         }),
       },
     );
-    if (!response.ok || !accepted.safeParse(await response.json()).success)
+    if (
+      response.status !== 202 ||
+      !accepted.safeParse(await response.json().catch(() => null)).success
+    )
       throw createAppError('INFRASTRUCTURE');
   },
 });

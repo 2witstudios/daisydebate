@@ -12,6 +12,7 @@ import {
   type ProvisionalMailCleanup,
 } from './provisional-cleanup';
 import { users } from './schema/users';
+import { lockOpenAccount } from './lock-open-account';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
 export type AgeStepRecord = {
@@ -52,10 +53,7 @@ export const ageStepOperations = ({
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'recordAgeStep', () =>
       database.transaction(async (tx) => {
-        const [user] = (await tx.execute(
-          sql`select deleted_at is not null as erased from users where id=${input.userId} for update`,
-        )) as unknown as { erased: boolean }[];
-        if (!user || user.erased) throw createAppError('AUTHORIZATION');
+        await lockOpenAccount(tx, input.userId);
         const inserted = await tx
           .insert(accountAge)
           .values({
