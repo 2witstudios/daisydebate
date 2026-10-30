@@ -43,6 +43,7 @@ export const state: RoomAssemblyState = {
   changeVersion: 1,
   title: 'A persisted casual room',
   topic: 'Cities should make transit free',
+  publishedResolutionId: null,
   visibility: 'public',
   hostActorId: caller.actorId,
   hostLabel: 'Member',
@@ -155,6 +156,16 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       ];
     },
     getFormatRevision: async () => null,
+    listPublishedResolutions: async () => [],
+    getPublishedResolution: async (id: string, kind: 'policy' | 'value') => ({
+      id,
+      kind,
+      text: state.topic!,
+      provenance: 'Daisy-original test publication',
+      edition: null,
+      theme: null,
+      publishedAt: now,
+    }),
     getFormatSelectionFacts: async (tuple: {
       readonly formatId: string;
       readonly formatVersion: number;

@@ -1,3 +1,4 @@
+import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
@@ -52,7 +53,7 @@ export function composeRoomRoutes(app: App) {
     });
     return select(handlers);
   };
-  return {
+  const routes = {
     create: (request: Request) => run(request, (h) => h.create(request)),
     rematch: (request: Request, roomId: string) =>
       run(request, (h) => h.rematch(request, roomId)),
@@ -67,5 +68,18 @@ export function composeRoomRoutes(app: App) {
       run(request, (h) => h.roundRef(request, roomId)),
     roundRead: (request: Request, roundId: string) =>
       run(request, (h) => h.roundRead(request, roundId)),
+  };
+  return {
+    ...routes,
+    submitDraft: createRoomDraftHandler({
+      logger: app.logger,
+      origin: () => app.auth().config.PUBLIC_APP_URL,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: app.limiter,
+      store: app.redis,
+      catalog: routes.catalog,
+      create: routes.create,
+      rematch: routes.rematch,
+    }),
   };
 }

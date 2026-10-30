@@ -14,7 +14,22 @@ const friendsOf = (friends: readonly string[]) => async () =>
     outgoing: [{ username: 'eve', requestedAt: at }],
     challenges: [],
   });
-const catalog = async () => Response.json({ choices: [template], bots: [] });
+const catalog = async () =>
+  Response.json({
+    choices: [template],
+    bots: [],
+    resolutions: [
+      {
+        id: 'v'.repeat(24),
+        kind: 'value',
+        text: 'A published Value resolution',
+        provenance: 'Test publication',
+        edition: null,
+        theme: null,
+        publishedAt: at,
+      },
+    ],
+  });
 const formFor = (username: string) => {
   const form = new FormData();
   form.set('username', username);
@@ -71,7 +86,10 @@ test('challenging a friend opens an unlisted room for the pair', async () => {
       roomCreateSchema.safeParse({
         commandId: form.get('commandId'),
         title: form.get('title'),
-        topic: form.get('topic'),
+        resolution: {
+          kind: form.get('resolutionMethod'),
+          id: form.get('valueResolutionId'),
+        },
         visibility: form.get('visibility'),
         selection: JSON.parse(String(form.get('selection'))),
       }).success,

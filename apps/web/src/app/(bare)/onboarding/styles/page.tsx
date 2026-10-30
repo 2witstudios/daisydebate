@@ -8,7 +8,7 @@ import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
 
 export const metadata: Metadata = {
-  title: 'Three ways to debate',
+  title: 'Ranked ladders and custom formats',
   robots: stepRobots,
 };
 

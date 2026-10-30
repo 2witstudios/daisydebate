@@ -111,6 +111,23 @@ test('a new member walks onboarding with JavaScript and the answers stay saved',
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
+test('a waitlisted account never sees the send-off and waits on the beta page', async ({
+  page,
+}) => {
+  await signUpProvisional(page.request);
+  await page.goto('/onboarding/username?next=%2Flobby');
+  await effectsRan(page);
+  await claimUsername(page, uniqueName('waiter'));
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await page.goto('/onboarding/ready?next=%2Flobby');
+  await expect(page).toHaveURL(/\/beta\?next=(\/|%2F)lobby$/);
+  await expect(
+    page.getByRole('heading', { name: /you're ready/i }),
+  ).toHaveCount(0);
+});
+
 test('Skip finishes onboarding from any step and lands on the last step', async ({
   page,
 }) => {

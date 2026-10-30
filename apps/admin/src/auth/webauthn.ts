@@ -10,7 +10,6 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { z } from 'zod';
-import { ADMIN_ORIGIN, ADMIN_RP_ID } from './origin';
 import { toBase64Url } from './secrets';
 
 /**
@@ -19,10 +18,6 @@ import { toBase64Url } from './secrets';
  * collapse to null: callers record one failure, never the library's text.
  */
 export type CeremonyOrigin = { readonly origin: string; readonly rpId: string };
-export const canonicalCeremony: CeremonyOrigin = {
-  origin: ADMIN_ORIGIN,
-  rpId: ADMIN_RP_ID,
-};
 
 export type StoredCredential = {
   readonly credentialId: string;
@@ -46,6 +41,7 @@ const transportsOf = (values: readonly string[]) =>
   );
 
 export const registrationOptions = (input: {
+  readonly ceremony: CeremonyOrigin;
   readonly operatorId: string;
   readonly displayName: string;
   readonly challenge: Uint8Array<ArrayBuffer>;
@@ -53,7 +49,7 @@ export const registrationOptions = (input: {
 }): Promise<PublicKeyCredentialCreationOptionsJSON> =>
   generateRegistrationOptions({
     rpName: 'Daisy admin',
-    rpID: canonicalCeremony.rpId,
+    rpID: input.ceremony.rpId,
     userName: input.displayName,
     userID: new TextEncoder().encode(input.operatorId),
     challenge: input.challenge,
@@ -70,9 +66,10 @@ export const registrationOptions = (input: {
 
 export const authenticationOptions = (
   challenge: Uint8Array<ArrayBuffer>,
+  ceremony: CeremonyOrigin,
 ): Promise<PublicKeyCredentialRequestOptionsJSON> =>
   generateAuthenticationOptions({
-    rpID: canonicalCeremony.rpId,
+    rpID: ceremony.rpId,
     challenge,
     userVerification: 'required',
   });

@@ -39,7 +39,7 @@ describe('Room command boundary', () => {
       roomCreateSchema.safeParse({
         commandId,
         title: 'Title',
-        topic: 'Topic',
+        resolution: { kind: 'custom', text: 'Topic' },
         visibility: 'public',
         selection,
       }).success;
@@ -75,7 +75,7 @@ describe('Room command boundary', () => {
       roomCreateSchema.safeParse({
         commandId,
         title: 'Title',
-        topic: 'Topic',
+        resolution: { kind: 'custom', text: 'Topic' },
         visibility: 'public',
         selection,
       }).success;
@@ -103,7 +103,7 @@ describe('Room command boundary', () => {
       roomCreateSchema.safeParse({
         commandId,
         title: 'Title',
-        topic: 'Topic',
+        resolution: { kind: 'custom', text: 'Topic' },
         visibility: 'public',
         selection,
       }).success;

@@ -16,6 +16,7 @@ import {
   type RatingLadder,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
+import { publishedResolutions } from './published-resolutions';
 import {
   check,
   foreignKey,
@@ -76,6 +77,10 @@ export const rounds = pgTable(
     }),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
     resolution: text('resolution').notNull(),
+    publishedResolutionId: text('published_resolution_id').references(
+      () => publishedResolutions.id,
+      { onDelete: 'restrict' },
+    ),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
@@ -124,6 +129,7 @@ export const rounds = pgTable(
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
     return [
+      index('rounds_published_resolution_idx').on(table.publishedResolutionId),
       /** Lets `rating_changes` pin a change to the round's own format. */
       unique('rounds_id_format_unique').on(table.id, table.formatId),
       index('rounds_status_competition_created_idx').on(

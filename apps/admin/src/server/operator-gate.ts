@@ -23,7 +23,12 @@ export async function requestPeer(): Promise<string> {
 
 /** Every server action's CSRF check against the canonical origin. */
 export async function requireSameOrigin(): Promise<void> {
-  if (!sameOrigin((await headers()).get('origin')))
+  if (
+    !sameOrigin(
+      (await headers()).get('origin'),
+      adminRuntime().config.ADMIN_ORIGIN,
+    )
+  )
     throw new Error('Cross-origin action refused');
 }
 

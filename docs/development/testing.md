@@ -280,6 +280,13 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   behavior; tests must cover the outage path before route activation.
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
+- The admin HTTPS browser fixture requires system OpenSSL on `PATH` to
+  generate its ephemeral localhost certificate. `scripts/ci-browsers.sh`
+  explicitly installs it on CI; local runners must provide it too. Missing
+  OpenSSL fails certificate generation before the proxy starts listening.
+  Knip declares this real Playwright subprocess as an admin entry and models
+  only its external `openssl` binary with workspace-scoped `ignoreBinaries`;
+  file, export and JavaScript dependency analysis remain enabled (ISSUE-874).
 
 ### Cross-browser and accessibility coverage (AUTH-6.6)
 

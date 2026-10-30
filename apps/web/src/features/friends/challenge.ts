@@ -1,10 +1,11 @@
-import { friendListSchema, parseUsername } from '@daisy/protocol';
+import {
+  friendListSchema,
+  parseUsername,
+  type PublishedResolution,
+} from '@daisy/protocol';
 import type { FormState } from '../forms/form-state';
 import { casualSelection, defaultChoice } from '../rooms/format-browser';
 import { readRoomTemplates, type RoomTemplate } from '../rooms/read-catalog';
-
-/** The topic a challenge room opens with; the host edits it on the room page. */
-const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
 
 /**
  * The room a Challenge creates (ADR 0072): unlisted, so only its invite
@@ -16,16 +17,27 @@ function challengeRoomForm({
   friend,
   template,
   commandId,
+  resolutions,
 }: {
   readonly viewer: string;
   readonly friend: string;
   readonly template: RoomTemplate;
   readonly commandId: string;
+  readonly resolutions: readonly PublishedResolution[];
 }): FormData {
   const form = new FormData();
   form.set('commandId', commandId);
   form.set('title', `@${viewer} vs @${friend}`);
-  form.set('topic', CHALLENGE_TOPIC);
+  const method = template.preset.config.resolutionDraw.enabled
+    ? 'strike'
+    : template.formatId === 'policy'
+      ? 'policy'
+      : 'value';
+  form.set('resolutionMethod', method);
+  const publication = resolutions.find(
+    (resolution) => resolution.kind === method,
+  );
+  if (publication) form.set(`${publication.kind}ResolutionId`, publication.id);
   form.set('visibility', 'unlisted');
   form.set('selection', JSON.stringify(casualSelection(template)));
   return form;
@@ -123,7 +135,13 @@ export async function challengeFriend({
     catalog.kind === 'found' ? defaultChoice(catalog.choices) : undefined;
   if (!template) return challengeUnavailable;
   const created = await create(
-    challengeRoomForm({ viewer, friend: friend.username, template, commandId }),
+    challengeRoomForm({
+      viewer,
+      friend: friend.username,
+      template,
+      commandId,
+      resolutions: catalog.kind === 'found' ? catalog.resolutions : [],
+    }),
     (roomId) => deliverChallenge(routes.challenges, friend.username, roomId),
   );
   return created.next === undefined

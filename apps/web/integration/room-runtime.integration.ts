@@ -154,13 +154,13 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
 
 test('create replay survives catalog advancement and refuses a changed payload without writes', async () => {
   await withRoomRuntime(async (f) => {
-    const choice = (await f.operations.catalog(f.host)).find(
+    const choice = (await f.operations.catalog(f.host)).choices.find(
       (c) => c.formatId === 'value',
     )!;
     const body = {
       commandId: createId(),
       title: 'Pinned create',
-      topic: 'Motion',
+      resolution: { kind: 'value' as const, id: 'd3qrq2srlk8wpa3qhzefly0y' },
       visibility: 'public' as const,
       selection: {
         kind: 'catalog' as const,

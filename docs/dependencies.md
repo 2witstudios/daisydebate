@@ -174,3 +174,26 @@ simulcast; SDK logging is silenced to avoid exposing private media identifiers.
 Local tracks must stop on teardown and failed admission. A token or native source
 acknowledgement does not prove remote audibility. The existing Vite **7.3.7**
 security patch remains pinned in the lockfile.
+
+## Private admin ingress (MOBILE-1)
+
+Tailscale **1.104.4**, copied as `tailscale`/`tailscaled` from the official
+multiarch image `tailscale/tailscale:v1.104.4`, pinned to manifest digest
+`sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c`.
+Only the admin serving image uses it. It runs userspace networking with a
+persistent root-owned state volume, interactive one-time login and private
+HTTPS Serve. Debian `ca-certificates` supports TLS and `util-linux` supplies
+`mountpoint`/`setpriv`; the app retains uid/gid daisy. The root deploy-target CLI declares the existing Zod 4.6.6 directly, rather
+than relying on a transitive install; no second validation/state library is
+introduced. Version-matched bundled Zod source (`src/v4/classic/schemas.ts`)
+and package README were read before this direct declaration.
+
+Version-matched official source read 2026-10-29:
+[daemon flags](https://github.com/tailscale/tailscale/blob/v1.104.4/cmd/tailscaled/tailscaled.go),
+[Serve and persistence](https://github.com/tailscale/tailscale/blob/v1.104.4/ipn/ipnlocal/serve.go),
+[CLI Serve](https://github.com/tailscale/tailscale/blob/v1.104.4/cmd/tailscale/cli/serve_v2.go),
+[preferences](https://github.com/tailscale/tailscale/blob/v1.104.4/ipn/prefs.go),
+[container state documentation](https://tailscale.com/docs/features/containers/docker/docker-params).
+Next.js 16.4.2 installed `dist/docs/.../serverActions.md` was read: Next compares
+Origin against forwarded Host or Host; the custom server strips forwarded
+headers and supplies no wildcard allowedOrigins exception.

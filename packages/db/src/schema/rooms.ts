@@ -34,6 +34,7 @@ import { formatRevisions } from './format-revisions';
 import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
 import { formats } from './formats';
 import { actors } from './actors';
+import { publishedResolutions } from './published-resolutions';
 
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
@@ -54,6 +55,10 @@ export const rooms = pgTable(
     title: text('title').notNull(),
     /** Null exactly while a draw Room has not revealed its resolution. */
     topic: text('topic'),
+    publishedResolutionId: text('published_resolution_id').references(
+      () => publishedResolutions.id,
+      { onDelete: 'restrict' },
+    ),
     visibility: text('visibility').$type<RoomView['visibility']>().notNull(),
     version: versionColumn(),
     changeVersion: integer('change_version').notNull().default(1),
@@ -100,6 +105,7 @@ export const rooms = pgTable(
       .on(sql`${table.id} collate "C"`)
       .where(sql`${table.status} in ('assembling', 'ready')`),
     index('rooms_host_actor_idx').on(table.hostActorId),
+    index('rooms_published_resolution_idx').on(table.publishedResolutionId),
     index('rooms_lobby_idx').on(
       table.visibility,
       table.status,

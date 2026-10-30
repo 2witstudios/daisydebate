@@ -61,6 +61,13 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'media-navigation.e2e.ts': [...room, ...media],
   'hero-join.e2e.ts': room,
   'lobby.e2e.ts': room,
+  'create-room.e2e.ts': [
+    ...room,
+    'apps/web/src/features/room-runtime/',
+    'packages/protocol/',
+    'packages/debate-engine/',
+    'packages/db/',
+  ],
   'room-accounts.e2e.ts': [...room, ...auth],
   'realtime-connection-store.e2e.ts': realtime,
   'round-clock-csp.e2e.ts': round,

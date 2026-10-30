@@ -19,7 +19,7 @@ export const walkOnboarding = async (page: Page) => {
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Three ways to debate' }),
+    page.getByRole('heading', { name: 'Ranked ladders and custom formats' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(

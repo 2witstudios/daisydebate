@@ -1,3 +1,4 @@
+export { formatStanding } from './format-standing';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
@@ -42,3 +43,5 @@ export { assertAttendanceRules } from './attendance-policy';
 
 export { requireAttendanceDecision } from './attendance-decision';
 export { decideFormatSelection } from './format-selection';
+export { decideRoomResolution } from './room-resolution';
+export { hasOpenQuestioning } from './round-speaking';

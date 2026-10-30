@@ -4,6 +4,7 @@ import type {
   RoomMutationOutcome,
   RoomParticipant,
   RoomRefusal,
+  PublishedResolution,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
@@ -30,6 +31,7 @@ export type Edges = {
   readonly target: Target | null;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
+  readonly resolutionPublication?: PublishedResolution | null;
   /** The stored seed (hex) of the Room's draw, for settlement; null without one. */
   readonly drawSeed: string | null;
   /** Facts for a new draw, loaded only for `start-pre-round` on a draw Room. */

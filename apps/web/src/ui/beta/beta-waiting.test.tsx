@@ -112,3 +112,46 @@ describe('signing out of /beta without JavaScript (ISSUE-691)', () => {
     });
   });
 });
+
+describe('the waiting status', () => {
+  const render = (reason: 'pending' | 'revoked') =>
+    renderToString(
+      h(BetaWaiting, {
+        username: 'ada',
+        reason,
+        ageHref: '/onboarding/age?next=%2Fbeta',
+      }),
+    ).replaceAll('<!-- -->', '');
+
+  test('a pending account sees where it stands and what to do meanwhile', () => {
+    const html = render('pending');
+    assert({
+      given: 'a pending account',
+      should:
+        'show the three-step status and two things to do while waiting, with its way out last',
+      actual: [
+        'Account ready',
+        'Waiting for approval',
+        'You are in',
+        'While you wait',
+        'Watch a debate',
+        'See the leaderboard',
+      ].map((line) => html.includes(line)),
+      expected: [true, true, true, true, true, true],
+    });
+  });
+
+  test('a paused account sees no waiting status', () => {
+    const html = render('revoked');
+    assert({
+      given: 'a revoked account',
+      should: 'not promise an approval or an email that is coming',
+      actual: [
+        html.includes('Waiting for approval'),
+        html.includes('While you wait'),
+        html.includes('href="/settings"'),
+      ],
+      expected: [false, false, true],
+    });
+  });
+});

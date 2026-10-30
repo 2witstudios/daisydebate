@@ -11,7 +11,7 @@ const { CreateRoomPage } = await import('./create-room-page');
 test('create page renders durable-create fields without a placeholder judge', () => {
   const html = renderToString(
     h(CreateRoomPage, {
-      action: async () => initialFormState,
+      initialState: initialFormState,
       choices: [],
       commandId: 'n'.repeat(24),
     }),
@@ -19,13 +19,11 @@ test('create page renders durable-create fields without a placeholder judge', ()
   assert({
     given: 'a catalog-backed create screen whose catalog is empty',
     should:
-      'show one heading, a native form with title/topic/visibility/dedupe fields and refuse submission until templates exist',
+      'show one heading and a native form that refuses creation until formats exist',
     actual: [
       (html.match(/<h1 /g) ?? []).length,
       html.includes('<form'),
-      ['title', 'topic', 'selection', 'visibility', 'commandId'].every((name) =>
-        html.includes(`name="${name}"`),
-      ),
+      ['title'].every((name) => html.includes(`name="${name}"`)),
       html.includes('No formats are available yet.'),
       html.includes('disabled=""'),
       html.includes('Placeholder AI judge'),

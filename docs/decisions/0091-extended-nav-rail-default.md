@@ -51,8 +51,8 @@ ADR 0024's amendment anticipated exactly this: the request-scoped UI store
 5. **Names are unchanged.** The visible word is decoration (`aria-hidden`)
    whenever it is shorter than the accessible name; the full name — counts
    included ("Friends, 4 online") — stays the screen-reader text. Flyouts
-   (Watch, More), badges, the avatar and the logo are the same in both
-   modes; the tooltip matters only in mini.
+   (Watch), badges, the avatar and the logo are the same in both modes;
+   the tooltip matters only in mini.
 
 ## Consequences
 

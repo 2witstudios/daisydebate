@@ -1,7 +1,7 @@
 # 0077: Admin app architecture
 
-Status: accepted (BETA plan revision 3.1, owner-approved 2026-10-26;
-BETA-4). Amends [ADR 0019](0019-token-secret-ownership.md) for the admin
+Status: accepted; private mobile ingress amendment (MOBILE-1, owner-authorized 2026-10-29). Originally BETA plan revision 3.1, owner-approved 2026-10-26;
+BETA-4. Amends [ADR 0019](0019-token-secret-ownership.md) for the admin
 app's own credentials (see the amendment below), and is itself amended by
 BETA-5 for the signing operator client. Keeps
 [ADR 0043](0043-no-admin-surface-in-participant-app.md) in force.
@@ -63,13 +63,14 @@ how operators authenticate, how they are authorized, and what the app records.
 
 ### 3. Operator authentication
 
-- **Canonical origin.** Only `http://localhost:4800`, RP ID `localhost`, the
-  port belonging to the origin alone. Any other Host, `127.0.0.1` and `[::1]`
-  included, gets 421 before any ceremony, which also defeats DNS rebinding. A
-  future hostname change needs a credential re-enrollment plan.
+- **Canonical origin.** `ADMIN_ORIGIN` is validated at the process edge. Production
+  requires an exact HTTPS origin; staging uses `https://daisy-admin.tail51baf2.ts.net`.
+  The RP ID is derived from its hostname and injected into options and verification.
+  Host and Origin must match exactly; request or forwarded headers never choose
+  either. Local development alone defaults to `http://localhost:4800`.
 - **Bootstrap.** `bun /app/apps/admin/src/scripts/operator-enroll.ts --name <n>
 [--replace | --additional]`, over `fly ssh console`, mints a 15-minute link
-  `http://localhost:4800/enroll#<token>`. The token rides in the fragment, so
+  `<configured-origin>/enroll#<token>`. The token rides in the fragment, so
   no server log sees it. A first enrollment creates the owner and refuses a
   second one (a partial unique index allows one active owner); each issue
   revokes the operator's unconsumed earlier links and is audited.
@@ -92,8 +93,7 @@ how operators authenticate, how they are authorized, and what the app records.
 IS NULL AND expires_at > now RETURNING`), bound to their purpose and
   enrollment, and expire in 2 minutes.
 - **Sessions.** Cookie `daisy_admin_session`, `HttpOnly; SameSite=Strict;
-Path=/`, without `Secure` or `__Host-` because the origin is http on
-  localhost. 12 h absolute and 30 min idle, enforced server-side on every
+Path=/`, host-only and `Secure` on HTTPS. 12 h absolute and 30 min idle, enforced server-side on every
   request, which also re-reads the `operators` row: a disabled operator's
   session is revoked on its next request. Sign-out revokes the session.
 - **Request checks.** The server answers a request other than GET or HEAD
@@ -144,18 +144,32 @@ row without hash)` with sorted keys, every field present, UTC ISO time, from
 
 ### 6. Network and owner access
 
-- `daisy-debate-staging-admin` (`fly.admin.toml`) runs on the org's default
-  6PN with no `[http_service]` and no public address (`fly deploy
---no-public-ips`, checked with `fly ips list`), bound to `[::]:8080`.
-- The owner runs `fly proxy 4800:8080 -a daisy-debate-staging-admin` and opens
-  `http://localhost:4800`. The private network is a reachability control under
-  the owner's Fly auth, never authorization: every request is authenticated by
-  its session and authorized by `authorizeOperator`.
-- Both admin apps are image stages of `apps/web/Dockerfile` (`admin`,
-  `admin-migrate`, before `runtime`, which stays last) and deploy from
-  `deploy-staging.yml` with their own tokens, `FLY_ADMIN_MIGRATE_API_TOKEN`
-  then `FLY_ADMIN_API_TOKEN`; a missing token skips the step. Admitting the
-  admin apps to the 6PN needs an owner sign-off decision (BETA-H).
+- `daisy-debate-staging-admin` has no public address or Fly services. The app
+  binds `127.0.0.1:8080`; userspace Tailscale Serve terminates private HTTPS
+  at `daisy-admin.tail51baf2.ts.net`. No Funnel, Tailscale SSH, exit/subnet
+  routes, generic proxy-header trust or home relay is enabled.
+- One machine owns one encrypted persistent volume `admin_tailscale_state`
+  at `/var/lib/tailscale`. An operator registers it interactively once; startup
+  never joins a fresh identity. State persistence does not disable key expiry.
+  The root-owned daemon's state/socket are inaccessible to the unprivileged app.
+- Startup keeps the app stopped while node identity and safe network preferences
+  are checked, resets stored Serve/Funnel configuration, installs private HTTPS
+  Serve, then starts the app. Restored ingress has no app backend before admission.
+  The supervisor drains both children and exits on either child's failure.
+- Network reachability is never authority: passkey sessions and `authorizeOperator`
+  still govern every operation; ADR 0079's signed participant API is unchanged.
+  Proxy peers share the socket-based rate-limit bucket; identity headers are ignored.
+- Both admin apps remain image stages of `apps/web/Dockerfile`, with separate
+  deploy tokens. The admin image adds pinned Tailscale 1.104.4 binaries; the
+  migrator does not. Initial volume adoption uses a reviewed replacement,
+  retaining the original stopped until acceptance. The workflow selects exactly
+  one mounted managed machine and targets it explicitly with immediate stop-first
+  deployment; it refuses an invalid topology instead of touching the rollback.
+- Mobile enrollment is `--additional`: existing localhost credentials remain
+  stored and unrevoked; there is no credential migration or replacement. The
+  owner alone performs the biometric ceremony. Fixture/browser evidence and
+  actual mobile acceptance are distinct. Provisioning, renewal, deployment and
+  rollback details are in [private admin operations](../operations/private-admin.md).
 
 ## Amendment to ADR 0019: admin app credentials
 
@@ -248,5 +262,5 @@ operator API (ADR 0079), with this client:
   line in the signed internal operator API ADR, authorized here first.
 - Losing the only passkey is recovered with `--replace` over `fly ssh console`,
   which requires the owner's Fly access.
-- RP ID `localhost` binds credentials to that hostname; serving the app under
-  another name needs re-enrollment.
+- Credentials remain bound to their original RP. A new canonical hostname needs
+  explicit additional enrollment, never silent credential migration.

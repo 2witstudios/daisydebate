@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { e2eAdmin } from './support/operator-api-fixture';
 
 /**
  * The owner's first visit (BETA-4, BETA-5): the bootstrap CLI mints a link,
@@ -17,7 +18,7 @@ const enrollmentUrl = (): string => {
     [fileURLToPath(enrollCli), '--name', 'owner'],
     { encoding: 'utf8', env: { ...process.env, ...serverEnv() } },
   );
-  const url = output.split('\n').find((line) => line.startsWith('http://'));
+  const url = output.split('\n').find((line) => line.startsWith('https://'));
   if (!url) throw new Error('operator-enroll printed no URL');
   return url;
 };
@@ -28,6 +29,7 @@ function serverEnv() {
   owner.password = 'admin-e2e-loopback-only';
   return {
     ADMIN_DATABASE_URL: owner.toString(),
+    ADMIN_ORIGIN: e2eAdmin.origin,
     ADMIN_ATTEMPT_KEY: 'admin-e2e-attempt-key-loopback-only-000000',
   };
 }
@@ -35,7 +37,7 @@ function serverEnv() {
 test('enroll a passkey, sign in, and approve a pending account', async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   const { authenticatorId } = await cdp.send(
@@ -68,14 +70,27 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
     ({ name }) => name === 'daisy_admin_session',
   );
   expect(cookie).toMatchObject({
+    secure: true,
     httpOnly: true,
     sameSite: 'Strict',
     path: '/',
   });
 
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   const pending = page.getByRole('row', { name: /pending-player/ });
   await expect(pending).toContainText('2026-10-25T09:00:00.123456Z');
-  await page.getByRole('button', { name: 'Approve pending-player' }).click();
+  const approve = page.getByRole('button', { name: 'Approve pending-player' });
+  await approve.scrollIntoViewIfNeeded();
+  await expect(
+    approve.getByText('pending-player', { exact: true }),
+  ).toBeVisible();
+  expect((await approve.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: testInfo.outputPath('mobile-pending.png') });
+  await approve.click();
   await expect(page.getByTestId('command-notice')).toHaveText(
     'Done. Approval email queued.',
   );
@@ -116,7 +131,7 @@ const statusOf = (input: {
 }) =>
   new Promise<number | undefined>((resolve, reject) => {
     const sent = request(
-      { host: 'localhost', port: 4800, ...input },
+      { host: 'localhost', port: e2eAdmin.backendPort, ...input },
       (response) => {
         response.resume();
         resolve(response.statusCode);
@@ -138,14 +153,17 @@ test('the real server answers a foreign Host or Origin with 421', async () => {
     await statusOf({
       method: 'POST',
       path: '/sign-in',
-      headers: { host: 'localhost:4800', origin: 'http://attacker.example' },
+      headers: {
+        host: new URL(e2eAdmin.origin).host,
+        origin: 'http://attacker.example',
+      },
     }),
   ).toBe(421);
   expect(
     await statusOf({
       method: 'GET',
       path: '/sign-in',
-      headers: { host: 'localhost:4800' },
+      headers: { host: new URL(e2eAdmin.origin).host },
     }),
   ).toBe(200);
 });

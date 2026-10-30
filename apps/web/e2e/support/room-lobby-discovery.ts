@@ -23,7 +23,7 @@ export async function proveLobbyDiscovery(browser: Browser) {
           data: {
             commandId: createId(),
             title: `${token} ${i}`,
-            topic: `Search paging topic ${i}`,
+            resolution: { kind: 'custom', text: `Search paging topic ${i}` },
             visibility: 'public',
             selection: launchCustomSelection,
           },

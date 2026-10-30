@@ -1,13 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   authenticationOptions,
-  canonicalCeremony,
   registrationOptions,
   responseChallenge,
   verifyAuthentication,
   verifyRegistration,
 } from './webauthn';
-import { softAuthenticator } from './soft-authenticator.test-support';
+import {
+  canonicalCeremony,
+  softAuthenticator,
+} from './soft-authenticator.test-support';
 
 setupRitewayBun();
 const bytes = new Uint8Array(32).fill(7);
@@ -15,6 +17,7 @@ const challenge = Buffer.from(bytes).toString('base64url');
 
 test('ceremony options', async () => {
   const create = await registrationOptions({
+    ceremony: canonicalCeremony,
     operatorId: 'operator1',
     displayName: 'owner',
     challenge: bytes,
@@ -27,7 +30,7 @@ test('ceremony options', async () => {
       },
     ],
   });
-  const get = await authenticationOptions(bytes);
+  const get = await authenticationOptions(bytes, canonicalCeremony);
   assert({
     given: 'a register and a sign-in challenge',
     should: 'require user verification on RP ID localhost with that challenge',
@@ -142,5 +145,51 @@ test('responseChallenge', async () => {
       responseChallenge('not-json'),
     ],
     expected: [challenge, null],
+  });
+});
+
+test('HTTPS ceremony options and verification', async () => {
+  const ceremony = {
+    origin: 'https://daisy-admin.tail51baf2.ts.net',
+    rpId: 'daisy-admin.tail51baf2.ts.net',
+  };
+  const create = await registrationOptions({
+    ceremony,
+    operatorId: 'owner',
+    displayName: 'owner',
+    challenge: bytes,
+    existing: [],
+  });
+  const get = await authenticationOptions(bytes, ceremony);
+  assert({
+    given: 'a configured HTTPS ceremony',
+    should: 'generate both ceremonies for that exact RP',
+    actual: [create.rp.id, get.rpId],
+    expected: [ceremony.rpId, ceremony.rpId],
+  });
+  const device = await softAuthenticator(17);
+  const credential = await verifyRegistration({
+    response: await device.register(challenge, ceremony),
+    challenge,
+    ceremony,
+  });
+  if (!credential) throw new Error('HTTPS registration refused');
+  const verified = await verifyAuthentication({
+    response: await device.assert(challenge, ceremony, 1),
+    challenge,
+    credential,
+    ceremony,
+  });
+  const foreign = await verifyAuthentication({
+    response: await device.assert(challenge, canonicalCeremony, 1),
+    challenge,
+    credential,
+    ceremony,
+  });
+  assert({
+    given: 'an HTTPS credential and a localhost assertion',
+    should: 'accept only the configured origin and RP',
+    actual: [verified?.counter, foreign],
+    expected: [1, null],
   });
 });

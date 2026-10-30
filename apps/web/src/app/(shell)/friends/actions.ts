@@ -1,5 +1,6 @@
 'use server';
 
+import { moveOn } from '../../../server/form-action';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
@@ -106,6 +107,7 @@ export async function challengeAction(
         room,
         '/api/rooms',
         beforeMoveOn,
+        moveOn,
       ),
   });
 }

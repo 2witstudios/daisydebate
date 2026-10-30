@@ -82,6 +82,8 @@ jobs:
       outcomes: >-
         deploy.checkout=${{ steps.checkout.outcome }}
         deploy.setup-flyctl=${{ steps.setup-flyctl.outcome }}
+        deploy.setup-bun=${{ steps.setup-bun.outcome }}
+        deploy.install-preflight=${{ steps.install-preflight.outcome }}
         deploy.migrate=${{ steps.migrate.outcome }}
         deploy.livekit=${{ steps.livekit.outcome }}
         deploy.realtime=${{ steps.realtime.outcome }}
@@ -103,6 +105,14 @@ jobs:
           persist-credentials: false
       - id: setup-flyctl
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - id: setup-bun
+        name: Set up Bun for deployment preflight
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - id: install-preflight
+        name: Install deployment preflight dependencies
+        run: bun install --frozen-lockfile
       - id: migrate
         name: Migrate
         # Every deploy below builds on this runner (--local-only, ISSUE-542),
@@ -238,7 +248,17 @@ jobs:
             echo "Admin deploy tokens are not set; the admin app is not deployed yet"
             exit 0
           fi
+          # Initial volume adoption is a reviewed parent operation before merge.
+          # Select only the persistent machine; a stopped rollback machine must
+          # never be updated or started by an automatic main deployment.
+          admin_machines=$(mktemp)
+          admin_volumes=$(mktemp)
+          trap 'rm -f "$admin_machines" "$admin_volumes"' EXIT
+          flyctl machine list -a daisy-debate-staging-admin --json > "$admin_machines"
+          flyctl volumes list -a daisy-debate-staging-admin --json > "$admin_volumes"
+          admin_target=$(bun scripts/admin-deploy-target.ts "$admin_volumes" < "$admin_machines")
           flyctl deploy -c fly.admin.toml --local-only --ha=false --no-public-ips \
+            --only-machines "$admin_target" --strategy immediate \
             --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
             --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: readiness

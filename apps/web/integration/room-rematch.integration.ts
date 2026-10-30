@@ -15,7 +15,10 @@ test('a fresh Room after an actual result preserves the original aggregate and r
     const body = {
       commandId: createId(),
       title: 'Fresh rematch',
-      topic: 'Libraries should remain public',
+      resolution: {
+        kind: 'custom' as const,
+        text: 'Libraries should remain public',
+      },
       visibility: 'public' as const,
       selection: f.foundationSelection,
     };
@@ -58,7 +61,7 @@ test('a fresh Room after an actual result preserves the original aggregate and r
         actual: () =>
           f.operations.rematch(f.host, room.id, {
             ...body,
-            topic: 'Changed command payload',
+            resolution: { kind: 'custom', text: 'Changed command payload' },
           }),
         code: 'CONFLICT',
       });

@@ -11,7 +11,7 @@ import {
   type EnrollmentMode,
 } from '../src/auth/issue-enrollment';
 import { systemRandom } from '../src/auth/secrets';
-import { canonicalCeremony } from '../src/auth/webauthn';
+import { canonicalCeremony } from '../src/auth/soft-authenticator.test-support';
 import { openAdminDatabase } from '../src/db/client';
 
 /**

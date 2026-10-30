@@ -228,7 +228,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
     const rematch = await f.operations.rematch(f.host, room.id, {
       commandId: createId(),
       title: 'Rematch',
-      topic: 'Libraries should remain public',
+      resolution: { kind: 'custom', text: 'Libraries should remain public' },
       visibility: 'public',
       selection: f.foundationSelection,
     });

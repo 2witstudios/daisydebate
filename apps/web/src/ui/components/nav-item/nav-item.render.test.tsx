@@ -44,34 +44,6 @@ describe('nav-item presentation', () => {
     });
   });
 
-  test('an icon-only foot control shows no word, keeps its name for screen readers, and stays a square', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/settings',
-          icon: 'dots',
-          label: 'More',
-          active: false,
-          extended: true,
-          iconOnly: true,
-          subItems: [{ href: '/help', label: 'Help' }],
-        }),
-      ),
-    );
-    assert({
-      given: 'an extended rail foot item that is icon-only',
-      should:
-        'render no visible word, name it as screen-reader text, and use the 44px square layout',
-      actual: [
-        html.includes('<span class="sr-only">More</span>'),
-        html.includes('max-rail:sr-only'),
-        html.includes('size-nav-target'),
-        html.includes('w-full'),
-      ],
-      expected: [true, false, true, false],
-    });
-  });
-
   test('names an icon-only link with screen-reader text and a tooltip', () => {
     const html = String(
       renderToString(

@@ -102,23 +102,23 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
       <h1 id="onboarding-title" className={heading}>
         How a debate works
       </h1>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-sunken px-5 py-4">
-        <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-strong tracking-widest text-ink-muted uppercase">
             The motion
           </span>
-          <span className="font-display text-xl text-ink">
-            Homework does more harm than good in elementary school.
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-round bg-accent px-3 py-1 text-sm font-strong text-accent-ink">
+              Aff argues for
+            </span>
+            <span className="rounded-round bg-hue-clay px-3 py-1 text-sm font-strong text-surface-raised">
+              Neg argues against
+            </span>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-round bg-accent px-3 py-1 text-sm font-strong text-accent-ink">
-            Aff argues for
-          </span>
-          <span className="rounded-round bg-hue-clay px-3 py-1 text-sm font-strong text-surface-raised">
-            Neg argues against
-          </span>
-        </div>
+        <span className="font-display text-xl text-ink">
+          Homework does more harm than good in elementary school.
+        </span>
       </div>
       <div className="flex flex-col gap-2">
         <ol

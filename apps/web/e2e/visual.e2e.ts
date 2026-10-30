@@ -131,7 +131,7 @@ for (const screen of shellScreens) {
         await matchesBaseline(
           page,
           `${screen.name}-${theme}-${viewport.name}.png`,
-          [page.getByRole('link', { name: /^Your profile, / })],
+          [page.locator('summary[aria-label^="Your account, "]')],
         );
       } finally {
         await page.context().close();

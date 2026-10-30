@@ -21,7 +21,7 @@ const summary = (view: RoomView) => ({
 
 test('a casual room chooses, edits and returns to a standard through the database', async () => {
   await withRoomRuntime(async (f) => {
-    const catalog = await f.operations.catalog(f.host);
+    const catalog = (await f.operations.catalog(f.host)).choices;
     const value = catalog.find((choice) => choice.formatId === 'value')!;
     const template = catalog.find((choice) => choice.formatId === 'nsda-ld')!;
     const created = (
@@ -108,7 +108,7 @@ test('a casual room chooses, edits and returns to a standard through the databas
 
 test('select-format refuses what the policy refuses and leaves the room unchanged', async () => {
   await withRoomRuntime(async (f) => {
-    const catalog = await f.operations.catalog(f.host);
+    const catalog = (await f.operations.catalog(f.host)).choices;
     const value = catalog.find((choice) => choice.formatId === 'value')!;
     const policy = catalog.find((choice) => choice.formatId === 'policy')!;
     const view = (await f.create()).view;
@@ -159,7 +159,7 @@ test('select-format refuses what the policy refuses and leaves the room unchange
 
 test('a room switches into and out of a striking format (FMT-2b)', async () => {
   await withRoomRuntime(async (f) => {
-    const catalog = await f.operations.catalog(f.host);
+    const catalog = (await f.operations.catalog(f.host)).choices;
     const value = catalog.find((choice) => choice.formatId === 'value')!;
     const freestyle = catalog.find(
       (choice) => choice.formatId === 'freestyle',
@@ -181,13 +181,14 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
       })
     ).view;
     await assertRejects({
-      given: 'leaving the draw with no resolution',
-      should: 'refuse: a set-resolution format needs one',
+      given: 'leaving a draw for Value with host-written replacement text',
+      should: 'refuse: Value uses its published resolution',
       actual: () =>
         f.command(f.host, striking, {
           type: 'select-format',
           intent: 'choose',
           ...tuple(value),
+          topic: 'Cities should ban cars downtown',
         }),
       code: 'CONFLICT',
     });
@@ -196,13 +197,12 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
         type: 'select-format',
         intent: 'choose',
         ...tuple(value),
-        topic: 'Cities should ban cars downtown',
       })
     ).view;
     const fresh = (
       await f.create(
         {
-          topic: null,
+          resolution: { kind: 'strike' },
           selection: {
             kind: 'catalog',
             ...tuple(freestyle),
@@ -247,7 +247,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
             basis: 'value',
             standing: 'standard',
           },
-          'Cities should ban cars downtown',
+          'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
         ],
         fresh: [
           {

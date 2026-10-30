@@ -69,7 +69,7 @@ export async function runStagingTranscriptRound(cookie: string) {
       await request('/api/rooms', {
         commandId: createId(),
         title: 'Staging transcript provider proof',
-        topic: 'Cities should fund transit',
+        resolution: { kind: 'custom', text: 'Cities should fund transit' },
         visibility: 'unlisted',
         selection: stagingProofSelection(),
       })

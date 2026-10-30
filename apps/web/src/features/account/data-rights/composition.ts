@@ -1,3 +1,7 @@
+import {
+  exportRoomDraftAnswer,
+  eraseRoomDraftAnswer,
+} from '../../rooms/create-room-draft-answer';
 import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
 import {
   subjectRightsVerificationBindings,
@@ -37,7 +41,12 @@ export const exportSubjectData =
         eraseSubject: (actorId) => app.redis.eraseSubjectTyping(actorId),
       })
       .export(subject);
-    return { ...exported, messaging_typing_leases: typing };
+    const draft = await exportRoomDraftAnswer(app.redis, subject.userId);
+    return {
+      ...exported,
+      messaging_typing_leases: typing,
+      room_creation_draft: draft,
+    };
   };
 
 /**
@@ -69,8 +78,9 @@ export function composeDataRightsRoutes(app: App) {
         identify: identityOf,
         limiter: () => app.limiter,
         clock: app.clock,
-        eraseSubject: (subject, now) =>
-          app.database.erasePrivacySubject(
+        eraseSubject: async (subject, now) => {
+          await eraseRoomDraftAnswer(app.redis, subject.userId);
+          return app.database.erasePrivacySubject(
             {
               subject,
               now,
@@ -79,7 +89,8 @@ export function composeDataRightsRoutes(app: App) {
             },
             roomTransitions,
             subjectRightsVerificationBindings,
-          ),
+          );
+        },
       }),
     },
   };

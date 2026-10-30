@@ -18,6 +18,7 @@ import { rooms } from './schema/rooms';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { newRoomValues, type NewRoom } from './room-operations';
+import { readPublishedResolution } from './published-resolutions';
 
 import {
   type Caller,
@@ -43,6 +44,10 @@ export const roomCreateOperations = ({
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
+    readonly resolutionPublication?: {
+      readonly id: string;
+      readonly kind: 'policy' | 'value';
+    } | null;
     /**
      * A catalog selection rechecked against the facts read FOR SHARE in this
      * transaction, so a publication that lands after the decision refuses the
@@ -85,12 +90,25 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
+        if (input.resolutionPublication) {
+          const resolution = await readPublishedResolution(
+            tx,
+            input.resolutionPublication.id,
+            input.resolutionPublication.kind,
+          );
+          if (
+            !resolution ||
+            resolution.text !== input.room.topic ||
+            resolution.id !== input.room.publishedResolutionId
+          )
+            throw createAppError('CONFLICT', 'format-unavailable');
+        }
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
             sql`select id from seasons where status='active' for share`,
           );
           if (active.length !== 1)
-            throw createAppError('CONFLICT', 'No season is active');
+            throw createAppError('CONFLICT', 'ranked-unavailable');
         }
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({

@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 // The admin app (ADR 0077): server components and server-action forms; the
 // passkey ceremony is its only client script. Served only to
-// http://localhost:4800 through `fly proxy`, so no HSTS: the origin is http.
+// the configured canonical origin behind private HTTPS Serve.
 const config: NextConfig = {
   poweredByHeader: false,
   agentRules: false,

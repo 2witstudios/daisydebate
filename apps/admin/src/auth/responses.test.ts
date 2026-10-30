@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { parseAuthentication, parseRegistration } from './responses';
 import { softAuthenticator } from './soft-authenticator.test-support';
-import { canonicalCeremony } from './webauthn';
+import { canonicalCeremony } from './soft-authenticator.test-support';
 
 setupRitewayBun();
 test('ceremony result shapes', async () => {

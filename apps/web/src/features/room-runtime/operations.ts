@@ -13,6 +13,7 @@ import {
   hostIdentityHidden,
   projectActiveRoom,
   projectRoom,
+  decideRoomResolution,
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
@@ -24,6 +25,7 @@ import type {
   RoomCastChoice,
   RoomCommandResponse,
   RoomCreate,
+  PublishedResolution,
 } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -36,6 +38,8 @@ export type Store = Pick<
   | 'listRoomBots'
   | 'getFormatRevision'
   | 'getFormatSelectionFacts'
+  | 'listPublishedResolutions'
+  | 'getPublishedResolution'
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
@@ -125,12 +129,14 @@ export function createRoomRuntimeOperations({
   /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */
   const catalog = async (
     caller: Caller,
-  ): Promise<readonly RoomCatalogChoice[]> =>
-    (
-      await store.listRoomCatalogSources(caller, (account) =>
-        can(caller, 'room.list', account),
-      )
-    ).map((source) => ({
+  ): Promise<{
+    readonly choices: readonly RoomCatalogChoice[];
+    readonly resolutions: readonly PublishedResolution[];
+  }> => {
+    const sources = await store.listRoomCatalogSources(caller, (account) =>
+      can(caller, 'room.list', account),
+    );
+    const choices = sources.map((source) => ({
       formatId: source.id,
       formatVersion: source.version,
       label: source.name,
@@ -142,8 +148,14 @@ export function createRoomRuntimeOperations({
       rulesEdition: source.rulesEdition,
       sourceUrl: source.sourceUrl,
       definition: source.definition,
-      preset: { version: source.preset.version, config: source.preset.config },
+      preset: {
+        version: source.preset.version,
+        config: source.preset.config,
+        rankedEligible: source.preset.rankedEligible,
+      },
     }));
+    return { choices, resolutions: await store.listPublishedResolutions() };
+  };
   const create = async (
     caller: Caller,
     body: RoomCreate,
@@ -168,9 +180,25 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
-    // A draw Room's topic comes from its reveal; any other Room names one.
-    if ((body.topic === null) !== resolved.roomPlan.resolutionDraw.enabled)
-      throw createAppError('CONFLICT', 'illegal-config');
+    const resolutionSelection = body.resolution;
+    const publication =
+      resolutionSelection.kind === 'policy' ||
+      resolutionSelection.kind === 'value'
+        ? await store.getPublishedResolution(
+            resolutionSelection.id,
+            resolutionSelection.kind,
+          )
+        : null;
+    const resolution = decideRoomResolution({
+      selection: resolutionSelection,
+      publication,
+      formatId,
+      standard:
+        selection.kind !== 'custom' &&
+        ['policy', 'value', 'freestyle'].includes(formatId),
+      strikes: resolved.roomPlan.resolutionDraw.enabled,
+    });
+    if (!resolution.ok) throw createAppError('CONFLICT', 'illegal-config');
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
@@ -184,12 +212,17 @@ export function createRoomRuntimeOperations({
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
+      resolutionPublication: publication && {
+        id: publication.id,
+        kind: publication.kind,
+      },
       selection: recheck,
       room: {
         id: ids.next(),
         hostActorId: caller.actorId,
         title: body.title,
-        topic: body.topic,
+        topic: resolution.topic,
+        publishedResolutionId: resolution.publishedResolutionId,
         visibility: body.visibility,
         formatId,
         formatVersion,

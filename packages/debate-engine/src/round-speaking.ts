@@ -6,6 +6,10 @@ import type {
 } from '@daisy/protocol';
 import type { ClockChange } from './round-clock';
 
+/** Open questioning grants speaking permission without transferring the scheduled floor. */
+export const hasOpenQuestioning = (rules: RoundRules): boolean =>
+  rules.interaction.interruptions?.allowed === 'open';
+
 /** Speaking eligibility is distinct from command/floor control in free CX. */
 export const speakingParticipants = (
   rules: RoundRules,
@@ -15,7 +19,10 @@ export const speakingParticipants = (
 ): readonly string[] => {
   const segment = rules.segments[sequence];
   if (!segment) return [];
-  if (segment.type === 'cross_ex' && rules.interaction.crossExMode === 'free')
+  if (
+    hasOpenQuestioning(rules) ||
+    (segment.type === 'cross_ex' && rules.interaction.crossExMode === 'free')
+  )
     return seats
       .filter((p) => p.role === 'affirmative' || p.role === 'negative')
       .map((p) => p.id);
@@ -63,8 +70,9 @@ export function speakingChangesOf(input: {
   if (
     floor &&
     !(
-      input.rules.segments[floor.sequence]?.type === 'cross_ex' &&
-      input.rules.interaction.crossExMode === 'free'
+      hasOpenQuestioning(input.rules) ||
+      (input.rules.segments[floor.sequence]?.type === 'cross_ex' &&
+        input.rules.interaction.crossExMode === 'free')
     )
   ) {
     const segmentId = input.segmentIds.get(floor.sequence)!;

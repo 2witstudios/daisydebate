@@ -30,6 +30,7 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 // leaderboard, which pins the viewer's line, and the Tournaments index) get
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
+  requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
@@ -50,7 +51,6 @@ mock.module(
 // Guard coverage renders outside Next's request store; catalog I/O is proved separately.
 mock.module(join(import.meta.dir, '../../app/(shell)/play/actions.ts'), () => ({
   roomTemplates: async () => ({ kind: 'found', choices: [] }),
-  createRoomAction: async () => ({ values: {} }),
 }));
 
 mock.module(

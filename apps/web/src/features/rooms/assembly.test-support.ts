@@ -66,6 +66,7 @@ export const unequalTemplate = {
     },
   },
   preset: {
+    rankedEligible: false,
     version: 5,
     config: {
       preRoundPrep: { enabled: true, durationMs: 321000 },
@@ -147,7 +148,8 @@ export const rankedCreateForm = (visibility = 'unlisted') => {
   const fields = new FormData();
   fields.set('commandId', 'h'.repeat(24));
   fields.set('title', 'My room');
-  fields.set('topic', 'A real topic');
+  fields.set('resolutionMethod', 'custom');
+  fields.set('customResolution', 'A real topic');
   fields.set('visibility', visibility);
   fields.set(
     'selection',

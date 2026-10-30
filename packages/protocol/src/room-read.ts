@@ -55,6 +55,7 @@ export const roomRefusalSchema = z.enum([
   'active-room',
   /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
   'format-unavailable',
+  'ranked-unavailable',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
   /** No draw, or the position is not standing. */
@@ -187,7 +188,11 @@ export const roomCatalogChoiceSchema = z.strictObject({
   rulesEdition: z.string().nullable(),
   sourceUrl: z.string().nullable(),
   definition: formatDefinitionSchema,
-  preset: z.strictObject({ version, config: formatSettingsSchema }),
+  preset: z.strictObject({
+    version,
+    config: formatSettingsSchema,
+    rankedEligible: z.boolean(),
+  }),
 });
 /** An AI actor a host may seat: a bot debater for a side, or the AI judge for the judge seat (ISSUE-750). */
 export const roomCastChoiceSchema = z.strictObject({

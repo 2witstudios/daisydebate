@@ -25,7 +25,7 @@ test('only canonical rated formats are creatable and generic One-on-one refuses'
           }),
         code: 'VALIDATION',
       });
-      const catalog = await f.operations.catalog(f.host);
+      const catalog = (await f.operations.catalog(f.host)).choices;
       const value = catalog.find((c) => c.formatId === 'value')!;
       const view = (
         await f.create({

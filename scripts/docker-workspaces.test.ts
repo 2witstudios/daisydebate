@@ -138,6 +138,19 @@ const imageProblems = (source: string, all = workspaces) => {
       }
     }
   }
+  // Admin deliberately ships only the operator-signature leaf of auth,
+  // never participant auth's full public graph. Check its own image inputs
+  // as well as the three services, including root-owned duplicate copies.
+  for (const path of [
+    'apps/admin/src',
+    'packages/auth/src/operator-signature.ts',
+    'packages/clock/src',
+    'packages/logger/src',
+    'packages/protocol/src',
+  ]) {
+    if (!copies(stageLines(source, 'admin'), path))
+      problems.push(`admin: missing ${path}`);
+  }
   return problems.sort();
 };
 

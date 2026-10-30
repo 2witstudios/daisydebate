@@ -18,6 +18,7 @@ import {
 } from './media-controller';
 import { MediaStage } from './media-stage';
 import { mediaStatus, retryMissingDevices } from './media-status';
+import { hasOpenQuestioning } from '@daisy/debate-engine';
 
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
 const ADMISSION_RETRY_MS = [500, 1000, 2000];
@@ -68,6 +69,11 @@ function RoundMediaSession({
   readonly view: RoundView;
   readonly onRefresh: () => void;
 }) {
+  const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
+  const [microphoneMuted, setMicrophoneMuted] = useState(poi);
+  const [changingMicrophone, setChangingMicrophone] = useState(false);
+  const muted = useRef(poi);
+  const microphone = useRef<((value: boolean) => Promise<void>) | null>(null);
   const [connection, setConnection] =
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
@@ -94,6 +100,7 @@ function RoundMediaSession({
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
+          microphoneMuted: muted.current,
           devices: readCheckedDevices(view.roomId),
           missing: (source) =>
             setMissing((current) =>
@@ -110,6 +117,7 @@ function RoundMediaSession({
           },
         });
         sound.current = browser.startAudio;
+        microphone.current = browser.setMicrophoneMuted;
         return browser.transport;
       },
     });
@@ -119,6 +127,7 @@ function RoundMediaSession({
       mounted.stop();
       controller.current = null;
       sound.current = null;
+      microphone.current = null;
     };
   }, [view.id, view.roomId]);
   useEffect(() => {
@@ -158,6 +167,34 @@ function RoundMediaSession({
             }}
           >
             Enable sound
+          </button>
+        ) : null}
+        {poi && media?.grants.publish.includes('camera') ? (
+          <button
+            type="button"
+            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            disabled={
+              connection !== 'live' ||
+              changingMicrophone ||
+              !media.grants.publish.includes('microphone')
+            }
+            aria-pressed={!microphoneMuted}
+            onClick={async () => {
+              const previous = muted.current;
+              muted.current = !previous;
+              setChangingMicrophone(true);
+              try {
+                await microphone.current?.(!previous);
+                setMicrophoneMuted(!previous);
+              } catch {
+                muted.current = previous;
+                setConnection('device-blocked');
+              } finally {
+                setChangingMicrophone(false);
+              }
+            }}
+          >
+            {microphoneMuted ? 'Unmute microphone' : 'Mute microphone'}
           </button>
         ) : null}
         {status.retry ? (

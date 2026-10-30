@@ -10,7 +10,7 @@ test('custom browser creation fixture satisfies the canonical complete request c
   const request = {
     commandId: 'a'.repeat(24),
     title: 'Custom sequence proof',
-    topic: 'Proof transit motion',
+    resolution: { kind: 'custom', text: 'Proof transit motion' },
     visibility: 'public',
     selection: launchCustomSelection,
   };

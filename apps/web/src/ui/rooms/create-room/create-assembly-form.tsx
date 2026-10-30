@@ -1,14 +1,20 @@
 'use client';
 
-import { FormatTemplatePicker } from './format-template-picker';
-
+import { useState, useTransition } from 'react';
+import type { FormState } from '../../../features/forms/form-state';
+import type { PublishedResolution } from '@daisy/protocol';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
-import { formValues } from '../../../features/forms/form-state';
-import { FormError, FormField } from '../../components/form-field/form-field';
+import {
+  postRoomDraft,
+  type RoomDraftAnswer,
+} from '../../../features/rooms/create-room-answer';
+import { defaultChoice } from '../../../features/rooms/format-browser';
+import { FormError } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
-import { useFormAction, type FormAction } from '../../form-action/form-action';
+import { useFocusAfterAnswer } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
+import { CreateRoomEditor } from './create-room-editor';
 
 type CreateState = {
   readonly values: Readonly<Record<string, string>>;
@@ -19,6 +25,7 @@ type CreateState = {
 type FieldsProps = {
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
+  readonly resolutions?: readonly PublishedResolution[];
   readonly state: CreateState;
   readonly pending: boolean;
   readonly initialRated?: boolean;
@@ -27,116 +34,98 @@ type FieldsProps = {
 export function CreateAssemblyFields({
   commandId,
   choices,
+  resolutions = [],
   state,
   pending,
   initialRated = false,
 }: FieldsProps) {
-  return (
-    <>
-      {' '}
-      <input
-        type="hidden"
-        name="commandId"
-        value={state.values.commandId ?? commandId}
-      />
-      <FormField id="assembly-title" label="Room name">
-        <input
-          id="assembly-title"
-          name="title"
-          required
-          defaultValue={state.values.title ?? ''}
-          className={controlClass}
-        />
-      </FormField>
-      <FormField id="assembly-topic" label="Resolution">
-        <textarea
-          id="assembly-topic"
-          name="topic"
-          aria-describedby="assembly-topic-hint"
-          defaultValue={state.values.topic ?? ''}
-          className={controlClass}
-        />
-      </FormField>
-      <p id="assembly-topic-hint" className="-mt-3 text-xs text-ink-muted">
-        One statement: the Affirmative argues for it, the Negative against it.
-        Leave it empty for a format that strikes its resolution, such as
-        Freestyle or IPDA.
-      </p>
-      <FormatTemplatePicker
-        key={state.values.selection ?? 'initial'}
-        choices={choices}
-        defaultValue={state.values.selection}
-      />
-      <FormField id="assembly-competition" label="Rating">
-        <select
-          id="assembly-competition"
-          name="competition"
-          defaultValue={
-            state.values.competition ?? (initialRated ? 'ranked' : 'casual')
-          }
-          className={controlClass}
-        >
-          <option value="casual">Casual</option>
-          <option value="ranked">Rated · Freestyle, Policy or Value</option>
-        </select>
-      </FormField>
-      <FormField id="assembly-visibility" label="Who can join">
-        <select
-          id="assembly-visibility"
-          name="visibility"
-          defaultValue={state.values.visibility ?? 'unlisted'}
-          className={controlClass}
-        >
-          <option value="unlisted">Anyone with the link</option>
-          <option value="public">Listed in the lobby — anyone can join</option>
-          {/* Private returns with an invite path (ISSUE-443, DEC-206). */}
-        </select>
-      </FormField>
-      <FormError error={state.error} />
-      {choices.length === 0 ? (
+  const first = defaultChoice(choices);
+  if (!first)
+    return (
+      <div className="create-room-card create-room-section">
+        <label className="create-room-field">
+          <span>Room name</span>
+          <input
+            name="title"
+            className={controlClass}
+            defaultValue={state.values.title ?? ''}
+          />
+        </label>
+        <FormError error={state.error} />
         <p role="status">No formats are available yet.</p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={pending || choices.length === 0}
-        className={buttonClass('primary')}
-      >
-        Create room
-      </button>
-    </>
+        <button type="submit" disabled className={buttonClass('primary')}>
+          Create room
+        </button>
+      </div>
+    );
+  return (
+    <CreateRoomEditor
+      choices={choices}
+      resolutions={resolutions}
+      initialChoice={first}
+      values={state.values}
+      commandId={commandId}
+      initialRated={initialRated}
+      pending={pending}
+      error={state.error}
+    />
   );
 }
 
-/** Catalog revisions supply templates; all mutations still go through canonical CAP. */
+/** Local draft editing enhances the same native, authenticated creation action. */
 export function CreateAssemblyForm({
-  action,
+  initialState = { values: {} },
+  sourceRoomId,
   commandId,
   choices,
+  resolutions = [],
   initialRated = false,
 }: {
-  readonly action: FormAction<CreateState>;
+  readonly initialState?: FormState;
+  readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
+  readonly resolutions?: readonly PublishedResolution[];
   readonly initialRated?: boolean;
 }) {
-  const [state, post, pending] = useFormAction(
-    action,
-    { values: {} },
-    (form) => ({
-      values: formValues(form),
-      error: 'Unable to create the room. Try again.',
-    }),
-  );
+  const [state, setState] = useState<RoomDraftAnswer>(initialState);
+  const [pending, startTransition] = useTransition();
   useMovedOn(state.next);
+  useFocusAfterAnswer(
+    state,
+    state.error ? 'create-room-answer' : 'create-settings-title',
+    !pending,
+  );
   return (
     <form
-      action={post}
+      action="/play/room/submit"
+      method="post"
+      encType="multipart/form-data"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(
+          event.currentTarget,
+          (event.nativeEvent as SubmitEvent).submitter,
+        );
+        startTransition(async () => {
+          setState(await postRoomDraft(fetch, form));
+        });
+      }}
       aria-label="Create a room"
-      className="flex flex-col gap-5"
+      className="create-room-form"
+      onInvalidCapture={(event) => {
+        const element = event.target as HTMLElement;
+        element.closest('details')?.setAttribute('open', '');
+      }}
     >
+      {sourceRoomId ? (
+        <input type="hidden" name="sourceRoomId" value={sourceRoomId} />
+      ) : null}
       <CreateAssemblyFields
+        key={JSON.stringify(state.values)}
         commandId={commandId}
         choices={choices}
+        resolutions={state.resolutions ?? resolutions}
         state={state}
         pending={pending}
         initialRated={initialRated}

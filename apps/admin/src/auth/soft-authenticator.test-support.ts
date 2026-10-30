@@ -1,3 +1,8 @@
+export const canonicalCeremony = {
+  origin: 'http://localhost:4800',
+  rpId: 'localhost',
+};
+
 /**
  * A software passkey for unit and integration tests: ES256, `none`
  * attestation, with every flag and the counter under the test's control.

@@ -101,7 +101,15 @@ export function roomCommandOperation({
           command.type === 'start-pre-round'
             ? { drawId: ids.next(), seed: entropy(), salt: entropy() }
             : null;
-        return (raw, now, target, account, draw, formatFacts) => {
+        return (
+          raw,
+          now,
+          target,
+          account,
+          draw,
+          formatFacts,
+          resolutionPublication,
+        ) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
@@ -115,6 +123,7 @@ export function roomCommandOperation({
               participantId: ids.next(),
               formatId: ids.next(),
               formatFacts,
+              resolutionPublication,
               target: target
                 ? {
                     ...target,

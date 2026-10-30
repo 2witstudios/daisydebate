@@ -96,7 +96,7 @@ export async function createFoundationRoom(
     data: {
       commandId: createId(),
       title: 'Actual Round proof',
-      topic: 'Cities should fund transit',
+      resolution: { kind: 'custom', text: 'Cities should fund transit' },
       visibility: 'public',
       selection: select(choice),
     },

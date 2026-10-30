@@ -84,6 +84,7 @@ export async function beginEnrollment(
     expiresAt: challengeExpiry(now),
   });
   const options = await registrationOptions({
+    ceremony: deps.ceremony,
     operatorId: open.operator.id,
     displayName: open.operator.displayName,
     challenge: bytes,

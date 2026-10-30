@@ -9,6 +9,44 @@ import {
 
 setupRitewayBun();
 
+test('open POI speaking is never admitted to Ranked even on an eligible published preset', () => {
+  const source = facts({
+    preset: {
+      rankedEligible: true,
+      config: {
+        ...oneOnOneSettings,
+        interruptions: { mode: 'open', minRemainingMs: 0 },
+      },
+    },
+  });
+  const loaded: FormatSelectionFacts = {
+    ...source,
+    definition: {
+      ...source.definition,
+      configurable: {
+        ...source.definition.configurable,
+        interaction: {
+          ...source.definition.configurable.interaction,
+          interruptions: {
+            modes: ['open'],
+            minRemainingMs: { min: 0, max: 0 },
+          },
+        },
+      },
+    },
+  };
+  const outcome = decideFormatSelection(
+    request({ intent: 'create-ranked' }),
+    loaded,
+  );
+  assert({
+    given: 'a standard whose publisher marked an open POI preset eligible',
+    should: 'refuse Ranked admission independently of that flag',
+    actual: outcome.ok,
+    expected: false,
+  });
+});
+
 const facts = (
   overrides: {
     readonly format?: Partial<FormatSelectionFacts['format']>;
@@ -95,7 +133,7 @@ describe('decideFormatSelection', () => {
       actual: [
         refusal('an unknown format', request(), null),
         refusal(
-          'a private custom format',
+          'a custom format',
           request(),
           facts({ format: { catalogOwned: false, role: null } }),
         ),
@@ -128,7 +166,7 @@ describe('decideFormatSelection', () => {
       ],
       expected: [
         { given: 'an unknown format', refused: 'format-unavailable' },
-        { given: 'a private custom format', refused: 'format-unavailable' },
+        { given: 'a custom format', refused: 'format-unavailable' },
         { given: 'a role-null catalog format', refused: 'format-unavailable' },
         {
           given: 'a superseded preset (a stale form)',
@@ -181,7 +219,7 @@ describe('decideFormatSelection', () => {
           }),
         ),
         refusal(
-          'a private format',
+          'a custom format',
           ranked,
           facts({
             format: { id: 'one-on-one', catalogOwned: false, role: null },
@@ -202,7 +240,7 @@ describe('decideFormatSelection', () => {
       ],
       expected: [
         { given: 'an ineligible preset', refused: 'format-unavailable' },
-        { given: 'a private format', refused: 'format-unavailable' },
+        { given: 'a custom format', refused: 'format-unavailable' },
         { given: 'a two-a-side format', refused: 'format-unavailable' },
         { given: 'a superseded preset', refused: 'format-unavailable' },
       ],
