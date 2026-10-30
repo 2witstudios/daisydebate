@@ -4,6 +4,18 @@ import { state, consent, edges } from './room-assembly.test-support';
 import { begin, command } from './room-pre-round.test-support';
 setupRitewayBun();
 
+const prepRoom = () => {
+  const base = state();
+  return {
+    ...base,
+    executionPlan: {
+      ...base.executionPlan,
+      preRoundPrep: { enabled: true as const, durationMs: 1000 },
+    },
+    prepRemainingMs: 1000,
+  };
+};
+
 test('pre-round commitment rejects Ready and Unready without mutation', () => {
   const room = begin().state;
   assert({
@@ -39,14 +51,7 @@ test('pre-round commitment rejects Ready and Unready without mutation', () => {
 
 test('prep-only start validates readiness and direct launch still requires it', () => {
   const base = state();
-  const room = {
-    ...base,
-    executionPlan: {
-      ...base.executionPlan,
-      preRoundPrep: { enabled: true as const, durationMs: 1000 },
-    },
-    prepRemainingMs: 1000,
-  };
+  const room = prepRoom();
   const absent = { available: true, readyActorIds: [] };
   assert({
     given: 'unready cast at prep start or direct launch',
@@ -75,15 +80,7 @@ test('prep-only start validates readiness and direct launch still requires it', 
 });
 
 test('committed prep survives expendable readiness expiry but not ineligibility', () => {
-  const base = state();
-  const room = {
-    ...base,
-    executionPlan: {
-      ...base.executionPlan,
-      preRoundPrep: { enabled: true as const, durationMs: 1000 },
-    },
-    prepRemainingMs: 1000,
-  };
+  const room = prepRoom();
   const started = executeRoomCommand(
     room,
     'host',
