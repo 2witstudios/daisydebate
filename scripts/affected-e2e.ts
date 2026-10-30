@@ -24,7 +24,6 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
     'apps/web/src/features/analytics/',
     'apps/web/src/ui/analytics/',
     'apps/web/src/ui/settings/',
-    'packages/config/',
     'packages/db/',
   ],
   'analytics.e2e.ts': [
@@ -32,7 +31,6 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
     'apps/web/src/ui/analytics/',
     'apps/web/src/app/(shell)/analytics/',
     'apps/web/src/app/api/analytics/',
-    'packages/config/',
     'packages/protocol/',
   ],
   'rating-entry.e2e.ts': [

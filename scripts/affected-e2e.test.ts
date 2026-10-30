@@ -331,6 +331,20 @@ describe('native selection admission', () => {
   });
 });
 
+test('shared environment configuration retains full browser coverage', () => {
+  const plan = selectBrowserSpecs(
+    ['packages/config/src/index.ts'],
+    'pull_request',
+    true,
+  );
+  assert({
+    given: 'a shared environment configuration change',
+    should: 'retain the full Chromium and native lifecycle selection',
+    actual: [plan.mode, plan.excluded, plan.nativeSpecs.length],
+    expected: ['full', ['visual.e2e.ts'], 10],
+  });
+});
+
 test('round-media edits select the dedicated attachment lifecycle proof', () => {
   for (const files of [
     ['apps/web/src/features/round-media/media-stage.tsx'],
