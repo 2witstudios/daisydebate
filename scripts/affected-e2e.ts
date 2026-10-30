@@ -9,7 +9,9 @@ const round = ['apps/web/src/features/round-', 'apps/web/src/ui/debate-room/'];
 const media = [
   'packages/media/',
   'apps/web/src/features/media/',
+  'apps/web/src/features/round-media/',
   'apps/web/src/ui/media/',
+  'apps/web/src/ui/round-media/',
 ];
 const theme = ['apps/web/src/features/theme/', 'apps/web/src/ui/theme/'];
 const realtime = ['apps/realtime/', 'apps/web/src/features/realtime/'];
@@ -95,6 +97,7 @@ const native = new Set(
     'round-journeys',
     'attendance',
     'round-media',
+    'media-stage',
     'debate-room',
     'round-commands',
     'round-command-recovery',

@@ -236,11 +236,11 @@ describe('native affected selection', () => {
   test('keeps smoke and expands conservatively', () => {
     for (const [file, count] of [
       ['apps/web/src/features/theme/theme.ts', 1],
-      ['packages/media/src/index.ts', 2],
+      ['packages/media/src/index.ts', 3],
       ['apps/web/src/features/round-commands/action.ts', 9],
-      ['packages/auth/src/index.ts', 9],
-      ['apps/web/src/features/rooms/action.ts', 9],
-      ['apps/web/e2e/support/fixture.ts', 9],
+      ['packages/auth/src/index.ts', 10],
+      ['apps/web/src/features/rooms/action.ts', 10],
+      ['apps/web/e2e/support/fixture.ts', 10],
     ] as const) {
       const selected = selectBrowserSpecs(
         [file],
@@ -267,13 +267,13 @@ describe('native affected selection', () => {
     ] as const)
       assert({
         given: `${event}, queue ${enforced}`,
-        should: 'retain nine native specs',
+        should: 'retain all ten native specs',
         actual: selectBrowserSpecs(
           ['apps/web/src/features/theme/theme.ts'],
           event,
           enforced,
         ).nativeSpecs?.length,
-        expected: 9,
+        expected: 10,
       });
   });
 });
@@ -329,4 +329,25 @@ describe('native selection admission', () => {
       expected: true,
     });
   });
+});
+
+test('round-media edits select the dedicated attachment lifecycle proof', () => {
+  for (const files of [
+    ['apps/web/src/features/round-media/media-stage.tsx'],
+    ['apps/web/src/ui/round-media/round-media-session.tsx'],
+    ['packages/media/src/index.ts'],
+    ['unowned.ts'],
+  ]) {
+    const plan = selectBrowserSpecs(files, 'pull_request', true);
+    assert({
+      given: `browser selection for ${files[0]}`,
+      should: 'select the lifecycle proof in native execution only',
+      actual: [
+        plan.nativeSpecs.includes('media-stage.e2e.ts'),
+        plan.nativeSpecs.includes('round-media.e2e.ts'),
+        plan.specs.includes('media-stage.e2e.ts'),
+      ],
+      expected: [true, true, false],
+    });
+  }
 });
