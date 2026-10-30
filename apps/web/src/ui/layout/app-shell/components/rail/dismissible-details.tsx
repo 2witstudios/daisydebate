@@ -25,6 +25,7 @@ export function DismissibleDetails({
   readonly children: ReactNode;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
+  const summaryRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const element = ref.current;
@@ -38,9 +39,14 @@ export function DismissibleDetails({
     };
 
     const onKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && element.open) {
-        element.open = false;
+      if (event.key !== 'Escape' || !element.open) return;
+      // Return focus to the disclosure control only when focus was inside it,
+      // so an Escape pressed elsewhere on the page never steals focus.
+      const active = document.activeElement;
+      if (active && active !== summaryRef.current && element.contains(active)) {
+        summaryRef.current?.focus();
       }
+      element.open = false;
     };
 
     document.addEventListener('click', onDocumentClick);
@@ -54,6 +60,7 @@ export function DismissibleDetails({
   return (
     <details ref={ref} className={cn(className)}>
       <summary
+        ref={summaryRef}
         aria-label={summaryAriaLabel}
         title={summaryTitle}
         className={cn(summaryClassName)}
