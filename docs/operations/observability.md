@@ -14,7 +14,13 @@ The Sentry adapters are wired at `apps/web/src/features/telemetry/`
 `apps/realtime/src/telemetry/` (`@sentry/bun`). Each runtime initializes
 only when its own variable is present (`SENTRY_DSN` for every server
 capture path, `NEXT_PUBLIC_SENTRY_DSN` for the browser), runs the pure
-`scrubEvent` as `beforeSend`, and collects nothing at the SDK level
+`scrubEvent` as `beforeSend` — which drops the request body, headers,
+cookies, query string and IP, drops console breadcrumbs, reduces the user
+to the cuid2 id alone, and replaces every raw exception message in the
+error's whole linked-cause chain with a `[scrubbed]` marker, because a
+database error's message carries its bound parameters: the type, stack
+frames and mechanism pass through, and the bounded `errorCode` tag stays
+the safe diagnostic channel — and collects nothing at the SDK level
 (Sentry 11 `dataCollection`: no cookies, headers, query parameters,
 bodies, user info, database payloads or stack-frame variables). An
 unconfigured deployment's CSP names no vendor host, and the only

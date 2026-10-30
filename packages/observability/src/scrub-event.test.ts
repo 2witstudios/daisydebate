@@ -91,6 +91,109 @@ describe('scrubEvent (ADR 0037)', () => {
     });
   });
 
+  test('replaces every exception message with a marker, keeping the type and stack', () => {
+    // The reported case: a Drizzle query error whose message carries the
+    // bound parameters (both addresses of an email change), flattened into
+    // the exception chain the vendor serializes.
+    const event = {
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value:
+              'Failed to complete email change with params: (claire@example.invalid, new-claire@example.invalid)',
+            stacktrace: {
+              frames: [
+                {
+                  function: 'completeEmailChange',
+                  filename: 'app://database.ts',
+                },
+              ],
+            },
+            mechanism: { type: 'generic', handled: false },
+          },
+        ],
+      },
+    };
+    const scrubbed = scrubEvent(event);
+    const entry = (
+      scrubbed.exception as
+        | {
+            values: Array<{
+              type?: string;
+              value?: string;
+              stacktrace?: unknown;
+            }>;
+          }
+        | undefined
+    )?.values?.[0];
+    assert({
+      given: 'an exception message carrying bound parameters',
+      should: 'deliver no part of the message',
+      actual: entry === undefined ? undefined : entry.value,
+      expected: '[scrubbed]',
+    });
+    assert({
+      given: 'the same exception entry',
+      should: 'keep the class name, the stack frames and the mechanism',
+      actual: {
+        type: entry === undefined ? undefined : entry.type,
+        frames:
+          entry === undefined
+            ? undefined
+            : (entry.stacktrace as { frames?: unknown[] })?.frames?.length,
+        mechanism: entry !== undefined && 'mechanism' in entry,
+      },
+      expected: { type: 'Error', frames: 1, mechanism: true },
+    });
+  });
+
+  test('scrubs the whole linked-cause chain, not only the outermost error', () => {
+    const event = {
+      exception: {
+        values: [
+          { type: 'AppError', value: 'DATABASE_WRITE', causeHandled: true },
+          {
+            type: 'DrizzleQueryError',
+            value: "update actor set email = 'ima@example.invalid' where ...",
+          },
+        ],
+      },
+    };
+    const scrubbed = scrubEvent(event) as {
+      exception: { values: Array<{ value?: string; type?: string }> };
+    };
+    assert({
+      given: 'an exception chain whose inner cause carries the statement',
+      should: 'replace every entry’s message and keep every type',
+      actual: scrubbed.exception.values.map((entry) => ({
+        type: entry.type,
+        value: entry.value,
+      })),
+      expected: [
+        { type: 'AppError', value: '[scrubbed]' },
+        { type: 'DrizzleQueryError', value: '[scrubbed]' },
+      ],
+    });
+  });
+
+  test('a chain entry without a message stays without one', () => {
+    const event = {
+      exception: { values: [{ type: 'Error', stacktrace: { frames: [] } }] },
+    };
+    const scrubbed = scrubEvent(event) as {
+      exception: { values: Array<Record<string, unknown>> };
+    };
+    assert({
+      given: 'an exception entry with no value field',
+      should: 'not invent a message field',
+      actual:
+        scrubbed.exception.values.length === 1 &&
+        'value' in (scrubbed.exception.values[0] ?? {}),
+      expected: false,
+    });
+  });
+
   test('never mutates the event it receives', () => {
     const event = {
       request: { data: { secret: 'yes' }, url: '/x?a=1' },
