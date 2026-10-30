@@ -9,16 +9,13 @@ import { requireAccess } from '../../../lib/access';
 import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
 import {
   requestIdentity,
+  requestAnalytics,
   requestOnboardingAnswers,
   requestOptionalAnswersAdmitted,
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import {
-  saveNotificationsAction,
-  savePrivacyAction,
-  saveProfileAction,
-} from './actions';
+import { saveNotificationsAction, saveProfileAction } from './actions';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -44,7 +41,7 @@ export default async function SettingsRoute({
       dataRightsNotices={parseDataRightsQuery(query)}
       profileAction={saveProfileAction}
       notificationsAction={saveNotificationsAction}
-      privacyAction={savePrivacyAction}
+      analytics={await requestAnalytics()}
       onboarding={
         answers === null
           ? null

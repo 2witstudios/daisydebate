@@ -1,3 +1,5 @@
+import { createServerAnalytics } from '../features/analytics/server-adapter';
+import { createAnalyticsDelivery } from '../features/analytics/delivery';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { createPostHogErasure } from '../features/analytics/erase-vendor';
 import {
@@ -127,6 +129,17 @@ export function createApp({
     nextActorId: () => ids.next(),
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...botAdmissionOptions(config),
+  });
+  const analyticsServer = createServerAnalytics({
+    key: analytics.serverKey,
+    host: analytics.host,
+    fetch,
+  });
+  const analyticsDelivery = createAnalyticsDelivery({
+    deliver: async (message) => {
+      const consent = await database.readAnalyticsConsent(message.userId);
+      if (consent) await analyticsServer.track({ ...message, consent });
+    },
   });
   let authConfig: AuthConfig | undefined;
   let mailConfig: MailConfig | undefined;
@@ -291,6 +304,7 @@ export function createApp({
             fetch,
           })
         : null,
+    analyticsDelivery,
     isDraining: drainState.isDraining,
     /** The client network the ingress runs each request in; the lanes' fairness key. */
     requestNetwork,
@@ -301,6 +315,8 @@ export function createApp({
      */
     close: async () => {
       drainState.drain();
+      await analyticsDelivery.close();
+      await analyticsServer.close();
       await auth?.settled();
       await drainState.close();
     },

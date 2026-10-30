@@ -15,7 +15,7 @@ const { SettingsPage } = await import('./settings-page');
 const action = async () => initialFormState;
 const render = (
   username: string | null,
-  saved: 'profile' | 'notifications' | 'privacy' | null = null,
+  saved: 'profile' | 'notifications' | null = null,
   onboarding: Parameters<typeof SettingsPage>[0]['onboarding'] = null,
   dataRightsNotices: Parameters<typeof SettingsPage>[0]['dataRightsNotices'] = {
     exportData: null,
@@ -32,7 +32,15 @@ const render = (
         dataRightsNotices,
         profileAction: action,
         notificationsAction: action,
-        privacyAction: action,
+        analytics: {
+          consent: {
+            version: 1,
+            necessary: 'granted',
+            analytics: 'unanswered',
+            replay: 'unanswered',
+          },
+          available: { analytics: true, replay: false },
+        },
         onboarding,
       }),
     }),
@@ -63,7 +71,7 @@ describe('SettingsPage', () => {
   });
 
   test('the data-rights notices are fixed sentences', () => {
-    const html = render('debater-a', 'privacy', null, {
+    const html = render('debater-a', null, null, {
       exportData: 'rate-limited',
       erase: 'confirm',
     });
@@ -84,30 +92,24 @@ describe('SettingsPage', () => {
     assert({
       given: 'a new account’s privacy settings',
       should:
-        'leave analytics and replay unticked, and show the necessary category on and fixed',
+        'leave analytics unticked, hide unavailable replay and explain necessary storage',
       actual: [
         /name="analytics"[^>]*checked=""|checked=""[^>]*name="analytics"/.test(
           html,
         ),
-        /name="replay"[^>]*checked=""|checked=""[^>]*name="replay"/.test(html),
-        /name="necessary"[^>]*disabled=""[^>]*checked=""|checked=""[^>]*disabled=""[^>]*name="necessary"|name="necessary"[^>]*checked=""[^>]*disabled=""/.test(
-          html,
-        ) ||
-          (html.includes('name="necessary"') && html.includes('Always on.')),
+        html.includes('name="replay"'),
+        html.includes('Necessary storage always stays on.'),
       ],
       expected: [false, false, true],
     });
   });
 
   test('a saved section', () => {
-    const html = render('debater-a', 'privacy');
+    const html = render('debater-a', 'profile');
     assert({
-      given: 'a privacy form that was just saved',
+      given: 'a profile form that was just saved',
       should: 'confirm it as a status',
-      actual: [
-        html.includes('Privacy settings saved.'),
-        html.includes('role="status"'),
-      ],
+      actual: [html.includes('Profile saved.'), html.includes('role="status"')],
       expected: [true, true],
     });
   });

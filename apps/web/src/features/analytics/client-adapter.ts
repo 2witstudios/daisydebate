@@ -1,6 +1,10 @@
 import posthog from 'posthog-js';
 import { idSchema } from '@daisy/protocol';
-import { parseProductEvent, type ProductEvent } from './events';
+import {
+  parseProductEvent,
+  parseSdkProductEvent,
+  type ProductEvent,
+} from './events';
 import type { Consent } from './consent';
 
 let initialized = false;
@@ -16,7 +20,7 @@ export function sanitizeCapture(
   if (typeof distinct_id !== 'string') return null;
   if (event.event === '$identify')
     return {
-      ...event,
+      event: event.event,
       properties: {
         distinct_id,
         $anon_distinct_id,
@@ -25,17 +29,10 @@ export function sanitizeCapture(
         $geoip_disable: true,
       },
     };
-  const parsed = parseProductEvent(
-    event.event,
-    Object.fromEntries(
-      Object.entries(event.properties).filter(
-        ([key]) => key === 'area' || key === 'replay',
-      ),
-    ),
-  );
+  const parsed = parseSdkProductEvent(event.event, event.properties);
   if (!parsed) return null;
   return {
-    ...event,
+    event: event.event,
     properties: {
       ...parsed.properties,
       distinct_id,
@@ -55,13 +52,13 @@ export function syncAnalytics(input: {
     paused = true;
     // Removing optional storage is necessary even on a fresh document where
     // initializing the SDK would violate the visitor's refused consent.
-    if (typeof document !== 'undefined')
-      document.cookie = 'ph_daisy_analytics=; Path=/; Max-Age=0; SameSite=Lax';
     if (initialized) {
       posthog.stopSessionRecording();
       posthog.reset();
       posthog.opt_out_capturing();
     }
+    if (typeof document !== 'undefined')
+      document.cookie = 'ph_daisy_analytics=; Path=/; Max-Age=0; SameSite=Lax';
     currentUser = null;
     return;
   }
@@ -77,8 +74,11 @@ export function syncAnalytics(input: {
       disable_session_recording: true,
       disable_surveys: true,
       advanced_disable_flags: true,
-      opt_out_capturing_by_default: true,
-      persistence: 'memory',
+      opt_out_capturing_by_default: false,
+      opt_out_persistence_by_default: true,
+      // Initialization itself happens only after application consent. Start
+      // with the existing cookie so a full document load keeps its identity.
+      persistence: 'cookie',
       persistence_name: 'daisy_analytics',
       cross_subdomain_cookie: false,
       secure_cookie: true,
@@ -86,11 +86,22 @@ export function syncAnalytics(input: {
       ip: false,
       save_referrer: false,
       store_google: false,
+      save_campaign_params: false,
+      disable_conversations: true,
+      disable_product_tours: true,
+      disable_external_dependency_loading: true,
+      advanced_disable_toolbar_metrics: true,
+      debug: false,
       before_send: (event) => {
         if (paused) return null;
         const sanitized = sanitizeCapture(event);
         return event && sanitized
-          ? { ...event, properties: sanitized.properties }
+          ? {
+              uuid: event.uuid,
+              event: sanitized.event,
+              ...(event.timestamp ? { timestamp: event.timestamp } : {}),
+              properties: { ...sanitized.properties, token: input.key },
+            }
           : null;
       },
     });

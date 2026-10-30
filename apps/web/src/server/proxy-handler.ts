@@ -81,13 +81,12 @@ function signInHint(
 }
 
 function posthogSources(host: string | null | undefined) {
-  if (!host) return { apiHost: '', assetHost: '' };
+  if (!host) return { apiHost: '' };
 
   if (!['https://us.i.posthog.com', 'https://eu.i.posthog.com'].includes(host))
-    return { apiHost: '', assetHost: '' };
+    return { apiHost: '' };
   return {
     apiHost: host,
-    assetHost: host.replace('.i.', '-assets.i.'),
   };
 }
 
@@ -105,7 +104,7 @@ function contentSecurityPolicy(
   const posthog = posthogSources(settings.analyticsHost);
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${posthog.assetHost ? ` ${posthog.assetHost}` : ''}${development ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
     ...(development
       ? []
@@ -117,7 +116,6 @@ function contentSecurityPolicy(
     "form-action 'self'",
     "frame-ancestors 'none'",
     `connect-src 'self'${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${development ? ' ws:' : ''}`,
-    ...(posthog.assetHost ? ['worker-src blob:'] : []),
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

@@ -162,6 +162,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], launchOptions: chromiumLaunch },
       testIgnore: [
+        '**/analytics-native.e2e.ts',
         ...excluded,
         '**/visual.e2e.ts',
         '**/room-launch.e2e.ts',

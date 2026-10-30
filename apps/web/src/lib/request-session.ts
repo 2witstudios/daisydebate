@@ -46,6 +46,7 @@ export const requestAnalytics = cache(async () => {
   const cookie = parseConsent((await cookies()).get(CONSENT_COOKIE)?.value);
   if (!config.key)
     return {
+      needsAdoption: false,
       keyValue: null,
       host: null,
       userId: null,
@@ -57,11 +58,19 @@ export const requestAnalytics = cache(async () => {
     identity.state === 'anonymous' || identity.state === 'unavailable'
       ? null
       : identity.principal.userId;
-  const consent = userId
-    ? ((await app.database.readAnalyticsConsent(userId)) ?? cookie)
-    : cookie;
+  const stored = userId
+    ? await app.database.readAnalyticsConsent(userId)
+    : null;
+  const consent = stored ?? cookie;
+  const needsAdoption = Boolean(
+    userId &&
+    (stored
+      ? JSON.stringify(stored) !== JSON.stringify(cookie)
+      : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered'),
+  );
   return {
-    keyValue: config.key,
+    needsAdoption,
+    keyValue: identity.state === 'unavailable' ? null : config.key,
     host: config.host,
     userId,
     consent,

@@ -32,9 +32,13 @@ refusal and withdrawal; the banner offers equally styled acceptance and
 refusal. A later enabled category asks only if unanswered, preserving earlier
 choices. Cookie consent lasts 180 days. Account choices live in
 `consent_record` until erasure and are included in subject export. The SDK
-uses memory before opt-in and cookies afterward. Sign-out or account change
+is never initialized before opt-in; afterward it initializes from the existing cookie so native navigation preserves identity. Sign-out or account change
 resets identified vendor state. A same-origin storage notification pauses
 capture in other tabs and refreshes their server-owned consent and identity.
+
+Identified withdrawal records denied consent and a fresh vendor-deletion job in the same account-fenced transaction. Account erasure rearms that job, fencing older acknowledgements by job ID. Anonymous withdrawal stops forward capture and clears browser identity; anonymous history follows the approved vendor retention period.
+
+Server capture runs in an analytics-owned queue (four in flight, 32 waiting), rechecks current account consent before delivery, and sheds excess optional work. Room responses never await the vendor. Shutdown discards waiting optional work and waits for bounded in-flight delivery before closing the one process-owned SDK.
 
 Vendor erasure joins the existing durable privacy-job worker only when its
 delivery port is configured. It requests person, event and recording deletion
@@ -61,7 +65,7 @@ so enabling ingestion cannot strand account erasure. The composition root
 validates configuration. Public adapter configuration is explicitly rendered
 from runtime server configuration; browser code never reads environment
 variables or receives management credentials. CSP admits only the configured
-regional ingestion and asset origins, with no wildcard vendor domains.
+regional ingestion origin. SDK code is bundled; external dependency loading is disabled, so no remote script or blob-worker allowances are added.
 
 Before live activation, PRIV-H must record organization ownership, approved
 region, transfer safeguards, executed DPA, the chosen event retention period
@@ -83,3 +87,16 @@ by `page_viewed.area`; a home → Rooms → `room_created` funnel; daily
 people. Name the consented population in every chart: these are not total
 traffic or authoritative competitive statistics. The event registry, rather
 than dashboard-generated instrumentation, is the source of truth.
+
+PostHog's SDK-generated anonymous device IDs and event-deduplication UUIDs
+are vendor protocol identifiers, not Daisy application IDs or bearer secrets.
+Daisy account IDs remain cuid2. Cross-subdomain SDK cookies are disabled;
+this analytics identity is scoped to the current participant-app origin.
+
+The configured native browser proof runs with
+`bun run --cwd apps/web test:e2e:analytics`. Its separate Playwright config
+uses synthetic vendor credentials, intercepts browser capture locally and
+answers management deletion in the test server's explicit fixture transport.
+It exercises the production app and CSP, real sign-in and consent persistence,
+Settings withdrawal, document reload, cross-tab refresh and JavaScript-disabled
+native forms. CI runs it after the ordinary browser suite.

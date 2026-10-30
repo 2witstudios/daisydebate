@@ -14,13 +14,13 @@ const area = z.enum([
   'watch',
 ]);
 /** Only bounded product facts. Content, URLs and participant identifiers are never event properties. */
-export const productEvents = {
+const productEvents = {
   page_viewed: z.strictObject({ area }),
   consent_updated: z.strictObject({ replay: z.boolean() }),
   room_created: z.strictObject({}),
   room_rematched: z.strictObject({}),
 } as const;
-export type ProductEventName = keyof typeof productEvents;
+type ProductEventName = keyof typeof productEvents;
 export type ProductEvent = {
   [K in ProductEventName]: {
     readonly event: K;
@@ -38,6 +38,21 @@ export function parseProductEvent(
   return parsed.success
     ? ({ event, properties: parsed.data } as ProductEvent)
     : null;
+}
+
+/** SDK-generated enrichment is stripped using the same schema that admits callers. */
+export function parseSdkProductEvent(
+  event: string,
+  properties: Record<string, unknown>,
+): ProductEvent | null {
+  if (!Object.hasOwn(productEvents, event)) return null;
+  const schema = productEvents[event as ProductEventName];
+  return parseProductEvent(
+    event,
+    Object.fromEntries(
+      Object.keys(schema.shape).map((key) => [key, properties[key]]),
+    ),
+  );
 }
 
 export function pageArea(pathname: string): z.infer<typeof area> | null {

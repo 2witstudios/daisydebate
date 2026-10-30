@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { readBoundedBody } from '../../server/bounded-body';
 import { identify } from '../../lib/identity';
-import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
 import type { App } from '../../server/app';
 import { analyticsConfiguration } from './config';
 import {
@@ -11,7 +10,6 @@ import {
   mergeConsent,
   type Consent,
 } from './consent';
-import { trackServer } from './server-adapter';
 
 export const cookieConsent = (header: string | null) => {
   const value = header
@@ -42,18 +40,22 @@ export const createConsentHandler = (app: App) => (request: Request) =>
     )
       throw createAppError('VALIDATION');
     const mode = form.get('choice');
-    if (!['accept', 'deny', 'save'].includes(mode ?? ''))
+    if (!['accept', 'deny', 'save', 'adopt'].includes(mode ?? ''))
       throw createAppError('VALIDATION');
     const identity = await identify(app.auth(), request.headers);
     if (identity.state === 'unavailable')
       throw createAppError('INFRASTRUCTURE');
     const userId =
       identity.state === 'anonymous' ? null : identity.principal.userId;
-    const budget = await app.limiter.consume(
-      `analytics:consent:${userId ?? request.headers.get(CLIENT_ID_HASH_HEADER) ?? 'unresolved'}`,
-      { max: 30, windowSeconds: 60 },
-    );
-    if (!budget.allowed) throw createAppError('RATE_LIMIT');
+    // Anonymous choices change only that response's cookie: no durable write
+    // or vendor call, and no shared fallback bucket can block another visitor.
+    if (userId) {
+      const budget = await app.limiter.consume(`analytics:consent:${userId}`, {
+        max: 30,
+        windowSeconds: 60,
+      });
+      if (!budget.allowed) throw createAppError('RATE_LIMIT');
+    }
     const prior = userId
       ? ((await app.database.readAnalyticsConsent(userId)) ??
         cookieConsent(request.headers.get('cookie')))
@@ -73,17 +75,23 @@ export const createConsentHandler = (app: App) => (request: Request) =>
             ? 'granted'
             : 'denied';
     }
-    const consent = mergeConsent(prior, choices);
+    if (mode === 'adopt' && !userId) throw createAppError('AUTHENTICATION');
+    const consent = mode === 'adopt' ? prior : mergeConsent(prior, choices);
     if (userId)
       await app.database.saveAnalyticsConsent({
         userId,
         consent,
         now: app.clock.now(),
+        adopt: mode === 'adopt',
+        ...(mode !== 'adopt' &&
+        prior.analytics === 'granted' &&
+        consent.analytics === 'denied' &&
+        app.posthogErasure
+          ? { deletionJobId: app.ids.next() }
+          : {}),
       });
-    if (userId && consent.analytics === 'granted')
-      await trackServer({
-        key: config.serverKey,
-        host: config.host,
+    if (mode !== 'adopt' && userId && consent.analytics === 'granted')
+      app.analyticsDelivery.enqueue({
         userId,
         consent,
         productEvent: {
@@ -92,7 +100,7 @@ export const createConsentHandler = (app: App) => (request: Request) =>
         },
       });
     const response = new Response(null, {
-      status: 303,
+      status: mode === 'adopt' ? 204 : 303,
       headers: { location: '/analytics?saved=1', 'cache-control': 'no-store' },
     });
     response.headers.append(

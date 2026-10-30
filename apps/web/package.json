@@ -11,6 +11,7 @@
     "test": "bun ../../scripts/heavy.ts bun test src scripts",
     "test:integration": "bun ../../scripts/test-integration.ts",
     "test:e2e": "bun ../../scripts/heavy.ts node node_modules/@playwright/test/cli.js test",
+    "test:e2e:analytics": "bun ../../scripts/heavy.ts node node_modules/@playwright/test/cli.js test --config=playwright.analytics.config.ts",
     "load:local": "bun --env-file=../../.env run scripts/auth-load/run.ts",
     "load:abuse": "bun --env-file=../../.env run scripts/auth-load/abuse-run.ts",
     "test:e2e:room-launch": "bun --env-file=../../.env e2e/support/room-launch-runner.ts",

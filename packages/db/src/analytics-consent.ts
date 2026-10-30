@@ -34,12 +34,18 @@ export const analyticsConsentOperations = (
     readonly userId: string;
     readonly consent: AnalyticsConsent;
     readonly now: string;
+    readonly adopt?: boolean;
+    readonly deletionJobId?: string;
   }) {
     const result = analyticsConsentSchema.safeParse(input.consent);
     if (
       !result.success ||
       !idSchema.safeParse(input.userId).success ||
-      !Number.isFinite(Date.parse(input.now))
+      !Number.isFinite(Date.parse(input.now)) ||
+      (input.deletionJobId !== undefined &&
+        (!idSchema.safeParse(input.deletionJobId).success ||
+          input.consent.analytics !== 'denied' ||
+          input.adopt))
     )
       throw createAppError('VALIDATION');
     await database.transaction(async (tx) => {
@@ -48,10 +54,22 @@ export const analyticsConsentOperations = (
       )) as unknown as { erased: boolean }[];
       if (!user || user.erased) throw createAppError('AUTHORIZATION');
       const values = { ...result.data, recordedAt: new Date(input.now) };
-      await tx
+      const insert = tx
         .insert(consentRecord)
-        .values({ userId: input.userId, ...values })
-        .onConflictDoUpdate({ target: consentRecord.userId, set: values });
+        .values({ userId: input.userId, ...values });
+      if (input.adopt)
+        await insert.onConflictDoNothing({ target: consentRecord.userId });
+      else
+        await insert.onConflictDoUpdate({
+          target: consentRecord.userId,
+          set: values,
+        });
+      if (input.deletionJobId)
+        await tx.execute(sql`insert into privacy_jobs
+        (id,subject_ref,vendor,status,attempts,created_at,retry_at)
+        values (${input.deletionJobId},${input.userId},'posthog','pending',0,${input.now}::timestamptz,${input.now}::timestamptz)
+        on conflict (subject_ref,vendor) do update set id=excluded.id,status='pending',attempts=0,
+        created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`);
     });
   },
 });

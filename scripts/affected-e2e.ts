@@ -20,6 +20,13 @@ const messaging = [
   'apps/web/src/ui/messaging/',
 ];
 export const browserOwners: Readonly<Record<string, readonly string[]>> = {
+  'analytics-native.e2e.ts': [
+    'apps/web/src/features/analytics/',
+    'apps/web/src/ui/analytics/',
+    'apps/web/src/ui/settings/',
+    'packages/config/',
+    'packages/db/',
+  ],
   'analytics.e2e.ts': [
     'apps/web/src/features/analytics/',
     'apps/web/src/ui/analytics/',

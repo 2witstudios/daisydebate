@@ -5,7 +5,6 @@ import {
   bioLimit,
   regionChoices,
   type NotificationPrefs,
-  type PrivacyPrefs,
   type ProfilePrefs,
 } from '../../../features/settings/preferences';
 import { buttonClass } from '../../components/button/button-class';
@@ -150,52 +149,6 @@ export function NotificationsForm({
           <FormError error={error} />
           <button type="submit" disabled={pending} className={submit}>
             {pending ? 'Saving…' : 'Save notifications'}
-          </button>
-        </>
-      )}
-    </ActionForm>
-  );
-}
-
-/** What is public, and the optional data categories you allow. */
-export function PrivacyForm({
-  action,
-  prefs,
-}: {
-  readonly action: FormStateAction;
-  readonly prefs: PrivacyPrefs;
-}) {
-  return (
-    <ActionForm action={action} label="Privacy" className="flex flex-col gap-4">
-      {({ error, pending }) => (
-        <>
-          <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
-            <legend className="mb-1 text-sm font-strong text-ink">
-              Data we may use
-            </legend>
-            <Check
-              name="necessary"
-              label="Necessary"
-              helper="Sign-in and security. Always on."
-              checked
-              disabled
-            />
-            <Check
-              name="analytics"
-              label="Analytics"
-              helper="Counts how the product is used so we can improve it."
-              checked={prefs.analytics}
-            />
-            <Check
-              name="replay"
-              label="Session replay"
-              helper="Records your screen in the app to help fix bugs."
-              checked={prefs.replay}
-            />
-          </fieldset>
-          <FormError error={error} />
-          <button type="submit" disabled={pending} className={submit}>
-            {pending ? 'Saving…' : 'Save privacy settings'}
           </button>
         </>
       )}

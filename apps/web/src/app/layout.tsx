@@ -1,3 +1,7 @@
+import Link from 'next/link';
+import { AnalyticsClient } from '../ui/analytics/analytics-client';
+import { ConsentBanner } from '../ui/analytics/consent-banner';
+import { requestAnalytics } from '../lib/request-session';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { connection } from 'next/server';
@@ -68,7 +72,7 @@ export default async function RootLayout({
             <>
               <AnalyticsClient {...analytics} />
               <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
-                <ConsentControls {...analytics} banner />
+                <ConsentBanner {...analytics} />
               </div>
               <footer className="p-4 text-center text-sm">
                 <Link href="/analytics" className="text-ink-muted underline">
@@ -82,7 +86,3 @@ export default async function RootLayout({
     </html>
   );
 }
-import Link from 'next/link';
-import { AnalyticsClient } from '../ui/analytics/analytics-client';
-import { ConsentControls } from '../ui/analytics/consent-controls';
-import { requestAnalytics } from '../lib/request-session';

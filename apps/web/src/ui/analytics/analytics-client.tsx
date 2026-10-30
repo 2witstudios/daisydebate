@@ -9,6 +9,7 @@ import {
 } from '../../features/analytics/client-adapter';
 import { pageArea } from '../../features/analytics/events';
 import type { Consent } from '../../features/analytics/consent';
+import { watchConsent } from '../../features/analytics/consent-sync';
 
 /** Root lifecycle binding; never passes browser locations or participant content to capture. */
 export function AnalyticsClient(props: {
@@ -16,28 +17,33 @@ export function AnalyticsClient(props: {
   readonly keyValue: string | null;
   readonly host: string | null;
   readonly userId: string | null;
+  readonly needsAdoption: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   useEffect(() => {
-    const key = 'daisy-analytics-consent';
-    const changed = (event: StorageEvent) => {
-      if (event.key !== key) return;
+    return watchConsent(props, () => {
       stopAnalytics();
       router.refresh();
-    };
-    window.addEventListener('storage', changed);
-    try {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify([props.consent, props.userId]),
-      );
-    } catch {
-      /* Storage can be unavailable in a private browsing policy. */
-    }
-    return () => window.removeEventListener('storage', changed);
+    });
   }, [props.consent.analytics, props.consent.replay, props.userId, router]);
   useEffect(() => {
+    if (props.needsAdoption) {
+      stopAnalytics();
+      let active = true;
+      void fetch('/api/analytics/consent', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: 'choice=adopt',
+      })
+        .then((response) => {
+          if (active && response.ok) router.refresh();
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
     syncAnalytics({ ...props, key: props.keyValue });
     const area = pageArea(pathname);
     if (area) trackClient({ event: 'page_viewed', properties: { area } });
@@ -49,6 +55,8 @@ export function AnalyticsClient(props: {
     props.host,
     props.userId,
     pathname,
+    props.needsAdoption,
+    router,
   ]);
   return null;
 }

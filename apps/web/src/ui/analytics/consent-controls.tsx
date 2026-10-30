@@ -29,6 +29,7 @@ export function ConsentControls({
         choice at any time.
       </p>
       <form
+        key={`${consent.analytics}:${consent.replay}`}
         action="/api/analytics/consent"
         method="post"
         className="flex flex-col gap-4"

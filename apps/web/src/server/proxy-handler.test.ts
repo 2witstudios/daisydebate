@@ -315,7 +315,8 @@ test('PostHog CSP admits only a configured regional origin', () => {
     }).headers.get('Content-Security-Policy') ?? '';
   assert({
     given: 'the configured EU ingestion host',
-    should: 'admit its exact ingestion and asset hosts with no wildcard',
+    should:
+      'admit only ingestion, with no remote scripts, blob workers or wildcard',
     actual: [
       policy('https://eu.i.posthog.com').includes('https://eu.i.posthog.com'),
       policy('https://eu.i.posthog.com').includes(
@@ -323,7 +324,7 @@ test('PostHog CSP admits only a configured regional origin', () => {
       ),
       policy('https://eu.i.posthog.com').includes('*.posthog.com'),
     ],
-    expected: [true, true, false],
+    expected: [true, false, false],
   });
   assert({
     given: 'missing or arbitrary vendor configuration',

@@ -1,7 +1,7 @@
 import { analyticsConsentSchema, type AnalyticsConsent } from '@daisy/protocol';
 
 export const CONSENT_COOKIE = 'daisy_consent';
-export const consentSchema = analyticsConsentSchema;
+const consentSchema = analyticsConsentSchema;
 export type Consent = AnalyticsConsent;
 export type AnalyticsAvailability = {
   readonly analytics: boolean;

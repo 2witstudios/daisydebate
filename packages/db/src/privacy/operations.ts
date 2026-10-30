@@ -141,7 +141,10 @@ export async function runPrivacyErasure(
       await tx.execute(sql`insert into privacy_jobs
       (id, subject_ref, vendor, status, attempts, created_at, retry_at)
       values (${job.id}, ${job.subjectRef}, ${job.vendor}, 'pending', 0,
-        ${job.createdAt}::timestamptz, ${job.createdAt}::timestamptz)`);
+        ${job.createdAt}::timestamptz, ${job.createdAt}::timestamptz)
+      on conflict (subject_ref, vendor) do update set id=excluded.id,
+        status='pending', attempts=0, created_at=excluded.created_at,
+        retry_at=excluded.retry_at, succeeded_at=null`);
     return { alreadyErased: false, jobs: plan.jobs };
   });
 }
