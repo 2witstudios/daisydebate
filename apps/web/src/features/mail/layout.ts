@@ -85,13 +85,13 @@ function daisyLogoSvg(): string {
     '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="display:block;">' +
     CARDINAL_PATHS.map(
       (d) =>
-        `<path d="${d}" fill="${LIGHT.markCardinal}" class="auth-mail-logo-cardinal"/>`,
+        `<path d="${d}" fill="${EMAIL_BRAND_PALETTE.light.markCardinal}" class="auth-mail-logo-cardinal"/>`,
     ).join('') +
     DIAGONAL_PATHS.map(
       (d) =>
-        `<path d="${d}" fill="${LIGHT.markDiagonal}" class="auth-mail-logo-diagonal"/>`,
+        `<path d="${d}" fill="${EMAIL_BRAND_PALETTE.light.markDiagonal}" class="auth-mail-logo-diagonal"/>`,
     ).join('') +
-    `<circle cx="12" cy="12" r="2.6" fill="${LIGHT.yolk}" class="auth-mail-logo-disc"/>` +
+    `<circle cx="12" cy="12" r="2.6" fill="${EMAIL_BRAND_PALETTE.light.yolk}" class="auth-mail-logo-disc"/>` +
     '</svg>'
   );
 }
@@ -119,9 +119,9 @@ export function renderEmailLayout(content: EmailContent): {
     .auth-mail-ink p { color: ${DARK.ink} !important; }
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
-    .auth-mail-logo-cardinal { fill: ${DARK.markCardinal} !important; }
-    .auth-mail-logo-diagonal { fill: ${DARK.markDiagonal} !important; }
-    .auth-mail-logo-disc { fill: ${DARK.yolk} !important; }
+    .auth-mail-logo-cardinal { fill: ${EMAIL_BRAND_PALETTE.dark.markCardinal} !important; }
+    .auth-mail-logo-diagonal { fill: ${EMAIL_BRAND_PALETTE.dark.markDiagonal} !important; }
+    .auth-mail-logo-disc { fill: ${EMAIL_BRAND_PALETTE.dark.yolk} !important; }
     .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
     .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }
