@@ -49,11 +49,18 @@ export function createLocalConsent({
     if (
       next.id !== view.id ||
       next.version < snapshot.view.version ||
+      next.changeVersion < snapshot.view.changeVersion ||
       (next.version === snapshot.view.version &&
         (nextOwn?.consentVersion ?? 0) < (own()?.consentVersion ?? 0))
     )
       return false;
-    publish({ view: next });
+    if (!next.capabilities.canReady) desired = null;
+    publish({
+      view: next,
+      ...(!next.capabilities.canReady
+        ? { pending: false, problem: false }
+        : {}),
+    });
     return true;
   };
   const reread = async () => {
@@ -63,6 +70,7 @@ export function createLocalConsent({
   const command = (): ConsentCommand | null => {
     const participant = own();
     if (
+      !snapshot.view.capabilities.canReady ||
       !participant ||
       participant.kind !== 'human' ||
       participant.role === 'judge'
@@ -85,7 +93,10 @@ export function createLocalConsent({
     attempt < 2 &&
     (await reread());
   const hasIntent = () =>
-    !disposed && desired !== null && desired !== effective();
+    !disposed &&
+    snapshot.view.capabilities.canReady &&
+    desired !== null &&
+    desired !== effective();
   const acknowledge = (
     result: Awaited<ReturnType<typeof submitAssembly>>,
     revision: number,
@@ -121,6 +132,7 @@ export function createLocalConsent({
     return running;
   };
   const intent = (ready: boolean) => {
+    if (!snapshot.view.capabilities.canReady) return Promise.resolve();
     desired = ready;
     publish({ pending: true, problem: false });
     return drive();

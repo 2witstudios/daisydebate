@@ -122,6 +122,26 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
       .getByRole('button', { name: 'Draw the resolutions', exact: true })
       .click();
 
+    // Both intents came from a page held before the commitment boundary.
+    for (const type of ['ready', 'unready']) {
+      const own = view.participants.find(
+        (p) => 'actorId' in p && p.role === 'negative',
+      );
+      const response = await guest.context.request.post(
+        `/api/rooms/${view.id}/commands`,
+        {
+          headers: { origin },
+          data: {
+            type,
+            commandId: createId(),
+            expectedVersion: view.version,
+            expectedConsentVersion:
+              own && 'consentVersion' in own ? own.consentVersion : 0,
+          },
+        },
+      );
+      expect(response.status()).toBe(409);
+    }
     const spectator = await openPage(watcher.context, 'Strike spectator');
     await spectator.goto(`/rooms/${view.id}`);
     await expect(

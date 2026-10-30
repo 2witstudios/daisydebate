@@ -48,7 +48,13 @@ export function readinessControl(
   const own = view.participants
     .filter(isNamedSeat)
     .find((seat) => seat.actorId === actorId);
-  if (!own || own.kind === 'bot' || !own.needsReady) return null;
+  if (
+    !own ||
+    own.kind === 'bot' ||
+    !own.needsReady ||
+    !view.capabilities.canReady
+  )
+    return null;
   if (local.unreadyPending)
     return {
       type: 'unready',

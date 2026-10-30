@@ -34,6 +34,7 @@ function startFence(
   actorId: string,
   local: LocalReadiness,
 ): boolean {
+  if (!view.capabilities.canReady) return false;
   if (local.unreadyPending) return true;
   const own = view.participants
     .filter(isNamedSeat)

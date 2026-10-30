@@ -13,7 +13,7 @@ import {
 import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
 import type { DrawStartFacts } from './pre-round-phase';
-import { preRoundPhase } from './pre-round-phase';
+import { preRoundBegun, preRoundPhase } from './pre-round-phase';
 
 type Target = RoomParticipant & {
   readonly eligible: boolean;
@@ -65,6 +65,8 @@ export const castGate = (
     )
   )
     return 'actor-ineligible';
+  // Persisted pre-round anchors certify the atomically validated start commitment.
+  if (preRoundBegun(room)) return null;
   if (!consent.available) return 'readiness-unavailable';
   return room.participants.some(
     (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),

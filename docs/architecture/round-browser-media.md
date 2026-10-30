@@ -72,3 +72,8 @@ recovery hint reads each have a 250 ms deadline at the composition edge, so a
 connected Redis that stops answering also degrades to canonical progress.
 An underlying hint may settle after that deadline; it has no authority and
 its existing expiry still bounds any stale scheduling effect.
+
+Track elements attach by SDK track identity. Activity snapshots may replace
+presentation wrappers without replacing that track; speaking changes update
+labels without detaching media or clearing `srcObject`. Actual replacement and
+unmount detach the old track and release its element.

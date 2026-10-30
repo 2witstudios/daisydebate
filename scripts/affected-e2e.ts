@@ -71,6 +71,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'round-journeys.e2e.ts': round,
   'attendance.e2e.ts': round,
   'round-media.e2e.ts': [...round, ...media],
+  'media-stage.e2e.ts': media,
   'debate-room.e2e.ts': round,
   'round-commands.e2e.ts': round,
   'round-command-recovery.e2e.ts': round,

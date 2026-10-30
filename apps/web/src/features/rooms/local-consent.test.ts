@@ -6,6 +6,7 @@ setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const consentView = (ready: boolean, revision = 1) => ({
   ...assemblySnapshot,
+  capabilities: { ...assemblySnapshot.capabilities, canReady: true },
   participants: [
     {
       id: 'p'.repeat(24),
@@ -230,5 +231,41 @@ test('unchanged acknowledgement cannot loop consent commands', async () => {
     should: 'remain blocked for reread rather than repeat mutations',
     actual: [sends, c.readSnapshot().pending, c.readSnapshot().problem],
     expected: [1, true, true],
+  });
+});
+
+test('committed readiness survives local device loss without another intent', async () => {
+  const h = harness(consentView(true));
+  h.controller.updateView({
+    ...consentView(true),
+    capabilities: { ...assemblySnapshot.capabilities, canReady: false },
+  });
+  await h.controller.devices(false);
+  await h.controller.unready();
+  assert({
+    given: 'server-committed readiness then device loss and withdrawal',
+    should: 'send no consent mutation and leave no pending intent',
+    actual: [h.sent.length, h.controller.readSnapshot().pending],
+    expected: [0, false],
+  });
+});
+
+test('an older consent answer cannot reopen a committed room', async () => {
+  const h = harness(consentView(true));
+  h.controller.updateView({
+    ...consentView(true),
+    changeVersion: assemblySnapshot.changeVersion + 1,
+    capabilities: { ...assemblySnapshot.capabilities, canReady: false },
+  });
+  h.controller.updateView(consentView(true));
+  await h.controller.unready();
+  assert({
+    given: 'committed room followed by a delayed pre-commitment answer',
+    should: 'retain the commitment and send no withdrawal',
+    actual: [
+      h.controller.readSnapshot().view.capabilities.canReady,
+      h.sent.length,
+    ],
+    expected: [false, 0],
   });
 });

@@ -69,6 +69,13 @@ export function projectRoom(
   drawSeed: string | null,
 ): RoomView {
   const room = settleRoom(stored, drawSeed, now);
+  if (preRoundBegun(room))
+    consent = {
+      available: true,
+      readyActorIds: room.participants
+        .filter((p) => p.kind === 'human')
+        .map((p) => p.actorId),
+    };
   const blocker = startBlocker(room, consent, now);
   const hidden = hiddenJudges(room, actorId);
   const hostHidden = hostIdentityHidden(
@@ -253,8 +260,7 @@ const preRoundStartable = (
 ) =>
   phase.phase === 'not-begun' &&
   complete(room) &&
-  (!room.executionPlan.resolutionDraw.enabled ||
-    castGate(room, consent) === null);
+  castGate(room, consent) === null;
 const roomCapabilities = (
   room: RoomAssemblyState,
   actorId: string,
@@ -272,7 +278,7 @@ const roomCapabilities = (
     host,
     canEdit: manage && editable && room.competitionType !== 'ranked',
     canClaimSeat: editable,
-    canReady: canReady(open, own),
+    canReady: canReady(editable, own),
     canStartPreRound: manage && preRoundStartable(room, phase, consent),
     canStrike: open && mayStrike(room, actorId, phase),
     canFinishPrep: manage && prepCanFinish(room, now),

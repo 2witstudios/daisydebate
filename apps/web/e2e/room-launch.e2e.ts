@@ -278,7 +278,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
   }
 });
 
-test('actual Room device checks gate human Ready, withdrawal and durable Launch', async ({
+test('human Ready and withdrawal gate Launch; both clients automatically enter the synchronized Round', async ({
   browser,
 }, info) => {
   await proveHumanLaunch(browser, info);

@@ -3,6 +3,9 @@ import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { browserDocument } from '../../round-media/browser-document';
+import { replaceRoute } from '../../round-media/replace-route';
 import { systemId } from '@daisy/clock';
 import type {
   RoomCastChoice,
@@ -97,6 +100,15 @@ export function RoomLive(props: Props) {
   const now = useNow(roomDeadline(sync) !== null, sync.readAt);
   const view = useMemo(() => presentedView(sync, now), [sync, now]);
   const { ids } = sync.value;
+  const router = useRouter();
+  const roundId = view.roundRef?.id;
+  const seated = view.participants.some(
+    (p) => 'actorId' in p && p.actorId === props.actorId,
+  );
+  useEffect(() => {
+    if (roundId && seated)
+      replaceRoute(router, browserDocument(), `/rounds/${roundId}/room`);
+  }, [roundId, seated, router]);
   return (
     <RoomSyncContext value={handle}>
       <AssemblyHeader
