@@ -7,6 +7,7 @@ import { createFromPlay } from './room-launch-flow';
 import { expectRoundResult } from './round-result-proof';
 import {
   assemble,
+  expectAutomaticRoundEntry,
   judgeBallot,
   launch,
   openThreePlayers,
@@ -86,8 +87,7 @@ export async function proveMvpJourney(browser: Browser) {
     room = await skipPreRoundPrep(aff, room);
     room = await assemble(players, room);
     const { roundId } = await launch(aff);
-    for (const page of [neg, judge])
-      await page.getByRole('link', { name: 'View the round' }).click();
+    await expectAutomaticRoundEntry(players, room, roundId);
     const played = await playEveryTurn(
       { affirmative: aff, negative: neg },
       {

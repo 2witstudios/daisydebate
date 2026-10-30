@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
+import { roundEntry } from './round-entry';
 import { assemblySnapshot } from './assembly.test-support';
 import type { RoomCommandIds } from './room-command-ids';
 import {
@@ -164,4 +165,52 @@ describe('strike time', () => {
       expected: null,
     });
   });
+});
+
+test('terminal entry remains closed across stale or nonmonotonic Room sync reads', () => {
+  const participants = [
+    {
+      id: 'seat',
+      actorId: 'member',
+      label: 'Member',
+      kind: 'human',
+      role: 'negative',
+      slot: 0,
+      consentVersion: 1,
+      needsReady: true,
+      ready: 'ready',
+      eligible: true,
+    },
+  ] as const;
+  for (const status of ['completed', 'abandoned'] as const) {
+    const held = seedRoomSync(
+      view(5, { participants, roundRef: { id: 'round', status } }),
+      ids('a'),
+      0,
+    );
+    const terminal = roundEntry(
+      held.value.view,
+      'member',
+      null,
+    ).terminalRoundId;
+    for (const changeVersion of [4, 5, 6]) {
+      const next = roomSync(held, {
+        type: 'accepted',
+        value: {
+          view: view(changeVersion, {
+            participants,
+            roundRef: { id: 'round', status: 'active' },
+          }),
+          ids: ids('b'),
+        },
+        at: 1,
+      });
+      assert({
+        given: `${status} observed before an active snapshot at Room version ${changeVersion}`,
+        should: 'never re-trigger automatic entry after a terminal observation',
+        actual: roundEntry(next.value.view, 'member', terminal).href,
+        expected: null,
+      });
+    }
+  }
 });

@@ -224,5 +224,8 @@ Ready and Not ready commands are refused afterward, including submissions from
 stale tabs. Expendable readiness leases and local device health cannot withdraw
 that commitment. Launch still validates participant eligibility and all other
 competitive gates. A Room without strikes or prep validates current readiness
-at direct launch. Synced seated clients enter the same Round when `roundRef`
-appears, using a document navigation where media permissions require it.
+at direct launch. Synced seated clients enter the same scheduled or active Round when `roundRef`
+appears, using a document navigation where media permissions require it. Completed
+and abandoned Round references leave the Room and its rematch action accessible.
+An observed terminal Round cannot trigger entry again through delayed snapshots,
+even when its status changes independently of the Room revision.
