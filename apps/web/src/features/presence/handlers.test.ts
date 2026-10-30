@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { member, origin } from '../../server/member-handler.test-support';
 import { createPresenceHandlers } from './handlers';
@@ -17,6 +18,7 @@ test('the presence route sets only the caller’s own choice', async () => {
   const handlers = createPresenceHandlers({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => member as never,
     },
@@ -42,6 +44,7 @@ test('the presence route reads only the caller’s own choice', async () => {
   const handlers = createPresenceHandlers({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => member as never,
     },

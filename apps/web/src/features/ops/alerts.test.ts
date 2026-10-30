@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { fixedClock } from '@daisy/clock';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createAlertsHandler } from './alerts';
@@ -14,6 +15,7 @@ const makeHandler = (
 ) =>
   createAlertsHandler({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     redis: { get: async (key) => values.get(key) ?? null },
     local,
     clock: fixedClock(NOW),
@@ -64,6 +66,7 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
   test('answers limiter_unavailable from the in-process marker while its Redis is unreachable (ISSUE-191)', async () => {
     const handler = createAlertsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       redis: {
         get: async () => {
           throw new Error('redis down');

@@ -1,6 +1,7 @@
 import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation } from '../../server/http';
 import { EMAIL_CHANGE_VERIFY_PATH } from './email-change/email-change';
 import { logAuthLifecycle } from './lifecycle-events';
@@ -63,6 +64,8 @@ const withRetryAfter = (response: Response) =>
 export function createAuthRouteHandlers(
   auth: () => { handler: Handler; config: { PUBLIC_APP_URL: string } },
   baseLogger: Logger,
+  /** ADR 0037: where a 5xx from a framework failure goes, scrubbed. */
+  reporter: ErrorReporter,
 ) {
   const handle = async (request: Request) =>
     withRetryAfter(
@@ -99,6 +102,7 @@ export function createAuthRouteHandlers(
               : createAppError('INFRASTRUCTURE', undefined, error);
           }
         },
+        reporter,
       ),
     );
   return {

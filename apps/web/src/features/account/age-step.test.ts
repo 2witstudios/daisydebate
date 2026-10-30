@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import {
@@ -29,6 +30,7 @@ const handlerWith = ({
   const forgotten: string[] = [];
   const handler = createAgeStepHandler({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'http://localhost:3000',
     identify: async () => identity,
     limiter: () => ({ consume: allowEvery }),

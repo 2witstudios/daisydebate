@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import { createConfirmEmailHandlers } from './confirm-email';
 import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-email-change';
@@ -18,6 +19,7 @@ const PUBLIC_APP_URL = 'https://daisy.invalid';
 const handlersWith = (cleanupFailed = false) =>
   createConfirmEmailHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     auth: () => ({
       config: { PUBLIC_APP_URL },
       handler: async (request: Request) => {
@@ -59,6 +61,7 @@ describe('confirm-email: when the forwarded auth request fails', () => {
   test('renders the expired page instead of propagating the failure', async () => {
     const throwingHandlers = createConfirmEmailHandlers({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       auth: () => ({
         config: { PUBLIC_APP_URL },
         handler: async () => {
@@ -115,6 +118,7 @@ describe('confirm-email: an approval refused because the new address is suppress
   const refusedWith = (code: string) =>
     createConfirmEmailHandlers({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       auth: () => ({
         config: { PUBLIC_APP_URL },
         handler: async () => Response.json({ code }, { status: 422 }),

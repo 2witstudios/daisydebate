@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation } from '../../../server/http';
 import {
   parseThemePreference,
@@ -84,17 +85,31 @@ export function createViewHeadHandlers(
   logger: Logger,
   operation: string,
   view: (request: Request) => Response,
+  /** ADR 0037: where a 5xx from a failed render goes, scrubbed. */
+  reporter: ErrorReporter,
 ) {
   return {
     GET: (request: Request) =>
-      handleOperation(logger, request, operation, async () => view(request)),
+      handleOperation(
+        logger,
+        request,
+        operation,
+        async () => view(request),
+        reporter,
+      ),
     HEAD: (request: Request) =>
-      handleOperation(logger, request, operation, async () => {
-        const rendered = view(request);
-        return new Response(null, {
-          status: rendered.status,
-          headers: rendered.headers,
-        });
-      }),
+      handleOperation(
+        logger,
+        request,
+        operation,
+        async () => {
+          const rendered = view(request);
+          return new Response(null, {
+            status: rendered.status,
+            headers: rendered.headers,
+          });
+        },
+        reporter,
+      ),
   };
 }

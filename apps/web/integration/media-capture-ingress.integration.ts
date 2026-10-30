@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
@@ -27,6 +28,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
     });
     const handlers = createMediaCaptureHandlers({
       logger: deps.logger,
+      reporter: noopErrorReporter,
       authentication: () => authentication,
       capture: () => capture,
       token: (input, principal) => broker.captureToken(input, principal),

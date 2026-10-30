@@ -15,6 +15,115 @@ const jsonRequest = (body: string, contentType = 'application/json') =>
   });
 
 describe('handleOperation', () => {
+  test('hands a 5xx raw error to the injected reporter, scrubbing upstream of the vendor (ADR 0037)', async () => {
+    const captured: Array<{
+      requestId: string;
+      route: string;
+      errorCode: string;
+    }> = [];
+    const reporter = {
+      capture: (
+        _error: unknown,
+        context: { requestId: string; route: string; errorCode: string },
+      ) => void captured.push(context),
+    };
+    const response = await handleOperation(
+      logger,
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      async () => {
+        throw new Error('raw database failure');
+      },
+      reporter,
+    );
+    assert({
+      given: 'a thrown 5xx failure and a recording reporter',
+      should: 'capture once with the request id, route and code',
+      actual: {
+        status: response.status,
+        captures: [
+          {
+            hasRequestId:
+              typeof captured[0]?.requestId === 'string' &&
+              captured[0].requestId.length > 0,
+            route: captured[0]?.route,
+            errorCode: captured[0]?.errorCode,
+          },
+        ],
+      },
+      expected: {
+        status: 500,
+        captures: [
+          {
+            hasRequestId: true,
+            route: 'test.operation',
+            errorCode: 'INTERNAL',
+          },
+        ],
+      },
+    });
+  });
+
+  test('never hands a handled client error to the reporter', async () => {
+    const captured: unknown[] = [];
+    const reporter = {
+      capture: (_error: unknown, _context: unknown) => void captured.push(1),
+    };
+    const response = await handleOperation(
+      logger,
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      async () => {
+        throw createAppError('AUTHORIZATION');
+      },
+      reporter,
+    );
+    assert({
+      given: 'a thrown 403',
+      should: 'answer 403 and capture nothing',
+      actual: { status: response.status, captures: captured },
+      expected: { status: 403, captures: [] },
+    });
+  });
+
+  test('hands an invariant violation to the reporter even when mapped 4xx', async () => {
+    const captured: Array<{ requestId: string; errorCode: string }> = [];
+    const reporter = {
+      capture: (
+        _error: unknown,
+        context: { requestId: string; errorCode: string },
+      ) => void captured.push(context),
+    };
+    const response = await handleOperation(
+      logger,
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      async () => {
+        throw createInvariantError('INVARIANT', 'impossible state');
+      },
+      reporter,
+    );
+    assert({
+      given: 'a thrown invariant violation',
+      should: 'capture it so someone must look',
+      actual: {
+        status: response.status,
+        captures: [
+          {
+            hasRequestId:
+              typeof captured[0]?.requestId === 'string' &&
+              captured[0].requestId.length > 0,
+            errorCode: captured[0]?.errorCode,
+          },
+        ],
+      },
+      expected: {
+        status: response.status,
+        captures: [{ hasRequestId: true, errorCode: 'INVARIANT' }],
+      },
+    });
+  });
+
   test('answers an oversized body with HTTP 413', async () => {
     const large = JSON.stringify({ text: 'x'.repeat(128) });
     const response = await handleOperation(

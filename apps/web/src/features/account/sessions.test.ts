@@ -1,4 +1,5 @@
 import { APIError } from 'better-auth/api';
+import { noopErrorReporter } from '@daisy/observability';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import {
@@ -33,6 +34,7 @@ describe('GET /api/account/sessions', () => {
     const rows = [row({ id: 's1' }), row({ id: 's2', token: 'other-token' })];
     const handler = createListSessionsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => rows,
       currentSessionId: async () => 's2',
@@ -78,6 +80,7 @@ describe('GET /api/account/sessions', () => {
   test('a stale/unauthenticated session answers 401, never leaking Better Auth detail', async () => {
     const handler = createListSessionsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => {
         throw new APIError('UNAUTHORIZED', { message: 'no session' });
@@ -100,6 +103,7 @@ describe('GET /api/account/sessions', () => {
   test('an infrastructure failure answers a safe 503', async () => {
     const handler = createListSessionsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => {
         throw new Error('redis://secret-host down');
@@ -123,6 +127,7 @@ describe('POST /api/account/sessions/revoke', () => {
     let revokedWith: { headers: Headers; token: string } | undefined;
     const handler = createRevokeSessionHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => rows,
       revokeToken: async (headers, token) => {
@@ -150,6 +155,7 @@ describe('POST /api/account/sessions/revoke', () => {
     let revoked = false;
     const handler = createRevokeSessionHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => [row({ id: 's1' })],
       revokeToken: async () => {
@@ -169,6 +175,7 @@ describe('POST /api/account/sessions/revoke', () => {
     let listed = false;
     const handler = createRevokeSessionHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       listSessions: async () => {
         listed = true;

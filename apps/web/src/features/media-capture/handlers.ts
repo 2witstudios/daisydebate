@@ -1,5 +1,6 @@
 import type { Database } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -25,6 +26,8 @@ type Relay = (
 /** Private server boundary; human identity and browser request bodies never supply its principal. */
 export function createMediaCaptureHandlers(input: {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly authentication: () => Authentication;
   readonly capture: () => Capture;
   readonly token: Broker['captureToken'];
@@ -34,64 +37,70 @@ export function createMediaCaptureHandlers(input: {
   const relays = new Map([['heard', input.heard]]);
   return {
     handle: (request: Request) =>
-      handleOperation(input.logger, request, 'media.capture', async (id) => {
-        const bytes = await readBytes(request, 128 * 1024);
-        let body: string;
-        try {
-          body = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-        } catch {
-          throw createAppError('VALIDATION');
-        }
-        const url = new URL(request.url);
-        const principal = input.authentication().verify({
-          method: request.method,
-          path: `${url.pathname}${url.search}`,
-          body,
-          timestamp: request.headers.get('x-daisy-media-timestamp') ?? '',
-          signature: request.headers.get('x-daisy-media-signature') ?? '',
-        });
-        // Authentication parsed the exact signed JSON object and refused conflicting scope.
-        const payload = { ...JSON.parse(body), roundId: principal.roundId };
-        const operation = url.pathname.split('/').at(-1);
-        try {
-          if (operation === 'token')
-            return Response.json(
-              await input.token(
-                parseValidated(captureScope, payload),
-                principal,
-              ),
-            );
-          const relay = relays.get(String(operation));
-          if (relay) {
-            const { roundId, sessionId, workerId, epoch, ...body } = payload;
-            await relay(
-              parseValidated(captureScope, {
-                roundId,
-                sessionId,
-                workerId,
-                epoch,
-              }),
-              body,
-            );
-            return Response.json(null);
+      handleOperation(
+        input.logger,
+        request,
+        'media.capture',
+        async (id) => {
+          const bytes = await readBytes(request, 128 * 1024);
+          let body: string;
+          try {
+            body = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+          } catch {
+            throw createAppError('VALIDATION');
           }
-          const capture = input.capture();
-          const operations = {
-            lease: capture.claimMediaWorkerLease,
-            read: capture.readMediaCaptureState,
-            append: capture.appendCapturedTranscript,
-            observe: capture.observeCapturedStream,
-            seal: capture.sealCapturedStream,
-          };
-          const dispatch = operations[operation as keyof typeof operations];
-          if (!dispatch) throw createAppError('AUTHORIZATION');
-          return Response.json((await dispatch(payload)) ?? null);
-        } catch (error) {
-          const refusal = namedCaptureRefusal(error, id);
-          if (refusal) return refusal;
-          throw error;
-        }
-      }),
+          const url = new URL(request.url);
+          const principal = input.authentication().verify({
+            method: request.method,
+            path: `${url.pathname}${url.search}`,
+            body,
+            timestamp: request.headers.get('x-daisy-media-timestamp') ?? '',
+            signature: request.headers.get('x-daisy-media-signature') ?? '',
+          });
+          // Authentication parsed the exact signed JSON object and refused conflicting scope.
+          const payload = { ...JSON.parse(body), roundId: principal.roundId };
+          const operation = url.pathname.split('/').at(-1);
+          try {
+            if (operation === 'token')
+              return Response.json(
+                await input.token(
+                  parseValidated(captureScope, payload),
+                  principal,
+                ),
+              );
+            const relay = relays.get(String(operation));
+            if (relay) {
+              const { roundId, sessionId, workerId, epoch, ...body } = payload;
+              await relay(
+                parseValidated(captureScope, {
+                  roundId,
+                  sessionId,
+                  workerId,
+                  epoch,
+                }),
+                body,
+              );
+              return Response.json(null);
+            }
+            const capture = input.capture();
+            const operations = {
+              lease: capture.claimMediaWorkerLease,
+              read: capture.readMediaCaptureState,
+              append: capture.appendCapturedTranscript,
+              observe: capture.observeCapturedStream,
+              seal: capture.sealCapturedStream,
+            };
+            const dispatch = operations[operation as keyof typeof operations];
+            if (!dispatch) throw createAppError('AUTHORIZATION');
+            return Response.json((await dispatch(payload)) ?? null);
+          } catch (error) {
+            const refusal = namedCaptureRefusal(error, id);
+            if (refusal) return refusal;
+            throw error;
+          }
+        },
+        input.reporter,
+      ),
   };
 }
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../ui/components/button/button';
+import { reportClientError } from '../features/telemetry/report-client-error';
 import { prose } from './ui/prose-class';
 import {
   parseThemePreference,
@@ -27,6 +28,12 @@ export default function GlobalError({
       ? parseThemePreference(undefined)
       : preferenceFromCookies(document.cookie),
   );
+  // ADR 0037: the boundary is the client capture site; the raw error goes
+  // only to the scrubbed reporter, and the digest below stays the only
+  // identifier anyone sees here.
+  useEffect(() => {
+    reportClientError(error);
+  }, [error]);
   return (
     <html lang="en" data-theme={theme}>
       <body>

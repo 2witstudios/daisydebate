@@ -1,4 +1,5 @@
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import {
   formatPrometheusMetrics,
   type MetricsStore,
@@ -19,19 +20,28 @@ const PROMETHEUS_CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
  */
 export function createMetricsHandler({
   logger,
+  reporter,
   metrics,
   token,
 }: {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly metrics: MetricsStore;
   /** Read lazily per request: baseline startup never requires auth configuration (ADR 0020). */
   readonly token: () => string;
 }) {
   return (request: Request) =>
-    handleOperation(logger, request, 'ops.metrics', async () => {
-      requireProbeToken(request, token());
-      return new Response(formatPrometheusMetrics(metrics.snapshot()), {
-        headers: { 'Content-Type': PROMETHEUS_CONTENT_TYPE },
-      });
-    });
+    handleOperation(
+      logger,
+      request,
+      'ops.metrics',
+      async () => {
+        requireProbeToken(request, token());
+        return new Response(formatPrometheusMetrics(metrics.snapshot()), {
+          headers: { 'Content-Type': PROMETHEUS_CONTENT_TYPE },
+        });
+      },
+      reporter,
+    );
 }

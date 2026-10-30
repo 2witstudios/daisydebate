@@ -15,10 +15,13 @@ import { saveRoomDraftAnswer } from './create-room-draft-answer';
 
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import type { RateLimiter } from '../../server/rate-limit';
 
 type Dependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly limiter: RateLimiter;
@@ -107,5 +110,6 @@ export function createRoomDraftHandler(dependencies: Dependencies) {
           headers: { location: `${destination.pathname}${destination.search}` },
         });
       },
+      dependencies.reporter,
     );
 }

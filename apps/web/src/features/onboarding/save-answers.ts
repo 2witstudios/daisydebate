@@ -1,4 +1,5 @@
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
@@ -17,6 +18,8 @@ const SAVE_RULE = { windowSeconds: 60, max: 30 } as const;
 
 type OnboardingDependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
@@ -103,5 +106,6 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
         });
         return Response.json({ saved: parsed.value.step });
       },
+      dependencies.reporter,
     );
 }

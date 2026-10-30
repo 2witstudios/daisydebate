@@ -1,4 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createMessagingReactionHandler,
@@ -18,6 +19,7 @@ test('mounted reaction boundary preserves authenticated scope and refuses foreig
   const handler = createMessagingReactionHandler({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => ({
         state: 'member',
@@ -77,6 +79,7 @@ test('reaction GET carries only validated message scope and server-configured en
     messageId = 'm'.repeat(24);
   const boundary = {
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://daisy.example',
     identify: async () => ({
       state: 'member' as const,

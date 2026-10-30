@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../../server/test-loggers.test-support';
@@ -56,6 +57,7 @@ const handlersWith = ({
   } as DebateDocumentOperations;
   const handlers = createDebateRoomDocumentHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => ORIGIN,
     identify: async () => identity,
     limiter: () => ({

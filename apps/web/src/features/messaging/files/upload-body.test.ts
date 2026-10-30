@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { assertRejects } from '@daisy/errors/testing';
 import { readBytes } from '../../../server/http';
 setupRitewayBun();
@@ -33,6 +34,7 @@ test('the shared member boundary can return authorized binary content without JS
   const response = await runMemberHandler(
     {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'member',

@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createProofHandlers } from './handlers';
 
@@ -7,6 +8,7 @@ setupRitewayBun();
 const dependencies = {
   origin: 'http://localhost:3000',
   logger: silentLogger,
+  reporter: noopErrorReporter,
   enabled: true,
   database: {
     getFormat: async () => null,

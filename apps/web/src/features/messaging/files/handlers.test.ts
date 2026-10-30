@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import { fileOperationFixture } from './operations.test-support';
 import { createMessagingFileHandlers } from './handlers';
@@ -8,6 +9,7 @@ test('mounted file handlers authenticate before reading upload bytes or private 
   const handlers = createMessagingFileHandlers({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'anonymous',
@@ -45,6 +47,7 @@ test('private file download passes current real operation fences and no object k
   const handlers = createMessagingFileHandlers({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'member',
@@ -92,6 +95,7 @@ test('JSON attachment routes project versioned public tokens and pending cleanup
   const handlers = createMessagingFileHandlers({
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'member',

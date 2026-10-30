@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { createAuthRouteHandlers, preserve } from './handlers';
@@ -78,6 +79,7 @@ describe('createAuthRouteHandlers', () => {
         },
       }),
       recorder,
+      noopErrorReporter,
     );
     const response = await handlers.POST(post());
     assert({
@@ -114,6 +116,7 @@ describe('createAuthRouteHandlers', () => {
         },
       }),
       recorder,
+      noopErrorReporter,
     );
     const foreign = await handlers.POST(
       post({ origin: 'https://evil.example' }),
@@ -141,6 +144,7 @@ describe('createAuthRouteHandlers', () => {
           handler: async () => new Response('{}', { status }),
         }),
         recorder,
+        noopErrorReporter,
       );
       await handlers.POST(
         new Request(`http://localhost:3000/api/auth${path}`, {
@@ -191,6 +195,7 @@ describe('createAuthRouteHandlers', () => {
         },
       }),
       recorder,
+      noopErrorReporter,
     );
     const get = (path: string) =>
       new Request(`http://localhost:3000/api/auth${path}?token=T`);
@@ -231,6 +236,7 @@ describe('createAuthRouteHandlers', () => {
         },
       }),
       recorder,
+      noopErrorReporter,
     );
     const crash = createAuthRouteHandlers(
       () => ({
@@ -240,6 +246,7 @@ describe('createAuthRouteHandlers', () => {
         },
       }),
       recorder,
+      noopErrorReporter,
     );
     const a = await outage.POST(post());
     const b = await crash.POST(post());

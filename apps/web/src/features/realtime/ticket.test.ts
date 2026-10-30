@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { noopErrorReporter } from '@daisy/observability';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { ticketSchema } from '@daisy/protocol';
@@ -48,6 +49,7 @@ const handlerWith = ({
   }> = [];
   const handler = createTicketHandler({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'http://localhost:3000/',
     websocketEndpoint: () => websocketEndpoint,
     identify: async () => identity,

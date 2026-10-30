@@ -22,7 +22,12 @@ const emptyBody = z.strictObject({});
 export function createRoundMediaHandlers(
   d: Pick<
     Parameters<typeof createRoundHandlers>[0],
-    'logger' | 'identify' | 'origin' | 'getActorByUserId' | 'limiter'
+    | 'logger'
+    | 'reporter'
+    | 'identify'
+    | 'origin'
+    | 'getActorByUserId'
+    | 'limiter'
   > & {
     readonly active: () => boolean;
     readonly operations: () => Operations;
@@ -57,6 +62,7 @@ export function createRoundMediaHandlers(
             headers: { 'Cache-Control': 'no-store' },
           });
         },
+        d.reporter,
       );
   return {
     read: run('read'),

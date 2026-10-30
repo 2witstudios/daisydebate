@@ -1,4 +1,7 @@
 import type { NextConfig } from 'next';
+// Sentry 11 moved the build wrapper to a subpath export (the runtime SDK
+// stays on the root entry, where the adapters import it).
+import { withSentryConfig } from '@sentry/nextjs/config';
 import { roundMediaPages } from './src/features/round-media/browser-policy';
 const config: NextConfig = {
   poweredByHeader: false,
@@ -78,4 +81,16 @@ const config: NextConfig = {
     ];
   },
 };
-export default config;
+// ADR 0037: build-time behavior is source-map upload only. It happens when,
+// and only when, a deploy-time `SENTRY_AUTH_TOKEN` exists (the plugin reads
+// it from the environment itself); a keyless build stays green and uploads
+// nothing. The slugs name the projects inside the token's org.
+export default withSentryConfig(config, {
+  org: '2witstudios',
+  project: 'daisy-web',
+  sourcemaps: {
+    // Upload only when a deploy-time token exists; a keyless build stays
+    // green and uploads nothing.
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+});

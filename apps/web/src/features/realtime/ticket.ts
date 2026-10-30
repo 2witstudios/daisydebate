@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { ticketSchema } from '@daisy/protocol';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
@@ -20,6 +21,8 @@ const TICKET_RULE = { windowSeconds: 60, max: 20 } as const;
 
 type TicketDependencies = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly websocketEndpoint: () => string | null;
   /** Principal resolution from the request's cookies only. */
@@ -107,5 +110,6 @@ export function createTicketHandler(dependencies: TicketDependencies) {
           expiresInSeconds: TICKET_TTL_SECONDS,
         });
       },
+      dependencies.reporter,
     );
 }

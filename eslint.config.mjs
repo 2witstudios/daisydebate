@@ -545,6 +545,28 @@ export default [
     },
   },
   {
+    // ADR 0037: the Sentry SDK is a vendor seam with exactly two adapter
+    // homes — apps/web's telemetry feature (plus the build wrapper that
+    // uploads source maps) and apps/realtime's own adapter. The apps-wide
+    // entry below carries the ban; the entries after it open the adapters.
+    files: ['apps/realtime/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            {
+              group: ['@sentry/*'],
+              message:
+                'Import Sentry only inside apps/realtime/src/telemetry/ (ADR 0037).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The AUTH-6.7 load harness (apps/web/scripts/auth-load) is procedural
     // CLI glue exactly like the root scripts/ tree, not application source.
     files: ['scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
@@ -622,7 +644,17 @@ export default [
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: [...appImportRestrictions, processEdgeImport] },
+        {
+          patterns: [
+            ...appImportRestrictions,
+            {
+              group: ['@sentry/*'],
+              message:
+                'Import Sentry only inside src/features/telemetry/ or next.config.ts (ADR 0037).',
+            },
+            processEdgeImport,
+          ],
+        },
       ],
       'no-restricted-syntax': [
         'error',
@@ -717,6 +749,12 @@ export default [
     ignores: [
       'apps/web/src/server/process-app.ts',
       'apps/realtime/src/start.ts',
+      // The instrumentation is a process entry: Next runs it per runtime, and
+      // it dispatches on NEXT_RUNTIME before importing any edge module.
+      'apps/web/src/instrumentation.ts',
+      // ADR 0037: the Sentry runtime configs are vendor-seam entries —
+      // instrumentation loads them, and each reads only its own gate.
+      'apps/web/src/features/telemetry/sentry.*.config.ts',
       '**/*.test.{ts,tsx}',
       '**/*.test-support.{ts,tsx}',
     ],
@@ -749,5 +787,19 @@ export default [
   {
     files: ['**/*.config.*'],
     rules: { 'no-console': 'off' },
+  },
+  // ADR 0037's vendor seam, declared last so it wins over every earlier
+  // `no-restricted-imports` entry: the Sentry adapters (web's telemetry
+  // feature, realtime's telemetry module) and the build wrapper are the
+  // only app modules that may import the SDK.
+  {
+    files: [
+      'apps/web/src/features/telemetry/**/*.ts',
+      'apps/web/next.config.ts',
+      'apps/realtime/src/telemetry/**/*.ts',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: appImportRestrictions }],
+    },
   },
 ];

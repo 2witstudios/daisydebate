@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import { fileOperationFixture } from './operations.test-support';
 import { createMessagingFileHandlers } from './handlers';
@@ -11,6 +12,7 @@ test('multipart attachment authenticates before decode and enforces its independ
     calls = 0;
   const boundary = {
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://example.test',
     identify: async () =>
       member
@@ -110,6 +112,7 @@ test('native pending discard preserves canonical refusal and infrastructure stat
   const input = {
     boundary: {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'member' as const,
@@ -159,6 +162,7 @@ test('native multipart carries real reserve/upload/scan/finalize operations and 
     });
     const boundary = {
       logger: silentLogger,
+      reporter: noopErrorReporter,
       origin: () => 'https://example.test',
       identify: async () => ({
         state: 'member' as const,

@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingLogger } from './test-loggers.test-support';
 import { createReadinessHandler } from './readiness';
+import { noopErrorReporter } from '@daisy/observability';
 
 setupRitewayBun();
 
@@ -16,6 +17,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       redis: probe(true),
       isDraining: () => false,
       logger,
+      reporter: noopErrorReporter,
     });
     const response = await handler(new Request('http://x/api/health/ready'));
     assert({
@@ -35,6 +37,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       redis: probe(() => Promise.resolve(redisReady)),
       isDraining: () => false,
       logger,
+      reporter: noopErrorReporter,
     });
     const duringColdStart = await handler(
       new Request('http://x/api/health/ready'),
@@ -72,6 +75,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       redis: probe(true),
       isDraining: () => true,
       logger,
+      reporter: noopErrorReporter,
     });
     const response = await handler(new Request('http://x/api/health/ready'));
     assert({

@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db/profile';
@@ -37,6 +38,7 @@ const handlerWith = ({
   const completed: Array<{ userId: string; at: string }> = [];
   const handler = createOnboardingHandler({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'http://localhost:3000',
     identify: async () => identity,
     limiter: () => ({ consume }),

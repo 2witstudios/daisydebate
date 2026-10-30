@@ -1,6 +1,7 @@
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import {
   idSchema,
   type AttendanceEnvelope,
@@ -18,6 +19,8 @@ import { readAttendanceCommand } from './body';
 import { nativeAttendanceResponse } from './native-response';
 type HandlerDeps = {
   readonly logger: Logger;
+  /** ADR 0037: where this handler's 5xx raw errors go, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly active: () => boolean;
   readonly identify: (request: Request) => Promise<Identity>;
@@ -74,6 +77,7 @@ export function createAttendanceHandler(deps: HandlerDeps) {
           throw error;
         }
       },
+      deps.reporter,
     );
     return request.headers
       .get('content-type')

@@ -1,6 +1,7 @@
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
+import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { identify } from '../lib/identity';
 import type { App } from './app';
@@ -13,6 +14,8 @@ import {
 
 export type MemberBoundary = {
   readonly logger: Logger;
+  /** ADR 0037: where a 5xx from a member operation's raw error goes, scrubbed. */
+  readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
 };
@@ -41,27 +44,34 @@ export function runMemberHandler(
     readonly respond?: (value: unknown) => Response;
   },
 ) {
-  return handleOperation(boundary.logger, request, input.name, async () => {
-    if (input.readOnly) requireSameOriginRead(request, boundary.origin());
-    else requireSameOrigin(request, boundary.origin());
-    const identity = requireSignedIn(await boundary.identify(request));
-    // A waitlisted account reaches the evaluator, the sole decision: it
-    // keeps only its withdrawals there (ADR 0075).
-    if (!evaluatedIdentity(identity)) throw createAppError('AUTHORIZATION');
-    const value = await input.operation(
-      await input.readInput(),
-      identity.principal,
-    );
-    return input.respond
-      ? input.respond(value)
-      : Response.json(value, { headers: input.headers ?? {} });
-  });
+  return handleOperation(
+    boundary.logger,
+    request,
+    input.name,
+    async () => {
+      if (input.readOnly) requireSameOriginRead(request, boundary.origin());
+      else requireSameOrigin(request, boundary.origin());
+      const identity = requireSignedIn(await boundary.identify(request));
+      // A waitlisted account reaches the evaluator, the sole decision: it
+      // keeps only its withdrawals there (ADR 0075).
+      if (!evaluatedIdentity(identity)) throw createAppError('AUTHORIZATION');
+      const value = await input.operation(
+        await input.readInput(),
+        identity.principal,
+      );
+      return input.respond
+        ? input.respond(value)
+        : Response.json(value, { headers: input.headers ?? {} });
+    },
+    boundary.reporter,
+  );
 }
 
 /** App-bound identity, injected at the HTTP edge of each member route. */
 export function memberHttpBoundary(app: App): MemberBoundary {
   return {
     logger: app.logger,
+    reporter: app.reporter,
     origin: () => app.auth().config.PUBLIC_APP_URL,
     identify: (request) => identify(app.auth(), request.headers),
   };

@@ -34,6 +34,7 @@
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
+    "@sentry/nextjs": "11.10.0",
     "@tiptap/core": "3.31.4",
     "@tiptap/extension-list": "3.31.4",
     "@tiptap/html": "3.31.4",

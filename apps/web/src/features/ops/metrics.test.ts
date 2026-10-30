@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createMetricsStore } from '../../server/metrics-store';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMetricsHandler } from './metrics';
@@ -11,6 +12,7 @@ describe('GET /api/ops/metrics (AUTH-7.7)', () => {
   test('refuses a request without the probe bearer token', async () => {
     const handler = createMetricsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       metrics: createMetricsStore(),
       token: () => TOKEN,
     });
@@ -33,6 +35,7 @@ describe('GET /api/ops/metrics (AUTH-7.7)', () => {
     });
     const handler = createMetricsHandler({
       logger: silentLogger,
+      reporter: noopErrorReporter,
       metrics,
       token: () => TOKEN,
     });

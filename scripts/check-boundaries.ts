@@ -109,6 +109,19 @@ for (const workspace of workspaces) {
         issues.push(
           `${relative(root, file)}: PostHog SDK imports belong to analytics adapters (ADR 0037)`,
         );
+      // ADR 0037's other vendor seam: @sentry/* belongs to the two runtime
+      // adapters and the build wrapper, exactly as the ESLint ban says, so
+      // both gates carry the same rule.
+      if (
+        /^@sentry\//.test(specifier) &&
+        !/^(apps\/web\/src\/features\/telemetry\/|apps\/realtime\/src\/telemetry\/)/.test(
+          relative(root, file),
+        ) &&
+        relative(root, file) !== 'apps/web/next.config.ts'
+      )
+        issues.push(
+          `${relative(root, file)}: Sentry SDK imports belong to the telemetry adapters (ADR 0037)`,
+        );
       const runnerOnly = runnerOnlyIssue(specifier, relative(root, file));
       if (runnerOnly) issues.push(`${relative(root, file)}: ${runnerOnly}`);
       const operatorApi = operatorApiIssue(specifier, relative(root, file));

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { betaMessagingPolicy } from './beta-policy';
@@ -20,6 +21,7 @@ const deployedSend = () => {
   const reached: string[] = [];
   const handlers = createMessagingHandlers({
     logger: silentLogger,
+    reporter: noopErrorReporter,
     origin: () => 'https://daisy.example',
     maxBodyBytes: betaMessagingPolicy.maxBodyBytes,
     bounds: betaMessagingPolicy.bounds,

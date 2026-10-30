@@ -31,10 +31,12 @@ export function composeRoomRoutes(app: App) {
         async () => {
           throw createAppError('NOT_FOUND');
         },
+        app.reporter,
       );
     const policy = app.roomPolicy;
     handlers ??= createRoomHandlers({
       logger: app.logger,
+      reporter: app.reporter,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
       getActorByUserId: (userId) => app.database.getActorByUserId(userId),
@@ -89,6 +91,7 @@ export function composeRoomRoutes(app: App) {
     ...routes,
     submitDraft: createRoomDraftHandler({
       logger: app.logger,
+      reporter: app.reporter,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
       limiter: app.limiter,

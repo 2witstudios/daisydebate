@@ -8,7 +8,7 @@ import { createAttendanceFeature } from './operations';
 
 type MemberGates = Pick<
   Parameters<typeof createAttendanceHandler>[0],
-  'logger' | 'identify' | 'origin' | 'getActorByUserId' | 'limiter'
+  'logger' | 'reporter' | 'identify' | 'origin' | 'getActorByUserId' | 'limiter'
 >;
 export function composeAttendanceRoutes(app: App, gates: MemberGates) {
   const operations = createAttendanceFeature({

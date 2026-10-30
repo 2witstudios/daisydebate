@@ -8,6 +8,8 @@ import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
 import { productionServeOptions } from './production';
 import { startRealtimeServiceLease } from './service-lease';
+import { initRealtimeSentry } from './telemetry/init-sentry';
+import { realtimeErrorReporter } from './telemetry/realtime-error-reporter';
 import { readFile } from 'node:fs/promises';
 import {
   defaultGateway,
@@ -22,6 +24,13 @@ import {
 //
 // This is realtime's process edge: the only module that reads process.env.
 // It builds the one app this process runs; everything else receives it.
+// ADR 0037: the scrubbed error tracker initializes first, gated on its own
+// variable — unset, nothing in this process makes a Sentry network call.
+initRealtimeSentry({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.SENTRY_ENVIRONMENT,
+});
+const reporter = realtimeErrorReporter();
 const resources = createRealtimeApp({
   env: process.env,
   clock: systemClock,
@@ -60,12 +69,19 @@ const lease = startRealtimeServiceLease({
   instanceId,
   renew: resources.database.renewServiceInstance,
   deliveredThrough: drain.cursor,
-  failed: () =>
+  failed: (error) => {
     resources.logger.log(
       'service.lease_failed',
       { operation: 'realtime.lease', errorCode: 'INFRASTRUCTURE' },
       'Realtime lease renewal unavailable',
-    ),
+    );
+    // ADR 0037: the raw renewal failure reaches only the scrubbed reporter.
+    reporter.capture(error, {
+      requestId: instanceId,
+      route: 'realtime.lease',
+      errorCode: 'INFRASTRUCTURE',
+    });
+  },
   timers: {
     setInterval: (tick, ms) => setInterval(tick, ms).unref(),
     clearInterval: (handle) =>

@@ -1,6 +1,7 @@
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
+import { noopErrorReporter } from '@daisy/observability';
 import { createDatabase } from '@daisy/db';
 import { createTestApp, fixtureEmail } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
@@ -83,9 +84,11 @@ describe('AUTH-3.3 token persistence failure', () => {
     const email = fixtureEmail();
     let response: Response | undefined;
     const printed = await captureConsole(async () => {
-      response = await createAuthRouteHandlers(auth, silent).POST(
-        jsonPost('/api/auth/sign-in/magic-link', { email }),
-      );
+      response = await createAuthRouteHandlers(
+        auth,
+        silent,
+        noopErrorReporter,
+      ).POST(jsonPost('/api/auth/sign-in/magic-link', { email }));
     });
     const body = await response?.text();
     assert({
@@ -122,9 +125,11 @@ describe('AUTH-3.3 token persistence failure', () => {
   test('a database outage while redeeming keeps the person on a retryable confirmation page without exposing the token in a URL', async () => {
     const { auth } = unreachableDatabase();
     const token = 'abcdefghijklmnopqrstuvwxyzABCDEF';
-    const response = await createConfirmHandlers({ auth, logger: silent }).POST(
-      formPost({ token, callbackURL: '/lobby' }),
-    );
+    const response = await createConfirmHandlers({
+      auth,
+      logger: silent,
+      reporter: noopErrorReporter,
+    }).POST(formPost({ token, callbackURL: '/lobby' }));
     const html = await response.text();
     assert({
       given: 'PostgreSQL unreachable when a token is redeemed',

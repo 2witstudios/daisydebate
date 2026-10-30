@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildUserInboxTopic } from '@daisy/protocol';
@@ -35,6 +36,7 @@ test('a real sign-out form post fails closed while its session.revoked control c
     signOut: createAuthRouteHandlers(
       () => ({ handler: auth.instance.handler, config: auth.config }),
       logger,
+      noopErrorReporter,
     ).POST,
   });
   const post = (cookie: string) =>

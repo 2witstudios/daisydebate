@@ -30,6 +30,8 @@ Documents you create in a debate room, the friends you add and whether you show 
 
 Records that an email was sent and delivered or bounced. These hold a keyed one-way hash of the address, not the address itself.
 
+When error tracking is on: technical details of unexpected software failures — the failing operation's name, an error code, and the code path that failed — joined to the random account identifier only. Error reports never contain your email address, username, IP address, what you typed or said, or the content of any request. [OWNER: applies from the first deployment that sets the error tracker's keys; scrubbing is enforced in code (ADR 0037).]
+
 ## Why we use it, and our lawful basis
 
 To provide the account and the service you asked for: signing you in, running rounds, judging and rating them, and showing your record. Lawful basis: performance of our contract with you (the terms of service).
@@ -41,6 +43,8 @@ Your session IP address and user agent: to keep accounts secure and let you revi
 Your optional onboarding answers: to personalise what we suggest to you. Lawful basis: our contract with you. You can skip them.
 
 Operational logs: to run, secure and fix the service. Our application’s logs record what happened (for example a refused sign-in), never your email, username, IP address or what you said. Our hosting platform and our live audio and video relay keep their own technical logs, which can include IP addresses. [OWNER: confirm what those technical logs contain and how long they are kept.] Lawful basis: our legitimate interest in a secure, working service.
+
+When error tracking is on: technical failure reports, so we can find and fix faults in the service. They carry the random account identifier and the technical details of the failure, and nothing that identifies you personally. Lawful basis: our legitimate interest in a secure, working service.
 
 We do not sell your personal data or use it for advertising. When a round is judged by AI, the AI decides its result, which can change your rating in a ranked round. [OWNER: state how a member can ask for an AI result to be reviewed by a person.] [COUNSEL: confirm whether AI judging and ratings are automated decision-making that needs further disclosure or safeguards.]
 
@@ -67,6 +71,8 @@ People who run Daisy can see the beta access list (username, request and decisio
 Fly.io hosts the service, its databases and the live audio and video relay, in [OWNER: hosting region, for example the United States]. Everything we hold is stored there.
 
 Resend sends our email: sign-in links, security notices and beta access emails. It receives your email address and the message.
+
+Sentry receives our error reports, when error tracking is on: the technical details of unexpected software failures described above, joined to your random account identifier, never your email address, username or IP address.
 
 OpenRouter routes speech-to-text and AI requests to the AI models we use. It receives speech clips and anonymised transcripts as described above. [COUNSEL: confirm whether the model providers OpenRouter routes to must be listed individually.]
 
@@ -134,13 +140,14 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), error tracking (Sentry), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
+- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
+- **Error tracking (Sentry) is wired in code, inert without its keys** (ADR 0037), and the draft above now describes it (scrubbed events, `user.id` only). Keys stay off until PRIV-H records the account, region and DPA; the processor row in [compliance](../operations/compliance.md) says the same.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.
 - **Publishing is a material change:** WAIT-6.3 raises the beta floor in the text to 16, adds a content licence, beta withdrawal and username reclaiming. Existing members accepted `draft-0`, so re-acceptance ([ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c)) should ship before or with publication.
 - **Build prerequisites before WAIT-6.3 publishes** (moved out of the text; each is tracked):
   - Direct messages, groups and file attachments are built but switched off in the beta; the policy must describe them, with their retention, before they are switched on.
-  - Any newsletter (beehiiv), analytics or session replay (PostHog) or error tracking (Sentry) needs a policy update before it is configured.
+  - Any newsletter (beehiiv) or analytics or session replay (PostHog) needs a policy update before it is configured. Error tracking (Sentry) now has that policy text in this draft; configuring its keys additionally waits on PRIV-H (account, region, DPA).
   - An operator or self-service entry point for deletion and export (PRIV-4), and the Settings controls the rights section should then point to.
   - Erasure of room titles, topics and resolutions, debate-room documents (ISSUE-383) and judge reasons, so the rights section can promise full deletion.
   - Re-acceptance of a new terms version (ISSUE-720); the terms promise it under “Changes to these terms”.
