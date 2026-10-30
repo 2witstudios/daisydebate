@@ -231,15 +231,14 @@ test.describe('dashboard shell chrome', () => {
 });
 
 test.describe('rail account menu', () => {
-  test.beforeEach(async ({ request }) => {
-    await resetRateLimits(request);
+  test.beforeEach(async ({ page }) => {
+    await resetRateLimits(page.request);
   });
 
   test('opens on the avatar, closes on an outside click or Escape, and stays open on inside clicks', async ({
     page,
-    request,
   }) => {
-    const { username } = await signUpMember(request);
+    const { username } = await signUpMember(page.request);
     await page.goto('/');
     const rail = page.getByRole('navigation', { name: 'Primary' });
     const details = rail.locator('details');
@@ -251,7 +250,7 @@ test.describe('rail account menu', () => {
     await expect(details).toHaveAttribute('open', '');
 
     // A click inside the menu keeps it open.
-    const inside = details.locator('span').filter({ hasText: username }).nth(1);
+    const inside = details.locator('span').filter({ hasText: username }).last();
     await inside.click();
     await expect(details).toHaveAttribute('open', '');
 
@@ -294,10 +293,9 @@ test.describe('with JavaScript off', () => {
 
   test('the account menu opens and closes as a native disclosure', async ({
     page,
-    request,
   }) => {
-    await resetRateLimits(request);
-    const { username } = await signUpMember(request);
+    await resetRateLimits(page.request);
+    const { username } = await signUpMember(page.request);
     await page.goto('/');
     const rail = page.getByRole('navigation', { name: 'Primary' });
     const details = rail.locator('details');
