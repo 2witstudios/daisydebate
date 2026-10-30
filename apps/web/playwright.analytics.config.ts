@@ -11,6 +11,18 @@ const servers = Array.isArray(base.webServer)
 export default defineConfig({
   ...base,
   testMatch: '**/analytics-native.e2e.ts',
+  // This second run must preserve the ordinary suite's selection evidence.
+  outputDir: 'test-results/analytics-native',
+  reporter: process.env.CI
+    ? [
+        ['list'],
+        [
+          'html',
+          { open: 'never', outputFolder: 'playwright-report/analytics-native' },
+        ],
+        ['json', { outputFile: 'test-results/analytics-native/results.json' }],
+      ]
+    : 'list',
   projects: [
     {
       name: 'analytics-native',
