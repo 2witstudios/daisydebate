@@ -83,8 +83,14 @@ const DIAGONAL_PATHS = [
 function daisyLogoSvg(): string {
   return (
     '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="display:block;">' +
-    CARDINAL_PATHS.map((d) => `<path d="${d}" fill="${LIGHT.markCardinal}" class="auth-mail-logo-cardinal"/>`).join('') +
-    DIAGONAL_PATHS.map((d) => `<path d="${d}" fill="${LIGHT.markDiagonal}" class="auth-mail-logo-diagonal"/>`).join('') +
+    CARDINAL_PATHS.map(
+      (d) =>
+        `<path d="${d}" fill="${LIGHT.markCardinal}" class="auth-mail-logo-cardinal"/>`,
+    ).join('') +
+    DIAGONAL_PATHS.map(
+      (d) =>
+        `<path d="${d}" fill="${LIGHT.markDiagonal}" class="auth-mail-logo-diagonal"/>`,
+    ).join('') +
     `<circle cx="12" cy="12" r="2.6" fill="${LIGHT.yolk}" class="auth-mail-logo-disc"/>` +
     '</svg>'
   );
