@@ -1,3 +1,4 @@
+import { analyticsConfiguration } from './features/analytics/config';
 import type { NextRequest } from 'next/server';
 import { handleProxy } from './server/proxy-handler';
 import { processApp } from './server/process-app';
@@ -11,6 +12,9 @@ export function proxy(request: NextRequest) {
     mediaPublicUrl: app.config.LIVEKIT_PUBLIC_URL ?? null,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
+    analyticsHost: analyticsConfiguration(app.config).key
+      ? (app.config.NEXT_PUBLIC_POSTHOG_HOST ?? null)
+      : null,
   });
 }
 export const config = {

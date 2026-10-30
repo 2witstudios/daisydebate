@@ -1,3 +1,4 @@
+import { withAnalyticsFixture } from './analytics-fixture-fetch';
 import { messagingBrowserFiles } from './messaging-files-runtime';
 import { messagingBrowserPolicy } from './messaging-policy';
 import { launchProofPolicy } from './room-launch-policy';
@@ -50,7 +51,7 @@ adoptProcessApp(
     // through the mail capture.
     fetch: withOpenRouterStub(
       process.env.OPENROUTER_API_KEY,
-      mailCapture.captureFetch,
+      withAnalyticsFixture(mailCapture.captureFetch),
     ),
     clock: systemClock,
     ids: systemId,

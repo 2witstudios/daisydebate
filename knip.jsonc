@@ -30,6 +30,9 @@
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
+      "playwright": {
+        "config": ["playwright.config.ts", "playwright.analytics.config.ts"],
+      },
       "entry": [
         // `test` runs `bun test src scripts` through the heavy queue.
         "src/**/*.test.{ts,tsx}",

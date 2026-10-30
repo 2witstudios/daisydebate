@@ -10,7 +10,7 @@ import {
 } from '@daisy/db/privacy';
 import type { App } from '../../../server/app';
 import { identify } from '../../../lib/identity';
-import { privacyJobVendors } from '../../../server/privacy-jobs';
+import { configuredPrivacyJobVendors } from '../../../server/privacy-jobs';
 import { createEraseAccountHandler } from './erase-account';
 import { createExportDataHandler } from './export-data';
 
@@ -79,6 +79,7 @@ export function composeDataRightsRoutes(app: App) {
         limiter: () => app.limiter,
         clock: app.clock,
         eraseSubject: async (subject, now) => {
+          const privacyJobVendors = configuredPrivacyJobVendors(app);
           await eraseRoomDraftAnswer(app.redis, subject.userId);
           return app.database.erasePrivacySubject(
             {

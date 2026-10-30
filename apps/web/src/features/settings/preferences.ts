@@ -19,23 +19,15 @@ export type NotificationPrefs = {
   readonly results: boolean;
   readonly newsletter: boolean;
 };
-export type PrivacyPrefs = {
-  readonly analytics: boolean;
-  readonly replay: boolean;
-};
-
 export type Preferences = {
   readonly profile: ProfilePrefs;
   readonly notifications: NotificationPrefs;
-  readonly privacy: PrivacyPrefs;
 };
 
 /**
  * The Settings page's one data seam: the signed-in account's saved
- * preferences. Today it returns the defaults an account starts with;
- * `analytics` and `replay` start off because not answering counts as
- * declining (privacy). The backend read replaces this function and nothing
- * else.
+ * profile and notification defaults. Optional processing consent belongs
+ * to the analytics feature and is read separately.
  */
 export const getPreferences = (): Preferences => ({
   profile: { bio: '', region: '' },
@@ -45,7 +37,6 @@ export const getPreferences = (): Preferences => ({
     results: true,
     newsletter: false,
   },
-  privacy: { analytics: false, replay: false },
 });
 
 const on = (form: FormData, name: string): boolean =>
@@ -73,14 +64,7 @@ export const parseNotificationsForm = (
     newsletter: on(form, 'newsletter'),
   });
 
-/** Optional data categories, read from the posted checkboxes. */
-export const parsePrivacyForm = (form: FormData): Parsed<PrivacyPrefs> =>
-  accept({
-    analytics: on(form, 'analytics'),
-    replay: on(form, 'replay'),
-  });
-
-const sections = ['profile', 'notifications', 'privacy'] as const;
+const sections = ['profile', 'notifications'] as const;
 export type Section = (typeof sections)[number];
 
 /** Where a saved section goes: back to Settings, to that section. */

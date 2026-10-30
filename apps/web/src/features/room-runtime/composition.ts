@@ -1,3 +1,4 @@
+import { trackRequest } from '../analytics/track-request';
 import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
@@ -54,9 +55,24 @@ export function composeRoomRoutes(app: App) {
     return select(handlers);
   };
   const routes = {
-    create: (request: Request) => run(request, (h) => h.create(request)),
-    rematch: (request: Request, roomId: string) =>
-      run(request, (h) => h.rematch(request, roomId)),
+    create: async (request: Request) => {
+      const response = await run(request, (h) => h.create(request));
+      if (response.ok)
+        await trackRequest(app, request, {
+          event: 'room_created',
+          properties: {},
+        });
+      return response;
+    },
+    rematch: async (request: Request, roomId: string) => {
+      const response = await run(request, (h) => h.rematch(request, roomId));
+      if (response.ok)
+        await trackRequest(app, request, {
+          event: 'room_rematched',
+          properties: {},
+        });
+      return response;
+    },
     list: (request: Request) => run(request, (h) => h.list(request)),
     active: (request: Request) => run(request, (h) => h.active(request)),
     catalog: (request: Request) => run(request, (h) => h.catalog(request)),

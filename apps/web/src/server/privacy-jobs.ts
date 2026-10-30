@@ -11,13 +11,16 @@ import type { WorkerTimers } from '../lib/worker-timers';
  * (ISSUE-833, ADR 0087): a processor holds subject data only once it is
  * wired, and a queued job no port can deliver would retry forever while
  * recording a deletion that never happened. `messaging-typing` is the one
- * vendor whose deletion is deliverable today and not already served by
- * another scheduled worker: object-storage objects go through the file
- * deletion intents worker, and the Sentry/PostHog/beehiiv adapters are inert
- * without keys (ADR 0037). A processor going live (PRIV-H) adds itself here
- * and to `privacyJobPort` in the same change.
+ * unconditional vendor here. Configured PostHog adds its port and admission
+ * together; object storage has its own file-deletion worker. Other planned
+ * processors stay absent until their delivery ports exist (ADR 0037).
  */
-export const privacyJobVendors = ['messaging-typing'] as const;
+const privacyJobVendors = ['messaging-typing'] as const;
+
+export const configuredPrivacyJobVendors = (
+  app: App,
+): readonly PrivacyVendor[] =>
+  app.posthogErasure ? [...privacyJobVendors, 'posthog'] : privacyJobVendors;
 
 /**
  * The vendor deletion port a queued job is delivered through: the Redis
@@ -28,6 +31,14 @@ export const privacyJobPort = (
   app: App,
   vendor: PrivacyVendor,
 ): { readonly erase: (subjectRef: string) => Promise<void> } => {
+  if (vendor === 'posthog')
+    return (
+      app.posthogErasure ?? {
+        erase: async () => {
+          throw createAppError('INFRASTRUCTURE');
+        },
+      }
+    );
   if (vendor !== 'messaging-typing') throw createAppError('INFRASTRUCTURE');
   return app.database.messagingTypingPrivacyPort({
     exportSubject: (actorId) => app.redis.exportSubjectTyping(actorId),

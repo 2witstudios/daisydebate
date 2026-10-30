@@ -331,6 +331,72 @@ describe('native selection admission', () => {
   });
 });
 
+test('the selection gate requires passing evidence from both browser runs', async () => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve } = await import('node:path');
+  const directory = await mkdtemp(join(tmpdir(), 'daisy-analytics-evidence-'));
+  const report = (file: string, status: string) => ({
+    file,
+    tests: [{ results: [{ status }] }],
+  });
+  try {
+    const results = join(directory, 'apps/web/test-results');
+    await mkdir(join(results, 'analytics-native'), { recursive: true });
+    await writeFile(
+      join(directory, 'e2e-selection.json'),
+      JSON.stringify({ specs: ['app.e2e.ts', 'analytics-native.e2e.ts'] }),
+    );
+    await writeFile(
+      join(results, 'results.json'),
+      JSON.stringify(report('app.e2e.ts', 'passed')),
+    );
+    const outcomes: number[] = [];
+    for (const status of ['passed', 'failed', 'missing']) {
+      const analytics = join(results, 'analytics-native/results.json');
+      if (status === 'missing') await rm(analytics);
+      else
+        await writeFile(
+          analytics,
+          JSON.stringify(report('analytics-native.e2e.ts', status)),
+        );
+      const process = Bun.spawn(
+        ['bun', resolve('scripts/e2e-selection-report.ts')],
+        {
+          cwd: directory,
+          env: { ...Bun.env, RUNNER_TEMP: directory },
+          stdout: 'ignore',
+          stderr: 'ignore',
+        },
+      );
+      outcomes.push(await process.exited);
+    }
+    assert({
+      given:
+        'separate ordinary and analytics reports, then failed or missing analytics proof',
+      should: 'accept only complete passing evidence across both runs',
+      actual: outcomes,
+      expected: [0, 1, 1],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('shared environment configuration retains full browser coverage', () => {
+  const plan = selectBrowserSpecs(
+    ['packages/config/src/index.ts'],
+    'pull_request',
+    true,
+  );
+  assert({
+    given: 'a shared environment configuration change',
+    should: 'retain the full Chromium and native lifecycle selection',
+    actual: [plan.mode, plan.excluded, plan.nativeSpecs.length],
+    expected: ['full', ['visual.e2e.ts'], 10],
+  });
+});
+
 test('round-media edits select the dedicated attachment lifecycle proof', () => {
   for (const files of [
     ['apps/web/src/features/round-media/media-stage.tsx'],

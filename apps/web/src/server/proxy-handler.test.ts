@@ -308,3 +308,31 @@ test('LiveKit origins are restricted to Ready and live Round presentations', () 
     expected: [false, false, false, false],
   });
 });
+test('PostHog CSP admits only a configured regional origin', () => {
+  const policy = (analyticsHost: string | null) =>
+    proxy(new NextRequest('https://daisy.invalid/'), {
+      analyticsHost,
+    }).headers.get('Content-Security-Policy') ?? '';
+  assert({
+    given: 'the configured EU ingestion host',
+    should:
+      'admit only ingestion, with no remote scripts, blob workers or wildcard',
+    actual: [
+      policy('https://eu.i.posthog.com').includes('https://eu.i.posthog.com'),
+      policy('https://eu.i.posthog.com').includes(
+        'https://eu-assets.i.posthog.com',
+      ),
+      policy('https://eu.i.posthog.com').includes('*.posthog.com'),
+    ],
+    expected: [true, false, false],
+  });
+  assert({
+    given: 'missing or arbitrary vendor configuration',
+    should: 'admit no vendor origin',
+    actual: [
+      policy(null).includes('posthog'),
+      policy('https://attacker.invalid').includes('attacker'),
+    ],
+    expected: [false, false],
+  });
+});

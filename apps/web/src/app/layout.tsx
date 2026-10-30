@@ -1,3 +1,7 @@
+import Link from 'next/link';
+import { AnalyticsClient } from '../ui/analytics/analytics-client';
+import { ConsentBanner } from '../ui/analytics/consent-banner';
+import { requestAnalytics } from '../lib/request-session';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { connection } from 'next/server';
@@ -53,6 +57,7 @@ export default async function RootLayout({
   const jar = await cookies();
   const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
   const refreshSession = await sessionRefreshDueNow();
+  const analytics = await requestAnalytics();
   return (
     <html
       lang="en"
@@ -63,6 +68,19 @@ export default async function RootLayout({
         <ThemeProvider initialPreference={theme}>
           {children}
           {refreshSession ? <SessionRefresh /> : null}
+          {analytics.keyValue ? (
+            <>
+              <AnalyticsClient {...analytics} />
+              <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
+                <ConsentBanner {...analytics} />
+              </div>
+              <footer className="p-4 text-center text-sm">
+                <Link href="/analytics" className="text-ink-muted underline">
+                  Analytics preferences
+                </Link>
+              </footer>
+            </>
+          ) : null}
         </ThemeProvider>
       </body>
     </html>
