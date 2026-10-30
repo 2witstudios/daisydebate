@@ -19,9 +19,7 @@ describe('HeroBanner', () => {
       given: 'the hero banner',
       should: 'render the headline as the h1 and the registered alt text',
       actual: [
-        /<h1[^>]*>Better arguments\. A more thoughtful world\.<\/h1>/.test(
-          html,
-        ),
+        /<h1[^>]*>The arena for competitive debate<\/h1>/.test(html),
         html.includes(`alt="${art.heroAgon.alt}"`),
       ],
       expected: [true, true],
@@ -32,14 +30,14 @@ describe('HeroBanner', () => {
     const html = render();
     assert({
       given: 'the hero banner',
-      should: 'show the landing mock line and no eyebrow',
+      should:
+        'show the landing mock line and the tagline, not staged-launch copy',
       actual: [
         html.includes('The #1 place'),
-        html.includes(
-          'Daisy Debate is opening in stages. Explore what is coming, and be the first to know when each part opens.',
-        ),
+        html.includes('Better arguments. A more thoughtful world.'),
+        html.includes('opening in stages'),
       ],
-      expected: [false, true],
+      expected: [false, true, false],
     });
   });
 
