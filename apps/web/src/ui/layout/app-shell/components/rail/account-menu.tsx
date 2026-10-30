@@ -12,6 +12,7 @@ import { cn } from '../../../../cn';
 import type { ShellAccount, ShellRatings } from '../../account';
 import { profileHref, wayIn } from '../destinations';
 import { AccountRatings, RatingsSkeleton } from './account-ratings';
+import { DismissibleDetails } from './dismissible-details';
 
 /**
  * The foot's account control. A member's avatar, with the username beside it
@@ -42,22 +43,25 @@ export function AccountMenu({
   }
   const { username } = account;
   return (
-    <details className="relative w-full">
-      <summary
-        aria-label={`Your account, ${username}`}
-        title="Account"
-        className={cn(navItemClass(false, extended), 'list-none')}
-      >
-        <Avatar name={username} presence={viewerStatus} size="sm" />
-        {extended ? (
-          <span
-            aria-hidden="true"
-            className="min-w-0 flex-1 truncate text-sm font-semibold text-ink max-rail:hidden"
-          >
-            {username}
-          </span>
-        ) : null}
-      </summary>
+    <DismissibleDetails
+      className="relative w-full"
+      summaryClassName={cn(navItemClass(false, extended), 'list-none')}
+      summaryAriaLabel={`Your account, ${username}`}
+      summaryTitle="Account"
+      summary={
+        <>
+          <Avatar name={username} presence={viewerStatus} size="sm" />
+          {extended ? (
+            <span
+              aria-hidden="true"
+              className="min-w-0 flex-1 truncate text-sm font-semibold text-ink max-rail:hidden"
+            >
+              {username}
+            </span>
+          ) : null}
+        </>
+      }
+    >
       <div className="absolute bottom-0 left-full z-30 ml-2 flex w-flyout flex-col gap-1 rounded-md border border-border bg-surface-raised p-2 shadow-3">
         <div className="flex items-center gap-3 p-2">
           <Avatar name={username} size="md" />
@@ -92,6 +96,6 @@ export function AccountMenu({
           className={cn(navFlyoutLinkClass, 'w-full text-left')}
         />
       </div>
-    </details>
+    </DismissibleDetails>
   );
 }
