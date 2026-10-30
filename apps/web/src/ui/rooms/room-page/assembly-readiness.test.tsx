@@ -5,6 +5,7 @@ import { StartControl, ReadyControl } from './assembly-readiness';
 
 setupRitewayBun();
 const base = {
+  resolutionDraw: null,
   botAdmission: null,
   version: 7,
   participants: [

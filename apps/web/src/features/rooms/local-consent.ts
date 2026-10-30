@@ -111,6 +111,7 @@ export function createLocalConsent({
         const intent = command();
         if (!intent) break;
         const result = await send(intent);
+        if (!snapshot.view.capabilities.canReady) break;
         if (acknowledge(result, intent.expectedConsentVersion)) continue;
         if (await recoverConflict(result, conflicts++)) continue;
         publish({ problem: true });
@@ -121,7 +122,8 @@ export function createLocalConsent({
         publish({ pending: false, problem: false });
       }
     } catch {
-      if (!disposed) publish({ problem: true });
+      if (!disposed && snapshot.view.capabilities.canReady)
+        publish({ problem: true });
     }
   };
   const drive = () => {

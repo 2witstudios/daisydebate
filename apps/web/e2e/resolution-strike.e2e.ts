@@ -314,6 +314,11 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await page
       .getByRole('button', { name: 'End prep', exact: true })
       .click({ timeout: 30_000 });
+    // A reload drops local device checks; committed readiness still permits Launch.
+    await page.reload();
+    await expect(
+      page.getByRole('button', { name: 'Not ready', exact: true }),
+    ).toHaveCount(0);
     const roundId = await startRoundInBrowser(page);
     const round = await readBallotRound(host.context.request, roundId);
     expect(round.topic).toBe(survivor);

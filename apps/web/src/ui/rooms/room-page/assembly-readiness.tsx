@@ -12,7 +12,12 @@ import type { ReactNode } from 'react';
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
-  'participants' | 'version' | 'readiness' | 'startRefusal' | 'botAdmission'
+  | 'participants'
+  | 'version'
+  | 'readiness'
+  | 'startRefusal'
+  | 'botAdmission'
+  | 'resolutionDraw'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly prep: RoomView['prep'];
@@ -34,7 +39,8 @@ function startFence(
   actorId: string,
   local: LocalReadiness,
 ): boolean {
-  if (!view.capabilities.canReady) return false;
+  if (view.prep.startedAt !== null || view.resolutionDraw !== null)
+    return false;
   if (local.unreadyPending) return true;
   const own = view.participants
     .filter(isNamedSeat)

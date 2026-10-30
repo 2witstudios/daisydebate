@@ -269,3 +269,34 @@ test('an older consent answer cannot reopen a committed room', async () => {
     expected: [false, 0],
   });
 });
+
+test('late success cannot restore a readiness problem after commitment', async () => {
+  const answer =
+    Promise.withResolvers<
+      Awaited<ReturnType<Parameters<typeof createLocalConsent>[0]['send']>>
+    >();
+  const c = createLocalConsent({
+    view: consentView(false),
+    ...unreadyEdges,
+    send: () => answer.promise,
+  });
+  await c.devices(true);
+  const pending = c.ready();
+  c.updateView({
+    ...consentView(true, 2),
+    changeVersion: assemblySnapshot.changeVersion + 1,
+    capabilities: { ...assemblySnapshot.capabilities, canReady: false },
+  });
+  answer.resolve({ kind: 'accepted', view: consentView(true, 2) });
+  await pending;
+  assert({
+    given: 'commitment adopted while an older Ready answer is in flight',
+    should: 'keep readiness settled without a false cannot-start warning',
+    actual: [
+      c.readSnapshot().pending,
+      c.readSnapshot().problem,
+      c.readSnapshot().view.capabilities.canReady,
+    ],
+    expected: [false, false, false],
+  });
+});
