@@ -12,6 +12,7 @@ describe('browser analytics admission', () => {
         distinct_id: 'anonymous',
         $current_url: 'https://daisy.test/?email=private',
         $referrer: 'private-referrer',
+        $process_person_profile: false,
         email: 'private@example.test',
         $set: { name: 'Private' },
       },
@@ -25,6 +26,7 @@ describe('browser analytics admission', () => {
         distinct_id: 'anonymous',
         anonymousId: 'anonymous',
         $geoip_disable: true,
+        $process_person_profile: false,
       },
     });
     assert({

@@ -14,6 +14,8 @@ export function expectAnalyticsPrivacy(captures: readonly AnalyticsEnvelope[]) {
     expect(event).not.toHaveProperty('$set');
     expect(event).not.toHaveProperty('$set_once');
     expect(event.properties.token).toBe('phc_browser_fixture');
+    if ('anonymousId' in event.properties)
+      expect(event.properties.$process_person_profile).toBe(false);
   }
 }
 

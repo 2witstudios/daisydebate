@@ -20,6 +20,8 @@ are event properties. The browser's final send filter also removes SDK
 enrichment. PostHog receives connection metadata as a processor; GeoIP is
 disabled, but this is not a claim that an HTTP recipient cannot see an IP.
 Autocapture, exceptions, session replay, feature flags and surveys are off.
+Anonymous product events retain the SDK's `$process_person_profile: false`
+flag so the final privacy filter preserves personless capture.
 The stored replay category remains unanswered and hidden, independent of
 deployment configuration. Replay activation requires its own implementation
 and privacy proof; setting a remote project toggle cannot enable it.
@@ -35,6 +37,13 @@ choices. Cookie consent lasts 180 days. Account choices live in
 is never initialized before opt-in; afterward it initializes from the existing cookie so native navigation preserves identity. Sign-out or account change
 resets identified vendor state. A same-origin storage notification pauses
 capture in other tabs and refreshes their server-owned consent and identity.
+
+The cookie records this browser's choice, including choices made before
+sign-in. Sign-out preserves that preference while resetting vendor identity.
+A newly signed-in account without a consent record adopts the browser's
+choice once; an existing account record always wins, including refusal.
+This device-scoped adoption behavior is part of the PRIV-H counsel review
+before activation.
 
 Identified withdrawal records denied consent and a fresh vendor-deletion job in the same account-fenced transaction. Account erasure rearms that job, fencing older acknowledgements by job ID. Anonymous withdrawal stops forward capture and clears browser identity; anonymous history follows the approved vendor retention period.
 

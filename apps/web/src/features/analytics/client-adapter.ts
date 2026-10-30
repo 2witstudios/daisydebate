@@ -38,6 +38,9 @@ export function sanitizeCapture(
       distinct_id,
       ...(currentUser ? { userId: currentUser } : { anonymousId: distinct_id }),
       $geoip_disable: true,
+      ...(event.properties.$process_person_profile === false
+        ? { $process_person_profile: false }
+        : {}),
     },
   };
 }
