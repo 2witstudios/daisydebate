@@ -3,7 +3,7 @@
  * the product (not a decorative asset): swap the path to replace the art.
  * Temporary photography is sourced under the Unsplash license.
  */
-export type ArtKey = 'heroAgon' | 'earthNight' | 'quoteRidge';
+export type ArtKey = 'heroAgon' | 'earthNight' | 'quoteRidge' | 'laurelArena';
 
 export const art: Record<
   ArtKey,
@@ -32,6 +32,12 @@ export const art: Record<
     alt: 'A green mountain ridge under fog',
     width: 2200,
     height: 1311,
+  },
+  laurelArena: {
+    src: '/images/laurel-arena.png',
+    alt: 'An ancient laurel trophy arena',
+    width: 1774,
+    height: 887,
   },
 };
 
