@@ -126,6 +126,7 @@ describe('AppShell', () => {
           '/lobby',
           '/leaderboard',
           '/judge',
+          '/train',
           '/messages',
           '/friends',
           '/profile/ada-byron',
@@ -251,6 +252,7 @@ describe('AppShell', () => {
       actual: sheet,
       expected: [
         '/leaderboard',
+        '/train',
         '/friends',
         '/profile/ada-byron',
         '/settings',

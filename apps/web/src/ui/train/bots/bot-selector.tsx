@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import type { FormStateAction } from '../../form-action/action-form';
 import type { TrainLanding } from '../../../features/train/bots';

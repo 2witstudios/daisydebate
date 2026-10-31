@@ -271,6 +271,11 @@ export default defineConfig({
         // OpenRouter, for a live check by hand.
         OPENROUTER_API_KEY:
           process.env.E2E_OPENROUTER_API_KEY ?? OPENROUTER_E2E_PLACEHOLDER,
+        // Test-only admission capacity lets bot-cast browser journeys reach
+        // the existing reservation and eligibility gates without a live
+        // provider credential. Provider calls still use the inert stub.
+        AI_ROUND_BUSY_CAP: '4',
+        AI_ROUND_MONTHLY_CAP: '20',
       },
     },
     {

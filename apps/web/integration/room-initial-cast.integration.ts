@@ -1,3 +1,4 @@
+import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -282,5 +283,68 @@ test('a cast actor whose durable profile is already gone refuses inside the tran
       actual: seats.length,
       expected: 0,
     });
+  });
+});
+
+test('a concurrent bot-profile deactivation serializes with fresh cast creation', async () => {
+  await withRoomRuntime(async (f) => {
+    const { actorId: botId } = await f.bot();
+    const member = await f.member();
+    const resolutionId = await valueResolutionId(f);
+    const lock = new SQL(process.env.TEST_DATABASE_URL!, { max: 1 });
+    let created: Promise<unknown> | null = null;
+    try {
+      await lock`begin`;
+      await lock`
+        select actor_id from bot_profiles
+        where actor_id = ${botId} for update
+      `;
+      created = f.operations.create(
+        member,
+        valueBody(resolutionId, [
+          { actorId: botId, role: 'negative', slot: 0 },
+        ]),
+      );
+      // Observe the exact database lock wait rather than assuming the other
+      // transaction reached the profile fence before deactivation.
+      let waiting = false;
+      const deadline = Date.now() + 5_000;
+      while (!waiting && Date.now() < deadline) {
+        const [activity] = await f.sql`
+          select count(*)::int as waiting
+          from pg_stat_activity
+          where datname = current_database()
+            and wait_event_type = 'Lock'
+            and query ilike '%bot_profiles%'
+            and pid <> pg_backend_pid()`;
+        waiting = activity.waiting > 0;
+        if (!waiting) await Bun.sleep(10);
+      }
+      assert({
+        given: 'a fresh create competing with a locked mutable bot profile',
+        should:
+          'wait on the profile authority fence before deciding eligibility',
+        actual: waiting,
+        expected: true,
+      });
+      await lock`delete from bot_profiles where actor_id = ${botId}`;
+      await lock`commit`;
+      await assertRejects({
+        given:
+          'the profile deactivation commits before the create acquires its lock',
+        should: 're-read the now-absent role and atomically refuse the cast',
+        actual: () => created!,
+        code: 'CONFLICT',
+      });
+      assert({
+        given: 'the refusal after the serialized deactivation',
+        should: 'leave no practice Room or participant rows',
+        actual: (await castRows(f)).length,
+        expected: 0,
+      });
+    } finally {
+      await lock`rollback`.catch(() => undefined);
+      await lock.close();
+    }
   });
 });

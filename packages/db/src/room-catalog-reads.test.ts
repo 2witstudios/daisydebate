@@ -123,16 +123,25 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
       'a bot debater, an unconfigured bot and the AI judge in its own profile table',
     should:
       'preserve each identity, expose eligibility and the one seat role each may hold, and carry the debater roster card',
-    actual: bots.map(({ actorId, label, eligible, seatRole, persona, difficulty }) => [
-      actorId,
-      label,
-      eligible,
-      seatRole,
-      persona ?? null,
-      difficulty ?? null,
-    ]),
+    actual: bots.map(
+      ({ actorId, label, eligible, seatRole, persona, difficulty }) => [
+        actorId,
+        label,
+        eligible,
+        seatRole,
+        persona ?? null,
+        difficulty ?? null,
+      ],
+    ),
     expected: [
-      [availableBotId, 'Debater', true, 'debater', 'Argue only from the motion', 'beginner'],
+      [
+        availableBotId,
+        'Debater',
+        true,
+        'debater',
+        'Argue only from the motion',
+        'beginner',
+      ],
       [unavailableBotId, '', false, null, null, null],
       [judgeId, 'The Panel', true, 'judge', null, null],
     ],

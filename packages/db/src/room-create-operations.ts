@@ -11,7 +11,7 @@ import {
   type SelectionTuple,
 } from './format-operations';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 
@@ -19,6 +19,8 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 import { rooms } from './schema/rooms';
 import { roomParticipants } from './schema/rooms';
+import { botProfiles } from './schema/bot-profiles';
+import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { lockAuthorizationActors } from './authorization';
@@ -237,10 +239,23 @@ const applyInitialCast = async (
   await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
-  const [row] = await tx
-    .select()
-    .from(rooms)
-    .where(eq(rooms.id, room.id));
+  // Eligibility and seatRole live on these profile rows, not the account
+  // authorization fence. Lock extant profiles in actor-id order before
+  // actorFact reads them, so profile removal serializes with this create.
+  const castActorIds = seats.map((seat) => seat.actorId).sort();
+  await tx
+    .select({ actorId: botProfiles.actorId })
+    .from(botProfiles)
+    .where(inArray(botProfiles.actorId, castActorIds))
+    .orderBy(botProfiles.actorId)
+    .for('share');
+  await tx
+    .select({ actorId: aiJudgeProfiles.actorId })
+    .from(aiJudgeProfiles)
+    .where(inArray(aiJudgeProfiles.actorId, castActorIds))
+    .orderBy(aiJudgeProfiles.actorId)
+    .for('share');
+  const [row] = await tx.select().from(rooms).where(eq(rooms.id, room.id));
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
   let assembled = state;

@@ -4,7 +4,12 @@ import { proveFormatPicker } from './support/room-launch-format';
 import { proveNoScriptFormatChoice } from './support/room-format-no-script';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
-import { roomViewSchema, roundViewSchema } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  roomViewSchema,
+  roundViewSchema,
+  type RoomView,
+} from '@daisy/protocol';
 import { expect, test, openPage } from './support/fixtures';
 import { origin } from './support/accounts';
 import {
@@ -14,6 +19,7 @@ import {
   claim,
   prepareJudgeRoom,
   assertFrozenLaunch,
+  turnOffPreRoundPrep,
   clockText,
   openRoomSetup,
   saveRoundSettings,
@@ -22,11 +28,18 @@ import { launchCustomSelection } from './support/room-launch-custom';
 import { proveLoopbackUpstreams } from './support/launch-loopback';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
+import { readyOwnSeat } from './support/human-ballot-round';
+import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
 import {
   closeSettledLaunchContexts,
   settledLaunchAuth,
 } from './support/room-launch-settled';
 
+const seated = (view: import('@daisy/protocol').RoomView, actorId: string) =>
+  view.participants.find(
+    (participant) =>
+      isNamedSeat(participant) && participant.actorId === actorId,
+  );
 // Actors, receipt and competitive history deliberately survive context closure.
 // Only a released suite-owned slot lifecycle can destroy this proof data.
 test('canonical browser create, settings, cast, refusals and reread preserve durable authority', async ({
@@ -210,6 +223,164 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
     } finally {
       await native.close();
     }
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
+test('Train carries its chosen bot through the durable Room into one scheduled Round', async ({
+  browser,
+}, info) => {
+  test.setTimeout(240_000);
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const member = accounts.members[0]!;
+    const context = member.context;
+    const page = await openPage(context, 'Train scheduled-round host');
+    const bots = await readRoomBotRoster(page.request);
+    const opponent = bots.find(
+      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+    );
+    expect(opponent?.eligible).toBe(true);
+    const roomId = await startTrainPractice(page, opponent!.actorId, 'Wren');
+    let view = await reread(page.request, roomId);
+    expect(seated(view, opponent!.actorId)).toMatchObject({
+      kind: 'bot',
+      role: 'negative',
+      slot: 0,
+    });
+    expect(
+      seated(view, bots.find((bot) => bot.seatRole === 'judge')!.actorId),
+    ).toMatchObject({ role: 'judge', kind: 'bot' });
+    expect(view.status).toBe('assembling');
+
+    await page.reload();
+    view = await reread(page.request, roomId);
+    expect(seated(view, opponent!.actorId)?.role).toBe('negative');
+    expect(view.status).toBe('assembling');
+    await turnOffPreRoundPrep(page);
+    view = await reread(page.request, roomId);
+    view = await claim(page, view, 'Affirmative 1');
+
+    // The human host explicitly Readies through the normal Room command;
+    // Train itself mints no consent.
+    view = await readyOwnSeat(member, view, {
+      role: 'affirmative',
+      slot: 0,
+    });
+    const readyAtReceipt = [...view.readiness.readyActorIds];
+    const startDraw = await page.request.post(`/api/rooms/${roomId}/commands`, {
+      headers: { origin },
+      data: {
+        type: 'start-pre-round',
+        commandId: createId(),
+        expectedVersion: view.version,
+      },
+    });
+    const drawReceipt = (await startDraw.json()) as {
+      refusal?: string;
+      view?: RoomView;
+    };
+    if (startDraw.status() !== 200) {
+      const current = await reread(page.request, roomId);
+      await info.attach('train-readiness-loss', {
+        body: JSON.stringify({
+          candidate: process.env.GIT_COMMIT,
+          roomId,
+          status: startDraw.status(),
+          refusal: drawReceipt.refusal,
+          readyAtReceipt,
+          readyAtStart: current.readiness.readyActorIds,
+          roomVersion: current.version,
+        }),
+        contentType: 'application/json',
+      });
+      throw new Error(
+        `Train Round start refused after explicit Ready: ${drawReceipt.refusal ?? startDraw.status()}`,
+      );
+    }
+    view = roomViewSchema.parse(drawReceipt.view);
+    // The bot's automatic strike may race this browser's room resource. Drive
+    // only the existing, authority-checked strike command below, re-reading
+    // the authoritative draw before every host-controlled strike.
+    for (let strike = 0; strike < 3; strike++) {
+      await expect(async () => {
+        view = await reread(page.request, roomId);
+        expect(
+          view.topic !== null ||
+            (view.resolutionDraw?.visibility === 'debater' &&
+              view.resolutionDraw.turn !== null &&
+              view.capabilities.canStrike),
+        ).toBe(true);
+      }).toPass({ timeout: 30_000 });
+      if (view.topic !== null) break;
+      if (
+        view.resolutionDraw?.visibility !== 'debater' ||
+        !view.resolutionDraw.turn ||
+        !view.capabilities.canStrike
+      )
+        throw new Error('Train host cannot read the active draw');
+      const draw = view.resolutionDraw;
+      const turn = draw.turn;
+      if (!turn) throw new Error('Train draw has no active turn');
+      const alreadyStruck = new Set(draw.strikes.map((item) => item.position));
+      const position = draw.items.find(
+        (item) => !alreadyStruck.has(item.position),
+      )?.position;
+      if (position === undefined)
+        throw new Error('Train draw has no available host strike');
+      const response = await page.request.post(
+        `/api/rooms/${roomId}/commands`,
+        {
+          headers: { origin },
+          data: {
+            type: 'strike-resolution',
+            commandId: createId(),
+            expectedVersion: view.version,
+            ordinal: turn.ordinal,
+            position,
+          },
+        },
+      );
+      expect(response.status()).toBe(200);
+      view = roomViewSchema.parse((await response.json()).view);
+      if (view.topic !== null) break;
+    }
+    await expect(async () => {
+      view = await reread(page.request, roomId);
+      expect(view.topic).not.toBeNull();
+    }).toPass({ timeout: 30_000 });
+
+    await page
+      .getByRole('button', { name: 'Start round', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/rounds\/[a-z0-9]{24}(?:\/room)?$/);
+    view = await reread(page.request, roomId);
+    expect(view.roundRef).toMatchObject({ status: 'scheduled' });
+    const roundId = view.roundRef!.id;
+    const roundResponse = await page.request.get(`/api/rounds/${roundId}`);
+    expect(roundResponse.status()).toBe(200);
+    expect(roundViewSchema.parse(await roundResponse.json())).toMatchObject({
+      id: roundId,
+      status: 'scheduled',
+      topic: view.topic,
+    });
+    expect(seated(view, opponent!.actorId)?.role).toBe('negative');
+
+    // The member still holds this Room. A repeated Train create returns to
+    // the same scheduled Round rather than opening another Room (ADR 0070).
+    await page.goto(`/train?bot=${opponent!.actorId}`);
+    await page.getByRole('button', { name: 'Start practice' }).click();
+    await expect(page).toHaveURL(new RegExp(`/rounds/${roundId}(?:/room)?$`));
+    await info.attach('train-scheduled-round-evidence', {
+      body: JSON.stringify({
+        candidate: process.env.GIT_COMMIT,
+        roomId,
+        roundId,
+        opponentActorId: opponent!.actorId,
+      }),
+      contentType: 'application/json',
+    });
   } finally {
     await closeSettledLaunchContexts(accounts);
   }

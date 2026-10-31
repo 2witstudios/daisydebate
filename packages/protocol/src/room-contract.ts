@@ -86,10 +86,15 @@ export const roomCreateSchema = z
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
     /** Each actor at most once: assign-seat would move, not reject, a repeat. */
-    cast: z.array(castSeat).max(8).refine(
-      (cast) => new Set(cast.map((seat) => seat.actorId)).size === cast.length,
-      { message: 'A cast seats an actor at most once', path: ['cast'] },
-    ).optional(),
+    cast: z
+      .array(castSeat)
+      .max(8)
+      .refine(
+        (cast) =>
+          new Set(cast.map((seat) => seat.actorId)).size === cast.length,
+        { message: 'A cast seats an actor at most once', path: ['cast'] },
+      )
+      .optional(),
   })
   .refine(
     (create) =>
