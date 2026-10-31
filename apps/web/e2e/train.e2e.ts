@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import type { Response } from '@playwright/test';
 import { expect, test, openPage } from './support/fixtures';
 import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
 import { resetRateLimits, signUpMember, origin } from './support/accounts';
@@ -93,7 +94,7 @@ test('native Train Start practice creates a Room and recovers an active Room wit
       (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
     );
     expect(opponent?.eligible).toBe(true);
-    const nativePosts: import('@playwright/test').Response[] = [];
+    const nativePosts: Response[] = [];
     page.on('response', (response) => {
       if (
         response.request().method() === 'POST' &&
