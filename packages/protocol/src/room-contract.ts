@@ -68,16 +68,16 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 /**
- * A fixed-topic Room names its resolution; a draw Room's topic is null
- * until its reveal (FMT-7). A catalog or ranked selection's draw comes
- * from its preset, so creation checks that pairing after resolving it.
- */
-/**
  * The seat requests a create applies as its initial cast, before anyone
  * joins: the same assign-seat authority judges each one, so a refused cast
  * refuses the whole create.
  */
 const castSeat = z.strictObject({ actorId: idSchema, ...seat });
+/**
+ * A fixed-topic Room names its resolution; a draw Room's topic is null
+ * until its reveal (FMT-7). A catalog or ranked selection's draw comes
+ * from its preset, so creation checks that pairing after resolving it.
+ */
 export const roomCreateSchema = z
   .strictObject({
     commandId: idSchema,
