@@ -1,7 +1,7 @@
 # 0093: Dated audit exceptions for glob and minimatch
 
 Status: accepted (agent decision on the owner's behalf of 2026-10-31,
-pending confirmation). This extends ADR 0039 with two more dated
+DEC-270, pending confirmation). This extends ADR 0039 with two more dated
 exceptions; ADR 0039's rules apply unchanged.
 
 ## Context
