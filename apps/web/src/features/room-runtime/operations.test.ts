@@ -171,6 +171,124 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   });
 });
 
+test('Room creation hands the initial cast to the create transaction through the assign-seat authority (train-room)', async () => {
+  const botActorId = 'b4n6p8r2t4v6x8z1k3b5c7d9';
+  const botTarget = {
+    actorId: botActorId,
+    kind: 'bot' as const,
+    label: 'Practice bot',
+    eligible: true,
+    seatRole: 'debater' as const,
+  };
+  const create = async (cast: RoomCreate['cast']) => {
+    const run = makeOperations();
+    await run.operations
+      .create(caller, {
+        commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+        title: 'A practice room',
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+        visibility: 'public',
+        selection: {
+          kind: 'catalog',
+          formatId: 'value',
+          formatVersion: 1,
+          presetVersion: 1,
+          competitionType: 'casual',
+        },
+        cast,
+      })
+      .catch(() => undefined);
+    return run;
+  };
+  const run = await create([
+    { actorId: botActorId, role: 'negative', slot: 0 },
+  ]);
+  const cast = run.createInput()?.cast;
+  const seat = cast?.seats[0];
+  const accepted =
+    seat &&
+    cast?.apply(
+      { ...state, participants: [] },
+      seat,
+      botTarget,
+      now,
+    );
+  const refused = seat && cast?.apply({ ...state, participants: [] }, seat, null, now);
+  const wrongSeat =
+    seat &&
+    cast?.apply({ ...state, participants: [] }, seat, {
+      ...botTarget,
+      seatRole: 'judge',
+    }, now);
+  assert({
+    given: 'a create casting an eligible bot debater at negative',
+    should:
+      'pass the seat with its identities to the transaction, seat it through assign-seat, and refuse a missing or wrong-seat actor',
+    actual: {
+      seats: seat && [seat.actorId, seat.role, seat.slot],
+      identities: seat
+        ? [seat.commandId, seat.participantId]
+        : null,
+      seated:
+        accepted?.ok === true
+          ? accepted.mutation.state.participants.map((p) => [
+              p.actorId,
+              p.role,
+              p.slot,
+              p.eligible,
+            ])
+          : accepted,
+      version: accepted?.ok === true ? accepted.mutation.state.version : null,
+      members: accepted?.ok === true ? accepted.mutation.members : null,
+      missing: refused && 'ok' in refused ? refused.refusal : null,
+      wrongSeat:
+        wrongSeat && 'ok' in wrongSeat ? wrongSeat.refusal : null,
+    },
+    expected: {
+      seats: [botActorId, 'negative', 0],
+      identities: [
+        'c5n6p8r2t4v6x8z1k3b5c7d9',
+        'r5n6p8r2t4v6x8z1k3b5c7d9',
+      ],
+      seated: [[botActorId, 'negative', 0, true]],
+      version: 2,
+      members: [caller.actorId],
+      missing: 'actor-ineligible',
+      wrongSeat: 'actor-ineligible',
+    },
+  });
+  const duplicate = makeOperations();
+  const duplicateError = await duplicate.operations
+    .create(caller, {
+      commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+      title: 'A practice room',
+      resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+      visibility: 'public',
+      selection: {
+        kind: 'catalog',
+        formatId: 'value',
+        formatVersion: 1,
+        presetVersion: 1,
+        competitionType: 'casual',
+      },
+      cast: [
+        { actorId: botActorId, role: 'negative', slot: 0 },
+        { actorId: botActorId, role: 'affirmative', slot: 0 },
+      ],
+    })
+    .then(
+      () => null,
+      (error: unknown) => (error as { code?: string }).code ?? null,
+    );
+  assert({
+    given: 'a cast seating one actor twice',
+    should:
+      'refuse the whole create before the transaction and pass it nothing',
+    actual: [duplicate.createInput(), duplicateError],
+    expected: [null, 'CONFLICT'],
+  });
+});
+
 test('Room creation decides catalog selections through the one policy (FMT-1)', async () => {
   const create = (selection: RoomCreate['selection']) => {
     const run = makeOperations();

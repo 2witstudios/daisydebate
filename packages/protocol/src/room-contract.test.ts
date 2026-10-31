@@ -70,6 +70,62 @@ describe('Room command boundary', () => {
       ],
     });
   });
+  test('an initial cast seats AI actors once each (train-room)', () => {
+    const create = (cast: unknown) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        resolution: { kind: 'strike' },
+        visibility: 'public',
+        selection: {
+          kind: 'catalog',
+          formatId: 'freestyle',
+          formatVersion: 1,
+          presetVersion: 1,
+          competitionType: 'casual',
+        },
+        cast,
+      });
+    const seat = (actorId: string, role: string, slot = 0) => ({
+      actorId,
+      role,
+      slot,
+    });
+    const bot = 'w2r5e8n1b4o7t0a3n6i9c2e5';
+    const judge = 'a1i2j3u4d5g6e7a8i9j0u1d2';
+    assert({
+      given: 'a create with no cast and one with distinct AI actors',
+      should: 'accept both: the cast is optional',
+      actual: [
+        create(undefined).success,
+        create([seat(bot, 'negative'), seat(judge, 'judge')]).success,
+      ],
+      expected: [true, true],
+    });
+    assert({
+      given: 'a cast seating one actor twice',
+      should: 'refuse: assign-seat would move, not reject, the repeat',
+      actual: create([seat(bot, 'negative'), seat(bot, 'affirmative')]).success,
+      expected: false,
+    });
+    assert({
+      given: 'a cast entry with a non-seat role, a negative slot or a short id',
+      should: 'refuse every malformed entry',
+      actual: [
+        create([seat(bot, 'host')]).success,
+        create([seat(bot, 'negative', -1)]).success,
+        create([seat('too-short', 'negative')]).success,
+      ],
+      expected: [false, false, false],
+    });
+    assert({
+      given: 'a cast longer than any format declares seats',
+      should: 'refuse the whole cast',
+      actual: create(Array.from({ length: 9 }, (_, i) => seat(bot, 'judge', i)))
+        .success,
+      expected: false,
+    });
+  });
   test('a catalog selection names its preset and carries no config (FMT-1)', () => {
     const create = (selection: Record<string, unknown>) =>
       roomCreateSchema.safeParse({
