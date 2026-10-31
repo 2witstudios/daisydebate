@@ -1,12 +1,10 @@
 import {
   clubChoices,
   experienceChoices,
-  formatPreferenceChoices,
   interestCategoryChoices,
   wantChoices,
   type Club,
   type Experience,
-  type FormatPreference,
   type InterestCategory,
   type Want,
 } from '@daisy/protocol';
@@ -14,10 +12,13 @@ import {
 type AboutAnswers = {
   readonly wants: readonly Want[];
   readonly club: Club | null;
+  /** The club's name as the member wrote it, when they named one. */
+  readonly clubName: string | null;
 };
 type ExperienceAnswers = {
   readonly experience: Experience | null;
-  readonly formats: readonly FormatPreference[];
+  /** Leagues the member has been affiliated with, as they wrote them. */
+  readonly leagues: readonly string[];
 };
 type TopicsAnswers = { readonly topics: readonly InterestCategory[] };
 
@@ -37,8 +38,9 @@ export type OnboardingAnswers = AboutAnswers &
 export const emptyAnswers: OnboardingAnswers = {
   wants: [],
   club: null,
+  clubName: null,
   experience: null,
-  formats: [],
+  leagues: [],
   topics: [],
   completedAt: null,
 };
@@ -76,9 +78,66 @@ function many<T extends string>(choices: readonly T[], value: unknown) {
   return picked;
 }
 
+/** How long one freely-written name (a club or league) may be. */
+const NAME_MAX = 60;
+/** How many freely-written leagues one answer may carry. */
+const LEAGUES_MAX = 12;
+
+/** One freely-written name, or null for nothing: trimmed, bounded, one line. */
+function name(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new Refused('invalid-value');
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  if (trimmed.length > NAME_MAX || /\r|\n/.test(trimmed))
+    throw new Refused('invalid-value');
+  return trimmed;
+}
+
+/**
+ * Free-text leagues: the checked chips plus whatever was typed, comma
+ * separated. Empties are noise and drop; the same league spelled twice
+ * (a chip and the field) merges into the first spelling; only a name
+ * over the bound or too many leagues refuses.
+ */
+function manyOpen(value: unknown): string[] {
+  const items =
+    value === undefined
+      ? []
+      : Array.isArray(value)
+        ? value
+        : typeof value === 'string'
+          ? [value]
+          : (() => {
+              throw new Refused('invalid-value');
+            })();
+  const picked = items.flatMap((item) =>
+    typeof item === 'string'
+      ? item
+          .split(',')
+          .map((league) => league.trim())
+          .filter((league) => league !== '')
+      : (() => {
+          throw new Refused('invalid-value');
+        })(),
+  );
+  if (picked.some((league) => league.length > NAME_MAX))
+    throw new Refused('invalid-value');
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const league of picked) {
+    const key = league.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(league);
+  }
+  if (unique.length > LEAGUES_MAX) throw new Refused('invalid-value');
+  return unique;
+}
+
 const fieldsOf: Record<QuestionStep, readonly string[]> = {
-  about: ['wants', 'club'],
-  experience: ['experience', 'formats'],
+  about: ['wants', 'club', 'clubName'],
+  experience: ['experience', 'leagues', 'leagueOther'],
   topics: ['topics'],
 };
 
@@ -95,12 +154,20 @@ function read(
         step,
         wants: many(wantChoices, input.wants),
         club: one(clubChoices, input.club),
+        clubName: name(input.clubName),
       };
     case 'experience':
       return {
         step,
         experience: one(experienceChoices, input.experience),
-        formats: many(formatPreferenceChoices, input.formats),
+        leagues: manyOpen(
+          input.leagueOther === undefined
+            ? input.leagues
+            : [
+                ...(Array.isArray(input.leagues) ? input.leagues : []),
+                input.leagueOther,
+              ],
+        ),
       };
     case 'topics':
       return { step, topics: many(interestCategoryChoices, input.topics) };

@@ -148,9 +148,12 @@ describe('DebateStep', () => {
     });
     assert({
       given: 'two 2-minute cross-examinations',
-      should: 'total 26 minutes of speaking and say Q&A is 2 minutes',
+      should:
+        'total 26 minutes of speaking and say prep is 20 minutes before the round, as freestyle runs it',
       actual: [
-        page.includes('26 minutes of speaking, plus 4 minutes of prep'),
+        page.includes(
+          '26 minutes of speaking, plus 20 minutes of prep before the round begins, once the motion is struck.',
+        ),
         page.includes('the other side has 2 minutes to question'),
       ],
       expected: [true, true],

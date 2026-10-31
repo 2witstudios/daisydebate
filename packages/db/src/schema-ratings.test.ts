@@ -4,6 +4,7 @@ import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { roleGrants } from './schema/role-grants';
 import {
   memberInterests,
+  memberLeagues,
   memberOnboarding,
   memberTopics,
 } from './schema/onboarding';
@@ -23,6 +24,7 @@ describe('ratings schema rules', () => {
         onboarding: rules(memberOnboarding).checks,
         interests: rules(memberInterests).checks,
         topics: rules(memberTopics).checks,
+        leagues: rules(memberLeagues).checks,
       },
       expected: {
         seasons: [
@@ -52,11 +54,11 @@ describe('ratings schema rules', () => {
         onboarding: [
           'member_onboarding_club_check',
           'member_onboarding_experience_check',
-          'member_onboarding_formats_check',
           'member_onboarding_version_positive',
         ],
         interests: ['member_interests_interest_check'],
         topics: ['member_topics_topic_check'],
+        leagues: ['member_leagues_league_check'],
       },
     });
   });

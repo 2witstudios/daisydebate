@@ -1,14 +1,9 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { asc, eq, sql } from 'drizzle-orm';
-import type {
-  Club,
-  Experience,
-  FormatPreference,
-  InterestCategory,
-  Want,
-} from '@daisy/protocol';
+import type { Club, Experience, InterestCategory, Want } from '@daisy/protocol';
 import {
   memberInterests,
+  memberLeagues,
   memberOnboarding,
   memberTopics,
 } from './schema/onboarding';
@@ -27,11 +22,14 @@ export type OnboardingStepWrite =
       readonly step: 'about';
       readonly wants: readonly Want[];
       readonly club: Club | null;
+      /** The club's name as the member wrote it, when they named one. */
+      readonly clubName: string | null;
     }
   | {
       readonly step: 'experience';
       readonly experience: Experience | null;
-      readonly formats: readonly FormatPreference[];
+      /** Leagues the member has been affiliated with, as they wrote them. */
+      readonly leagues: readonly string[];
     }
   | { readonly step: 'topics'; readonly topics: readonly InterestCategory[] };
 
@@ -39,8 +37,9 @@ export type OnboardingStepWrite =
 type OnboardingRecord = {
   readonly wants: readonly Want[];
   readonly club: Club | null;
+  readonly clubName: string | null;
   readonly experience: Experience | null;
-  readonly formats: readonly FormatPreference[];
+  readonly leagues: readonly string[];
   readonly topics: readonly InterestCategory[];
   readonly completedAt: string | null;
 };
@@ -50,15 +49,16 @@ type OnboardingRow = typeof memberOnboarding.$inferSelect;
 /** A member with no onboarding row has answered nothing. */
 const noRow = {
   club: null,
+  clubName: null,
   experience: null,
-  formats: [],
+  leagues: [],
   completedAt: null,
 } as const;
 
 const rowAnswers = (row: OnboardingRow) => ({
   club: row.club as Club | null,
+  clubName: row.clubName,
   experience: row.experience as Experience | null,
-  formats: row.formats as FormatPreference[],
   completedAt: row.completedAt === null ? null : row.completedAt.toISOString(),
 });
 
@@ -67,10 +67,12 @@ const toRecord = (
   row: OnboardingRow | undefined,
   wants: readonly { readonly value: string }[],
   topics: readonly { readonly value: string }[],
+  leagues: readonly { readonly value: string }[],
 ): OnboardingRecord => ({
   ...(row === undefined ? noRow : rowAnswers(row)),
   wants: wants.map(({ value }) => value as Want),
   topics: topics.map(({ value }) => value as InterestCategory),
+  leagues: leagues.map(({ value }) => value),
 });
 
 const touched = {
@@ -148,12 +150,9 @@ export const onboardingOperations = ({
         await requireOptionalAnswerAge(tx, { userId, actorId, now, admits });
         const columns =
           answers.step === 'about'
-            ? { club: answers.club }
+            ? { club: answers.club, clubName: answers.clubName }
             : answers.step === 'experience'
-              ? {
-                  experience: answers.experience,
-                  formats: [...answers.formats],
-                }
+              ? { experience: answers.experience }
               : {};
         await tx
           .insert(memberOnboarding)
@@ -170,6 +169,15 @@ export const onboardingOperations = ({
             await tx
               .insert(memberInterests)
               .values(answers.wants.map((interest) => ({ userId, interest })));
+        }
+        if (answers.step === 'experience') {
+          await tx
+            .delete(memberLeagues)
+            .where(eq(memberLeagues.userId, userId));
+          if (answers.leagues.length > 0)
+            await tx
+              .insert(memberLeagues)
+              .values(answers.leagues.map((league) => ({ userId, league })));
         }
         if (answers.step === 'topics') {
           await tx.delete(memberTopics).where(eq(memberTopics.userId, userId));
@@ -242,7 +250,12 @@ export const onboardingOperations = ({
             .from(memberTopics)
             .where(eq(memberTopics.userId, userId))
             .orderBy(asc(memberTopics.topic));
-          return toRecord(row, wants, topics);
+          const leagues = await tx
+            .select({ value: memberLeagues.league })
+            .from(memberLeagues)
+            .where(eq(memberLeagues.userId, userId))
+            .orderBy(asc(memberLeagues.league));
+          return toRecord(row, wants, topics, leagues);
         },
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
       ),

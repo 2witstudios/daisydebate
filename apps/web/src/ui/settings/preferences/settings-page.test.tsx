@@ -147,8 +147,9 @@ describe('onboarding answers in Settings (ISSUE-324)', () => {
     const answers = {
       wants: ['debate' as const],
       club: null,
+      clubName: null,
       experience: null,
-      formats: [],
+      leagues: [],
       topics: [],
       completedAt: '2026-10-01T00:00:00.000Z',
     };

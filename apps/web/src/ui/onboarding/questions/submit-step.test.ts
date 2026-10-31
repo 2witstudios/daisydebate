@@ -6,18 +6,40 @@ setupRitewayBun();
 
 describe('stepBody', () => {
   test('each step reads only its own fields', () => {
-    const form = postedForm({ wants: ['debate', 'watch'], club: 'own' });
+    const form = postedForm({
+      wants: ['debate', 'watch'],
+      club: 'joining',
+      clubName: 'Nova Academy',
+    });
     assert({
-      given: 'an about form with two wants and a club',
-      should: 'post the lists and the single choice',
+      given: 'an about form with two wants, a club and its name',
+      should: 'post the lists and the single choices',
       actual: stepBody('about', form),
-      expected: { step: 'about', wants: ['debate', 'watch'], club: 'own' },
+      expected: {
+        step: 'about',
+        wants: ['debate', 'watch'],
+        club: 'joining',
+        clubName: 'Nova Academy',
+      },
+    });
+    assert({
+      given: 'an experience form with a checked league and a typed one',
+      should: 'post the league list and the typed field',
+      actual: stepBody(
+        'experience',
+        postedForm({ leagues: ['NSDA'], leagueOther: 'Golden State' }),
+      ),
+      expected: {
+        step: 'experience',
+        leagues: ['NSDA'],
+        leagueOther: 'Golden State',
+      },
     });
     assert({
       given: 'an experience form with nothing chosen',
       should: 'post empty lists and leave the single choices out',
       actual: stepBody('experience', postedForm({})),
-      expected: { step: 'experience', formats: [] },
+      expected: { step: 'experience', leagues: [] },
     });
     assert({
       given: 'a topics form carrying a stray field',
@@ -75,11 +97,19 @@ describe('refusedStep', () => {
       given: 'an about post that was refused',
       should: 'answer refused with the posted choices to show again',
       actual: refusedStep('about')(
-        postedForm({ wants: ['judge'], club: 'starting' }),
+        postedForm({
+          wants: ['judge'],
+          club: 'starting',
+          clubName: 'Nova Academy',
+        }),
       ),
       expected: {
         refused: true,
-        posted: { wants: ['judge'], club: 'starting' },
+        posted: {
+          wants: ['judge'],
+          club: 'starting',
+          clubName: 'Nova Academy',
+        },
       },
     });
     assert({

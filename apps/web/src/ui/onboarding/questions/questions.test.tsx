@@ -39,27 +39,51 @@ const inputs = (html: string) =>
       const name = /name="([^"]+)"/.exec(attributes)?.[1];
       const value = /value="([^"]+)"/.exec(attributes)?.[1];
       const type = /type="([^"]+)"/.exec(attributes)?.[1];
-      return `${type}:${name}=${value}${attributes.includes('checked') ? '*' : ''}`;
+      return `${type}:${name}=${value ?? ''}${attributes.includes('checked') ? '*' : ''}`;
     });
 
 describe('AboutStep', () => {
-  test('wants are many, club is one', () => {
+  test('wants are many, club is one, and a club name waits for “I have a club”', () => {
+    const html = render(AboutStep, { wants: ['debate', 'watch'], club: 'own' });
     assert({
       given: 'a member who wants to debate and watch, on their own',
       should:
-        'render four checkboxes and three radios with the saved ones checked',
-      actual: inputs(
-        render(AboutStep, { wants: ['debate', 'watch'], club: 'own' }),
-      ),
-      expected: [
-        'checkbox:wants=debate*',
-        'checkbox:wants=coach',
-        'checkbox:wants=judge',
-        'checkbox:wants=watch*',
-        'radio:club=joining',
-        'radio:club=starting',
-        'radio:club=own*',
+        'render four checkboxes and three radios with the saved ones checked, and the club-name field present but shown only once joining is picked',
+      actual: [
+        inputs(html),
+        html.includes('onboarding-club-reveal'),
+        html.includes('Club name'),
       ],
+      expected: [
+        [
+          'checkbox:wants=debate*',
+          'checkbox:wants=coach',
+          'checkbox:wants=judge',
+          'checkbox:wants=watch*',
+          'radio:club=joining',
+          'radio:club=starting',
+          'radio:club=own*',
+          'text:clubName=',
+        ],
+        true,
+        true,
+      ],
+    });
+  });
+
+  test('a saved club name shows again', () => {
+    const html = render(AboutStep, {
+      club: 'joining',
+      clubName: 'Nova Academy',
+    });
+    assert({
+      given: 'a member whose club is joining, with a saved name',
+      should: 'carry the name in the field, checked radio and all',
+      actual: [
+        html.includes('value="Nova Academy"'),
+        inputs(html).filter((input) => input === 'radio:club=joining*').length,
+      ],
+      expected: [true, 1],
     });
   });
 
@@ -93,34 +117,68 @@ describe('AboutStep', () => {
     const html = render(AboutStep, {}, { pending: true });
     assert({
       given: 'a post on the way',
-      should: 'disable every choice and the submit',
+      should: 'disable every choice, the club name and the submit',
       actual: [
         (html.match(/disabled=""/g) ?? []).length,
         html.includes('aria-busy="true"'),
       ],
-      expected: [8, true],
+      expected: [9, true],
     });
   });
 });
 
 describe('ExperienceStep', () => {
-  test('one level and many formats, no length (DEC-237)', () => {
+  test('one level, and leagues as chips with an open field', () => {
+    const html = render(ExperienceStep, {
+      experience: 'circuit',
+      leagues: ['NSDA', 'PhD League'],
+    });
+    const leagues = inputs(html).filter((input) =>
+      input.startsWith('checkbox:leagues='),
+    );
     assert({
-      given: 'a circuit debater who likes both formats',
-      should: 'check those answers and ask no match length',
-      actual: inputs(
-        render(ExperienceStep, {
-          experience: 'circuit',
-          formats: ['one-on-one', 'teams'],
-        }),
-      ),
+      given:
+        'a circuit debater affiliated with NSDA and a league Daisy does not list',
+      should:
+        'check both, offer the catalog’s other leagues as unchecked chips and an open field beside them, and ask no match length',
+      actual: [
+        inputs(html).filter((input) => input.startsWith('radio:experience=')),
+        leagues.filter((league) => league.endsWith('*')),
+        leagues.map((league) => league.replace(/\*$/, '').split('=')[1]),
+        inputs(html).includes('text:leagueOther='),
+        html.includes('Leagues you’ve been affiliated with'),
+        html.includes('formats'),
+      ],
       expected: [
-        'radio:experience=new',
-        'radio:experience=class',
-        'radio:experience=circuit*',
-        'radio:experience=veteran',
-        'checkbox:formats=one-on-one*',
-        'checkbox:formats=teams*',
+        [
+          'radio:experience=new',
+          'radio:experience=class',
+          'radio:experience=circuit*',
+          'radio:experience=veteran',
+        ],
+        ['checkbox:leagues=PhD League*', 'checkbox:leagues=NSDA*'],
+        [
+          'PhD League',
+          'NSDA',
+          'NCFL',
+          'TFA',
+          'CHSSA',
+          'NCFCA',
+          'Stoa',
+          'APDA',
+          'NPDA',
+          'NDT',
+          'CEDA',
+          'ADA',
+          'NFA',
+          'AFA',
+          'PKD',
+          'IPDA',
+          'BP',
+        ],
+        true,
+        true,
+        false,
       ],
     });
   });

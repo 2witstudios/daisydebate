@@ -7,7 +7,6 @@ import type {
 import {
   clubLabels,
   experienceLabels,
-  formatLabels,
   topicLabels,
   wantLabels,
 } from '../questions/labels';
@@ -59,7 +58,11 @@ export function AnswerSummary({
     ],
     [
       'Club',
-      answers.club === null ? '' : clubLabels[answers.club],
+      answers.club === null
+        ? ''
+        : answers.clubName === null
+          ? clubLabels[answers.club]
+          : `${clubLabels[answers.club]} · ${answers.clubName}`,
       editHrefs.about,
     ],
     [
@@ -67,11 +70,7 @@ export function AnswerSummary({
       answers.experience === null ? '' : experienceLabels[answers.experience],
       editHrefs.experience,
     ],
-    [
-      'Formats',
-      answers.formats.map((format) => formatLabels[format]).join(' · '),
-      editHrefs.experience,
-    ],
+    ['Leagues', answers.leagues.join(', '), editHrefs.experience],
     [
       'Topics',
       answers.topics.map((topic) => topicLabels[topic]).join(', '),
