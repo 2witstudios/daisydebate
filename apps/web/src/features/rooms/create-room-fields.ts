@@ -109,14 +109,12 @@ export function readRoomDraft(
       },
     };
   }
-  // Settings fields carry a Custom room's edits. The redesigned editor
-  // renders them only for Custom, so a non-custom submission without them
-  // creates its standard or template at the catalog preset; fields that are
-  // present stay authoritative.
-  const decoded =
-    values.format === 'custom'
-      ? values
-      : { ...draftFormValues(createRoomDraft(source)), ...values };
+  // The redesigned editor renders settings fields only for Custom, so a
+  // submission can post without them in two ways: a standard or template
+  // creates at its catalog preset, and a Custom just applied over one
+  // starts at that preset's settings. Fields that are present stay
+  // authoritative.
+  const decoded = { ...draftFormValues(createRoomDraft(source)), ...values };
   const form = new FormData();
   Object.entries(decoded).forEach(([key, value]) => form.set(key, value));
   const duration = (name: string) => readDuration(form, name);
