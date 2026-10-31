@@ -272,8 +272,11 @@ for (const javaScriptEnabled of [false, true])
         '',
       );
       await expect(
+        form.locator('[name="format"][value="freestyle"]'),
+      ).toBeChecked();
+      await expect(
         form.getByRole('combobox', { name: 'Resolution', exact: true }),
-      ).toHaveValue('value');
+      ).toHaveValue('strike');
       await form
         .getByLabel('Room name', { exact: true })
         .fill('A genuinely fresh Room');
