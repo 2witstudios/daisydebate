@@ -35,7 +35,8 @@ export const walkOnboarding = async (page: Page) => {
 
   await expect(page.getByRole('heading', { name: 'Experience' })).toBeVisible();
   await choose(page, 'Debated in class or a club');
-  await choose(page, 'One-on-one');
+  await choose(page, 'NSDA');
+  await page.getByLabel('Another league').fill('Golden State Debate');
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page.getByRole('heading', { name: 'Topics' })).toBeVisible();

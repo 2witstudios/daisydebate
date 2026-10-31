@@ -115,7 +115,7 @@ test.describe('Room lobby with JavaScript off', () => {
       await form.getByLabel('Room name', { exact: true }).fill(title);
       await expect(
         form.getByRole('combobox', { name: 'Resolution', exact: true }),
-      ).toHaveValue('value');
+      ).toHaveValue('strike');
       await form.getByLabel('Who can join').selectOption('public');
       roomId = (await createConfiguredRoom(page)).id;
 
