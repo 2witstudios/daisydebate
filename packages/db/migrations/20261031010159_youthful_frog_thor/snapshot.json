@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "19cc3c86-9be0-43cd-b4d6-f7774a039a6e",
+  "id": "429f8b12-a4f3-4a85-a7ca-18563197f22e",
   "prevIds": [
-    "d99dd6df-a234-40fe-8286-0a5cceacdc8a"
+    "ca3b2c21-1c55-4645-b809-52d1bb2e48cb"
   ],
   "ddl": [
     {
@@ -81,6 +81,12 @@
     {
       "isRlsEnabled": false,
       "name": "bot_profiles",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "consent_record",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1899,6 +1905,84 @@
       "entityType": "columns",
       "schema": "public",
       "table": "bot_profiles"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "necessary",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "analytics",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "replay",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "recorded_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "consent_record"
     },
     {
       "type": "text",
@@ -15150,6 +15234,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "consent_record_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "actor_id"
       ],
       "schemaTo": "public",
@@ -18362,6 +18463,16 @@
     },
     {
       "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "consent_record_pkey",
+      "schema": "public",
+      "table": "consent_record",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -19289,6 +19400,34 @@
       "entityType": "checks",
       "schema": "public",
       "table": "bot_profiles"
+    },
+    {
+      "value": "\"version\" = 1",
+      "name": "consent_record_version",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "value": "\"necessary\" = 'granted'",
+      "name": "consent_record_necessary",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "value": "\"analytics\" in ('granted', 'denied', 'unanswered')",
+      "name": "consent_record_analytics",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "consent_record"
+    },
+    {
+      "value": "\"replay\" in ('granted', 'denied', 'unanswered')",
+      "name": "consent_record_replay",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "consent_record"
     },
     {
       "value": "\"kind\" in ('contact.block')",
