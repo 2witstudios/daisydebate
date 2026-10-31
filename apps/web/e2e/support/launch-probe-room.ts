@@ -165,6 +165,15 @@ export async function createLaunchProbeResource(
   origin: string,
   mailPort: number,
 ) {
+  // The three probe sign-ups all share the isolated edge's client identity
+  // and therefore the real 3/minute magic-link bucket. Clear only this
+  // launch slot's namespace through its sanctioned capture seam before the
+  // startup resource is made; never flush the shared local Redis database.
+  const reset = await fetch(`http://127.0.0.1:${mailPort}/reset`, {
+    method: 'POST',
+  });
+  if (reset.status !== 204)
+    throw new Error('Isolated launch rate-limit reset refused');
   const members: LaunchProbeMember[] = [];
   for (let index = 0; index < 3; index++)
     members.push(await createLaunchProbeMember(origin, mailPort));

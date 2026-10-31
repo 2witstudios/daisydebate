@@ -1,5 +1,6 @@
 import { RedisClient } from 'bun';
 import { systemId, type IdGenerator } from '@daisy/clock';
+import { clearAuthRateLimits } from '@daisy/redis/namespaces';
 import { resendRequest } from '../../src/features/mail/resend-capture.test-support';
 
 /**
@@ -7,9 +8,9 @@ import { resendRequest } from '../../src/features/mail/resend-capture.test-suppo
  * sender runs unchanged, and only its outbound HTTP call is captured
  * (`captureFetch`, wired as `createApp`'s `fetch`) instead of reaching the
  * network. Captured mail is readable at `GET /mails?to=<address>` on the
- * returned loopback port; `POST /reset` clears the Redis namespace's
- * rate-limit keys, for a suite (or the AUTH-6.7 load harness) that needs a
- * clean limiter state between runs without touching the shared stack.
+ * returned loopback port; `POST /reset` clears only the namespace's auth
+ * limiter keys via the sanctioned helper. Presence, readiness and worker
+ * keys in the same launch slot are retained.
  */
 export function createMailCapture({
   port,
@@ -40,10 +41,7 @@ export function createMailCapture({
   const resetRateLimits = async () => {
     const client = new RedisClient(redisUrl);
     try {
-      const keys = (await client.send('KEYS', [
-        `${redisNamespace}:*`,
-      ])) as string[];
-      for (const key of keys) await client.del(key);
+      await clearAuthRateLimits(client, redisNamespace);
     } finally {
       client.close();
     }

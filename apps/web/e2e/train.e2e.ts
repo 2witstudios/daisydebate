@@ -93,11 +93,23 @@ test('native Train Start practice creates a Room and recovers an active Room wit
       (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
     );
     expect(opponent?.eligible).toBe(true);
+    const nativePosts: import('@playwright/test').Response[] = [];
+    page.on('response', (response) => {
+      if (
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === '/train'
+      )
+        nativePosts.push(response);
+    });
 
     await page.goto(`/train?bot=${opponent!.actorId}`);
     await page.getByRole('button', { name: 'Start practice' }).click();
     await expect(page).toHaveURL(/\/rooms\/[a-z0-9]{24}$/);
     const roomId = new URL(page.url()).pathname.split('/').at(-1)!;
+    expect(nativePosts[0]?.status()).toBe(303);
+    expect(new URL(nativePosts[0]!.headers().location!, origin).pathname).toBe(
+      `/rooms/${roomId}`,
+    );
     const created = await reread(page.request, roomId);
     expect(seated(created, opponent!.actorId)).toMatchObject({
       role: 'negative',
@@ -109,6 +121,10 @@ test('native Train Start practice creates a Room and recovers an active Room wit
     await page.goto(`/train?bot=${opponent!.actorId}`);
     await page.getByRole('button', { name: 'Start practice' }).click();
     await expect(page).toHaveURL(`/rooms/${roomId}`);
+    expect(nativePosts[1]?.status()).toBe(303);
+    expect(new URL(nativePosts[1]!.headers().location!, origin).pathname).toBe(
+      `/rooms/${roomId}`,
+    );
     expect((await reread(page.request, roomId)).id).toBe(roomId);
   } finally {
     await context.close();
