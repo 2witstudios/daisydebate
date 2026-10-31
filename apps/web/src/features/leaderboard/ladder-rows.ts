@@ -90,17 +90,21 @@ export function aroundWindow(
   ranked: readonly RankedRatingEntry[],
   mine: RankedRatingEntry,
 ): { readonly shown: readonly RankedRatingEntry[]; readonly note: string } {
-  // A provisional viewer has no rank to center on: their window trails the
-  // established field, at the rank they would enter once established.
+  // A provisional viewer has no rank to center on: their window sits at the
+  // rank their rating would earn, among the established entries around it.
+  const established = ranked.filter((entry) => !entry.provisional);
+  // After every established entry rated at least as high; ties keep the
+  // earlier entrant ahead.
+  const at = established.filter((entry) => entry.rating >= mine.rating).length;
   const window = mine.provisional
-    ? [...ranked.filter((entry) => !entry.provisional), mine]
+    ? [...established.slice(0, at), mine, ...established.slice(at)]
     : ranked.filter((entry) => !entry.provisional || entry === mine);
-  const at = window.indexOf(mine);
-  const shown = window.slice(Math.max(0, at - AROUND), at + AROUND + 1);
+  const center = window.indexOf(mine);
+  const shown = window.slice(Math.max(0, center - AROUND), center + AROUND + 1);
   return {
     shown,
     note: mine.provisional
-      ? `Where you would sit: around rank ${at + 1} at rating ${Math.round(mine.rating)}`
+      ? `Where you would sit: around rank ${center + 1} at rating ${Math.round(mine.rating)}`
       : `Ranks ${shown[0]?.rank ?? ''} to ${shown.at(-1)?.rank ?? ''}`,
   };
 }
