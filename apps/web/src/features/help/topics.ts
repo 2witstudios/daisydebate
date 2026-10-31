@@ -49,14 +49,8 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'learn-the-rules',
     question: 'Where can I learn the rules and practise?',
     answer:
-      'The Train area walks through the format, offers drills and practice rounds, and reviews your past debates.',
-    links: [
-      {
-        label: 'Rules',
-        href: destinationHref('train', { path: '/train/rules' }),
-      },
-      { label: 'Train', href: destinationHref('train') },
-    ],
+      'The Train area pairs you with a bot opponent for a practice debate in an ordinary room; the room’s setup shows each format’s speeches and rules.',
+    links: [{ label: 'Train', href: destinationHref('train') }],
   },
   {
     id: 'your-data',

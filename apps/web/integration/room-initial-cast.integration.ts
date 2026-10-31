@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { isNamedSeat, type RoomCreate, type RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomCreate } from '@daisy/protocol';
 
 import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
@@ -18,13 +18,20 @@ const valueSelection = {
 
 /** The published value resolution the practice room pins (FMT-1). */
 const valueResolutionId = async (f: {
-  store: { listPublishedResolutions: () => Promise<readonly { kind: string; id: string }[]> };
+  store: {
+    listPublishedResolutions: () => Promise<
+      readonly { kind: string; id: string }[]
+    >;
+  };
 }) => {
   const resolutions = await f.store.listPublishedResolutions();
   return resolutions.find((resolution) => resolution.kind === 'value')!.id;
 };
 
-const valueBody = (resolutionId: string, cast: RoomCreate['cast']): RoomCreate => ({
+const valueBody = (
+  resolutionId: string,
+  cast: RoomCreate['cast'],
+): RoomCreate => ({
   commandId: createId(),
   title: 'Practice against a bot',
   resolution: { kind: 'value', id: resolutionId },
@@ -34,13 +41,20 @@ const valueBody = (resolutionId: string, cast: RoomCreate['cast']): RoomCreate =
 });
 
 const castRows = (f: {
-  sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
-}) => f.sql`select * from room_participants p join rooms r on r.id = p.room_id where r.title = 'Practice against a bot'`;
+  sql: (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Record<string, unknown>[]>;
+}) =>
+  f.sql`select * from room_participants p join rooms r on r.id = p.room_id where r.title = 'Practice against a bot'`;
 
 /** Rooms a test created without the tracking fixture helper still delete cleanly. */
 const deleteRooms = async (
   f: {
-    sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+    sql: (
+      strings: TemplateStringsArray,
+      ...values: unknown[]
+    ) => Promise<unknown>;
   },
   ids: readonly string[],
 ) => {
@@ -128,7 +142,11 @@ test('a cast refusal rolls the whole create back', async () => {
       {
         given: 'a cast naming an actor that does not exist',
         cast: [
-          { actorId: `z9${botId.slice(2)}`, role: 'negative' as const, slot: 0 },
+          {
+            actorId: `z9${botId.slice(2)}`,
+            role: 'negative' as const,
+            slot: 0,
+          },
         ],
       },
       {
@@ -157,14 +175,29 @@ test('a cast refusal rolls the whole create back', async () => {
   });
 });
 
+/** A fresh fixture bot and the practice create that seats it at negative. */
+const practiceBody = async (f: {
+  bot: () => Promise<{ actorId: string }>;
+  store: {
+    listPublishedResolutions: () => Promise<
+      readonly { kind: string; id: string }[]
+    >;
+  };
+}) => {
+  const { actorId: botId } = await f.bot();
+  return {
+    botId,
+    body: valueBody(await valueResolutionId(f), [
+      { actorId: botId, role: 'negative', slot: 0 },
+    ]),
+  };
+};
+
 test('a replayed create with a cast returns the original receipt even after the bot is disabled', async () => {
   await withRoomRuntime(async (f) => {
     const created: string[] = [];
     try {
-      const { actorId: botId } = await f.bot();
-      const body = valueBody(await valueResolutionId(f), [
-        { actorId: botId, role: 'negative', slot: 0 },
-      ]);
+      const { botId, body } = await practiceBody(f);
       const first = await f.operations.create(f.host, body);
       created.push(first.view.id);
       await f.sql`delete from bot_profiles where actor_id = ${botId}`;
@@ -180,7 +213,8 @@ test('a replayed create with a cast returns the original receipt even after the 
           sameRoom: replayed.receipt.roomId === first.receipt.roomId,
           version: replayed.receipt.resultingVersion,
           castStillSeated: view.participants.some(
-            (p) => isNamedSeat(p) && p.actorId === botId && p.role === 'negative',
+            (p) =>
+              isNamedSeat(p) && p.actorId === botId && p.role === 'negative',
           ),
         },
         expected: {
@@ -200,10 +234,7 @@ test('competing submissions of one create command serialize to one create and on
   await withRoomRuntime(async (f) => {
     const created: string[] = [];
     try {
-      const { actorId: botId } = await f.bot();
-      const body = valueBody(await valueResolutionId(f), [
-        { actorId: botId, role: 'negative', slot: 0 },
-      ]);
+      const { body } = await practiceBody(f);
       const settled = await Promise.allSettled([
         f.operations.create(f.host, body),
         f.operations.create(f.host, body),
@@ -216,8 +247,7 @@ test('competing submissions of one create command serialize to one create and on
       const seats = await castRows(f);
       assert({
         given: 'two concurrent creates sharing one commandId',
-        should:
-          'create exactly one Room and replay the receipt for the other',
+        should: 'create exactly one Room and replay the receipt for the other',
         actual: {
           replays: replays.sort().reverse(),
           rooms: seats.length,

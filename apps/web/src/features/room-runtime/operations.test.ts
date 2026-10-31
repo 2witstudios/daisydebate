@@ -48,7 +48,9 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         ['value', 'standard', null, 1],
         ['proof-template', 'template', 'other', 2],
       ],
-      cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false, 'A practice opponent', 'beginner']],
+      cast: [
+        ['b4n6p8r2t4v6x8z1k3b5c7d9', false, 'A practice opponent', 'beginner'],
+      ],
       rooms: [[state.id, true]],
     },
   });
@@ -211,29 +213,27 @@ test('Room creation hands the initial cast to the create transaction through the
   const cast = run.createInput()?.cast;
   const seat = cast?.seats[0];
   const accepted =
+    seat && cast?.apply({ ...state, participants: [] }, seat, botTarget, now);
+  const refused =
+    seat && cast?.apply({ ...state, participants: [] }, seat, null, now);
+  const wrongSeat =
     seat &&
     cast?.apply(
       { ...state, participants: [] },
       seat,
-      botTarget,
+      {
+        ...botTarget,
+        seatRole: 'judge',
+      },
       now,
     );
-  const refused = seat && cast?.apply({ ...state, participants: [] }, seat, null, now);
-  const wrongSeat =
-    seat &&
-    cast?.apply({ ...state, participants: [] }, seat, {
-      ...botTarget,
-      seatRole: 'judge',
-    }, now);
   assert({
     given: 'a create casting an eligible bot debater at negative',
     should:
       'pass the seat with its identities to the transaction, seat it through assign-seat, and refuse a missing or wrong-seat actor',
     actual: {
       seats: seat && [seat.actorId, seat.role, seat.slot],
-      identities: seat
-        ? [seat.commandId, seat.participantId]
-        : null,
+      identities: seat ? [seat.commandId, seat.participantId] : null,
       seated:
         accepted?.ok === true
           ? accepted.mutation.state.participants.map((p) => [
@@ -250,10 +250,7 @@ test('Room creation hands the initial cast to the create transaction through the
     },
     expected: {
       seats: [botActorId, 'negative', 0],
-      identities: [
-        'c5n6p8r2t4v6x8z1k3b5c7d9',
-        'r5n6p8r2t4v6x8z1k3b5c7d9',
-      ],
+      identities: ['c5n6p8r2t4v6x8z1k3b5c7d9', 'r5n6p8r2t4v6x8z1k3b5c7d9'],
       seated: [[botActorId, 'negative', 0, true]],
       version: 2,
       members: [caller.actorId],

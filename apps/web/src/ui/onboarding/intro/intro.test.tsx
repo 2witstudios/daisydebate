@@ -162,12 +162,12 @@ describe('DebateStep', () => {
       (href) => !href.startsWith('/onboarding/'),
     );
     assert({
-      given: 'Read the rules, Watch a debate and How ratings work',
+      given: 'Practise a debate, Watch a debate and How ratings work',
       should: 'point at existing routes, through their launch flags',
       actual: [links, links.filter((href) => !routeExists(appDirectory, href))],
       expected: [
         [
-          destinationHref('train', { path: '/train/rules' }),
+          destinationHref('train'),
           destinationHref('watch'),
           destinationHref('leaderboard'),
         ],

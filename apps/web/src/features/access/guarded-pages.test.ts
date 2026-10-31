@@ -160,24 +160,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/prep/start/page.tsx': () =>
       import('../../app/(shell)/prep/start/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
-    '(shell)/train/progress/page.tsx': () =>
-      import('../../app/(shell)/train/progress/page'),
-    '(shell)/train/review/page.tsx': () =>
-      import('../../app/(shell)/train/review/page'),
-    '(shell)/train/drill/page.tsx': () =>
-      import('../../app/(shell)/train/drill/page'),
-    '(shell)/train/welcome/page.tsx': () =>
-      import('../../app/(shell)/train/welcome/page'),
-    '(shell)/train/practice/page.tsx': () =>
-      import('../../app/(shell)/train/practice/page'),
-    '(shell)/train/practice/live/page.tsx': () =>
-      import('../../app/(shell)/train/practice/live/page'),
-    '(shell)/train/practice/unavailable/page.tsx': () =>
-      import('../../app/(shell)/train/practice/unavailable/page'),
-    '(shell)/train/practice/debrief/page.tsx': () =>
-      import('../../app/(shell)/train/practice/debrief/page'),
-    '(shell)/train/rules/page.tsx': () =>
-      import('../../app/(shell)/train/rules/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),
     '(shell)/settings/security/page.tsx': () =>
