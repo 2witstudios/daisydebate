@@ -7,6 +7,7 @@ import type {
   FormatDefinition,
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
+import { botDifficulties } from '@daisy/protocol';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
@@ -78,6 +79,9 @@ export type Actor = {
   readonly eligible: boolean;
   /** Which seat an AI actor may hold (ISSUE-750); null for a human. */
   readonly seatRole: 'debater' | 'judge' | null;
+  /** The roster card's display facts; present for bot debaters only. */
+  readonly persona?: string;
+  readonly difficulty?: (typeof botDifficulties)[number];
 };
 /** An AI actor is a bot debater or the AI judge by its profile, never both (ISSUE-750). */
 const aiSeatRole = (botName: string | null, judgeName: string | null) => {

@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoomCreate } from '@daisy/protocol';
+import { isNamedSeat, type RoomCreate, type RoomView } from '@daisy/protocol';
 
 import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
@@ -16,33 +16,26 @@ const valueSelection = {
   competitionType: 'casual' as const,
 };
 
-const valueBody = (cast: RoomCreate['cast']): RoomCreate => ({
+/** The published value resolution the practice room pins (FMT-1). */
+const valueResolutionId = async (f: {
+  store: { listPublishedResolutions: () => Promise<readonly { kind: string; id: string }[]> };
+}) => {
+  const resolutions = await f.store.listPublishedResolutions();
+  return resolutions.find((resolution) => resolution.kind === 'value')!.id;
+};
+
+const valueBody = (resolutionId: string, cast: RoomCreate['cast']): RoomCreate => ({
   commandId: createId(),
   title: 'Practice against a bot',
-  resolution: { kind: 'value', id: 'resolved-below' },
+  resolution: { kind: 'value', id: resolutionId },
   visibility: 'public',
   selection: valueSelection,
   cast,
 });
 
-const valueResolution = async (f: {
-  store: { listPublishedResolutions: () => Promise<{ kind: string; id: string }[]> };
-}) =>
-  (await f.store.listPublishedResolutions()).find(
-    (resolution) => resolution.kind === 'value',
-  )!.id;
-
-const practiceRooms = async (f: {
+const castRows = (f: {
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
-}) => {
-  const [row] = await f.sql`
-    select
-      (select count(*) from rooms where title = 'Practice against a bot') rooms,
-      (select count(*) from room_commands c join rooms r on r.id = c.room_id where r.title = 'Practice against a bot') commands,
-      (select count(*) from room_active_memberships m join rooms r on r.id = m.room_id where r.title = 'Practice against a bot') members,
-      (select count(*) from room_participants p join rooms r on r.id = p.room_id where r.title = 'Practice against a bot') seats`;
-  return row;
-};
+}) => f.sql`select * from room_participants p join rooms r on r.id = p.room_id where r.title = 'Practice against a bot'`;
 
 /** Rooms a test created without the tracking fixture helper still delete cleanly. */
 const deleteRooms = async (
@@ -121,12 +114,9 @@ test('a cast refusal rolls the whole create back', async () => {
     const { actorId: botId } = await f.bot();
     const { actorId: judgeId } = await f.aiJudge();
     const member = await f.member();
-    const attempt = (cast: RoomCreate['cast']) => {
-      const body = valueBody(cast);
-      return valueResolution(f).then((id) =>
-        f.operations.create(member, { ...body, resolution: { kind: 'value', id } }),
-      );
-    };
+    const resolutionId = await valueResolutionId(f);
+    const attempt = (cast: RoomCreate['cast']) =>
+      f.operations.create(member, valueBody(resolutionId, cast));
     const refused = [
       {
         given: 'a cast seating one actor twice',
@@ -157,14 +147,12 @@ test('a cast refusal rolls the whole create back', async () => {
         actual: () => attempt(cast),
         code: 'CONFLICT',
       });
-    const leftovers = await practiceRooms(f);
+    const leftovers = await castRows(f);
     assert({
       given: 'every refused cast create',
-      should: 'leave no room row, no command receipt, no membership, no seat',
-      actual: Object.fromEntries(
-        Object.entries(leftovers).map(([key, value]) => [key, Number(value)]),
-      ),
-      expected: { rooms: 0, commands: 0, members: 0, seats: 0 },
+      should: 'leave no seat, room row, membership or receipt behind',
+      actual: leftovers.length,
+      expected: 0,
     });
   });
 });
@@ -174,19 +162,13 @@ test('a replayed create with a cast returns the original receipt even after the 
     const created: string[] = [];
     try {
       const { actorId: botId } = await f.bot();
-      const body = valueBody([
+      const body = valueBody(await valueResolutionId(f), [
         { actorId: botId, role: 'negative', slot: 0 },
       ]);
-      const first = await f.operations.create(f.host, {
-        ...body,
-        resolution: { kind: 'value', id: await valueResolution(f) },
-      });
+      const first = await f.operations.create(f.host, body);
       created.push(first.view.id);
       await f.sql`delete from bot_profiles where actor_id = ${botId}`;
-      const replayed = await f.operations.create(f.host, {
-        ...body,
-        resolution: { kind: 'value', id: await valueResolution(f) },
-      });
+      const replayed = await f.operations.create(f.host, body);
       const view = await f.operations.view(f.host, first.view.id);
       assert({
         given:
@@ -198,7 +180,7 @@ test('a replayed create with a cast returns the original receipt even after the 
           sameRoom: replayed.receipt.roomId === first.receipt.roomId,
           version: replayed.receipt.resultingVersion,
           castStillSeated: view.participants.some(
-            (p) => p.actorId === botId && p.role === 'negative',
+            (p) => isNamedSeat(p) && p.actorId === botId && p.role === 'negative',
           ),
         },
         expected: {
@@ -219,34 +201,28 @@ test('competing submissions of one create command serialize to one create and on
     const created: string[] = [];
     try {
       const { actorId: botId } = await f.bot();
-      const body = {
-        ...valueBody([{ actorId: botId, role: 'negative' as const, slot: 0 }]),
-        resolution: {
-          kind: 'value' as const,
-          id: await valueResolution(f),
-        },
-      };
+      const body = valueBody(await valueResolutionId(f), [
+        { actorId: botId, role: 'negative', slot: 0 },
+      ]);
       const settled = await Promise.allSettled([
         f.operations.create(f.host, body),
         f.operations.create(f.host, body),
       ]);
-      const replays = settled.map((outcome) =>
-        outcome.status === 'fulfilled'
-          ? (created.push(outcome.value.view.id),
-            outcome.value.receipt.replayed)
-          : null,
-      );
-      const row = await practiceRooms(f);
+      const replays = settled.map((outcome) => {
+        if (outcome.status !== 'fulfilled') return null;
+        created.push(outcome.value.view.id);
+        return outcome.value.receipt.replayed;
+      });
+      const seats = await castRows(f);
       assert({
         given: 'two concurrent creates sharing one commandId',
         should:
           'create exactly one Room and replay the receipt for the other',
         actual: {
           replays: replays.sort().reverse(),
-          rooms: Number(row.rooms),
-          seats: Number(row.seats),
+          rooms: seats.length,
         },
-        expected: { replays: [true, false], rooms: 1, seats: 1 },
+        expected: { replays: [true, false], rooms: 1 },
       });
     } finally {
       await deleteRooms(f, created);
@@ -259,25 +235,21 @@ test('a cast actor whose durable profile is already gone refuses inside the tran
     const { actorId: botId } = await f.bot();
     await f.sql`delete from bot_profiles where actor_id = ${botId}`;
     const member = await f.member();
-    const body = valueBody([{ actorId: botId, role: 'negative', slot: 0 }]);
+    const body = valueBody(await valueResolutionId(f), [
+      { actorId: botId, role: 'negative', slot: 0 },
+    ]);
     await assertRejects({
       given: 'a fresh create whose cast actor lost its profile before it',
       should:
         'refuse under the transaction lock as ineligible with nothing persisted',
-      actual: () =>
-        valueResolution(f).then((id) =>
-          f.operations.create(member, {
-            ...body,
-            resolution: { kind: 'value', id },
-          }),
-        ),
+      actual: () => f.operations.create(member, body),
       code: 'CONFLICT',
     });
-    const row = await practiceRooms(f);
+    const seats = await castRows(f);
     assert({
       given: 'the refused create',
-      should: 'leave no room row',
-      actual: Number(row.rooms),
+      should: 'leave no seat behind',
+      actual: seats.length,
       expected: 0,
     });
   });

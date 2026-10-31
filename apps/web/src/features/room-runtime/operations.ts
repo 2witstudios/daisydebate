@@ -311,6 +311,8 @@ export function createRoomRuntimeOperations({
                 label: p.label,
                 seatRole: p.seatRole,
                 eligible: p.eligible && botsAvailable(),
+                ...(p.persona ? { persona: p.persona } : {}),
+                ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },
             ]
           : [],

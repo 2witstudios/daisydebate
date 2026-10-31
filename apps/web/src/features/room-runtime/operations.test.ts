@@ -35,7 +35,12 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         choice.family,
         choice.preset.version,
       ]),
-      cast: cast.map(({ actorId, eligible }) => [actorId, eligible]),
+      cast: cast.map(({ actorId, eligible, persona, difficulty }) => [
+        actorId,
+        eligible,
+        persona ?? null,
+        difficulty ?? null,
+      ]),
       rooms: rooms.rooms.map(({ id, seated }) => [id, seated]),
     },
     expected: {
@@ -43,7 +48,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         ['value', 'standard', null, 1],
         ['proof-template', 'template', 'other', 2],
       ],
-      cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false]],
+      cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false, 'A practice opponent', 'beginner']],
       rooms: [[state.id, true]],
     },
   });
@@ -240,9 +245,8 @@ test('Room creation hands the initial cast to the create transaction through the
           : accepted,
       version: accepted?.ok === true ? accepted.mutation.state.version : null,
       members: accepted?.ok === true ? accepted.mutation.members : null,
-      missing: refused && 'ok' in refused ? refused.refusal : null,
-      wrongSeat:
-        wrongSeat && 'ok' in wrongSeat ? wrongSeat.refusal : null,
+      missing: refused && !refused.ok ? refused.refusal : null,
+      wrongSeat: wrongSeat && !wrongSeat.ok ? wrongSeat.refusal : null,
     },
     expected: {
       seats: [botActorId, 'negative', 0],

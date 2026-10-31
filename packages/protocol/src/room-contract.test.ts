@@ -4,6 +4,7 @@ import {
   plainRoomConfig,
 } from './format-fixtures.test-support';
 import { roomCommandSchema, roomCreateSchema } from './room-contract';
+import { roomCastChoiceSchema } from './room-read';
 
 setupRitewayBun();
 const commandId = 'abcdefghijklmnopqrstuvwx';
@@ -124,6 +125,30 @@ describe('Room command boundary', () => {
       actual: create(Array.from({ length: 9 }, (_, i) => seat(bot, 'judge', i)))
         .success,
       expected: false,
+    });
+  });
+  test('a cast choice carries its roster display facts (train-room)', () => {
+    const choice = (fields: Record<string, unknown>) =>
+      roomCastChoiceSchema.safeParse({
+        actorId: 'c6a4e2f8h1j3k5m7n9p2r4t6',
+        label: 'Wren',
+        kind: 'bot',
+        seatRole: 'debater',
+        eligible: true,
+        ...fields,
+      });
+    assert({
+      given:
+        'a bot debater with persona and difficulty, the AI judge with neither, and a difficulty outside the vocabulary',
+      should:
+        'carry the display facts as optional and refuse an unknown difficulty',
+      actual: [
+        choice({ persona: 'Dry and quick', difficulty: 'intermediate' })
+          .success,
+        choice({}).success,
+        choice({ difficulty: 'expert' }).success,
+      ],
+      expected: [true, true, false],
     });
   });
   test('a catalog selection names its preset and carries no config (FMT-1)', () => {
