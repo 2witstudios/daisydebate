@@ -15,7 +15,9 @@ test('editing settings makes Custom and clears Ranked; a standard restores its c
   await hydrated(formOf(page));
   const form = formOf(page);
   const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
-  await expect(form.locator('[name="format"][value="value"]')).toBeChecked();
+  await expect(
+    form.locator('[name="format"][value="freestyle"]'),
+  ).toBeChecked();
   await expect(ranked).not.toBeChecked();
   await ranked.check();
   await form.getByLabel('Room name', { exact: true }).fill('Preserved title');

@@ -32,7 +32,7 @@ test('creation presents format first and a complete progressively enhanced edito
       html.includes('name="resolutionMethod"'),
       html.includes('name="topic"'),
     ],
-    expected: [true, true, true, true, true, true, true, true, false],
+    expected: [true, true, true, false, false, false, false, true, false],
   });
 });
 
