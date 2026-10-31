@@ -58,6 +58,54 @@ describe('native room draft fields', () => {
       expected: [false, false],
     });
   });
+  test('a standard submitted without settings fields creates at its catalog preset', () => {
+    const source = choice();
+    const preset = createRoomDraft(source);
+    const read = readRoomDraft(
+      {
+        basis: draftFormValues(preset).basis ?? '',
+        format: 'value',
+        resolutionMethod: 'value',
+        intent: 'create',
+      },
+      [source],
+    );
+    assert({
+      given:
+        'the redesigned form, which renders settings only for Custom, posting a standard',
+      should: 'create that standard at its preset without inventing Custom',
+      actual: read.ok && [
+        read.draft.custom,
+        read.draft.config,
+        read.draft.definition.segments,
+      ],
+      expected: [false, preset.config, preset.definition.segments],
+    });
+  });
+  test('Custom applied over a preset without settings fields starts at that preset', () => {
+    const source = choice();
+    const preset = createRoomDraft(source);
+    const read = readRoomDraft(
+      {
+        basis: draftFormValues(preset).basis ?? '',
+        format: 'custom',
+        intent: 'format',
+      },
+      [source],
+    );
+    assert({
+      given:
+        'no-JS: Custom checked and applied before the form ever rendered settings',
+      should:
+        'return the Custom preview at the preset settings instead of refusing the missing fields',
+      actual: read.ok && [
+        read.draft.custom,
+        read.draft.config,
+        read.draft.resolutionMethod,
+      ],
+      expected: [true, preset.config, preset.resolutionMethod],
+    });
+  });
   test('Custom supports structural edits and POI independent of template capabilities', () => {
     const fields = draftFormValues(createRoomDraft(choice()));
     const read = readRoomDraft(

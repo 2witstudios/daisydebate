@@ -11,6 +11,7 @@ import {
 } from '../../../features/leaderboard/labels';
 import { Badge } from '../../components/badge/badge';
 import { cn } from '../../cn';
+import { provisionalMarkClass } from '../../../features/ratings/provisional-mark';
 import {
   ladderColumnClass,
   ladderGridClass,
@@ -97,6 +98,7 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
           ladderColumnClass('rating'),
           numeric,
           'font-display text-lg font-bold max-compact:text-right',
+          row.provisional && provisionalMarkClass,
         )}
       >
         {ratingText(row)}

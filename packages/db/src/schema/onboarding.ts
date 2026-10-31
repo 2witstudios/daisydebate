@@ -1,7 +1,6 @@
 import {
   clubChoices,
   experienceChoices,
-  formatPreferenceChoices,
   interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
@@ -16,9 +15,6 @@ import {
   versionPositive,
 } from './columns';
 import { users } from './users';
-
-const literalArray = (values: readonly string[]) =>
-  sql.raw(`array[${values.map((value) => `'${value}'`).join(', ')}]::text[]`);
 
 /**
  * What a member said they want to do on Daisy (onboarding's "I want to").
@@ -70,11 +66,9 @@ export const memberOnboarding = pgTable(
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
     club: text('club'),
+    /** The club a member has or is starting, as they named it. Personal and private. */
+    clubName: text('club_name'),
     experience: text('experience'),
-    formats: text('formats')
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
     completedAt: timestampColumn('completed_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -89,10 +83,28 @@ export const memberOnboarding = pgTable(
       'member_onboarding_experience_check',
       sql`${table.experience} is null or ${oneOf(table.experience, experienceChoices)}`,
     ),
-    check(
-      'member_onboarding_formats_check',
-      sql`${table.formats} <@ ${literalArray(formatPreferenceChoices)}`,
-    ),
     versionPositive('member_onboarding', table.version),
+  ],
+);
+
+/**
+ * The debate leagues a member has been affiliated with, as they named them
+ * (onboarding's free-text answer). Personal and private: deleted with the
+ * account.
+ */
+export const memberLeagues = pgTable(
+  'member_leagues',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    league: text('league').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.league] }),
+    check(
+      'member_leagues_league_check',
+      sql`char_length(${table.league}) between 1 and 60`,
+    ),
   ],
 );

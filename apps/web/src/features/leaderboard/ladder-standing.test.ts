@@ -59,15 +59,89 @@ describe('Around me', () => {
 
   test('a provisional viewer', () => {
     const view = ladder(
-      [...field(30), { ...me, played: 4, deviation: 200 }],
+      [
+        ...field(30),
+        {
+          ...me,
+          played: 4,
+          deviation: 200,
+          rating: 1662.3108939062977,
+        },
+      ],
       { scope: 'around' },
       viewer,
     );
     assert({
-      given: 'a provisional viewer',
-      should: 'show where they would sit instead of a rank',
-      actual: [view.gapNote, view.rows.at(-1)?.me],
-      expected: ['Where you would sit: around rank 31 at rating 1300', true],
+      given: 'a provisional viewer with a fractional rating',
+      should:
+        'sit at the rank the rating would earn, between its rating neighbors',
+      actual: [
+        view.gapNote,
+        view.rows.map((row) => row.me).indexOf(true),
+        view.rows[3]?.rating,
+        view.rows[5]?.rating,
+      ],
+      expected: [
+        'Where you would sit: around rank 5 at rating 1662',
+        4,
+        1670,
+        1660,
+      ],
+    });
+  });
+
+  test('a provisional viewer above every established debater', () => {
+    const view = ladder(
+      [
+        ...field(30),
+        {
+          ...me,
+          played: 4,
+          deviation: 200,
+          rating: 1998.4,
+        },
+      ],
+      { scope: 'around' },
+      viewer,
+    );
+    assert({
+      given: 'a provisional viewer rated above the whole established field',
+      should:
+        'sit above the field at the rank their rating would earn, showing the top of the ladder',
+      actual: [
+        view.gapNote,
+        view.rows.map((row) => row.me).indexOf(true),
+        view.rows[1]?.rating,
+      ],
+      expected: ['Where you would sit: around rank 1 at rating 1998', 0, 1700],
+    });
+  });
+
+  test('a provisional viewer tied on rating with an established debater', () => {
+    const view = ladder(
+      [
+        ...field(30),
+        {
+          ...me,
+          played: 4,
+          deviation: 200,
+          rating: 1650,
+        },
+      ],
+      { scope: 'around' },
+      viewer,
+    );
+    assert({
+      given:
+        'a provisional viewer rated exactly level with established debater p005, whose id sorts later',
+      should:
+        'take the ahead half of the tie, the same order the established ladder breaks it',
+      actual: [view.gapNote, view.rows[4]?.username, view.rows[5]?.username],
+      expected: [
+        'Where you would sit: around rank 6 at rating 1650',
+        'p004',
+        'me',
+      ],
     });
   });
 

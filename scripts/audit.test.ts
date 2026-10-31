@@ -13,6 +13,7 @@ setupRitewayBun();
 const adr = 'docs/decisions/0039-dated-dependency-audit-exceptions.md';
 const tinypoolAdr = 'docs/decisions/0056-tinypool-audit-exceptions.md';
 const mockerAdr = 'docs/decisions/0068-vitest-manual-mock-audit-exception.md';
+const globAdr = 'docs/decisions/0093-glob-minimatch-audit-exceptions.md';
 const entry = (overrides: Partial<AuditException> = {}): AuditException => ({
   advisory: 'GHSA-82fw-gwwq-j7x9',
   packages: ['@vitest/mocker', 'vitest'],
@@ -46,6 +47,8 @@ describe('audit command', () => {
         '--ignore=GHSA-5gmw-xhrv-c9v3',
         '--ignore=GHSA-85c8-ppgw-ccpr',
         '--ignore=GHSA-qxg6-89mg-rqv8',
+        '--ignore=GHSA-3g3m-2fjr-6pw4',
+        '--ignore=GHSA-g3hv-75wg-m249',
       ],
     });
   });
@@ -98,17 +101,19 @@ describe('live advisories', () => {
 describe('audit exception registry', () => {
   test('accepts the committed registry shape against its live advisories', () => {
     assert({
-      given: 'the committed registry, its ADRs and all five advisories live',
+      given: 'the committed registry, its ADRs and all seven advisories live',
       should: 'report no problems',
       actual: validateAuditExceptions(committed, {
         today: '2026-09-23',
-        knownPaths: new Set([adr, tinypoolAdr, mockerAdr]),
+        knownPaths: new Set([adr, tinypoolAdr, mockerAdr, globAdr]),
         live: new Map([
           ['GHSA-82fw-gwwq-j7x9', ['@vitest/mocker', 'vitest']],
           ['GHSA-qpx9-hpmf-5gmw', ['underscore']],
           ['GHSA-5gmw-xhrv-c9v3', ['tinypool']],
           ['GHSA-85c8-ppgw-ccpr', ['tinypool']],
           ['GHSA-qxg6-89mg-rqv8', ['@vitest/mocker']],
+          ['GHSA-3g3m-2fjr-6pw4', ['glob']],
+          ['GHSA-g3hv-75wg-m249', ['minimatch']],
         ]),
       }),
       expected: [],

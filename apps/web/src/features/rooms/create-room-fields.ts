@@ -109,8 +109,14 @@ export function readRoomDraft(
       },
     };
   }
+  // The redesigned editor renders settings fields only for Custom, so a
+  // submission can post without them in two ways: a standard or template
+  // creates at its catalog preset, and a Custom just applied over one
+  // starts at that preset's settings. Fields that are present stay
+  // authoritative.
+  const decoded = { ...draftFormValues(createRoomDraft(source)), ...values };
   const form = new FormData();
-  Object.entries(values).forEach(([key, value]) => form.set(key, value));
+  Object.entries(decoded).forEach(([key, value]) => form.set(key, value));
   const duration = (name: string) => readDuration(form, name);
   const before = duration('preRound'),
     during = duration('inRound'),
@@ -121,16 +127,16 @@ export function readRoomDraft(
     )
   )
     return invalid;
-  const count = Number(values.segmentCount);
+  const count = Number(decoded.segmentCount);
   if (!Number.isInteger(count) || count < 1 || count > 64) return invalid;
   const rawSegments = Array.from({ length: count }, (_, index) => {
-    const key = values[`segment.${index}.key`] ?? '';
+    const key = decoded[`segment.${index}.key`] ?? '';
     return {
       key,
-      label: values[`segment.${index}.label`],
-      type: values[`segment.${index}.type`],
-      side: values[`segment.${index}.side`],
-      slot: Number(values[`segment.${index}.slot`]),
+      label: decoded[`segment.${index}.label`],
+      type: decoded[`segment.${index}.type`],
+      side: decoded[`segment.${index}.side`],
+      slot: Number(decoded[`segment.${index}.slot`]),
       defaultDurationMs:
         source.definition.segments.find((segment) => segment.key === key)
           ?.defaultDurationMs ?? duration(`segment.${index}`),
@@ -165,9 +171,9 @@ export function readRoomDraft(
       },
     },
     seats: {
-      affirmative: Number(values.seatAffirmative),
-      negative: Number(values.seatNegative),
-      judge: Number(values.seatJudge),
+      affirmative: Number(decoded.seatAffirmative),
+      negative: Number(decoded.seatNegative),
+      judge: Number(decoded.seatJudge),
     },
     segments: rawSegments,
   });
@@ -179,11 +185,11 @@ export function readRoomDraft(
       return ms === segment.defaultDurationMs ? [] : [[segment.key, ms]];
     }),
   );
-  const method = values.resolutionMethod;
+  const method = decoded.resolutionMethod;
   if (!['policy', 'value', 'strike', 'custom'].includes(method ?? ''))
     return invalid;
-  const poi = values.questionStyle === 'poi';
-  if (!poi && values.questionStyle !== 'cross-examination') return invalid;
+  const poi = decoded.questionStyle === 'poi';
+  if (!poi && decoded.questionStyle !== 'cross-examination') return invalid;
   const parsedConfig = roomConfigSchema.safeParse({
     ...source.preset.config,
     preRoundPrep:
@@ -207,12 +213,12 @@ export function readRoomDraft(
       : source.preset.config.interruptions,
     yielding:
       source.preset.config.yielding === null &&
-      values.yielding !== 'on' &&
-      values.returnsTime !== 'on'
+      decoded.yielding !== 'on' &&
+      decoded.returnsTime !== 'on'
         ? null
         : {
-            allowed: values.yielding === 'on',
-            returnsTime: values.returnsTime === 'on',
+            allowed: decoded.yielding === 'on',
+            returnsTime: decoded.returnsTime === 'on',
           },
   });
   if (!parsedConfig.success) return invalid;
@@ -244,7 +250,8 @@ export function readRoomDraft(
       definition: custom ? customRoomDefinition(definition) : definition,
       config: parsedConfig.data,
       custom,
-      ranked: values.ranked === 'on' && source.preset.rankedEligible && !custom,
+      ranked:
+        decoded.ranked === 'on' && source.preset.rankedEligible && !custom,
       resolutionMethod: method as ResolutionMethod,
       customResolution: values.customResolution ?? '',
     },

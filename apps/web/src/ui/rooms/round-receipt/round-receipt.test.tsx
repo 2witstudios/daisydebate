@@ -267,7 +267,7 @@ test('an ended draw Round shows how its resolution was chosen, with erased lines
   assert({
     given: 'a finished Round whose first struck line was erased',
     should:
-      'list both strikes in order, the erased one as removed, and the commitment',
+      'list both strikes in order, the erased one as removed, and keep the commitment id out of the UI',
     actual: [
       html.includes('How the resolution was chosen'),
       html.includes(
@@ -276,7 +276,7 @@ test('an ended draw Round shows how its resolution was chosen, with erased lines
       html.includes('Affirmative struck “Kept line”'),
       html.includes('e'.repeat(64)),
     ],
-    expected: [true, true, true, true],
+    expected: [true, true, true, false],
   });
 });
 

@@ -19,8 +19,9 @@ describe('onboarding answers (ONB-1.4)', () => {
         expected: {
           wants: [],
           club: null,
+          clubName: null,
           experience: null,
-          formats: [],
+          leagues: [],
           topics: [],
           completedAt: null,
         },
@@ -36,11 +37,12 @@ describe('onboarding answers (ONB-1.4)', () => {
             step: 'about',
             wants: ['debate', 'watch'],
             club: 'own',
+            clubName: null,
           });
           await save(database, ids, {
             step: 'experience',
             experience: 'class',
-            formats: ['one-on-one'],
+            leagues: ['NSDA'],
           });
           await save(database, ids, {
             step: 'topics',
@@ -50,6 +52,7 @@ describe('onboarding answers (ONB-1.4)', () => {
             step: 'about',
             wants: ['judge'],
             club: 'starting',
+            clubName: null,
           });
           return database.readOnboarding(ids.userId);
         }),
@@ -61,8 +64,9 @@ describe('onboarding answers (ONB-1.4)', () => {
         expected: {
           wants: ['judge'],
           club: 'starting',
+          clubName: null,
           experience: 'class',
-          formats: ['one-on-one'],
+          leagues: ['NSDA'],
           topics: ['ethics', 'law'],
           completedAt: null,
         },
@@ -118,6 +122,7 @@ describe('onboarding answers (ONB-1.4)', () => {
             step: 'about',
             wants: ['coach'],
             club: 'joining',
+            clubName: 'Nova Academy',
           });
           await save(database, ids, { step: 'topics', topics: ['sports'] });
         });
@@ -126,14 +131,15 @@ describe('onboarding answers (ONB-1.4)', () => {
       await fixture.sql`delete from actors where id=${userId.actorId}`;
       await fixture.sql`delete from users where id=${userId.userId}`;
       assert({
-        given: 'a member with answers in all three tables, then deleted',
+        given: 'a member with answers in all four tables, then deleted',
         should: 'leave no onboarding rows behind',
         actual: [
           await fixture.count('member_interests', 'user_id', userId.userId),
           await fixture.count('member_topics', 'user_id', userId.userId),
+          await fixture.count('member_leagues', 'user_id', userId.userId),
           await fixture.count('member_onboarding', 'user_id', userId.userId),
         ],
-        expected: [0, 0, 0],
+        expected: [0, 0, 0, 0],
       });
     });
   });

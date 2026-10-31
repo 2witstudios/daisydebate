@@ -9,12 +9,12 @@ type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 const lists: Record<QuestionStep, readonly string[]> = {
   about: ['wants'],
-  experience: ['formats'],
+  experience: ['leagues'],
   topics: ['topics'],
 };
 const singles: Record<QuestionStep, readonly string[]> = {
-  about: ['club'],
-  experience: ['experience'],
+  about: ['club', 'clubName'],
+  experience: ['experience', 'leagueOther'],
   topics: [],
 };
 

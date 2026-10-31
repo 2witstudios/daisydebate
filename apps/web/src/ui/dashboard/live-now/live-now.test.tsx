@@ -63,4 +63,27 @@ describe('LiveNow', () => {
       expected: [true],
     });
   });
+
+  test('an empty panel points at the recordings instead of an empty list', () => {
+    const html = renderToString(
+      h(UiStoreProvider, {
+        initialState: {
+          ...seed,
+          collections: { ...seed.collections, liveDebates: [] },
+        },
+        children: h(LiveNow),
+      }),
+    );
+    assert({
+      given: 'a store with no live debates',
+      should:
+        'say nothing is live and link "Browse recordings" to /watch, with no list',
+      actual: [
+        html.includes('No rounds live right now'),
+        /<a [^>]*href="\/watch"[^>]*>[\s]*Browse recordings/.test(html),
+        html.includes('<ul>'),
+      ],
+      expected: [true, true, false],
+    });
+  });
 });

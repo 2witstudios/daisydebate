@@ -50,6 +50,26 @@
       "owner": "platform",
       "adr": "docs/decisions/0068-vitest-manual-mock-audit-exception.md",
       "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-3g3m-2fjr-6pw4",
+      "packages": ["glob"],
+      "dependencyPath": "workspace:@daisy/admin > riteway 9.3.0 (devDependency) > glob 11.1.0; workspace:@daisy/realtime > @sentry/bun > @sentry/bundler-plugins > glob 13.0.6; workspace:@daisy/web > @sentry/nextjs > @sentry/bundler-plugins > glob 13.0.6; a further glob 7.2.3 sits under the same lint/test tooling.",
+      "reason": "AbortSignal cancellation bypass allows post-timeout filesystem traversal (moderate). Every glob from 9.0.0 through 14.0.1 is affected, so no in-range bump of riteway or @sentry/bundler-plugins clears it.",
+      "unreachable": "Physically present in production installs via @sentry/nextjs > @sentry/bundler-plugins, but never executed there: bundler-plugins requires glob in exactly one module (build/cjs/core/glob.js), imported only by its rollup plugin, and @sentry/nextjs loads bundler-plugins only from its webpack config and build hooks - every call runs inside the `next build` process over repository files. @sentry/bun's runtime entrypoints (index, sdk, client) never require its bundler plugin. The prod-deps image stage installs without devDependencies, so the riteway/eslint chains are absent; the traversal finding additionally needs an AbortSignal-timed glob over attacker-chosen paths, which no build performs. (ADR 0093)",
+      "owner": "platform",
+      "adr": "docs/decisions/0093-glob-minimatch-audit-exceptions.md",
+      "reviewBy": "2027-01-15"
+    },
+    {
+      "advisory": "GHSA-g3hv-75wg-m249",
+      "packages": ["minimatch"],
+      "dependencyPath": "eslint > @eslint/eslintrc > minimatch 3.1.5; typescript-eslint > @typescript-eslint/utils > @typescript-eslint/typescript-estree > minimatch 10.2.6; eslint-config-next > eslint-plugin-react > minimatch; riteway > glob > minimatch; @sentry/bundler-plugins > glob > minimatch.",
+      "reason": "Denial of service via glob-part amplification (moderate). Everything below minimatch 11.0.1 is affected, and the lint ecosystem pins 3.x and 10.x ranges.",
+      "unreachable": "minimatch rides into production installs only through glob (above) and the dev-only lint chains; with glob never required at runtime, minimatch never executes there either. The amplification finding requires an attacker-controlled glob pattern string; no production path passes one, and the lint tools that could only ever run on Daisy's own files in CI. (ADR 0093)",
+      "owner": "platform",
+      "adr": "docs/decisions/0093-glob-minimatch-audit-exceptions.md",
+      "reviewBy": "2027-01-15"
     }
   ]
 }

@@ -23,16 +23,17 @@ const writes = (queries: readonly { query: string }[]) =>
 
 describe('readOnboarding', () => {
   test('a member with nothing stored', async () => {
-    const { database } = createTestDatabase([[], [], [], []]);
+    const { database } = createTestDatabase([[], [], [], [], []]);
     assert({
-      given: 'no onboarding row, interests or topics',
+      given: 'no onboarding row, interests, topics or leagues',
       should: 'read back empty answers',
       actual: await database.readOnboarding('user-1'),
       expected: {
         wants: [],
         club: null,
+        clubName: null,
         experience: null,
-        formats: [],
+        leagues: [],
         topics: [],
         completedAt: null,
       },
@@ -41,28 +42,30 @@ describe('readOnboarding', () => {
 
   test('a member who answered everything', async () => {
     const { database, queries } = createTestDatabase([
-      // The snapshot statement, then the three reads.
+      // The snapshot statement, then the four reads.
       [],
       // Schema-definition column order; the driver returns rows positionally.
-      [['user-1', 'own', 'class', ['one-on-one'], at, at, at, 2]],
+      [['user-1', 'own', 'Nova Academy', 'class', at, at, at, 2]],
       [['debate'], ['watch']],
       [['law']],
+      [['NSDA']],
     ]);
     assert({
-      given: 'a stored row, two interests and a topic',
+      given: 'a stored row, two interests, a topic and a league',
       should: 'map them with completion as a UTC ISO string',
       actual: await database.readOnboarding('user-1'),
       expected: {
         club: 'own',
+        clubName: 'Nova Academy',
         experience: 'class',
-        formats: ['one-on-one'],
+        leagues: ['NSDA'],
         completedAt: '2026-10-05T12:00:00.000Z',
         wants: ['debate', 'watch'],
         topics: ['law'],
       },
     });
     assert({
-      given: 'the three reads',
+      given: 'the four reads',
       should:
         'run them in one read-only repeatable-read snapshot, so a save in between cannot mix answers',
       actual: queries[0]?.query.toLowerCase(),
@@ -80,6 +83,7 @@ describe('saveOnboardingStep', () => {
         step: 'about',
         wants: ['judge'],
         club: 'starting',
+        clubName: null,
       },
     });
     const emptyTopics = createTestDatabase([fence, [], []]);
@@ -87,19 +91,19 @@ describe('saveOnboardingStep', () => {
       ...admitted,
       answers: { step: 'topics', topics: [] },
     });
-    const experience = createTestDatabase([fence, []]);
+    const experience = createTestDatabase([fence, [], [], []]);
     await experience.database.saveOnboardingStep({
       ...admitted,
       answers: {
         step: 'experience',
         experience: 'circuit',
-        formats: ['teams'],
+        leagues: ['NSDA'],
       },
     });
     assert({
       given: 'an about step, an empty topics step and an experience step',
       should:
-        'replace interests, clear topics, and touch only the answers row for experience',
+        'replace interests, replace leagues, clear topics, and touch the answers row for about and experience',
       actual: [
         writes(about.queries),
         writes(emptyTopics.queries),
@@ -112,7 +116,11 @@ describe('saveOnboardingStep', () => {
           'insert into member_interests',
         ],
         ['insert into member_onboarding', 'delete from member_topics'],
-        ['insert into member_onboarding'],
+        [
+          'insert into member_onboarding',
+          'delete from member_leagues',
+          'insert into member_leagues',
+        ],
       ],
     });
   });
@@ -129,7 +137,12 @@ describe('saveOnboardingStep without an admitted age', () => {
           seen.push(fact);
           return false;
         },
-        answers: { step: 'about', wants: ['judge'], club: 'starting' },
+        answers: {
+          step: 'about',
+          wants: ['judge'],
+          club: 'starting',
+          clubName: null,
+        },
       })
       .then(
         () => null,

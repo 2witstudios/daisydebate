@@ -152,7 +152,9 @@ export function NewSeasonHero({
       )}
     >
       <div className="flex flex-col gap-2">
-        <Badge tone="accent">{`Day ${day}`}</Badge>
+        <p className="text-xs font-strong tracking-wider text-ink-muted uppercase">
+          Day {day}
+        </p>
         <h2 className="font-display text-2xl font-bold">
           {`${seasonLabel(season)} has started`}
         </h2>
@@ -213,8 +215,11 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
         <>
           <h2 className="text-lg font-bold text-ink">No one is ranked yet</h2>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href={props.everyoneHref} className={secondary}>
-              Show provisional debaters
+            <Link
+              href={props.everyoneHref}
+              className="text-sm text-ink-muted hover:text-ink"
+            >
+              Include new players
             </Link>
             {props.previousSeasonHref ? (
               <Link href={props.previousSeasonHref} className={secondary}>
@@ -228,8 +233,11 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
           <p>
             {`${props.provisionalHits} provisional ${props.provisionalHits === 1 ? 'match' : 'matches'}`}
           </p>
-          <Link href={props.everyoneHref} className={secondary}>
-            Show provisional debaters
+          <Link
+            href={props.everyoneHref}
+            className="text-sm text-ink-muted hover:text-ink"
+          >
+            Include new players
           </Link>
         </>
       ) : (

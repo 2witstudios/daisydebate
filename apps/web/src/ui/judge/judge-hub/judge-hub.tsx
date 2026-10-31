@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import type { AssignedDebate } from '../../../features/judge/get-assigned';
 import { PageHeader } from '../../components/page-header/page-header';
+import { buttonClass } from '../../components/button/button-class';
+import { cn } from '../../cn';
 import { AssignedDebates } from '../assigned-debates/assigned-debates';
 export type JudgeHubProps = { readonly assigned: readonly AssignedDebate[] };
+const linkButton = 'no-underline hover:no-underline';
 /** Fresh own-seat assignments; waiting never fabricates a match or a ballot. */
 export function JudgeHub({ assigned }: JudgeHubProps) {
   return (
@@ -20,20 +23,24 @@ export function JudgeHub({ assigned }: JudgeHubProps) {
             Join a Room as its judge. Your assigned Rounds and recorded ballots
             appear here.
           </p>
+        </section>
+      )}
+      <div className="flex flex-wrap gap-3">
+        {assigned.length === 0 ? (
           <Link
             href="/lobby"
-            className="inline-flex min-h-10 items-center font-strong"
+            className={cn(buttonClass('primary'), linkButton)}
           >
             Find a Room
           </Link>
-        </section>
-      )}
-      <Link
-        href="/judge"
-        className="inline-flex min-h-10 items-center font-strong"
-      >
-        Refresh assignments
-      </Link>
+        ) : null}
+        <Link
+          href="/judge"
+          className={cn(buttonClass('secondary'), linkButton)}
+        >
+          Refresh assignments
+        </Link>
+      </div>
     </div>
   );
 }

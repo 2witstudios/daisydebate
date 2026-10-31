@@ -81,6 +81,3 @@ export async function closeProcessApp() {
 
 /** The production server's validated launch settings. */
 export const processStartOptions = () => readStartOptions(process.env);
-
-/** Whether Next is running this bundle on the Node.js runtime. */
-export const isNodeRuntime = () => process.env.NEXT_RUNTIME === 'nodejs';

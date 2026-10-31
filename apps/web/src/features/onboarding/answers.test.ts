@@ -7,23 +7,51 @@ setupRitewayBun();
 describe('parseStepAnswers', () => {
   test('the about step', () => {
     assert({
-      given: 'two wants and a club choice',
-      should: 'accept them in the order given',
+      given: 'two wants, a club choice and the club’s name',
+      should: 'accept them, trimming the name',
       actual: parseStepAnswers({
         step: 'about',
         wants: ['watch', 'debate'],
         club: 'joining',
+        clubName: ' Nova Academy ',
       }),
       expected: {
         ok: true,
-        value: { step: 'about', wants: ['watch', 'debate'], club: 'joining' },
+        value: {
+          step: 'about',
+          wants: ['watch', 'debate'],
+          club: 'joining',
+          clubName: 'Nova Academy',
+        },
       },
     });
     assert({
       given: 'no wants and no club',
       should: 'accept an empty answer rather than refuse',
       actual: parseStepAnswers({ step: 'about' }),
-      expected: { ok: true, value: { step: 'about', wants: [], club: null } },
+      expected: {
+        ok: true,
+        value: { step: 'about', wants: [], club: null, clubName: null },
+      },
+    });
+    assert({
+      given: 'a club name that is only spaces, or a two-line one',
+      should: 'store nothing for the blank and refuse the line break',
+      actual: [
+        parseStepAnswers({ step: 'about', club: 'joining', clubName: '   ' }),
+        parseStepAnswers({
+          step: 'about',
+          club: 'joining',
+          clubName: 'A\r\nB',
+        }),
+      ],
+      expected: [
+        {
+          ok: true,
+          value: { step: 'about', wants: [], club: 'joining', clubName: null },
+        },
+        { ok: false, reason: 'invalid-value' },
+      ],
     });
     assert({
       given: 'a want outside the four',
@@ -37,23 +65,39 @@ describe('parseStepAnswers', () => {
       actual: parseStepAnswers({ step: 'about', wants: ['judge', 'judge'] }),
       expected: { ok: false, reason: 'repeated-value' },
     });
+    assert({
+      given: 'a club choice that does not name a club, but a typed name',
+      should:
+        'store nothing for the name: the form only reveals the field for “I have a club”',
+      actual: parseStepAnswers({
+        step: 'about',
+        club: 'own',
+        clubName: 'Stale Academy',
+      }),
+      expected: {
+        ok: true,
+        value: { step: 'about', wants: [], club: 'own', clubName: null },
+      },
+    });
   });
 
   test('the experience step', () => {
     assert({
-      given: 'a level and both formats',
-      should: 'accept them',
+      given: 'a level, a checked league and two typed ones',
+      should:
+        'merge the typed list with the chips, dropping an empty entry and keeping the first spelling of a repeat',
       actual: parseStepAnswers({
         step: 'experience',
         experience: 'circuit',
-        formats: ['one-on-one', 'teams'],
+        leagues: ['NSDA'],
+        leagueOther: 'Golden State, , NSDA, PhD',
       }),
       expected: {
         ok: true,
         value: {
           step: 'experience',
           experience: 'circuit',
-          formats: ['one-on-one', 'teams'],
+          leagues: ['NSDA', 'Golden State', 'PhD'],
         },
       },
     });
@@ -83,9 +127,67 @@ describe('parseStepAnswers', () => {
         value: {
           step: 'experience',
           experience: null,
-          formats: [],
+          leagues: [],
         },
       },
+    });
+    assert({
+      given: 'one league posted as a bare string beside a typed one',
+      should:
+        'keep both: a scalar posts beside chips when a client sends the field unwrapped',
+      actual: parseStepAnswers({
+        step: 'experience',
+        experience: 'circuit',
+        leagues: 'NSDA',
+        leagueOther: 'Golden State',
+      }),
+      expected: {
+        ok: true,
+        value: {
+          step: 'experience',
+          experience: 'circuit',
+          leagues: ['NSDA', 'Golden State'],
+        },
+      },
+    });
+    assert({
+      given: 'a leagues value that is neither a string nor a list',
+      should: 'refuse instead of quietly dropping it, typed other or not',
+      actual: [
+        parseStepAnswers({
+          step: 'experience',
+          experience: 'circuit',
+          leagues: 7,
+        }),
+        parseStepAnswers({
+          step: 'experience',
+          experience: 'circuit',
+          leagues: 7,
+          leagueOther: 'Golden State',
+        }),
+      ],
+      expected: [
+        { ok: false, reason: 'invalid-value' },
+        { ok: false, reason: 'invalid-value' },
+      ],
+    });
+    assert({
+      given: 'more than twelve leagues, or one longer than sixty characters',
+      should: 'refuse',
+      actual: [
+        parseStepAnswers({
+          step: 'experience',
+          leagues: Array.from({ length: 13 }, (_, index) => `League ${index}`),
+        }),
+        parseStepAnswers({
+          step: 'experience',
+          leagues: ['L'.repeat(61)],
+        }),
+      ],
+      expected: [
+        { ok: false, reason: 'invalid-value' },
+        { ok: false, reason: 'invalid-value' },
+      ],
     });
   });
 
@@ -159,8 +261,9 @@ describe('emptyAnswers', () => {
       expected: {
         wants: [],
         club: null,
+        clubName: null,
         experience: null,
-        formats: [],
+        leagues: [],
         topics: [],
         completedAt: null,
       },

@@ -7,7 +7,7 @@ import { hydrated } from './support/hydration';
 const formOf = (page: import('@playwright/test').Page) =>
   page.getByRole('form', { name: 'Create a room' });
 
-test('editing settings makes Custom and clears Ranked; a standard restores its complete preset', async ({
+test('Custom settings edits clear Ranked; a standard restores its complete preset', async ({
   page,
 }) => {
   await signUpMember(page.request);
@@ -15,11 +15,14 @@ test('editing settings makes Custom and clears Ranked; a standard restores its c
   await hydrated(formOf(page));
   const form = formOf(page);
   const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
-  await expect(form.locator('[name="format"][value="value"]')).toBeChecked();
+  await expect(
+    form.locator('[name="format"][value="freestyle"]'),
+  ).toBeChecked();
   await expect(ranked).not.toBeChecked();
   await ranked.check();
   await form.getByLabel('Room name', { exact: true }).fill('Preserved title');
   await expect(ranked).toBeChecked();
+  await form.locator('[name="format"][value="custom"]').check();
   await form
     .getByText('Speeches and question periods', { exact: false })
     .click();
@@ -32,6 +35,7 @@ test('editing settings makes Custom and clears Ranked; a standard restores its c
   await form.locator('[name="format"][value="policy"]').check();
   await expect(form.locator('[name="resolutionMethod"]')).toHaveValue('policy');
   await form.locator('[name="format"][value="value"]').check();
+  await form.locator('[name="format"][value="custom"]').check();
   await expect(duration).toHaveValue(original);
   await expect(ranked).not.toBeChecked();
   await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
@@ -89,8 +93,14 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form
       .getByLabel('Room name', { exact: true })
       .fill('Native custom room');
+    // Settings render only for Custom, so the native editor applies Custom
+    // first; the submission posts no settings and starts at the preset.
+    await form.locator('[name="format"][value="custom"]').check();
+    await form
+      .getByRole('button', { name: 'Apply format', exact: true })
+      .click();
+    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     const prep = form.locator('[name="duration.inRound"]');
-    const originalPrep = await prep.inputValue();
     await form.getByText('Preparation and timing', { exact: true }).click();
     await prep.fill('1:23');
     await form
@@ -102,9 +112,21 @@ test('native format, resolution and speech editing create a room without JavaScr
       .getByRole('button', { name: 'Apply format', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="value"]')).toBeChecked();
-    await expect(prep).toHaveValue(originalPrep);
     await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
       'Native custom room',
+    );
+    // Back into Custom: the discarded edit must not leak; the value preset
+    // enables preparation, so the field returns at its preset, not '1:23'.
+    await form.locator('[name="format"][value="custom"]').check();
+    await form
+      .getByRole('button', { name: 'Apply format', exact: true })
+      .click();
+    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
+    await expect(form.locator('[name="duration.inRound"]')).not.toHaveValue(
+      '1:23',
+    );
+    await expect(form.locator('[name="duration.inRound"]')).not.toHaveValue(
+      '0:00',
     );
     await form.locator('[name="format"][value="policy"]').check();
     await form
@@ -158,6 +180,7 @@ test('create-room layout fits narrow screens and exposes the full editor', async
       fullPage: true,
     });
   }
+  await formOf(page).locator('[name="format"][value="custom"]').check();
   await formOf(page)
     .getByText('Speeches and question periods', { exact: false })
     .click();
@@ -213,6 +236,13 @@ test('current selection surfaces show exact owner-confirmed Season 1 publication
   const form = formOf(page);
   await hydrated(form);
   const publication = form.locator('.create-room-publication');
+  await expect(
+    form.locator('[name="format"][value="freestyle"]'),
+  ).toBeChecked();
+  await expect(
+    form.getByText('Chosen by strike before the round'),
+  ).toBeVisible();
+  await form.locator('[name="format"][value="value"]').check();
   await expect(publication.locator('blockquote')).toHaveText(
     'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
   );

@@ -355,12 +355,14 @@ export function CreateRoomEditor({
               </label>
             </div>
           </div>
-          <DraftSettings
-            draft={draft}
-            values={values}
-            change={change}
-            schedule={schedule}
-          />
+          {isCustom ? (
+            <DraftSettings
+              draft={draft}
+              values={values}
+              change={change}
+              schedule={schedule}
+            />
+          ) : null}
         </section>
         <section className="create-room-section">
           <label className="create-room-field">

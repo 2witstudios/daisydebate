@@ -62,7 +62,7 @@ const post = (body: unknown, origin = 'http://localhost:3000') =>
     body: JSON.stringify(body),
   });
 
-const about = { step: 'about', wants: ['debate'], club: 'own' };
+const about = { step: 'about', wants: ['debate'], club: 'own', clubName: null };
 
 describe('POST /api/account/onboarding gates', () => {
   test('callers who are not members store nothing', async () => {
@@ -160,7 +160,12 @@ describe('POST /api/account/onboarding answers', () => {
           {
             userId: 'user1',
             actorId: 'actor1',
-            answers: { step: 'about', wants: ['debate'], club: 'own' },
+            answers: {
+              step: 'about',
+              wants: ['debate'],
+              club: 'own',
+              clubName: null,
+            },
             now: NOW,
           },
         ],

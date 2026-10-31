@@ -1,4 +1,5 @@
-/* Onboarding-owned size tokens (ADR 0028). Theme variables only; classes stay in the markup. */
+/* Onboarding-owned size tokens (ADR 0028). Theme variables here; the club
+   reveal stays beside them, like the room's own setup sheet. */
 @theme {
   --container-onboarding: 880px;
   --spacing-onboarding-card: 560px;
@@ -9,4 +10,13 @@
   --spacing-onboarding-cta: 120px;
   --spacing-onboarding-col: 260px;
   --spacing-onboarding-label: 110px;
+}
+
+/* The club-name field shows only once "I have a club" is picked — pure
+   CSS, so it works without script like every other mutating form. */
+@utility onboarding-club-reveal {
+  display: none;
+  form:has(input[name='club'][value='joining']:checked) & {
+    display: flex;
+  }
 }

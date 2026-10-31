@@ -51,7 +51,7 @@ describe('row labels', () => {
         rankText(row()),
         rankText(row({ rank: null })),
       ],
-      expected: ['@ada', '@ada (closed)', '12–5', '1650', '1650?', '4', '–'],
+      expected: ['@ada', '@ada (closed)', '12–5', '1650', '1650*', '4', '–'],
     });
   });
 

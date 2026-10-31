@@ -25,8 +25,9 @@ export function standardOptions<T extends CatalogEntry>(
   return bySortOrder(catalog.filter((entry) => entry.role === 'standard'));
 }
 
-/** A new room starts on Value, Daisy's default standard (FMT-3). */
+/** A new room starts on Freestyle, Daisy's default standard (FMT-3). */
 export const defaultChoice = <T extends CatalogEntry>(catalog: readonly T[]) =>
+  catalog.find((entry) => entry.formatId === 'freestyle') ??
   catalog.find((entry) => entry.formatId === 'value') ??
   standardOptions(catalog)[0] ??
   catalog[0];

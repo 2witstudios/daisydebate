@@ -102,12 +102,12 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
         name: 'Ratings',
         exact: true,
       });
-      await expect(ratings).toContainText(`${row.rating} · Provisional`);
+      await expect(ratings).toContainText(`${row.rating}*`);
       await capture(`${row.ladder}-profile`);
       await page.goto(`/rounds/${row.roundId}`);
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
-      ).toContainText(`${row.rating} · Provisional (+${row.delta})`);
+      ).toContainText(`${row.rating}* (+${row.delta})`);
       await capture(`${row.ladder}-round-rating`);
     }
     await page.goto('/leaderboard/privacy');

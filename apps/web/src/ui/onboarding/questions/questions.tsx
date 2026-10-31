@@ -4,7 +4,6 @@ import { useState, type ReactNode } from 'react';
 import {
   clubChoices,
   experienceChoices,
-  formatPreferenceChoices,
   interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
@@ -15,7 +14,7 @@ import { NextButton, OnboardingFrame, StepFooter } from '../frame/frame';
 import {
   clubLabels,
   experienceLabels,
-  formatLabels,
+  leagueSuggestions,
   topicLabels,
   wantLabels,
 } from './labels';
@@ -189,13 +188,37 @@ export function AboutStep({ answers, ...rest }: QuestionStepProps) {
             />
           ))}
         </div>
+        {/* Shown by CSS alone when "I have a club" is picked, so it works
+            without script like every other mutating form. */}
+        <div className="mt-4 onboarding-club-reveal flex-col gap-2">
+          <label
+            htmlFor="club-name"
+            className="p-0 text-sm font-strong text-ink-muted"
+          >
+            Club name
+          </label>
+          <input
+            id="club-name"
+            type="text"
+            name="clubName"
+            maxLength={60}
+            defaultValue={answers.clubName ?? ''}
+            placeholder="Your club’s name, as your coach knows it"
+            disabled={rest.pending}
+            className="h-onboarding-touch rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink placeholder:text-ink-faint"
+          />
+        </div>
       </fieldset>
     </StepForm>
   );
 }
 
-/** Step 5: experience and formats. */
+/** Step 5: experience, and the leagues they have debated under. */
 export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
+  const saved = new Set(answers.leagues);
+  const custom = answers.leagues.filter(
+    (league) => !leagueSuggestions.includes(league),
+  );
   return (
     <StepForm step="experience" title="Experience" stepNumber={5} {...rest}>
       <fieldset className="m-0 border-0 p-0">
@@ -215,25 +238,38 @@ export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
           ))}
         </div>
       </fieldset>
-      <div className="flex flex-wrap gap-8">
-        <fieldset className="m-0 border-0 p-0">
-          <legend className={legend}>Formats</legend>
-          <div className="flex flex-wrap gap-3">
-            {formatPreferenceChoices.map((format) => (
-              <Choice
-                key={format}
-                type="checkbox"
-                name="formats"
-                value={format}
-                label={formatLabels[format]}
-                checked={answers.formats.includes(format)}
-                disabled={rest.pending}
-                look="chip"
-              />
-            ))}
-          </div>
-        </fieldset>
-      </div>
+      <fieldset className="m-0 border-0 p-0">
+        <legend className={legend}>Leagues you’ve been affiliated with</legend>
+        <div className="flex flex-wrap gap-3">
+          {[...custom, ...leagueSuggestions].map((league) => (
+            <Choice
+              key={league}
+              type="checkbox"
+              name="leagues"
+              value={league}
+              label={league}
+              checked={saved.has(league)}
+              disabled={rest.pending}
+              look="chip"
+            />
+          ))}
+        </div>
+        <label
+          htmlFor="league-other"
+          className="mt-4 block p-0 text-sm font-strong text-ink-muted"
+        >
+          Another league
+        </label>
+        <input
+          id="league-other"
+          type="text"
+          name="leagueOther"
+          autoComplete="off"
+          placeholder="Type any league, or several separated by commas"
+          disabled={rest.pending}
+          className="h-onboarding-touch w-full rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink placeholder:text-ink-faint"
+        />
+      </fieldset>
     </StepForm>
   );
 }

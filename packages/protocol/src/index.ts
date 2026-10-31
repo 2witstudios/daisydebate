@@ -127,12 +127,10 @@ export type {
 export {
   clubChoices,
   experienceChoices,
-  formatPreferenceChoices,
   interestCategoryChoices,
   wantChoices,
   type Club,
   type Experience,
-  type FormatPreference,
   type InterestCategory,
   type Want,
 } from './onboarding';

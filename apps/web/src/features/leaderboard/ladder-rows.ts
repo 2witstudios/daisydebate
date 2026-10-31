@@ -90,14 +90,25 @@ export function aroundWindow(
   ranked: readonly RankedRatingEntry[],
   mine: RankedRatingEntry,
 ): { readonly shown: readonly RankedRatingEntry[]; readonly note: string } {
-  const window = ranked.filter((entry) => !entry.provisional || entry === mine);
-  const at = window.indexOf(mine);
-  const shown = window.slice(Math.max(0, at - AROUND), at + AROUND + 1);
-  const above = window.slice(0, at).filter((entry) => !entry.provisional);
+  // A provisional viewer has no rank to center on: their window sits at the
+  // rank their rating would earn, among the established entries around it.
+  // rankRatingEntries already ordered established entries and mine by
+  // rating, breaking ties by id, so filtering to them and locating mine
+  // reuses exactly that hypothetical order.
+  const hypothetical = ranked.filter(
+    (entry) => !entry.provisional || entry === mine,
+  );
+  const at = mine.provisional ? hypothetical.indexOf(mine) : -1;
+  const established = ranked.filter((entry) => !entry.provisional);
+  const window = mine.provisional
+    ? [...established.slice(0, at), mine, ...established.slice(at)]
+    : hypothetical;
+  const center = window.indexOf(mine);
+  const shown = window.slice(Math.max(0, center - AROUND), center + AROUND + 1);
   return {
     shown,
     note: mine.provisional
-      ? `Where you would sit: around rank ${above.length + 1} at rating ${mine.rating}`
+      ? `Where you would sit: around rank ${center + 1} at rating ${Math.round(mine.rating)}`
       : `Ranks ${shown[0]?.rank ?? ''} to ${shown.at(-1)?.rank ?? ''}`,
   };
 }

@@ -1,10 +1,7 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/coming-soon/launch';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import {
-  oneOnOneDefinition,
-  oneOnOneSettings,
-} from '@daisy/db/reference-formats';
+import { catalogFormats } from '@daisy/db/catalog-formats';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { heading, type IntroStepProps } from './intro';
@@ -39,16 +36,24 @@ function segmentClass(turn: IntroTurn): string {
     : 'bg-hue-clay text-surface-raised';
 }
 
-/** The schedule the intro shows: the one-on-one casual room's resolved segments. */
+/**
+ * The schedule the intro shows: Freestyle, the format a new member's first
+ * debates run on, at its catalog preset. Its schedule is the one-on-one's,
+ * and its prep is a strike-then-prep round, so the intro's prep line reads
+ * the format members will actually get rather than a casual room's.
+ */
 const introRules = (() => {
+  const freestyle = catalogFormats.find((format) => format.id === 'freestyle');
+  if (freestyle === undefined)
+    throw new Error('Freestyle is missing from the format catalog');
   const resolved = resolveRoomConfiguration(
-    oneOnOneDefinition,
-    oneOnOneSettings,
+    freestyle.definition,
+    freestyle.preset,
   );
   if (!resolved.ok) throw new Error(resolved.refusal.message);
-  return resolved.rules;
+  return { rules: resolved.rules, preset: freestyle.preset };
 })();
-const introTurns = introRules.segments.map((segment, index) => ({
+const introTurns = introRules.rules.segments.map((segment, index) => ({
   index,
   name: segment.key,
   label: segment.label,
@@ -60,6 +65,16 @@ const introTurns = introRules.segments.map((segment, index) => ({
   durationMs: segment.durationMs,
 }));
 type IntroTurn = (typeof introTurns)[number];
+
+/** The prep line, from the format itself: in-round budget, or strike-then-prep. */
+const prepLine = (() => {
+  const inRound = introRules.rules.inRoundPrep;
+  if (inRound !== null)
+    return `plus ${minutesOf(inRound.budgetMsPerSide)} minutes of prep you can spend between turns.`;
+  const { preRoundPrep } = introRules.preset;
+  const before = preRoundPrep.enabled ? minutesOf(preRoundPrep.durationMs) : 0;
+  return `plus ${before} minutes of prep before the round begins, once the motion is struck.`;
+})();
 
 const turnText = (turn: IntroTurn) =>
   `${turn.side === 'affirmative' ? 'Aff' : 'Neg'} ${
@@ -155,9 +170,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
             </span>
           ))}
         </div>
-        <p className="text-sm text-ink-muted">
-          {`${speaking} minutes of speaking, plus ${minutesOf(introRules.inRoundPrep?.budgetMsPerSide ?? 0)} minutes of prep you can spend between turns.`}
-        </p>
+        <p className="text-sm text-ink-muted">{`${speaking} minutes of speaking, ${prepLine}`}</p>
       </div>
       <div className="grid grid-cols-3 gap-6 max-narrow:grid-cols-1">
         {explainers.map(([title, body, href, link]) => (

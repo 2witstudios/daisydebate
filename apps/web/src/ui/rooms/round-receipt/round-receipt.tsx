@@ -210,9 +210,6 @@ function DrawAudit({
           </li>
         ))}
       </ol>
-      <p className="text-xs wrap-anywhere text-ink-muted">
-        Draw commitment {audit.commitment}
-      </p>
     </section>
   );
 }

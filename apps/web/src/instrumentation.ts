@@ -1,10 +1,9 @@
 import type { Instrumentation } from 'next';
 
-// The app's logger, from validated config, is what the nodejs runtime logs
-// through. The process edge is imported lazily, keeping this file free of
-// server code.
-const edge = () => import('./server/process-app');
-
+// Next builds this file for both runtimes, so every Node-only import sits
+// behind the statically-inlined runtime gate — the docs' own pattern — and
+// the edge bundle contains none of the server composition. The app's
+// logger, from validated config, is what the nodejs runtime logs through.
 export async function register() {
   // ADR 0037: each runtime initializes its own scrubbed adapter, gated on
   // its own variable; an unset DSN leaves the SDK uninitialized and no
@@ -15,8 +14,7 @@ export async function register() {
   }
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   await import('./features/telemetry/sentry.server.config');
-  const { isNodeRuntime, processApp } = await edge();
-  if (!isNodeRuntime()) return;
+  const { processApp } = await import('./server/process-app');
   // Provider-neutral spans bind to the host's OTel provider. Exporters belong to deployment.
   processApp().logger.log(
     'runtime.initialize',
@@ -29,7 +27,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context,
 ) => {
-  const { processApp } = await edge();
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const { processApp } = await import('./server/process-app');
   const id = request.headers['x-request-id'];
   const requestId = typeof id === 'string' ? id : 'unknown';
   const app = processApp();

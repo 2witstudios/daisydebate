@@ -19,6 +19,7 @@ describe('optional onboarding answers and age (ISSUE-645)', () => {
               step: 'about',
               wants: ['watch'],
               club: 'own',
+              clubName: null,
             }).then(
               () => null,
               (error: { code?: string }) => error.code,
@@ -134,6 +135,7 @@ describe('optional onboarding answers and age (ISSUE-645)', () => {
                 step: 'about',
                 wants: ['watch'],
                 club: 'own',
+                clubName: null,
               });
               await save(database, ids, { step: 'topics', topics: ['law'] });
             }
