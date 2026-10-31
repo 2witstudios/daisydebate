@@ -189,7 +189,7 @@ test('Room creation hands the initial cast to the create transaction through the
   };
   const create = async (cast: RoomCreate['cast'], botsAvailable = false) => {
     const run = makeOperations({}, botsAvailable);
-    await run.operations
+    const error = await run.operations
       .create(caller, {
         commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
         title: 'A practice room',
@@ -204,10 +204,13 @@ test('Room creation hands the initial cast to the create transaction through the
         },
         cast,
       })
-      .catch(() => undefined);
-    return run;
+      .then(
+        () => null,
+        (error: unknown) => (error as { code?: string }).code ?? null,
+      );
+    return { run, error };
   };
-  const run = await create(
+  const { run } = await create(
     [{ actorId: botActorId, role: 'negative', slot: 0 }],
     true,
   );
@@ -262,10 +265,10 @@ test('Room creation hands the initial cast to the create transaction through the
   const unavailable = await create([
     { actorId: botActorId, role: 'negative', slot: 0 },
   ]);
-  const unavailableSeat = unavailable.createInput()?.cast?.seats[0];
+  const unavailableSeat = unavailable.run.createInput()?.cast?.seats[0];
   const unavailableOutcome =
     unavailableSeat &&
-    unavailable
+    unavailable.run
       .createInput()
       ?.cast?.apply(
         { ...state, participants: [] },
@@ -282,29 +285,10 @@ test('Room creation hands the initial cast to the create transaction through the
         : 'accepted',
     expected: 'actor-ineligible',
   });
-  const duplicate = makeOperations();
-  const duplicateError = await duplicate.operations
-    .create(caller, {
-      commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
-      title: 'A practice room',
-      resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
-      visibility: 'public',
-      selection: {
-        kind: 'catalog',
-        formatId: 'value',
-        formatVersion: 1,
-        presetVersion: 1,
-        competitionType: 'casual',
-      },
-      cast: [
-        { actorId: botActorId, role: 'negative', slot: 0 },
-        { actorId: botActorId, role: 'affirmative', slot: 0 },
-      ],
-    })
-    .then(
-      () => null,
-      (error: unknown) => (error as { code?: string }).code ?? null,
-    );
+  const { run: duplicate, error: duplicateError } = await create([
+    { actorId: botActorId, role: 'negative', slot: 0 },
+    { actorId: botActorId, role: 'affirmative', slot: 0 },
+  ]);
   assert({
     given: 'a cast seating one actor twice',
     should:

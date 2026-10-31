@@ -9,6 +9,16 @@ import { roomCastChoiceSchema } from './room-read';
 setupRitewayBun();
 const commandId = 'abcdefghijklmnopqrstuvwx';
 
+/** The minimal valid create carrying only the varying selection. */
+const parsesCreate = (selection: Record<string, unknown>) =>
+  roomCreateSchema.safeParse({
+    commandId,
+    title: 'Title',
+    resolution: { kind: 'custom', text: 'Topic' },
+    visibility: 'public',
+    selection,
+  }).success;
+
 describe('Room command boundary', () => {
   test('refuses private visibility from every request (DEC-206)', () => {
     const details = (visibility: string) => ({
@@ -36,14 +46,7 @@ describe('Room command boundary', () => {
     });
   });
   test('creates an unranked Room only as casual (DEC-233)', () => {
-    const create = (selection: Record<string, unknown>) =>
-      roomCreateSchema.safeParse({
-        commandId,
-        title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
-        visibility: 'public',
-        selection,
-      }).success;
+    const create = parsesCreate;
     const catalog = (competitionType: string) => ({
       kind: 'catalog',
       formatId: 'value',
@@ -152,14 +155,7 @@ describe('Room command boundary', () => {
     });
   });
   test('a catalog selection names its preset and carries no config (FMT-1)', () => {
-    const create = (selection: Record<string, unknown>) =>
-      roomCreateSchema.safeParse({
-        commandId,
-        title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
-        visibility: 'public',
-        selection,
-      }).success;
+    const create = parsesCreate;
     const base = {
       kind: 'catalog',
       formatId: 'value',
@@ -180,14 +176,7 @@ describe('Room command boundary', () => {
     });
   });
   test('refuses a length on every selection: Rounds are full length only (DEC-237)', () => {
-    const create = (selection: Record<string, unknown>) =>
-      roomCreateSchema.safeParse({
-        commandId,
-        title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
-        visibility: 'public',
-        selection,
-      }).success;
+    const create = parsesCreate;
     const selections = [
       {
         kind: 'catalog',
