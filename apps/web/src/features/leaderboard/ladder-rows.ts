@@ -92,13 +92,17 @@ export function aroundWindow(
 ): { readonly shown: readonly RankedRatingEntry[]; readonly note: string } {
   // A provisional viewer has no rank to center on: their window sits at the
   // rank their rating would earn, among the established entries around it.
+  // rankRatingEntries already ordered established entries and mine by
+  // rating, breaking ties by id, so filtering to them and locating mine
+  // reuses exactly that hypothetical order.
+  const hypothetical = ranked.filter(
+    (entry) => !entry.provisional || entry === mine,
+  );
+  const at = mine.provisional ? hypothetical.indexOf(mine) : -1;
   const established = ranked.filter((entry) => !entry.provisional);
-  // After every established entry rated at least as high; ties keep the
-  // earlier entrant ahead.
-  const at = established.filter((entry) => entry.rating >= mine.rating).length;
   const window = mine.provisional
     ? [...established.slice(0, at), mine, ...established.slice(at)]
-    : ranked.filter((entry) => !entry.provisional || entry === mine);
+    : hypothetical;
   const center = window.indexOf(mine);
   const shown = window.slice(Math.max(0, center - AROUND), center + AROUND + 1);
   return {

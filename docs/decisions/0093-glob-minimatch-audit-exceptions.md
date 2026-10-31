@@ -16,23 +16,11 @@ affect long-installed transitive versions:
   amplification. It affects minimatch `<11.0.1`; the tree carries 3.1.5
   and 10.2.6.
 
-Every affected path is development or build tooling:
-
-- glob is installed by riteway's vitest chain (never loaded; ADR 0056)
-  and by `@sentry/bundler-plugins` under `@sentry/bun` and
-  `@sentry/nextjs`, which run only at build time when shipping source
-  maps.
-- minimatch is installed by eslint, typescript-eslint,
-  eslint-config-next's eslint-plugin-react, and by glob itself — all
-  lint/build tooling.
-
-No upgrade can clear the advisories:
-
-- The glob advisory covers every release from 9 through 14.0.1, so no
-  in-range bump of any dependent helps.
-- The minimatch advisory covers everything below 11.0.1, and eslint's
-  ecosystem pins 3.x/10.x ranges.
-- ADR 0039 rules out `overrides`.
+Every affected path is build or lint tooling. `glob` and `minimatch` do
+ship inside production installs through `@sentry/nextjs` →
+`@sentry/bundler-plugins` (a production dependency), so package absence
+is not the argument — execution is, and the decision pins down exactly
+where the vulnerable code runs.
 
 ## Decision
 
@@ -40,15 +28,28 @@ No upgrade can clear the advisories:
    `policy/audit-exceptions.json`, with review by 2027-01-15 and owner
    platform, and document them in `docs/dependencies.md`. This record
    adds nothing else to ADR 0039's list.
-2. **Why they are unreachable.** The vulnerable code runs only when a
-   developer or CI lint/build invokes the tools over Daisy's own files:
-   - No production image installs dev dependencies; `apps/web`'s image
-     installs with `--production`.
-   - Nothing imports riteway's vitest chain at runtime (ADR 0056).
-   - Sentry bundler plugins run inside the build, over repository files,
-     never over untrusted paths.
-   - No glob or minimatch call ever receives an attacker-controlled
-     pattern; the traversal and amplification findings require one.
+2. **Why they are unreachable.** The packages are physically present in
+   a production install (ADR 0068's no-absence assumption), but the
+   vulnerable code never executes there:
+   - In `@sentry/bundler-plugins`, exactly one module requires glob
+     (`build/cjs/core/glob.js`), and only the rollup plugin imports it.
+     `@sentry/nextjs` loads `@sentry/bundler-plugins` only from its
+     webpack config and build hooks, so every glob call happens inside
+     the `next build` process, over the repository's own files.
+   - `@sentry/bun`'s `plugin.js` (the standalone Bun bundler plugin) is
+     required by no runtime entrypoint of `@sentry/bun` — not `index`,
+     `sdk` or `client` — so the realtime service's process never loads
+     it.
+   - The minimatch finding needs an attacker-controlled pattern string;
+     no production path passes one, and the lint chains that could see
+     one run only on Daisy's own files in CI.
+   - The production image's `prod-deps` stage installs without
+     devDependencies, so the eslint, typescript-eslint and riteway
+     chains are absent from the runtime image entirely.
+   - No upgrade can clear the advisories: the glob advisory covers every
+     release from 9 through 14.0.1 and the minimatch advisory
+     everything below 11.0.1, while the dependents pin those ranges;
+     ADR 0039 rules out `overrides`.
 3. ADR 0039's expiry, drift and no-blanket-ignore rules still hold.
    Policy fails these entries:
    - past their review date;

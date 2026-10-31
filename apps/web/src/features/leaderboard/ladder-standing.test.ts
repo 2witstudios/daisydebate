@@ -117,6 +117,34 @@ describe('Around me', () => {
     });
   });
 
+  test('a provisional viewer tied on rating with an established debater', () => {
+    const view = ladder(
+      [
+        ...field(30),
+        {
+          ...me,
+          played: 4,
+          deviation: 200,
+          rating: 1650,
+        },
+      ],
+      { scope: 'around' },
+      viewer,
+    );
+    assert({
+      given:
+        'a provisional viewer rated exactly level with established debater p005, whose id sorts later',
+      should:
+        'take the ahead half of the tie, the same order the established ladder breaks it',
+      actual: [view.gapNote, view.rows[4]?.username, view.rows[5]?.username],
+      expected: [
+        'Where you would sit: around rank 6 at rating 1650',
+        'p004',
+        'me',
+      ],
+    });
+  });
+
   test('without a standing', () => {
     assert({
       given: 'Around me asked for by someone with no line',
