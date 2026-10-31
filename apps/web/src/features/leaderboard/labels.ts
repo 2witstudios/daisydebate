@@ -1,5 +1,6 @@
 import { signed } from './history';
 import type { Change, LadderRow } from './ladder-view';
+import { markedRating } from '../ratings/provisional-mark';
 
 /** A live season shows a seven-day move; a closed one its season change. */
 export function changeText(change: Change, closed: boolean): string {
@@ -20,11 +21,11 @@ export const displayName = (
 export const recordText = (row: Pick<LadderRow, 'wins' | 'losses'>): string =>
   `${row.wins}–${row.losses}`;
 
-/** The rating as a row shows it: a question mark while provisional. */
+/** The rating as a row shows it: a star while provisional. */
 export const ratingText = (
   row: Pick<LadderRow, 'rating' | 'provisional' | 'masked'>,
 ): string =>
-  row.masked ? 'Hidden' : `${row.rating}${row.provisional ? '?' : ''}`;
+  row.masked ? 'Hidden' : markedRating(row.rating, row.provisional);
 
 export const rankText = (row: Pick<LadderRow, 'rank'>): string =>
   row.rank === null ? '–' : String(row.rank);

@@ -31,12 +31,7 @@ describe('ratingText', () => {
         ratingText(standing({ rating: null })),
         ratingText(standing({ hidden: true })),
       ],
-      expected: [
-        '1512',
-        '1512 · Provisional',
-        'Unrated',
-        'Hidden while judging',
-      ],
+      expected: ['1512', '1512*', 'Unrated', 'Hidden while judging'],
     });
   });
 });
@@ -56,16 +51,17 @@ describe('AccountRatings', () => {
     assert({
       given: 'a member with a rating on each ladder',
       should:
-        'title the section with the season and name each ladder with its rating state',
+        'title the section with the season and name each ladder with its rating state, the provisional one starred and italic',
       actual: [
         html.includes('Ranked · Autumn 2026'),
         html.includes('Freestyle'),
         html.includes('1512'),
         html.includes('Unrated'),
-        html.includes('1530 · Provisional'),
+        html.includes('1530*'),
+        html.includes('title="Provisional rating"'),
         html.indexOf('Freestyle') < html.indexOf('Policy'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true],
     });
   });
 

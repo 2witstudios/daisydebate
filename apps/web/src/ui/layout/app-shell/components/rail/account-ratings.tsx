@@ -1,6 +1,11 @@
 import type { RatingLadder } from '@daisy/protocol';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
+import {
+  markedRating,
+  provisionalMarkClass,
+} from '../../../../../features/ratings/provisional-mark';
 import type { ShellRatings } from '../../account';
+import { cn } from '../../../../cn';
 
 const ladderNames: Readonly<Record<RatingLadder, string>> = {
   freestyle: 'Freestyle',
@@ -12,10 +17,12 @@ const ladderNames: Readonly<Record<RatingLadder, string>> = {
 export function ratingText(standing: MemberStanding): string {
   if (standing.hidden) return 'Hidden while judging';
   if (standing.rating === null) return 'Unrated';
-  return standing.provisional
-    ? `${standing.rating} · Provisional`
-    : `${standing.rating}`;
+  return markedRating(standing.rating, standing.provisional);
 }
+
+/** True when the row's figure carries the provisional mark. */
+const marked = (standing: MemberStanding): boolean =>
+  standing.provisional && standing.rating !== null;
 
 /** The member's standing on each ladder, read by the shell for this request. */
 export async function AccountRatings({
@@ -54,7 +61,13 @@ export async function AccountRatings({
               <dt className="text-sm text-ink-muted">
                 {ladderNames[standing.ladder]}
               </dt>
-              <dd className="text-sm font-semibold text-ink tabular-nums">
+              <dd
+                className={cn(
+                  'text-sm font-semibold text-ink tabular-nums',
+                  marked(standing) && provisionalMarkClass,
+                )}
+                title={marked(standing) ? 'Provisional rating' : undefined}
+              >
                 {ratingText(standing)}
               </dd>
             </div>

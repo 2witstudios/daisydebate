@@ -1,4 +1,8 @@
 import type { RoundRatingsView } from '../../features/ratings/read-round';
+import {
+  markedRating,
+  provisionalMarkClass,
+} from '../../features/ratings/provisional-mark';
 
 export function RoundRatings({
   view,
@@ -19,12 +23,23 @@ export function RoundRatings({
         {view.rows.map((row) => (
           <div key={row.label}>
             <dt>{row.label}</dt>
-            <dd>
+            <dd
+              className={
+                row.provisional && row.rating !== null
+                  ? provisionalMarkClass
+                  : undefined
+              }
+              title={
+                row.provisional && row.rating !== null
+                  ? 'Provisional rating'
+                  : undefined
+              }
+            >
               {row.hidden
                 ? 'Hidden while judging'
                 : row.rating === null
                   ? 'Unrated'
-                  : `${row.rating}${row.provisional ? ' · Provisional' : ''}`}
+                  : markedRating(row.rating, row.provisional)}
               {row.delta === null
                 ? ''
                 : ` (${row.delta > 0 ? '+' : ''}${row.delta})`}

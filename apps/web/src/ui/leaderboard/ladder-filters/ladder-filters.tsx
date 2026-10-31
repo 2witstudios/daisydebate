@@ -75,7 +75,7 @@ function FiltersSummary({ active }: { readonly active: number }): ReactNode {
 
 const statusOptions: readonly Option[] = [
   option('established', 'Established'),
-  option('provisional', 'Provisional'),
+  option('provisional', 'New players'),
   option('everyone', 'Everyone'),
 ];
 

@@ -87,7 +87,7 @@ export function LadderTable({ view, query, toolbar }: LadderTableProps) {
       ) : null}
       <section
         aria-label="Ladder"
-        className="overflow-hidden rounded-lg border border-border bg-surface shadow-1"
+        className="rounded-lg border border-border bg-surface shadow-1"
       >
         {toolbar ? (
           <div className="border-b border-border px-5 py-3 max-compact:px-4">

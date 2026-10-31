@@ -59,15 +59,24 @@ describe('Around me', () => {
 
   test('a provisional viewer', () => {
     const view = ladder(
-      [...field(30), { ...me, played: 4, deviation: 200 }],
+      [
+        ...field(30),
+        {
+          ...me,
+          played: 4,
+          deviation: 200,
+          rating: 1662.3108939062977,
+        },
+      ],
       { scope: 'around' },
       viewer,
     );
     assert({
-      given: 'a provisional viewer',
-      should: 'show where they would sit instead of a rank',
+      given: 'a provisional viewer with a fractional rating',
+      should:
+        'show where they would sit at a whole-number rating instead of a rank',
       actual: [view.gapNote, view.rows.at(-1)?.me],
-      expected: ['Where you would sit: around rank 31 at rating 1300', true],
+      expected: ['Where you would sit: around rank 31 at rating 1662', true],
     });
   });
 
