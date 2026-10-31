@@ -76,6 +76,45 @@ test('Train seats the chosen bot in a durable, editable Room', async ({
   }
 });
 
+test('native Train Start practice creates a Room and recovers an active Room with a 303', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled: false,
+  });
+  try {
+    await resetRateLimits(context.request);
+    await signUpMember(context.request);
+    const page = await openPage(context, 'Native Train host');
+    const roster = await readRoomBotRoster(page.request);
+    const opponent = roster.find(
+      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+    );
+    expect(opponent?.eligible).toBe(true);
+
+    await page.goto(`/train?bot=${opponent!.actorId}`);
+    await page.getByRole('button', { name: 'Start practice' }).click();
+    await expect(page).toHaveURL(/\/rooms\/[a-z0-9]{24}$/);
+    const roomId = new URL(page.url()).pathname.split('/').at(-1)!;
+    const created = await reread(page.request, roomId);
+    expect(seated(created, opponent!.actorId)).toMatchObject({
+      role: 'negative',
+      kind: 'bot',
+    });
+
+    // A native retry cannot create a second active Room; its 303 returns to
+    // the exact Room that still owns this member.
+    await page.goto(`/train?bot=${opponent!.actorId}`);
+    await page.getByRole('button', { name: 'Start practice' }).click();
+    await expect(page).toHaveURL(`/rooms/${roomId}`);
+    expect((await reread(page.request, roomId)).id).toBe(roomId);
+  } finally {
+    await context.close();
+  }
+});
+
 test('an ordinary host fills side and judge seats with bots through Manage seats, and refusals leave the cast unchanged', async ({
   browser,
 }, info) => {

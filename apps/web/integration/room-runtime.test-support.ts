@@ -123,6 +123,15 @@ async function fixture(
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
+  const operationsWithBotAvailability = (available: boolean) =>
+    createRoomRuntimeOperations({
+      store,
+      redis: controlled,
+      ids: systemId,
+      entropy: drawEntropy,
+      consentTtlMs: () => 60_000,
+      botsAvailable: () => available,
+    });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
   const foundation = async () => ({
     definition: foundationSelection.definition,
@@ -246,6 +255,7 @@ async function fixture(
     store,
     redis,
     operations,
+    operationsWithBotAvailability,
     host,
     guest,
     outsider,

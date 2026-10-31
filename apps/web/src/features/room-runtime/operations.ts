@@ -255,7 +255,10 @@ export function createRoomRuntimeOperations({
                         consentVersion: 0,
                         role: seat.role,
                         slot: seat.slot,
-                        eligible: target.eligible,
+                        // Match the ordinary assign-seat command: profile
+                        // eligibility is not enough while the bot provider
+                        // is unavailable (including direct create requests).
+                        eligible: target.eligible && botsAvailable(),
                       }
                     : null,
                   drawSeed: null,

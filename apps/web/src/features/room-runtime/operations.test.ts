@@ -187,8 +187,8 @@ test('Room creation hands the initial cast to the create transaction through the
     eligible: true,
     seatRole: 'debater' as const,
   };
-  const create = async (cast: RoomCreate['cast']) => {
-    const run = makeOperations();
+  const create = async (cast: RoomCreate['cast'], botsAvailable = false) => {
+    const run = makeOperations({}, botsAvailable);
     await run.operations
       .create(caller, {
         commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
@@ -207,9 +207,10 @@ test('Room creation hands the initial cast to the create transaction through the
       .catch(() => undefined);
     return run;
   };
-  const run = await create([
-    { actorId: botActorId, role: 'negative', slot: 0 },
-  ]);
+  const run = await create(
+    [{ actorId: botActorId, role: 'negative', slot: 0 }],
+    true,
+  );
   const cast = run.createInput()?.cast;
   const seat = cast?.seats[0];
   const accepted =
@@ -257,6 +258,29 @@ test('Room creation hands the initial cast to the create transaction through the
       missing: 'actor-ineligible',
       wrongSeat: 'actor-ineligible',
     },
+  });
+  const unavailable = await create([
+    { actorId: botActorId, role: 'negative', slot: 0 },
+  ]);
+  const unavailableSeat = unavailable.createInput()?.cast?.seats[0];
+  const unavailableOutcome =
+    unavailableSeat &&
+    unavailable
+      .createInput()
+      ?.cast?.apply(
+        { ...state, participants: [] },
+        unavailableSeat,
+        botTarget,
+        now,
+      );
+  assert({
+    given: 'a direct create request while the provider is unavailable',
+    should: 'apply the same bot-availability refusal as assign-seat',
+    actual:
+      unavailableOutcome && !unavailableOutcome.ok
+        ? unavailableOutcome.refusal
+        : 'accepted',
+    expected: 'actor-ineligible',
   });
   const duplicate = makeOperations();
   const duplicateError = await duplicate.operations

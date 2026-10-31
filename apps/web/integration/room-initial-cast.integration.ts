@@ -231,6 +231,60 @@ test('a replayed create with a cast returns the original receipt even after the 
   });
 });
 
+test('provider unavailability atomically refuses a fresh cast but does not invalidate a committed retry', async () => {
+  await withRoomRuntime(async (f) => {
+    const { actorId: botId } = await f.bot();
+    const member = await f.member();
+    const resolutionId = await valueResolutionId(f);
+    const unavailable = f.operationsWithBotAvailability(false);
+    const refusedBody = valueBody(resolutionId, [
+      { actorId: botId, role: 'negative', slot: 0 },
+    ]);
+    await assertRejects({
+      given: 'a fresh create with a bot cast while the provider is unavailable',
+      should:
+        'apply the same eligibility gate as host assignment and persist nothing',
+      actual: () => unavailable.create(member, refusedBody),
+      code: 'CONFLICT',
+    });
+    const refusedRooms = await castRows(f);
+    assert({
+      given: 'the unavailable-bot create refusal',
+      should: 'leave no room or participant rows',
+      actual: refusedRooms.length,
+      expected: 0,
+    });
+
+    const committedBody = {
+      ...refusedBody,
+      commandId: createId(),
+      title: 'Practice against a bot',
+    };
+    const created = await f.operations.create(member, committedBody);
+    try {
+      const replayed = await unavailable.create(member, committedBody);
+      assert({
+        given:
+          'a committed cast create retried after AI availability changes to unavailable',
+        should:
+          'replay its original Room receipt before applying the fresh availability gate',
+        actual: {
+          replayed: replayed.receipt.replayed,
+          roomId: replayed.receipt.roomId,
+          originalRoomId: created.receipt.roomId,
+        },
+        expected: {
+          replayed: true,
+          roomId: created.receipt.roomId,
+          originalRoomId: created.receipt.roomId,
+        },
+      });
+    } finally {
+      await deleteRooms(f, [created.view.id]);
+    }
+  });
+});
+
 test('competing submissions of one create command serialize to one create and one replay', async () => {
   await withRoomRuntime(async (f) => {
     const created: string[] = [];

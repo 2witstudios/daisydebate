@@ -114,7 +114,10 @@ export const round: RoundView = (({ hostActorId, ...viewed }) => {
   return { ...viewed, viewerIsHost: true };
 })(launched);
 
-export function makeOperations(overrides: Partial<Store> = {}) {
+export function makeOperations(
+  overrides: Partial<Store> = {},
+  botsAvailable = false,
+) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
     databaseNow: async () => now,
@@ -265,7 +268,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       'f5n6p8r2t4v6x8z1k3b5c7d9',
     ]),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => false,
+    botsAvailable: () => botsAvailable,
     entropy: () => '01'.repeat(32),
   });
   return {

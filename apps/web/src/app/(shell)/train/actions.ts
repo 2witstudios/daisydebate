@@ -8,6 +8,7 @@ import {
   preparePractice,
 } from '../../../features/train/start-practice';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
+import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 
@@ -50,5 +51,8 @@ export async function startPracticeAction(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(request.body),
   });
-  return practiceAnswer(response, form);
+  const answer = await practiceAnswer(response, form);
+  // Native server-action posts need an actual 303; hydrated forms navigate
+  // from the returned `next` state through useMovedOn.
+  return answer.next ? { ...answer, ...moveOn(incoming, answer.next) } : answer;
 }
