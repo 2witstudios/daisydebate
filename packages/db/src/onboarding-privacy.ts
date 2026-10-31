@@ -3,6 +3,7 @@ import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
 import {
   memberInterests,
+  memberLeagues,
   memberOnboarding,
   memberTopics,
 } from './schema/onboarding';
@@ -22,6 +23,9 @@ export const onboardingPrivacyAdopter: PrivacyAdopter = {
       sql`delete from ${memberTopics} where user_id=${subject.userId}`,
     );
     await tx.execute(
+      sql`delete from ${memberLeagues} where user_id=${subject.userId}`,
+    );
+    await tx.execute(
       sql`delete from ${memberOnboarding} where user_id=${subject.userId}`,
     );
   },
@@ -32,9 +36,12 @@ export const onboardingPrivacyAdopter: PrivacyAdopter = {
     member_topics: (await tx.execute(
       sql`select user_id,topic from ${memberTopics} where user_id=${subject.userId} order by topic`,
     )) as unknown as Record<string, unknown>[],
+    member_leagues: (await tx.execute(
+      sql`select user_id,league from ${memberLeagues} where user_id=${subject.userId} order by league`,
+    )) as unknown as Record<string, unknown>[],
     member_onboarding: exportRows(
       (await tx.execute(
-        sql`select user_id,club,experience,formats,completed_at,created_at,updated_at,version from ${memberOnboarding} where user_id=${subject.userId}`,
+        sql`select user_id,club,club_name,experience,completed_at,created_at,updated_at,version from ${memberOnboarding} where user_id=${subject.userId}`,
       )) as unknown as Record<string, unknown>[],
     ),
   }),

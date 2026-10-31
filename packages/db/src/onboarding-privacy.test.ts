@@ -12,7 +12,8 @@ test('optional answers are exported to and erased with their subject (DEC-106)',
   const exported = scripted([
     [{ user_id: subject.userId, interest: 'watch' }],
     [{ user_id: subject.userId, topic: 'law' }],
-    [{ user_id: subject.userId, club: 'own' }],
+    [{ user_id: subject.userId, league: 'Axe League' }],
+    [{ user_id: subject.userId, club: 'own', club_name: 'Debate Club' }],
   ]);
   const erased = scripted([]);
   const own = await onboardingPrivacyAdopter.export(exported.tx, subject);
@@ -20,21 +21,43 @@ test('optional answers are exported to and erased with their subject (DEC-106)',
     now: '2026-10-26T00:00:00.000Z',
   });
   assert({
-    given: 'a member’s interests, topics and single-choice answers',
+    given: 'a member’s interests, topics, leagues and single-choice answers',
     should:
-      'export each table bound to the subject and delete all three for that subject',
+      'export each table bound to the subject and delete all four for that subject',
     actual: [
       Object.keys(own),
       exported.queries.every(({ params }) => params[0] === subject.userId),
+      exported.queries.map(({ sql: text }) =>
+        /^select user_id,([a-z_,]+) from "([a-z_]+)"/.exec(text)?.slice(1),
+      ),
       erased.queries.map(
         ({ sql: text }) => /^delete from "([a-z_]+)"/.exec(text)?.[1],
       ),
       erased.queries.every(({ params }) => params[0] === subject.userId),
     ],
     expected: [
-      ['member_interests', 'member_topics', 'member_onboarding'],
+      [
+        'member_interests',
+        'member_topics',
+        'member_leagues',
+        'member_onboarding',
+      ],
       true,
-      ['member_interests', 'member_topics', 'member_onboarding'],
+      [
+        ['interest', 'member_interests'],
+        ['topic', 'member_topics'],
+        ['league', 'member_leagues'],
+        [
+          'club,club_name,experience,completed_at,created_at,updated_at,version',
+          'member_onboarding',
+        ],
+      ],
+      [
+        'member_interests',
+        'member_topics',
+        'member_leagues',
+        'member_onboarding',
+      ],
       true,
     ],
   });
