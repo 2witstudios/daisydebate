@@ -65,6 +65,20 @@ describe('parseStepAnswers', () => {
       actual: parseStepAnswers({ step: 'about', wants: ['judge', 'judge'] }),
       expected: { ok: false, reason: 'repeated-value' },
     });
+    assert({
+      given: 'a club choice that does not name a club, but a typed name',
+      should:
+        'store nothing for the name: the form only reveals the field for “I have a club”',
+      actual: parseStepAnswers({
+        step: 'about',
+        club: 'own',
+        clubName: 'Stale Academy',
+      }),
+      expected: {
+        ok: true,
+        value: { step: 'about', wants: [], club: 'own', clubName: null },
+      },
+    });
   });
 
   test('the experience step', () => {
@@ -116,6 +130,46 @@ describe('parseStepAnswers', () => {
           leagues: [],
         },
       },
+    });
+    assert({
+      given: 'one league posted as a bare string beside a typed one',
+      should:
+        'keep both: a scalar posts beside chips when a client sends the field unwrapped',
+      actual: parseStepAnswers({
+        step: 'experience',
+        experience: 'circuit',
+        leagues: 'NSDA',
+        leagueOther: 'Golden State',
+      }),
+      expected: {
+        ok: true,
+        value: {
+          step: 'experience',
+          experience: 'circuit',
+          leagues: ['NSDA', 'Golden State'],
+        },
+      },
+    });
+    assert({
+      given: 'a leagues value that is neither a string nor a list',
+      should: 'refuse instead of quietly dropping it, typed other or not',
+      actual: [
+        parseStepAnswers({
+          step: 'experience',
+          experience: 'circuit',
+          leagues: 7,
+        }),
+        parseStepAnswers({
+          step: 'experience',
+          experience: 'circuit',
+          leagues: 7,
+          leagueOther: 'Golden State',
+        }),
+      ],
+      expected: [
+        { ok: false, reason: 'invalid-value' },
+        { ok: false, reason: 'invalid-value' },
+      ],
     });
     assert({
       given: 'more than twelve leagues, or one longer than sixty characters',

@@ -100,17 +100,7 @@ function name(value: unknown): string | null {
  * (a chip and the field) merges into the first spelling; only a name
  * over the bound or too many leagues refuses.
  */
-function manyOpen(value: unknown): string[] {
-  const items =
-    value === undefined
-      ? []
-      : Array.isArray(value)
-        ? value
-        : typeof value === 'string'
-          ? [value]
-          : (() => {
-              throw new Refused('invalid-value');
-            })();
+function manyOpen(items: readonly unknown[]): string[] {
   const picked = items.flatMap((item) =>
     typeof item === 'string'
       ? item
@@ -135,6 +125,13 @@ function manyOpen(value: unknown): string[] {
   return unique;
 }
 
+/** Any supplied shape as a list of items for manyOpen to validate. */
+function suppliedItems(value: unknown): readonly unknown[] {
+  if (value === undefined) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+}
+
 const fieldsOf: Record<QuestionStep, readonly string[]> = {
   about: ['wants', 'club', 'clubName'],
   experience: ['experience', 'leagues', 'leagueOther'],
@@ -154,20 +151,16 @@ function read(
         step,
         wants: many(wantChoices, input.wants),
         club: one(clubChoices, input.club),
-        clubName: name(input.clubName),
+        clubName: input.club === 'joining' ? name(input.clubName) : null,
       };
     case 'experience':
       return {
         step,
         experience: one(experienceChoices, input.experience),
-        leagues: manyOpen(
-          input.leagueOther === undefined
-            ? input.leagues
-            : [
-                ...(Array.isArray(input.leagues) ? input.leagues : []),
-                input.leagueOther,
-              ],
-        ),
+        leagues: manyOpen([
+          ...suppliedItems(input.leagues),
+          ...suppliedItems(input.leagueOther),
+        ]),
       };
     case 'topics':
       return { step, topics: many(interestCategoryChoices, input.topics) };

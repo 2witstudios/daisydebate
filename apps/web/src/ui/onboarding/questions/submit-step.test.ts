@@ -94,8 +94,9 @@ describe('createSubmitStep', () => {
 describe('refusedStep', () => {
   test('a refused post keeps what was chosen', () => {
     assert({
-      given: 'an about post that was refused',
-      should: 'answer refused with the posted choices to show again',
+      given: 'an about post that was refused, naming a club it did not pick',
+      should:
+        'answer refused with the posted choices to show again, holding no name for a choice that hides the field',
       actual: refusedStep('about')(
         postedForm({
           wants: ['judge'],
@@ -108,6 +109,25 @@ describe('refusedStep', () => {
         posted: {
           wants: ['judge'],
           club: 'starting',
+          clubName: null,
+        },
+      },
+    });
+    assert({
+      given: 'a refused about post that picks “I have a club” and names it',
+      should: 'keep the name so the member sees what they typed',
+      actual: refusedStep('about')(
+        postedForm({
+          wants: ['judge'],
+          club: 'joining',
+          clubName: 'Nova Academy',
+        }),
+      ),
+      expected: {
+        refused: true,
+        posted: {
+          wants: ['judge'],
+          club: 'joining',
           clubName: 'Nova Academy',
         },
       },
