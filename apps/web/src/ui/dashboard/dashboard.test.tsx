@@ -54,14 +54,14 @@ describe('Dashboard', () => {
     assert({
       given: 'the home dashboard with rated play and real standings launched',
       should:
-        'carry six Coming soon tags (four tiles, two cards) and no sample event',
+        'carry five Coming soon tags and no sample event now that Train is real',
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
         html.includes(tournament.name),
         html.includes('Live Now'),
       ],
-      expected: [6, true, false, false],
+      expected: [5, true, false, false],
     });
   });
 });

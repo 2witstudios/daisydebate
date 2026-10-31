@@ -103,7 +103,11 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
   const judgeId = 'c3a4e6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([
     [account],
-    [[availableBotId], [unavailableBotId], [judgeId]],
+    [
+      [availableBotId, 'Argue only from the motion', 'beginner'],
+      [unavailableBotId, null, null],
+      [judgeId, null, null],
+    ],
     [[availableBotId, 'bot', null, null, null, 'Debater', null]],
     [[unavailableBotId, 'bot', null, null, null, null, null]],
     [[judgeId, 'bot', null, null, null, null, 'The Panel']],
@@ -118,17 +122,28 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
     given:
       'a bot debater, an unconfigured bot and the AI judge in its own profile table',
     should:
-      'preserve each identity and expose eligibility and the one seat role each may hold',
-    actual: bots.map(({ actorId, label, eligible, seatRole }) => [
-      actorId,
-      label,
-      eligible,
-      seatRole,
-    ]),
+      'preserve each identity, expose eligibility and the one seat role each may hold, and carry the debater roster card',
+    actual: bots.map(
+      ({ actorId, label, eligible, seatRole, persona, difficulty }) => [
+        actorId,
+        label,
+        eligible,
+        seatRole,
+        persona ?? null,
+        difficulty ?? null,
+      ],
+    ),
     expected: [
-      [availableBotId, 'Debater', true, 'debater'],
-      [unavailableBotId, '', false, null],
-      [judgeId, 'The Panel', true, 'judge'],
+      [
+        availableBotId,
+        'Debater',
+        true,
+        'debater',
+        'Argue only from the motion',
+        'beginner',
+      ],
+      [unavailableBotId, '', false, null, null, null],
+      [judgeId, 'The Panel', true, 'judge', null, null],
     ],
   });
 });

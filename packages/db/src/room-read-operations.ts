@@ -15,6 +15,7 @@ import type {
 } from '@daisy/protocol';
 
 import { createAppError } from '@daisy/errors';
+import { botDifficulties } from '@daisy/protocol';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -256,7 +257,11 @@ export const roomReadOperations = ({
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
         const rows = await tx
-          .select({ id: actors.id })
+          .select({
+            id: actors.id,
+            persona: botProfiles.persona,
+            difficulty: botProfiles.difficulty,
+          })
           .from(actors)
           .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
           .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
@@ -270,7 +275,19 @@ export const roomReadOperations = ({
             ),
           );
         const bots = await Promise.all(
-          rows.map((row) => actorFact(tx, row.id)),
+          rows.map(async (row) => {
+            const bot = await actorFact(tx, row.id);
+            // The AI judge carries no roster card: persona and difficulty
+            // belong to the debater profiles alone (ISSUE-750).
+            return bot && row.persona && row.difficulty
+              ? {
+                  ...bot,
+                  persona: row.persona,
+                  difficulty:
+                    row.difficulty as (typeof botDifficulties)[number],
+                }
+              : bot;
+          }),
         );
         return bots.filter((bot): bot is Actor => bot !== null);
       }),

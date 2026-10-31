@@ -93,8 +93,8 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Speeches',
       "Each side opens with its case, then replies to the other's. Sides are assigned, so you argue whichever one you get.",
-      destinationHref('train', { path: '/train/rules' }),
-      'Read the rules',
+      destinationHref('train'),
+      'Practise a debate',
     ],
     [
       'Q&A',

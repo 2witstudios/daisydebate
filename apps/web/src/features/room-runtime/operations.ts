@@ -10,6 +10,7 @@ import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
 import {
   activeRoomMembers,
+  executeRoomCommand,
   hostIdentityHidden,
   projectActiveRoom,
   projectRoom,
@@ -199,6 +200,11 @@ export function createRoomRuntimeOperations({
       strikes: resolved.roomPlan.resolutionDraw.enabled,
     });
     if (!resolution.ok) throw createAppError('CONFLICT', 'illegal-config');
+    // Each requested actor at most once: assign-seat would move, not
+    // reject, a repeat, so the cast refuses duplicates up front.
+    const cast = body.cast ?? [];
+    if (new Set(cast.map((seat) => seat.actorId)).size !== cast.length)
+      throw createAppError('CONFLICT', 'illegal-config');
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
@@ -217,6 +223,50 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
+      cast: cast.length
+        ? {
+            seats: cast.map((seat) => ({
+              ...seat,
+              commandId: ids.next(),
+              participantId: ids.next(),
+            })),
+            apply: (state, seat, target, now) =>
+              executeRoomCommand(
+                state,
+                caller.actorId,
+                {
+                  type: 'assign-seat',
+                  commandId: seat.commandId,
+                  expectedVersion: state.version,
+                  actorId: seat.actorId,
+                  role: seat.role,
+                  slot: seat.slot,
+                },
+                // Seating never reads consent; Ready stays the human's act.
+                { available: true, readyActorIds: [] },
+                {
+                  now,
+                  participantId: seat.participantId,
+                  formatId: '',
+                  target: target
+                    ? {
+                        ...target,
+                        id: seat.participantId,
+                        consentVersion: 0,
+                        role: seat.role,
+                        slot: seat.slot,
+                        // Match the ordinary assign-seat command: profile
+                        // eligibility is not enough while the bot provider
+                        // is unavailable (including direct create requests).
+                        eligible: target.eligible && botsAvailable(),
+                      }
+                    : null,
+                  drawSeed: null,
+                  drawStart: null,
+                },
+              ),
+          }
+        : null,
       room: {
         id: ids.next(),
         hostActorId: caller.actorId,
@@ -264,6 +314,8 @@ export function createRoomRuntimeOperations({
                 label: p.label,
                 seatRole: p.seatRole,
                 eligible: p.eligible && botsAvailable(),
+                ...(p.persona ? { persona: p.persona } : {}),
+                ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },
             ]
           : [],

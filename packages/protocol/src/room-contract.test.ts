@@ -4,9 +4,20 @@ import {
   plainRoomConfig,
 } from './format-fixtures.test-support';
 import { roomCommandSchema, roomCreateSchema } from './room-contract';
+import { roomCastChoiceSchema } from './room-read';
 
 setupRitewayBun();
 const commandId = 'abcdefghijklmnopqrstuvwx';
+
+/** The minimal valid create carrying only the varying selection. */
+const parsesCreate = (selection: Record<string, unknown>) =>
+  roomCreateSchema.safeParse({
+    commandId,
+    title: 'Title',
+    resolution: { kind: 'custom', text: 'Topic' },
+    visibility: 'public',
+    selection,
+  }).success;
 
 describe('Room command boundary', () => {
   test('refuses private visibility from every request (DEC-206)', () => {
@@ -35,14 +46,7 @@ describe('Room command boundary', () => {
     });
   });
   test('creates an unranked Room only as casual (DEC-233)', () => {
-    const create = (selection: Record<string, unknown>) =>
-      roomCreateSchema.safeParse({
-        commandId,
-        title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
-        visibility: 'public',
-        selection,
-      }).success;
+    const create = parsesCreate;
     const catalog = (competitionType: string) => ({
       kind: 'catalog',
       formatId: 'value',
@@ -70,15 +74,88 @@ describe('Room command boundary', () => {
       ],
     });
   });
-  test('a catalog selection names its preset and carries no config (FMT-1)', () => {
-    const create = (selection: Record<string, unknown>) =>
+  test('an initial cast seats AI actors once each (train-room)', () => {
+    const create = (cast: unknown) =>
       roomCreateSchema.safeParse({
         commandId,
         title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
+        resolution: { kind: 'strike' },
         visibility: 'public',
-        selection,
-      }).success;
+        selection: {
+          kind: 'catalog',
+          formatId: 'freestyle',
+          formatVersion: 1,
+          presetVersion: 1,
+          competitionType: 'casual',
+        },
+        cast,
+      });
+    const seat = (actorId: string, role: string, slot = 0) => ({
+      actorId,
+      role,
+      slot,
+    });
+    const bot = 'w2r5e8n1b4o7t0a3n6i9c2e5';
+    const judge = 'a1i2j3u4d5g6e7a8i9j0u1d2';
+    assert({
+      given: 'a create with no cast and one with distinct AI actors',
+      should: 'accept both: the cast is optional',
+      actual: [
+        create(undefined).success,
+        create([seat(bot, 'negative'), seat(judge, 'judge')]).success,
+      ],
+      expected: [true, true],
+    });
+    assert({
+      given: 'a cast seating one actor twice',
+      should: 'refuse: assign-seat would move, not reject, the repeat',
+      actual: create([seat(bot, 'negative'), seat(bot, 'affirmative')]).success,
+      expected: false,
+    });
+    assert({
+      given: 'a cast entry with a non-seat role, a negative slot or a short id',
+      should: 'refuse every malformed entry',
+      actual: [
+        create([seat(bot, 'host')]).success,
+        create([seat(bot, 'negative', -1)]).success,
+        create([seat('too-short', 'negative')]).success,
+      ],
+      expected: [false, false, false],
+    });
+    assert({
+      given: 'a cast longer than any format declares seats',
+      should: 'refuse the whole cast',
+      actual: create(Array.from({ length: 9 }, (_, i) => seat(bot, 'judge', i)))
+        .success,
+      expected: false,
+    });
+  });
+  test('a cast choice carries its roster display facts (train-room)', () => {
+    const choice = (fields: Record<string, unknown>) =>
+      roomCastChoiceSchema.safeParse({
+        actorId: 'c6a4e2f8h1j3k5m7n9p2r4t6',
+        label: 'Wren',
+        kind: 'bot',
+        seatRole: 'debater',
+        eligible: true,
+        ...fields,
+      });
+    assert({
+      given:
+        'a bot debater with persona and difficulty, the AI judge with neither, and a difficulty outside the vocabulary',
+      should:
+        'carry the display facts as optional and refuse an unknown difficulty',
+      actual: [
+        choice({ persona: 'Dry and quick', difficulty: 'intermediate' })
+          .success,
+        choice({}).success,
+        choice({ difficulty: 'expert' }).success,
+      ],
+      expected: [true, true, false],
+    });
+  });
+  test('a catalog selection names its preset and carries no config (FMT-1)', () => {
+    const create = parsesCreate;
     const base = {
       kind: 'catalog',
       formatId: 'value',
@@ -99,14 +176,7 @@ describe('Room command boundary', () => {
     });
   });
   test('refuses a length on every selection: Rounds are full length only (DEC-237)', () => {
-    const create = (selection: Record<string, unknown>) =>
-      roomCreateSchema.safeParse({
-        commandId,
-        title: 'Title',
-        resolution: { kind: 'custom', text: 'Topic' },
-        visibility: 'public',
-        selection,
-      }).success;
+    const create = parsesCreate;
     const selections = [
       {
         kind: 'catalog',

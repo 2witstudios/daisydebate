@@ -1,12 +1,25 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBots } from '../../mock/train-bots';
+import type { PortraitLook } from './look';
 import { BotPortrait } from './bot-portrait';
 
 setupRitewayBun();
 
-const look = sampleBots[0]?.look ?? (undefined as never);
+const look: PortraitLook = {
+  skin: '#f5d6be',
+  hair: '#9c3f2a',
+  hairStyle: 'sweep',
+  beard: false,
+  glasses: 'none',
+  lids: 0.1,
+  browLift: [0, 7],
+  browTilt: -2,
+  smile: 0.4,
+  outfit: '#2f4858',
+  accent: '#f4a261',
+  backdrop: '#e0eceb',
+};
 const render = (props: Partial<Parameters<typeof BotPortrait>[0]> = {}) =>
   renderToString(h(BotPortrait, { id: 'pip', look, ...props }));
 
@@ -73,13 +86,20 @@ describe('BotPortrait', () => {
     });
   });
 
-  test('every bot can be drawn', () => {
+  test('the drawing covers its whole look vocabulary', () => {
     assert({
-      given: 'every sample bot',
+      given: 'each shipped hair style and facial option',
       should: 'render a drawing with eyes, mouth and brows',
-      actual: sampleBots.every((bot) => {
+      actual: [
+        ...(['curly', 'sweep', 'sides'] as const).map((hairStyle) => ({
+          ...look,
+          hairStyle,
+        })),
+        { ...look, beard: true },
+        { ...look, glasses: 'round' as const },
+      ].every((variant) => {
         const html = renderToString(
-          h(BotPortrait, { id: bot.id, look: bot.look, label: bot.name }),
+          h(BotPortrait, { id: 'pip', look: variant, label: 'Pip' }),
         );
         return (
           html.includes('portrait-blink') &&
@@ -87,21 +107,6 @@ describe('BotPortrait', () => {
           html.includes('stroke-width="5"')
         );
       }),
-      expected: true,
-    });
-  });
-});
-
-describe('the looks', () => {
-  test('no two bots look alike', () => {
-    const signature = (look: (typeof sampleBots)[number]['look']) =>
-      [look.skin, look.hair, look.hairStyle, look.outfit].join('|');
-    assert({
-      given: 'the roster',
-      should: 'give every bot its own skin, hair and outfit combination',
-      actual:
-        new Set(sampleBots.map((bot) => signature(bot.look))).size ===
-        sampleBots.length,
       expected: true,
     });
   });

@@ -68,6 +68,12 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 /**
+ * The seat requests a create applies as its initial cast, before anyone
+ * joins: the same assign-seat authority judges each one, so a refused cast
+ * refuses the whole create.
+ */
+const castSeat = z.strictObject({ actorId: idSchema, ...seat });
+/**
  * A fixed-topic Room names its resolution; a draw Room's topic is null
  * until its reveal (FMT-7). A catalog or ranked selection's draw comes
  * from its preset, so creation checks that pairing after resolving it.
@@ -79,6 +85,16 @@ export const roomCreateSchema = z
     resolution: roomResolutionSelectionSchema,
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
+    /** Each actor at most once: assign-seat would move, not reject, a repeat. */
+    cast: z
+      .array(castSeat)
+      .max(8)
+      .refine(
+        (cast) =>
+          new Set(cast.map((seat) => seat.actorId)).size === cast.length,
+        { message: 'A cast seats an actor at most once', path: ['cast'] },
+      )
+      .optional(),
   })
   .refine(
     (create) =>

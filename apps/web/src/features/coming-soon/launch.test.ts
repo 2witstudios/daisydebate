@@ -23,7 +23,7 @@ describe('launch config', () => {
       given: 'the launch config for the three-ladder beta',
       should: 'open rated play, Lobby, Judge and the real leaderboard',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['ranked', 'lobby', 'judge', 'leaderboard'],
+      expected: ['ranked', 'lobby', 'judge', 'leaderboard', 'train'],
     });
   });
 });

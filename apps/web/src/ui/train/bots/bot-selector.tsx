@@ -1,12 +1,16 @@
+'use client';
+
 import Link from 'next/link';
-import type { BotSelector } from '../../../features/train/bots';
-import { trainDestinations } from '../../../features/train/actions';
+import type { FormStateAction } from '../../form-action/action-form';
+import type { TrainLanding } from '../../../features/train/bots';
+import { ActionForm } from '../../form-action/action-form';
 import { BotPortrait } from '../../components/bot-portrait/bot-portrait';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { TrainPage } from '../train-page/train-page';
+import { portraitLook } from './looks';
 
 const link = 'no-underline hover:no-underline';
 const arrow =
@@ -46,14 +50,53 @@ function Arrow({
   );
 }
 
+const difficultyLabels = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+} as const;
+
+/** A chosen opponent: its shipped portrait, or the typographic card. */
+function Portrait({ name }: { readonly name: string }) {
+  const look = portraitLook(name);
+  return look ? (
+    <div className="portrait-frame overflow-hidden rounded-xl shadow-1">
+      <BotPortrait id={name} look={look} label={`${name}, opponent`} />
+    </div>
+  ) : (
+    <span
+      aria-hidden="true"
+      className="flex size-16 items-center justify-center rounded-round border border-stage-ink-muted bg-hue-plum font-display text-2xl text-background max-narrow:size-12 max-narrow:text-xl"
+    >
+      {name.slice(0, 1)}
+    </span>
+  );
+}
+
 /**
- * The Train landing: one large card for the chosen bot, with everything
- * about it on the card, and avatars to move between the personalities. The chosen
- * bot rides in the address, so every control is a link and it works before
- * hydration.
+ * The Train landing: the real bot roster, one large card for the chosen
+ * opponent, and a Start practice post that opens the ordinary Room with
+ * that bot seated. Choosing rides in the address, so every control is a
+ * link and it works before hydration.
  */
-export function BotSelectorPage({ view }: { readonly view: BotSelector }) {
-  const { selected } = view;
+export function BotSelectorPage({
+  view,
+  action,
+  unavailable,
+}: {
+  readonly view: TrainLanding;
+  readonly action: FormStateAction;
+  /** The catalog read failed; nothing here can promise a practice. */
+  readonly unavailable?: boolean;
+}) {
+  const { chosen, opponents, available } = view;
+  const canPractice = available && chosen?.eligible;
+  const chosenIndex = opponents.findIndex((card) => card.selected);
+  const previous = chosenIndex > 0 ? opponents[chosenIndex - 1] : null;
+  const next =
+    chosenIndex >= 0 && chosenIndex < opponents.length - 1
+      ? opponents[chosenIndex + 1]
+      : null;
   return (
     <TrainPage>
       <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
@@ -63,85 +106,107 @@ export function BotSelectorPage({ view }: { readonly view: BotSelector }) {
         aria-label="Choose an opponent"
         className="mx-auto flex w-full max-w-reading flex-col gap-6"
       >
-        <div className="flex items-center gap-4 max-compact:gap-2">
-          <Arrow
-            href={view.previousHref}
-            label="Previous opponent"
-            direction="previous"
-          />
-          <article
-            aria-label={`${selected.name}, ${selected.tagline}`}
-            className="flex min-w-0 flex-1 flex-col items-center gap-5 rounded-xl bg-surface p-8 text-center shadow-1 max-compact:p-5"
-          >
-            <div className="portrait-frame overflow-hidden rounded-xl shadow-1">
-              <BotPortrait
-                id={selected.id}
-                look={selected.look}
-                label={`${selected.name}, ${selected.tagline}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <h2 className="font-display text-3xl font-bold text-ink">
-                {selected.name}
-              </h2>
-              <p className="text-base text-ink-muted">{selected.tagline}</p>
-            </div>
-            <p className="text-base text-ink">{selected.personality}</p>
-            <p className="flex items-center gap-2 text-sm text-ink-muted">
-              <Icon name="message" size={16} />
-              <span>
-                <span className="sr-only">Voice: </span>
-                {selected.voice}
-              </span>
-            </p>
-            <ul className="flex flex-wrap justify-center gap-2">
-              {selected.traits.map((trait) => (
-                <li key={trait}>
-                  <Badge>{trait}</Badge>
+        {chosen ? (
+          <div className="flex items-center gap-4 max-compact:gap-2">
+            <Arrow
+              href={previous?.href ?? null}
+              label="Previous opponent"
+              direction="previous"
+            />
+            <article
+              aria-label={`${chosen.name}, opponent`}
+              className="flex min-w-0 flex-1 flex-col items-center gap-5 rounded-xl bg-surface p-8 text-center shadow-1 max-compact:p-5"
+            >
+              <Portrait name={chosen.name} />
+              <div className="flex flex-col gap-1">
+                <h2 className="font-display text-3xl font-bold text-ink">
+                  {chosen.name}
+                </h2>
+                {chosen.difficulty ? (
+                  <p>
+                    <Badge>
+                      {difficultyLabels[chosen.difficulty] ?? chosen.difficulty}
+                    </Badge>
+                  </p>
+                ) : null}
+              </div>
+              {chosen.persona ? (
+                <p className="text-base text-ink">{chosen.persona}</p>
+              ) : null}
+              {canPractice ? (
+                <ActionForm
+                  action={action}
+                  label="Start practice"
+                  className="w-full"
+                >
+                  {({ error, pending }) => (
+                    <>
+                      <input type="hidden" name="bot" value={chosen.actorId} />
+                      <button
+                        type="submit"
+                        disabled={pending}
+                        className={cn(buttonClass('primary'), link, 'w-full')}
+                      >
+                        Start practice
+                      </button>
+                      {error ? (
+                        <p role="alert" className="text-sm text-live">
+                          {error}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </ActionForm>
+              ) : (
+                <p role="status" className="text-sm text-ink-muted">
+                  Practice is unavailable right now: the AI seats are busy or
+                  offline.
+                </p>
+              )}
+            </article>
+            <Arrow
+              href={next?.href ?? null}
+              label="Next opponent"
+              direction="next"
+            />
+          </div>
+        ) : (
+          <p role="status" className="text-center text-ink-muted">
+            No opponents are available yet. Check back soon.
+          </p>
+        )}
+        {opponents.length > 1 ? (
+          <nav aria-label="All opponents">
+            <ul className="flex flex-wrap justify-center gap-3">
+              {opponents.map((card) => (
+                <li key={card.actorId}>
+                  <Link
+                    href={card.href}
+                    scroll={false}
+                    aria-current={card.selected ? 'true' : undefined}
+                    aria-label={card.name}
+                    className={cn(
+                      'flex rounded-round p-1',
+                      link,
+                      card.selected
+                        ? 'ring-2 ring-accent'
+                        : 'opacity-60 hover:opacity-100',
+                    )}
+                  >
+                    <span className="block size-12 overflow-hidden rounded-round">
+                      <Portrait name={card.name} />
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
-            <Link
-              href={view.debateHref}
-              className={cn(buttonClass('primary'), link, 'w-full')}
-            >
-              Create a debate
-            </Link>
-          </article>
-          <Arrow href={view.nextHref} label="Next opponent" direction="next" />
-        </div>
-        <nav aria-label="All opponents">
-          <ul className="flex flex-wrap justify-center gap-3">
-            {view.steps.map((step) => (
-              <li key={step.bot.id}>
-                <Link
-                  href={step.href}
-                  scroll={false}
-                  aria-current={step.selected ? 'true' : undefined}
-                  aria-label={step.bot.name}
-                  className={cn(
-                    'flex rounded-round p-1',
-                    link,
-                    step.selected
-                      ? 'ring-2 ring-accent'
-                      : 'opacity-60 hover:opacity-100',
-                  )}
-                >
-                  <span className="block size-12 overflow-hidden rounded-round">
-                    <BotPortrait
-                      id={step.bot.id}
-                      look={step.bot.look}
-                      framing="face"
-                    />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <p className="text-center text-sm text-ink-muted">
-          <Link href={trainDestinations.hub}>Your plan and progress</Link>
-        </p>
+          </nav>
+        ) : null}
+        {unavailable ? (
+          <p role="alert" className="text-center text-sm text-ink-muted">
+            Practice is unavailable right now. Try again shortly.
+          </p>
+        ) : null}
       </section>
     </TrainPage>
   );

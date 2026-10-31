@@ -15,7 +15,7 @@ export const launched: LaunchConfig = {
   judge: true,
   tournaments: false,
   leaderboard: true,
-  train: false,
+  train: true,
   prep: false,
 };
 

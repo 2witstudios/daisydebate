@@ -50,11 +50,7 @@ export async function proveFormatPicker(browser: Browser) {
   });
   try {
     const page = await openPage(host, 'Custom library host');
-    await page.goto('/train?bot=bram');
-    await page
-      .getByRole('link', { name: 'Create a debate', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/play\/room$/);
+    await page.goto('/play/room');
     const catalog = await page.request.get('/api/rooms/catalog');
     expect(catalog.status()).toBe(200);
     const choices = roomCatalogChoiceSchema

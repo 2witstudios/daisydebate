@@ -57,7 +57,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   train: {
     slug: 'train',
     title: 'Train',
-    tagline: 'Drills, practice debates and review.',
+    tagline: 'Practice debates against a bot opponent.',
   },
   prep: {
     slug: 'prep',

@@ -194,6 +194,12 @@ export const roomCatalogChoiceSchema = z.strictObject({
     rankedEligible: z.boolean(),
   }),
 });
+/** How hard a bot debates, until the bots are specified (the Train epic). */
+export const botDifficulties = [
+  'beginner',
+  'intermediate',
+  'advanced',
+] as const;
 /** An AI actor a host may seat: a bot debater for a side, or the AI judge for the judge seat (ISSUE-750). */
 export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,
@@ -201,6 +207,9 @@ export const roomCastChoiceSchema = z.strictObject({
   kind: z.literal('bot'),
   seatRole: z.enum(['debater', 'judge']),
   eligible: z.boolean(),
+  /** The roster card's display facts; the AI judge carries none. */
+  persona: z.string().optional(),
+  difficulty: z.enum(botDifficulties).optional(),
 });
 export type RoomView = z.infer<typeof roomViewSchema>;
 export type RoomCatalogChoice = z.infer<typeof roomCatalogChoiceSchema>;

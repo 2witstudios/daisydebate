@@ -35,7 +35,12 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         choice.family,
         choice.preset.version,
       ]),
-      cast: cast.map(({ actorId, eligible }) => [actorId, eligible]),
+      cast: cast.map(({ actorId, eligible, persona, difficulty }) => [
+        actorId,
+        eligible,
+        persona ?? null,
+        difficulty ?? null,
+      ]),
       rooms: rooms.rooms.map(({ id, seated }) => [id, seated]),
     },
     expected: {
@@ -43,7 +48,9 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         ['value', 'standard', null, 1],
         ['proof-template', 'template', 'other', 2],
       ],
-      cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false]],
+      cast: [
+        ['b4n6p8r2t4v6x8z1k3b5c7d9', false, 'A practice opponent', 'beginner'],
+      ],
       rooms: [[state.id, true]],
     },
   });
@@ -168,6 +175,126 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
       replayed: true,
       catalogReads: 0,
     },
+  });
+});
+
+test('Room creation hands the initial cast to the create transaction through the assign-seat authority (train-room)', async () => {
+  const botActorId = 'b4n6p8r2t4v6x8z1k3b5c7d9';
+  const botTarget = {
+    actorId: botActorId,
+    kind: 'bot' as const,
+    label: 'Practice bot',
+    eligible: true,
+    seatRole: 'debater' as const,
+  };
+  const create = async (cast: RoomCreate['cast'], botsAvailable = false) => {
+    const run = makeOperations({}, botsAvailable);
+    const error = await run.operations
+      .create(caller, {
+        commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+        title: 'A practice room',
+        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+        visibility: 'public',
+        selection: {
+          kind: 'catalog',
+          formatId: 'value',
+          formatVersion: 1,
+          presetVersion: 1,
+          competitionType: 'casual',
+        },
+        cast,
+      })
+      .then(
+        () => null,
+        (error: unknown) => (error as { code?: string }).code ?? null,
+      );
+    return { run, error };
+  };
+  const { run } = await create(
+    [{ actorId: botActorId, role: 'negative', slot: 0 }],
+    true,
+  );
+  const cast = run.createInput()?.cast;
+  const seat = cast?.seats[0];
+  const accepted =
+    seat && cast?.apply({ ...state, participants: [] }, seat, botTarget, now);
+  const refused =
+    seat && cast?.apply({ ...state, participants: [] }, seat, null, now);
+  const wrongSeat =
+    seat &&
+    cast?.apply(
+      { ...state, participants: [] },
+      seat,
+      {
+        ...botTarget,
+        seatRole: 'judge',
+      },
+      now,
+    );
+  assert({
+    given: 'a create casting an eligible bot debater at negative',
+    should:
+      'pass the seat with its identities to the transaction, seat it through assign-seat, and refuse a missing or wrong-seat actor',
+    actual: {
+      seats: seat && [seat.actorId, seat.role, seat.slot],
+      identities: seat ? [seat.commandId, seat.participantId] : null,
+      seated:
+        accepted?.ok === true
+          ? accepted.mutation.state.participants.map((p) => [
+              p.actorId,
+              p.role,
+              p.slot,
+              p.eligible,
+            ])
+          : accepted,
+      version: accepted?.ok === true ? accepted.mutation.state.version : null,
+      members: accepted?.ok === true ? accepted.mutation.members : null,
+      missing: refused && !refused.ok ? refused.refusal : null,
+      wrongSeat: wrongSeat && !wrongSeat.ok ? wrongSeat.refusal : null,
+    },
+    expected: {
+      seats: [botActorId, 'negative', 0],
+      identities: ['c5n6p8r2t4v6x8z1k3b5c7d9', 'r5n6p8r2t4v6x8z1k3b5c7d9'],
+      seated: [[botActorId, 'negative', 0, true]],
+      version: 2,
+      members: [caller.actorId],
+      missing: 'actor-ineligible',
+      wrongSeat: 'actor-ineligible',
+    },
+  });
+  const unavailable = await create([
+    { actorId: botActorId, role: 'negative', slot: 0 },
+  ]);
+  const unavailableSeat = unavailable.run.createInput()?.cast?.seats[0];
+  const unavailableOutcome =
+    unavailableSeat &&
+    unavailable.run
+      .createInput()
+      ?.cast?.apply(
+        { ...state, participants: [] },
+        unavailableSeat,
+        botTarget,
+        now,
+      );
+  assert({
+    given: 'a direct create request while the provider is unavailable',
+    should: 'apply the same bot-availability refusal as assign-seat',
+    actual:
+      unavailableOutcome && !unavailableOutcome.ok
+        ? unavailableOutcome.refusal
+        : 'accepted',
+    expected: 'actor-ineligible',
+  });
+  const { run: duplicate, error: duplicateError } = await create([
+    { actorId: botActorId, role: 'negative', slot: 0 },
+    { actorId: botActorId, role: 'affirmative', slot: 0 },
+  ]);
+  assert({
+    given: 'a cast seating one actor twice',
+    should:
+      'refuse the whole create before the transaction and pass it nothing',
+    actual: [duplicate.createInput(), duplicateError],
+    expected: [null, 'CONFLICT'],
   });
 });
 

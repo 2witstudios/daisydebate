@@ -1,82 +1,69 @@
-import { sampleBots, type MockBot } from '../../ui/mock/train-bots';
+import type { RoomCastChoice } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 import { trainDestinations } from './actions';
 
-export type Bot = MockBot;
+/** The bot debaters a member can face; the AI judge judges, never opposes (ISSUE-750). */
+export const opponents = (
+  bots: readonly RoomCastChoice[],
+): readonly RoomCastChoice[] =>
+  bots.filter((bot) => bot.seatRole === 'debater');
 
-/** Where a bot is chosen when the address names none or an unknown one. */
-export const defaultBotId = 'wren';
+/** The AI judge a practice room seats so its cast completes (DEC-269). */
+export const practiceJudge = (
+  bots: readonly RoomCastChoice[],
+): RoomCastChoice | null =>
+  bots.find((bot) => bot.seatRole === 'judge' && bot.eligible) ?? null;
 
 const first = (value: string | readonly string[] | undefined) =>
   typeof value === 'string' ? value : value?.[0];
 
-/** The bots a viewer can face, in the order the selector steps through. */
-export const listBots = (): readonly Bot[] => sampleBots;
-
-/** The chosen bot's id from the address; unknown or absent falls back. */
-export function parseBotId(
-  params: SearchParams,
-  bots: readonly Bot[] = listBots(),
-): string {
-  const id = first(params['bot']);
-  return bots.some((bot) => bot.id === id) ? (id as string) : defaultBotId;
-}
-
-/** The selector's address for a chosen bot; the default is left out. */
-export const selectBotHref = (id: string): string =>
-  id === defaultBotId
-    ? trainDestinations.bots
-    : `${trainDestinations.bots}?bot=${id}`;
-
-/** Cast selection happens in the durable room, never through this sample roster URL. */
-export const debateBotHref = (): string => '/play/room';
-
-type CarouselCard = {
-  readonly bot: Bot;
+type OpponentCard = {
+  readonly actorId: string;
+  readonly name: string;
+  readonly persona: string | null;
+  readonly difficulty: RoomCastChoice['difficulty'] | null;
+  readonly eligible: boolean;
   readonly selected: boolean;
+  /** The card's address, so choosing works without JavaScript. */
   readonly href: string;
 };
 
-export type BotSelector = {
-  readonly selected: Bot;
-  /** Every bot as a jump target, in roster order. */
-  readonly steps: readonly CarouselCard[];
-  readonly previousHref: string | null;
-  readonly nextHref: string | null;
-  readonly debateHref: string;
+export type TrainLanding = {
+  readonly opponents: readonly OpponentCard[];
+  readonly chosen: OpponentCard | null;
+  /** A practice room can assemble: both its AI seats are available. */
+  readonly available: boolean;
 };
 
-/** The selector for a chosen bot: pure, every control a link. */
-export function botSelector(
-  chosenId: string,
-  bots: readonly Bot[] = listBots(),
-): BotSelector {
-  const index = Math.max(
-    0,
-    bots.findIndex((bot) => bot.id === chosenId),
-  );
-  const selected = bots[index] as Bot;
-  const card = (bot: Bot): CarouselCard => ({
-    bot,
-    selected: bot.id === selected.id,
-    href: selectBotHref(bot.id),
-  });
-  const before = bots[index - 1];
-  const after = bots[index + 1];
-  return {
-    selected,
-    steps: bots.map(card),
-    previousHref: before ? selectBotHref(before.id) : null,
-    nextHref: after ? selectBotHref(after.id) : null,
-    debateHref: debateBotHref(),
-  };
-}
+const card = (bot: RoomCastChoice, chosenId: string | null): OpponentCard => ({
+  actorId: bot.actorId,
+  name: bot.label,
+  persona: bot.persona ?? null,
+  difficulty: bot.difficulty ?? null,
+  eligible: bot.eligible,
+  selected: bot.actorId === chosenId,
+  href:
+    bot.actorId === chosenId
+      ? trainDestinations.bots
+      : `${trainDestinations.bots}?bot=${bot.actorId}`,
+});
 
-/** The bot the address names, or null when it names none that exists. */
-export function findBot(
+/** The address names its opponent; unknown or absent falls back to the first. */
+export function trainLanding(
   params: SearchParams,
-  bots: readonly Bot[] = listBots(),
-): Bot | null {
-  const id = first(params['bot']);
-  return bots.find((bot) => bot.id === id) ?? null;
+  bots: readonly RoomCastChoice[],
+): TrainLanding {
+  const roster = opponents(bots);
+  const named = first(params['bot']);
+  const chosenBot =
+    roster.find((bot) => bot.actorId === named) ??
+    roster.find((bot) => bot.eligible) ??
+    roster[0];
+  const chosenId = chosenBot?.actorId ?? null;
+  return {
+    opponents: roster.map((bot) => card(bot, chosenId)),
+    chosen: chosenBot ? card(chosenBot, chosenId) : null,
+    available:
+      roster.some((bot) => bot.eligible) && practiceJudge(bots) !== null,
+  };
 }

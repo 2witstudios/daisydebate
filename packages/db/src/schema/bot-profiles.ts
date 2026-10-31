@@ -1,13 +1,9 @@
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import { oneOf } from './columns';
+import { botDifficulties } from '@daisy/protocol';
 
-/** How hard a bot debates, until the bots are specified (Train epic). */
-export const botDifficulties = [
-  'beginner',
-  'intermediate',
-  'advanced',
-] as const;
+export { botDifficulties };
 
 /**
  * The person behind a bot debater (ADR 0058 §8): name, persona and voice for
