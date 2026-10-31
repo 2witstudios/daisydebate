@@ -39,8 +39,11 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
     }
   };
   return (
-    <section aria-label="Your Round files" className="flex flex-col gap-2">
-      <h2 className="font-strong">Your files</h2>
+    <section
+      aria-label="Your Round files"
+      className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
+    >
+      <h2 className="text-lg font-bold">Your files</h2>
       {(problem ?? notice) ? <p role="alert">{problem ?? notice}</p> : null}
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
         <div className="flex w-round-drawer shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
