@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { z } from 'zod';
 import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect } from './support/fixtures';
@@ -116,14 +117,7 @@ test('actual checked-device loss retries only the default camera and preserves t
     await expectConnected(source);
     const selection = z
       .object({ camera: z.string().min(1), microphone: z.string().min(1) })
-      .parse(
-        await source.evaluate((roomId) => {
-          const entry = Object.entries(sessionStorage).find(([key]) =>
-            key.startsWith(`daisy:checked-devices:${roomId}:`),
-          );
-          return entry ? JSON.parse(entry[1]) : null;
-        }, round.roomId),
-      );
+      .parse(await checkedChoices(source, round.roomId));
     await source.addInitScript(() => {
       const capture = navigator.mediaDevices.getUserMedia.bind(
         navigator.mediaDevices,
@@ -174,12 +168,7 @@ test('actual checked-device loss retries only the default camera and preserves t
         .filter({ hasText: /checked camera is missing/ }),
     ).toHaveCount(0);
     expect(admissions).toBe(1);
-    const after = await source.evaluate((roomId) => {
-      const entry = Object.entries(sessionStorage).find(([key]) =>
-        key.startsWith(`daisy:checked-devices:${roomId}:`),
-      );
-      return entry ? JSON.parse(entry[1]) : null;
-    }, round.roomId);
+    const after = await checkedChoices(source, round.roomId);
     expect(after).toEqual({ microphone: selection.microphone });
     await source.screenshot({
       path: test.info().outputPath('checked-camera-default-recovery.png'),
@@ -188,3 +177,11 @@ test('actual checked-device loss retries only the default camera and preserves t
     await closeSettledLaunchContexts(accounts);
   }
 });
+
+const checkedChoices = (page: Page, roomId: string): Promise<unknown> =>
+  page.evaluate((roomId) => {
+    const entry = Object.entries(sessionStorage).find(([key]) =>
+      key.startsWith(`daisy:checked-devices:${roomId}:`),
+    );
+    return entry ? JSON.parse(entry[1]) : null;
+  }, roomId);

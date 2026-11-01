@@ -1,8 +1,7 @@
 import { MemoryStorage } from '../../lib/storage.test-support';
-import { createDeviceCheckController } from '../video/device-check-controller';
+import { rememberPassedMediaChecks } from './media-device-check.test-support';
 import {
   readCheckedDevices,
-  rememberCheckedDevices,
   forgetCheckedDevices,
 } from '../video/device-selection';
 import { retryMissingDevices } from './media-status';
@@ -209,18 +208,7 @@ test('explicit local Retry rereads grants and preserves the healthy subscribed t
 test('scoped missing-device Retry refreshes capture inputs while retaining healthy media', async () => {
   const storage = new MemoryStorage();
   const host = () => storage;
-  const checks = createDeviceCheckController({
-    open: async (kind) => ({
-      deviceId: `${kind}-checked`,
-      confirm: async () => undefined,
-      onLoss: () => () => undefined,
-      stop: () => undefined,
-    }),
-  });
-  await checks.check('camera');
-  await checks.check('microphone');
-  rememberCheckedDevices('room-a', checks.readSnapshot(), host, 'actor-a');
-  checks.dispose('round-transition');
+  await rememberPassedMediaChecks(host, 'room-a', 'actor-a');
   const stub = stubSdk({ settles: true });
   const remote = stub.subscribePeer('microphone');
   let missing: readonly Source[] = [];

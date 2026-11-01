@@ -88,6 +88,18 @@ handoff stays best effort, and replaces invalid data only with actual passed
 check evidence; it never converts an unreadable choice into permission to use
 default inputs.
 
+One private source map owns each captured track together with its requested
+choice, publication phase and idempotent release capability. The phases are
+captured, warm, publishing, published and retiring. SDK awaits never move a
+resource through an unowned warm slot. Warm promotion first validates current
+scoped choices; a changed choice replaces only that source, and an unreadable
+choice cannot publish an unverified warm track. Stop releases the whole lifetime
+once; repeated cleanup cannot emit an empty snapshot into a successor. A late
+capture is released without installation. Unpublish rejection reports the
+source failure and preserves healthy capture/reception and later settle work.
+The composed caller proofs are `media-warm-retry.test.ts`,
+`media-source-retirement.test.ts` and `media-source-disposal.test.ts`.
+
 Local mute and confirmed explicit departure suppression are tab-scoped keys under
 `daisy:<kind>:media:<actor>:<roundId>` in sessionStorage: one account's record
 cannot be read by another principal, and every record dies with the tab

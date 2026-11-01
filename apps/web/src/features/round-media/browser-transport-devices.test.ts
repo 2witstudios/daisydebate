@@ -410,7 +410,7 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
     given:
       'a microphone whose warm capture fails once, then a speaking grant that needs the microphone',
     should:
-      'report the warm failure twice-when it recurs, publish the microphone at its grant, and report recovery',
+      'report the failed warm attempt once, publish the recovered microphone at its grant, and report recovery',
     actual: {
       cameraOnly,
       typed,
@@ -429,13 +429,7 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
   transport.stopTracks();
 });
 
-/**
- * The CI-shaped regression: a browser that refuses every granted device
- * (headless Chromium without permissions). A pass with nothing publishable
- * must fail honestly instead of holding an empty transport — while the same
- * pass with one working source keeps it (ISSUE-817/829 alongside the
- * attendance suite's one-open-socket invariant).
- */
+/** Serialized SDK failures describe local capture independently of connection health. */
 test('serialized SDK capture failures cross the actual adapter as closed device facts', async () => {
   const run = async (name: string, checked: boolean) => {
     const stub = stubSdk({ settles: true });
@@ -476,7 +470,7 @@ test('serialized SDK capture failures cross the actual adapter as closed device 
     given:
       'serialized permission refusal and absent checked inputs from the SDK capture boundary',
     should:
-      'stop an all-blocked session honestly and name checked absence without claiming live capture',
+      'retain the receive transport and report permission refusal or checked absence without claiming live capture',
     actual: [
       await run('NotAllowedError', false),
       await run('NotFoundError', true),
