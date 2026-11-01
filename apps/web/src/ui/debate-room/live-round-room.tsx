@@ -1,4 +1,5 @@
 'use client';
+import { RoundTimeNotice } from './round-time-notice';
 
 import './zod-jitless';
 import { roundMediaSlot } from '../../features/round-media/media-session';
@@ -24,6 +25,7 @@ import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
+import { useRoundTime } from './use-round-time';
 
 /**
  * The mounted round room: the position derived each second from the
@@ -63,15 +65,27 @@ export function LiveRoundRoom({
   readonly socketUrl: string | null;
 }) {
   const reconnect = useMemo(() => createAttendanceReconnect(), []);
+  // One shared round clock: the SSR render instant seeds it, then every
+  // authorized read — the sync driver's own, the periodic resample's, a
+  // visibility return's — calibrates the same seam display and media read.
+  const { roundTime, sampledRead } = useRoundTime({ renderedAtMs, read });
   const [synced, driver] = useLiveRoundView({
     view: seed,
-    read,
+    read: sampledRead,
     socketUrl,
     onConnectionOpen: reconnect.opened,
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const defaultMedia = useMemo(() => roundMediaSlot(refresh), [refresh]);
+  const now = useSecond(renderedAtMs, roundTime);
+  const round = useMemo(
+    () => liveRoundOf(view, actorId, now),
+    [view, actorId, now],
+  );
+  const defaultMedia = useMemo(
+    () => roundMediaSlot(refresh, roundTime),
+    [refresh, roundTime],
+  );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
@@ -88,11 +102,6 @@ export function LiveRoundRoom({
       else if (answer.error) driver?.signal();
     },
     [driver],
-  );
-  const now = useSecond(renderedAtMs);
-  const round = useMemo(
-    () => liveRoundOf(view, actorId, now),
-    [view, actorId, now],
   );
   const { sync, notice, save } = useRoundSync(view.id);
   const intent = leaveIntent(view, actorId, now);
@@ -111,6 +120,7 @@ export function LiveRoundRoom({
   return (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <RoundTimeNotice roundTime={roundTime} />
       {outcome ? (
         <p role="status" className="px-4 py-1 text-sm text-ink-muted">
           {outcome}

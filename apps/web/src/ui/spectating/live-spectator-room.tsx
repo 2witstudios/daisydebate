@@ -1,4 +1,5 @@
 'use client';
+import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -16,6 +17,7 @@ import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
 import { useSecond } from '../debate-room/use-second';
+import { useRoundTime } from '../debate-room/use-round-time';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
@@ -157,9 +159,13 @@ export function LiveSpectatorRoom(props: {
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
 }) {
-  const [synced] = useLiveRoundView(props);
+  const { roundTime, sampledRead } = useRoundTime({
+    renderedAtMs: props.renderedAtMs,
+    read: props.read,
+  });
+  const [synced] = useLiveRoundView({ ...props, read: sampledRead });
   const view = synced.value;
-  const now = useSecond(props.renderedAtMs);
+  const now = useSecond(props.renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   const watched = spectatorViewOf(view, now);
@@ -194,6 +200,7 @@ export function LiveSpectatorRoom(props: {
         </p>
       </section>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <RoundTimeNotice roundTime={roundTime} />
       {note ? <p role="status">{note}</p> : null}
       <ul
         aria-label="Debaters"

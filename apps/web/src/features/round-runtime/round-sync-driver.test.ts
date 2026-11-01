@@ -38,7 +38,12 @@ describe('round sync driver', () => {
         ids: [round.id],
       },
     });
-    edges.answer({ kind: 'found', round: at(3, { status: 'completed' }) });
+    edges.answer({
+      kind: 'found',
+      round: at(3, { status: 'completed' }),
+      serverNowMs: null,
+      socketUrl: null,
+    });
     await edges.flush();
     edges.emit({
       v: ENVELOPE_VERSION,
@@ -69,4 +74,70 @@ describe('round sync driver', () => {
       },
     });
   });
+});
+
+test('same-version visibility and reconnect reads calibrate the shared clock through the production driver', async () => {
+  const { createMeasuredRead, createRoundTime } = await import('./round-time');
+  const edges = driverEdges<RoundRead>();
+  const roundTime = createRoundTime({
+    monotonicNowMs: edges.scheduler.now,
+    hydrationSeedServerMs: 1,
+  });
+  let generation = 0;
+  const read = createMeasuredRead({
+    read: edges.read,
+    roundTime,
+    monotonicNowMs: edges.scheduler.now,
+    nextGeneration: () => ++generation,
+  });
+  const driver = createRoundSyncDriver({
+    seed: seedRoundSync(at(2), edges.scheduler.now()),
+    read,
+    scheduler: edges.scheduler,
+    visibility: edges.visibility,
+    connection: edges.connection,
+  });
+  edges.hide();
+  edges.advance(6000);
+  edges.show();
+  edges.answer({
+    kind: 'found',
+    round: at(2),
+    serverNowMs: 50000,
+    socketUrl: null,
+  });
+  await edges.flush();
+  assert({
+    given:
+      'delayed hydration followed by an authorized same-version visibility read',
+    should: 'replace the seed without a Round mutation',
+    actual: [
+      driver.readSnapshot().value.version,
+      roundTime.nowMs(),
+      roundTime.status().kind,
+    ],
+    expected: [2, 50000, 'current'],
+  });
+  edges.connectionState({ status: 'open', generation: 1, terminal: null });
+  edges.connectionState({ status: 'closed', generation: 1, terminal: null });
+  edges.advance(500);
+  edges.connectionState({ status: 'open', generation: 2, terminal: null });
+  edges.answer({
+    kind: 'found',
+    round: at(2),
+    serverNowMs: 50500,
+    socketUrl: null,
+  });
+  await edges.flush();
+  assert({
+    given: 'a reconnect with the same held Round revision',
+    should: 'make fresh timing evidence reach the same owner',
+    actual: [
+      roundTime.calibration()?.generation,
+      roundTime.nowMs(),
+      driver.readSnapshot().value.version,
+    ],
+    expected: [2, 50500, 2],
+  });
+  driver.dispose();
 });

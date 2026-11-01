@@ -87,6 +87,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'realtime-connection-store.e2e.ts': realtime,
   'round-clock-csp.e2e.ts': round,
   'stall-evidence.e2e.ts': round,
+  'round-timing-skew.e2e.ts': [...round, ...media],
   'room-launch.e2e.ts': room,
   'train.e2e.ts': [
     ...room,
@@ -128,6 +129,7 @@ const native = new Set(
     'round-journeys',
     'attendance',
     'round-media',
+    'round-timing-skew',
     'media-stage',
     'debate-room',
     'round-commands',

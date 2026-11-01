@@ -19,7 +19,12 @@ const render = (round: RoundView, nowMs: number) =>
       view={round}
       audience="host"
       renderedAtMs={nowMs}
-      read={async () => ({ kind: 'found', round })}
+      read={async () => ({
+        kind: 'found',
+        round,
+        serverNowMs: null,
+        socketUrl: null,
+      })}
       socketUrl={null}
     />,
   );

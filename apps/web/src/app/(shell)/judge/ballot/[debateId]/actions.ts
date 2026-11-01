@@ -54,8 +54,16 @@ export async function submitBallotAction(
 /** Every judge live refresh rechecks the actual own assignment, even before freeze. */
 export async function readPersistedJudgeRound(roundId: string) {
   const result = await readPersistedBallot(roundId);
-  if (result.kind !== 'found') return result;
+  if (result.kind === 'missing')
+    return { kind: 'missing' as const, socketUrl: null };
+  if (result.kind !== 'found')
+    return { kind: 'unavailable' as const, socketUrl: null };
   return result.view.own
-    ? { kind: 'found' as const, round: result.view.round }
-    : { kind: 'missing' as const };
+    ? {
+        kind: 'found' as const,
+        round: result.view.round,
+        serverNowMs: result.serverNowMs,
+        socketUrl: null,
+      }
+    : { kind: 'missing' as const, socketUrl: null };
 }

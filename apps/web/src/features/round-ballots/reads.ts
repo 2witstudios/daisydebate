@@ -14,8 +14,17 @@ export async function readRoundBallot(fetch: FetchLike, roundId: string) {
     if (response.status === 404) return { kind: 'missing' as const };
     if (!response.ok) return { kind: 'unavailable' as const };
     const parsed = roundBallotReadSchema.safeParse(await response.json());
+    const header = response.headers.get('x-server-now-ms');
+    const serverNowMs = header === null ? null : Number(header);
     return parsed.success && parsed.data.round.id === roundId
-      ? { kind: 'found' as const, view: parsed.data }
+      ? {
+          kind: 'found' as const,
+          view: parsed.data,
+          serverNowMs:
+            serverNowMs !== null && Number.isFinite(serverNowMs)
+              ? serverNowMs
+              : null,
+        }
       : { kind: 'unavailable' as const };
   } catch {
     return { kind: 'unavailable' as const };
