@@ -100,6 +100,41 @@ describe('draft recovery', () => {
     });
   });
 
+  test('the recovered draft is discarded', async () => {
+    const store = memoryStorage();
+    const now = Date.parse('2026-10-05T18:00:00.000Z');
+    store.setItem(
+      keyOf('p1', 'd', 'a'),
+      JSON.stringify({
+        html: '<p>stale draft</p>',
+        baseRevision: 2,
+        savedAt: now,
+        expiresAt: now + 1000,
+      }),
+    );
+    const { api } = savingApi([{ id: 'a', revision: 3 }]);
+    const sync = createDocumentSync({
+      api,
+      roundId: 'd',
+      principalId: 'p1',
+      onConflict: () => {},
+      timers: manualTimers().timers,
+      storage: store,
+      wallClock: () => now,
+    });
+    await sync.load();
+    sync.discardRecovered('a');
+    assert({
+      given: 'a recovered draft the room refused',
+      should: 'drop the stored draft and leave no recoverable copy',
+      actual: [
+        store.dump().has(keyOf('p1', 'd', 'a')),
+        sync.recoveredDrafts().size,
+      ],
+      expected: [false, 0],
+    });
+  });
+
   test('rejects an invalid stored draft', async () => {
     const store = memoryStorage();
     store.setItem(keyOf('p1', 'd', 'a'), '123');
