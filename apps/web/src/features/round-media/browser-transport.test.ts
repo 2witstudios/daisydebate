@@ -322,3 +322,57 @@ test('browser playback refusal and recovery are reported from actual SDK state',
   });
   browser.transport.stopTracks();
 });
+
+test('a stopped transport cannot send late SDK health or playback into a newer lifetime', () => {
+  const stub = stubSdk();
+  const updates: string[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      tracks: () => updates.push('tracks'),
+      invalidated: () => updates.push('refresh'),
+      playbackChanged: () => updates.push('playback'),
+    },
+    stub.sdk,
+  );
+  browser.transport.stopTracks();
+  updates.length = 0;
+  stub.fire(RoomEvent.TrackSubscribed);
+  stub.fire(RoomEvent.Connected);
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  assert({
+    given:
+      'retired media followed by late SDK subscription, connection and playback callbacks',
+    should:
+      'leave the replacement lifetime’s evidence and refresh requests untouched',
+    actual: updates,
+    expected: [],
+  });
+});
+
+test('a capture failure settling after stop belongs to the retired source only', async () => {
+  const stub = stubSdk();
+  const capture =
+    Promise.withResolvers<Awaited<ReturnType<typeof stub.sdk.capture>>>();
+  const failures: string[] = [];
+  const browser = createBrowserMediaTransport(
+    { ...events, sourceFailed: (source) => failures.push(source) },
+    { room: stub.sdk.room, capture: () => capture.promise },
+  );
+  const applying = browser.transport.apply(publish(['camera'])).then(
+    () => 'resolved',
+    () => 'rejected',
+  );
+  await settle();
+  browser.transport.stopTracks();
+  capture.reject(
+    new DOMException('Controlled late failure', 'NotReadableError'),
+  );
+  assert({
+    given: 'pending capture rejected after owner stepdown/terminal stop',
+    should:
+      'settle retirement without reporting a failure against the new source lifetime',
+    actual: [await applying, failures],
+    expected: ['resolved', []],
+  });
+});

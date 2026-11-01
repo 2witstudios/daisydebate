@@ -120,6 +120,7 @@ export function createBrowserMediaTransport(
       );
   };
   const emit = () => {
+    if (stopped) return;
     const snapshot: MediaTrack[] = [];
     for (const participant of [
       room.localParticipant,
@@ -159,14 +160,19 @@ export function createBrowserMediaTransport(
     .on(RoomEvent.LocalTrackPublished, emit)
     .on(RoomEvent.LocalTrackUnpublished, emit)
     .on(RoomEvent.ActiveSpeakersChanged, emit)
-    .on(RoomEvent.AudioPlaybackStatusChanged, () =>
-      events.playbackChanged?.(room.canPlaybackAudio),
+    .on(
+      RoomEvent.AudioPlaybackStatusChanged,
+      () => !stopped && events.playbackChanged?.(room.canPlaybackAudio),
     );
+  const invalidate = () => {
+    if (!stopped) events.invalidated();
+  };
   room
-    .on(RoomEvent.Connected, events.invalidated)
-    .on(RoomEvent.ParticipantConnected, events.invalidated)
-    .on(RoomEvent.ParticipantDisconnected, events.invalidated)
+    .on(RoomEvent.Connected, invalidate)
+    .on(RoomEvent.ParticipantConnected, invalidate)
+    .on(RoomEvent.ParticipantDisconnected, invalidate)
     .on(RoomEvent.ParticipantPermissionsChanged, (_previous, participant) => {
+      if (stopped) return;
       // A failed publish rejects the queue; the reconcile this invalidation
       // requests then reports it through apply.
       if (participant === room.localParticipant) void settle().catch(() => {});
@@ -185,7 +191,7 @@ export function createBrowserMediaTransport(
   const checked = <T>(source: Source, work: Promise<T>) =>
     work.catch((error: unknown) => {
       if (!events.devices?.[source] || !deviceAbsent(error)) throw error;
-      events.missing?.(source);
+      if (!stopped) events.missing?.(source);
       throw checkedDeviceMissing();
     });
   const captureSource = async (source: Source) => {
@@ -231,6 +237,7 @@ export function createBrowserMediaTransport(
       'microphone',
       sdk.capture({ audio: audioCapture, video: false }),
     ).catch((error: unknown) => {
+      if (stopped) return [] as LocalTrack[];
       // A checked device gone is already reported through `missing`; every
       // other warm failure is a per-source failure to report, never a silent
       // swallow (ISSUE-817/829).
@@ -275,7 +282,10 @@ export function createBrowserMediaTransport(
         tracks.delete(source);
         throw error;
       }
-      if (stopped) track.stop();
+      if (stopped) {
+        track.stop();
+        continue;
+      }
       events.sourceHealthy?.(source);
     }
   };
@@ -301,6 +311,7 @@ export function createBrowserMediaTransport(
         try {
           await publishSource(source);
         } catch (error) {
+          if (stopped) return;
           failed.push([source, error]);
           if (!(
             error instanceof Error && error.name === CHECKED_DEVICE_MISSING
