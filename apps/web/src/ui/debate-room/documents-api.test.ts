@@ -47,6 +47,7 @@ describe('createDocumentsApi', () => {
     const sync = createDocumentSync({
       api: createDocumentsApi({ send, signal: () => timeout.signal }),
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_, attempts) => failures.push(attempts),
       timers: idleTimers,

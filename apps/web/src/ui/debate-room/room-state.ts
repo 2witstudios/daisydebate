@@ -1,5 +1,6 @@
 import { markRead, type ChatMessage } from '../../features/debate-room/chat';
 import type { PageTone } from '../document-editor/document-editor';
+import type { RecoveredDraft } from './document-sync';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
@@ -106,6 +107,16 @@ export type RoomAction =
   | { readonly type: 'transcript/filter'; readonly speechId: string }
   | { readonly type: 'palette/open' }
   | { readonly type: 'palette/close' }
+  | {
+      readonly type: 'doc/recovered';
+      readonly recovered: ReadonlyMap<string, RecoveredDraft>;
+    }
+  | {
+      readonly type: 'doc/recovered/restore';
+      readonly id: string;
+      readonly now: string;
+    }
+  | { readonly type: 'doc/recovered/discard'; readonly id: string }
   | {
       readonly type: 'page/tone';
       readonly documentId: string;

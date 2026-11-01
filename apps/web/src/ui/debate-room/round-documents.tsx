@@ -1,6 +1,7 @@
 'use client';
 
 import { useReducer } from 'react';
+import { systemClock } from '@daisy/clock';
 import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
@@ -12,6 +13,7 @@ import {
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 import { useRoundSync } from './use-round-sync';
+import type { RecoveredDraft } from './document-sync';
 
 /** Private files backed by the persisted Round's participant-scoped document API. */
 export function RoundDocuments({
@@ -44,6 +46,8 @@ export function RoundDocuments({
       setProblem('That file was not created. Try again.');
     }
   };
+  const recovered: [string, RecoveredDraft][] = [...state.recovered];
+
   return (
     <section
       aria-label="Your Round files"
@@ -61,6 +65,29 @@ export function RoundDocuments({
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
+          {recovered.length > 0 ? (
+            <div className="border-b border-border p-3">
+              <p className="text-sm font-semibold text-live">
+                An unsaved draft was recovered.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  className="cursor-pointer px-3 py-1 text-sm text-ink"
+                  onClick={() => dispatch({ type: 'doc/recovered/restore', id: recovered[0][0], now: systemClock.now() })}
+                >
+                  Restore draft
+                </button>
+                <button
+                  type="button"
+                  className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
+                  onClick={() => dispatch({ type: 'doc/recovered/discard', id: recovered[0][0] })}
+                >
+                  Discard draft
+                </button>
+              </div>
+            </div>
+          ) : null}
           <DocumentPane
             documents={state.documents}
             tabs={state.tabs}

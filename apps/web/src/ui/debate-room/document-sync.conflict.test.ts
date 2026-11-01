@@ -47,6 +47,7 @@ const watchedSync = (api: DocumentsApi) => {
   const sync = createDocumentSync({
     api,
     roundId: 'd',
+    principalId: 'p1',
     onConflict: (id) => conflicts.push(id),
     onSaved: (id) => saved.push(id),
     timers,
