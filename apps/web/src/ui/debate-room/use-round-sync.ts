@@ -13,6 +13,7 @@ import {
   type Timers,
 } from './document-sync';
 import type { DraftStorage } from './note-draft-storage';
+import { releaseNoteOwner } from './note-owner';
 import { createKeepaliveBudget } from './keepalive-budget';
 import {
   NOTES_PRINCIPAL_EVENT,
@@ -158,9 +159,9 @@ export function useRoundSync(
       connection.dispose();
     };
   }, [sync, socketUrl]);
-  const lifetime = useRef({ sync });
+  const lifetime = useRef({ sync, principalId });
   useEffect(() => {
-    const token = { sync };
+    const token = { sync, principalId };
     lifetime.current = token;
     const changed = (event: Event) => {
       if ((event as CustomEvent<unknown>).detail !== principalId)
@@ -173,16 +174,7 @@ export function useRoundSync(
       queueMicrotask(() => {
         const remove = () =>
           window.removeEventListener(NOTES_PRINCIPAL_EVENT, changed);
-        if (lifetime.current !== token && lifetime.current.sync === sync)
-          return remove();
-        if (lifetime.current.sync !== sync) {
-          sync.dispose({ purge: true });
-          return remove();
-        }
-        void sync.flush().finally(() => {
-          sync.dispose();
-          remove();
-        });
+        void releaseNoteOwner(token, lifetime.current).finally(remove);
       });
     };
   }, [sync, principalId]);

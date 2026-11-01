@@ -22,11 +22,20 @@ export function RoundDocuments({
   readonly roundId: string;
   readonly principalId: string;
 }) {
+  const saving = useRoundSync(roundId, principalId);
+  return <RoundWorkspace key={`${roundId}:${principalId}`} {...saving} />;
+}
+
+/** Document UI state follows its owner identity; the sync lifetime remains outside the key. */
+function RoundWorkspace({
+  sync,
+  notice,
+  save,
+}: ReturnType<typeof useRoundSync>) {
   const [state, dispatch] = useReducer(
     reducePersistedWorkspace,
     initialPersistedWorkspace,
   );
-  const { sync, notice, save } = useRoundSync(roundId, principalId);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
   usePaletteShortcut(dispatch);
   const choose = async (choice: PaletteChoice) => {
