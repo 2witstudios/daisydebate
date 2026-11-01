@@ -8,7 +8,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useConversationCompletion } from './conversation-navigation';
 import { Button } from '../components/button/button';
 import {
   messageFormUnavailable,
@@ -48,7 +48,7 @@ export function MessageComposer({
   useEffect(() => {
     if (pending) void typing.current?.activity(false);
   }, [pending]);
-  useMovedOn(answer.next);
+  const captureCompletion = useConversationCompletion(answer.next);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'message-notice' : 'message-text',
@@ -57,6 +57,9 @@ export function MessageComposer({
   return (
     <form
       action={post}
+      onSubmit={(event) => {
+        if (!event.defaultPrevented) captureCompletion();
+      }}
       className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4"
     >
       <input type="hidden" name="requestId" value={answer.requestId} />

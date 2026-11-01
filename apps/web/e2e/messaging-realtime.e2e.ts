@@ -1,3 +1,4 @@
+import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
 import {
   editNativeMessage,
   messageInHistory,
@@ -22,6 +23,7 @@ import {
 } from './support/messaging-journey';
 
 testMessageControlFocus();
+testMessagingNavigationOverlap();
 testProfileMessageEntry();
 
 test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({

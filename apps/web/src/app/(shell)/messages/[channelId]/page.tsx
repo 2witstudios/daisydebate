@@ -1,5 +1,9 @@
 import { headers } from 'next/headers';
-import Link from 'next/link';
+import {
+  ConversationNavigation,
+  ConversationLink as Link,
+  ConversationSearchForm,
+} from '../../../../ui/messaging/conversation-navigation';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import {
@@ -51,79 +55,83 @@ export default async function ConversationPage({
           paging: typeof query.before === 'string',
         });
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title={names.title}
-        lede="Private messages"
-        actions={<Link href="/messages">Back to messages</Link>}
-      />
-      <Link href={`/messages/${id.data}/preferences`}>
-        Conversation preferences
-      </Link>
-      {conversation === null ? (
-        <p
-          role="status"
-          className="rounded-lg border border-border p-5 text-ink-muted"
-        >
-          This conversation is unavailable. Refresh to try again.
-        </p>
-      ) : (
-        <>
-          <ConversationSearch
-            channelId={id.data}
-            maxUnits={conversation.bounds.messageUnits}
-            searchQuery={searchQuery ?? null}
-          />
-          {query.notice === markReadUnavailableNotice ? (
-            // Only a no-JS reader posts the native form, so only they see it.
-            <noscript>
-              <p role="status" className="text-ink-muted">
-                This conversation could not be marked read. Try again.
-              </p>
-            </noscript>
-          ) : null}
-          {readThrough === null ? null : (
-            <>
-              {/* With JavaScript the live history marks what it shows. */}
-              <noscript>
-                <form action={markReadAction.bind(null, id.data, readThrough)}>
-                  <button type="submit" className="text-accent underline">
-                    Mark as read
-                  </button>
-                </form>
-              </noscript>
-            </>
-          )}
-          {searchQuery === undefined && typeof query.before !== 'string' ? (
-            // The latest page is live on the tab's socket (ADR 0089).
-            <ConversationLive
+    <ConversationNavigation key={id.data}>
+      <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
+        <PageHeader
+          title={names.title}
+          lede="Private messages"
+          actions={<Link href="/messages">Back to messages</Link>}
+        />
+        <Link href={`/messages/${id.data}/preferences`}>
+          Conversation preferences
+        </Link>
+        {conversation === null ? (
+          <p
+            role="status"
+            className="rounded-lg border border-border p-5 text-ink-muted"
+          >
+            This conversation is unavailable. Refresh to try again.
+          </p>
+        ) : (
+          <>
+            <ConversationSearch
               channelId={id.data}
-              history={conversation.history}
-              actorId={actorId}
-              otherAuthor={names.otherAuthor}
-              socketUrl={conversation.socketUrl}
-              typingRefetchMs={conversation.typingRefetchMs}
+              maxUnits={conversation.bounds.messageUnits}
+              searchQuery={searchQuery ?? null}
             />
-          ) : (
-            // Search results and older pages are explicit HTTP reads.
-            <MessageHistory
-              history={conversation.history}
-              actorId={actorId}
-              otherAuthor={names.otherAuthor}
-              {...(searchQuery === undefined ? {} : { searchQuery })}
+            {query.notice === markReadUnavailableNotice ? (
+              // Only a no-JS reader posts the native form, so only they see it.
+              <noscript>
+                <p role="status" className="text-ink-muted">
+                  This conversation could not be marked read. Try again.
+                </p>
+              </noscript>
+            ) : null}
+            {readThrough === null ? null : (
+              <>
+                {/* With JavaScript the live history marks what it shows. */}
+                <noscript>
+                  <form
+                    action={markReadAction.bind(null, id.data, readThrough)}
+                  >
+                    <button type="submit" className="text-accent underline">
+                      Mark as read
+                    </button>
+                  </form>
+                </noscript>
+              </>
+            )}
+            {searchQuery === undefined && typeof query.before !== 'string' ? (
+              // The latest page is live on the tab's socket (ADR 0089).
+              <ConversationLive
+                channelId={id.data}
+                history={conversation.history}
+                actorId={actorId}
+                otherAuthor={names.otherAuthor}
+                socketUrl={conversation.socketUrl}
+                typingRefetchMs={conversation.typingRefetchMs}
+              />
+            ) : (
+              // Search results and older pages are explicit HTTP reads.
+              <MessageHistory
+                history={conversation.history}
+                actorId={actorId}
+                otherAuthor={names.otherAuthor}
+                {...(searchQuery === undefined ? {} : { searchQuery })}
+              />
+            )}
+            <MessageComposer
+              channelId={id.data}
+              key={typeof query.sent === 'string' ? query.sent : id.data}
+              action={sendMessageAction.bind(null, id.data)}
+              requestId={systemId.next()}
+              maxUnits={conversation.bounds.messageUnits}
+              readThrough={readThrough}
             />
-          )}
-          <MessageComposer
-            channelId={id.data}
-            key={typeof query.sent === 'string' ? query.sent : id.data}
-            action={sendMessageAction.bind(null, id.data)}
-            requestId={systemId.next()}
-            maxUnits={conversation.bounds.messageUnits}
-            readThrough={readThrough}
-          />
-        </>
-      )}
-    </main>
+          </>
+        )}
+      </main>
+    </ConversationNavigation>
   );
 }
 
@@ -168,7 +176,7 @@ function ConversationSearch({
   readonly searchQuery: string | null;
 }) {
   return (
-    <form
+    <ConversationSearchForm
       action={`/messages/${channelId}`}
       method="get"
       className="flex flex-wrap items-end gap-3"
@@ -193,6 +201,6 @@ function ConversationSearch({
       {searchQuery === null ? null : (
         <Link href={`/messages/${channelId}`}>Clear search</Link>
       )}
-    </form>
+    </ConversationSearchForm>
   );
 }

@@ -11,6 +11,11 @@ import {
   type Route,
 } from '@playwright/test';
 import { effectsRan } from './hydration';
+import {
+  composerRequestId,
+  completedSend,
+  oneDurableEdit,
+} from './messaging-completion';
 import { testDraftSurvivesRefresh } from './messaging-draft-refresh';
 import { testComposerCharacterLimit } from './messaging-character-limit';
 import { pressByKeyboard } from './focus';
@@ -27,15 +32,20 @@ import {
 export async function editNativeMessage(page: Page, channelId: string) {
   const original = 'Temporary native cleanup contribution';
   const edited = 'Revised native cleanup contribution';
+  const requestId = await composerRequestId(page);
   await page.getByLabel('Your message').fill(original);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
+  const { edit, message } = await completedSend(
+    page,
+    channelId,
+    original,
+    requestId,
+  );
   const row = page
     .getByRole('list', { name: 'Message history' })
     .getByRole('listitem')
     .filter({ hasText: original });
-  await row
-    .getByRole('link', { name: 'Edit or remove your message', exact: true })
-    .click();
+  await edit.click();
   await page.getByLabel('Revise your message').fill(edited);
   await page
     .getByRole('button', { name: 'Save message edit', exact: true })
@@ -48,6 +58,7 @@ export async function editNativeMessage(page: Page, channelId: string) {
   await expect(updated).toHaveCount(1);
   await expect(messageInHistory(page, edited)).toHaveCount(1);
   await expect(updated).toContainText('edited');
+  await oneDurableEdit(page, channelId, message, edited);
   await expect(row).toHaveCount(0);
   const path = await updated
     .getByRole('link', { name: 'Edit or remove your message', exact: true })
