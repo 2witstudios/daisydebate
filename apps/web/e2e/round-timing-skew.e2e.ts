@@ -26,7 +26,7 @@ const WAIT_FOR_ROUND_READ_MS = 60_000;
 
 /* The monotonic instant this process measures: the only honest clock an e2e
    harness may read, since the browser's wall clock is this test's subject. */
-const elapsedMs = () => performance.timeOrigin + performance.now();
+const elapsedMs = () => Math.trunc(performance.timeOrigin + performance.now());
 
 /** The m:ss reading of a live round clock ("aria-label": label m:ss). */
 const parseClock = (aria: string | null): number => {
@@ -56,7 +56,10 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
   try {
     // Both sides are real humans, so no bot-availability gate is in the way.
     for (const { context } of accounts.members)
-      await context.grantPermissions(['camera', 'microphone'], { origin });
+      await context.grantPermissions(
+        ['camera', 'microphone', 'local-network-access'],
+        { origin },
+      );
     const host = await openPage(accounts.members[0]!.context, 'skew host');
     const guest = await openPage(accounts.members[1]!.context, 'skew guest');
     const seed = await createProofRoom(host, 'Timing skew proof');
@@ -105,6 +108,11 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await host
       .getByRole('button', { name: 'Start round', exact: true })
       .click();
+
+    const mediaStatus = host
+      .getByRole('region', { name: 'Live camera and sound' })
+      .getByText('Connected', { exact: true });
+    await expect(mediaStatus).toBeVisible({ timeout: 15000 });
 
     // The assertion: with this session's wall clock shifted two minutes
     // ahead, the display must still read the server's own authority. A raw
@@ -231,6 +239,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       .toBeLessThan(2000);
     expect((await resumedRead).status()).toBe(200);
     await session.detach();
+    await expect(mediaStatus).toBeVisible({ timeout: 15000 });
 
     // Observe the mounted media session's real reconcile HTTP at the speech
     // boundary after the same-view hydration correction. No media is mocked.
