@@ -28,10 +28,7 @@ const bumping = (revision: number): SaveResult => ({
 });
 
 /** A sync over the api with manual timers and no conflict handling. */
-const quietSync = (
-  api: DocumentsApi,
-  timers = manualTimers().timers,
-) =>
+const quietSync = (api: DocumentsApi, timers = manualTimers().timers) =>
   createDocumentSync({
     api,
     roundId: 'd',
