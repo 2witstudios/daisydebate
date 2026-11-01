@@ -3,6 +3,8 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -273,6 +275,60 @@ describe('e2e artifact sanitizer', () => {
       });
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('refuses publication when an existing subtree cannot be scanned', () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-e2e-unscannable-'));
+    const child = join(root, 'private');
+    mkdirSync(child);
+    writeFileSync(join(root, 'server.log'), 'token=synthetic-private-token');
+    writeFileSync(join(child, 'trace.log'), 'token=synthetic-private-token');
+    chmodSync(child, 0o000);
+    let refused = false;
+    try {
+      try {
+        sanitizeArtifactTree(root);
+      } catch {
+        refused = true;
+      }
+      assert({
+        given: 'existing evidence with an unreadable subtree',
+        should:
+          'refuse publication instead of treating unscanned artifacts as absent',
+        actual: refused,
+        expected: true,
+      });
+    } finally {
+      chmodSync(child, 0o755);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('refuses an artifact link without changing its external target', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'daisy-e2e-link-'));
+    const root = join(parent, 'artifacts'),
+      outside = join(parent, 'outside.log');
+    mkdirSync(root);
+    const payload = 'token=synthetic-private-token';
+    writeFileSync(outside, payload);
+    symlinkSync(outside, join(root, 'linked.log'));
+    let refused = false;
+    try {
+      try {
+        sanitizeArtifactTree(root);
+      } catch {
+        refused = true;
+      }
+      assert({
+        given: 'an artifact symlink to a file outside the owned tree',
+        should:
+          'refuse publication without traversing or rewriting the external target',
+        actual: [refused, readFileSync(outside, 'utf8')],
+        expected: [true, payload],
+      });
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
     }
   });
 

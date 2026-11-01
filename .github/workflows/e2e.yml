@@ -535,7 +535,7 @@ jobs:
         run: bun scripts/e2e-selection-report.ts room-launch
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
-        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() }}
         run: bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
       - name: Retain Launch evidence on success and failure
         if: ${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}
@@ -543,7 +543,7 @@ jobs:
         with:
           name: room-launch-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.

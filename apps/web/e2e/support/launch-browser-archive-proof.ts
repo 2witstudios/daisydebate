@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { link, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -27,6 +28,84 @@ try {
   await saveLaunchImageArchive(owner, prepared.image, prepared.id, saved);
   const saveMs = Math.round(performance.now() - saveStarted);
   const bytes = (await stat(join(saved, 'image.tar'))).size;
+  const manifest = JSON.parse(
+    (await owner.archiveDocument(join(saved, 'image.tar'), 'manifest.json'))
+      .stdout,
+  );
+  const listing = await owner.archiveEntries(join(saved, 'image.tar'));
+  const index = listing.stdout.split('\n').includes('index.json')
+    ? JSON.parse(
+        (await owner.archiveDocument(join(saved, 'image.tar'), 'index.json'))
+          .stdout,
+      )
+    : undefined;
+  const descriptor = index?.manifests?.[0];
+  const manifestBlob = descriptor?.digest
+    ? await owner.archiveBlobDocument(
+        join(saved, 'image.tar'),
+        descriptor.digest,
+      )
+    : null;
+  const oci = manifestBlob?.code === 0 ? JSON.parse(manifestBlob.stdout) : null;
+  const configBlob = oci?.config?.digest
+    ? await owner.archiveBlobDocument(
+        join(saved, 'image.tar'),
+        oci.config.digest,
+      )
+    : null;
+  const inspected = JSON.parse(
+    (await owner.run(['image', 'inspect', prepared.id])).stdout,
+  )[0];
+  const blobPaths = listing.stdout
+    .split('\n')
+    .filter((path) => /^blobs\/sha256\/[a-f0-9]{64}$/.test(path));
+  const graphPaths = [
+    descriptor?.digest,
+    oci?.config?.digest,
+    ...(oci?.layers ?? []).map((layer: { digest: string }) => layer.digest),
+  ].map((digest) => `blobs/sha256/${digest?.slice(7)}`);
+  process.stdout.write(
+    `${JSON.stringify({
+      event: 'browser.image.archive.shape',
+      classicOverlay2: inspected.GraphDriver?.Name === 'overlay2',
+      containerdOverlayfs: inspected.GraphDriver?.Name === 'overlayfs',
+      indexPresent: index !== undefined,
+      indexSingleton: index?.manifests?.length === 1,
+      indexMediaType:
+        index?.mediaType === 'application/vnd.oci.image.index.v1+json',
+      manifestReceipt: descriptor?.digest === prepared.id,
+      configReceipt: oci?.config?.digest === prepared.id,
+      manifestHash:
+        manifestBlob?.code === 0 &&
+        `sha256:${createHash('sha256').update(manifestBlob.stdout).digest('hex')}` ===
+          descriptor?.digest,
+      manifestSize:
+        manifestBlob?.code === 0 &&
+        Buffer.byteLength(manifestBlob.stdout) === descriptor?.size,
+      configHash:
+        configBlob?.code === 0 &&
+        `sha256:${createHash('sha256').update(configBlob.stdout).digest('hex')}` ===
+          oci?.config?.digest,
+      configSize:
+        configBlob?.code === 0 &&
+        Buffer.byteLength(configBlob.stdout) === oci?.config?.size,
+      configBinding:
+        manifest[0]?.Config === `blobs/sha256/${oci?.config?.digest?.slice(7)}`,
+      layerBinding:
+        JSON.stringify(manifest[0]?.Layers) ===
+        JSON.stringify(
+          oci?.layers?.map(
+            (layer: { digest: string }) =>
+              `blobs/sha256/${layer.digest.slice(7)}`,
+          ),
+        ),
+      blobCount: blobPaths.length,
+      graphBlobCount: graphPaths.length,
+      unreferencedBlobCount: blobPaths.filter(
+        (path) => !graphPaths.includes(path),
+      ).length,
+    })}\n`,
+  );
   // Remove only our exact validated reference to exercise archive loading.
   const removed = await owner.run(['image', 'rm', prepared.image.tag]);
   if (removed.code !== 0)
@@ -45,17 +124,6 @@ try {
   process.stdout.write(
     `${JSON.stringify({ event: 'browser.image.archive.proof', case: 'exact-roundtrip', image: prepared.id, inputs: prepared.image.key, platform: prepared.image.platform, bytes, saveMs, loadMs })}\n`,
   );
-  const manifest = JSON.parse(
-    (await owner.archiveDocument(join(saved, 'image.tar'), 'manifest.json'))
-      .stdout,
-  );
-  const listing = await owner.archiveEntries(join(saved, 'image.tar'));
-  const index = listing.stdout.split('\n').includes('index.json')
-    ? JSON.parse(
-        (await owner.archiveDocument(join(saved, 'image.tar'), 'index.json'))
-          .stdout,
-      )
-    : undefined;
   const foreign = `daisy-launch-foreign-negative:${createId()}`;
   if ((await owner.run(['image', 'inspect', foreign])).code === 0)
     throw new Error('Foreign reference proof requires absence');
@@ -151,6 +219,31 @@ try {
       `${JSON.stringify({ event: 'browser.image.archive.proof', case: mode, outcome: 'rejected', loadAttempts: loads - before, elapsedMs: Math.round(performance.now() - began), platform: prepared.image.platform, inputs: prepared.image.key })}\n`,
     );
   }
+  // Exercise the shared outer owner as well: a corrupt owned cache causes one
+  // fresh preparation and validated replacement, never acceptance of stale data.
+  if ((await owner.run(['image', 'rm', prepared.image.tag])).code !== 0)
+    throw new Error(
+      'Corrupt-cache proof could not release its owned reference',
+    );
+  const rebuildStarted = performance.now();
+  const rebuilt = await prepareLaunchBrowserImage({
+    checkout,
+    archiveDirectory: join(directory, 'corrupt'),
+  });
+  if (rebuilt.image.key !== prepared.image.key)
+    throw new Error(
+      'Corrupt-cache rebuild changed its expected input identity',
+    );
+  process.stdout.write(
+    `${JSON.stringify({
+      event: 'browser.image.archive.proof',
+      case: 'corrupt-cache-bounded-rebuild',
+      image: rebuilt.id,
+      inputs: rebuilt.image.key,
+      platform: rebuilt.image.platform,
+      elapsedMs: Math.round(performance.now() - rebuildStarted),
+    })}\n`,
+  );
   if (performance.now() - started > 480000)
     throw new Error('Archive proof exceeded the preparation budget');
 } finally {

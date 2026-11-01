@@ -95,6 +95,11 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
       execute('docker', args, options),
     archiveDocument: (path: string, entry: 'manifest.json' | 'index.json') =>
       execute('tar', ['-xOf', path, entry]),
+    archiveBlobDocument: (path: string, digest: string) => {
+      if (!/^sha256:[a-f0-9]{64}$/.test(digest))
+        throw new Error('Invalid Launch archive content address');
+      return execute('tar', ['-xOf', path, `blobs/sha256/${digest.slice(7)}`]);
+    },
     archiveEntries: (path: string) => execute('tar', ['-tf', path]),
     close: () => {
       process.removeListener('SIGTERM', abort);
