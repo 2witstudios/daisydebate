@@ -13,6 +13,7 @@ describe('reduceRoom recovered drafts', () => {
   const draft = {
     html: '<p>offline draft</p>',
     baseRevision: 1,
+    generation: 0,
     savedAt: 0,
     expiresAt: Number.MAX_SAFE_INTEGER,
   };

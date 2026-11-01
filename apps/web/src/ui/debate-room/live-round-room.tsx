@@ -96,7 +96,7 @@ export function LiveRoundRoom({
     () => liveRoundOf(view, actorId, now),
     [view, actorId, now],
   );
-  const { sync, notice, save } = useRoundSync(view.id, principalId);
+  const { sync, notice, save } = useRoundSync(view.id, principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
     intent.kind === 'forfeit'

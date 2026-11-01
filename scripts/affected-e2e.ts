@@ -133,6 +133,7 @@ const native = new Set(
     'debate-room',
     'round-commands',
     'round-command-recovery',
+    'round-notes-recovery',
     'realtime-room-delivery',
     'messaging-realtime',
   ].map((name) => `${name}.e2e.ts`),

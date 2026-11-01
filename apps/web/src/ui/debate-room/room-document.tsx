@@ -8,6 +8,8 @@ import {
 import { DocumentPane, type SaveState } from './document-pane';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
+import { RecoveredNotes } from './recovered-notes';
+import type { DocumentSync } from './document-sync';
 import { TranscriptView } from './transcript-view';
 
 /** The open files below the video: tabs, saved state, editor or transcript. */
@@ -17,7 +19,9 @@ export function RoomDocument({
   dispatch,
   onEdit,
   save,
+  sync,
 }: {
+  readonly sync?: DocumentSync;
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
@@ -40,6 +44,14 @@ export function RoomDocument({
       aria-label="Document"
       className="flex room-workspace flex-1 flex-col bg-surface-raised max-narrow:rounded-t-xl"
     >
+      {sync ? (
+        <RecoveredNotes
+          documents={state.documents}
+          recovered={state.recovered}
+          sync={sync}
+          dispatch={dispatch}
+        />
+      ) : null}
       <DocumentPane
         documents={state.documents}
         tabs={state.tabs}

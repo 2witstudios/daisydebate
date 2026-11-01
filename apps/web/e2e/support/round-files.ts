@@ -21,6 +21,7 @@ type RoundFiles = {
   readonly stranger: APIRequestContext;
   readonly roundId: string;
   readonly documentId: string;
+  readonly finishRound: () => Promise<void>;
   readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
 /** A launched round with one server-saved Flow, opened by its first debater. */
@@ -32,6 +33,7 @@ export const test = base.extend<{
   roundFiles: async ({ browser, roundCommands }, provide) => {
     const accounts = await createRoomLaunchAccounts(browser, 2);
     let launched: string | undefined;
+    let finished = false;
     try {
       await accounts.members[0]!.context.grantPermissions(
         ['camera', 'microphone'],
@@ -91,13 +93,17 @@ export const test = base.extend<{
         page,
         roundId,
         documentId: document.id,
+        finishRound: async () => {
+          await forfeitAsHost(accounts.members[0]!.context.request, roundId);
+          finished = true;
+        },
         violations,
         stranger: accounts.members[1]!.context.request,
       });
     } finally {
       // Competitive history stays in the dedicated slot until reviewed lifecycle release.
       try {
-        if (launched)
+        if (launched && !finished)
           await forfeitAsHost(accounts.members[0]!.context.request, launched);
         await settledLaunchAuth();
       } finally {
