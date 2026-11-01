@@ -44,15 +44,22 @@ function RecoveredNote({
   readonly restore: () => void;
   readonly discard: () => void;
 }) {
+  const [manualText, setManualText] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const copy = async () => {
+    let text = draft.html;
     try {
       const container = window.document.createElement('template');
       container.innerHTML = draft.html;
-      await navigator.clipboard.writeText(container.content.textContent ?? '');
+      text = container.content.textContent ?? '';
+      await navigator.clipboard.writeText(text);
+      setManualText(null);
       setCopied('Copied recovered text.');
     } catch {
-      setCopied('Copy was unavailable. Select the recovered text to copy it.');
+      setManualText(text);
+      setCopied(
+        'Copy was unavailable. Select the recovered text below to copy it.',
+      );
     }
   };
   return (
@@ -102,6 +109,18 @@ function RecoveredNote({
         </button>
       </div>
       {copied ? <p role="status">{copied}</p> : null}
+      {manualText !== null ? (
+        <label className="flex flex-col gap-1 text-sm">
+          Recovered text to copy from {choiceLabel}
+          <textarea
+            readOnly
+            rows={5}
+            value={manualText}
+            onFocus={(event) => event.currentTarget.select()}
+            className="w-full rounded-sm border border-border p-2"
+          />
+        </label>
+      ) : null}
     </section>
   );
 }

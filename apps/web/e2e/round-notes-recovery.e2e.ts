@@ -68,7 +68,7 @@ test('offline edit survives page loss and explicitly restores into the live edit
 
 test('newer server copy stays intact until an informed Restore, with copy available', async ({
   roundFiles,
-}) => {
+}, testInfo) => {
   const { page, documentId, roundId } = roundFiles;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Local conflict copy');
@@ -99,9 +99,50 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   await page.bringToFront();
   await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Observe the real browser API; preserve both success and rejection. This
+  // allowlisted diagnostic contains no clipboard text, HTML, keys or identity.
+  await page.evaluate(() => {
+    const clipboard = navigator.clipboard;
+    const write = clipboard.writeText.bind(clipboard);
+    clipboard.writeText = async (text: string) => {
+      const observed = {
+        secure: window.isSecureContext,
+        focused: document.hasFocus(),
+        activated: navigator.userActivation.isActive,
+        result: 'pending',
+      };
+      Reflect.set(window, '__notesClipboard', observed);
+      try {
+        await write(text);
+        observed.result = 'written';
+      } catch (error: unknown) {
+        const name = error instanceof Error ? error.name : '';
+        observed.result = [
+          'NotAllowedError',
+          'SecurityError',
+          'TypeError',
+          'AbortError',
+        ].includes(name)
+          ? name
+          : 'other-rejection';
+        throw error;
+      }
+    };
+  });
   await page
     .getByRole('button', { name: 'Copy recovered Flow', exact: true })
     .click();
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: /Copied recovered text\.|Copy was unavailable\./ }),
+  ).toBeVisible();
+  await testInfo.attach('clipboard-operation', {
+    body: JSON.stringify(
+      await page.evaluate(() => Reflect.get(window, '__notesClipboard')),
+    ),
+    contentType: 'application/json',
+  });
   await expect(
     page.getByRole('status').filter({ hasText: 'Copied recovered text.' }),
   ).toBeVisible();
@@ -535,3 +576,131 @@ test('Restore over pending NEW keeps NEW as an independent durable offer after R
     'Pending NEW for swap',
   );
 });
+
+test('denied clipboard permission exposes selectable recovered text without consuming the offer', async ({
+  roundFiles,
+}) => {
+  const { page, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await edit(page, 'Manual recovery copy');
+  await expect
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
+    .toContain('Manual recovery copy');
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Copy recovered Flow', exact: true }),
+  ).toBeVisible();
+  const before = (await draftFor(page, documentId)).recovery;
+  const session = await page.context().newCDPSession(page);
+  try {
+    const { targetInfo } = await session.send('Target.getTargetInfo');
+    if (!targetInfo.browserContextId)
+      throw new Error(
+        'An isolated context is required for a clipboard denial proof.',
+      );
+    // Explicit denial is scoped to this isolated context and this origin.
+    // Both clipboard permission forms are denied; no grant or API stub is used.
+    for (const allowWithoutSanitization of [false, true])
+      await session.send('Browser.setPermission', {
+        permission: { name: 'clipboard-write', allowWithoutSanitization },
+        setting: 'denied',
+        origin: new URL(page.url()).origin,
+        browserContextId: targetInfo.browserContextId,
+      });
+    await page
+      .getByRole('button', { name: 'Copy recovered Flow', exact: true })
+      .click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Copy was unavailable' }),
+    ).toBeVisible();
+    const manual = page.getByRole('textbox', {
+      name: 'Recovered text to copy from Flow',
+      exact: true,
+    });
+    await expect(manual).toHaveValue('Manual recovery copy');
+    await manual.focus();
+    expect(
+      await manual.evaluate((element) => {
+        const textarea = element as HTMLTextAreaElement;
+        return textarea.value.slice(
+          textarea.selectionStart,
+          textarea.selectionEnd,
+        );
+      }),
+    ).toBe('Manual recovery copy');
+    expect((await draftFor(page, documentId)).recovery).toEqual(before);
+    await expect(
+      page.getByRole('button', { name: 'Restore Flow', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await session.detach();
+  }
+});
+
+for (const refusal of ['denied storage', 'combined overflow'] as const)
+  test(`${refusal} preserves the recovery offer and current editor while NEW still saves online`, async ({
+    roundFiles,
+  }) => {
+    const { page, documentId, roundId } = roundFiles;
+    const rec =
+      refusal === 'combined overflow' ? 'R'.repeat(140_000) : 'Retained REC';
+    const next =
+      refusal === 'combined overflow' ? 'N'.repeat(140_000) : 'Pending NEW';
+    await page.route(`**${documentsPath}save`, (route) => route.abort());
+    await edit(page, rec);
+    await expect
+      .poll(async () =>
+        (await draftFor(page, documentId))?.active?.html.includes(rec),
+      )
+      .toBe(true);
+    await page.reload();
+    await expect(
+      page.getByRole('button', { name: 'Restore Flow', exact: true }),
+    ).toBeVisible();
+    const recovery = (await draftFor(page, documentId)).recovery;
+    await page.unroute(`**${documentsPath}save`);
+    const gate = Promise.withResolvers<void>();
+    let arrived = false;
+    await page.route(`**${documentsPath}save`, async (route) => {
+      arrived = true;
+      await gate.promise;
+      const response = await route.fetch();
+      await route.fulfill({ response });
+    });
+    if (refusal === 'denied storage')
+      await page.evaluate(() => {
+        const set = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+          if (key.startsWith('daisy:round-notes:draft:'))
+            throw new DOMException('Denied', 'QuotaExceededError');
+          set.call(this, key, value);
+        };
+      });
+    try {
+      await edit(page, next);
+      await expect.poll(() => arrived).toBe(true);
+      await page
+        .getByRole('button', { name: 'Restore Flow', exact: true })
+        .click();
+      await expect(
+        page.getByRole('textbox', { name: 'Flow', exact: true }),
+      ).toContainText(next);
+      expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
+      expect((await draftFor(page, documentId)).active).toBeUndefined();
+      await expect(
+        page.getByRole('alert').filter({ hasText: 'Storage is unavailable' }),
+      ).toBeVisible();
+      gate.resolve();
+      await expect
+        .poll(async () =>
+          (await serverDocument(page, roundId, documentId)).html.includes(next),
+        )
+        .toBe(true);
+      expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
+      await expect(
+        page.getByRole('button', { name: 'Restore Flow', exact: true }),
+      ).toBeVisible();
+    } finally {
+      gate.resolve();
+    }
+  });
