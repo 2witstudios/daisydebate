@@ -1,16 +1,14 @@
+import { mayResumeTab, resumeOwnershipStaleMs } from './resume';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimOwnership,
   heartbeatOwnership,
-  mayResumeTab,
   markResumedOnce,
   resumedInThisTab,
   resumedOnceKey,
-  tabIdOf,
   readOwnership,
   releaseOwnership,
   resumeOwnershipKey,
-  resumeOwnershipStaleMs,
 } from './resume-ownership';
 
 setupRitewayBun();
@@ -169,23 +167,17 @@ test('a future-dated advisory record cannot defer recovery indefinitely', () => 
   });
 });
 
-test('one tab identity survives reuse and the once-marker stops a resume loop', () => {
+test('the once-marker records only its principal and Round', () => {
   const session = new MemoryStorage();
-  const first = tabIdOf(session, () => 'random-1');
-  const second = tabIdOf(session, () => 'random-2');
   markResumedOnce(session, actor, round);
   assert({
-    given:
-      'the same tab asking its identity twice, and a resume recorded in it',
-    should:
-      'keep one stable tab identity and answer the once-marker true while another round stays false',
+    given: 'a resume recorded for one principal and Round',
+    should: 'answer the once-marker true while another Round stays false',
     actual: [
-      first,
-      second,
       resumedInThisTab(session, actor, round),
       resumedInThisTab(session, actor, 'round-2'),
       session.getItem(resumedOnceKey(actor, round)),
     ],
-    expected: ['random-1', 'random-1', true, false, '1'],
+    expected: [true, false, '1'],
   });
 });

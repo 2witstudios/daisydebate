@@ -8,6 +8,12 @@ import {
   transientMediaFailure,
 } from './media-controller';
 setupRitewayBun();
+
+const noRecovery = {
+  delaysMs: [],
+  schedule: () => null,
+  cancel: () => undefined,
+};
 const roundId = 'r'.repeat(24);
 const admission: RoundMediaAdmission = {
   version: 1,
@@ -38,6 +44,7 @@ test('terminal stop closes tracks immediately while admission is pending', async
   let finish!: (value: RoundMediaAdmission) => void;
   let created = 0;
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: () =>
@@ -70,6 +77,7 @@ test('cleanup never waits for an unfinished publication request', async () => {
   let stopped = 0;
   let disconnected = 0;
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: { admit: async () => admission, reconcile: async () => snapshot },
     transport: () => ({
@@ -105,6 +113,7 @@ test('reconnect obtains a fresh admission and teardown leaves no old transport',
   let minted = 0;
   const transports: { stopped: number }[] = [];
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: async () => {
@@ -157,6 +166,7 @@ const retryingController = (api: {
   const states: string[] = [];
   const waits: number[] = [];
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api,
     transport: transportStub,
@@ -226,6 +236,7 @@ test('a lasting or definite admission failure is reported unavailable', async ()
   const outcome = async (failure: () => Error) => {
     let admits = 0;
     const controller = createMediaController({
+      recovery: noRecovery,
       roundId,
       api: {
         admit: async () => {
@@ -271,6 +282,7 @@ test('a timeout or a server refusal for now is transient; other refusals are def
 test('only a missing checked device says so; an unchecked missing device is blocked', async () => {
   const stateAfter = async (failure: Error) => {
     const controller = createMediaController({
+      recovery: noRecovery,
       roundId,
       api: { admit: async () => admission, reconcile: async () => snapshot },
       transport: () => ({
@@ -309,6 +321,7 @@ test('the request boundary classifies authorization refusals final and temporary
   const stateAfter = async (failure: () => unknown) => {
     const changed: string[] = [];
     const controller = createMediaController({
+      recovery: noRecovery,
       roundId,
       api: {
         admit: async () => {

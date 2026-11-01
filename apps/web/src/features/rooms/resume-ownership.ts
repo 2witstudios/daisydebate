@@ -1,22 +1,5 @@
 import { z } from 'zod';
-import type { ActiveRoom } from '@daisy/protocol';
-
-/**
- * The returned member's eligibility to auto-resume their live Round
- * (ISSUE-879): the server read already validated membership and published
- * the canonical href, so this decision only adds the two client facts —
- * whose session this is, and whether that session left explicitly.
- */
-export function resumeRoundHrefOf(input: {
-  readonly actorId: string | null;
-  readonly room: Pick<ActiveRoom, 'phase' | 'href'> | null | undefined;
-  /** The member left this Round explicitly this session. */
-  readonly departed: boolean;
-}): string | null {
-  if (input.room === null || input.room === undefined) return null;
-  if (input.actorId === null || input.departed) return null;
-  return input.room.phase === 'live' ? input.room.href : null;
-}
+import type { ResumeOwnership } from './resume';
 
 /**
  * Advisory ownership for one resume across tabs (ISSUE-879): purely
@@ -25,28 +8,7 @@ export function resumeRoundHrefOf(input: {
  * heartbeats; a crashed or closed tab's claim goes stale after the grace, so
  * another tab may take over. No claim denies resume forever.
  */
-export const resumeOwnershipStaleMs = 5000;
 export const resumeOwnershipHeartbeatMs = 2500;
-export type ResumeOwnership = {
-  readonly owner: string | null;
-  readonly claimedAtMs: number | null;
-};
-
-/** One tab's own identity, held in the tab's own session storage. */
-export const tabIdOf = (
-  session: Pick<Storage, 'getItem' | 'setItem'>,
-  randomId: () => string,
-): string => {
-  const existing = session.getItem('daisy:tab-id');
-  if (existing !== null && existing !== '') return existing;
-  const created = randomId();
-  try {
-    session.setItem('daisy:tab-id', created);
-  } catch {
-    // Storage disabled: this tab identifies itself in memory only.
-  }
-  return created;
-};
 
 export const resumeOwnershipKey = (actorId: string, roundId: string) =>
   `daisy:resume-owner:${actorId}:${roundId}`;
@@ -72,22 +34,6 @@ export function readOwnership(
   } catch {
     return { owner: null, claimedAtMs: null };
   }
-}
-
-/** Whether this tab may resume now: fresh foreign claim defers, else resume. */
-export function mayResumeTab(
-  tabId: string,
-  ownership: ResumeOwnership | null,
-  nowMs: number,
-): 'resume' | 'defer' | 'take-over' {
-  const fresh =
-    ownership !== null &&
-    ownership.owner !== null &&
-    ownership.claimedAtMs !== null &&
-    nowMs >= ownership.claimedAtMs &&
-    nowMs - ownership.claimedAtMs < resumeOwnershipStaleMs;
-  if (!fresh) return 'take-over';
-  return ownership.owner === tabId ? 'resume' : 'defer';
 }
 
 /** Writes this tab's claim; a storage-disabled tab still returns the claim. */

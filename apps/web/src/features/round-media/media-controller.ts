@@ -99,10 +99,10 @@ export function createMediaController(input: {
     readonly wait: (ms: number, signal: AbortSignal) => Promise<void>;
   };
   /**
-   * The paced-recovery timer edge (ISSUE-880): injected in tests, ambient
-   * setTimeout otherwise. One owned handle per controller lifetime.
+   * The media mount supplies its timer edge. No ambient fallback; one owned
+   * handle per controller lifetime. Tests inject their own scheduler.
    */
-  readonly recovery?: {
+  readonly recovery: {
     readonly delaysMs?: readonly number[];
     readonly schedule: (fire: () => void, ms: number) => unknown;
     readonly cancel: (handle: unknown) => void;
@@ -169,7 +169,7 @@ export function createMediaController(input: {
    * timer is one owned, generation-guarded, cancellable handle — never an
    * ambient timeout a newer attempt leaves behind.
    */
-  const recoveryDelaysMs = input.recovery?.delaysMs ?? [
+  const recoveryDelaysMs = input.recovery.delaysMs ?? [
     1_000, 2_000, 4_000, 8_000, 10_000,
   ];
   let recoveryStep = 0;
@@ -177,19 +177,13 @@ export function createMediaController(input: {
   /** Cancels the one owned retry timer; every generation change calls this. */
   const cancelRecovery = () => {
     if (recoveryTimer === null) return;
-    input.recovery?.cancel(recoveryTimer);
+    input.recovery.cancel(recoveryTimer);
     recoveryTimer = null;
   };
   /** Index survives every state change: the backoff must not restart per attempt. */
   const scheduleRecovery = (generation: number) => {
     cancelRecovery();
-    if (
-      !input.recovery ||
-      ended ||
-      state !== 'unavailable' ||
-      stale(generation)
-    )
-      return;
+    if (ended || state !== 'unavailable' || stale(generation)) return;
     const delayMs = recoveryDelaysMs.at(
       Math.min(recoveryStep, recoveryDelaysMs.length - 1),
     );

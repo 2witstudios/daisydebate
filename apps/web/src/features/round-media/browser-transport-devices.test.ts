@@ -10,11 +10,17 @@ import {
 } from './browser-transport.test-support';
 setupRitewayBun();
 
+const noRecovery = {
+  delaysMs: [],
+  schedule: () => null,
+  cancel: () => undefined,
+};
+
 /** Returns the error name an apply failed with, or '' when it resolved. */
 const failureOf = (work: Promise<unknown>) =>
   work.then(
     () => '',
-    (error: unknown) => error.name,
+    (error: unknown) => (error instanceof Error ? error.name : 'UnknownError'),
   );
 
 test('Round capture pins the same camera and warm microphone that passed the Room check', async () => {
@@ -290,6 +296,7 @@ test('the real controller keeps the working microphone and its subscriptions liv
     broken.sdk,
   );
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: async () => liveAdmission(roundId),
@@ -347,6 +354,7 @@ test('a checked camera gone keeps the microphone live at Round entry through the
     gone.sdk,
   );
   const controller = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: async () => liveAdmission(roundId),
@@ -464,6 +472,7 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
     refusingEverything,
   ).transport;
   const controllerAllBlocked = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: async () => liveAdmission(roundId),
@@ -487,6 +496,7 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
   });
   await controllerAllBlocked.join();
   const partialController = createMediaController({
+    recovery: noRecovery,
     roundId,
     api: {
       admit: async () => liveAdmission(roundId),

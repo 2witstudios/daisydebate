@@ -1,7 +1,7 @@
+import { mayResumeTab } from './resume';
 import {
   claimOwnership,
   heartbeatOwnership,
-  mayResumeTab,
   readOwnership,
   releaseOwnership,
 } from './resume-ownership';
