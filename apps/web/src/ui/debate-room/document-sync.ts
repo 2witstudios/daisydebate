@@ -1,5 +1,6 @@
 import { sameDocumentHtml } from '../../features/documents/document-lines';
 import { systemClock } from '@daisy/clock';
+import z from 'zod';
 import type {
   FolderId,
   TemplateId,
@@ -46,6 +47,18 @@ export type RecoveredDraft = {
   readonly baseRevision: number;
   readonly savedAt: number;
   readonly expiresAt: number;
+};
+
+const recoveredDraftSchema = z.object({
+  html: z.string(),
+  baseRevision: z.number().int().min(0),
+  savedAt: z.number().int().min(0),
+  expiresAt: z.number().int().min(0),
+});
+const parseDraft = (value: unknown): RecoveredDraft | null => {
+  const parsed = recoveredDraftSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return parsed.data;
 };
 
 const KEEPALIVE_BODY_BUDGET = 64 * 1024;
@@ -104,12 +117,12 @@ export function createDocumentSync({
   delayMs = 1000,
   timers = browserTimers,
   storage = defaultStorage(),
-  principalId = 'anonymous',
+  principalId,
   wallClock = () => Date.parse(systemClock.now()),
 }: {
   readonly api: DocumentsApi;
   readonly roundId: string;
-  readonly principalId?: string;
+  readonly principalId: string;
   readonly onConflict: (id: string) => void;
   readonly onSaveFailed?: (id: string, attempts: number) => void;
   readonly onSaveRefused?: (id: string, status: number) => void;
@@ -165,7 +178,7 @@ export function createDocumentSync({
       if (!raw) continue;
       let parsed: RecoveredDraft | null = null;
       try {
-        parsed = JSON.parse(raw) as RecoveredDraft;
+        parsed = parseDraft(JSON.parse(raw));
       } catch {
         storage.removeItem(key);
         continue;
@@ -222,7 +235,7 @@ export function createDocumentSync({
       if (html !== undefined) {
         const raw = storage.getItem(draftKey(principalId, roundId, id));
         if (raw) {
-          const parsed = JSON.parse(raw) as RecoveredDraft;
+          const parsed = parseDraft(JSON.parse(raw));
           if (parsed.html !== html) return;
         }
       }
@@ -309,7 +322,7 @@ export function createDocumentSync({
         let draft: RecoveredDraft | null = null;
         try {
           const raw = storage.getItem(draftKey(principalId, roundId, doc.id));
-          if (raw) draft = JSON.parse(raw) as RecoveredDraft;
+          if (raw) draft = parseDraft(JSON.parse(raw));
         } catch {
           draft = null;
         }

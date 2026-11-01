@@ -28,8 +28,17 @@ const bumping = (revision: number): SaveResult => ({
 });
 
 /** A sync over the api with manual timers and no conflict handling. */
-const quietSync = (api: DocumentsApi, timers = manualTimers().timers) =>
-  createDocumentSync({ api, roundId: 'd', onConflict: () => {}, timers });
+const quietSync = (
+  api: DocumentsApi,
+  timers = manualTimers().timers,
+) =>
+  createDocumentSync({
+    api,
+    roundId: 'd',
+    principalId: 'p1',
+    onConflict: () => {},
+    timers,
+  });
 
 describe('createDocumentSync', () => {
   test('saves once typing pauses', async () => {
@@ -71,6 +80,7 @@ describe('createDocumentSync', () => {
     const sync = createDocumentSync({
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: (id) => conflicts.push(id),
       timers: manualTimers().timers,
     });
@@ -174,6 +184,7 @@ describe('createDocumentSync when a save fails', () => {
     const sync = createDocumentSync({
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_id, attempts) => failed.push(attempts),
       onSaved: (id) => saved.push(id),
@@ -211,6 +222,7 @@ describe('createDocumentSync when the server refuses a save', () => {
     const sync = createDocumentSync({
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveRefused: (_id, status) => refused.push(status),
       timers,

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type Dispatch } from 'react';
-import { systemClock } from '@daisy/clock';
 import type { DocumentSync } from './document-sync';
 import type { RoomAction } from './room-state';
 
@@ -22,14 +21,7 @@ export function useDocumentSync(
       .then((documents) => {
         if (!live) return;
         dispatch({ type: 'doc/loaded', documents });
-        for (const [id, draft] of sync.recoveredDrafts()) {
-          dispatch({
-            type: 'doc/update',
-            id,
-            html: draft.html,
-            now: systemClock.now(),
-          });
-        }
+        dispatch({ type: 'doc/recovered', recovered: sync.recoveredDrafts() });
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');
