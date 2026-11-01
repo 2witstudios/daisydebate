@@ -10,6 +10,7 @@ import {
   roomRefusalSchema,
 } from '@daisy/protocol';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import { systemClock } from '@daisy/clock';
 import {
   refusalResponse,
   handleOperation,
@@ -202,7 +203,12 @@ export function createRoomHandlers(dependencies: Dependencies) {
             caller,
             parseValidated(idSchema, roundId),
           ),
-        doorbell,
+        {
+          ...doorbell,
+          // The client's round clock calibrates on this authorized read's own
+          // server instant; it is millisecond, not the HTTP Date's seconds.
+          'x-server-now-ms': String(Date.parse(systemClock.now())),
+        },
       ),
     roundRef: (request: Request, roomId: string) =>
       run(request, 'read', false, async (caller) => {

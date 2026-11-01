@@ -38,7 +38,12 @@ describe('round sync driver', () => {
         ids: [round.id],
       },
     });
-    edges.answer({ kind: 'found', round: at(3, { status: 'completed' }) });
+    edges.answer({
+      kind: 'found',
+      round: at(3, { status: 'completed' }),
+      serverSample: null,
+      socketUrl: null,
+    });
     await edges.flush();
     edges.emit({
       v: ENVELOPE_VERSION,
