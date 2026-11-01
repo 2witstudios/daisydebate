@@ -56,6 +56,9 @@ export function MediaStage({
             (track) => track.identity === identity,
           );
           const camera = mediaTracks.find((track) => track.source === 'camera');
+          const microphoneTrack = mediaTracks.find(
+            (track) => track.source === 'microphone',
+          );
           return (
             <figure
               key={seat.id}
@@ -79,9 +82,11 @@ export function MediaStage({
                     ? 'Microphone unavailable'
                     : !peer.microphone
                       ? 'Microphone closed'
-                      : mediaTracks.some((track) => track.speaking)
-                        ? 'Speaking'
-                        : 'Microphone open'}
+                      : !microphoneTrack
+                        ? 'Microphone disconnected'
+                        : mediaTracks.some((track) => track.speaking)
+                          ? 'Speaking'
+                          : 'Microphone open'}
                 </span>
               </figcaption>
               {mediaTracks

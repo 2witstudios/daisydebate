@@ -78,6 +78,8 @@ export function createBrowserMediaTransport(
     };
     /** A device the Room check passed is gone (ISSUE-573); the transport stays up. */
     readonly missing?: (source: Source) => void;
+    /** Typed per-source failure report (ISSUE-817/829): device/permission/publish errors are reported, not swallowed. */
+    readonly sourceFailed?: (source: Source, error: unknown) => void;
   },
   sdk: MediaSdk = livekit,
 ) {
@@ -261,10 +263,18 @@ export function createBrowserMediaTransport(
       const desired = desiredSources(granted, permitted());
       for (const [source, track] of tracks)
         if (!desired.includes(source)) await retire(source, track, desired);
+      // Isolate individual device failures: a camera capture/publish error
+      // must not prevent the microphone from publishing (ISSUE-817/829).
       for (const source of desired) {
-        if (!stopped && !tracks.has(source)) await publishSource(source);
+        if (stopped || tracks.has(source)) continue;
+        try {
+          await publishSource(source);
+        } catch (error) {
+          // Isolate per source, but report the typed failure instead of swallowing it.
+          events.sourceFailed?.(source, error);
+        }
       }
-      await warmMicrophone(desired);
+      await warmMicrophone(desired).catch(() => undefined);
       if (!stopped) emit();
     });
     return work;

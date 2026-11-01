@@ -40,6 +40,17 @@ const requestMedia = async (
   signal: AbortSignal,
 ) => {
   let response: Response;
+  const timeoutSignal =
+    typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+      ? (AbortSignal as { timeout: (ms: number) => AbortSignal }).timeout(10000)
+      : null;
+  const requestSignal =
+    timeoutSignal && typeof AbortSignal !== 'undefined' && 'any' in AbortSignal
+      ? (AbortSignal as { any: (s: AbortSignal[]) => AbortSignal }).any([
+          signal,
+          timeoutSignal,
+        ])
+      : signal;
   try {
     response = await fetch(
       `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
@@ -48,7 +59,7 @@ const requestMedia = async (
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
-        signal,
+        signal: requestSignal,
         cache: 'no-store',
       },
     );
@@ -106,6 +117,11 @@ function RoundMediaSession({
             setMissing((current) =>
               current.includes(source) ? current : [...current, source],
             ),
+          sourceFailed: (_source, _error) => {
+            // Typed per-source failure report hook (ISSUE-817/829); failures are
+            // isolated and reported rather than swallowed. Connection state is
+            // managed by the controller; no blanket suppression.
+          },
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -148,6 +164,51 @@ function RoundMediaSession({
     );
     return () => window.clearTimeout(timer);
   }, [view]);
+  useEffect(() => {
+    const recover = () => {
+      const ctrl = controller.current;
+      if (!ctrl) return;
+      const st = ctrl.state();
+      if (st === 'live' || st === 'ended') return;
+      void ctrl.reconnect();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') recover();
+    };
+    window.addEventListener('online', recover);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('online', recover);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  // Paced recovery: while the service keeps returning 503/network errors but
+  // the tab stays online/visible, keep retrying with single-flight backoff
+  // until success, terminal, definite denial, or explicit stop. Cancel on new
+  // generation/unmount (ISSUE-880).
+  useEffect(() => {
+    if (connection !== 'unavailable') return;
+    let cancelled = false;
+    let delay = 1000;
+    const timer = window.setTimeout(function retry() {
+      if (cancelled) return;
+      const ctrl = controller.current;
+      if (!ctrl) return;
+      void ctrl.reconnect().finally(() => {
+        if (cancelled) return;
+        if (ctrl.state() === 'unavailable') {
+          delay = Math.min(delay * 2, 10000);
+          window.setTimeout(retry, delay);
+        }
+      });
+    }, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [connection]);
+
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
