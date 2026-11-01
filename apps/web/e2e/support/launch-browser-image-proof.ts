@@ -33,7 +33,12 @@ function startProofTls(
   });
 }
 const run = async (args: readonly string[]) => {
-  const child = Bun.spawn([...args], { stdout: 'pipe', stderr: 'pipe' });
+  const child = Bun.spawn([...args], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+    timeout: 15000,
+    killSignal: 'SIGKILL',
+  });
   const [stdout, , code] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
@@ -45,7 +50,7 @@ const run = async (args: readonly string[]) => {
 };
 try {
   const prepared = await prepareLaunchBrowserImage({ checkout });
-  // Warm reuse must not create any build backend or enter apt.
+  // Warm reuse retains the validated immutable artifact.
   const warm = await prepareLaunchBrowserImage({ checkout });
   if (warm.id !== prepared.id)
     throw new Error('Warm prepared image identity changed');
@@ -133,7 +138,12 @@ try {
           String(ports[index]),
           String(ports[1 - index]),
         ],
-        { stdout: 'inherit', stderr: 'inherit' },
+        {
+          stdout: 'inherit',
+          stderr: 'inherit',
+          timeout: 120000,
+          killSignal: 'SIGKILL',
+        },
       );
       if ((await driver.exited) !== 0)
         throw new Error('Prepared browser strict TLS/WSS/media proof failed');

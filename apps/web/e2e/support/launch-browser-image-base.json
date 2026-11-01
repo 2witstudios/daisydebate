@@ -53,6 +53,8 @@
   "artifactLabels": {
     "desktop.docker.io/ports.scheme": "v2"
   },
+  "preparationHostname": "daisy-launch-preparation",
+  "preparedHostnames": ["", "daisy-launch-preparation"],
   "dependencies": [
     {
       "name": "libc6",

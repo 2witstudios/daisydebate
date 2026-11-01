@@ -579,3 +579,24 @@ test('artifact refusal diagnostics cannot serialize credentials or unknown keys'
     expected: [true, false, false, false, false],
   });
 });
+
+test('commit retains only the exact owned hostname or its OCI omission', () => {
+  const image = launchImageIdentity(inputs),
+    valid = imageMetadata(image);
+  assert({
+    given:
+      'the observed empty OCI form, exact created hostname, or foreign hostname',
+    should: 'accept only the two deterministic safe producer forms',
+    actual: [
+      '',
+      'daisy-launch-preparation',
+      'synthetic-private-credential',
+    ].map((Hostname) =>
+      validateLaunchImage(
+        { ...valid, Config: { ...valid.Config, Hostname } },
+        image,
+      ),
+    ),
+    expected: [imageId, imageId, null],
+  });
+});

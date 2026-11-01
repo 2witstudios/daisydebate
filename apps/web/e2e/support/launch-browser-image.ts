@@ -362,10 +362,14 @@ export async function prepareLaunchBrowserImage(input: {
       .trim()
       .replace('/aarch64', '/arm64')
       .replace('/x86_64', '/amd64');
+    const engine = await toolchain(owner);
     const { image, recipe } = await readLaunchImageInputs(
       input.checkout,
       platform,
-      await toolchain(owner),
+      engine,
+    );
+    process.stdout.write(
+      `${JSON.stringify({ event: 'browser.image.toolchain', docker: engine })}\n`,
     );
     let id = await validatedImage(owner, image, image.tag);
     let source = 'local';

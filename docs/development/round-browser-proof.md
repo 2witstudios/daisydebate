@@ -104,6 +104,13 @@ our reviewed artifact contract, not a claim of a published Desktop guarantee.
 Its absence, substitution and every additional label are rejected. The verified
 upstream base still has only its independently pinned upstream labels.
 
+Preparation requires the descriptor's fixed hostname `daisy-launch-preparation`.
+Final image validation accepts only an empty/omitted hostname or that exact
+owned value: local OCI serialization omitted it, while native Linux retained
+the verified creation input. These observed forms are part of descriptor and
+cache identity; no general Docker serialization guarantee is assumed. Foreign
+hostnames, source-image references, environment and extra metadata remain refused.
+
 The uniquely named preparation container is forcibly removed and its absence
 verified on success, failure and interruption, including partial creation and
 commit failures. Commit uses a unique temporary local tag until validation;
@@ -134,6 +141,9 @@ metadata. The receipt binds the expected input key and actual immutable image
 ID. Cache is an optimization within its repository/event trust boundary, not a
 signature or acceptance authority. A rejected archive gets one bounded rebuild;
 failed writes remove their own partial files.
+Both the Docker archive manifest and any OCI index must name only the exact
+expected local reference; the OCI digest must match the receipt. Foreign tags,
+annotations, platforms and extra image entries are rejected before load.
 
 The real preparation lifecycle proof exercises timeout, partial creation,
 pre-execution credential/config rejection and commit failure against owned

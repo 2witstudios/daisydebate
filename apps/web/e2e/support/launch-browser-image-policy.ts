@@ -22,7 +22,6 @@ const record = (value: unknown): Record<string, unknown> =>
     : {};
 const isDigest = (value: unknown): value is string =>
   typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
-export const launchNssVersion = base.nssVersion;
 export const launchDependencyRevision = base.refresh;
 
 /** Complete reusable inputs, excluding paths, fixture trust and credentials. */
@@ -116,7 +115,7 @@ export function launchImagePrepareArgs(
     '--network',
     'bridge',
     '--hostname',
-    'daisy-launch-preparation',
+    base.preparationHostname,
     '--user',
     '0:0',
     '--workdir',
@@ -197,8 +196,9 @@ function safeConfig(
   if (Object.keys(config).some((key) => !allowed.includes(key))) return false;
   if (
     prepared
-      ? config.Hostname != null && config.Hostname !== ''
-      : config.Hostname !== 'daisy-launch-preparation'
+      ? config.Hostname != null &&
+        !base.preparedHostnames.includes(config.Hostname as string)
+      : config.Hostname !== base.preparationHostname
   )
     return false;
   if (
@@ -356,7 +356,7 @@ export function launchImageContractChecks(
     nativeArchitecture: `linux/${value.Architecture}` === image.platform,
     safeConfiguration: safeConfig(config, image, true),
     hostnameEmpty: config.Hostname == null || config.Hostname === '',
-    hostnameOwned: config.Hostname === 'daisy-launch-preparation',
+    hostnameOwned: config.Hostname === base.preparationHostname,
     environment:
       Array.isArray(config.Env) &&
       same([...config.Env].sort(), [...image.environment].sort()),
