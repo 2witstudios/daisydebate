@@ -2,33 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import { createMeasuredRead, createRoundTime } from './round-time';
 import { sampleRoundTime } from './sample-round-time';
+import { timingFixture } from './sample-round-time.test-support';
 setupRitewayBun();
-
-function timingFixture<
-  T extends {
-    readonly kind: 'found' | 'missing' | 'unavailable';
-    readonly serverNowMs?: number | null;
-  },
->(hydrationSeedServerMs?: number) {
-  const edges = driverEdges<T>();
-  const roundTime = createRoundTime({
-    monotonicNowMs: edges.scheduler.now,
-    ...(hydrationSeedServerMs === undefined ? {} : { hydrationSeedServerMs }),
-  });
-  let generation = 0;
-  const read = createMeasuredRead({
-    read: edges.read,
-    roundTime,
-    monotonicNowMs: edges.scheduler.now,
-    nextGeneration: () => ++generation,
-  });
-  return {
-    edges,
-    roundTime,
-    read,
-    fail: () => roundTime.unavailable(++generation),
-  };
-}
 
 test('seed failures retry serially, a live sample slows retries, visibility resamples and stop disposes', async () => {
   const { edges, roundTime, read } = timingFixture<
@@ -174,15 +149,28 @@ test('repeated stale notifications cannot debounce the fast retry forever', asyn
   edges.answer({ kind: 'found', serverNowMs: 12000 });
   await edges.flush();
   assert({
-    given: 'success from that retry and notifications during completion',
+    given: 'success from that retry after repeated pending visibility wakes',
     should:
-      'restore30seconds without resetting request generations or duplicating reads',
+      'retain one bounded followup without resetting generations or overlapping reads',
     actual: [
       edges.reads(),
       edges.timers(),
       roundTime.calibration()?.generation,
     ],
-    expected: [2, [30000], 5],
+    expected: [2, [2000], 5],
+  });
+  edges.advance(2000);
+  edges.answer({ kind: 'found', serverNowMs: 14000 });
+  await edges.flush();
+  assert({
+    given: 'that one followup succeeds without further visibility wakes',
+    should: 'restore thirty seconds without a self-notification loop',
+    actual: [
+      edges.reads(),
+      edges.timers(),
+      roundTime.calibration()?.generation,
+    ],
+    expected: [3, [30000], 6],
   });
   stop();
 });
@@ -208,19 +196,23 @@ test('unmount aborts the sampling read lifetime and discards its late calibratio
       return measured(signal);
     },
   });
+  edges.show();
+  edges.show();
   stop();
   edges.answer({ kind: 'found', serverNowMs: 20000 });
   await edges.flush();
   assert({
-    given: 'a stopped owner whose server action finishes later',
+    given:
+      'a stopped owner with coalesced visibility wakes whose server action finishes later',
     should: 'abort its client lifetime, discard calibration and leave no retry',
     actual: [
       receivedSignal?.aborted,
       roundTime.status().kind,
       roundTime.nowMs(),
       edges.timers(),
+      edges.reads(),
     ],
-    expected: [true, 'seed', 10000, []],
+    expected: [true, 'seed', 10000, [], 1],
   });
 });
 

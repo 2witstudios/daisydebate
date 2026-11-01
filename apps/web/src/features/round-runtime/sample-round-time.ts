@@ -13,6 +13,7 @@ export function sampleRoundTime(options: {
   let stopped = false;
   let fastRetry = false;
   let pending = false;
+  let followup = false;
   let timer: unknown = null;
   const clear = () => {
     if (timer !== null) options.scheduler.clearTimeout(timer);
@@ -20,8 +21,14 @@ export function sampleRoundTime(options: {
     fastRetry = false;
   };
   const resample = async () => {
-    if (stopped || pending) return;
+    if (stopped) return;
+    if (pending) {
+      // External visibility wakes latch once; clock notifications below never enqueue themselves.
+      followup = true;
+      return;
+    }
     clear();
+    followup = false;
     pending = true;
     try {
       await options.read(lifetime.signal);
@@ -30,7 +37,7 @@ export function sampleRoundTime(options: {
     } finally {
       pending = false;
       if (!stopped) {
-        fastRetry = options.roundTime.status().kind !== 'current';
+        fastRetry = followup || options.roundTime.status().kind !== 'current';
         timer = options.scheduler.setTimeout(
           () => void resample(),
           fastRetry ? SEED_RETRY_MS : RESAMPLE_EVERY_MS,
@@ -56,6 +63,7 @@ export function sampleRoundTime(options: {
   void resample();
   return () => {
     stopped = true;
+    followup = false;
     lifetime.abort();
     clear();
     unsubscribe();
