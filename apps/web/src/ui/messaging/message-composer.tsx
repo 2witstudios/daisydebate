@@ -8,29 +8,43 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import {
+  useConversationAction,
+  useConversationCommand,
+  useConversationCompletion,
+} from './conversation-navigation';
 import { Button } from '../components/button/button';
 import {
   messageFormUnavailable,
   type MessageFormState,
 } from '../../features/messaging/forms/send-form';
 
-export function MessageComposer({
+type ComposerProps = {
+  readonly action: FormAction<MessageFormState>;
+  readonly channelId: string;
+  readonly maxUnits: number;
+  /** The last message the reader saw; a native send marks it read (ISSUE-606). */
+  readonly readThrough?: number | null;
+};
+
+/** Form identity follows the conversation's committed-command lifecycle. */
+export function MessageComposer(props: ComposerProps) {
+  const requestId = useConversationCommand();
+  return (
+    <MessageComposerForm {...props} key={requestId} requestId={requestId} />
+  );
+}
+
+function MessageComposerForm({
   action,
   requestId,
   channelId,
   maxUnits,
   readThrough,
-}: {
-  readonly action: FormAction<MessageFormState>;
-  readonly requestId: string;
-  readonly channelId: string;
-  readonly maxUnits: number;
-  /** The last message the reader saw; a native send marks it read (ISSUE-606). */
-  readonly readThrough?: number | null;
-}) {
-  const [answer, post, pending] = useFormAction<MessageFormState>(
-    action,
+}: ComposerProps & { readonly requestId: string }) {
+  const dispatch = useConversationAction(action, requestId);
+  const [answer, post, pending] = useFormAction(
+    dispatch,
     { text: '', requestId },
     messageFormUnavailable,
   );
@@ -48,7 +62,7 @@ export function MessageComposer({
   useEffect(() => {
     if (pending) void typing.current?.activity(false);
   }, [pending]);
-  useMovedOn(answer.next);
+  useConversationCompletion(answer, pending);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'message-notice' : 'message-text',

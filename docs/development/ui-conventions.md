@@ -81,6 +81,31 @@ JavaScript only enhances it.
   still run and reveal what a script-less browser never sees. See the
   "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
 
+### Conversation completion ownership
+
+A hydrated DM send's durable result and its right to navigate are separate.
+The conversation composition owns a local completion scope
+(`ui/messaging/conversation-navigation.tsx`): dispatch captures an action
+origin, accepted same-tab conversation navigation supersedes it, and success
+consumes ownership before issuing its destination. Disposing the origin or
+replacing the conversation cannot revive an old answer. Link `onNavigate`
+observes intent before route commitment; modified/new-tab clicks and prefetch
+do not invalidate it. Invalid or canceled search submissions retain it.
+The same owner records confirmed sends separately from navigation permission.
+A successful command adopts the next server-rendered request ID even when
+same-conversation navigation suppresses its redirect. Pending, unsent and
+failed/unknown-commit drafts keep their exact ID; already-used IDs and old
+answers cannot reset a newly typed draft. Client dispatch stamps its own
+completion origin before awaiting the server, and removes that client-only
+origin from the previous state sent over the action boundary. Server rendering
+retains the exact original action reference for native POST and 303.
+Other form consumers keep the shared `useMovedOn` behavior.
+
+The sequential browser journey waits for the exact sent-message destination
+and ready composer before Edit. Separate held-action/held-editor response
+proofs exercise overlapping intent through the real Next router; mounted
+command controls alone do not establish a real router winner.
+
 Recorded exceptions:
 
 - The planned media Ready check for a human debater needs JavaScript. It
