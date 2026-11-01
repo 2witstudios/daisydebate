@@ -75,6 +75,19 @@ automatic retries; an unavailable media projection requests fresh authority,
 and a 409 follows the contract's fresh-read path (ISSUE-817/829, ISSUE-880).
 Source failures never establish attendance, results or peer audibility.
 
+The checked-input adapter has one typed read result: an available choice map
+(including an absent key as an empty map), or unavailable preferences with an
+unreadable/invalid reason. Each capture attempt copies one freshly read,
+principal-scoped Room handoff snapshot for both SDK constraints and failure
+attribution. The Room has one Round, and its departure/terminal cleanup bounds
+that handoff to the Round lifetime. A failed read never selects default hardware:
+only the affected capture reports the preference reason; working tracks and
+reception remain. Disposed owners cannot start capture or report late failures.
+Explicit Retry keeps missing state when forgetting cannot persist. Room check
+handoff stays best effort, and replaces invalid data only with actual passed
+check evidence; it never converts an unreadable choice into permission to use
+default inputs.
+
 Local mute and confirmed explicit departure suppression are tab-scoped keys under
 `daisy:<kind>:media:<actor>:<roundId>` in sessionStorage: one account's record
 cannot be read by another principal, and every record dies with the tab
