@@ -73,6 +73,8 @@ export function createBrowserMediaTransport(
     readonly tracks: (tracks: readonly MediaTrack[]) => void;
     readonly invalidated: () => void;
     readonly reconnect: () => void;
+    /** SDK playback permission is separate from capture and subscription evidence. */
+    readonly playbackChanged?: (allowed: boolean) => void;
     readonly microphoneMuted?: boolean;
     readonly devices?: {
       readonly camera?: string;
@@ -156,7 +158,10 @@ export function createBrowserMediaTransport(
     .on(RoomEvent.TrackUnmuted, emit)
     .on(RoomEvent.LocalTrackPublished, emit)
     .on(RoomEvent.LocalTrackUnpublished, emit)
-    .on(RoomEvent.ActiveSpeakersChanged, emit);
+    .on(RoomEvent.ActiveSpeakersChanged, emit)
+    .on(RoomEvent.AudioPlaybackStatusChanged, () =>
+      events.playbackChanged?.(room.canPlaybackAudio),
+    );
   room
     .on(RoomEvent.Connected, events.invalidated)
     .on(RoomEvent.ParticipantConnected, events.invalidated)

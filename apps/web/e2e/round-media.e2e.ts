@@ -23,9 +23,12 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     const round = await createHumanBallotRound(accounts.members);
     const debaters = accounts.members.slice(0, 2);
     for (const member of debaters)
-      await member.context.grantPermissions(['camera', 'microphone'], {
-        origin,
-      });
+      await member.context.grantPermissions(
+        ['camera', 'microphone', 'local-network-access'],
+        {
+          origin,
+        },
+      );
     const pages = await Promise.all(
       debaters.map((member, index) =>
         openPage(member.context, `media debater ${index + 1}`),
@@ -158,7 +161,31 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     ).toEqual({ writes: 0, sameNode: true, sameStream: true, playing: true });
     const judge = accounts.members[2]!;
     await judge.context.clearPermissions();
+    await judge.context.grantPermissions(['local-network-access'], { origin });
     const judgePage = await openPage(judge.context, 'assigned judge media');
+    await judgePage.addInitScript(() => {
+      let enabled = false;
+      const play = HTMLMediaElement.prototype.play;
+      document.addEventListener(
+        'click',
+        (event) => {
+          const target = event.target;
+          if (
+            target instanceof Element &&
+            target.closest('button')?.textContent?.trim() === 'Enable sound'
+          )
+            enabled = true;
+        },
+        true,
+      );
+      HTMLMediaElement.prototype.play = function () {
+        if (this instanceof HTMLAudioElement && !enabled)
+          return Promise.reject(
+            new DOMException('Controlled autoplay refusal', 'NotAllowedError'),
+          );
+        return play.call(this);
+      };
+    });
     const admission = judgePage.waitForResponse(
       (response) =>
         new URL(response.url()).pathname ===
@@ -173,7 +200,9 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       capture: false,
     });
     await expect(
-      judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
+      judgePage
+        .getByRole('status')
+        .filter({ hasText: /^Connected Sound is blocked by your browser/ }),
     ).toBeVisible(MEDIA_POLL);
     await expect(
       judgePage.getByLabel('Your camera', { exact: true }),
@@ -182,6 +211,9 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     await judgePage
       .getByRole('button', { name: 'Enable sound', exact: true })
       .click();
+    await expect(
+      judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
+    ).toBeVisible(MEDIA_POLL);
     await expect
       .poll(
         () =>
@@ -268,9 +300,12 @@ test('direct tabs take over without duplicate capture and reload recovers throug
     const [speaker, listener] = accounts.members;
     if (!speaker || !listener) throw new Error('Two actual members required');
     for (const member of accounts.members)
-      await member.context.grantPermissions(['camera', 'microphone'], {
-        origin,
-      });
+      await member.context.grantPermissions(
+        ['camera', 'microphone', 'local-network-access'],
+        {
+          origin,
+        },
+      );
     const first = await openPage(speaker.context, 'first direct owner');
     const peer = await openPage(listener.context, 'recovery peer');
     await Promise.all([
@@ -401,9 +436,12 @@ test('a camera capture failure after Ready keeps permitted microphone audio reac
     const [speaker, listener] = accounts.members;
     if (!speaker || !listener) throw new Error('Two actual members required');
     for (const member of accounts.members)
-      await member.context.grantPermissions(['camera', 'microphone'], {
-        origin,
-      });
+      await member.context.grantPermissions(
+        ['camera', 'microphone', 'local-network-access'],
+        {
+          origin,
+        },
+      );
     const source = await openPage(speaker.context, 'camera-failed speaker');
     await source.addInitScript(() => {
       const capture = navigator.mediaDevices.getUserMedia.bind(

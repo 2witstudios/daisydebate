@@ -100,6 +100,10 @@ function RoundMediaSession({
   const [missing, setMissing] = useState<readonly Source[]>([]);
   /** Per-source ill health: reported, not swallowed (ISSUE-817/829). */
   const [illHealth, setIllHealth] = useState<readonly SourceIllHealth[]>([]);
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const actualMicrophoneMuted =
+    tracks.find((track) => track.local && track.source === 'microphone')
+      ?.muted ?? microphoneMuted;
   const [ownIdentity, setOwnIdentity] = useState<string | null>(null);
   const controller = useRef<ReturnType<typeof createMediaController> | null>(
     null,
@@ -161,6 +165,7 @@ function RoundMediaSession({
             setMissing((current) => current.filter((held) => held !== source));
           },
           tracks: setTracks,
+          playbackChanged: (allowed) => setSoundBlocked(!allowed),
           invalidated: () => {
             refresh.current();
             void mounted.reconcile();
@@ -225,7 +230,7 @@ function RoundMediaSession({
             connection,
             grants: media?.grants.publish,
             captured,
-            muted: microphoneMuted,
+            muted: actualMicrophoneMuted,
           }),
     );
   }, [
@@ -234,7 +239,7 @@ function RoundMediaSession({
     connection,
     media,
     tracks,
-    microphoneMuted,
+    actualMicrophoneMuted,
     ownership.owns,
   ]);
   useEffect(
@@ -242,7 +247,6 @@ function RoundMediaSession({
       reportLocalPublication(`${view.id}:${actorId ?? 'anonymous'}`, null),
     [view.id, actorId],
   );
-  const [soundBlocked, setSoundBlocked] = useState(false);
   const status = mediaStatus(connection, missing, {
     illHealth,
     microphone: {
@@ -250,7 +254,7 @@ function RoundMediaSession({
       published: tracks.some(
         (track) => track.local && track.source === 'microphone',
       ),
-      muted: microphoneMuted,
+      muted: actualMicrophoneMuted,
     },
     sound: { blocked: soundBlocked },
   });

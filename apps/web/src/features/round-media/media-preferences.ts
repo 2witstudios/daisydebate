@@ -1,3 +1,5 @@
+import { clearCheckedDevices } from '../video/device-selection';
+
 /**
  * Local media preferences for one principal in one Round (ISSUE-879):
  * each record is tab-scoped, so a new tab or a new sign-in starts from the
@@ -112,4 +114,15 @@ export function clearMutePreference(
   } catch {
     // Storage disabled: nothing to clear.
   }
+}
+
+/** The Round's local settings die on confirmed departure or observed terminal state. */
+export function clearRoundMediaPreferences(
+  actorId: string | null,
+  roomId: string,
+  roundId: string,
+  host?: Partial<Host>,
+): void {
+  clearMutePreference(actorId, roundId, host);
+  clearCheckedDevices(roomId, () => hostFrom(host).session, actorId);
 }

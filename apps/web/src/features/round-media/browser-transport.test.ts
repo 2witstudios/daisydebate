@@ -293,3 +293,32 @@ test('a muted publication remains observable as present without claiming an open
   });
   browser.transport.stopTracks();
 });
+
+test('browser playback refusal and recovery are reported from actual SDK state', () => {
+  const stub = stubSdk();
+  let allowed = false;
+  Object.defineProperty(stub.sdk.room(), 'canPlaybackAudio', {
+    get: () => allowed,
+  });
+  const changes: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      playbackChanged: (value) => {
+        changes.push(value);
+      },
+    },
+    stub.sdk,
+  );
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  allowed = true;
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  assert({
+    given: 'SDK autoplay refusal followed by successful user-enabled playback',
+    should:
+      'report blocked then permitted playback without conflating it with capture permission or peer audibility',
+    actual: changes,
+    expected: [false, true],
+  });
+  browser.transport.stopTracks();
+});

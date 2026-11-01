@@ -1,6 +1,12 @@
+import { createDeviceCheckController } from '../video/device-check-controller';
+import {
+  rememberCheckedDevices,
+  readCheckedDevices,
+} from '../video/device-selection';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   clearMutePreference,
+  clearRoundMediaPreferences,
   departedInSession,
   markDeparture,
   mediaPreferenceKey,
@@ -123,4 +129,54 @@ test('scoped keys never alias between accounts within the same Round', () => {
       'daisy:left:media:actor-a:round-1',
     ],
   });
+});
+
+test('Round departure cleanup removes only its actor’s actual checked-device and mute records', async () => {
+  const scope = host();
+  const devices = createDeviceCheckController({
+    open: async (kind) => ({
+      deviceId: `${kind}-actual`,
+      confirm: async () => undefined,
+      onLoss: () => () => undefined,
+      stop: () => undefined,
+    }),
+  });
+  await devices.check('camera');
+  await devices.check('microphone');
+  rememberCheckedDevices(
+    'room-a',
+    devices.readSnapshot(),
+    () => scope.session,
+    'actor-a',
+  );
+  rememberCheckedDevices(
+    'room-a',
+    devices.readSnapshot(),
+    () => scope.session,
+    'actor-b',
+  );
+  writeMutePreference('actor-a', 'round-a', true, scope);
+  writeMutePreference('actor-b', 'round-a', false, scope);
+  clearRoundMediaPreferences('actor-a', 'room-a', 'round-a', scope);
+  assert({
+    given:
+      'real successful device checks and mute choices for two actors, followed by actor-a’s confirmed departure/terminal cleanup',
+    should:
+      'delete exactly the ended actor/Round records and preserve the other principal',
+    actual: [
+      readCheckedDevices('room-a', () => scope.session, 'actor-a'),
+      readCheckedDevices('room-a', () => scope.session, 'actor-b'),
+      readMutePreference('actor-a', 'round-a', scope),
+      readMutePreference('actor-b', 'round-a', scope),
+      scope.session.getItem('daisy:checked-devices:room-a:actor-a'),
+    ],
+    expected: [
+      {},
+      { camera: 'camera-actual', microphone: 'microphone-actual' },
+      null,
+      false,
+      null,
+    ],
+  });
+  devices.dispose('departure');
 });

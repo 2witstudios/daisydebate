@@ -9,7 +9,10 @@ import {
 } from '../../features/round-runtime/command-form';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
-import { markDeparture } from '../../features/round-media/media-preferences';
+import {
+  markDeparture,
+  clearRoundMediaPreferences,
+} from '../../features/round-media/media-preferences';
 
 export type LeaveLinks = {
   /** The server rendered the confirm (no script ran yet). */
@@ -33,6 +36,7 @@ export type LeaveLinks = {
   readonly left?: {
     readonly actorId: string | null;
     readonly roundId: string;
+    readonly roomId: string;
   };
   /**
    * While the Round is live, leaving it forfeits (ADR 0070): Leave posts
@@ -71,8 +75,17 @@ function ForfeitLeave({
    * recovery exactly as live as their membership still is.
    */
   useEffect(() => {
-    if (!pending && !answer.error && answer.next && left)
+    if (
+      !pending &&
+      answer.acknowledged === true &&
+      !answer.unacknowledged &&
+      !answer.error &&
+      answer.next &&
+      left
+    ) {
       markDeparture(left.actorId, left.roundId);
+      clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
+    }
   }, [pending, answer, left]);
   useMovedOn(answer.next);
   return (
@@ -119,7 +132,14 @@ function LeavePermanent({
     <a
       href={links.leaveHref}
       className={className}
-      onClick={() => markDeparture(links.left.actorId, links.left.roundId)}
+      onClick={() => {
+        markDeparture(links.left.actorId, links.left.roundId);
+        clearRoundMediaPreferences(
+          links.left.actorId,
+          links.left.roomId,
+          links.left.roundId,
+        );
+      }}
     >
       {children}
     </a>

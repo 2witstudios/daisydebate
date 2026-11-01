@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { MediaPageLink } from '../round-media/media-page-link';
 import {
   clearMutePreference,
+  clearRoundMediaPreferences,
   markDeparture,
 } from '../../features/round-media/media-preferences';
-import { forgetCheckedDevices } from '../../features/video/device-selection';
 
 /** True once a Round can no longer be debated or judged live. */
 export const roundEnded = (status: string): boolean =>
@@ -31,15 +31,9 @@ export function RoundEndedNotice({
    * (ISSUE-879). No personal data leaves this tab.
    */
   useEffect(() => {
-    clearMutePreference(actorId, roundId);
+    if (roomId) clearRoundMediaPreferences(actorId, roomId, roundId);
+    else clearMutePreference(actorId, roundId);
     markDeparture(actorId, roundId);
-    if (roomId)
-      forgetCheckedDevices(
-        roomId,
-        ['camera', 'microphone'],
-        undefined,
-        actorId,
-      );
   }, [actorId, roundId, roomId]);
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">

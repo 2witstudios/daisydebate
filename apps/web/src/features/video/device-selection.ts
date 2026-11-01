@@ -67,3 +67,16 @@ export function forgetCheckedDevices(
     // Storage can be disabled; there is then no choice to forget.
   }
 }
+
+/** Round/account lifecycle cleanup removes the record, not only its device values. */
+export function clearCheckedDevices(
+  roomId: string,
+  storage: () => Pick<Storage, 'removeItem'> = () => window.sessionStorage,
+  actorId: string | null = null,
+): void {
+  try {
+    storage().removeItem(selectionKey(roomId, actorId));
+  } catch {
+    // Disabled storage has no recoverable device choice.
+  }
+}
