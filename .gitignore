@@ -42,3 +42,6 @@ apps/web/.proof-hold/
 # Dev mail capture (DEV_MAIL_CAPTURE, ADR 0050): local sign-in links.
 .dev-mail/
 .pu/config.yaml
+
+# Prepared Launch browser archive; never includes fixture trust material.
+.cache/launch-browser-image/

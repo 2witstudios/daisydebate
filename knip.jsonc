@@ -56,6 +56,11 @@
         "e2e/support/room-launch-app.ts",
         "e2e/support/room-launch-queued.ts",
         "e2e/support/launch-browser-network.mjs",
+        // CI executes these proof CLIs through the heavy queue; the Node driver is spawned.
+        "e2e/support/launch-browser-archive-proof.ts",
+        "e2e/support/launch-browser-image-proof.ts",
+        "e2e/support/launch-browser-image-proof.mjs",
+        "e2e/support/launch-browser-preparation-proof.ts",
         "e2e/support/room-launch-evidence-process.ts",
         "e2e/support/attendance-evidence-process.ts",
         "e2e/support/bot-speech-evidence-process.ts",

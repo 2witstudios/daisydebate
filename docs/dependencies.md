@@ -200,3 +200,41 @@ Version-matched official source read 2026-10-29:
 Next.js 16.4.2 installed `dist/docs/.../serverActions.md` was read: Next compares
 Origin against forwarded Host or Host; the custom server strips forwarded
 headers and supplies no wildcard allowedOrigins exception.
+
+### Isolated Launch browser preparation (ISSUE-896)
+
+The test-only prepared image uses Playwright `1.63.0-noble` at OCI index
+`sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27`.
+Native manifests: linux/arm64
+`sha256:a0f4498920a5dbac63196d9140ed738ef00470f27e2e74029abd8850b7bd5717`;
+linux/amd64
+`sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7`.
+It adds Ubuntu Noble `libnss3-tools=2:3.98-1ubuntu0.3` for per-run fixture CA
+administration. Browser libraries already exist in the upstream image.
+[Ubuntu's package/dependency listing](https://packages.ubuntu.com/noble-updates/libnss3-tools)
+and [Playwright 1.63.0 native dependencies](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/server/registry/nativeDeps.ts)
+were read before selection. The reviewed descriptor pins the official HTTPS deb
+for each architecture: arm64 SHA256
+`f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd`
+(597572 bytes), amd64 SHA256
+`0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0`
+(615126 bytes). Its exact dependency contract is checked against installed native
+base packages using dpkg version semantics before ordinary installation. No apt,
+force option or dependency resolver is used. Actual package inventory is recorded;
+bit-for-bit cold rebuilds are not promised.
+
+Preparation uses the existing Docker CLI/daemon's create/start/commit operations
+and the verified daemon-cached native base. Actual client/daemon versions enter
+the image/cache identity. A reviewed stdin-only recipe adds NSS tools before
+fixture certificates exist, with explicit empty proxy environment overrides and
+strict configuration/mount/package/layer validation. No preparation engine image,
+new package, vendor, paid service or registry push is added.
+[Docker create](https://docs.docker.com/reference/cli/docker/container/create/),
+[commit](https://docs.docker.com/reference/cli/docker/container/commit/) and
+[proxy credential persistence](https://docs.docker.com/engine/cli/proxy/) were
+read before configuration. The descriptor also pins the upstream native config
+and root filesystem identities, verified against the published config blobs.
+Version-matched [curl 8.5.0](https://manpages.ubuntu.com/manpages/noble/en/man1/curl.1.html)
+and [dpkg 1.22.6](https://manpages.ubuntu.com/manpages/noble/en/man1/dpkg.1.html)
+documentation covers the recipe's bounded download, metadata and version checks.
+See [prepared tooling lifecycle](development/round-browser-proof.md#prepared-browser-tooling).

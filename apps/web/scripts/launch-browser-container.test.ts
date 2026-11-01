@@ -5,7 +5,7 @@ setupRitewayBun();
 
 const input = {
   name: 'daisy-browser-x',
-  version: '1.63.0',
+  image: `sha256:${'a'.repeat(64)}`,
   checkout: '/repo',
   ca: '/tmp/ca.crt',
   seccomp: '/repo/seccomp.json',
@@ -48,7 +48,7 @@ describe('isolated Launch browser container', () => {
         network: valueAfter(args, '--network'),
         published: valueAfter(args, '-p'),
         env: valueAfter(args, '-e'),
-        image: args.includes('mcr.microsoft.com/playwright:v1.63.0-noble'),
+        image: args.includes(input.image),
       },
       expected: {
         network: ['host'],
@@ -61,5 +61,88 @@ describe('isolated Launch browser container', () => {
         image: true,
       },
     });
+  });
+});
+
+test('runtime performs only local fresh trust and sandbox startup', async () => {
+  const shell = await Bun.file(
+    new URL('../e2e/support/launch-browser-container.sh', import.meta.url),
+  ).text();
+  assert({
+    given: 'the disposable prepared browser launcher',
+    should:
+      'never run apt, reuse a trust database, or bypass certificate verification',
+    actual: {
+      apt: /apt-get|apt install/.test(shell),
+      fresh: shell.includes('certutil -N'),
+      import: shell.includes('-i /fixture/ca.crt'),
+      nonroot: shell.includes('exec runuser -u pwuser'),
+    },
+    expected: { apt: false, fresh: true, import: true, nonroot: true },
+  });
+});
+
+test('prepared runtime cannot acquire an image or relax the sandbox contract', () => {
+  const args = launchBrowserDockerArgs({ ...input, hostNetwork: false });
+  assert({
+    given: 'a validated prepared image ID',
+    should:
+      'refuse runtime pulls and retain init, shm, seccomp and readonly fixture mounts',
+    actual: {
+      pull: args.includes('--pull=never'),
+      init: args.includes('--init'),
+      shm: args.includes('--shm-size=512m'),
+      seccomp: valueAfter(args, '--security-opt'),
+      mounts: valueAfter(args, '-v'),
+      unsafe: args.some((arg) =>
+        /privileged|NET_ADMIN|ignore-certificate|no-sandbox/.test(arg),
+      ),
+    },
+    expected: {
+      pull: true,
+      init: true,
+      shm: true,
+      seccomp: ['seccomp=/repo/seccomp.json'],
+      mounts: ['/repo:/workspace:ro', '/tmp/ca.crt:/fixture/ca.crt:ro'],
+      unsafe: false,
+    },
+  });
+});
+
+test('repository denial is confined to disposable proof arguments', () => {
+  const ordinary = launchBrowserDockerArgs({ ...input, hostNetwork: false });
+  const proof = launchBrowserDockerArgs({
+    ...input,
+    hostNetwork: false,
+    proofRepositoryHosts: ['archive.ubuntu.com', 'deb.nodesource.com'],
+  });
+  assert({
+    given: 'ordinary and repository-blocked proof containers',
+    should:
+      'leave ordinary routing intact and deny only the exact proof repository names',
+    actual: [
+      valueAfter(ordinary, '--add-host'),
+      valueAfter(proof, '--add-host'),
+    ],
+    expected: [
+      [],
+      ['archive.ubuntu.com:127.0.0.1', 'deb.nodesource.com:127.0.0.1'],
+    ],
+  });
+});
+
+test('startup diagnostics never echo arbitrary container text', async () => {
+  const { launchBrowserStartupStage } =
+    await import('../e2e/support/launch-browser-container');
+  assert({
+    given: 'known progress and attacker-controlled unknown output',
+    should: 'retain only the last fixed runtime stage',
+    actual: [
+      launchBrowserStartupStage(
+        'noise\ndaisy-browser-stage:os-trust\ndaisy-browser-stage:nss-trust\n',
+      ),
+      launchBrowserStartupStage('daisy-browser-stage:private-unknown\n'),
+    ],
+    expected: ['nss-trust', null],
   });
 });
