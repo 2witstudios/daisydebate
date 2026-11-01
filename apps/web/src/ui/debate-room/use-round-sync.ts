@@ -7,6 +7,7 @@ import {
   createDocumentSync,
   type DocumentSync,
   type DocumentsApi,
+  type DraftStorage,
   type Timers,
 } from './document-sync';
 import { refusedNotice, RETRYING_NOTICE } from './save-notice';
@@ -58,7 +59,7 @@ export function roundSync(
   api: DocumentsApi,
   report: (event: SaveEvent) => void,
   timers?: Timers,
-  storage?: ReturnType<typeof memoryStorage>,
+  storage?: DraftStorage,
 ): DocumentSync {
   const stored = createDocumentSync({
     roundId,

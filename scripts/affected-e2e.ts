@@ -115,6 +115,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'debate-room.e2e.ts': round,
   'round-commands.e2e.ts': round,
   'round-command-recovery.e2e.ts': round,
+  'round-notes-recovery.e2e.ts': round,
   'realtime-room-delivery.e2e.ts': [...room, ...realtime],
   'messaging-realtime.e2e.ts': [...messaging, ...realtime],
   'friends.e2e.ts': [...messaging, ...realtime, 'apps/web/src/ui/friends/'],

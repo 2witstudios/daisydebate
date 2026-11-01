@@ -1,9 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createDocumentSync,
-  type DocumentsApi,
-  type SaveResult,
-} from './document-sync';
+import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
   manualTimers,
   memoryStorage,
@@ -11,8 +7,6 @@ import {
 } from './document-sync.test-support';
 
 setupRitewayBun();
-
-type TestStore = ReturnType<typeof memoryStorage>;
 
 const savingApi = (
   documents: readonly { readonly id: string; readonly revision: number }[],
@@ -66,7 +60,12 @@ describe('draft recovery', () => {
       actual: { saves: saves.length, html: saves.map((s) => s.html) },
       expected: { saves: 2, html: ['<p>older A</p>', '<p>newer B</p>'] },
     });
-    expect(draft).not.toBeNull();
+    assert({
+      given: 'the draft after the second edit',
+      should: 'still be available for recovery',
+      actual: draft !== null,
+      expected: true,
+    });
   });
 
   test('does not auto-apply a recovered draft from an older revision', async () => {
