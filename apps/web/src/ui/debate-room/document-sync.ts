@@ -1,4 +1,5 @@
 import { sameDocumentHtml } from '../../features/documents/document-lines';
+import { systemClock } from '@daisy/clock';
 import type {
   FolderId,
   TemplateId,
@@ -104,6 +105,7 @@ export function createDocumentSync({
   timers = browserTimers,
   storage = defaultStorage(),
   principalId = 'anonymous',
+  wallClock = () => Date.parse(systemClock.now()),
 }: {
   readonly api: DocumentsApi;
   readonly roundId: string;
@@ -117,6 +119,8 @@ export function createDocumentSync({
   readonly delayMs?: number;
   readonly timers?: Timers;
   readonly storage?: DraftStorage | null;
+  /** The absolute wall-clock source for persisted draft expiry/eviction. */
+  readonly wallClock?: () => number;
 }): DocumentSync {
   const revisions = new Map<string, number>();
   const waiting = new Map<string, string>();
@@ -151,7 +155,7 @@ export function createDocumentSync({
 
   const evictDrafts = (adding: number) => {
     if (!storage) return;
-    const now = performance.now();
+    const now = wallClock();
     const entries: { key: string; savedAt: number; size: number }[] = [];
     let total = 0;
     for (let i = 0; i < storage.length; i++) {
@@ -192,7 +196,7 @@ export function createDocumentSync({
     if (!storage) return;
     const baseRevision = revisions.get(id);
     if (baseRevision === undefined) return;
-    const now = performance.now();
+    const now = wallClock();
     const serialized = JSON.stringify({
       html,
       baseRevision,
@@ -311,7 +315,7 @@ export function createDocumentSync({
         }
         if (!draft) continue;
         // Expired drafts are dropped.
-        if (draft.expiresAt < performance.now()) {
+        if (draft.expiresAt < wallClock()) {
           clearDraft(doc.id);
           continue;
         }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type Dispatch } from 'react';
+import { systemClock } from '@daisy/clock';
 import type { DocumentSync } from './document-sync';
 import type { RoomAction } from './room-state';
 
@@ -26,14 +27,14 @@ export function useDocumentSync(
             type: 'doc/update',
             id,
             html: draft.html,
-            now: new Date(performance.now()).toISOString(),
+            now: systemClock.now(),
           });
         }
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');
       });
-    const flush = () => void sync.flush();
+    const flush = () => void sync.flushKeepalive();
     window.addEventListener('pagehide', flush);
     return () => {
       live = false;

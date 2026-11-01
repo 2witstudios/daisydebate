@@ -22,7 +22,8 @@ export type SaveEvent =
   | { readonly type: 'saved' }
   | { readonly type: 'conflict' }
   | { readonly type: 'retrying' }
-  | { readonly type: 'refused'; readonly status: number };
+  | { readonly type: 'refused'; readonly status: number }
+  | { readonly type: 'unsaved' };
 
 export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
 
@@ -42,6 +43,11 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
       return { save: 'unsaved', notice: RETRYING_NOTICE };
     case 'refused':
       return { save: 'unsaved', notice: refusedNotice(event.status) };
+    case 'unsaved':
+      return {
+        save: 'unsaved',
+        notice: 'Storage is unavailable; your latest changes are not saved.',
+      };
   }
 }
 
@@ -49,15 +55,18 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
 export function roundSync(
   roundId: string,
   api: DocumentsApi,
+  principalId: string,
   report: (event: SaveEvent) => void,
   timers?: Timers,
 ): DocumentSync {
   const stored = createDocumentSync({
     roundId,
+    principalId,
     api,
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => report({ type: 'refused', status }),
+    onDraftStorageFailed: () => report({ type: 'unsaved' }),
     onSaved: () => report({ type: 'saved' }),
     ...(timers ? { timers } : {}),
   });
@@ -71,13 +80,16 @@ export function roundSync(
 }
 
 /** A participant's files on the persisted Round's document API. */
-export function useRoundSync(roundId: string): SaveStatus & {
+export function useRoundSync(
+  roundId: string,
+  principalId: string,
+): SaveStatus & {
   readonly sync: DocumentSync;
 } {
   const [status, report] = useReducer(reduceSave, initialSaveStatus);
   const sync = useMemo(
-    () => roundSync(roundId, createDocumentsApi(), report),
-    [roundId],
+    () => roundSync(roundId, createDocumentsApi(), principalId, report),
+    [roundId, principalId],
   );
   return { sync, ...status };
 }
