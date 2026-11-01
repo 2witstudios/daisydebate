@@ -36,11 +36,25 @@ export function classifySourceFailure(error: unknown): SourceFailureKind {
   }
 }
 
+/** What this device actually knows about its own sound playback (ISSUE-881). */
+export type PlaybackEvidence = {
+  /** The browser refused autoplay; only an explicit gesture can allow it. */
+  readonly blocked: boolean;
+};
+
 /**
- * What this device actually knows about its own microphone right now
- * (ISSUE-881): a server grant alone is permission, a live track is
- * publication, and a deliberate mute is neither loss nor health.
+ * What this device actually knows about its own sources and playback right
+ * now (ISSUE-881): a server grant alone is permission, a live track is
+ * publication, a deliberate mute is neither loss nor health, and blocked
+ * playback names itself instead of masquerading as a device failure.
  */
+export type MediaEvidence = {
+  readonly illHealth?: readonly SourceIllHealth[];
+  readonly microphone?: MicrophoneEvidence | null;
+  readonly sound?: PlaybackEvidence | null;
+};
+
+/** This device's own microphone: grant, publication, deliberate mute. */
 export type MicrophoneEvidence = {
   /** The server's grant names the microphone; null before any state. */
   readonly granted: boolean | null;
@@ -100,9 +114,10 @@ const joinKinds = (
 export function mediaStatus(
   connection: MediaConnectionState,
   missing: readonly Source[],
-  illHealth: readonly SourceIllHealth[] = [],
-  microphone: MicrophoneEvidence | null = null,
+  evidence: MediaEvidence = {},
 ) {
+  const illHealth = evidence.illHealth ?? [];
+  const microphone = evidence.microphone ?? null;
   const gone = missing.length > 0;
   const baseMessage =
     connection === 'live' && gone
@@ -112,11 +127,22 @@ export function mediaStatus(
           missing.length > 1 ? 'them' : 'it'
         }, or retry to use your default.`
       : messages[connection];
+  const soundSentence =
+    connection === 'live' && evidence.sound?.blocked
+      ? 'Sound is blocked by your browser. Press Enable sound to play it.'
+      : '';
+  const healthSentence =
+    connection === 'live' && illHealth.length > 0
+      ? illHealthMessage(illHealth, microphone)
+      : '';
   return {
-    message:
-      connection === 'live' && illHealth.length > 0
-        ? `${gone ? baseMessage : messages.live} ${illHealthMessage(illHealth, microphone)}`.trim()
-        : baseMessage,
+    message: [
+      gone ? baseMessage : messages[connection],
+      soundSentence,
+      healthSentence,
+    ]
+      .filter((part) => part !== '')
+      .join(' '),
     retry:
       gone ||
       connection === 'unavailable' ||

@@ -305,12 +305,17 @@ function RoundMediaSession({
     };
   }, []);
 
-  const status = mediaStatus(connection, missing, illHealth, {
-    granted: media?.grants.publish.includes('microphone') ?? null,
-    published: tracks.some(
-      (track) => track.local && track.source === 'microphone',
-    ),
-    muted: microphoneMuted,
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const status = mediaStatus(connection, missing, {
+    illHealth,
+    microphone: {
+      granted: media?.grants.publish.includes('microphone') ?? null,
+      published: tracks.some(
+        (track) => track.local && track.source === 'microphone',
+      ),
+      muted: microphoneMuted,
+    },
+    sound: { blocked: soundBlocked },
   });
   return (
     <section aria-label="Live camera and sound">
@@ -333,7 +338,8 @@ function RoundMediaSession({
             onClick={() => {
               void sound
                 .current?.()
-                .catch(() => setConnection('device-blocked'));
+                .then(() => setSoundBlocked(false))
+                .catch(() => setSoundBlocked(true));
             }}
           >
             Enable sound

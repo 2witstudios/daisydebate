@@ -2,7 +2,6 @@
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import {
-  localPublicationOf,
   readLocalPublication,
   subscribeLocalPublication,
   type LocalPublication,

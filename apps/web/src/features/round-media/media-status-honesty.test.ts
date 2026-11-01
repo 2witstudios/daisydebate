@@ -21,7 +21,10 @@ const evidence = (
 ): MicrophoneEvidence => ({ granted, published, muted });
 
 const message = (microphone: MicrophoneEvidence | null) =>
-  mediaStatus('live', [], [...cameraFailed], microphone).message;
+  mediaStatus('live', [], {
+    illHealth: [...cameraFailed],
+    microphone,
+  }).message;
 
 test('a camera failure never claims a microphone it has no evidence for', () => {
   assert({
@@ -51,16 +54,14 @@ test('a camera failure claims a live microphone only from a published track', ()
     actual: [
       message(evidence(true, true)),
       message(evidence(true, true, true)),
-      mediaStatus(
-        'live',
-        [],
-        [
+      mediaStatus('live', [], {
+        illHealth: [
           [
             'camera',
             classifySourceFailure(new DOMException('x', 'NotAllowedError')),
           ],
         ],
-      ).message,
+      }).message,
     ],
     expected: [
       'Connected Your camera could not start. Your microphone stays live.',
@@ -77,24 +78,20 @@ test('a microphone failure and a both-source failure each say only what happened
     should:
       'name the microphone alone, or both, without claiming anything else works',
     actual: [
-      mediaStatus(
-        'live',
-        [],
-        [
+      mediaStatus('live', [], {
+        illHealth: [
           [
             'microphone',
             classifySourceFailure(new DOMException('x', 'NotReadableError')),
           ],
         ],
-      ).message,
-      mediaStatus(
-        'live',
-        [],
-        [
+      }).message,
+      mediaStatus('live', [], {
+        illHealth: [
           ['camera', 'failure'],
           ['microphone', 'permission'],
         ],
-      ).message,
+      }).message,
     ],
     expected: [
       'Connected Your microphone could not start.',
@@ -109,10 +106,10 @@ test('a non-live connection states its own condition, never source health claims
     should:
       'carry only the connection condition, and keep manual Retry off a denied round',
     actual: [
-      mediaStatus('reconnecting', [], [...cameraFailed]).message,
-      mediaStatus('denied', [], [...cameraFailed]),
-      mediaStatus('device-blocked', [], [...cameraFailed]).retry,
-      mediaStatus('live', ['camera'], [...cameraFailed]).retry,
+      mediaStatus('reconnecting', [], { illHealth: [...cameraFailed] }).message,
+      mediaStatus('denied', [], { illHealth: [...cameraFailed] }),
+      mediaStatus('device-blocked', [], { illHealth: [...cameraFailed] }).retry,
+      mediaStatus('live', ['camera'], { illHealth: [...cameraFailed] }).retry,
     ],
     expected: [
       'Reconnecting camera and sound…',
@@ -123,6 +120,36 @@ test('a non-live connection states its own condition, never source health claims
       },
       true,
       true,
+    ],
+  });
+});
+
+test('blocked playback names itself and never masquerades as a device failure', () => {
+  assert({
+    given:
+      'the browser refusing autoplay while the call is otherwise live, with a camera also failed',
+    should:
+      'name the blocked sound and its explicit gesture alongside real health, keeping Retry honest',
+    actual: [
+      mediaStatus('live', [], { sound: { blocked: true } }),
+      mediaStatus('live', [], {
+        illHealth: [...cameraFailed],
+        sound: { blocked: true },
+      }),
+      mediaStatus('live', [], { sound: { blocked: false } }),
+    ],
+    expected: [
+      {
+        message:
+          'Connected Sound is blocked by your browser. Press Enable sound to play it.',
+        retry: false,
+      },
+      {
+        message:
+          'Connected Sound is blocked by your browser. Press Enable sound to play it. Your camera could not start.',
+        retry: false,
+      },
+      { message: 'Connected', retry: false },
     ],
   });
 });
