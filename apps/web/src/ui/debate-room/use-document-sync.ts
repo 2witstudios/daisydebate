@@ -19,7 +19,16 @@ export function useDocumentSync(
     sync
       .load()
       .then((documents) => {
-        if (live) dispatch({ type: 'doc/loaded', documents });
+        if (!live) return;
+        dispatch({ type: 'doc/loaded', documents });
+        for (const [id, draft] of sync.recoveredDrafts()) {
+          dispatch({
+            type: 'doc/update',
+            id,
+            html: draft.html,
+            now: new Date().toISOString(),
+          });
+        }
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');

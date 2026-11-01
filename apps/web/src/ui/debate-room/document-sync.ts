@@ -23,6 +23,7 @@ export type DocumentsApi = {
     readonly id: string;
     readonly html: string;
     readonly expectedRevision: number;
+    readonly keepalive?: boolean;
   }) => Promise<SaveResult>;
 };
 
@@ -36,6 +37,31 @@ const browserTimers: Timers = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+/** Minimal storage seam; defaults to window.localStorage when available. */
+export type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export type RecoveredDraft = {
+  readonly html: string;
+  readonly baseRevision: number;
+  readonly savedAt: number;
+  readonly expiresAt: number;
+};
+
+const KEEPALIVE_BODY_BUDGET = 64 * 1024;
+
+const defaultStorage = (): DraftStorage | null => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage)
+      return window.localStorage;
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const draftKey = (principalId: string, roundId: string, id: string) =>
+  `daisy:round-notes:draft:${principalId}:${roundId}:${id}`;
+
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
   readonly create: (
@@ -46,6 +72,10 @@ export type DocumentSync = {
   readonly change: (id: string, html: string) => void;
   /** Saves every waiting edit now (leaving the page, Cmd+S). */
   readonly flush: () => Promise<void>;
+  /** Pagehide variant: keepalive fetches within the 64 KiB budget. */
+  readonly flushKeepalive: () => Promise<void>;
+  /** Recovered drafts offered back to the room. */
+  readonly recoveredDrafts: () => ReadonlyMap<string, RecoveredDraft>;
 };
 
 /** The longest wait between retries of a failed save. */
@@ -61,19 +91,6 @@ const statusOf = (error: unknown): number | null => {
 const retryable = (status: number | null) =>
   status === null || status === 408 || status === 429 || status >= 500;
 
-/**
- * Saves each document once typing pauses, against the revision it was
- * read at. A 409 after a save that got no answer may be that save, which
- * the server committed: if the server holds it at the next revision, the
- * sync adopts that revision and sends what was typed since. Any other
- * conflict (another tab saved first) is handed to `onConflict` with
- * nothing overwritten and the local edit left in place; that document is
- * not saved again until the room reloads. A
- * failed save keeps the edit waiting and retries with a growing delay; a
- * refusal that cannot pass later (invalid, too large, signed out) is not
- * retried until the debater edits again. `onSaveFailed`, `onSaveRefused`
- * and `onSaved` let the room say so.
- */
 export function createDocumentSync({
   api,
   roundId,
@@ -81,17 +98,25 @@ export function createDocumentSync({
   onSaveFailed = () => {},
   onSaveRefused = () => {},
   onSaved = () => {},
+  onRecoveredDraft = () => {},
+  onDraftStorageFailed = () => {},
   delayMs = 1000,
   timers = browserTimers,
+  storage = defaultStorage(),
+  principalId = 'anonymous',
 }: {
   readonly api: DocumentsApi;
   readonly roundId: string;
+  readonly principalId?: string;
   readonly onConflict: (id: string) => void;
   readonly onSaveFailed?: (id: string, attempts: number) => void;
   readonly onSaveRefused?: (id: string, status: number) => void;
   readonly onSaved?: (id: string) => void;
+  readonly onRecoveredDraft?: (id: string, html: string) => void;
+  readonly onDraftStorageFailed?: (id: string) => void;
   readonly delayMs?: number;
   readonly timers?: Timers;
+  readonly storage?: DraftStorage | null;
 }): DocumentSync {
   const revisions = new Map<string, number>();
   const waiting = new Map<string, string>();
@@ -104,8 +129,9 @@ export function createDocumentSync({
   };
 
   const failures = new Map<string, number>();
-  /** The edit the server refused, per document; never sent again as is. */
   const refused = new Map<string, string>();
+
+  const recovered = new Map<string, RecoveredDraft>();
 
   const schedule = (id: string, ms: number) => {
     timers.clear(handles.get(id));
@@ -115,21 +141,103 @@ export function createDocumentSync({
     );
   };
 
-  /** Saves sent at the current revision that got no answer; the server may hold one. */
   const unanswered = new Map<string, Set<string>>();
-  /** Documents another writer changed; not saved again until reload. */
   const conflicted = new Set<string>();
+
+  const DRAFT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+  const DRAFT_MAX_ENTRY_BYTES = 256 * 1024;
+  const DRAFT_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+  const DRAFT_MAX_ENTRIES = 16;
+
+  const evictDrafts = (adding: number) => {
+    if (!storage) return;
+    const now = Date.now();
+    const entries: { key: string; savedAt: number; size: number }[] = [];
+    let total = 0;
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (!key || !key.startsWith('daisy:round-notes:draft:')) continue;
+      const raw = storage.getItem(key);
+      if (!raw) continue;
+      let parsed: RecoveredDraft | null = null;
+      try {
+        parsed = JSON.parse(raw) as RecoveredDraft;
+      } catch {
+        storage.removeItem(key);
+        continue;
+      }
+      if (!parsed || parsed.expiresAt < now) {
+        storage.removeItem(key);
+        continue;
+      }
+      const size = new TextEncoder().encode(raw).length;
+      entries.push({ key, savedAt: parsed.savedAt, size });
+      total += size;
+    }
+    // Evict oldest until within bounds.
+    entries.sort((a, b) => a.savedAt - b.savedAt);
+    let index = 0;
+    while (
+      (entries.length - index > DRAFT_MAX_ENTRIES - 1 ||
+        total + adding > DRAFT_MAX_TOTAL_BYTES) &&
+      index < entries.length
+    ) {
+      const victim = entries[index++];
+      storage.removeItem(victim.key);
+      total -= victim.size;
+    }
+  };
+
+  const persistDraft = (id: string, html: string) => {
+    if (!storage) return;
+    const baseRevision = revisions.get(id);
+    if (baseRevision === undefined) return;
+    const now = Date.now();
+    const serialized = JSON.stringify({
+      html,
+      baseRevision,
+      savedAt: now,
+      expiresAt: now + DRAFT_RETENTION_MS,
+    } satisfies RecoveredDraft);
+    const bytes = new TextEncoder().encode(serialized).length;
+    if (bytes > DRAFT_MAX_ENTRY_BYTES) {
+      onDraftStorageFailed(id);
+      return;
+    }
+    evictDrafts(bytes);
+    try {
+      storage.setItem(draftKey(principalId, roundId, id), serialized);
+    } catch {
+      onDraftStorageFailed(id);
+    }
+  };
+
+  const clearDraft = (id: string, html?: string) => {
+    if (!storage) return;
+    try {
+      if (html !== undefined) {
+        const raw = storage.getItem(draftKey(principalId, roundId, id));
+        if (raw) {
+          const parsed = JSON.parse(raw) as RecoveredDraft;
+          if (parsed.html !== html) return;
+        }
+      }
+      storage.removeItem(draftKey(principalId, roundId, id));
+    } catch {
+      /* ignore */
+    }
+    recovered.delete(id);
+  };
 
   const saved = (id: string, html: string, revision: number) => {
     revisions.set(id, revision);
     failures.delete(id);
     unanswered.delete(id);
-    // An edit typed while this one was in flight stays waiting.
     if (waiting.get(id) === html) waiting.delete(id);
+    clearDraft(id, html);
     onSaved(id);
   };
 
-  /** The server's copy, when it is one of our unanswered saves at the next revision. */
   const ownCommit = async (id: string, revision: number) => {
     const sent = unanswered.get(id);
     if (!sent || revision !== (revisions.get(id) ?? 0) + 1) return null;
@@ -138,7 +246,6 @@ export function createDocumentSync({
     return [...sent].find((html) => sameDocumentHtml(doc.html, html)) ?? null;
   };
 
-  /** A 409: adopt our own committed save and send what follows, or report it. */
   const conflict = async (id: string, revision: number) => {
     const html = await ownCommit(id, revision);
     if (html === null) {
@@ -157,7 +264,6 @@ export function createDocumentSync({
       onSaveRefused(id, status);
       return;
     }
-    // No answer, or a failure after the server may have committed it.
     unanswered.set(id, (unanswered.get(id) ?? new Set()).add(html));
     const attempts = (failures.get(id) ?? 0) + 1;
     failures.set(id, attempts);
@@ -165,15 +271,16 @@ export function createDocumentSync({
     schedule(id, Math.min(delayMs * 2 ** attempts, MAX_RETRY_MS));
   };
 
-  /** Sends the waiting edit, if there is one to send. */
-  function attempt(id: string): Promise<void> | undefined {
+  function attempt(id: string, keepalive = false): Promise<void> | undefined {
     const html = waiting.get(id);
     const expectedRevision = revisions.get(id);
     if (html === undefined || expectedRevision === undefined) return;
     if (refused.get(id) === html || conflicted.has(id)) return;
-    // Never rejects: a failure keeps the edit waiting and retries later.
+    const request = keepalive
+      ? { id, html, expectedRevision, keepalive: true }
+      : { id, html, expectedRevision };
     return api
-      .save({ id, html, expectedRevision })
+      .save(request)
       .then((result) =>
         result.status === 'saved'
           ? saved(id, html, result.revision)
@@ -182,15 +289,43 @@ export function createDocumentSync({
       .catch((error: unknown) => failed(id, html, error));
   }
 
-  /** One save per document at a time: each waits for the one before it. */
-  function saveNow(id: string): Promise<void> {
-    const run = (saving.get(id) ?? Promise.resolve()).then(() => attempt(id));
+  function saveNow(id: string, keepalive = false): Promise<void> {
+    const run = (saving.get(id) ?? Promise.resolve()).then(() =>
+      attempt(id, keepalive),
+    );
     saving.set(id, run);
     return run;
   }
 
   return {
-    load: async () => remember(await api.list(roundId)),
+    load: async () => {
+      const docs = remember(await api.list(roundId));
+      for (const doc of docs) {
+        if (!storage) continue;
+        let draft: RecoveredDraft | null = null;
+        try {
+          const raw = storage.getItem(draftKey(principalId, roundId, doc.id));
+          if (raw) draft = JSON.parse(raw) as RecoveredDraft;
+        } catch {
+          draft = null;
+        }
+        if (!draft) continue;
+        // Expired drafts are dropped.
+        if (draft.expiresAt < Date.now()) {
+          clearDraft(doc.id);
+          continue;
+        }
+        recovered.set(doc.id, draft);
+        // Never silently overwrite a newer server document: only queue the
+        // draft for saving when it is based on the current or newer revision;
+        // otherwise keep it recoverable for explicit conflict resolution.
+        if (draft.baseRevision === doc.revision) {
+          waiting.set(doc.id, draft.html);
+        }
+        onRecoveredDraft(doc.id, draft.html);
+      }
+      return docs;
+    },
     create: async (folder, templateId) => {
       const doc = await api.create({ roundId, folder, templateId });
       remember([doc]);
@@ -198,12 +333,40 @@ export function createDocumentSync({
     },
     change: (id, html) => {
       waiting.set(id, html);
+      if (!storage) onDraftStorageFailed(id);
+      else persistDraft(id, html);
       schedule(id, delayMs);
     },
-    flush: async () => {
-      for (const handle of handles.values()) timers.clear(handle);
-      handles.clear();
-      await Promise.all([...waiting.keys()].map(saveNow));
-    },
+    flush: () => flushWithKeepalive(false),
+    flushKeepalive: () => flushWithKeepalive(true),
+    recoveredDrafts: () => new Map(recovered),
   };
-}
+
+  async function flushWithKeepalive(keepalive: boolean): Promise<void> {
+    for (const handle of handles.values()) timers.clear(handle);
+      handles.clear();
+      // Persist every waiting edit first, so recovery survives a close.
+      for (const [id, html] of waiting) persistDraft(id, html);
+      // Keep combined keepalive request bodies within the browser budget.
+      const ids = [...waiting.keys()];
+      const toSend: string[] = [];
+      let budget = KEEPALIVE_BODY_BUDGET;
+      for (const id of ids) {
+        const html = waiting.get(id);
+        const expectedRevision = revisions.get(id);
+        if (html === undefined || expectedRevision === undefined) continue;
+        if (conflicted.has(id)) continue;
+        const bodySize =
+          new TextEncoder().encode(
+            JSON.stringify({ id, html, expectedRevision }),
+          ).length + 64;
+        if (bodySize <= budget) {
+          toSend.push(id);
+          budget -= bodySize;
+        } else {
+          persistDraft(id, html);
+        }
+      }
+      await Promise.all(toSend.map((id) => saveNow(id, keepalive)));
+    }
+  }
