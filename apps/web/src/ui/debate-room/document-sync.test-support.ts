@@ -25,6 +25,10 @@ export const memoryStorage = (): DraftStorage & {
     removeItem: (key) => {
       map.delete(key);
     },
+    key: (index) => [...map.keys()][index] ?? null,
+    get length() {
+      return map.size;
+    },
     dump: () => new Map(map),
   };
 };

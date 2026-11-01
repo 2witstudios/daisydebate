@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { DocumentsApi } from './document-sync';
-import { manualTimers, memoryStorage, stored } from './document-sync.test-support';
+import {
+  manualTimers,
+  memoryStorage,
+  stored,
+} from './document-sync.test-support';
 import { RETRYING_NOTICE, refusedNotice } from './save-notice';
 import {
   initialSaveStatus,

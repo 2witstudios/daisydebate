@@ -1,6 +1,5 @@
 import { markRead, type ChatMessage } from '../../features/debate-room/chat';
 import type { PageTone } from '../document-editor/document-editor';
-import type { RecoveredDraft } from './document-sync';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
@@ -9,6 +8,7 @@ import {
   type TemplateId,
   type WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
+import type { RecoveredDraft } from './document-sync';
 import {
   initialLayout,
   nudgeVideo,
@@ -51,6 +51,7 @@ export type RoomState = {
   readonly paletteOpen: boolean;
   /** Each document's page tone; a document not listed is dark. */
   readonly pages: Readonly<Record<string, PageTone>>;
+  readonly recovered: ReadonlyMap<string, RecoveredDraft>;
 };
 
 export type RoomAction =
@@ -153,6 +154,7 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     transcriptFilter: 'all',
     paletteOpen: false,
     pages: {},
+    recovered: new Map(),
   };
 }
 
@@ -255,9 +257,7 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     return {
       ...restored,
       tabs: openTab(restored.tabs, a.id),
-      recovered: new Map(
-        [...restored.recovered].filter(([id]) => id !== a.id),
-      ),
+      recovered: new Map([...restored.recovered].filter(([id]) => id !== a.id)),
     };
   },
   'doc/recovered/discard': (s, a) => ({

@@ -4,17 +4,16 @@ import { manualTimers, stored } from './document-sync.test-support';
 
 setupRitewayBun();
 
-const htmlOf = (size: number) =>
-  `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
+const htmlOf = (size: number) => `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
 const bytes = (id: string, html: string, expectedRevision: number) =>
   new TextEncoder().encode(JSON.stringify({ id, html, expectedRevision }))
     .length + 64;
 
 describe('keepalive exit budget', () => {
   test('reserves bytes across overlapping flushes, not just per call', async () => {
-    let settle: (() => void) | null = null;
+    const settle: { resolve: () => void } = { resolve: () => {} };
     const first = new Promise<void>((resolve) => {
-      settle = resolve;
+      settle.resolve = resolve;
     });
     let setttled = false;
     const sent: { id: string; html: string; expectedRevision: number }[] = [];
@@ -41,10 +40,8 @@ describe('keepalive exit budget', () => {
     sync.change('b', htmlOf(60_000));
     // The first flush reserves A's bytes while its send is outstanding.
     const flushing = sync.flushKeepalive();
-    // The second flush, still against the same outstanding reservation,
-    // must not admit B's larger body over the shared budget.
     const second = sync.flushKeepalive();
-    settle?.();
+    if (settle.resolve) settle.resolve();
     await Promise.all([flushing, second]);
     const reservedTotal = sent.reduce(
       (total, one) => total + bytes(one.id, one.html, one.expectedRevision),

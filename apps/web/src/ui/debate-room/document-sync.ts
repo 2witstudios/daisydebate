@@ -40,7 +40,10 @@ const browserTimers: Timers = {
 };
 
 /** Minimal storage seam; defaults to window.localStorage when available. */
-export type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export type DraftStorage = Pick<
+  Storage,
+  'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'
+>;
 
 export type RecoveredDraft = {
   readonly html: string;
@@ -75,6 +78,21 @@ const defaultStorage = (): DraftStorage | null => {
 
 const draftKey = (principalId: string, roundId: string, id: string) =>
   `daisy:round-notes:draft:${principalId}:${roundId}:${id}`;
+
+/**
+ * The keys that carry a draft, listed once so storage cannot be read or
+ * purged with a second copy of the format.
+ */
+export const draftKeys = {
+  getAll: (storage: DraftStorage): string[] => {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key && key.startsWith('daisy:round-notes:draft:')) keys.push(key);
+    }
+    return keys;
+  },
+};
 
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
@@ -177,9 +195,7 @@ export function createDocumentSync({
     const now = wallClock();
     const entries: { key: string; savedAt: number; size: number }[] = [];
     let total = 0;
-    for (let i = 0; i < storage.length; i++) {
-      const key = storage.key(i);
-      if (!key || !key.startsWith('daisy:round-notes:draft:')) continue;
+    for (const key of draftKeys.getAll(storage)) {
       const raw = storage.getItem(key);
       if (!raw) continue;
       let parsed: RecoveredDraft | null = null;
@@ -206,6 +222,7 @@ export function createDocumentSync({
       index < entries.length
     ) {
       const victim = entries[index++];
+      if (!victim) break;
       storage.removeItem(victim.key);
       total -= victim.size;
     }
@@ -242,7 +259,7 @@ export function createDocumentSync({
         const raw = storage.getItem(draftKey(principalId, roundId, id));
         if (raw) {
           const parsed = parseDraft(JSON.parse(raw));
-          if (parsed.html !== html) return;
+          if (!parsed || parsed.html !== html) return;
         }
       }
       storage.removeItem(draftKey(principalId, roundId, id));

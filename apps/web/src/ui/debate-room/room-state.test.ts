@@ -1,10 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import {
-  initialRoomState,
-  pageToneOf,
-  reduceRoom,
-} from './room-state';
+import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
 
 setupRitewayBun();
 
@@ -22,10 +18,10 @@ describe('reduceRoom recovered drafts', () => {
   };
 
   test('loading with no recovered drafts reaches no missing reducer', () => {
-    const prepared = reduce(
-      initialRoomState(casual),
-      { type: 'doc/recovered', recovered: new Map() },
-    );
+    const prepared = reduce(initialRoomState(casual), {
+      type: 'doc/recovered',
+      recovered: new Map(),
+    });
     assert({
       given: 'a doc/recovered action with no drafts',
       should: 'reach a reducer and change nothing',
@@ -35,10 +31,10 @@ describe('reduceRoom recovered drafts', () => {
   });
 
   test('restoring the current draft puts it in the editor once', () => {
-    const prepared = reduce(
-      initialRoomState(casual),
-      { type: 'doc/recovered', recovered: new Map([['doc-flow', draft]]) },
-    );
+    const prepared = reduce(initialRoomState(casual), {
+      type: 'doc/recovered',
+      recovered: new Map([['doc-flow', draft]]),
+    });
     const restored = reduce(prepared, {
       type: 'doc/recovered/restore',
       id: 'doc-flow',
@@ -62,10 +58,10 @@ describe('reduceRoom recovered drafts', () => {
   });
 
   test('discarding clears the pending choice only', () => {
-    const prepared = reduce(
-      initialRoomState(casual),
-      { type: 'doc/recovered', recovered: new Map([['doc-flow', draft]]) },
-    );
+    const prepared = reduce(initialRoomState(casual), {
+      type: 'doc/recovered',
+      recovered: new Map([['doc-flow', draft]]),
+    });
     const discarded = reduce(prepared, {
       type: 'doc/recovered/discard',
       id: 'doc-flow',
@@ -79,8 +75,9 @@ describe('reduceRoom recovered drafts', () => {
       },
       expected: {
         pending: 0,
-        html: initialRoomState(casual).documents.find((d) => d.id === 'doc-flow')
-          ?.html,
+        html: initialRoomState(casual).documents.find(
+          (d) => d.id === 'doc-flow',
+        )?.html,
       },
     });
   });

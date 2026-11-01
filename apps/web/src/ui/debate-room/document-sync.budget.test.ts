@@ -1,8 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createDocumentSync,
-  type DocumentsApi,
-} from './document-sync';
+import { createDocumentSync, type DocumentsApi } from './document-sync';
 import { manualTimers, stored } from './document-sync.test-support';
 
 setupRitewayBun();
