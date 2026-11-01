@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { clearAccountMediaPreferences } from './account-signout-cleanup';
+import {
+  clearAccountMediaPreferences,
+  selectMediaAccount,
+} from './account-signout-cleanup';
 
 setupRitewayBun();
 
@@ -37,7 +40,7 @@ test('account-signout cleanup drops every actor-scoped media record and nothing 
     given:
       'two mute records, one departure record, an actor-scoped device record, and an unrelated key',
     should:
-      'drop only actor-scoped media lifetime records and keep the device choice and unrelated key',
+      'drop actor-scoped media and device lifetime records and keep unrelated keys',
     actual: [
       storage.getItem('daisy:mute:media:actor-a:round-1'),
       storage.getItem('daisy:mute:media:actor-b:round-2'),
@@ -45,7 +48,7 @@ test('account-signout cleanup drops every actor-scoped media record and nothing 
       storage.getItem('daisy:checked-devices:room-x:actor-b'),
       storage.getItem('daisy:something-else'),
     ],
-    expected: [null, null, null, '{}', 'keep'],
+    expected: [null, null, null, null, 'keep'],
   });
 });
 
@@ -62,5 +65,26 @@ test('account-signout cleanup tolerates a null host', () => {
       }
     })(),
     expected: 'cleared',
+  });
+});
+
+test('an account switch clears outgoing local media records before restoring the new account', () => {
+  const storage = new MemoryStorage();
+  selectMediaAccount('actor-a', storage);
+  storage.setItem('daisy:mute:media:actor-a:round-1', 'muted');
+  storage.setItem('daisy:checked-devices:room:actor-a', '{}');
+  selectMediaAccount('actor-a', storage);
+  const keptOnReload = storage.getItem('daisy:mute:media:actor-a:round-1');
+  selectMediaAccount('actor-b', storage);
+  assert({
+    given: 'same-account reload followed by another signed-in principal',
+    should:
+      'retain reload choices but remove outgoing media and checked-device records on account change',
+    actual: [
+      keptOnReload,
+      storage.getItem('daisy:mute:media:actor-a:round-1'),
+      storage.getItem('daisy:checked-devices:room:actor-a'),
+    ],
+    expected: ['muted', null, null],
   });
 });

@@ -35,13 +35,28 @@ function TrackElement({ track }: { readonly track: MediaTrack }) {
  * media transport still establishing, or a missing publication each say
  * exactly what they are (ISSUE-881). No grant implies a working microphone.
  */
+const connectionCaption: Record<MediaConnectionState, string | null> = {
+  connecting: 'Media is connecting…',
+  reconnecting: 'Media is reconnecting…',
+  live: null,
+  'device-missing': 'Checked device missing',
+  'device-blocked': 'Camera or microphone blocked',
+  denied: 'Media refused',
+  unavailable: 'Media unavailable',
+  ended: 'Call ended',
+};
+
 const captionOf = (
   connection: MediaConnectionState,
+  mine: boolean,
   ownMuted: boolean,
+  granted: boolean | undefined,
 ): string => {
-  if (connection !== 'live') return 'Media is reconnecting…';
-  if (ownMuted) return 'You muted your microphone';
-  return 'Microphone unavailable';
+  const caption = connectionCaption[connection];
+  if (caption !== null) return caption;
+  if (granted === false) return 'Waiting for microphone permission';
+  if (mine && ownMuted) return 'You muted your microphone';
+  return mine ? 'Microphone not publishing' : 'No microphone subscription';
 };
 
 /** Only named debaters become tiles; a hidden judge never enters the identity map. */
@@ -102,16 +117,21 @@ export function MediaStage({
                 {seat.label}
                 {seat.kind === 'bot' ? ' · AI' : ''}
                 <span className="block text-xs">
-                  {microphoneTrack
-                    ? mediaTracks.some((track) => track.speaking)
+                  {microphoneTrack && !microphoneTrack.muted
+                    ? microphoneTrack.speaking
                       ? 'Speaking'
                       : 'Microphone open'
-                    : captionOf(connection, mine && ownMuted)}
+                    : microphoneTrack?.muted && !mine
+                      ? 'Microphone muted'
+                      : captionOf(connection, mine, ownMuted, peer?.microphone)}
                 </span>
               </figcaption>
               {mediaTracks
                 .filter(
-                  (track) => track.source === 'microphone' && !track.local,
+                  (track) =>
+                    track.source === 'microphone' &&
+                    !track.local &&
+                    !track.muted,
                 )
                 .map((track) => (
                   <TrackElement

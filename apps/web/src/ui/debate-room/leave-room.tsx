@@ -65,7 +65,6 @@ function ForfeitLeave({
     unanswered,
     roundCommandUnavailable,
   );
-  useMovedOn(answer.next);
   /**
    * Suppression records only an acknowledged forfeit (ISSUE-879): a
    * refused, conflicted or unknown outcome leaves the participant's
@@ -75,6 +74,7 @@ function ForfeitLeave({
     if (!pending && !answer.error && answer.next && left)
       markDeparture(left.actorId, left.roundId);
   }, [pending, answer, left]);
+  useMovedOn(answer.next);
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
       <input type="hidden" name="version" value="1" />

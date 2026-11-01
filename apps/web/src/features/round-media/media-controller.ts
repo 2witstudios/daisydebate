@@ -25,18 +25,16 @@ export type BrowserMediaTransport = {
   readonly disconnect: () => Promise<void>;
 };
 
-const transient = new WeakSet<object>();
-/**
- * A media request refused for now (a 503 under load, or the network): the
- * controller retries it before calling media unavailable (ISSUE-494).
- */
-export function transientMediaFailure() {
-  const failure = new Error('Media unavailable for now');
-  transient.add(failure);
-  return failure;
+class MediaRequestFailure extends Error {
+  constructor(readonly disposition: 'retry' | 'refresh' | 'definite') {
+    super('Media unavailable');
+  }
 }
+
+/** Minted only by the request adapter, never reconstructed from arbitrary .name/status. */
+export const transientMediaFailure = () => new MediaRequestFailure('retry');
 export const isTransientMediaFailure = (error: unknown) =>
-  typeof error === 'object' && error !== null && transient.has(error);
+  error instanceof MediaRequestFailure && error.disposition === 'retry';
 
 /**
  * A definite refusal (a 401/403/404 answer, or a revoked media state): the
@@ -49,7 +47,7 @@ export class MediaDeniedError extends Error {
   }
 }
 export const isMediaDenial = (error: unknown) =>
-  error instanceof Error && error.name === 'MediaDeniedError';
+  error instanceof MediaDeniedError;
 
 /** The HTTP answers whose only meaning is "not allowed here": final. */
 const refusedAuthorization = new Set([401, 403, 404]);
@@ -66,7 +64,7 @@ export function mediaFailure(status: number) {
   if (refusedForNow.has(status)) return transientMediaFailure();
   if (refusedAuthorization.has(status))
     return new MediaDeniedError(`Refused with ${status}`);
-  return new Error('Media unavailable');
+  return new MediaRequestFailure(status === 409 ? 'refresh' : 'definite');
 }
 
 const deviceBlocked = (error: unknown) =>
@@ -91,6 +89,8 @@ export function createMediaController(input: {
   readonly transport: () => BrowserMediaTransport;
   readonly changed: (state: MediaConnectionState) => void;
   readonly received?: (state: RoundMediaState) => void;
+  /** Conflict requires a fresh authoritative Round read, not a client denial. */
+  readonly refresh?: () => void;
   /** The one admission whose grant the browser transport now works against. */
   readonly admitted?: (admission: RoundMediaAdmission) => void;
   /** Pauses before each retry of a transient admission failure; none when absent. */
@@ -105,7 +105,7 @@ export function createMediaController(input: {
   readonly recovery?: {
     readonly delaysMs?: readonly number[];
     readonly schedule: (fire: () => void, ms: number) => unknown;
-    readonly cancel?: (handle: unknown) => void;
+    readonly cancel: (handle: unknown) => void;
   };
 }) {
   let state: MediaConnectionState = 'connecting';
@@ -146,8 +146,8 @@ export function createMediaController(input: {
     error: unknown,
   ) => {
     release(current);
-    cancelRecovery();
     if (stale(generation)) return;
+    cancelRecovery();
     transport = null;
     change(
       error instanceof Error && error.name === CHECKED_DEVICE_MISSING
@@ -158,6 +158,10 @@ export function createMediaController(input: {
             ? 'denied'
             : 'unavailable',
     );
+    if (error instanceof MediaRequestFailure) {
+      if (error.disposition === 'definite') return;
+      if (error.disposition === 'refresh') input.refresh?.();
+    }
     scheduleRecovery(generation);
   };
   /**
@@ -173,31 +177,31 @@ export function createMediaController(input: {
   /** Cancels the one owned retry timer; every generation change calls this. */
   const cancelRecovery = () => {
     if (recoveryTimer === null) return;
-    input.recovery?.cancel?.(recoveryTimer);
+    input.recovery?.cancel(recoveryTimer);
     recoveryTimer = null;
   };
   /** Index survives every state change: the backoff must not restart per attempt. */
   const scheduleRecovery = (generation: number) => {
     cancelRecovery();
-    if (ended || state !== 'unavailable' || stale(generation)) return;
+    if (
+      !input.recovery ||
+      ended ||
+      state !== 'unavailable' ||
+      stale(generation)
+    )
+      return;
     const delayMs = recoveryDelaysMs.at(
       Math.min(recoveryStep, recoveryDelaysMs.length - 1),
     );
     if (delayMs === undefined) return;
     recoveryStep++;
-    recoveryTimer = schedule(delayMs, () => {
-      recoveryTimer = null;
+    recoveryTimer = input.recovery.schedule(() => {
       // A timer from an older generation is inert even if the newer attempt
       // failed again: only this generation's own timer may rejoin.
       if (ended || generation !== epoch || state !== 'unavailable') return;
+      recoveryTimer = null;
       void join(true);
-    });
-  };
-  /** The one scheduling edge: injected in tests, ambient timers otherwise. */
-  const schedule = (delayMs: number, fire: () => void): unknown => {
-    const scheduler = input.recovery;
-    if (scheduler) return scheduler.schedule(fire, delayMs);
-    return setTimeout(fire, delayMs);
+    }, delayMs);
   };
   /** One media request, retried through the configured pauses while it fails transiently. */
   const retrying = async (
@@ -235,8 +239,10 @@ export function createMediaController(input: {
       stop();
       return false;
     }
-    if (snapshot.state !== 'ready')
-      throw new MediaDeniedError('The Round withdrew its media');
+    if (snapshot.state !== 'ready') {
+      input.refresh?.();
+      throw transientMediaFailure();
+    }
     await current.apply(snapshot);
     if (closeStale(current, generation)) return false;
     announce(snapshot);

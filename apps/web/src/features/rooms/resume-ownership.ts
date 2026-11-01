@@ -84,6 +84,7 @@ export function mayResumeTab(
     ownership !== null &&
     ownership.owner !== null &&
     ownership.claimedAtMs !== null &&
+    nowMs >= ownership.claimedAtMs &&
     nowMs - ownership.claimedAtMs < resumeOwnershipStaleMs;
   if (!fresh) return 'take-over';
   return ownership.owner === tabId ? 'resume' : 'defer';

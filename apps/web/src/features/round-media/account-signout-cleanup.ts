@@ -6,7 +6,12 @@
  */
 
 /** Every media preference kind a tab stores is an actor-scoped record. */
-const PREFIXES = ['daisy:mute:media:', 'daisy:left:media:'];
+const PREFIXES = [
+  'daisy:mute:media:',
+  'daisy:left:media:',
+  'daisy:checked-devices:',
+  'daisy:resume-once:',
+];
 
 export function clearAccountMediaPreferences(host?: Storage | null): void {
   const storage =
@@ -19,4 +24,21 @@ export function clearAccountMediaPreferences(host?: Storage | null): void {
     if (PREFIXES.some((prefix) => key.startsWith(prefix))) doomed.push(key);
   }
   for (const key of doomed) storage.removeItem(key);
+}
+
+/** Observe the signed principal at shell and direct-Round entry before restoration. */
+export function selectMediaAccount(
+  actorId: string | null,
+  host?: Storage,
+): void {
+  try {
+    const storage = host ?? window.sessionStorage;
+    const current = actorId ?? 'signed-out';
+    const previous = storage.getItem('daisy:media-account');
+    if (previous !== null && previous !== current)
+      clearAccountMediaPreferences(storage);
+    storage.setItem('daisy:media-account', current);
+  } catch {
+    // Disabled tab storage holds no restorable choices.
+  }
 }

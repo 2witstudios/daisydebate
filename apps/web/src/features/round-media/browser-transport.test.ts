@@ -257,3 +257,39 @@ test('a failed local microphone change stops capture before offering device reco
     expected: [true, true],
   });
 });
+
+test('a muted publication remains observable as present without claiming an open microphone', async () => {
+  const stub = stubSdk({ settles: true });
+  const room = stub.sdk.room();
+  const published = {
+    source: Track.Source.Microphone,
+    isMuted: true,
+    track: { sid: 'muted-mic' },
+  };
+  room.localParticipant.trackPublications.set(
+    'muted-mic',
+    published as unknown as import('livekit-client').LocalTrackPublication,
+  );
+  let observed: readonly import('./browser-transport').MediaTrack[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      tracks: (tracks) => {
+        observed = tracks;
+      },
+    },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish([]));
+  assert({
+    given: 'an actual SDK microphone publication whose track is muted',
+    should:
+      'retain explicit present-and-muted evidence for its caller, distinct from no captured publication',
+    actual: observed.map((track) => ({
+      source: track.source,
+      muted: track.muted,
+    })),
+    expected: [{ source: 'microphone', muted: true }],
+  });
+  browser.transport.stopTracks();
+});

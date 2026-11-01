@@ -2,15 +2,15 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimOwnership,
   heartbeatOwnership,
-  markResumedOnce,
   mayResumeTab,
-  readOwnership,
-  releaseOwnership,
+  markResumedOnce,
   resumedInThisTab,
   resumedOnceKey,
+  tabIdOf,
+  readOwnership,
+  releaseOwnership,
   resumeOwnershipKey,
   resumeOwnershipStaleMs,
-  tabIdOf,
 } from './resume-ownership';
 
 setupRitewayBun();
@@ -153,6 +153,19 @@ test('release steps down only its own claim', () => {
       { owner: 'ski', claimedAtMs: 5_000 },
       { owner: null, claimedAtMs: null },
     ],
+  });
+});
+
+test('a future-dated advisory record cannot defer recovery indefinitely', () => {
+  assert({
+    given: 'an untrusted ownership timestamp ahead of the current clock',
+    should: 'allow bounded recovery rather than defer until the forged future',
+    actual: mayResumeTab(
+      'mine',
+      { owner: 'foreign', claimedAtMs: 1_000_000 },
+      10_000,
+    ),
+    expected: 'take-over',
   });
 });
 

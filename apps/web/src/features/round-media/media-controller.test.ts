@@ -496,3 +496,121 @@ test('recovery owns one scheduled retry at a time and none survives a stop or su
     },
   });
 });
+
+test('a definite unsupported HTTP answer does not schedule automatic recovery', async () => {
+  const clock = scheduled();
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        throw mediaFailure(400);
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  assert({
+    given: 'a definite 400 admission refusal',
+    should:
+      'remain unavailable for explicit action without looping the same refused request',
+    actual: [controller.state(), clock.due().length],
+    expected: ['unavailable', 0],
+  });
+  controller.stop();
+});
+
+test('a superseded request rejection cannot cancel the current recovery timer', async () => {
+  const clock = scheduled();
+  let rejectOld!: (error: Error) => void;
+  let calls = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: () => {
+        calls++;
+        if (calls === 1)
+          return new Promise((_, reject) => {
+            rejectOld = reject;
+          });
+        return Promise.reject(transientMediaFailure());
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  const old = controller.join();
+  await controller.reconnect();
+  rejectOld(transientMediaFailure());
+  await old;
+  assert({
+    given:
+      'an old admission rejecting after a newer attempt scheduled its recovery',
+    should: 'preserve the newer generation’s retry timer',
+    actual: clock.due().length,
+    expected: 1,
+  });
+  controller.stop();
+});
+
+test('a media409 requests fresh Round authority and remains distinct from authorization denial', async () => {
+  const clock = scheduled();
+  let refreshes = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        throw mediaFailure(409);
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    refresh: () => {
+      refreshes++;
+    },
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  assert({
+    given:
+      '409 from the media contract (authority changed or admission closed)',
+    should:
+      'request fresh Round authority and pace recovery instead of denying or blindly repeating a definite400',
+    actual: [controller.state(), refreshes, clock.due().length],
+    expected: ['unavailable', 1, 1],
+  });
+  controller.stop();
+});
+
+test('an unavailable media projection stops publication while retrying a fresh admission', async () => {
+  const clock = scheduled();
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => admission,
+      reconcile: async () => ({
+        ...snapshot,
+        state: 'unavailable',
+        grants: { ...snapshot.grants, publish: [], subscribe: false },
+      }),
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  assert({
+    given:
+      'the real media contract’s unavailable projection (unsafe/unresolved or revoked admission)',
+    should:
+      'tear down current media and retry fresh server admission, leaving any actual authorization refusal final',
+    actual: [controller.state(), clock.due().length],
+    expected: ['unavailable', 1],
+  });
+  controller.stop();
+});

@@ -1,4 +1,6 @@
 'use client';
+import { selectMediaAccount } from './account-signout-cleanup';
+import { createMediaRequest } from './request-media';
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
@@ -12,13 +14,10 @@ import {
 } from './browser-transport';
 import {
   createMediaController,
-  mediaFailure,
-  transientMediaFailure,
   type MediaConnectionState,
 } from './media-controller';
 import { MediaStage } from './media-stage';
 import {
-  classifySourceFailure,
   mediaStatus,
   retryMissingDevices,
   type SourceIllHealth,
@@ -30,15 +29,7 @@ import {
   readMutePreference,
   writeMutePreference,
 } from './media-preferences';
-import {
-  claimOwnership,
-  heartbeatOwnership,
-  mayResumeTab,
-  readOwnership,
-  resumeOwnershipHeartbeatMs,
-  subscribeOwnership,
-  tabIdOf,
-} from '../rooms/resume-ownership';
+import { useResumeLifetime } from '../rooms/use-resume-lifetime';
 import {
   localPublicationOf,
   reportLocalPublication,
@@ -58,43 +49,13 @@ const pause = (ms: number, signal: AbortSignal) =>
       { once: true },
     );
   });
-const requestMedia = async (
-  roundId: string,
-  operation: 'session' | 'reconcile',
-  signal: AbortSignal,
-) => {
-  let response: Response;
-  const timeoutSignal =
-    typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
-      ? (AbortSignal as { timeout: (ms: number) => AbortSignal }).timeout(10000)
-      : null;
-  const requestSignal =
-    timeoutSignal && typeof AbortSignal !== 'undefined' && 'any' in AbortSignal
-      ? (AbortSignal as { any: (s: AbortSignal[]) => AbortSignal }).any([
-          signal,
-          timeoutSignal,
-        ])
-      : signal;
-  try {
-    response = await fetch(
-      `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-        signal: requestSignal,
-        cache: 'no-store',
-      },
-    );
-  } catch (error) {
-    // The network, not the server, failed; a cancelled request stays final.
-    if (signal.aborted) throw error;
-    throw transientMediaFailure();
-  }
-  if (!response.ok) throw mediaFailure(response.status);
-  return response.json() as Promise<unknown>;
-};
+const requestMedia = createMediaRequest({
+  fetch: (...args) => fetch(...args),
+  scheduleDeadline: (expire) => {
+    const timer = window.setTimeout(expire, 10_000);
+    return () => window.clearTimeout(timer);
+  },
+});
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
@@ -135,6 +96,9 @@ function RoundMediaSession({
   const controller = useRef<ReturnType<typeof createMediaController> | null>(
     null,
   );
+  const ownership = useResumeLifetime(actorId ?? null, view.id, () =>
+    controller.current?.stop(),
+  );
   const sound = useRef<(() => Promise<void>) | null>(null);
   const refresh = useRef(onRefresh);
   useEffect(() => {
@@ -143,14 +107,17 @@ function RoundMediaSession({
   /** The restore must precede the transport so one truth reaches both. */
   const restoreMute = useRef(poi);
   useEffect(() => {
-    const prior = readMutePreference(actorId ?? null, view.id);
-    if (prior !== null && prior !== restoreMute.current) {
+    selectMediaAccount(actorId ?? null);
+    const prior =
+      (poi ? readMutePreference(actorId ?? null, view.id) : null) ?? poi;
+    if (prior !== restoreMute.current) {
       restoreMute.current = prior;
       muted.current = prior;
       setMicrophoneMuted(prior);
     }
-  }, [view.id, actorId]);
+  }, [view.id, actorId, poi]);
   useEffect(() => {
+    if (actorId && ownership.owns !== true) return;
     const mounted = createMediaController({
       roundId: view.id,
       api: {
@@ -158,6 +125,11 @@ function RoundMediaSession({
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
       },
       changed: setConnection,
+      refresh: () => refresh.current(),
+      recovery: {
+        schedule: (fire, ms) => window.setTimeout(fire, ms),
+        cancel: (handle) => window.clearTimeout(handle as number),
+      },
       received: setMedia,
       admitted: (admission) => setOwnIdentity(admission.identity),
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
@@ -172,12 +144,14 @@ function RoundMediaSession({
           sourceFailed: (source, error) =>
             setIllHealth((current) => [
               ...current.filter(([held]) => held !== source),
-              [source, classifySourceFailure(error)] as SourceIllHealth,
+              [source, error.kind] as SourceIllHealth,
             ]),
-          sourceHealthy: (source) =>
+          sourceHealthy: (source) => {
             setIllHealth((current) =>
               current.filter(([held]) => held !== source),
-            ),
+            );
+            setMissing((current) => current.filter((held) => held !== source));
+          },
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -201,7 +175,7 @@ function RoundMediaSession({
       sound.current = null;
       microphone.current = null;
     };
-  }, [view.id, view.roomId]);
+  }, [view.id, view.roomId, actorId, ownership.owns]);
   useEffect(() => {
     if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
@@ -220,69 +194,37 @@ function RoundMediaSession({
       Math.max(0, next - Date.parse(systemClock.now())),
     );
     return () => window.clearTimeout(timer);
-  }, [view]);
+  }, [view, actorId]);
   /** The controls read this device's own capture truth as a named input. */
   useEffect(() => {
     const captured = tracks
       .filter((track) => track.local && track.source === 'microphone')
       .map((track) => track.source);
     reportLocalPublication(
-      actorId ?? 'anonymous',
-      localPublicationOf({
-        connection,
-        grants: media?.grants.publish,
-        captured,
-        muted: microphoneMuted,
-      }),
+      `${view.id}:${actorId ?? 'anonymous'}`,
+      actorId && ownership.owns !== true
+        ? null
+        : localPublicationOf({
+            connection,
+            grants: media?.grants.publish,
+            captured,
+            muted: microphoneMuted,
+          }),
     );
-  }, [actorId, connection, media, tracks, microphoneMuted]);
-  /**
-   * While this tab publishes, it owns the Round's advisory resume claim and
-   * heartbeats it, so no other tab treats this one as stale and takes over.
-   * If another tab does take the claim over, this tab's media stops rather
-   * than publish beside it (ISSUE-879; advisory only, never authority).
-   */
-  useEffect(() => {
-    if (actorId === null || actorId === undefined) return;
-    if (connection !== 'live') return;
-    const session = window.sessionStorage;
-    const storage = window.localStorage;
-    const tabId = tabIdOf(
-      session,
-      () =>
-        window.crypto?.randomUUID?.() ??
-        `tab-${Date.parse(systemClock.now())}-advisory-no-secret`,
-    );
-    const held = readOwnership(storage, actorId, view.id);
-    const verdict = mayResumeTab(tabId, held, Date.parse(systemClock.now()));
-    // A fresh foreign owner means this tab joined late: it keeps its media
-    // (the server grants govern) but never claims the resume for itself.
-    if (verdict !== 'defer')
-      claimOwnership({
-        storage,
-        actorId,
-        roundId: view.id,
-        tabId,
-        nowMs: Date.parse(systemClock.now()),
-      });
-    const beat = () =>
-      heartbeatOwnership({
-        storage,
-        actorId,
-        roundId: view.id,
-        tabId,
-        nowMs: Date.parse(systemClock.now()),
-      });
-    const heartbeat = window.setInterval(beat, resumeOwnershipHeartbeatMs);
-    const unsubscribe = subscribeOwnership(window, actorId, view.id, () => {
-      const owner = readOwnership(storage, actorId, view.id).owner;
-      if (owner !== null && owner !== tabId) controller.current?.stop();
-    });
-    return () => {
-      window.clearInterval(heartbeat);
-      unsubscribe();
-    };
-  }, [actorId, view.id, connection]);
+  }, [
+    view.id,
+    actorId,
+    connection,
+    media,
+    tracks,
+    microphoneMuted,
+    ownership.owns,
+  ]);
+  useEffect(
+    () => () =>
+      reportLocalPublication(`${view.id}:${actorId ?? 'anonymous'}`, null),
+    [view.id, actorId],
+  );
   /**
    * Online and visibility are nudges only: the controller owns its recovery
    * attempts and backoff across every state change, so a nudge restarts work
@@ -317,6 +259,21 @@ function RoundMediaSession({
     },
     sound: { blocked: soundBlocked },
   });
+  if (actorId && ownership.owns !== true)
+    return (
+      <section aria-label="Live camera and sound">
+        <p role="status">
+          {ownership.owns === false
+            ? 'This Round is open in another tab.'
+            : 'Checking this Round’s tab…'}
+        </p>
+        {ownership.owns === false ? (
+          <button type="button" onClick={ownership.takeOver}>
+            Use this tab
+          </button>
+        ) : null}
+      </section>
+    );
   return (
     <section aria-label="Live camera and sound">
       <MediaStage

@@ -1,3 +1,4 @@
+import { sourceFailureOf, type SourceFailure } from './source-failure';
 import {
   Room,
   RoomEvent,
@@ -19,6 +20,7 @@ export type MediaTrack = {
   readonly source: 'camera' | 'microphone';
   readonly local: boolean;
   readonly speaking: boolean;
+  readonly muted: boolean;
   readonly track: Track;
 };
 
@@ -84,7 +86,7 @@ export function createBrowserMediaTransport(
      * behind a blanket catch. A checked device the Room check passed is
      * absent: already reported through `missing`.
      */
-    readonly sourceFailed?: (source: Source, error: unknown) => void;
+    readonly sourceFailed?: (source: Source, failure: SourceFailure) => void;
     /** A source that failed earlier is publishing again; recovery is reported too. */
     readonly sourceHealthy?: (source: Source) => void;
   },
@@ -128,12 +130,13 @@ export function createBrowserMediaTransport(
             : publication.source === Track.Source.Microphone
               ? 'microphone'
               : null;
-        if (source && publication.track && !publication.isMuted)
+        if (source && publication.track)
           snapshot.push({
             identity: participant.identity,
             source,
             local: participant === room.localParticipant,
             speaking: participant.isSpeaking,
+            muted: publication.isMuted,
             track: publication.track,
           });
       }
@@ -228,7 +231,7 @@ export function createBrowserMediaTransport(
       // swallow (ISSUE-817/829).
       if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
         return [] as LocalTrack[];
-      events.sourceFailed?.('microphone', error);
+      events.sourceFailed?.('microphone', sourceFailureOf(error));
       return [] as LocalTrack[];
     });
     if (holdsMicrophone()) track?.stop();
@@ -297,7 +300,7 @@ export function createBrowserMediaTransport(
           if (!(
             error instanceof Error && error.name === CHECKED_DEVICE_MISSING
           ))
-            events.sourceFailed?.(source, error);
+            events.sourceFailed?.(source, sourceFailureOf(error));
         }
       }
       if (desired.length > 0 && tracks.size === 0 && failed.length > 0) {

@@ -257,3 +257,261 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     await closeSettledLaunchContexts(accounts);
   }
 });
+
+test('direct tabs take over without duplicate capture and reload recovers through prolonged online503', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const round = await createHumanBallotRound(accounts.members, 0);
+    const [speaker, listener] = accounts.members;
+    if (!speaker || !listener) throw new Error('Two actual members required');
+    for (const member of accounts.members)
+      await member.context.grantPermissions(['camera', 'microphone'], {
+        origin,
+      });
+    const first = await openPage(speaker.context, 'first direct owner');
+    const peer = await openPage(listener.context, 'recovery peer');
+    await Promise.all([
+      first.goto(`/rounds/${round.id}/room`),
+      peer.goto(`/rounds/${round.id}/room`),
+    ]);
+    const connected = (page: typeof first) =>
+      expect(
+        page.getByRole('status').filter({ hasText: /^Connected/ }),
+      ).toBeVisible(MEDIA_POLL);
+    await Promise.all([connected(first), connected(peer)]);
+    await peer
+      .getByRole('button', { name: 'Enable sound', exact: true })
+      .click();
+    const peerCamera = () =>
+      expect
+        .poll(
+          () =>
+            peer
+              .getByLabel('Participant camera', { exact: true })
+              .evaluateAll((nodes) =>
+                nodes.some(
+                  (node) =>
+                    (node as HTMLVideoElement).videoWidth > 0 &&
+                    (node as HTMLVideoElement).readyState >= 2,
+                ),
+              ),
+          MEDIA_POLL,
+        )
+        .toBe(true);
+    await peerCamera();
+    const heldTrack = await first
+      .getByLabel('Your camera', { exact: true })
+      .evaluateHandle(
+        (node) =>
+          (
+            (node as HTMLVideoElement).srcObject as MediaStream
+          ).getVideoTracks()[0]!,
+      );
+    const second = await openPage(speaker.context, 'direct deferred owner');
+    let deferredAdmissions = 0;
+    second.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname ===
+        `/api/rounds/${round.id}/media/session`
+      )
+        deferredAdmissions++;
+    });
+    await second.goto(`/rounds/${round.id}/room`);
+    await expect(
+      second.getByText('This Round is open in another tab.', { exact: true }),
+    ).toBeVisible();
+    await expect(second.getByLabel('Your camera', { exact: true })).toHaveCount(
+      0,
+    );
+    expect(deferredAdmissions).toBe(0);
+    await second
+      .getByRole('button', { name: 'Use this tab', exact: true })
+      .click();
+    await connected(second);
+    await expect
+      .poll(() => heldTrack.evaluate((track) => track.readyState), MEDIA_POLL)
+      .toBe('ended');
+    await expect(
+      first.getByRole('button', { name: 'Use this tab', exact: true }),
+    ).toBeVisible();
+    await peerCamera();
+    await heldTrack.dispose();
+    // Close the deferred tab; only the active tab remains to recover.
+    await first.close();
+    let refusals = 0;
+    let restoreService!: () => void;
+    const serviceRecovered = new Promise<void>((resolve) => {
+      restoreService = resolve;
+    });
+    await second.route(
+      `**/api/rounds/${round.id}/media/session`,
+      async (route) => {
+        if (refusals < 6) {
+          refusals++;
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: '{"error":"INFRASTRUCTURE"}',
+          });
+          if (refusals === 6) restoreService();
+        } else await route.continue();
+      },
+    );
+    await second.reload();
+    await serviceRecovered;
+    await connected(second);
+    expect(refusals).toBe(6);
+    await peerCamera();
+    const stateResponse = await speaker.context.request.get(
+      `/api/rounds/${round.id}/media`,
+    );
+    expect(stateResponse.status()).toBe(200);
+    const state = roundMediaStateSchema.parse(await stateResponse.json());
+    expect(state.state).toBe('ready');
+    expect(state.grants.subscribe).toBe(true);
+    const publishedMic = await second
+      .getByRole('figure')
+      .filter({ has: second.getByLabel('Your camera', { exact: true }) })
+      .textContent();
+    if (state.grants.publish.includes('microphone'))
+      expect(publishedMic).toMatch(/Microphone open|Speaking/);
+    else expect(publishedMic).not.toContain('Microphone open');
+    await second.screenshot({
+      path: test.info().outputPath('recovered-owner.png'),
+    });
+    for (const entry of ['/', '/lobby']) {
+      await second.goto(entry);
+      await expect(second).toHaveURL(new RegExp(`/rounds/${round.id}/room$`));
+      await connected(second);
+    }
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
+test('a camera capture failure after Ready keeps permitted microphone audio reaching the peer', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const round = await createHumanBallotRound(accounts.members, 0);
+    const [speaker, listener] = accounts.members;
+    if (!speaker || !listener) throw new Error('Two actual members required');
+    for (const member of accounts.members)
+      await member.context.grantPermissions(['camera', 'microphone'], {
+        origin,
+      });
+    const source = await openPage(speaker.context, 'camera-failed speaker');
+    await source.addInitScript(() => {
+      const capture = navigator.mediaDevices.getUserMedia.bind(
+        navigator.mediaDevices,
+      );
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        if (constraints?.video)
+          throw new DOMException(
+            'controlled camera failure',
+            'NotReadableError',
+          );
+        const stream = await capture(constraints);
+        if (constraints?.audio) {
+          const audio = new AudioContext();
+          const tone = audio.createOscillator();
+          const gain = audio.createGain();
+          const output = audio.createMediaStreamDestination();
+          gain.gain.value = 0.2;
+          tone.connect(gain).connect(output);
+          tone.start();
+          await audio.resume();
+          for (const track of stream.getAudioTracks()) {
+            stream.removeTrack(track);
+            track.stop();
+          }
+          for (const track of output.stream.getAudioTracks())
+            stream.addTrack(track);
+        }
+        return stream;
+      };
+    });
+    const peer = await openPage(
+      listener.context,
+      'hearing isolated microphone',
+    );
+    await Promise.all([
+      source.goto(`/rounds/${round.id}/room`),
+      peer.goto(`/rounds/${round.id}/room`),
+    ]);
+    await expect(
+      source
+        .getByRole('status')
+        .filter({ hasText: /Connected.*Your camera could not start/ }),
+    ).toBeVisible(MEDIA_POLL);
+    await expect(source.getByLabel('Your camera', { exact: true })).toHaveCount(
+      0,
+    );
+    await peer
+      .getByRole('button', { name: 'Enable sound', exact: true })
+      .click();
+    await expect
+      .poll(
+        () =>
+          peer
+            .getByLabel('Participant audio', { exact: true })
+            .evaluateAll((nodes) =>
+              nodes.some((node) => {
+                const audio = node as HTMLAudioElement;
+                return (
+                  !audio.paused &&
+                  audio.readyState >= 2 &&
+                  (audio.srcObject as MediaStream | null)
+                    ?.getAudioTracks()
+                    .some((track) => track.readyState === 'live')
+                );
+              }),
+            ),
+        MEDIA_POLL,
+      )
+      .toBe(true);
+    const audibleSignal = await peer
+      .getByLabel('Participant audio', { exact: true })
+      .first()
+      .evaluate(async (node) => {
+        const stream = (node as HTMLAudioElement).srcObject as MediaStream;
+        const audio = new AudioContext();
+        await audio.resume();
+        const analyser = audio.createAnalyser();
+        audio.createMediaStreamSource(stream).connect(analyser);
+        const samples = new Float32Array(analyser.fftSize);
+        try {
+          return await new Promise<boolean>((resolve) => {
+            let frames = 0;
+            const sample = () => {
+              analyser.getFloatTimeDomainData(samples);
+              if (samples.some((value) => Math.abs(value) > 0.01))
+                resolve(true);
+              else if (++frames > 120) resolve(false);
+              else requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
+          });
+        } finally {
+          await audio.close();
+        }
+      });
+    expect(audibleSignal).toBe(true);
+    const response = await speaker.context.request.get(
+      `/api/rounds/${round.id}/media`,
+    );
+    expect(response.status()).toBe(200);
+    const state = roundMediaStateSchema.parse(await response.json());
+    expect(state.grants.publish).toContain('microphone');
+    expect(state.grants.subscribe).toBe(true);
+    await source.screenshot({
+      path: test.info().outputPath('camera-failed-microphone-live.png'),
+    });
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});

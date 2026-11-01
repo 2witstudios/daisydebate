@@ -23,10 +23,10 @@ export function reportLocalPublication(
 ) {
   const previous = publications.get(roundId);
   if (previous === value) {
-    listeners.get(roundId)?.forEach((listener) => listener());
     return;
   }
-  publications.set(roundId, value);
+  if (value === null) publications.delete(roundId);
+  else publications.set(roundId, value);
   notify(roundId);
 }
 
@@ -42,7 +42,6 @@ export function subscribeLocalPublication(
     current.delete(listener);
     if (current.size === 0) {
       listeners.delete(roundId);
-      publications.delete(roundId);
     }
   };
 }
@@ -64,12 +63,13 @@ export function localPublicationOf(input: {
   readonly muted: boolean | undefined;
 }): LocalPublication {
   if (input.grants === undefined || input.captured === undefined) return null;
-  if (input.muted && input.captured.includes('microphone')) return 'muted';
+  if (input.connection !== 'live') return 'ill';
   if (
-    input.connection !== 'live' &&
-    input.captured.length < input.grants.length
+    input.muted &&
+    input.grants.includes('microphone') &&
+    input.captured.includes('microphone')
   )
-    return 'ill';
+    return 'muted';
   if (input.captured.includes('microphone')) return 'published';
   if (input.grants.includes('microphone')) return 'absent';
   return null;

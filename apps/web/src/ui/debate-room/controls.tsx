@@ -7,6 +7,7 @@ import {
   type LocalPublication,
 } from '../../features/round-media/local-publication';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -275,8 +276,12 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
  * session, where the phase-derived fallback remains the floor permission.
  */
 function useLocalPublication(roundId: string): LocalPublication {
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeLocalPublication(roundId, listener),
+    [roundId],
+  );
   return useSyncExternalStore(
-    (listener) => subscribeLocalPublication(roundId, listener),
+    subscribe,
     () => readLocalPublication(roundId),
     () => null,
   );
@@ -301,18 +306,17 @@ export function RoundControls({
   layout,
   actions,
 }: Props & { readonly layout?: ReactNode }) {
-  const publication = useLocalPublication(round.self.id);
+  const publication = useLocalPublication(`${round.id}:${round.self.id}`);
   // Before a client media session reports, the seat's server grant is all
   // that is known: the label keeps carrying that phase-derived permission,
   // not capture health.
   const micLabel =
     publication === null
       ? round.micLive
-        ? ('Mic live' as const)
+        ? ('Mic permitted' as const)
         : ('Mic closed' as const)
       : micState[publication][0];
-  const micTinted =
-    publication === null ? round.micLive : micState[publication][1];
+  const micTinted = publication === null ? false : micState[publication][1];
   return (
     <nav
       aria-label="Round controls"

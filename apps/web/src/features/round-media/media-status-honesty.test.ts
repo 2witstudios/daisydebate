@@ -153,3 +153,18 @@ test('blocked playback names itself and never masquerades as a device failure', 
     ],
   });
 });
+
+test('serialized browser source errors retain their permission and absence classifications', () => {
+  assert({
+    given: 'plain named errors, null, and an unrelated primitive',
+    should:
+      'recognize the browser name without trusting an arbitrary constructor',
+    actual: [
+      classifySourceFailure({ name: 'NotAllowedError' }),
+      classifySourceFailure({ name: 'NotFoundError' }),
+      classifySourceFailure(null),
+      classifySourceFailure('NotAllowedError'),
+    ],
+    expected: ['permission', 'absence', 'failure', 'failure'],
+  });
+});

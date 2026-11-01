@@ -1,3 +1,4 @@
+import { sourceFailureOf, type SourceFailureKind } from './source-failure';
 import { forgetCheckedDevices } from '../video/device-selection';
 import type { Source } from './browser-transport';
 import type { MediaConnectionState } from './media-controller';
@@ -18,23 +19,9 @@ const messages: Record<MediaConnectionState, string> = {
 
 /** The honest kind of one source's current failure (ISSUE-881). */
 export type SourceIllHealth = readonly [Source, SourceFailureKind];
-export type SourceFailureKind = 'permission' | 'absence' | 'failure';
-
-/** Classifies one transport-reported source error; permission names itself. */
-export function classifySourceFailure(error: unknown): SourceFailureKind {
-  const name =
-    error instanceof Error ? error.name : (error?.constructor?.name ?? 'none');
-  switch (name) {
-    case 'NotAllowedError':
-    case 'SecurityError':
-      return 'permission';
-    case 'NotFoundError':
-    case 'OverconstrainedError':
-      return 'absence';
-    default:
-      return 'failure';
-  }
-}
+/** Only display classification; the transport already validates this at its SDK boundary. */
+export const classifySourceFailure = (error: unknown): SourceFailureKind =>
+  sourceFailureOf(error).kind;
 
 /** What this device actually knows about its own sound playback (ISSUE-881). */
 export type PlaybackEvidence = {

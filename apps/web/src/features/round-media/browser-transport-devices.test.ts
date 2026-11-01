@@ -14,7 +14,7 @@ setupRitewayBun();
 const failureOf = (work: Promise<unknown>) =>
   work.then(
     () => '',
-    (error: unknown) => (error as Error).name,
+    (error: unknown) => error.name,
   );
 
 test('Round capture pins the same camera and warm microphone that passed the Room check', async () => {
@@ -61,8 +61,7 @@ test('a missing checked camera at Round entry is reported explicitly and never f
       ...events,
       devices: { camera: 'gone-device' },
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) =>
-        void reported.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
     stub.sdk,
   );
@@ -100,8 +99,7 @@ test('a missing checked microphone keeps the camera turn live and is reported ex
       ...events,
       devices: { microphone: 'gone-device' },
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) =>
-        void reported.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
     stub.sdk,
   );
@@ -148,8 +146,7 @@ test('only a checked device the Room check passed is named missing; other failur
     {
       ...events,
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) =>
-        void reported.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
     absent.sdk,
   ).transport;
@@ -163,8 +160,7 @@ test('only a checked device the Room check passed is named missing; other failur
       ...events,
       devices: { camera: 'checked-camera' },
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) =>
-        void reported.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
     refused.sdk,
   ).transport;
@@ -206,8 +202,7 @@ test('a camera failure no longer stops the microphone: the pass isolates per sou
     {
       ...events,
       devices: { camera: 'empty-slots' },
-      sourceFailed: (source, error) =>
-        void typed.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void typed.push([source, error.name]),
     },
     broken.sdk,
   );
@@ -289,8 +284,7 @@ test('the real controller keeps the working microphone and its subscriptions liv
     {
       ...events,
       devices: { camera: 'empty-slots' },
-      sourceFailed: (source, error) =>
-        void typed.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void typed.push([source, error.name]),
       sourceHealthy: (source) => void healthy.push(source),
     },
     broken.sdk,
@@ -348,8 +342,7 @@ test('a checked camera gone keeps the microphone live at Round entry through the
       ...events,
       devices: { camera: 'gone-device' },
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) =>
-        void typed.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void typed.push([source, error.name]),
     },
     gone.sdk,
   );
@@ -410,8 +403,7 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      sourceFailed: (source, error) =>
-        void typed.push([source, (error as Error).name]),
+      sourceFailed: (source, error) => void typed.push([source, error.name]),
       sourceHealthy: (source) => void recovered.push(source),
     },
     failingSdk,
@@ -464,7 +456,6 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
     missingError: 'NotAllowedError',
   });
   let stoppedAllBlocked = 0;
-  let connection = 'connecting';
   const allBlocked = createBrowserMediaTransport(
     {
       ...events,
@@ -492,9 +483,7 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
       },
       disconnect: allBlocked.disconnect,
     }),
-    changed: (state) => {
-      connection = state;
-    },
+    changed: () => undefined,
   });
   await controllerAllBlocked.join();
   const partialController = createMediaController({
@@ -531,9 +520,7 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
           return sdk as unknown as typeof microphoneWorks.sdk;
         })(),
       ).transport,
-    changed: (state) => {
-      if (state === 'live') connection = state;
-    },
+    changed: () => undefined,
   });
   await partialController.join();
   assert({

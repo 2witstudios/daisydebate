@@ -39,6 +39,7 @@ Object.assign(window, {
                 source: 'camera',
                 local: false,
                 speaking,
+                muted: false,
                 track: tracks[index],
               } as unknown as MediaTrack,
             ]}

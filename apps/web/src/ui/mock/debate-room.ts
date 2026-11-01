@@ -232,6 +232,7 @@ export function sampleRound(
 ): RoundSnapshot {
   const at = phases[phase];
   return {
+    id: 'sample-round',
     resolution: 'This house would ban single-use plastics',
     competition,
     phase,
