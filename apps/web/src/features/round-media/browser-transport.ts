@@ -75,6 +75,9 @@ export function createBrowserMediaTransport(
     readonly reconnect: () => void;
     /** SDK playback permission is separate from capture and subscription evidence. */
     readonly playbackChanged?: (allowed: boolean) => void;
+    /** A successful explicit choice, not an automatic floor/permission mute. */
+    readonly microphoneChanged?: (muted: boolean) => void;
+    readonly microphoneFailed?: () => void;
     readonly microphoneMuted?: boolean;
     readonly devices?: {
       readonly camera?: string;
@@ -353,8 +356,18 @@ export function createBrowserMediaTransport(
   };
   return {
     transport,
-    startAudio: () => room.startAudio(),
+    startAudio: async () => {
+      if (stopped) return;
+      try {
+        await room.startAudio();
+        if (!stopped) events.playbackChanged?.(room.canPlaybackAudio);
+      } catch (error) {
+        if (!stopped) events.playbackChanged?.(false);
+        throw error;
+      }
+    },
     setMicrophoneMuted: async (muted: boolean) => {
+      if (stopped) return;
       const previousMuted = microphoneMuted;
       microphoneMuted = muted;
       const microphone = tracks.get('microphone') ?? warm;
@@ -362,9 +375,13 @@ export function createBrowserMediaTransport(
         if (microphone) await (muted ? microphone.mute() : microphone.unmute());
       } catch (error) {
         microphoneMuted = previousMuted;
-        stopTracks();
+        if (!stopped) {
+          events.microphoneFailed?.();
+          stopTracks();
+        }
         throw error;
       }
+      if (!stopped) events.microphoneChanged?.(muted);
     },
   };
 }

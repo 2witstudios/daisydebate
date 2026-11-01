@@ -376,3 +376,76 @@ test('a capture failure settling after stop belongs to the retired source only',
     expected: ['resolved', []],
   });
 });
+
+test('explicit playback completion reports only through its current transport owner', async () => {
+  const active = stubSdk();
+  Object.defineProperty(active.sdk.room(), 'canPlaybackAudio', {
+    get: () => true,
+  });
+  const current: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    { ...events, playbackChanged: (value) => current.push(value) },
+    active.sdk,
+  );
+  await browser.startAudio();
+  browser.transport.stopTracks();
+  const retired = stubSdk();
+  const gate = Promise.withResolvers<void>();
+  Object.defineProperty(retired.sdk.room(), 'canPlaybackAudio', {
+    get: () => true,
+  });
+  Object.defineProperty(retired.sdk.room(), 'startAudio', {
+    value: () => gate.promise,
+  });
+  const stale: boolean[] = [];
+  const old = createBrowserMediaTransport(
+    { ...events, playbackChanged: (value) => stale.push(value) },
+    retired.sdk,
+  );
+  const pending = old.startAudio();
+  old.transport.stopTracks();
+  gate.resolve();
+  await pending;
+  assert({
+    given:
+      'successful Enable sound and an older Enable sound settling after retirement',
+    should:
+      'publish the active playback result only, never overwrite a replacement from a retired promise',
+    actual: [current, stale],
+    expected: [[true], []],
+  });
+});
+
+test('explicit microphone choices commit only after success in the current source lifetime', async () => {
+  const stub = stubSdk({ settles: true });
+  const committed: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      microphoneMuted: true,
+      microphoneChanged: (value) => committed.push(value),
+    },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish(['camera', 'microphone']));
+  await browser.setMicrophoneMuted(false);
+  const microphone = stub.captured.find(
+    (track) => track.source === 'microphone',
+  )!;
+  const gate = Promise.withResolvers<void>();
+  microphone.mute = async () => {
+    await gate.promise;
+    return microphone;
+  };
+  const pending = browser.setMicrophoneMuted(true);
+  browser.transport.stopTracks();
+  gate.resolve();
+  await pending;
+  assert({
+    given:
+      'a successful explicit unmute then a mute whose SDK promise settles after stepdown',
+    should: 'commit the first choice but never the retired choice',
+    actual: committed,
+    expected: [false],
+  });
+});

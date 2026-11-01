@@ -166,6 +166,14 @@ function RoundMediaSession({
           },
           tracks: setTracks,
           playbackChanged: (allowed) => setSoundBlocked(!allowed),
+          microphoneChanged: (value) => {
+            setMuted(value);
+            writeMutePreference(actorId ?? null, view.id, value);
+          },
+          microphoneFailed: () => {
+            setChangingMicrophone(false);
+            setConnection('device-blocked');
+          },
           invalidated: () => {
             refresh.current();
             void mounted.reconcile();
@@ -177,6 +185,8 @@ function RoundMediaSession({
         });
         sound.current = browser.startAudio;
         microphone.current = browser.setMicrophoneMuted;
+        setChangingMicrophone(false);
+        setSoundBlocked(false);
         return browser.transport;
       },
     });
@@ -293,10 +303,8 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
-              void sound
-                .current?.()
-                .then(() => setSoundBlocked(false))
-                .catch(() => setSoundBlocked(true));
+              // The current transport reports the typed outcome; retired promises cannot change this UI.
+              void sound.current?.().catch(() => undefined);
             }}
           >
             Enable sound
@@ -313,19 +321,16 @@ function RoundMediaSession({
             }
             aria-pressed={!microphoneMuted}
             onClick={async () => {
-              const previous = muted.current;
-              const next = !previous;
-              muted.current = next;
+              const apply = microphone.current;
+              if (!apply) return;
+              const next = !muted.current;
               setChangingMicrophone(true);
               try {
-                await microphone.current?.(next);
-                setMuted(next);
-                writeMutePreference(actorId ?? null, view.id, next);
+                await apply(next);
               } catch {
-                setMuted(previous);
-                setConnection('device-blocked');
+                // Failure is reported by the source owner, only while it is current.
               } finally {
-                setChangingMicrophone(false);
+                if (microphone.current === apply) setChangingMicrophone(false);
               }
             }}
           >
