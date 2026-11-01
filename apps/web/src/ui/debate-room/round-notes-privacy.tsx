@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
-import z from 'zod';
-import { NOTES_PRINCIPAL_KEY, publishNotesPrincipal } from './notes-principal';
-
-const sessionSchema = z
-  .object({ user: z.object({ id: z.string().min(1) }) })
-  .nullable();
+import { useEffect, useState } from 'react';
+import {
+  NOTES_PRINCIPAL_KEY,
+  hasPrincipalDrafts,
+  publishNotesPrincipal,
+  readSessionPrincipal,
+} from './notes-principal';
 
 /** Root lifetime: private recovery outlives rooms, but never the authenticated account. */
 export function RoundNotesPrivacy({
@@ -15,50 +14,77 @@ export function RoundNotesPrivacy({
 }: {
   readonly principalId: string | null | undefined;
 }) {
-  const pathname = usePathname();
+  const [cleanupFailed, setCleanupFailed] = useState(false);
   useEffect(() => {
-    // An unavailable identity read is not evidence of logout.
+    // An unavailable server identity is not evidence of logout. The server's
+    // identity already covers this mount; never refresh a fresh session here.
     if (principalId === undefined) return;
-    publishNotesPrincipal(principalId);
+    let observed = principalId;
     let live = true;
+    let pending: AbortController | null = null;
+    const syncPrincipal = (next: string | null) => {
+      if (next !== observed) {
+        pending?.abort();
+        pending = null;
+        observed = next;
+      }
+      setCleanupFailed(!publishNotesPrincipal(next));
+    };
+    syncPrincipal(principalId);
     const check = async () => {
+      if (!live || pending !== null || observed === null) return;
+      try {
+        if (hasPrincipalDrafts(window.localStorage, observed) === false) return;
+      } catch {
+        // A denied storage getter cannot establish that no private copy exists.
+      }
+      const controller = new AbortController();
+      pending = controller;
       try {
         const response = await fetch('/api/auth/get-session', {
           cache: 'no-store',
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(15_000),
+          ]),
         });
         if (!response.ok) return;
-        const result = sessionSchema.safeParse(await response.json());
-        if (live && result.success)
-          publishNotesPrincipal(result.data?.user.id ?? null);
+        const next = readSessionPrincipal(await response.json());
+        if (
+          live &&
+          pending === controller &&
+          !controller.signal.aborted &&
+          next !== undefined
+        )
+          syncPrincipal(next);
       } catch {
-        // Offline transport does not establish identity loss.
+        // Offline or cancelled transport never establishes identity loss.
+      } finally {
+        if (pending === controller) pending = null;
       }
+    };
+    const visible = () => {
+      if (document.visibilityState === 'visible') void check();
     };
     const storage = (event: StorageEvent) => {
-      if (event.key === NOTES_PRINCIPAL_KEY) {
-        // Cross-tab signals withdraw private copies immediately; recheck the
-        // authoritative cookie session before any future owner is created.
-        publishNotesPrincipal(event.newValue || null);
-        void check();
-      }
-    };
-    const submit = (event: SubmitEvent) => {
-      if (
-        event.target instanceof HTMLFormElement &&
-        new URL(event.target.action).pathname === '/auth/sign-out'
-      )
-        publishNotesPrincipal(null);
+      if (event.key === NOTES_PRINCIPAL_KEY)
+        syncPrincipal(event.newValue || null);
     };
     window.addEventListener('focus', check);
     window.addEventListener('storage', storage);
-    document.addEventListener('submit', submit, true);
-    void check();
+    document.addEventListener('visibilitychange', visible);
     return () => {
       live = false;
+      pending?.abort();
       window.removeEventListener('focus', check);
       window.removeEventListener('storage', storage);
-      document.removeEventListener('submit', submit, true);
+      document.removeEventListener('visibilitychange', visible);
     };
-  }, [principalId, pathname]);
-  return null;
+  }, [principalId]);
+  return cleanupFailed ? (
+    <p role="alert" className="px-4 py-2 text-sm text-live">
+      Private note cleanup could not finish. Clear this site&apos;s storage
+      before sharing this browser.
+    </p>
+  ) : null;
 }

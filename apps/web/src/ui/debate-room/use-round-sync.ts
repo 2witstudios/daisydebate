@@ -104,6 +104,7 @@ export function roundSync(
     principalId,
     api,
     ...resources,
+    onChanged: () => report({ type: 'edit' }),
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {
@@ -117,17 +118,7 @@ export function roundSync(
     onDraftStorageFailed: () => report({ type: 'unsaved' }),
     onSaved: () => report({ type: 'saved' }),
   });
-  return {
-    ...stored,
-    restoreRecovered: (id) => {
-      report({ type: 'edit' });
-      stored.restoreRecovered(id);
-    },
-    change: (id, html) => {
-      report({ type: 'edit' });
-      stored.change(id, html);
-    },
-  };
+  return stored;
 }
 
 /** A participant's files on the persisted Round's document API. */

@@ -339,3 +339,116 @@ test('multibyte multi-document exit keeps overflow recoverable and each choice t
     '界',
   );
 });
+
+test('the Round receipt visibly restores a private draft through the same sync owner', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await edit(page, 'Receipt recovery text');
+  await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
+  await roundFiles.finishRound();
+  await page.goto(`${origin}/rounds/${roundId}`);
+  const files = page.getByRole('region', { name: 'Your Round files' });
+  await expect(
+    files.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  await expect(
+    files.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).not.toContainText('Receipt recovery text');
+  await page.unroute(`**${documentsPath}save`);
+  await files
+    .getByRole('button', { name: 'Restore Flow', exact: true })
+    .click();
+  await expect(
+    files.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('Receipt recovery text');
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('Receipt recovery text');
+  await expect.poll(() => draftFor(page, documentId)).toBeNull();
+});
+
+test('actual deferred A acknowledgement rebases B and leaves it unsaved until its own acknowledgement', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  const a = Promise.withResolvers<void>(),
+    b = Promise.withResolvers<void>();
+  let requests = 0;
+  const original = await serverDocument(page, roundId, documentId);
+  await page.route(`**${documentsPath}save`, async (route) => {
+    const index = ++requests;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    await (index === 1 ? a.promise : b.promise);
+    await route.fulfill({ response });
+  });
+  try {
+    await edit(page, 'Deferred A');
+    await expect.poll(() => requests).toBe(1);
+    await edit(page, 'Newer B while A awaits acknowledgement');
+    a.resolve();
+    await expect.poll(() => requests).toBe(2);
+    const durable = await draftFor(page, documentId);
+    expect(durable.html).toContain('Newer B while A awaits acknowledgement');
+    expect(durable.baseRevision).toBe(original.revision + 1);
+    await expect(page.getByText('Saved', { exact: true })).toHaveCount(0);
+    b.resolve();
+    await expect.poll(() => draftFor(page, documentId)).toBeNull();
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    expect((await serverDocument(page, roundId, documentId)).html).toContain(
+      'Newer B while A awaits acknowledgement',
+    );
+  } finally {
+    a.resolve();
+    b.resolve();
+    await page.unroute(`**${documentsPath}save`);
+  }
+});
+
+test('two real editor tabs preserve a stale conflict until explicit recovery', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  const other = await openPage(
+    page.context(),
+    'concurrent private-note editor',
+  );
+  await other.goto(page.url());
+  await expect(
+    other.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`${documentsPath}save`) && response.ok(),
+  );
+  await edit(page, 'Accepted first-tab text');
+  await accepted;
+  await edit(other, 'Conflicting second-tab text');
+  await expect(
+    other
+      .getByRole('alert')
+      .filter({ hasText: 'This file changed in another tab.' }),
+  ).toBeVisible();
+  expect((await serverDocument(page, roundId, documentId)).html).toContain(
+    'Accepted first-tab text',
+  );
+  expect((await draftFor(other, documentId)).html).toContain(
+    'Conflicting second-tab text',
+  );
+  await other.reload();
+  await expect(
+    other.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  await expect(
+    other.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('Accepted first-tab text');
+  await other
+    .getByRole('button', { name: 'Restore Flow', exact: true })
+    .click();
+  await expect
+    .poll(async () => (await serverDocument(other, roundId, documentId)).html)
+    .toContain('Conflicting second-tab text');
+  await expect.poll(() => draftFor(other, documentId)).toBeNull();
+});
