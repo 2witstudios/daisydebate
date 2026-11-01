@@ -151,7 +151,7 @@ export function createDocumentSync({
 
   const evictDrafts = (adding: number) => {
     if (!storage) return;
-    const now = Date.now();
+    const now = performance.now();
     const entries: { key: string; savedAt: number; size: number }[] = [];
     let total = 0;
     for (let i = 0; i < storage.length; i++) {
@@ -192,7 +192,7 @@ export function createDocumentSync({
     if (!storage) return;
     const baseRevision = revisions.get(id);
     if (baseRevision === undefined) return;
-    const now = Date.now();
+    const now = performance.now();
     const serialized = JSON.stringify({
       html,
       baseRevision,
@@ -311,7 +311,7 @@ export function createDocumentSync({
         }
         if (!draft) continue;
         // Expired drafts are dropped.
-        if (draft.expiresAt < Date.now()) {
+        if (draft.expiresAt < performance.now()) {
           clearDraft(doc.id);
           continue;
         }
