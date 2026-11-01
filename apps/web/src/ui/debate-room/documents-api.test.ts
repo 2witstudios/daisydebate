@@ -28,8 +28,12 @@ const stallingServer = () => {
   const send = async (path: string, init: RequestInit) => {
     if (path.endsWith('/list'))
       return json({ documents: [{ id: 'a', revision: 1 }] });
-    sent.push((JSON.parse(String(init.body)) as { html: string }).html);
-    if (sent.length > 1) return json({ revision: sent.length + 1 });
+    const input = JSON.parse(String(init.body)) as {
+      html: string;
+      expectedRevision: number;
+    };
+    sent.push(input.html);
+    if (sent.length > 1) return json({ revision: input.expectedRevision + 1 });
     arrived();
     return new Promise<Response>((_, reject) => {
       const timedOut = () =>
@@ -51,7 +55,11 @@ describe('createDocumentsApi', () => {
       storage: null,
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
-      api: createDocumentsApi({ send, signal: () => timeout.signal }),
+      api: createDocumentsApi({
+        send,
+        signal: () =>
+          sent.length === 0 ? timeout.signal : new AbortController().signal,
+      }),
       roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
