@@ -161,3 +161,31 @@ test('browser resource composition shares exact serialized exit capacity across 
     expected: 0,
   });
 });
+
+test('refused edits and absent recovery choices leave the real owner state unchanged', async () => {
+  const events: SaveEvent[] = [];
+  const api: DocumentsApi = {
+    list: async () => [stored('a')],
+    create: async () => stored('b'),
+    save: async () => ({ status: 'saved', revision: 2 }),
+  };
+  const sync = roundSync('r', 'p', api, (event) => events.push(event), {
+    timers: manualTimers().timers,
+    storage: memoryStorage(),
+    budget: createKeepaliveBudget(),
+    wallClock: () => 100,
+  });
+  await sync.load();
+  sync.restoreRecovered('missing');
+  sync.change('not-loaded', '<p>refused</p>');
+  sync.change('a', '<p>accepted</p>');
+  await sync.flush();
+  assert({
+    given:
+      'an absent recovery choice and an unknown document followed by a valid edit',
+    should:
+      'ignore refused operations and acknowledge only the actual pending edit',
+    actual: events.map((event) => event.type),
+    expected: ['edit', 'saved'],
+  });
+});

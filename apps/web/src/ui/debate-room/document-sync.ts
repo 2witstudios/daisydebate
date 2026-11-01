@@ -2,7 +2,6 @@ import {
   breakLines,
   sameDocumentHtml,
 } from '../../features/documents/document-lines';
-import z from 'zod';
 import type { KeepaliveBudget } from './keepalive-budget';
 import type {
   FolderId,
@@ -51,17 +50,32 @@ export type RecoveredDraft = {
   readonly expiresAt: number;
 };
 
-const recoveredDraftSchema = z.object({
-  html: z.string(),
-  baseRevision: z.number().int().min(0),
-  generation: z.number().int().min(0),
-  savedAt: z.number().int().min(0),
-  expiresAt: z.number().int().min(0),
-});
+const nonnegativeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+
+/** Scalar browser record validation has no schema compilation or ambient effects. */
 const parseDraft = (value: unknown): RecoveredDraft | null => {
-  const parsed = recoveredDraftSchema.safeParse(value);
-  if (!parsed.success) return null;
-  return parsed.data;
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    return null;
+  const fields = [
+    'html',
+    'baseRevision',
+    'generation',
+    'savedAt',
+    'expiresAt',
+  ] as const;
+  if (!fields.every((field) => Object.hasOwn(value, field))) return null;
+  const { html, baseRevision, generation, savedAt, expiresAt } =
+    value as Record<string, unknown>;
+  if (
+    typeof html !== 'string' ||
+    !nonnegativeInteger(baseRevision) ||
+    !nonnegativeInteger(generation) ||
+    !nonnegativeInteger(savedAt) ||
+    !nonnegativeInteger(expiresAt)
+  )
+    return null;
+  return { html, baseRevision, generation, savedAt, expiresAt };
 };
 
 const DRAFT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -216,6 +230,7 @@ export function createDocumentSync({
   api,
   roundId,
   onConflict,
+  onChanged = () => {},
   onSaveFailed = () => {},
   onSaveRefused = () => {},
   onSaved = () => {},
@@ -232,6 +247,7 @@ export function createDocumentSync({
   readonly roundId: string;
   readonly principalId: string;
   readonly onConflict: (id: string) => void;
+  readonly onChanged?: (id: string) => void;
   readonly onSaveFailed?: (id: string, attempts: number) => void;
   readonly onSaveRefused?: (id: string, status: number) => void;
   readonly onSaved?: (id: string) => void;
@@ -555,9 +571,10 @@ export function createDocumentSync({
   };
 
   function change(id: string, html: string) {
-    if (disposed) return;
+    if (disposed || !revisions.has(id)) return;
     generations.set(id, (generations.get(id) ?? 0) + 1);
     waiting.set(id, html);
+    onChanged(id);
     if (!storage) onDraftStorageFailed(id);
     else persistDraft(id, html);
     schedule(id, delayMs);
