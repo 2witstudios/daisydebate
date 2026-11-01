@@ -5,6 +5,7 @@ import {
   decideSample,
   MAX_SAMPLE_RTT_MS,
   type RoundTimeSample,
+  type SampleDecision,
 } from './round-time';
 
 setupRitewayBun();
@@ -250,12 +251,19 @@ describe('createMeasuredRead', () => {
     const clock = createRoundTime({ monotonicNowMs: () => mono });
     clock.sample(sample({ serverNowMs: 50_000, generation: 5 }));
     mono = 500;
+    let decision: SampleDecision | null = null;
     const read = createMeasuredRead({
       read: async () => ({ kind: 'found', serverNowMs: 10_000 }) as const,
-      roundTime: clock,
+      roundTime: {
+        ...clock,
+        sample: (candidate) => {
+          decision = clock.sample(candidate);
+          return decision;
+        },
+      },
       monotonicNowMs: () => mono,
       nextGeneration: (() => {
-        let last = 0;
+        let last = 5;
         return () => ++last;
       })(),
     });
@@ -264,8 +272,12 @@ describe('createMeasuredRead', () => {
     assert({
       given: 'a read reporting a server instant far behind the projection',
       should: 'keep projecting from the accepted anchor',
-      actual: [before, clock.nowMs()],
-      expected: [50_500, 50_500],
+      actual: [before, clock.nowMs(), decision],
+      expected: [
+        50_500,
+        50_500,
+        { accepted: false, refusal: 'server-rollback' },
+      ],
     });
   });
 });
