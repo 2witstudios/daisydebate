@@ -1,5 +1,13 @@
+import { newNoteCopy, type NoteCopy } from './note-draft';
+import { createKeepaliveBudget } from './keepalive-budget';
 import type { DraftStorage } from './note-draft-storage';
-import type { StoredDocument, Timers } from './document-sync';
+import { createDocumentSync } from './document-sync';
+import type {
+  DocumentsApi,
+  StoredDocument,
+  Timers,
+  DocumentSyncResources,
+} from './document-sync';
 
 export const stored = (id: string, revision = 1): StoredDocument => ({
   id,
@@ -55,7 +63,83 @@ export const manualTimers = () => {
 };
 
 /** Each injected owner gets a deterministic, independent generation sequence. */
-export const manualGenerations = (owner: string) => {
+const manualGenerations = (owner: string) => {
   let index = 0;
   return () => `${owner}:${++index}`;
+};
+
+/** Isolated deterministic test resources; multi-owner budget tests pass their shared ledger explicitly. */
+export const manualNoteResources = (
+  owner: string,
+  overrides: Omit<Partial<DocumentSyncResources>, 'nextGeneration'> = {},
+): DocumentSyncResources => ({
+  nextGeneration: manualGenerations(owner),
+  wallClock: () => 100,
+  timers: manualTimers().timers,
+  storage: null,
+  budget: createKeepaliveBudget(),
+  ...overrides,
+});
+
+/** A valid recovery fixture keeps the supplied identity/base/time and derives only its fixed retention. */
+export const recoveryRecord = ({
+  html,
+  baseRevision,
+  generation,
+  savedAt,
+}: Pick<
+  NoteCopy,
+  'html' | 'baseRevision' | 'generation' | 'savedAt'
+>): string =>
+  JSON.stringify({
+    recovery: newNoteCopy({ html, baseRevision, generation, now: savedAt }),
+  });
+
+export const noteHtml = (size: number): string =>
+  `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
+
+/** Every stub keeps its declared server documents and records the real save input. */
+export const documentApi = (
+  save: DocumentsApi['save'],
+  documents: () => readonly StoredDocument[],
+): DocumentsApi => ({
+  list: async () => documents(),
+  create: async () => stored('new'),
+  save,
+});
+
+export const recordingSave =
+  (
+    sent: string[],
+    {
+      wait,
+      revision,
+    }: { readonly wait?: Promise<void>; readonly revision?: number } = {},
+  ): DocumentsApi['save'] =>
+  async ({ html, expectedRevision }) => {
+    sent.push(html);
+    if (wait) await wait;
+    return { status: 'saved', revision: revision ?? expectedRevision + 1 };
+  };
+
+/** The same actual coordinator and transport, with its initial load completed. */
+export const loadNoteSync = async (
+  options: Parameters<typeof createDocumentSync>[0],
+) => {
+  const sync = createDocumentSync(options);
+  await sync.load();
+  return sync;
+};
+
+/** Dispatch overlapping exit events against the same loaded owner and exact edit sizes. */
+export const overlappingNoteExit = async (
+  sync: ReturnType<typeof createDocumentSync>,
+  release: () => void,
+) => {
+  sync.change('a', noteHtml(26_000));
+  sync.change('b', noteHtml(60_000));
+  const first = sync.flushKeepalive();
+  const second = sync.flushKeepalive();
+  release();
+  await Promise.all([first, second]);
 };

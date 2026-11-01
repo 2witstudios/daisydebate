@@ -1,7 +1,12 @@
 import type { Page } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { origin } from './support/accounts';
-import { documentsPath, expect, test } from './support/round-files';
+import {
+  createRoundFile,
+  documentsPath,
+  expect,
+  test,
+} from './support/round-files';
 
 const rawDraftFor = (page: Page, id: string) =>
   page.evaluate((documentId) => {
@@ -18,6 +23,27 @@ const draftFor = async (page: Page, id: string) => {
 };
 const edit = (page: Page, text: string) =>
   page.getByRole('textbox', { name: 'Flow', exact: true }).fill(text);
+/** Wait for the actual offer before sampling its independent durable identity. */
+const offeredAfterReload = async (
+  page: Page,
+  documentId: string,
+  text: string,
+) => {
+  await edit(page, text);
+  await expect
+    .poll(async () =>
+      (await draftFor(page, documentId))?.active?.html.includes(text),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  const recovery = (await draftFor(page, documentId)).recovery;
+  expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
+  expect(recovery.html).toContain(text);
+  return recovery;
+};
 const serverDocument = async (
   page: Page,
   roundId: string,
@@ -350,12 +376,7 @@ test('multibyte multi-document exit keeps overflow recoverable and each choice t
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
-  const created = await page.request.post(`${documentsPath}create`, {
-    headers: { origin },
-    data: { roundId, folder: 'round', templateId: 'flow' },
-  });
-  expect(created.status()).toBe(201);
-  const { document: second } = await created.json();
+  const second = await createRoundFile(page.request, roundId);
   await page.reload();
   await expect(
     page.getByRole('textbox', { name: 'Flow', exact: true }),
@@ -536,17 +557,11 @@ for (const reloadBeforeRestore of [false, true])
   }) => {
     const { page, documentId, roundId } = roundFiles;
     await page.route(`**${documentsPath}save`, (route) => route.abort());
-    await edit(page, 'Independent REC');
-    await expect
-      .poll(async () => (await draftFor(page, documentId))?.active?.html)
-      .toContain('Independent REC');
-    await page.reload();
-    await expect(
-      page.getByRole('button', { name: 'Restore Flow', exact: true }),
-    ).toBeVisible();
-    const recovery = (await draftFor(page, documentId)).recovery;
-    expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
-    expect(recovery.html).toContain('Independent REC');
+    const recovery = await offeredAfterReload(
+      page,
+      documentId,
+      'Independent REC',
+    );
     await page.unroute(`**${documentsPath}save`);
     await edit(page, 'Acknowledged NEW');
     await expect
@@ -684,17 +699,7 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
     const next =
       refusal === 'combined overflow' ? 'N'.repeat(140_000) : 'Pending NEW';
     await page.route(`**${documentsPath}save`, (route) => route.abort());
-    await edit(page, rec);
-    await expect
-      .poll(async () =>
-        (await draftFor(page, documentId))?.active?.html.includes(rec),
-      )
-      .toBe(true);
-    await page.reload();
-    await expect(
-      page.getByRole('button', { name: 'Restore Flow', exact: true }),
-    ).toBeVisible();
-    const recovery = (await draftFor(page, documentId)).recovery;
+    const recovery = await offeredAfterReload(page, documentId, rec);
     await page.unroute(`**${documentsPath}save`);
     const gate = Promise.withResolvers<void>();
     let arrived = false;

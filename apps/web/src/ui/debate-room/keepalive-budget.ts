@@ -6,13 +6,13 @@
  * hidden inside one sync. Reservations hold only byte counts and a unique
  * object identity; note content is never interned or globally keyed.
  */
-export type KeepaliveSaveBody = {
+type KeepaliveSaveBody = {
   readonly id: string;
   readonly html: string;
   readonly expectedRevision: number;
 };
 
-export type KeepaliveReservation = {
+type KeepaliveReservation = {
   readonly release: () => void;
 };
 
@@ -23,7 +23,7 @@ export type KeepaliveBudget = {
   readonly total: () => number;
 };
 
-export const KEEPALIVE_BODY_BUDGET = 64 * 1024;
+const KEEPALIVE_BODY_BUDGET = 64 * 1024;
 
 const serializedBodyBytes = (body: KeepaliveSaveBody): number =>
   new TextEncoder().encode(JSON.stringify(body)).length;

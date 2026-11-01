@@ -1,12 +1,11 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync } from './document-sync';
-import { createKeepaliveBudget } from './keepalive-budget';
 import {
+  manualNoteResources,
   memoryStorage,
   stored,
-  manualTimers,
-  manualGenerations,
 } from './document-sync.test-support';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createDocumentSync } from './document-sync';
+
 setupRitewayBun();
 test('a legitimate newer foreign-tab active copy is withheld without a false storage failure or blocking own saves', async () => {
   const storage = memoryStorage(),
@@ -34,14 +33,11 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
   };
   const owner = (name: string) =>
     createDocumentSync({
+      ...manualNoteResources(name, { storage }),
+
       api,
-      storage,
       roundId: 'r',
       principalId: 'p',
-      timers: manualTimers().timers,
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
-      nextGeneration: manualGenerations(name),
       onConflict: () => {},
       onDraftStorageFailed: (id) => {
         if (name === 'one') warnings.push(id);

@@ -1,13 +1,14 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync } from './document-sync';
-import { createDocumentsApi } from './documents-api';
-import { createKeepaliveBudget } from './keepalive-budget';
 import {
+  loadNoteSync,
+  manualNoteResources,
   memoryStorage,
   stored,
-  manualTimers,
-  manualGenerations,
 } from './document-sync.test-support';
+
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+
+import { createDocumentsApi } from './documents-api';
+
 setupRitewayBun();
 for (const body of [
   {},
@@ -22,7 +23,9 @@ for (const body of [
     const storage = memoryStorage();
     let saved = 0,
       failed = 0;
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('ack', { storage }),
+
       api: createDocumentsApi({
         send: async (path) =>
           path.endsWith('/list')
@@ -31,11 +34,6 @@ for (const body of [
       }),
       roundId: 'r',
       principalId: 'p',
-      storage,
-      budget: createKeepaliveBudget(),
-      timers: manualTimers().timers,
-      wallClock: () => 100,
-      nextGeneration: manualGenerations('ack'),
       onConflict: () => {},
       onSaved: () => {
         saved++;
@@ -44,7 +42,7 @@ for (const body of [
         failed++;
       },
     });
-    await sync.load();
+
     sync.change('a', '<p>PRIVATE</p>');
     await sync.flush();
     const raw = storage.getItem('daisy:round-notes:draft:p:r:a');
@@ -80,7 +78,9 @@ for (const [index, receipt] of malformed.entries())
     storage.setItem(key, JSON.stringify({ recovery }));
     const requests: number[] = [];
     let saved = 0;
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('malformed', { storage }),
+
       api: createDocumentsApi({
         send: async (path, init) => {
           if (path.endsWith('/list'))
@@ -93,17 +93,12 @@ for (const [index, receipt] of malformed.entries())
       }),
       roundId: 'r',
       principalId: 'p',
-      storage,
-      budget: createKeepaliveBudget(),
-      timers: manualTimers().timers,
-      wallClock: () => 100,
-      nextGeneration: manualGenerations('malformed'),
       onConflict: () => {},
       onSaved: () => {
         saved++;
       },
     });
-    await sync.load();
+
     sync.change('a', '<p>NEW</p>');
     const before = storage.getItem(key);
     await sync.flush();
@@ -120,7 +115,9 @@ for (const [index, receipt] of malformed.entries())
 test('a valid fresh acknowledgement clears only its active generation', async () => {
   const storage = memoryStorage();
   let saved = 0;
-  const sync = createDocumentSync({
+  const sync = await loadNoteSync({
+    ...manualNoteResources('fresh', { storage }),
+
     api: createDocumentsApi({
       send: async (path) =>
         path.endsWith('/list')
@@ -129,17 +126,12 @@ test('a valid fresh acknowledgement clears only its active generation', async ()
     }),
     roundId: 'r',
     principalId: 'p',
-    storage,
-    budget: createKeepaliveBudget(),
-    timers: manualTimers().timers,
-    wallClock: () => 100,
-    nextGeneration: manualGenerations('fresh'),
     onConflict: () => {},
     onSaved: () => {
       saved++;
     },
   });
-  await sync.load();
+
   sync.change('a', '<p>NEW</p>');
   await sync.flush();
   assert({
@@ -157,7 +149,9 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
     uncertain = 0,
     conflicts = 0;
   const sent: number[] = [];
-  const sync = createDocumentSync({
+  const sync = await loadNoteSync({
+    ...manualNoteResources('replay', { storage }),
+
     api: createDocumentsApi({
       send: async (path, init) => {
         if (path.endsWith('/list'))
@@ -174,11 +168,6 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
     }),
     roundId: 'r',
     principalId: 'p',
-    storage,
-    budget: createKeepaliveBudget(),
-    timers: manualTimers().timers,
-    wallClock: () => 100,
-    nextGeneration: manualGenerations('replay'),
     onConflict: () => {
       conflicts++;
     },
@@ -186,7 +175,7 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
       uncertain++;
     },
   });
-  await sync.load();
+
   sync.change('a', '<p>Committed but unknown</p>');
   const before = storage.getItem(key);
   await sync.flush();
@@ -231,7 +220,9 @@ for (const body of [
     storage.setItem(key, JSON.stringify({ recovery }));
     let conflicts = 0,
       failed = 0;
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('conflict', { storage }),
+
       api: createDocumentsApi({
         send: async (path) =>
           path.endsWith('/list')
@@ -240,11 +231,6 @@ for (const body of [
       }),
       roundId: 'r',
       principalId: 'p',
-      storage,
-      budget: createKeepaliveBudget(),
-      timers: manualTimers().timers,
-      wallClock: () => 100,
-      nextGeneration: manualGenerations('conflict'),
       onConflict: () => {
         conflicts++;
       },
@@ -252,7 +238,7 @@ for (const body of [
         failed++;
       },
     });
-    await sync.load();
+
     sync.change('a', '<p>NEW</p>');
     const before = storage.getItem(key);
     await sync.flush();

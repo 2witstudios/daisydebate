@@ -2,7 +2,7 @@ import type { DocumentSync } from './document-sync';
 type NoteOwner = { readonly sync: DocumentSync; readonly principalId: string };
 
 /** Strict Mode reattaches one owner; an account replacement ends private ownership. */
-export const noteOwnerExit = (
+const noteOwnerExit = (
   previous: NoteOwner,
   next: NoteOwner,
 ): 'reattached' | 'purge' | 'flush' => {

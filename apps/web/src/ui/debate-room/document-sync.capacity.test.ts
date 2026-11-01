@@ -1,13 +1,15 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync } from './document-sync';
-import { createKeepaliveBudget } from './keepalive-budget';
-import { newNoteCopy } from './note-draft';
 import {
+  recordingSave,
+  manualNoteResources,
   memoryStorage,
-  manualTimers,
-  manualGenerations,
   stored,
 } from './document-sync.test-support';
+
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createDocumentSync } from './document-sync';
+
+import { newNoteCopy } from './note-draft';
+
 setupRitewayBun();
 const fixture = () => {
   const storage = memoryStorage(),
@@ -29,30 +31,26 @@ const fixture = () => {
     sent: string[] = [];
   let denied = false;
   const sync = createDocumentSync({
+    ...manualNoteResources('capacity', {
+      storage: {
+        ...storage,
+        get length() {
+          return storage.length;
+        },
+        setItem: (key, value) => {
+          if (denied) throw new Error('denied');
+          storage.setItem(key, value);
+        },
+      },
+    }),
+
     api: {
       list: async () => ids.map((id) => stored(id, 3)),
       create: async () => stored('new'),
-      save: async ({ html }) => {
-        sent.push(html);
-        return { status: 'saved', revision: 4 };
-      },
+      save: recordingSave(sent, { revision: 4 }),
     },
     roundId: 'r',
     principalId: 'p',
-    storage: {
-      ...storage,
-      get length() {
-        return storage.length;
-      },
-      setItem: (key, value) => {
-        if (denied) throw new Error('denied');
-        storage.setItem(key, value);
-      },
-    },
-    timers: manualTimers().timers,
-    budget: createKeepaliveBudget(),
-    wallClock: () => 100,
-    nextGeneration: manualGenerations('capacity'),
     onConflict: () => {},
     onDraftStorageFailed: (id) => {
       warnings.push(id);

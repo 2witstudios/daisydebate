@@ -1,13 +1,15 @@
-import { manualGenerations } from './document-sync.test-support';
-import { createKeepaliveBudget } from './keepalive-budget';
+import {
+  loadNoteSync,
+  noteHtml as hugeHtml,
+  manualNoteResources,
+  stored,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
-import { manualTimers, stored } from './document-sync.test-support';
+import { type DocumentsApi } from './document-sync';
 
 setupRitewayBun();
 
-const hugeHtml = (size: number) =>
-  `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
 const apiWith = (
   save: DocumentsApi['save'],
   documents: readonly string[] = ['a', 'b'] as const,
@@ -24,18 +26,15 @@ describe('document sync keepalive budget', () => {
       sentHtml.push(input.html);
       return { status: 'saved', revision: input.expectedRevision + 1 };
     });
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.budget.test:1'),
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.budget.test:1'),
+
       api,
       roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: null,
     });
-    await sync.load();
+
     const expectedHtml = hugeHtml(70 * 1024);
     sync.change('a', expectedHtml);
     await sync.flush();

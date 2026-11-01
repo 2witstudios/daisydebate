@@ -1,12 +1,17 @@
-import { manualGenerations } from './document-sync.test-support';
-import { createKeepaliveBudget } from './keepalive-budget';
+import {
+  overlappingNoteExit,
+  loadNoteSync,
+  documentApi,
+  noteHtml as htmlOf,
+  manualNoteResources,
+  stored,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
-import { manualTimers, stored } from './document-sync.test-support';
+import { type DocumentsApi } from './document-sync';
 
 setupRitewayBun();
 
-const htmlOf = (size: number) => `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
 const bytes = (id: string, html: string, expectedRevision: number) =>
   new TextEncoder().encode(JSON.stringify({ id, html, expectedRevision }))
     .length + 64;
@@ -19,35 +24,25 @@ describe('keepalive exit budget', () => {
     });
     let setttled = false;
     const sent: { id: string; html: string; expectedRevision: number }[] = [];
-    const api: DocumentsApi = {
-      list: async () => [stored('a', 1), stored('b', 1)],
-      create: async () => stored('new'),
-      save: async (input) => {
+    const api: DocumentsApi = documentApi(
+      async (input) => {
         sent.push(input);
         await first;
         setttled = true;
         return { status: 'saved', revision: input.expectedRevision + 1 };
       },
-    };
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.overlap.test:1'),
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
+      () => [stored('a', 1), stored('b', 1)],
+    );
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.overlap.test:1'),
+
       api,
       roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: null,
     });
-    await sync.load();
-    sync.change('a', htmlOf(26_000));
-    sync.change('b', htmlOf(60_000));
-    // The first flush reserves A's bytes while its send is outstanding.
-    const flushing = sync.flushKeepalive();
-    const second = sync.flushKeepalive();
-    if (settle.resolve) settle.resolve();
-    await Promise.all([flushing, second]);
+
+    await overlappingNoteExit(sync, settle.resolve);
     const reservedTotal = sent.reduce(
       (total, one) => total + bytes(one.id, one.html, one.expectedRevision),
       0,

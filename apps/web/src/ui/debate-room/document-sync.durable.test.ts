@@ -1,17 +1,22 @@
-import { manualGenerations } from './document-sync.test-support';
-import { noteDraftKeys } from './note-draft-storage';
-import { createKeepaliveBudget } from './keepalive-budget';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
-  manualTimers,
+  overlappingNoteExit,
+  loadNoteSync,
+  recordingSave,
+  documentApi,
+  noteHtml as htmlOf,
+  recoveryRecord,
+  manualNoteResources,
   memoryStorage,
   stored,
 } from './document-sync.test-support';
 
+import { noteDraftKeys } from './note-draft-storage';
+
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { type DocumentsApi } from './document-sync';
+
 setupRitewayBun();
 
-const htmlOf = (size: number) => `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
 const keyOf = (principal: string, roundId: string, id: string) =>
   `daisy:round-notes:draft:${principal}:${roundId}:${id}`;
 
@@ -40,18 +45,18 @@ describe('a durable draft', () => {
         },
       }),
     );
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.durable.test:1'),
-      budget: createKeepaliveBudget(),
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.durable.test:1', {
+        storage: store,
+        wallClock: () => now,
+      }),
+
       api: alwaysSaving(),
       roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: store,
-      wallClock: () => now,
     });
-    await sync.load();
+
     const draft = sync
       .recoveryOffers()
       .find((offer) => offer.documentId === 'a')?.copy;
@@ -70,20 +75,20 @@ describe('a durable draft', () => {
     const store = memoryStorage();
     store.setItem(
       keyOf('p1', 'd', 'a'),
-      JSON.stringify({
-        recovery: {
-          html: '<p>recover</p>',
-          baseRevision: 1,
-          generation: 'recovered-0',
-          savedAt: 1,
-          expiresAt: 604800001,
-        },
+      recoveryRecord({
+        html: '<p>recover</p>',
+        baseRevision: 1,
+        generation: 'recovered-0',
+        savedAt: 1,
       }),
     );
     let saves = 0;
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.durable.test:2'),
-      budget: createKeepaliveBudget(),
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.durable.test:2', {
+        storage: store,
+        wallClock: () => 1,
+      }),
+
       api: {
         ...alwaysSaving(),
         save: async () => {
@@ -94,11 +99,8 @@ describe('a durable draft', () => {
       roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: store,
-      wallClock: () => 1,
     });
-    await sync.load();
+
     assert({
       given: 'a valid exact-base recovery before Discard',
       should: 'actually offer the stored recovery',
@@ -130,25 +132,15 @@ describe('a durable draft', () => {
 describe('the ordinary flush', () => {
   test('sends a oversized document, not the exit cap', async () => {
     const sent: string[] = [];
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.durable.test:3'),
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
-      api: {
-        list: async () => [stored('a', 1)],
-        create: async () => stored('new'),
-        save: async ({ html, expectedRevision }) => {
-          sent.push(html);
-          return { status: 'saved', revision: expectedRevision + 1 };
-        },
-      },
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.durable.test:3'),
+
+      api: documentApi(recordingSave(sent), () => [stored('a', 1)]),
       roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: null,
     });
-    await sync.load();
+
     sync.change('a', htmlOf(70 * 1024));
     await sync.flush();
     assert({
@@ -167,34 +159,19 @@ describe('an overlapping exit flush', () => {
       settle.resolve = resolve;
     });
     const sent: string[] = [];
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.durable.test:4'),
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
-      api: {
-        list: async () => [stored('a', 1), stored('b', 1)],
-        create: async () => stored('new'),
-        save: async ({ html, expectedRevision }) => {
-          sent.push(html);
-          await gate;
-          return { status: 'saved', revision: expectedRevision + 1 };
-        },
-      },
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.durable.test:4'),
+
+      api: documentApi(recordingSave(sent, { wait: gate }), () => [
+        stored('a', 1),
+        stored('b', 1),
+      ]),
       roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: null,
     });
-    await sync.load();
-    sync.change('a', htmlOf(26_000));
-    sync.change('b', htmlOf(60_000));
-    // The first flush reserves A while its send is outstanding; the second
-    // flush must see that reservation before judging B.
-    const flushing = sync.flushKeepalive();
-    const second = sync.flushKeepalive();
-    settle.resolve();
-    await Promise.all([flushing, second]);
+
+    await overlappingNoteExit(sync, settle.resolve);
     assert({
       given:
         'A made into a 26 KiB recovery, then B typed while A was overflowing',
@@ -209,18 +186,18 @@ describe('a bounded storage round', () => {
   test('refuses a seventeenth durable draft without evicting earlier copies', async () => {
     const store = memoryStorage();
     const ids = Array.from({ length: 17 }, (_, n) => `d${n}`);
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('document-sync.durable.test:5'),
-      budget: createKeepaliveBudget(),
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.durable.test:5', {
+        storage: store,
+        wallClock: () => 1,
+      }),
+
       api: alwaysSaving(ids),
       roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
-      timers: manualTimers().timers,
-      storage: store,
-      wallClock: () => 1,
     });
-    await sync.load();
+
     for (const id of ids) sync.change(id, htmlOf(16));
     const before = noteDraftKeys(store).length;
     sync.change('d0', htmlOf(16));
