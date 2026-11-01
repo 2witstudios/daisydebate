@@ -159,3 +159,40 @@ test('only a checked device is translated: unchecked absence and permission refu
   plain.stopTracks();
   denied.stopTracks();
 });
+
+test('a camera failure no longer stops the microphone: the pass isolates per source and reports truthfully', async () => {
+  const broken = stubSdk({
+    settles: true,
+    missingSource: 'camera',
+    missingError: 'NotReadableError',
+  });
+  const sourceFailed: readonly [string, string][] = [];
+  const { transport } = createBrowserMediaTransport(
+    {
+      ...events,
+      devices: { camera: 'empty-slots' },
+      sourceFailed: (source, error) =>
+        sourceFailed.push([source, (error as Error).name]),
+    },
+    broken.sdk,
+  );
+  const failure = await failureOf(
+    transport.apply(publish(['camera', 'microphone'])),
+  );
+  assert({
+    given: 'a checked camera the reader cannot read, and a microphone grant',
+    should:
+      'publish the microphone, report only the camera loss, and reject with that camera error',
+    actual: {
+      failure,
+      sourceFailed,
+      published: sources(broken.published),
+    },
+    expected: {
+      failure: 'NotReadableError',
+      sourceFailed: [['camera', 'NotReadableError']],
+      published: ['microphone'],
+    },
+  });
+  transport.stopTracks();
+});

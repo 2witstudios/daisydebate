@@ -20,6 +20,12 @@ import { MediaStage } from './media-stage';
 import { mediaStatus, retryMissingDevices } from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
+import {
+  clearMutePreference,
+  readMutePreference,
+  writeMutePreference,
+} from './media-preferences';
+
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
 const ADMISSION_RETRY_MS = [500, 1000, 2000];
 const pause = (ms: number, signal: AbortSignal) =>
@@ -76,12 +82,17 @@ const requestMedia = async (
 function RoundMediaSession({
   view,
   onRefresh,
+  actorId,
 }: {
   readonly view: RoundView;
   readonly onRefresh: () => void;
+  /** The signed-in member whose device choices are restored (ISSUE-879). */
+  readonly actorId?: string | null | undefined;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
-  const [microphoneMuted, setMicrophoneMuted] = useState(poi);
+  /** Restore this account's prior mute before the transport opens (ISSUE-879). */
+  const restored = readMutePreference(actorId ?? null, view.id);
+  const [microphoneMuted, setMicrophoneMuted] = useState(restored ?? poi);
   const [changingMicrophone, setChangingMicrophone] = useState(false);
   const muted = useRef(poi);
   const microphone = useRef<((value: boolean) => Promise<void>) | null>(null);
@@ -150,6 +161,7 @@ function RoundMediaSession({
     if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
       controller.current?.stop();
+      clearMutePreference(actorId ?? null, view.id);
       return;
     }
     void controller.current?.reconcile();
@@ -247,6 +259,7 @@ function RoundMediaSession({
               try {
                 await microphone.current?.(!previous);
                 setMicrophoneMuted(!previous);
+                writeMutePreference(actorId ?? null, view.id, !previous);
               } catch {
                 muted.current = previous;
                 setConnection('device-blocked');
@@ -280,9 +293,15 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void) =>
+export const roundMediaSlot =
+  (onRefresh: () => void, actorId?: string | null) =>
   function RoundMediaSlot(view: RoundView) {
     return (
-      <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+      <RoundMediaSession
+        key={view.id}
+        view={view}
+        onRefresh={onRefresh}
+        actorId={actorId}
+      />
     );
   };

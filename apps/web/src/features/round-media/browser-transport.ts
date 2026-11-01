@@ -264,16 +264,21 @@ export function createBrowserMediaTransport(
       for (const [source, track] of tracks)
         if (!desired.includes(source)) await retire(source, track, desired);
       // Isolate individual device failures: a camera capture/publish error
-      // must not prevent the microphone from publishing (ISSUE-817/829).
+      // must not prevent the microphone from publishing (ISSUE-817/829), but
+      // nothing is swallowed: every per-source failure is reported and the
+      // pass still rejects with the first failure it met.
+      const failed: readonly [Source, unknown][] = [];
       for (const source of desired) {
-        if (stopped || tracks.has(source)) continue;
+        if (stopped) return;
+        if (tracks.has(source)) continue;
         try {
           await publishSource(source);
         } catch (error) {
-          // Isolate per source, but report the typed failure instead of swallowing it.
+          failed.push([source, error]);
           events.sourceFailed?.(source, error);
         }
       }
+      if (failed.length > 0) throw failed[0][1];
       await warmMicrophone(desired).catch(() => undefined);
       if (!stopped) emit();
     });
