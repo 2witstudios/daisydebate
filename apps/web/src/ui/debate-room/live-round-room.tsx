@@ -71,7 +71,10 @@ export function LiveRoundRoom({
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const defaultMedia = useMemo(() => roundMediaSlot(refresh), [refresh]);
+  const defaultMedia = useMemo(
+    () => roundMediaSlot(refresh, actorId),
+    [refresh, actorId],
+  );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
@@ -138,7 +141,11 @@ export function LiveRoundRoom({
               leave={leaving}
             />
           ) : (
-            <RoundEndedNotice roundId={view.id} />
+            <RoundEndedNotice
+              roundId={view.id}
+              actorId={actorId}
+              roomId={view.roomId}
+            />
           )
         }
       </RoundCommandActions>

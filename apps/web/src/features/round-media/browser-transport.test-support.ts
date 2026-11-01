@@ -1,4 +1,5 @@
 import { RoomEvent, Track } from 'livekit-client';
+import type { MediaSdk } from './browser-transport';
 
 /** A captured local track that records whether anything stopped it. */
 const capturedTrack = (source: string) => ({
@@ -70,6 +71,18 @@ export function stubSdk(
     captures,
     captured,
     published,
+    /** An independently subscribed peer track, not a local publication. */
+    subscribePeer: (source: 'camera' | 'microphone') => {
+      const track = capturedTrack(source);
+      room.remoteParticipants.set('peer', {
+        identity: 'peer',
+        isSpeaking: false,
+        trackPublications: new Map([
+          [source, { source, isMuted: false, track }],
+        ]),
+      });
+      return track;
+    },
     fire: (event: string, ...args: unknown[]) => handlers.get(event)?.(...args),
     /** LiveKit changes this participant's own permission. */
     permit: (sources: Track.Source[]) => {
@@ -98,7 +111,7 @@ export function stubSdk(
         captured.push(track);
         return [track];
       },
-    } as never,
+    } as unknown as MediaSdk,
   };
 }
 export const events = {

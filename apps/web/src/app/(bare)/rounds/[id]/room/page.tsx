@@ -145,6 +145,7 @@ export default async function RoundRoomPage({
           stayHref: here,
           confirmHref: `${here}?leave`,
           leaveHref: '/lobby',
+          left: { actorId, roundId: id, roomId: result.round.roomId },
         }}
         leaveAction={leaveRoundAction.bind(null, id)}
       />

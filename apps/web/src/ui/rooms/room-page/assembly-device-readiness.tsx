@@ -195,7 +195,7 @@ export function AssemblyDeviceReadiness(props: Props) {
       },
     });
     const unsubscribe = devices.subscribe((snapshot) => {
-      rememberCheckedDevices(roomId, snapshot);
+      rememberCheckedDevices(roomId, snapshot, undefined, actorId);
       void consent.devices(snapshot.devicesPassed);
     });
     void consent.devices(devices.readSnapshot().devicesPassed);

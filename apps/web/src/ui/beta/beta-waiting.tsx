@@ -2,10 +2,8 @@ import Link from 'next/link';
 import { destinationHref } from '../../features/coming-soon/launch';
 import { cn } from '../cn';
 import { OnboardingFrame } from '../onboarding/frame/frame';
-import {
-  SIGN_OUT_FAILED_NOTICE,
-  SignOutForm,
-} from '../components/sign-out-form/sign-out-form';
+import { SignOutForm } from '../components/sign-out-form/sign-out-form';
+import { SIGN_OUT_FAILED_NOTICE } from '../components/sign-out-form/sign-out-notice';
 
 export type BetaWaitingProps = {
   readonly username: string;

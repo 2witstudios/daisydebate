@@ -43,6 +43,7 @@ export type AgentTurn = {
 
 /** What the room renders: one debater's view of one round. */
 export type RoundSnapshot = {
+  readonly id: string;
   readonly resolution: string;
   readonly competition: CompetitionType;
   readonly phase: RoundPhase;

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
+import type { MediaConnectionState } from './media-controller';
 import type { MediaTrack } from './browser-transport';
 
 function TrackElement({ track }: { readonly track: MediaTrack }) {
@@ -29,15 +30,50 @@ function TrackElement({ track }: { readonly track: MediaTrack }) {
   );
 }
 
+/**
+ * An honest caption for one seat: an actual track speaks, but silence, the
+ * media transport still establishing, or a missing publication each say
+ * exactly what they are (ISSUE-881). No grant implies a working microphone.
+ */
+const connectionCaption: Record<MediaConnectionState, string | null> = {
+  connecting: 'Media is connecting…',
+  reconnecting: 'Media is reconnecting…',
+  live: null,
+  denied: 'Media refused',
+  unavailable: 'Media unavailable',
+  ended: 'Call ended',
+};
+
+const captionOf = (
+  connection: MediaConnectionState,
+  mine: boolean,
+  ownMuted: boolean,
+  granted: boolean | undefined,
+): string => {
+  const caption = connectionCaption[connection];
+  if (caption !== null) return caption;
+  if (granted === false) return 'Waiting for microphone permission';
+  if (mine && ownMuted) return 'You muted your microphone';
+  return mine ? 'Microphone not publishing' : 'No microphone subscription';
+};
+
 /** Only named debaters become tiles; a hidden judge never enters the identity map. */
 export function MediaStage({
   view,
   media,
   tracks,
+  connection,
+  ownIdentity,
+  ownMuted,
 }: {
   readonly view: RoundView;
   readonly media: RoundMediaState | null;
   readonly tracks: readonly MediaTrack[];
+  readonly connection: MediaConnectionState;
+  /** The signed-in member's own media identity, or null for a viewer. */
+  readonly ownIdentity: string | null;
+  /** My own deliberate mute choice; presence remains separately observed. */
+  readonly ownMuted: boolean;
 }) {
   return (
     <div
@@ -56,6 +92,10 @@ export function MediaStage({
             (track) => track.identity === identity,
           );
           const camera = mediaTracks.find((track) => track.source === 'camera');
+          const microphoneTrack = mediaTracks.find(
+            (track) => track.source === 'microphone',
+          );
+          const mine = identity !== null && identity === ownIdentity;
           return (
             <figure
               key={seat.id}
@@ -75,18 +115,21 @@ export function MediaStage({
                 {seat.label}
                 {seat.kind === 'bot' ? ' · AI' : ''}
                 <span className="block text-xs">
-                  {!peer
-                    ? 'Microphone unavailable'
-                    : !peer.microphone
-                      ? 'Microphone closed'
-                      : mediaTracks.some((track) => track.speaking)
-                        ? 'Speaking'
-                        : 'Microphone open'}
+                  {microphoneTrack && !microphoneTrack.muted
+                    ? microphoneTrack.speaking
+                      ? 'Speaking'
+                      : 'Microphone open'
+                    : microphoneTrack?.muted && !mine
+                      ? 'Microphone muted'
+                      : captionOf(connection, mine, ownMuted, peer?.microphone)}
                 </span>
               </figcaption>
               {mediaTracks
                 .filter(
-                  (track) => track.source === 'microphone' && !track.local,
+                  (track) =>
+                    track.source === 'microphone' &&
+                    !track.local &&
+                    !track.muted,
                 )
                 .map((track) => (
                   <TrackElement

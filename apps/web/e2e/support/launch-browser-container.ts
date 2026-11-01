@@ -1,6 +1,25 @@
 import { createId } from '@paralleldrive/cuid2';
 import { resolve } from 'node:path';
 
+const startupStages = [
+  'apt-index',
+  'nss-package',
+  'os-trust',
+  'nss-trust',
+  'sandboxed-browser',
+] as const;
+
+/** Only fixed, non-content stage names may enter startup diagnostics. */
+export function launchBrowserStartupStage(
+  output: string,
+): (typeof startupStages)[number] | null {
+  const markers = [...output.matchAll(/^daisy-browser-stage:([a-z-]+)$/gm)];
+  const stage = markers
+    .reverse()
+    .find((match) => startupStages.some((known) => known === match[1]));
+  return stage ? (stage[1] as (typeof startupStages)[number]) : null;
+}
+
 /** Existing pinned browser image, with trust and network resources confined to its owned container. */
 export async function createLaunchBrowserContainer(input: {
   readonly checkout: string;
@@ -32,12 +51,20 @@ export async function createLaunchBrowserContainer(input: {
     { stdio: ['ignore', 'pipe', 'inherit'] },
   );
   const endpoint = Promise.withResolvers<string>();
+  let lastStage: ReturnType<typeof launchBrowserStartupStage> = null;
   const output = (async () => {
     const decoder = new TextDecoder();
     let text = '',
       listening = false;
     for await (const chunk of child.stdout) {
       text += decoder.decode(chunk, { stream: true });
+      const stage = launchBrowserStartupStage(text);
+      if (stage !== null && stage !== lastStage) {
+        lastStage = stage;
+        process.stdout.write(
+          `${JSON.stringify({ event: 'browser.startup.stage', stage })}\n`,
+        );
+      }
       const match = text.match(/Listening on (ws:\/\/[^\s]+)/);
       if (match) {
         listening = true;
@@ -68,7 +95,12 @@ export async function createLaunchBrowserContainer(input: {
         output,
         new Promise<never>((_, reject) => {
           timer = setTimeout(
-            () => reject(new Error('Isolated browser startup deadline')),
+            () =>
+              reject(
+                new Error(
+                  `Isolated browser startup deadline (stage: ${lastStage ?? 'container-start'})`,
+                ),
+              ),
             120000,
           );
         }),

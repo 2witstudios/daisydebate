@@ -204,7 +204,7 @@ test('a terminal stop ends the kept microphone whose unpublish is still in fligh
     ],
   });
 });
-test('POI local mute changes audio without changing server publish grants', async () => {
+const mutedMicrophone = async () => {
   const stub = stubSdk({ settles: true });
   const browser = createBrowserMediaTransport(
     { ...events, microphoneMuted: true },
@@ -214,6 +214,11 @@ test('POI local mute changes audio without changing server publish grants', asyn
   const microphone = stub.captured.find(
     (track) => track.source === 'microphone',
   )!;
+  return { stub, browser, microphone };
+};
+
+test('POI local mute changes audio without changing server publish grants', async () => {
+  const { stub, browser, microphone } = await mutedMicrophone();
   const initiallyMuted = microphone.muted;
   await browser.setMicrophoneMuted(false);
   const unmuted = microphone.muted;
@@ -230,19 +235,12 @@ test('POI local mute changes audio without changing server publish grants', asyn
   browser.transport.stopTracks();
 });
 
-test('a failed local microphone change stops capture before offering device recovery', async () => {
-  const stub = stubSdk({ settles: true });
-  const browser = createBrowserMediaTransport(
-    { ...events, microphoneMuted: true },
-    stub.sdk,
-  );
-  await browser.transport.apply(publish(['camera', 'microphone']));
-  const microphone = stub.captured.find(
-    (track) => track.source === 'microphone',
-  )!;
+test('a failed local microphone change stops only that source and preserves reception', async () => {
+  const { stub, browser, microphone } = await mutedMicrophone();
   microphone.unmute = async () => {
     throw new Error('Device disconnected');
   };
+  stub.subscribePeer('microphone');
   let failed = false;
   try {
     await browser.setMicrophoneMuted(false);
@@ -251,9 +249,204 @@ test('a failed local microphone change stops capture before offering device reco
   }
   assert({
     given: 'unmuting fails with an unknown track outcome',
+    should: 'stop the unknown microphone while preserving the working camera',
+    actual: [
+      failed,
+      microphone.ended,
+      stub.captured.find((track) => track.source === 'camera')!.ended,
+    ],
+    expected: [true, true, false],
+  });
+});
+
+test('a muted publication remains observable as present without claiming an open microphone', async () => {
+  const stub = stubSdk({ settles: true });
+  const room = stub.sdk.room();
+  const published = {
+    source: Track.Source.Microphone,
+    isMuted: true,
+    track: { sid: 'muted-mic' },
+  };
+  room.localParticipant.trackPublications.set(
+    'muted-mic',
+    published as unknown as import('livekit-client').LocalTrackPublication,
+  );
+  let observed: readonly import('./browser-transport').MediaTrack[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      tracks: (tracks) => {
+        observed = tracks;
+      },
+    },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish([]));
+  assert({
+    given: 'an actual SDK microphone publication whose track is muted',
     should:
-      'fail and stop every captured track instead of leaving unknown audio live',
-    actual: [failed, stub.captured.every((track) => track.ended)],
-    expected: [true, true],
+      'retain explicit present-and-muted evidence for its caller, distinct from no captured publication',
+    actual: observed.map((track) => ({
+      source: track.source,
+      muted: track.muted,
+    })),
+    expected: [{ source: 'microphone', muted: true }],
+  });
+  browser.transport.stopTracks();
+});
+
+test('browser playback refusal and recovery are reported from actual SDK state', () => {
+  const stub = stubSdk();
+  let allowed = false;
+  Object.defineProperty(stub.sdk.room(), 'canPlaybackAudio', {
+    get: () => allowed,
+  });
+  const changes: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      playbackChanged: (value) => {
+        changes.push(value);
+      },
+    },
+    stub.sdk,
+  );
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  allowed = true;
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  assert({
+    given: 'SDK autoplay refusal followed by successful user-enabled playback',
+    should:
+      'report blocked then permitted playback without conflating it with capture permission or peer audibility',
+    actual: changes,
+    expected: [false, true],
+  });
+  browser.transport.stopTracks();
+});
+
+test('a stopped transport cannot send late SDK health or playback into a newer lifetime', () => {
+  const stub = stubSdk();
+  const updates: string[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      tracks: () => updates.push('tracks'),
+      invalidated: () => updates.push('refresh'),
+      playbackChanged: () => updates.push('playback'),
+    },
+    stub.sdk,
+  );
+  browser.transport.stopTracks();
+  updates.length = 0;
+  stub.fire(RoomEvent.TrackSubscribed);
+  stub.fire(RoomEvent.Connected);
+  stub.fire(RoomEvent.AudioPlaybackStatusChanged);
+  assert({
+    given:
+      'retired media followed by late SDK subscription, connection and playback callbacks',
+    should:
+      'leave the replacement lifetime’s evidence and refresh requests untouched',
+    actual: updates,
+    expected: [],
+  });
+});
+
+test('a capture failure settling after stop belongs to the retired source only', async () => {
+  const stub = stubSdk();
+  const capture =
+    Promise.withResolvers<Awaited<ReturnType<typeof stub.sdk.capture>>>();
+  const failures: string[] = [];
+  const browser = createBrowserMediaTransport(
+    { ...events, sourceFailed: (source) => failures.push(source) },
+    { room: stub.sdk.room, capture: () => capture.promise },
+  );
+  const applying = browser.transport.apply(publish(['camera'])).then(
+    () => 'resolved',
+    () => 'rejected',
+  );
+  await settle();
+  browser.transport.stopTracks();
+  capture.reject(
+    new DOMException('Controlled late failure', 'NotReadableError'),
+  );
+  assert({
+    given: 'pending capture rejected after owner stepdown/terminal stop',
+    should:
+      'settle retirement without reporting a failure against the new source lifetime',
+    actual: [await applying, failures],
+    expected: ['resolved', []],
+  });
+});
+
+test('explicit playback completion reports only through its current transport owner', async () => {
+  const active = stubSdk();
+  Object.defineProperty(active.sdk.room(), 'canPlaybackAudio', {
+    get: () => true,
+  });
+  const current: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    { ...events, playbackChanged: (value) => current.push(value) },
+    active.sdk,
+  );
+  await browser.startAudio();
+  browser.transport.stopTracks();
+  const retired = stubSdk();
+  const gate = Promise.withResolvers<void>();
+  Object.defineProperty(retired.sdk.room(), 'canPlaybackAudio', {
+    get: () => true,
+  });
+  Object.defineProperty(retired.sdk.room(), 'startAudio', {
+    value: () => gate.promise,
+  });
+  const stale: boolean[] = [];
+  const old = createBrowserMediaTransport(
+    { ...events, playbackChanged: (value) => stale.push(value) },
+    retired.sdk,
+  );
+  const pending = old.startAudio();
+  old.transport.stopTracks();
+  gate.resolve();
+  await pending;
+  assert({
+    given:
+      'successful Enable sound and an older Enable sound settling after retirement',
+    should:
+      'publish the active playback result only, never overwrite a replacement from a retired promise',
+    actual: [current, stale],
+    expected: [[true], []],
+  });
+});
+
+test('explicit microphone choices commit only after success in the current source lifetime', async () => {
+  const stub = stubSdk({ settles: true });
+  const committed: boolean[] = [];
+  const browser = createBrowserMediaTransport(
+    {
+      ...events,
+      microphoneMuted: true,
+      microphoneChanged: (value) => committed.push(value),
+    },
+    stub.sdk,
+  );
+  await browser.transport.apply(publish(['camera', 'microphone']));
+  await browser.setMicrophoneMuted(false);
+  const microphone = stub.captured.find(
+    (track) => track.source === 'microphone',
+  )!;
+  const gate = Promise.withResolvers<void>();
+  microphone.mute = async () => {
+    await gate.promise;
+    return microphone;
+  };
+  const pending = browser.setMicrophoneMuted(true);
+  browser.transport.stopTracks();
+  gate.resolve();
+  await pending;
+  assert({
+    given:
+      'a successful explicit unmute then a mute whose SDK promise settles after stepdown',
+    should: 'commit the first choice but never the retired choice',
+    actual: committed,
+    expected: [false],
   });
 });

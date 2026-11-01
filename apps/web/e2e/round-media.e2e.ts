@@ -3,7 +3,6 @@ import {
   roundMediaStateSchema,
 } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
-import { origin } from './support/accounts';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
@@ -11,9 +10,11 @@ import {
   readBallotRound,
   ballotRoundCommand,
 } from './support/human-ballot-round';
-
-/** Real decoded frames over the launch fixture's TLS edge can take seconds to arrive. */
-const MEDIA_POLL = { timeout: 20_000 };
+import {
+  MEDIA_POLL,
+  grantMedia,
+  installMediaCapture,
+} from './support/round-media';
 
 test('actual browser tracks reach an assigned hidden judge and terminal commit stops the local camera', async ({
   browser,
@@ -22,45 +23,14 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
   try {
     const round = await createHumanBallotRound(accounts.members);
     const debaters = accounts.members.slice(0, 2);
-    for (const member of debaters)
-      await member.context.grantPermissions(['camera', 'microphone'], {
-        origin,
-      });
+    await grantMedia(debaters);
     const pages = await Promise.all(
       debaters.map((member, index) =>
         openPage(member.context, `media debater ${index + 1}`),
       ),
     );
     // Controlled alternating audio exercises real LiveKit active-speaker events.
-    for (const page of pages)
-      await page.addInitScript(() => {
-        const capture = navigator.mediaDevices.getUserMedia.bind(
-          navigator.mediaDevices,
-        );
-        navigator.mediaDevices.getUserMedia = async (constraints) => {
-          const stream = await capture(constraints);
-          if (constraints?.audio) {
-            const audio = new AudioContext();
-            const tone = audio.createOscillator();
-            const gain = audio.createGain();
-            const output = audio.createMediaStreamDestination();
-            tone.connect(gain).connect(output);
-            for (let i = 0; i < 120; i++) {
-              gain.gain.setValueAtTime(0.3, audio.currentTime + i * 2);
-              gain.gain.setValueAtTime(0, audio.currentTime + i * 2 + 0.5);
-            }
-            tone.start();
-            await audio.resume();
-            for (const track of stream.getAudioTracks()) {
-              stream.removeTrack(track);
-              track.stop();
-            }
-            for (const track of output.stream.getAudioTracks())
-              stream.addTrack(track);
-          }
-          return stream;
-        };
-      });
+    for (const page of pages) await installMediaCapture(page, 'alternating');
     await Promise.all(
       pages.map((page) => page.goto(`/rounds/${round.id}/room`)),
     );
@@ -158,7 +128,31 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     ).toEqual({ writes: 0, sameNode: true, sameStream: true, playing: true });
     const judge = accounts.members[2]!;
     await judge.context.clearPermissions();
+    await judge.context.grantPermissions(['local-network-access'], { origin });
     const judgePage = await openPage(judge.context, 'assigned judge media');
+    await judgePage.addInitScript(() => {
+      let enabled = false;
+      const play = HTMLMediaElement.prototype.play;
+      document.addEventListener(
+        'click',
+        (event) => {
+          const target = event.target;
+          if (
+            target instanceof Element &&
+            target.closest('button')?.textContent?.trim() === 'Enable sound'
+          )
+            enabled = true;
+        },
+        true,
+      );
+      HTMLMediaElement.prototype.play = function () {
+        if (this instanceof HTMLAudioElement && !enabled)
+          return Promise.reject(
+            new DOMException('Controlled autoplay refusal', 'NotAllowedError'),
+          );
+        return play.call(this);
+      };
+    });
     const admission = judgePage.waitForResponse(
       (response) =>
         new URL(response.url()).pathname ===
@@ -173,7 +167,9 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       capture: false,
     });
     await expect(
-      judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
+      judgePage
+        .getByRole('status')
+        .filter({ hasText: /^Connected Sound is blocked by your browser/ }),
     ).toBeVisible(MEDIA_POLL);
     await expect(
       judgePage.getByLabel('Your camera', { exact: true }),
@@ -182,6 +178,9 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     await judgePage
       .getByRole('button', { name: 'Enable sound', exact: true })
       .click();
+    await expect(
+      judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
+    ).toBeVisible(MEDIA_POLL);
     await expect
       .poll(
         () =>

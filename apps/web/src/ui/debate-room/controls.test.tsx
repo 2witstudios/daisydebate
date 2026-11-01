@@ -63,3 +63,13 @@ describe('DebateRoom controls', () => {
     });
   });
 });
+
+test('floor permission before media evidence never claims actual microphone publication', () => {
+  const html = render('own-speech', 'casual');
+  assert({
+    given: 'a permitted speaker before a client media session has reported',
+    should: 'describe permission without claiming a live microphone',
+    actual: [html.includes('Mic live'), html.includes('Mic permitted')],
+    expected: [false, true],
+  });
+});

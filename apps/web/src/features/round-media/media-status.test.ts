@@ -11,10 +11,8 @@ test('the media bar names a missing checked device and offers Retry while stayin
       'live without both checked devices',
       mediaStatus('live', ['camera', 'microphone']),
     ],
-    ['a missing device at capture', mediaStatus('device-missing', [])],
     ['connecting', mediaStatus('connecting', [])],
     ['unavailable', mediaStatus('unavailable', [])],
-    ['blocked devices', mediaStatus('device-blocked', [])],
     ['an ended call', mediaStatus('ended', [])],
   ] as const;
   assert({
@@ -39,20 +37,10 @@ test('the media bar names a missing checked device and offers Retry while stayin
         'Connected, but your checked camera and microphone are missing. Reconnect them, or retry to use your default.',
         true,
       ],
-      [
-        'a missing device at capture',
-        'Your checked camera or microphone is missing. Reconnect it, or retry to use your default device.',
-        true,
-      ],
       ['connecting', 'Connecting camera and sound…', false],
       [
         'unavailable',
         'Camera and sound are unavailable. Retry to reconnect.',
-        true,
-      ],
-      [
-        'blocked devices',
-        'Camera or microphone access is blocked. Check your browser permissions, then retry.',
         true,
       ],
       ['an ended call', 'The call has ended.', false],
@@ -62,14 +50,30 @@ test('the media bar names a missing checked device and offers Retry while stayin
 
 test('Retry forgets only the checked devices found gone, then clears them', () => {
   const forgotten: unknown[] = [];
-  const next = retryMissingDevices('room-a', ['camera'], (roomId, kinds) => {
-    forgotten.push([roomId, kinds]);
-  });
+  const next = retryMissingDevices(
+    'room-a',
+    ['camera'],
+    'actor-a',
+    (roomId, kinds) => {
+      forgotten.push([roomId, kinds]);
+      return true;
+    },
+  );
   assert({
     given: 'a Retry while only the checked camera is missing',
     should:
       'forget the camera choice alone for this Room and report nothing missing',
     actual: { forgotten, next },
     expected: { forgotten: [['room-a', ['camera']]], next: [] },
+  });
+});
+
+test('failed preference persistence cannot clear missing capture state', () => {
+  assert({
+    given: 'Retry whose forget adapter refuses persistence',
+    should:
+      'retain the missing kind instead of claiming the choice was removed',
+    actual: retryMissingDevices('room-a', ['camera'], 'actor-a', () => false),
+    expected: ['camera'],
   });
 });

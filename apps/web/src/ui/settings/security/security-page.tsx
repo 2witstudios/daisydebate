@@ -15,10 +15,8 @@ import {
 } from '../../../features/account/security-client';
 import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
-import {
-  SIGN_OUT_FAILED_NOTICE,
-  SignOutForm,
-} from '../../components/sign-out-form/sign-out-form';
+import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
+import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
 import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
 import { SessionRowView } from './session-row';
