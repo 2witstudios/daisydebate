@@ -76,6 +76,32 @@ const deviceBlocked = (error: unknown) =>
     'NotReadableError',
   ].includes(error.name);
 
+type ControllerPhase =
+  | { readonly connection: Exclude<MediaConnectionState, 'unavailable'> }
+  | {
+      readonly connection: 'unavailable';
+      readonly failure: 'retry' | 'refresh' | 'definite';
+    };
+
+/** One pure decision governs every automatic timer or browser-event retry. */
+const recoveryDecision = (
+  phase: ControllerPhase,
+): 'stop' | 'retry' | 'refresh' =>
+  phase.connection !== 'unavailable' || phase.failure === 'definite'
+    ? 'stop'
+    : phase.failure;
+
+const failurePhase = (error: unknown): ControllerPhase => {
+  if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
+    return { connection: 'device-missing' };
+  if (deviceBlocked(error)) return { connection: 'device-blocked' };
+  if (isMediaDenial(error)) return { connection: 'denied' };
+  return {
+    connection: 'unavailable',
+    failure: error instanceof MediaRequestFailure ? error.disposition : 'retry',
+  };
+};
+
 /** One controller per committed Round, independent of competitive command acknowledgement lifetime. */
 export function createMediaController(input: {
   readonly roundId: string;
@@ -108,17 +134,19 @@ export function createMediaController(input: {
     readonly cancel: (handle: unknown) => void;
   };
 }) {
-  let state: MediaConnectionState = 'connecting';
+  let phase: ControllerPhase = { connection: 'connecting' };
   let ended = false;
   let epoch = 0;
   let abort = new AbortController();
   let transport: BrowserMediaTransport | null = null;
   let reconciling: Promise<void> | null = null;
   let requestedAgain = false;
-  const change = (next: MediaConnectionState) => {
-    state = next;
-    input.changed(next);
+  const publish = (next: ControllerPhase) => {
+    phase = next;
+    input.changed(next.connection);
   };
+  const change = (connection: Exclude<MediaConnectionState, 'unavailable'>) =>
+    publish({ connection });
   const release = (target: BrowserMediaTransport | null) => {
     if (!target) return;
     target.stopTracks();
@@ -149,19 +177,8 @@ export function createMediaController(input: {
     if (stale(generation)) return;
     cancelRecovery();
     transport = null;
-    change(
-      error instanceof Error && error.name === CHECKED_DEVICE_MISSING
-        ? 'device-missing'
-        : deviceBlocked(error)
-          ? 'device-blocked'
-          : isMediaDenial(error)
-            ? 'denied'
-            : 'unavailable',
-    );
-    if (error instanceof MediaRequestFailure) {
-      if (error.disposition === 'definite') return;
-      if (error.disposition === 'refresh') input.refresh?.();
-    }
+    publish(failurePhase(error));
+    if (recoveryDecision(phase) === 'refresh') input.refresh?.();
     scheduleRecovery(generation);
   };
   /**
@@ -183,7 +200,8 @@ export function createMediaController(input: {
   /** Index survives every state change: the backoff must not restart per attempt. */
   const scheduleRecovery = (generation: number) => {
     cancelRecovery();
-    if (ended || state !== 'unavailable' || stale(generation)) return;
+    if (ended || recoveryDecision(phase) === 'stop' || stale(generation))
+      return;
     const delayMs = recoveryDelaysMs.at(
       Math.min(recoveryStep, recoveryDelaysMs.length - 1),
     );
@@ -192,7 +210,8 @@ export function createMediaController(input: {
     recoveryTimer = input.recovery.schedule(() => {
       // A timer from an older generation is inert even if the newer attempt
       // failed again: only this generation's own timer may rejoin.
-      if (ended || generation !== epoch || state !== 'unavailable') return;
+      if (ended || generation !== epoch || recoveryDecision(phase) === 'stop')
+        return;
       recoveryTimer = null;
       void join(true);
     }, delayMs);
@@ -278,7 +297,8 @@ export function createMediaController(input: {
     }
   };
   const reconcile = () => {
-    if (ended || !transport || state !== 'live') return Promise.resolve();
+    if (ended || !transport || phase.connection !== 'live')
+      return Promise.resolve();
     requestedAgain = true;
     if (reconciling) return reconciling;
     reconciling = (async () => {
@@ -301,9 +321,11 @@ export function createMediaController(input: {
     return reconciling;
   };
   return {
-    state: () => state,
+    state: () => phase.connection,
     join: () => join(),
     reconnect: () => join(true),
+    nudge: () =>
+      recoveryDecision(phase) === 'stop' ? Promise.resolve() : join(true),
     reconcile,
     stop,
   };

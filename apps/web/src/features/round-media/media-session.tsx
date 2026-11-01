@@ -1,5 +1,6 @@
 'use client';
 import { selectMediaAccount } from './account-signout-cleanup';
+import { subscribeMediaRecovery } from './media-recovery-events';
 import { createMediaRequest } from './request-media';
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
@@ -56,6 +57,13 @@ const requestMedia = createMediaRequest({
     return () => window.clearTimeout(timer);
   },
 });
+
+const nativeMediaNotice = (
+  <noscript>
+    Live camera and sound require JavaScript. Round controls and judge forms
+    remain available.
+  </noscript>
+);
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
@@ -167,9 +175,18 @@ function RoundMediaSession({
         return browser.transport;
       },
     });
+    const stopRecoveryEvents = subscribeMediaRecovery({
+      online: window,
+      visibility: document,
+      isVisible: () => document.visibilityState === 'visible',
+      nudge: () => {
+        void mounted.nudge();
+      },
+    });
     controller.current = mounted;
     void mounted.join();
     return () => {
+      stopRecoveryEvents();
       mounted.stop();
       controller.current = null;
       sound.current = null;
@@ -225,28 +242,6 @@ function RoundMediaSession({
       reportLocalPublication(`${view.id}:${actorId ?? 'anonymous'}`, null),
     [view.id, actorId],
   );
-  /**
-   * Online and visibility are nudges only: the controller owns its recovery
-   * attempts and backoff across every state change, so a nudge restarts work
-   * only from the one paused state (ISSUE-880).
-   */
-  useEffect(() => {
-    const recover = () => {
-      const ctrl = controller.current;
-      if (ctrl?.state() !== 'unavailable') return;
-      void ctrl.reconnect();
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') recover();
-    };
-    window.addEventListener('online', recover);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('online', recover);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
-
   const [soundBlocked, setSoundBlocked] = useState(false);
   const status = mediaStatus(connection, missing, {
     illHealth,
@@ -272,6 +267,7 @@ function RoundMediaSession({
             Use this tab
           </button>
         ) : null}
+        {nativeMediaNotice}
       </section>
     );
   return (
@@ -348,10 +344,7 @@ function RoundMediaSession({
           </button>
         ) : null}
       </div>
-      <noscript>
-        Live camera and sound require JavaScript. Round controls and judge forms
-        remain available.
-      </noscript>
+      {nativeMediaNotice}
     </section>
   );
 }

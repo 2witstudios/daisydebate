@@ -1,9 +1,6 @@
+import { sourceFailureOf } from './source-failure';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  classifySourceFailure,
-  mediaStatus,
-  type MicrophoneEvidence,
-} from './media-status';
+import { mediaStatus, type MicrophoneEvidence } from './media-status';
 
 setupRitewayBun();
 
@@ -11,7 +8,7 @@ const cameraFailed: readonly (readonly [
   'camera',
   'permission' | 'absence' | 'failure',
 ])[] = [
-  ['camera', classifySourceFailure(new DOMException('x', 'NotReadableError'))],
+  ['camera', sourceFailureOf(new DOMException('x', 'NotReadableError')).kind],
 ];
 
 const evidence = (
@@ -58,7 +55,7 @@ test('a camera failure claims a live microphone only from a published track', ()
         illHealth: [
           [
             'camera',
-            classifySourceFailure(new DOMException('x', 'NotAllowedError')),
+            sourceFailureOf(new DOMException('x', 'NotAllowedError')).kind,
           ],
         ],
       }).message,
@@ -82,7 +79,7 @@ test('a microphone failure and a both-source failure each say only what happened
         illHealth: [
           [
             'microphone',
-            classifySourceFailure(new DOMException('x', 'NotReadableError')),
+            sourceFailureOf(new DOMException('x', 'NotReadableError')).kind,
           ],
         ],
       }).message,
@@ -160,10 +157,10 @@ test('serialized browser source errors retain their permission and absence class
     should:
       'recognize the browser name without trusting an arbitrary constructor',
     actual: [
-      classifySourceFailure({ name: 'NotAllowedError' }),
-      classifySourceFailure({ name: 'NotFoundError' }),
-      classifySourceFailure(null),
-      classifySourceFailure('NotAllowedError'),
+      sourceFailureOf({ name: 'NotAllowedError' }).kind,
+      sourceFailureOf({ name: 'NotFoundError' }).kind,
+      sourceFailureOf(null).kind,
+      sourceFailureOf('NotAllowedError').kind,
     ],
     expected: ['permission', 'absence', 'failure', 'failure'],
   });

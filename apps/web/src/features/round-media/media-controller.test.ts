@@ -1,3 +1,9 @@
+import {
+  roundId,
+  admission,
+  snapshot,
+  transportStub,
+} from './media-controller.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
 import {
@@ -14,32 +20,6 @@ const noRecovery = {
   schedule: () => null,
   cancel: () => undefined,
 };
-const roundId = 'r'.repeat(24);
-const admission: RoundMediaAdmission = {
-  version: 1,
-  roundId,
-  state: 'ready',
-  grants: {
-    publish: ['camera', 'microphone'],
-    subscribe: true,
-    hidden: false,
-    capture: false,
-  },
-  peers: [],
-  identity: 'p'.repeat(24),
-  token: 'private-token',
-  url: 'wss://media.invalid',
-  expiresAt: '2026-10-22T09:01:00.000Z',
-};
-
-const snapshot = {
-  version: admission.version,
-  roundId,
-  state: admission.state,
-  grants: admission.grants,
-  peers: admission.peers,
-};
-
 test('terminal stop closes tracks immediately while admission is pending', async () => {
   let finish!: (value: RoundMediaAdmission) => void;
   let created = 0;
@@ -149,13 +129,6 @@ test('reconnect obtains a fresh admission and teardown leaves no old transport',
     ],
     expected: [2, 2, true],
   });
-});
-
-const transportStub = () => ({
-  connect: async () => undefined,
-  apply: async () => undefined,
-  stopTracks: () => undefined,
-  disconnect: async () => undefined,
 });
 
 /** A controller whose transient refusals are retried through recorded pauses. */
@@ -624,6 +597,45 @@ test('an unavailable media projection stops publication while retrying a fresh a
       'tear down current media and retry fresh server admission, leaving any actual authorization refusal final',
     actual: [controller.state(), clock.due().length],
     expected: ['unavailable', 1],
+  });
+  controller.stop();
+});
+
+test('visibility and online nudges cannot restart definite refusal or replace an active request', async () => {
+  const clock = scheduled();
+  let requests = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        requests++;
+        throw mediaFailure(400);
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  await Promise.all([
+    controller.nudge(),
+    controller.nudge(),
+    controller.nudge(),
+  ]);
+  assert({
+    given: 'a definite400 followed by browser online/visibility events',
+    should:
+      'leave automatic recovery stopped while retaining an explicit user retry',
+    actual: [requests, clock.due().length],
+    expected: [1, 0],
+  });
+  await controller.reconnect();
+  assert({
+    given: 'an explicit Retry after that refusal',
+    should: 'allow one new user-requested admission',
+    actual: requests,
+    expected: 2,
   });
   controller.stop();
 });

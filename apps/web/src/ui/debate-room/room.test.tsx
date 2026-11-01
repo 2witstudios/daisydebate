@@ -57,9 +57,14 @@ describe('DebateRoom', () => {
     const html = render('own-speech', 'casual');
     assert({
       given: 'the debater’s own speech',
-      should: 'say the mic is live and offer no mute control',
-      actual: [html.includes('Mic live'), /\bMute\b/.test(html)],
-      expected: [true, false],
+      should:
+        'state microphone permission without claiming capture and offer no mute control',
+      actual: [
+        html.includes('Mic permitted'),
+        html.includes('Mic live'),
+        /\bMute\b/.test(html),
+      ],
+      expected: [true, false, false],
     });
   });
 
