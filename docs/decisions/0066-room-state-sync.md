@@ -158,9 +158,11 @@ samples retain the projection and visibly report stale timing; accepted
 samples show their uncertainty. Evidence older than 32 seconds is stale.
 
 One serial sampling chain retries seed/stale evidence after two seconds and
-current evidence after thirty, resampling on visibility return. Existing
-resource reads also sample on reconnect and invalidation. Unmount cancels
-timers and subscriptions. Display/control hints and media deadlines read
+current evidence after thirty. Visibility returns request a sample; returns
+while a read is pending coalesce into one followup after two seconds. The
+clock's own sample notifications never enqueue that followup. Existing
+resource reads also sample on reconnect and invalidation. Unmount aborts
+the sampling lifetime and cancels its timers, latched wake and subscriptions. Display/control hints and media deadlines read
 the same clock. Calibration changes rearm the actual media timeout without
 requiring a new Round view; view updates do not replace the clock or media
 session. These are display estimates and read triggers only: commands,
