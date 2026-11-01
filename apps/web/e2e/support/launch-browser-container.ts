@@ -17,12 +17,15 @@ export function launchBrowserStartupStage(
 /** Existing pinned browser image, with trust and network resources confined to its owned container. */
 export async function createLaunchBrowserContainer(input: {
   readonly checkout: string;
+  readonly name?: string;
   readonly ca: string;
   readonly image: string;
   readonly ports: readonly number[];
   readonly proofRepositoryHosts?: readonly string[];
 }) {
-  const name = `daisy-browser-${createId()}`;
+  const name = input.name ?? `daisy-browser-${createId()}`;
+  if (!/^daisy-browser-[a-z0-9]+$/.test(name))
+    throw new Error('Invalid owned Launch browser name');
   // Linux has no host.docker.internal route to loopback-only services, so
   // the container shares the host network there instead of forwarding.
   const hostNetwork = process.platform === 'linux';

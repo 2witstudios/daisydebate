@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createLaunchCertificates, readLaunchTls } from './launch-certificates';
@@ -5,9 +6,12 @@ import { createLaunchBrowserContainer } from './launch-browser-container';
 import { prepareLaunchBrowserImage } from './launch-browser-image';
 
 const checkout = resolve(import.meta.dir, '../../../..');
-const certificates = [createLaunchCertificates(), createLaunchCertificates()];
-const servers = certificates.map((certificate) =>
-  Bun.serve({
+const certificates: ReturnType<typeof createLaunchCertificates>[] = [];
+const servers: ReturnType<typeof startProofTls>[] = [];
+function startProofTls(
+  certificate: ReturnType<typeof createLaunchCertificates>,
+) {
+  return Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
     tls: readLaunchTls({
@@ -26,9 +30,8 @@ const servers = certificates.map((certificate) =>
         socket.send(message);
       },
     },
-  }),
-);
-const ports = servers.map((server) => server.port!);
+  });
+}
 const run = async (args: readonly string[]) => {
   const child = Bun.spawn([...args], { stdout: 'pipe', stderr: 'pipe' });
   const [stdout, , code] = await Promise.all([
@@ -46,6 +49,12 @@ try {
   const warm = await prepareLaunchBrowserImage({ checkout });
   if (warm.id !== prepared.id)
     throw new Error('Warm prepared image identity changed');
+  for (let index = 0; index < 2; index += 1) {
+    const certificate = createLaunchCertificates();
+    certificates.push(certificate);
+    servers.push(startProofTls(certificate));
+  }
+  const ports = servers.map((server) => server.port!);
   const repositoryHosts = (
     await run([
       'docker',
@@ -119,6 +128,28 @@ try {
     if (inspected.exitCode === 0)
       throw new Error('Prepared browser container leaked');
   }
+  const failedName = `daisy-browser-${createId()}`;
+  const missingCa = resolve(certificates[0]!.directory, 'missing-ca.crt');
+  const refused = await createLaunchBrowserContainer({
+    checkout,
+    name: failedName,
+    image: prepared.id,
+    ca: missingCa,
+    ports,
+  }).then(
+    async (created) => {
+      await created.close();
+      return false;
+    },
+    () => true,
+  );
+  if (!refused) throw new Error('Missing fixture CA was accepted');
+  const failedContainer = Bun.spawnSync(
+    ['docker', 'container', 'inspect', failedName],
+    { stdout: 'ignore', stderr: 'ignore' },
+  );
+  if (failedContainer.exitCode === 0)
+    throw new Error('Failed Launch browser container leaked');
   const inventory = await run([
     'docker',
     'run',
@@ -149,13 +180,16 @@ try {
         'cross-run-ca-isolation',
         'package-repositories-unreachable',
         'container-cleanup',
+        'failed-start-cleanup',
         'image-trust-empty',
       ],
       packageInventory: inventory
         .trim()
         .split('\n')
         .filter((line) =>
-          /^(libnss3|libnspr4|libc6|zlib1g|ca-certificates)\s/.test(line),
+          /^(libnss3(?:-tools)?|libnspr4|libc6|zlib1g|ca-certificates)(?::[a-z0-9]+)?\s/.test(
+            line,
+          ),
         ),
     })}\n`,
   );

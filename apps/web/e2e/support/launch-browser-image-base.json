@@ -1,0 +1,74 @@
+{
+  "version": "1.63.0",
+  "index": "sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
+  "nssVersion": "2:3.98-1ubuntu0.3",
+  "refresh": "noble-nss-2026-11-01-deb-1",
+  "env": [
+    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "LANG=C.UTF-8",
+    "LC_ALL=C.UTF-8",
+    "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright"
+  ],
+  "platforms": {
+    "linux/arm64": {
+      "manifest": "sha256:a0f4498920a5dbac63196d9140ed738ef00470f27e2e74029abd8850b7bd5717",
+      "config": "sha256:5536bbbd0ffc106a9fdab13fbff6b3abab01418cceff67ff246552b64cf5623d",
+      "layers": [
+        "sha256:646eea22414270d74b0c9e9d6d3b9550701ae62e658a099825d4d15045a3630b",
+        "sha256:c2905f27f2d0d3868d984930c7d5869af2c2188be0b3e1fddcc9c77424907218",
+        "sha256:eeef58894695608d3d23af061b62364800b05f461035048d598007185795c906",
+        "sha256:ae8d7e0f2c2f485da41b85823b979ae1dced22d68ef53fb5d17e6587e49399d7",
+        "sha256:78149cda672752cb82f5306099be656211eccfa3e1b65f2e7bd5274c551617f4",
+        "sha256:9067c1befeafcfd500e4eac382ae6075e42f4450a007048f4fccf95798ec697e",
+        "sha256:d023fc73a0c9387f6a0ac936351a8e1fb6f00182647ec635d0a58949a4a857e8"
+      ],
+      "nss": {
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.3_arm64.deb",
+        "sha256": "f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd",
+        "bytes": 597572
+      }
+    },
+    "linux/amd64": {
+      "manifest": "sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7",
+      "config": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+      "layers": [
+        "sha256:b9a65b3c65ab22d490085bd0bf5490e2409da8748b406870f2463bdc41cd6795",
+        "sha256:05b61f708389aecf2a9b2e058f554db6d84eb17811415f3b34768feebe0bea14",
+        "sha256:73a48c91864c16f507959610c8534667ab25537630e84399f31d968661ed94f9",
+        "sha256:cd7e6e338465408114835eb137df15785b6ac45c2b8046f78773557fe7c0a51c",
+        "sha256:67c5b2ab4bb8dd6c3ece663ece744316ccae0552a54bc2b27e811611cf366472",
+        "sha256:cd321a6dc023a72bba4dc6b34cef9892a2112c17860f4225691daa6a333aa005",
+        "sha256:656afaafaa812f188da425142df4d594b7639d8918fd42490523da6f151b11a8"
+      ],
+      "nss": {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.3_amd64.deb",
+        "sha256": "0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0",
+        "bytes": 615126
+      }
+    }
+  },
+  "labels": {
+    "org.opencontainers.image.version": "24.04"
+  },
+  "artifactLabels": {
+    "desktop.docker.io/ports.scheme": "v2"
+  },
+  "dependencies": [
+    {
+      "name": "libc6",
+      "minimum": "2.34"
+    },
+    {
+      "name": "libnspr4",
+      "minimum": "2:4.34"
+    },
+    {
+      "name": "libnss3",
+      "minimum": "2:3.94"
+    },
+    {
+      "name": "zlib1g",
+      "minimum": "1:1.1.4"
+    }
+  ]
+}

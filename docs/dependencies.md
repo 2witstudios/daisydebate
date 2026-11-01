@@ -213,17 +213,28 @@ It adds Ubuntu Noble `libnss3-tools=2:3.98-1ubuntu0.3` for per-run fixture CA
 administration. Browser libraries already exist in the upstream image.
 [Ubuntu's package/dependency listing](https://packages.ubuntu.com/noble-updates/libnss3-tools)
 and [Playwright 1.63.0 native dependencies](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/server/registry/nativeDeps.ts)
-were read before selection. Actual resolved package inventory is recorded in
-the image; moving transitive apt inputs are not a reproducible-build promise.
+were read before selection. The reviewed descriptor pins the official HTTPS deb
+for each architecture: arm64 SHA256
+`f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd`
+(597572 bytes), amd64 SHA256
+`0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0`
+(615126 bytes). Its exact dependency contract is checked against installed native
+base packages using dpkg version semantics before ordinary installation. No apt,
+force option or dependency resolver is used. Actual package inventory is recorded;
+bit-for-bit cold rebuilds are not promised.
 
-Cold preparation owns a disposable `moby/buildkit:v0.32.2` backend at index
-`sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8`;
-arm64 manifest `sha256:5a8cd84cb3fcfd082789a08f92bd36f8e745c6231edd78e24a3bf34fd471a823`;
-amd64 manifest `sha256:040d34121c27906c4ff9ac152a30d52bf2c5d328d3bb748916bb3d2743c02528`.
-[Version-matched BuildKit documentation](https://github.com/moby/buildkit/blob/v0.32.2/README.md)
-and [buildx 0.36.1 lifecycle documentation](https://github.com/docker/buildx/blob/v0.36.1/docs/reference/buildx_create.md)
-were read before configuration. Native Docker/buildx with the docker-container
-driver, stdin-only build and local load/save is required. The policy includes
-this toolchain digest in the image/cache identity. No new vendor, paid service,
-production image or registry push is involved. See
-[prepared tooling lifecycle](development/round-browser-proof.md#prepared-browser-tooling).
+Preparation uses the existing Docker CLI/daemon's create/start/commit operations
+and the verified daemon-cached native base. Actual client/daemon versions enter
+the image/cache identity. A reviewed stdin-only recipe adds NSS tools before
+fixture certificates exist, with explicit empty proxy environment overrides and
+strict configuration/mount/package/layer validation. No preparation engine image,
+new package, vendor, paid service or registry push is added.
+[Docker create](https://docs.docker.com/reference/cli/docker/container/create/),
+[commit](https://docs.docker.com/reference/cli/docker/container/commit/) and
+[proxy credential persistence](https://docs.docker.com/engine/cli/proxy/) were
+read before configuration. The descriptor also pins the upstream native config
+and root filesystem identities, verified against the published config blobs.
+Version-matched [curl 8.5.0](https://manpages.ubuntu.com/manpages/noble/en/man1/curl.1.html)
+and [dpkg 1.22.6](https://manpages.ubuntu.com/manpages/noble/en/man1/dpkg.1.html)
+documentation covers the recipe's bounded download, metadata and version checks.
+See [prepared tooling lifecycle](development/round-browser-proof.md#prepared-browser-tooling).

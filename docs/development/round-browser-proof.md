@@ -74,45 +74,82 @@ resolved.
 
 `bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image.ts`
 prepares the Launch-owned image. The canonical runner calls the same preparer
-before generating certificates. Preparation has an eight-minute total budget,
-including backend pull/create/build/load/save and owned cleanup; browser startup
-retains its separate 120-second deadline. Cold preparation needs repository
-access. Warm runtime performs only fresh OS/NSS trust import and browser startup,
-with no apt index or installation.
+before generating certificates. One eight-minute total budget covers exact-base
+acquisition, container creation/execution, commit, inspection, archive and owned
+cleanup. Browser startup retains its separate 120-second deadline.
 
-The Dockerfile is sent as plain stdin without a filesystem build context. Only
-NSS tools are added to the existing Playwright 1.63.0 Noble image. No checkout,
-fixture certificate, private key or user NSS database enters a build layer or
-archive. A disposable, uniquely named Docker-container BuildKit backend handles
-a cold build and is removed with its state on every exit. No shared builder is
-selected or pruned. Docker with buildx's docker-container driver and local
-`--load` output is required; no registry publication is used.
+The preparer verifies the immutable upstream Playwright 1.63.0 Noble index,
+native manifest/config and published root filesystem layers. An exact cached
+base avoids acquisition; a miss gets one explicit bounded pull. The preparation
+container uses `--pull=never` after verification. A committed NSS shell recipe
+arrives over stdin. There is no filesystem context, checkout, fixture CA/key,
+mount or user NSS database. Runtime still imports its own fresh CA and executes
+Chromium as pwuser with the existing sandbox, seccomp and network topology.
 
-The image policy records the full upstream OCI index and arm64/amd64 manifests,
-pinned BuildKit image, NSS version and explicit dependency-refresh revision.
-The image/cache identity also covers the Dockerfile, preparation sources,
-Bun version and lockfile. Update the policy's dependency revision deliberately
-when refreshing packages. A pinned direct NSS package does not freeze moving
-transitive apt inputs: cold rebuilding is not claimed to be bit-for-bit
-reproducible. `/usr/local/share/daisy-launch-packages.txt` records actual installed
-package versions. Execution uses the inspected immutable image ID.
+Docker CLI proxy configuration can inject plaintext credentials into container
+environment variables. Every proxy variable is explicitly overridden with an
+empty value, and the actual container's environment/config/mounts are checked
+against the pinned base plus a strict allowlist before it starts and again
+before commit. Unexpected environment, commands, mounts or labels fail closed;
+raw values never enter diagnostics. The committed artifact is checked for safe
+configuration, the native base layers plus one preparation layer, the actual
+NSS package inventory hash and empty fixture trust state. Execution uses its
+validated immutable image ID with `--pull=never`.
+
+The descriptor deliberately sets the exact artifact label
+`desktop.docker.io/ports.scheme=v2` at commit on every platform. A no-package local
+create/commit differential measured this same non-secret enum added at commit
+by the Desktop environment (CLI 27.5.1, daemon 29.7.2, Desktop 4.90.0). This is
+our reviewed artifact contract, not a claim of a published Desktop guarantee.
+Its absence, substitution and every additional label are rejected. The verified
+upstream base still has only its independently pinned upstream labels.
+
+The uniquely named preparation container is forcibly removed and its absence
+verified on success, failure and interruption, including partial creation and
+commit failures. Commit uses a unique temporary local tag until validation;
+failed partial outputs are removed. No shared Docker configuration, builder,
+container, image reference or global prune is changed. Docker CLI/daemon
+versions, the recipe, descriptor, implementation, Bun version, lockfile,
+platform and explicit dependency refresh revision participate in cache identity.
+
+The descriptor records full upstream index/native manifest/config digests,
+published layer identities and the native Ubuntu `libnss3-tools` deb's HTTPS URL,
+SHA256, byte count, version, architecture and dependency contract. The recipe
+verifies the download and package metadata, checks the base's installed
+dependencies with `dpkg --compare-versions`, then uses ordinary `dpkg --install`.
+It has no apt fallback, force option or dependency resolver. Update the descriptor
+and refresh revision deliberately for security refreshes. The actual complete
+package inventory is recorded at `/usr/local/share/daisy-launch-packages.txt`;
+identical image bytes across cold rebuilds are not promised. Cold preparation
+needs the pinned artifact host; warm runtime has no package download or image
+acquisition fallback.
 
 An optional directory argument saves/loads `image.tar` and `receipt.json` for
-CI. The existing pinned Actions cache uses exact OS/architecture/input keys,
-with no restore prefixes. Only same-repository PR and main-push events save;
-forks and manual runs cannot publish reusable caches. GitHub ref scoping still
-applies. Archives and local tags are consistency-checked against expected
-metadata/platform and the receipt's image ID. A corrupt/mismatched archive is
-rejected and rebuilt once within the preparation budget. Metadata is a
-consistency check within that repository/event trust boundary, not a signature
-or acceptance proof. Failed saves remove their own partial files. Cache misses
-and preparation failures are distinct from browser and journey outcomes.
+CI. Existing SHA-pinned Actions cache uses exact OS/architecture/input keys;
+inexact restores are discarded only from the owned archive directory. Only
+same-repository PR and main-push events save; forks/manual runs cannot publish
+reusable caches. GitHub ref scoping applies. Local and restored images undergo
+configuration, layer, package and filesystem checks, independently of cache-hit
+metadata. The receipt binds the expected input key and actual immutable image
+ID. Cache is an optimization within its repository/event trust boundary, not a
+signature or acceptance authority. A rejected archive gets one bounded rebuild;
+failed writes remove their own partial files.
 
-References read for this configuration: [Playwright 1.63.0 Docker guide](https://github.com/microsoft/playwright/blob/v1.63.0/docs/src/docker.md),
-[its Noble Dockerfile](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/Dockerfile.noble),
-[BuildKit 0.32.2](https://github.com/moby/buildkit/tree/v0.32.2),
-[buildx 0.36.1 create](https://github.com/docker/buildx/blob/v0.36.1/docs/reference/buildx_create.md),
-[empty Docker context](https://docs.docker.com/build/concepts/context/#empty-context),
-[Docker-container backend lifecycle](https://docs.docker.com/build/builders/drivers/docker-container/),
-[Actions cache 6.1.0](https://github.com/actions/cache/tree/v6.1.0), and
+The real preparation lifecycle proof exercises timeout, partial creation,
+pre-execution credential/config rejection and commit failure against owned
+Docker resources. The browser trust proof denies configured repository hosts
+only in its disposable proof containers while actual fixture HTTPS/WSS and
+controlled media remain usable. It proves fresh CA trust, cross-run isolation,
+wrong-CA and hostname rejection and cleanup. The canonical native suite supplies
+the real application/media journey outcomes and retains its selected-spec guard.
+
+References read before configuration: [Playwright 1.63.0 Docker guide](https://github.com/microsoft/playwright/blob/v1.63.0/docs/src/docker.md),
+[its Noble source](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/Dockerfile.noble),
+[Docker create](https://docs.docker.com/reference/cli/docker/container/create/),
+[Docker commit](https://docs.docker.com/reference/cli/docker/container/commit/),
+[Docker proxy credential persistence](https://docs.docker.com/engine/cli/proxy/),
+[Ubuntu Noble NSS metadata](https://packages.ubuntu.com/noble-updates/libnss3-tools),
+[Noble curl 8.5.0](https://manpages.ubuntu.com/manpages/noble/en/man1/curl.1.html),
+[Noble dpkg 1.22.6](https://manpages.ubuntu.com/manpages/noble/en/man1/dpkg.1.html),
+[Actions cache 6.1.0](https://github.com/actions/cache/tree/v6.1.0) and
 [GitHub cache trust/ref restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).

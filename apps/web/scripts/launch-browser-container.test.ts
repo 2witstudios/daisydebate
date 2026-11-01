@@ -108,3 +108,41 @@ test('prepared runtime cannot acquire an image or relax the sandbox contract', (
     },
   });
 });
+
+test('repository denial is confined to disposable proof arguments', () => {
+  const ordinary = launchBrowserDockerArgs({ ...input, hostNetwork: false });
+  const proof = launchBrowserDockerArgs({
+    ...input,
+    hostNetwork: false,
+    proofRepositoryHosts: ['archive.ubuntu.com', 'deb.nodesource.com'],
+  });
+  assert({
+    given: 'ordinary and repository-blocked proof containers',
+    should:
+      'leave ordinary routing intact and deny only the exact proof repository names',
+    actual: [
+      valueAfter(ordinary, '--add-host'),
+      valueAfter(proof, '--add-host'),
+    ],
+    expected: [
+      [],
+      ['archive.ubuntu.com:127.0.0.1', 'deb.nodesource.com:127.0.0.1'],
+    ],
+  });
+});
+
+test('startup diagnostics never echo arbitrary container text', async () => {
+  const { launchBrowserStartupStage } =
+    await import('../e2e/support/launch-browser-container');
+  assert({
+    given: 'known progress and attacker-controlled unknown output',
+    should: 'retain only the last fixed runtime stage',
+    actual: [
+      launchBrowserStartupStage(
+        'noise\ndaisy-browser-stage:os-trust\ndaisy-browser-stage:nss-trust\n',
+      ),
+      launchBrowserStartupStage('daisy-browser-stage:private-unknown\n'),
+    ],
+    expected: ['nss-trust', null],
+  });
+});

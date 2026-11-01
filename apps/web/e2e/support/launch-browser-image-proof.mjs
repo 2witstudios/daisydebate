@@ -5,6 +5,7 @@ try {
   const context = await browser.newContext({ ignoreHTTPSErrors: false });
   const page = await context.newPage();
   const origin = `https://localhost:${trustedPort}`;
+  await context.grantPermissions(['camera', 'microphone'], { origin });
   const response = await page.goto(origin);
   if (response?.status() !== 200)
     throw new Error('Fresh fixture CA HTTPS proof failed');
