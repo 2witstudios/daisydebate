@@ -9,6 +9,7 @@ import {
   validateLaunchBase,
   validateLaunchPreparation,
   validateLaunchImage,
+  launchImageContractChecks,
   readLaunchPackages,
   readLaunchArchiveReceipt,
   validateLaunchArchive,
@@ -151,10 +152,20 @@ async function validatedImage(
 ) {
   const raw = await inspect(owner, 'image', name);
   const id = validateLaunchImage(raw, image, receiptId);
-  if (!id) return null;
+  if (!id) {
+    if (raw !== null)
+      process.stdout.write(
+        `${JSON.stringify({ event: 'browser.image.refused', checks: launchImageContractChecks(raw, image, receiptId) })}\n`,
+      );
+    return null;
+  }
   const packages = (raw as { Config: { Labels: Record<string, string> } })
     .Config.Labels['io.daisy.launch.packages']!;
-  return (await verifyFilesystem(owner, image, id, packages)) ? id : null;
+  if (await verifyFilesystem(owner, image, id, packages)) return id;
+  process.stdout.write(
+    `${JSON.stringify({ event: 'browser.image.refused', checks: { filesystemInventory: false } })}\n`,
+  );
+  return null;
 }
 
 /** The recipe executes before certificates exist, without a checkout, mounts or inherited credentials. */
@@ -262,7 +273,7 @@ export async function createPreparedLaunchImage(
   return id;
 }
 
-async function restoreArchive(
+export async function restoreLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
   directory: string,
@@ -273,10 +284,24 @@ async function restoreArchive(
       image.key,
     );
     if (!receiptId) return null;
-    const manifest = await owner.archiveManifest(join(directory, 'image.tar'));
+    const archive = join(directory, 'image.tar');
+    const entries = await owner.archiveEntries(archive);
+    if (entries.code !== 0) return null;
+    const manifest = await owner.archiveDocument(archive, 'manifest.json');
+    let index: unknown;
+    if (entries.stdout.split('\n').includes('index.json')) {
+      const document = await owner.archiveDocument(archive, 'index.json');
+      if (document.code !== 0) return null;
+      index = JSON.parse(document.stdout);
+    }
     if (
       manifest.code !== 0 ||
-      !validateLaunchArchive(JSON.parse(manifest.stdout), image)
+      !validateLaunchArchive(
+        JSON.parse(manifest.stdout),
+        image,
+        index,
+        receiptId,
+      )
     )
       return null;
     if (
@@ -295,7 +320,7 @@ async function restoreArchive(
     return null;
   }
 }
-async function saveArchive(
+export async function saveLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
   id: string,
@@ -345,7 +370,11 @@ export async function prepareLaunchBrowserImage(input: {
     let id = await validatedImage(owner, image, image.tag);
     let source = 'local';
     if (!id && input.archiveDirectory) {
-      id = await restoreArchive(owner, image, input.archiveDirectory);
+      id = await restoreLaunchImageArchive(
+        owner,
+        image,
+        input.archiveDirectory,
+      );
       source = 'archive';
       if (!id) announce('cache-rejected-or-missing', image);
     }
@@ -355,7 +384,7 @@ export async function prepareLaunchBrowserImage(input: {
       id = await createPreparedLaunchImage(owner, image, recipe);
     }
     if (input.archiveDirectory && source !== 'archive')
-      await saveArchive(owner, image, id, input.archiveDirectory);
+      await saveLaunchImageArchive(owner, image, id, input.archiveDirectory);
     announce(source, image, id);
     return { id, image };
   } finally {

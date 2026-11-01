@@ -339,6 +339,51 @@ export function validateLaunchImage(
   return value.Id;
 }
 
+/** Fixed field categories only: no untrusted metadata, key names or values escape. */
+export function launchImageContractChecks(
+  raw: unknown,
+  image: LaunchImage,
+  receiptId?: string,
+) {
+  const value = record(raw),
+    config = record(value.Config),
+    labels = record(config.Labels),
+    layers = record(value.RootFS).Layers;
+  return {
+    immutableId: isDigest(value.Id),
+    receiptId: receiptId === undefined || receiptId === value.Id,
+    linux: value.Os === 'linux',
+    nativeArchitecture: `linux/${value.Architecture}` === image.platform,
+    safeConfiguration: safeConfig(config, image, true),
+    hostnameEmpty: config.Hostname == null || config.Hostname === '',
+    hostnameOwned: config.Hostname === 'daisy-launch-preparation',
+    environment:
+      Array.isArray(config.Env) &&
+      same([...config.Env].sort(), [...image.environment].sort()),
+    command: same(config.Cmd, ['/bin/bash']),
+    entrypoint: config.Entrypoint == null || same(config.Entrypoint, []),
+    user: config.User === '0:0',
+    workingDirectory: config.WorkingDir === '/',
+    imageReference:
+      !config.Image ||
+      [
+        image.labels['io.daisy.launch.upstream'],
+        image.native.manifest,
+        image.native.config,
+      ].includes(config.Image as string),
+    labels: Object.entries(image.labels).every(
+      ([key, expected]) => labels[key] === expected,
+    ),
+    labelCount:
+      Object.keys(labels).length === Object.keys(image.labels).length + 1,
+    packageInventoryDigest: isDigest(labels['io.daisy.launch.packages']),
+    nativeLayerPrefix:
+      Array.isArray(layers) && same(layers.slice(0, -1), image.native.layers),
+    layerCount:
+      Array.isArray(layers) && layers.length === image.native.layers.length + 1,
+  };
+}
+
 export function readLaunchPackages(output: string): string | null {
   const match = output.match(/^daisy-image-inventory:([A-Za-z0-9+/=]+)$/m);
   if (!match) return null;
@@ -370,6 +415,8 @@ export function readLaunchArchiveReceipt(
 export function validateLaunchArchive(
   value: unknown,
   image: LaunchImage,
+  index?: unknown,
+  receiptId?: string,
 ): boolean {
   if (!Array.isArray(value) || value.length !== 1) return false;
   const manifest = record(value[0]);
@@ -378,11 +425,35 @@ export function validateLaunchArchive(
     /^(?:[a-f0-9]{64}\.json|[a-f0-9]{64}\/layer\.tar|blobs\/sha256\/[a-f0-9]{64})$/.test(
       value,
     );
-  return (
+  const dockerManifest =
     same(manifest.RepoTags, [image.tag]) &&
     path(manifest.Config) &&
     Array.isArray(manifest.Layers) &&
     manifest.Layers.length === image.native.layers.length + 1 &&
-    manifest.Layers.every(path)
+    manifest.Layers.every(path);
+  if (!dockerManifest || index === undefined) return dockerManifest;
+  const oci = record(index);
+  if (
+    oci.schemaVersion !== 2 ||
+    oci.mediaType !== 'application/vnd.oci.image.index.v1+json' ||
+    !Array.isArray(oci.manifests) ||
+    oci.manifests.length !== 1
+  )
+    return false;
+  const descriptor = record(oci.manifests[0]);
+  const annotations = record(descriptor.annotations);
+  return (
+    descriptor.mediaType === 'application/vnd.oci.image.manifest.v1+json' &&
+    isDigest(receiptId) &&
+    descriptor.digest === receiptId &&
+    (descriptor.platform == null ||
+      same(descriptor.platform, {
+        os: 'linux',
+        architecture: image.platform.slice('linux/'.length),
+      })) &&
+    Object.keys(annotations).length === 2 &&
+    annotations['io.containerd.image.name'] ===
+      `docker.io/library/${image.tag}` &&
+    annotations['org.opencontainers.image.ref.name'] === image.key
   );
 }

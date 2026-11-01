@@ -497,6 +497,8 @@ jobs:
           key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
       - name: Prove owned preparation deadline, configuration and cleanup
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+      - name: Prove exact archive load, timing and rejection boundaries
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-archive-proof.ts
       - name: Prove prepared browser trust, repository isolation and cleanup
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
       - name: Run real isolated Launch browser suite

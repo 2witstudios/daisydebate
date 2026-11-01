@@ -6,6 +6,7 @@ import {
   launchImageCommitArgs,
   validateLaunchBase,
   validateLaunchImage,
+  launchImageContractChecks,
   validateLaunchPreparation,
   readLaunchArchiveReceipt,
   launchPreparationRemaining,
@@ -471,5 +472,110 @@ test('a committed image has the canonical empty hostname without accepting forei
       ),
     ],
     expected: [imageId, null],
+  });
+});
+
+test('OCI archive references cannot override the checked Docker manifest', () => {
+  const image = launchImageIdentity(inputs);
+  const manifest = [
+    {
+      Config: `blobs/sha256/${'c'.repeat(64)}`,
+      RepoTags: [image.tag],
+      Layers: image.native.layers
+        .concat(packageHash)
+        .map((id) => `blobs/sha256/${id.slice(7)}`),
+    },
+  ];
+  const descriptor = {
+    mediaType: 'application/vnd.oci.image.manifest.v1+json',
+    digest: imageId,
+    annotations: {
+      'io.containerd.image.name': `docker.io/library/${image.tag}`,
+      'org.opencontainers.image.ref.name': image.key,
+    },
+  };
+  const index = {
+    schemaVersion: 2,
+    mediaType: 'application/vnd.oci.image.index.v1+json',
+    manifests: [descriptor],
+  };
+  assert({
+    given:
+      'an exact Docker manifest alongside a foreign OCI reference, digest or platform',
+    should: 'admit only the exact receipt-bound archive reference',
+    actual: [
+      validateLaunchArchive(manifest, image, index, imageId),
+      validateLaunchArchive(
+        manifest,
+        image,
+        {
+          ...index,
+          manifests: [
+            {
+              ...descriptor,
+              annotations: {
+                ...descriptor.annotations,
+                'io.containerd.image.name': 'docker.io/library/foreign:tag',
+              },
+            },
+          ],
+        },
+        imageId,
+      ),
+      validateLaunchArchive(
+        manifest,
+        image,
+        { ...index, manifests: [{ ...descriptor, digest: packageHash }] },
+        imageId,
+      ),
+      validateLaunchArchive(
+        manifest,
+        image,
+        {
+          ...index,
+          manifests: [
+            { ...descriptor, platform: { os: 'linux', architecture: 'amd64' } },
+          ],
+        },
+        imageId,
+      ),
+      validateLaunchArchive(
+        manifest,
+        image,
+        { ...index, manifests: [descriptor, descriptor] },
+        imageId,
+      ),
+    ],
+    expected: [true, false, false, false, false],
+  });
+});
+
+test('artifact refusal diagnostics cannot serialize credentials or unknown keys', () => {
+  const image = launchImageIdentity(inputs),
+    valid = imageMetadata(image);
+  const marker = 'synthetic-private-credential';
+  const checks = launchImageContractChecks(
+    {
+      ...valid,
+      Config: {
+        ...valid.Config,
+        Env: [marker],
+        Labels: { [marker]: marker },
+        Image: marker,
+      },
+    },
+    image,
+  );
+  assert({
+    given: 'untrusted environment, label names/values and source references',
+    should: 'emit only fixed boolean contract categories',
+    actual: [
+      Object.values(checks).every((value) => typeof value === 'boolean'),
+      JSON.stringify(checks).includes(marker),
+      checks.environment,
+      checks.labels,
+      checks.imageReference,
+    ],
+    expected: [true, false, false, false, false],
   });
 });

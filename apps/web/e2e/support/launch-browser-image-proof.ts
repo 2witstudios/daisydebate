@@ -84,6 +84,25 @@ try {
       ports,
     });
     try {
+      await run([
+        'docker',
+        'exec',
+        browser.name,
+        'node',
+        '-e',
+        `
+        const fs=require('node:fs');
+        const chromium=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)).flatMap(name=>{
+          try {
+            const cmd=fs.readFileSync('/proc/'+name+'/cmdline','utf8').split('\\0')[0];
+            if(!cmd.endsWith('/chrome'))return [];
+            const uid=fs.readFileSync('/proc/'+name+'/status','utf8').split('\\n').find(line=>line.startsWith('Uid:'));
+            return [uid?.trim().split(/\\s+/).slice(1).every(value=>value!=='0')===true];
+          }catch{return [];}
+        });
+        if(!chromium.length||!chromium.every(Boolean))process.exit(1);
+      `,
+      ]);
       // Every configured apt repository is mapped to a closed container
       // loopback endpoint before browser startup; fixture forwarders still work.
       await run([
@@ -182,6 +201,8 @@ try {
         'container-cleanup',
         'failed-start-cleanup',
         'image-trust-empty',
+        'chromium-processes-nonroot',
+        'renderer-namespace-and-seccomp-sandbox',
       ],
       packageInventory: inventory
         .trim()

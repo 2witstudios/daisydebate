@@ -43,7 +43,9 @@ for (const mode of [
   'credential-config',
   'commit-failure',
 ] as const) {
-  const owner = createLaunchPreparationProcess(40000);
+  const budgetMs =
+    mode === 'deadline' && Bun.argv.includes('--full-budget') ? 480000 : 40000;
+  const owner = createLaunchPreparationProcess(budgetMs);
   const name = `daisy-image-${createId()}`;
   let entered = false;
   let starts = 0;
@@ -128,11 +130,11 @@ for (const mode of [
     if (
       remaining.code !== 0 ||
       remaining.stdout.trim() ||
-      performance.now() - started > 40000
+      performance.now() - started > budgetMs
     )
       throw new Error('Preparation resource cleanup or total deadline failed');
     process.stdout.write(
-      `${JSON.stringify({ event: 'browser.image.preparation.proof', mode, outcome: 'refused-and-cleaned', elapsedMs: Math.round(performance.now() - started), platform, inputs: image.key })}\n`,
+      `${JSON.stringify({ event: 'browser.image.preparation.proof', mode, outcome: 'refused-and-cleaned', budgetMs, elapsedMs: Math.round(performance.now() - started), platform, inputs: image.key })}\n`,
     );
   } finally {
     await closeLaunchPreparation(owner, name);

@@ -3,6 +3,34 @@ const [endpoint, trustedPort, foreignPort] = process.argv.slice(2);
 const browser = await chromium.connect(endpoint);
 try {
   const context = await browser.newContext({ ignoreHTTPSErrors: false });
+  const sandbox = await context.newPage();
+  await sandbox.goto('chrome://sandbox');
+  await sandbox.waitForFunction(
+    () =>
+      document.querySelector('#evaluation')?.textContent ===
+      'You are adequately sandboxed.',
+  );
+  const sandboxStatus = await sandbox
+    .locator('#sandbox-status')
+    .evaluate((table) => {
+      const rows = Object.fromEntries(
+        [...table.querySelectorAll('tr')].map((row) =>
+          [...row.querySelectorAll('td')].map((cell) => cell.textContent),
+        ),
+      );
+      return {
+        layer1: ['Namespace', 'SUID'].includes(rows['Layer 1 Sandbox']),
+        pidNamespace: rows['PID namespaces'] === 'Yes',
+        networkNamespace: rows['Network namespaces'] === 'Yes',
+        seccomp: rows['Seccomp-BPF sandbox'] === 'Yes',
+      };
+    });
+  if (!Object.values(sandboxStatus).every(Boolean))
+    throw new Error('Prepared browser renderer sandbox status failed');
+  process.stdout.write(
+    `${JSON.stringify({ event: 'browser.image.sandbox.proof', ...sandboxStatus })}\n`,
+  );
+  await sandbox.close();
   const page = await context.newPage();
   const origin = `https://localhost:${trustedPort}`;
   await context.grantPermissions(['camera', 'microphone'], { origin });

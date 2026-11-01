@@ -93,8 +93,9 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
   return {
     run: (args: readonly string[], options?: Parameters<typeof execute>[2]) =>
       execute('docker', args, options),
-    archiveManifest: (path: string) =>
-      execute('tar', ['-xOf', path, 'manifest.json']),
+    archiveDocument: (path: string, entry: 'manifest.json' | 'index.json') =>
+      execute('tar', ['-xOf', path, entry]),
+    archiveEntries: (path: string) => execute('tar', ['-tf', path]),
     close: () => {
       process.removeListener('SIGTERM', abort);
       process.removeListener('SIGINT', abort);
