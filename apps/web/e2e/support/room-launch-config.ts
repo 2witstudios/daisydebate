@@ -30,6 +30,7 @@ export default defineConfig({
     '**/attendance.e2e.ts',
     '**/round-media.e2e.ts',
     '**/media-stage.e2e.ts',
+    '**/round-timing-skew.e2e.ts',
   ],
   testIgnore: [],
   use: {

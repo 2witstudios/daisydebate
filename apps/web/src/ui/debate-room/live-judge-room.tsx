@@ -20,7 +20,13 @@ import { useRoundEndedRoute } from './use-round-ended';
  * The server admits an actual own judge assignment; media grants remain
  * server-authoritative. Once the Round ends, the judge goes to its result.
  */
-export function LiveJudgeRoom(props: {
+export function LiveJudgeRoom({
+  transcript,
+  view: seed,
+  read,
+  socketUrl,
+  renderedAtMs,
+}: {
   readonly transcript?: ReactNode;
   readonly view: RoundView;
   readonly read: () => Promise<RoundRead>;
@@ -32,7 +38,7 @@ export function LiveJudgeRoom(props: {
     const at = defaultMonotonicClock();
     const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
     seed.sample({
-      serverNowMs: props.renderedAtMs,
+      serverNowMs: renderedAtMs,
       sentAtMs: at,
       receivedAtMs: at,
       generation: 0,
@@ -40,14 +46,14 @@ export function LiveJudgeRoom(props: {
     return seed;
   });
   const sampledRead = useCallback(async () => {
-    const response = await props.read();
+    const response = await read();
     if (response.kind === 'found' && response.serverSample !== null)
       roundTime.sample({
         ...response.serverSample,
         generation: ++generationRef.current,
       });
     return response;
-  }, [props.read, roundTime]);
+  }, [read, roundTime]);
   // Suspension or a stall must produce a fresh sample, not a frozen anchor.
   useEffect(() => {
     const timer = window.setInterval(
@@ -63,9 +69,16 @@ export function LiveJudgeRoom(props: {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [sampledRead]);
-  const [synced, driver] = useLiveRoundView({ ...props, read: sampledRead });
+  const [synced, driver] = useLiveRoundView({
+    view: seed,
+    read: sampledRead,
+    socketUrl,
+  });
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const media = useMemo(() => roundMediaSlot(refresh, roundTime), [refresh, roundTime]);
+  const media = useMemo(
+    () => roundMediaSlot(refresh, roundTime),
+    [refresh, roundTime],
+  );
   const view = synced.value;
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
@@ -92,7 +105,7 @@ export function LiveJudgeRoom(props: {
       </p>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       {media(view)}
-      {props.transcript}
+      {transcript}
       <Link href={`/judge/ballot/${view.id}`} prefetch={false}>
         Open your ballot
       </Link>

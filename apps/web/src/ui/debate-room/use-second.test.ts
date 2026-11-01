@@ -18,8 +18,7 @@ const sample = (overrides: Partial<RoundTimeSample> = {}): RoundTimeSample => ({
 
 describe('calibratedNowMs', () => {
   test('two-minute-fast browser wall clock shows the server-authoritative remaining duration', () => {
-    const serverBrowserSkewMs = 120_000; // browser two minutes fast
-    const serverAtReceive = 60_000;
+    const serverAtReceive = 60_000; // the browser is two minutes fast: it never enters the projection
     const serverSample = sample({
       serverNowMs: serverAtReceive,
       sentAtMs: 0,
@@ -119,7 +118,7 @@ describe('createRoundTime', () => {
   });
 
   test('uncertainty is half the measured RTT', () => {
-    let mono = 0;
+    const mono = 0;
     const clock = createRoundTime({ monotonicNowMs: () => mono });
     clock.sample(sample({ sentAtMs: 100, receivedAtMs: 400, generation: 7 }));
     assert({
