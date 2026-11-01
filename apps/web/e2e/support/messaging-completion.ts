@@ -4,7 +4,7 @@ import {
   messagingBetaLimits,
 } from '@daisy/protocol';
 
-export async function durableMessages(page: Page, channelId: string) {
+async function durableMessages(page: Page, channelId: string) {
   const response = await page.request.get(
     `/api/messaging/channels/${channelId}/messages`,
   );
@@ -36,6 +36,14 @@ export async function composerRequestId(page: Page) {
     .inputValue();
 }
 
+export function ownMessageEdit(page: Page, text: string) {
+  return page
+    .getByRole('list', { name: 'Message history' })
+    .getByRole('listitem')
+    .filter({ hasText: text })
+    .getByRole('link', { name: 'Edit or remove your message', exact: true });
+}
+
 /** A live row is not the sending action's canonical completion barrier. */
 export async function completedSend(
   page: Page,
@@ -43,14 +51,7 @@ export async function completedSend(
   text: string,
   requestId: string,
 ) {
-  const row = page
-    .getByRole('list', { name: 'Message history' })
-    .getByRole('listitem')
-    .filter({ hasText: text });
-  const edit = row.getByRole('link', {
-    name: 'Edit or remove your message',
-    exact: true,
-  });
+  const edit = ownMessageEdit(page, text);
   await expect(edit).toBeVisible();
   const href = await edit.getAttribute('href');
   expect(href).not.toBeNull();

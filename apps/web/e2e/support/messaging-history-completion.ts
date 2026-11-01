@@ -10,9 +10,11 @@ import {
   completedSend,
   durableMessage,
 } from './messaging-completion';
-import { holdConversationResponses } from './messaging-navigation-overlap';
-import { watchChannelObservation } from './channel-observation';
-import { effectsRan } from './hydration';
+import {
+  holdConversationResponses,
+  observeConversation,
+  beginHeldSend,
+} from './messaging-navigation-overlap';
 
 export function testMessagingHistoryCompletion() {
   for (const first of ['send', 'history'] as const) {
@@ -41,10 +43,7 @@ export function testMessagingHistoryCompletion() {
           );
           expect(response.status()).toBe(200);
         }
-        const observed = watchChannelObservation(page, journey.channelId);
-        await page.reload();
-        await observed.ready();
-        await effectsRan(page);
+        const observed = await observeConversation(page, journey.channelId);
         await expect(
           page.getByRole('link', { name: 'Earlier messages', exact: true }),
         ).toBeVisible();
@@ -61,11 +60,7 @@ export function testMessagingHistoryCompletion() {
         });
         const oldId = await composerRequestId(page);
         const text = `Send before Earlier messages ${first}`;
-        await page.getByLabel('Your message').fill(text);
-        await page
-          .getByRole('button', { name: 'Send message', exact: true })
-          .click();
-        await expect.poll(() => held!.state.sendReady).toBe(true);
+        await beginHeldSend(page, held, text);
         const sent = await durableMessage(page, journey.channelId, text);
         await observed.heard(sent.changeVersion);
         await expect(page.getByLabel('Your message')).toBeDisabled();
