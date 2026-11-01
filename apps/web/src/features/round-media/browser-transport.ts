@@ -47,6 +47,30 @@ const livekit: MediaSdk = {
 };
 
 export type Source = 'camera' | 'microphone';
+/** Allocated and released only inside one principal/Round transport lifetime. */
+type CapturedSource = {
+  readonly track: LocalTrack;
+  readonly deviceId: string | null;
+  readonly release: () => void;
+  phase: 'captured' | 'warm' | 'publishing' | 'published' | 'retiring';
+};
+const capturedSource = (
+  track: LocalTrack,
+  deviceId: string | null,
+): CapturedSource => {
+  let held = true;
+  return {
+    track,
+    deviceId,
+    phase: 'captured',
+    release: () => {
+      if (!held) return;
+      held = false;
+      track.stop();
+    },
+  };
+};
+
 /**
  * The sources to hold published (ISSUE-572). LiveKit enforces the floor
  * (DEC-218/220) and the server sets its permission from the same seat grants
@@ -89,10 +113,8 @@ export function createBrowserMediaTransport(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let stopped = false;
-  const tracks = new Map<Source, LocalTrack>();
+  const sources = new Map<Source, CapturedSource>();
   let granted: readonly Source[] = [];
-  /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
-  let warm: LocalTrack | null = null;
   let microphoneMuted = events.microphoneMuted ?? false;
   // Unrestricted sources (canPublish with none listed) are never what the
   // server sets, so they read as unknown rather than as every source.
@@ -142,10 +164,10 @@ export function createBrowserMediaTransport(
     events.tracks(snapshot);
   };
   const stopTracks = () => {
+    if (stopped) return;
     stopped = true;
-    for (const track of tracks.values()) track.stop();
-    tracks.clear();
-    releaseWarm();
+    for (const resource of sources.values()) resource.release();
+    sources.clear();
     events.tracks([]);
   };
   room
@@ -197,7 +219,7 @@ export function createBrowserMediaTransport(
       return { state: 'unavailable', reason: 'unreadable' };
     }
   };
-  const capture = async (source: Source): Promise<LocalTrack[]> => {
+  const captureSource = async (source: Source): Promise<CapturedSource[]> => {
     if (stopped) return [];
     const read = readInputs();
     if (stopped) return [];
@@ -207,8 +229,19 @@ export function createBrowserMediaTransport(
     }
     // One immutable attempt snapshot supplies both constraints and attribution.
     const choices = { ...read.choices };
+    const deviceId = choices[source] ?? null;
+    const held = sources.get(source);
+    if (held?.phase === 'warm') {
+      if (
+        held.deviceId === deviceId &&
+        held.track.mediaStreamTrack?.readyState !== 'ended'
+      )
+        return [held];
+      held.release();
+      if (sources.get(source) === held) sources.delete(source);
+    }
     try {
-      return await sdk.capture({
+      const captured = await sdk.capture({
         audio:
           source === 'microphone'
             ? choices.microphone
@@ -225,18 +258,25 @@ export function createBrowserMediaTransport(
               }
             : false,
       });
+      const allocated = captured.map((track) =>
+        capturedSource(track, deviceId),
+      );
+      if (stopped) {
+        allocated.forEach((resource) => resource.release());
+        return [];
+      }
+      // Each request asks the SDK for one source and therefore one track.
+      if (allocated.length !== 1) {
+        allocated.forEach((resource) => resource.release());
+        reportSourceFailure(source, new Error('Unexpected source capture'));
+        return [];
+      }
+      sources.set(source, allocated[0]!);
+      return allocated;
     } catch (error) {
       reportSourceFailure(source, error, Boolean(choices[source]));
       return [];
     }
-  };
-  const captureSource = async (source: Source) => {
-    if (source === 'microphone' && warm) {
-      const held = warm;
-      warm = null;
-      return [held];
-    }
-    return capture(source);
   };
   /**
    * A seat that publishes anything is a debater's: its microphone waits warm
@@ -246,58 +286,73 @@ export function createBrowserMediaTransport(
    * reported now through `missing`, since its debater will need it
    * (ISSUE-573). A seat that publishes nothing holds no microphone.
    */
-  const holdsMicrophone = () =>
-    stopped || warm !== null || tracks.has('microphone');
-  const releaseWarm = () => {
-    warm?.stop();
-    warm = null;
-  };
   const warmMicrophone = async (desired: readonly Source[]) => {
-    if (desired.length === 0) return releaseWarm();
-    if (desired.includes('microphone')) return;
-    if (holdsMicrophone()) return;
-    const [track] = await capture('microphone');
-    if (holdsMicrophone()) track?.stop();
-    else warm = track ?? null;
+    if (stopped) return;
+    const held = sources.get('microphone');
+    if (desired.length === 0) {
+      held?.release();
+      sources.delete('microphone');
+      return;
+    }
+    if (desired.includes('microphone') || held) return;
+    const [resource] = await captureSource('microphone');
+    if (stopped) resource?.release();
+    else if (resource && sources.get('microphone') === resource)
+      resource.phase = 'warm';
   };
   /** Unpublishes a source; between turns a debater's microphone stays warm. */
   const retire = async (
     source: Source,
-    track: LocalTrack,
+    resource: CapturedSource,
     desired: readonly Source[],
   ) => {
-    tracks.delete(source);
-    const keep = source === 'microphone' && desired.length > 0 && !warm;
-    if (!keep) track.stop();
-    await room.localParticipant.unpublishTrack(track, !keep);
-    if (!keep) return;
-    if (stopped) track.stop();
-    else warm = track;
+    const keep = source === 'microphone' && desired.length > 0;
+    resource.phase = 'retiring';
+    if (!keep) {
+      resource.release();
+      if (sources.get(source) === resource) sources.delete(source);
+    }
+    try {
+      await room.localParticipant.unpublishTrack(resource.track, false);
+    } catch (error) {
+      resource.release();
+      if (sources.get(source) === resource) sources.delete(source);
+      reportSourceFailure(source, error);
+      return;
+    }
+    if (stopped) resource.release();
+    else if (keep && sources.get(source) === resource) resource.phase = 'warm';
   };
   const publishSource = async (source: Source) => {
     const captured = await captureSource(source);
-    for (const track of captured) {
+    for (const resource of captured) {
+      const { track } = resource;
       if (stopped) {
-        track.stop();
+        resource.release();
         continue;
       }
-      tracks.set(source, track);
+      resource.phase = 'publishing';
       try {
         if (source === 'microphone' && microphoneMuted) await track.mute();
+        if (stopped) {
+          resource.release();
+          continue;
+        }
         await room.localParticipant.publishTrack(track, {
           source:
             source === 'camera' ? Track.Source.Camera : Track.Source.Microphone,
         });
       } catch (error) {
-        track.stop();
-        tracks.delete(source);
+        resource.release();
+        if (sources.get(source) === resource) sources.delete(source);
         reportSourceFailure(source, error);
         continue;
       }
       if (stopped) {
-        track.stop();
+        resource.release();
         continue;
       }
+      resource.phase = 'published';
       events.sourceHealthy?.(source);
     }
   };
@@ -307,13 +362,15 @@ export function createBrowserMediaTransport(
     work = work.then(async () => {
       if (stopped) return;
       const desired = desiredSources(granted, permitted());
-      for (const [source, track] of tracks)
-        if (!desired.includes(source)) await retire(source, track, desired);
+      for (const [source, resource] of sources)
+        if (resource.phase === 'published' && !desired.includes(source))
+          await retire(source, resource, desired);
       // Local capture and publication failures are per source. Even zero
       // local publications cannot invalidate independently authorized reception.
       for (const source of desired) {
         if (stopped) return;
-        if (!tracks.has(source)) await publishSource(source);
+        if (sources.get(source)?.phase !== 'published')
+          await publishSource(source);
       }
       await warmMicrophone(desired);
       if (!stopped) emit();
@@ -353,25 +410,26 @@ export function createBrowserMediaTransport(
       if (stopped) return;
       const previousMuted = microphoneMuted;
       microphoneMuted = muted;
-      const microphone = tracks.get('microphone') ?? warm;
+      const resource = sources.get('microphone');
+      const owns = () => !stopped && sources.get('microphone') === resource;
+      const microphone = resource?.track;
       try {
         if (microphone) await (muted ? microphone.mute() : microphone.unmute());
       } catch (error) {
-        microphoneMuted = previousMuted;
-        if (!stopped) {
-          microphone?.stop();
-          tracks.delete('microphone');
-          if (warm === microphone) warm = null;
+        resource?.release();
+        if (owns()) {
+          microphoneMuted = previousMuted;
+          sources.delete('microphone');
           reportSourceFailure('microphone', error);
           if (microphone)
             void room.localParticipant
-              .unpublishTrack(microphone, true)
+              .unpublishTrack(microphone, false)
               .catch(() => undefined);
           emit();
         }
         throw error;
       }
-      if (!stopped) events.microphoneChanged?.(muted);
+      if (owns()) events.microphoneChanged?.(muted);
     },
   };
 }
