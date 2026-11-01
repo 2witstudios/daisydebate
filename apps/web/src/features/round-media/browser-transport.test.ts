@@ -204,7 +204,7 @@ test('a terminal stop ends the kept microphone whose unpublish is still in fligh
     ],
   });
 });
-test('POI local mute changes audio without changing server publish grants', async () => {
+const mutedMicrophone = async () => {
   const stub = stubSdk({ settles: true });
   const browser = createBrowserMediaTransport(
     { ...events, microphoneMuted: true },
@@ -214,6 +214,11 @@ test('POI local mute changes audio without changing server publish grants', asyn
   const microphone = stub.captured.find(
     (track) => track.source === 'microphone',
   )!;
+  return { stub, browser, microphone };
+};
+
+test('POI local mute changes audio without changing server publish grants', async () => {
+  const { stub, browser, microphone } = await mutedMicrophone();
   const initiallyMuted = microphone.muted;
   await browser.setMicrophoneMuted(false);
   const unmuted = microphone.muted;
@@ -231,15 +236,7 @@ test('POI local mute changes audio without changing server publish grants', asyn
 });
 
 test('a failed local microphone change stops capture before offering device recovery', async () => {
-  const stub = stubSdk({ settles: true });
-  const browser = createBrowserMediaTransport(
-    { ...events, microphoneMuted: true },
-    stub.sdk,
-  );
-  await browser.transport.apply(publish(['camera', 'microphone']));
-  const microphone = stub.captured.find(
-    (track) => track.source === 'microphone',
-  )!;
+  const { stub, browser, microphone } = await mutedMicrophone();
   microphone.unmute = async () => {
     throw new Error('Device disconnected');
   };

@@ -15,6 +15,56 @@ import {
 /** Real decoded frames over the launch fixture's TLS edge can take seconds to arrive. */
 const MEDIA_POLL = { timeout: 20_000 };
 
+/** Controlled media still traverses native capture, LiveKit and peer playback. */
+const installMediaCapture = (
+  page: import('@playwright/test').Page,
+  mode: 'alternating' | 'camera-failure',
+) =>
+  page.addInitScript((mode) => {
+    const capture = navigator.mediaDevices.getUserMedia.bind(
+      navigator.mediaDevices,
+    );
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      if (mode === 'camera-failure' && constraints?.video)
+        throw new DOMException('controlled camera failure', 'NotReadableError');
+      const stream = await capture(constraints);
+      if (constraints?.audio) {
+        const audio = new AudioContext();
+        const tone = audio.createOscillator();
+        const gain = audio.createGain();
+        const output = audio.createMediaStreamDestination();
+        tone.connect(gain).connect(output);
+        if (mode === 'alternating') {
+          for (let i = 0; i < 120; i++) {
+            gain.gain.setValueAtTime(0.3, audio.currentTime + i * 2);
+            gain.gain.setValueAtTime(0, audio.currentTime + i * 2 + 0.5);
+          }
+        } else gain.gain.value = 0.2;
+        tone.start();
+        await audio.resume();
+        for (const track of stream.getAudioTracks()) {
+          stream.removeTrack(track);
+          track.stop();
+        }
+        for (const track of output.stream.getAudioTracks())
+          stream.addTrack(track);
+      }
+      return stream;
+    };
+  }, mode);
+
+const grantMedia = (
+  members: Awaited<ReturnType<typeof createRoomLaunchAccounts>>['members'],
+) =>
+  Promise.all(
+    members.map(({ context }) =>
+      context.grantPermissions(
+        ['camera', 'microphone', 'local-network-access'],
+        { origin },
+      ),
+    ),
+  );
+
 test('actual browser tracks reach an assigned hidden judge and terminal commit stops the local camera', async ({
   browser,
 }) => {
@@ -22,48 +72,14 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
   try {
     const round = await createHumanBallotRound(accounts.members);
     const debaters = accounts.members.slice(0, 2);
-    for (const member of debaters)
-      await member.context.grantPermissions(
-        ['camera', 'microphone', 'local-network-access'],
-        {
-          origin,
-        },
-      );
+    await grantMedia(debaters);
     const pages = await Promise.all(
       debaters.map((member, index) =>
         openPage(member.context, `media debater ${index + 1}`),
       ),
     );
     // Controlled alternating audio exercises real LiveKit active-speaker events.
-    for (const page of pages)
-      await page.addInitScript(() => {
-        const capture = navigator.mediaDevices.getUserMedia.bind(
-          navigator.mediaDevices,
-        );
-        navigator.mediaDevices.getUserMedia = async (constraints) => {
-          const stream = await capture(constraints);
-          if (constraints?.audio) {
-            const audio = new AudioContext();
-            const tone = audio.createOscillator();
-            const gain = audio.createGain();
-            const output = audio.createMediaStreamDestination();
-            tone.connect(gain).connect(output);
-            for (let i = 0; i < 120; i++) {
-              gain.gain.setValueAtTime(0.3, audio.currentTime + i * 2);
-              gain.gain.setValueAtTime(0, audio.currentTime + i * 2 + 0.5);
-            }
-            tone.start();
-            await audio.resume();
-            for (const track of stream.getAudioTracks()) {
-              stream.removeTrack(track);
-              track.stop();
-            }
-            for (const track of output.stream.getAudioTracks())
-              stream.addTrack(track);
-          }
-          return stream;
-        };
-      });
+    for (const page of pages) await installMediaCapture(page, 'alternating');
     await Promise.all(
       pages.map((page) => page.goto(`/rounds/${round.id}/room`)),
     );
@@ -299,13 +315,7 @@ test('direct tabs take over without duplicate capture and reload recovers throug
     const round = await createHumanBallotRound(accounts.members, 0);
     const [speaker, listener] = accounts.members;
     if (!speaker || !listener) throw new Error('Two actual members required');
-    for (const member of accounts.members)
-      await member.context.grantPermissions(
-        ['camera', 'microphone', 'local-network-access'],
-        {
-          origin,
-        },
-      );
+    await grantMedia(accounts.members);
     const first = await openPage(speaker.context, 'first direct owner');
     const peer = await openPage(listener.context, 'recovery peer');
     await Promise.all([
@@ -435,44 +445,9 @@ test('a camera capture failure after Ready keeps permitted microphone audio reac
     const round = await createHumanBallotRound(accounts.members, 0);
     const [speaker, listener] = accounts.members;
     if (!speaker || !listener) throw new Error('Two actual members required');
-    for (const member of accounts.members)
-      await member.context.grantPermissions(
-        ['camera', 'microphone', 'local-network-access'],
-        {
-          origin,
-        },
-      );
+    await grantMedia(accounts.members);
     const source = await openPage(speaker.context, 'camera-failed speaker');
-    await source.addInitScript(() => {
-      const capture = navigator.mediaDevices.getUserMedia.bind(
-        navigator.mediaDevices,
-      );
-      navigator.mediaDevices.getUserMedia = async (constraints) => {
-        if (constraints?.video)
-          throw new DOMException(
-            'controlled camera failure',
-            'NotReadableError',
-          );
-        const stream = await capture(constraints);
-        if (constraints?.audio) {
-          const audio = new AudioContext();
-          const tone = audio.createOscillator();
-          const gain = audio.createGain();
-          const output = audio.createMediaStreamDestination();
-          gain.gain.value = 0.2;
-          tone.connect(gain).connect(output);
-          tone.start();
-          await audio.resume();
-          for (const track of stream.getAudioTracks()) {
-            stream.removeTrack(track);
-            track.stop();
-          }
-          for (const track of output.stream.getAudioTracks())
-            stream.addTrack(track);
-        }
-        return stream;
-      };
-    });
+    await installMediaCapture(source, 'camera-failure');
     const peer = await openPage(
       listener.context,
       'hearing isolated microphone',

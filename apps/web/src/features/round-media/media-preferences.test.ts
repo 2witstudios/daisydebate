@@ -1,3 +1,4 @@
+import { MemoryStorage } from '../../lib/storage.test-support';
 import { createDeviceCheckController } from '../video/device-check-controller';
 import {
   rememberCheckedDevices,
@@ -15,29 +16,6 @@ import {
 } from './media-preferences';
 
 setupRitewayBun();
-
-/** A real Storage stand-in so scoped keys behave as the DOM does. */
-class MemoryStorage implements Storage {
-  private readonly entries = new Map<string, string>();
-  get length(): number {
-    return this.entries.size;
-  }
-  clear(): void {
-    this.entries.clear();
-  }
-  key(index: number): string | null {
-    return [...this.entries.keys()][index] ?? null;
-  }
-  removeItem(item: string): void {
-    this.entries.delete(item);
-  }
-  setItem(item: string, value: string): void {
-    this.entries.set(item, value);
-  }
-  getItem(item: string): string | null {
-    return this.entries.get(item) ?? null;
-  }
-}
 
 const host = () => ({ session: new MemoryStorage() });
 

@@ -1,3 +1,4 @@
+import { MemoryStorage } from '../../lib/storage.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { retryMissingDevices } from '../round-media/media-status';
 import {
@@ -7,28 +8,6 @@ import {
 } from './device-selection';
 
 setupRitewayBun();
-
-class MemoryStorage implements Storage {
-  private readonly entries = new Map<string, string>();
-  get length(): number {
-    return this.entries.size;
-  }
-  clear(): void {
-    this.entries.clear();
-  }
-  key(index: number): string | null {
-    return [...this.entries.keys()][index] ?? null;
-  }
-  removeItem(item: string): void {
-    this.entries.delete(item);
-  }
-  setItem(item: string, value: string): void {
-    this.entries.set(item, value);
-  }
-  getItem(item: string): string | null {
-    return this.entries.get(item) ?? null;
-  }
-}
 
 /** The Room check the actor ran, with the camera now gone from the machine. */
 const checkedBoth = {

@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBrowserMediaTransport, type Source } from './browser-transport';
 import { createMediaController } from './media-controller';
-import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
+import { admission, snapshot, roundId } from './media-controller.test-support';
 import {
   events,
   publish,
@@ -239,44 +239,12 @@ test('a camera failure no longer stops the microphone: the pass isolates per sou
 const stubMicrophoneOf = (stub: ReturnType<typeof stubSdk>) =>
   stub.captured.find((track) => track.source === 'microphone')!;
 
-/** The composed admission the real controller asks the endpoint for. */
-const liveAdmission = (roundId: string): RoundMediaAdmission => ({
-  version: 1,
-  roundId,
-  state: 'ready',
-  grants: {
-    publish: ['camera', 'microphone'],
-    subscribe: true,
-    hidden: false,
-    capture: false,
-  },
-  peers: [],
-  identity: 'p'.repeat(24),
-  token: 'private-token',
-  url: 'wss://media.invalid',
-  expiresAt: '2026-10-22T09:01:00.000Z',
-});
-
-const liveSnapshot = (roundId: string): RoundMediaState => ({
-  version: 1,
-  roundId,
-  state: 'ready',
-  grants: {
-    publish: ['camera', 'microphone'],
-    subscribe: true,
-    hidden: false,
-    capture: false,
-  },
-  peers: [],
-});
-
 /**
  * The composed lifetime: the real controller driving the real transport,
  * so a per-source failure proves isolation there too and not only inside
  * one settle pass (ISSUE-817/829).
  */
 test('the real controller keeps the working microphone and its subscriptions live through a camera failure', async () => {
-  const roundId = 'r'.repeat(24);
   const broken = stubSdk({
     settles: true,
     missingSource: 'camera',
@@ -299,8 +267,8 @@ test('the real controller keeps the working microphone and its subscriptions liv
     recovery: noRecovery,
     roundId,
     api: {
-      admit: async () => liveAdmission(roundId),
-      reconcile: async () => liveSnapshot(roundId),
+      admit: async () => admission,
+      reconcile: async () => snapshot,
     },
     transport: () => browser.transport,
     changed: (state) => {
@@ -339,7 +307,6 @@ test('the real controller keeps the working microphone and its subscriptions liv
 });
 
 test('a checked camera gone keeps the microphone live at Round entry through the real controller', async () => {
-  const roundId = 'r'.repeat(24);
   const gone = stubSdk({ settles: true, missingSource: 'camera' });
   const missing: Source[] = [];
   const typed: [Source, string][] = [];
@@ -357,8 +324,8 @@ test('a checked camera gone keeps the microphone live at Round entry through the
     recovery: noRecovery,
     roundId,
     api: {
-      admit: async () => liveAdmission(roundId),
-      reconcile: async () => liveSnapshot(roundId),
+      admit: async () => admission,
+      reconcile: async () => snapshot,
     },
     transport: () => browser.transport,
     changed: (state) => {
@@ -449,7 +416,6 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
  * attendance suite's one-open-socket invariant).
  */
 test('an all-blocked pass fails; one working source keeps the session live', async () => {
-  const roundId = 'r'.repeat(24);
   const both = stubSdk({ settles: true });
   const refusingEverything = {
     room: both.sdk.room,
@@ -475,8 +441,8 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
     recovery: noRecovery,
     roundId,
     api: {
-      admit: async () => liveAdmission(roundId),
-      reconcile: async () => liveSnapshot(roundId),
+      admit: async () => admission,
+      reconcile: async () => snapshot,
     },
     transport: () => ({
       connect: allBlocked.connect,
@@ -499,8 +465,8 @@ test('an all-blocked pass fails; one working source keeps the session live', asy
     recovery: noRecovery,
     roundId,
     api: {
-      admit: async () => liveAdmission(roundId),
-      reconcile: async () => liveSnapshot(roundId),
+      admit: async () => admission,
+      reconcile: async () => snapshot,
     },
     transport: () =>
       createBrowserMediaTransport(
