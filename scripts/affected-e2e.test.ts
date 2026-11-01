@@ -236,11 +236,11 @@ describe('native affected selection', () => {
   test('keeps smoke and expands conservatively', () => {
     for (const [file, count] of [
       ['apps/web/src/features/theme/theme.ts', 1],
-      ['packages/media/src/index.ts', 3],
-      ['apps/web/src/features/round-commands/action.ts', 9],
-      ['packages/auth/src/index.ts', 10],
-      ['apps/web/src/features/rooms/action.ts', 10],
-      ['apps/web/e2e/support/fixture.ts', 10],
+      ['packages/media/src/index.ts', 6],
+      ['apps/web/src/features/round-commands/action.ts', 12],
+      ['packages/auth/src/index.ts', 13],
+      ['apps/web/src/features/rooms/action.ts', 13],
+      ['apps/web/e2e/support/fixture.ts', 13],
     ] as const) {
       const selected = selectBrowserSpecs(
         [file],
@@ -267,13 +267,13 @@ describe('native affected selection', () => {
     ] as const)
       assert({
         given: `${event}, queue ${enforced}`,
-        should: 'retain all ten native specs',
+        should: 'retain all thirteen native specs',
         actual: selectBrowserSpecs(
           ['apps/web/src/features/theme/theme.ts'],
           event,
           enforced,
         ).nativeSpecs?.length,
-        expected: 10,
+        expected: 13,
       });
   });
 });
@@ -393,7 +393,7 @@ test('shared environment configuration retains full browser coverage', () => {
     given: 'a shared environment configuration change',
     should: 'retain the full Chromium and native lifecycle selection',
     actual: [plan.mode, plan.excluded, plan.nativeSpecs.length],
-    expected: ['full', ['visual.e2e.ts'], 10],
+    expected: ['full', ['visual.e2e.ts'], 13],
   });
 });
 
