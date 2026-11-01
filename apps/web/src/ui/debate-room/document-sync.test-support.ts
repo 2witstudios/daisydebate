@@ -1,8 +1,4 @@
-import type {
-  DraftStorage,
-  StoredDocument,
-  Timers,
-} from './document-sync';
+import type { DraftStorage, StoredDocument, Timers } from './document-sync';
 
 export const stored = (id: string, revision = 1): StoredDocument => ({
   id,
@@ -16,8 +12,9 @@ export const stored = (id: string, revision = 1): StoredDocument => ({
 });
 
 /** A mutable in-memory storage seam for draft recovery tests. */
-export const memoryStorage = (): DraftStorage &
-  { readonly dump: () => ReadonlyMap<string, string> } => {
+export const memoryStorage = (): DraftStorage & {
+  readonly dump: () => ReadonlyMap<string, string>;
+} => {
   const map = new Map<string, string>();
   return {
     getItem: (key) => map.get(key) ?? null,

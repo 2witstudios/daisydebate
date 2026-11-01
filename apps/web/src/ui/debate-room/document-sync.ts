@@ -361,29 +361,28 @@ export function createDocumentSync({
 
   async function flushWithKeepalive(keepalive: boolean): Promise<void> {
     for (const handle of handles.values()) timers.clear(handle);
-      handles.clear();
-      // Persist every waiting edit first, so recovery survives a close.
-      for (const [id, html] of waiting) persistDraft(id, html);
-      // Keep combined keepalive request bodies within the browser budget.
-      const ids = [...waiting.keys()];
-      const toSend: string[] = [];
-      let budget = KEEPALIVE_BODY_BUDGET;
-      for (const id of ids) {
-        const html = waiting.get(id);
-        const expectedRevision = revisions.get(id);
-        if (html === undefined || expectedRevision === undefined) continue;
-        if (conflicted.has(id)) continue;
-        const bodySize =
-          new TextEncoder().encode(
-            JSON.stringify({ id, html, expectedRevision }),
-          ).length + 64;
-        if (bodySize <= budget) {
-          toSend.push(id);
-          budget -= bodySize;
-        } else {
-          persistDraft(id, html);
-        }
+    handles.clear();
+    // Persist every waiting edit first, so recovery survives a close.
+    for (const [id, html] of waiting) persistDraft(id, html);
+    // Keep combined keepalive request bodies within the browser budget.
+    const ids = [...waiting.keys()];
+    const toSend: string[] = [];
+    let budget = KEEPALIVE_BODY_BUDGET;
+    for (const id of ids) {
+      const html = waiting.get(id);
+      const expectedRevision = revisions.get(id);
+      if (html === undefined || expectedRevision === undefined) continue;
+      if (conflicted.has(id)) continue;
+      const bodySize =
+        new TextEncoder().encode(JSON.stringify({ id, html, expectedRevision }))
+          .length + 64;
+      if (bodySize <= budget) {
+        toSend.push(id);
+        budget -= bodySize;
+      } else {
+        persistDraft(id, html);
       }
-      await Promise.all(toSend.map((id) => saveNow(id, keepalive)));
     }
+    await Promise.all(toSend.map((id) => saveNow(id, keepalive)));
   }
+}

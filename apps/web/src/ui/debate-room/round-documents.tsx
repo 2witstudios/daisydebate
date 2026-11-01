@@ -74,14 +74,25 @@ export function RoundDocuments({
                 <button
                   type="button"
                   className="cursor-pointer px-3 py-1 text-sm text-ink"
-                  onClick={() => dispatch({ type: 'doc/recovered/restore', id: recovered[0][0], now: systemClock.now() })}
+                  onClick={() =>
+                    dispatch({
+                      type: 'doc/recovered/restore',
+                      id: recovered[0][0],
+                      now: systemClock.now(),
+                    })
+                  }
                 >
                   Restore draft
                 </button>
                 <button
                   type="button"
                   className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
-                  onClick={() => dispatch({ type: 'doc/recovered/discard', id: recovered[0][0] })}
+                  onClick={() =>
+                    dispatch({
+                      type: 'doc/recovered/discard',
+                      id: recovered[0][0],
+                    })
+                  }
                 >
                   Discard draft
                 </button>

@@ -4,7 +4,11 @@ import {
   type DocumentsApi,
   type SaveResult,
 } from './document-sync';
-import { manualTimers, memoryStorage, stored } from './document-sync.test-support';
+import {
+  manualTimers,
+  memoryStorage,
+  stored,
+} from './document-sync.test-support';
 
 setupRitewayBun();
 
