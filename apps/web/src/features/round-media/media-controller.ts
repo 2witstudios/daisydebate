@@ -40,14 +40,13 @@ export const isTransientMediaFailure = (error: unknown) =>
  * A definite refusal (a 401/403/404 answer, or a revoked media state): the
  * round never recovers by retrying the same request, so recovery stops.
  */
-export class MediaDeniedError extends Error {
+class MediaDeniedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'MediaDeniedError';
   }
 }
-export const isMediaDenial = (error: unknown) =>
-  error instanceof MediaDeniedError;
+const isMediaDenial = (error: unknown) => error instanceof MediaDeniedError;
 
 /** The HTTP answers whose only meaning is "not allowed here": final. */
 const refusedAuthorization = new Set([401, 403, 404]);

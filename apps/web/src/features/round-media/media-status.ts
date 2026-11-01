@@ -20,7 +20,7 @@ const messages: Record<MediaConnectionState, string> = {
 /** The honest kind of one source's current failure (ISSUE-881). */
 export type SourceIllHealth = readonly [Source, SourceFailureKind];
 /** What this device actually knows about its own sound playback (ISSUE-881). */
-export type PlaybackEvidence = {
+type PlaybackEvidence = {
   /** The browser refused autoplay; only an explicit gesture can allow it. */
   readonly blocked: boolean;
 };

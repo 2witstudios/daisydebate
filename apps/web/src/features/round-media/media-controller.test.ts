@@ -318,7 +318,9 @@ test('the request boundary classifies authorization refusals final and temporary
   const denied = await Promise.all(
     authorization.map((failure) => stateAfter(() => failure)),
   );
-  const recoverable = await stateAfter(() => temporary[0]);
+  const recoverable = await Promise.all(
+    temporary.map((failure) => stateAfter(() => failure)),
+  );
   assert({
     given:
       '401/403/404 answers, one 408/429/5xx answer, and a network refusal at the actual request boundary',
@@ -332,14 +334,21 @@ test('the request boundary classifies authorization refusals final and temporary
       temporaryRetryable: temporary.map((failure) =>
         isTransientMediaFailure(failure),
       ),
-      temporaryState: recoverable[0],
+      temporaryStates: recoverable.map(([state]) => state),
       networkRetryable: isTransientMediaFailure(network),
     },
     expected: {
       authorizationStates: ['denied', 'denied', 'denied'],
       authorizationRetryable: [false, false, false],
       temporaryRetryable: [true, true, true, true, true, true],
-      temporaryState: 'unavailable',
+      temporaryStates: [
+        'unavailable',
+        'unavailable',
+        'unavailable',
+        'unavailable',
+        'unavailable',
+        'unavailable',
+      ],
       networkRetryable: true,
     },
   });

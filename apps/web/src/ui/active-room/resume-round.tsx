@@ -11,7 +11,7 @@ import {
 } from '../../features/rooms/resume-ownership';
 
 /** Round id inside the signed href, when the Round actually launched. */
-export const roundIdOf = (href: string): string | null => {
+const roundIdOf = (href: string): string | null => {
   const matched = /\/rounds\/([a-z0-9]{24})\/room$/.exec(href);
   return matched?.[1] ?? null;
 };
