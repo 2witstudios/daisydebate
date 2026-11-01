@@ -17,7 +17,12 @@ import {
   type MediaConnectionState,
 } from './media-controller';
 import { MediaStage } from './media-stage';
-import { mediaStatus, retryMissingDevices } from './media-status';
+import {
+  classifySourceFailure,
+  mediaStatus,
+  retryMissingDevices,
+  type SourceIllHealth,
+} from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
 import {
@@ -90,11 +95,20 @@ function RoundMediaSession({
   readonly actorId?: string | null | undefined;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
-  /** Restore this account's prior mute before the transport opens (ISSUE-879). */
-  const restored = readMutePreference(actorId ?? null, view.id);
-  const [microphoneMuted, setMicrophoneMuted] = useState(restored ?? poi);
-  const [changingMicrophone, setChangingMicrophone] = useState(false);
+  /**
+   * One mute truth: the same value reaches the UI and the transport. A saved
+   * preference (this principal in this Round) applies once the browser
+   * document exists, before the transport is created; the server default
+   * stands otherwise (ISSUE-879).
+   */
+  const [microphoneMuted, setMicrophoneMuted] = useState(poi);
   const muted = useRef(poi);
+  const setMuted = (value: boolean) => {
+    muted.current = value;
+    restoreMute.current = value;
+    setMicrophoneMuted(value);
+  };
+  const [changingMicrophone, setChangingMicrophone] = useState(false);
   const microphone = useRef<((value: boolean) => Promise<void>) | null>(null);
   const [connection, setConnection] =
     useState<MediaConnectionState>('connecting');
@@ -102,6 +116,9 @@ function RoundMediaSession({
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
   /** Checked devices found gone; the transport keeps running (ISSUE-573). */
   const [missing, setMissing] = useState<readonly Source[]>([]);
+  /** Per-source ill health: reported, not swallowed (ISSUE-817/829). */
+  const [illHealth, setIllHealth] = useState<readonly SourceIllHealth[]>([]);
+  const [ownIdentity, setOwnIdentity] = useState<string | null>(null);
   const controller = useRef<ReturnType<typeof createMediaController> | null>(
     null,
   );
@@ -110,6 +127,16 @@ function RoundMediaSession({
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
+  /** The restore must precede the transport so one truth reaches both. */
+  const restoreMute = useRef(poi);
+  useEffect(() => {
+    const prior = readMutePreference(actorId ?? null, view.id);
+    if (prior !== null && prior !== restoreMute.current) {
+      restoreMute.current = prior;
+      muted.current = prior;
+      setMicrophoneMuted(prior);
+    }
+  }, [view.id, actorId]);
   useEffect(() => {
     const mounted = createMediaController({
       roundId: view.id,
@@ -119,20 +146,25 @@ function RoundMediaSession({
       },
       changed: setConnection,
       received: setMedia,
+      admitted: (admission) => setOwnIdentity(admission.identity),
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
           microphoneMuted: muted.current,
-          devices: readCheckedDevices(view.roomId),
+          devices: readCheckedDevices(view.roomId, undefined, actorId ?? null),
           missing: (source) =>
             setMissing((current) =>
               current.includes(source) ? current : [...current, source],
             ),
-          sourceFailed: (_source, _error) => {
-            // Typed per-source failure report hook (ISSUE-817/829); failures are
-            // isolated and reported rather than swallowed. Connection state is
-            // managed by the controller; no blanket suppression.
-          },
+          sourceFailed: (source, error) =>
+            setIllHealth((current) => [
+              ...current.filter(([held]) => held !== source),
+              [source, classifySourceFailure(error)] as SourceIllHealth,
+            ]),
+          sourceHealthy: (source) =>
+            setIllHealth((current) =>
+              current.filter(([held]) => held !== source),
+            ),
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -176,12 +208,15 @@ function RoundMediaSession({
     );
     return () => window.clearTimeout(timer);
   }, [view]);
+  /**
+   * Online and visibility are nudges only: the controller owns its recovery
+   * attempts and backoff across every state change, so a nudge restarts work
+   * only from the one paused state (ISSUE-880).
+   */
   useEffect(() => {
     const recover = () => {
       const ctrl = controller.current;
-      if (!ctrl) return;
-      const st = ctrl.state();
-      if (st === 'live' || st === 'ended') return;
+      if (ctrl?.state() !== 'unavailable') return;
       void ctrl.reconnect();
     };
     const onVisibility = () => {
@@ -195,36 +230,17 @@ function RoundMediaSession({
     };
   }, []);
 
-  // Paced recovery: while the service keeps returning 503/network errors but
-  // the tab stays online/visible, keep retrying with single-flight backoff
-  // until success, terminal, definite denial, or explicit stop. Cancel on new
-  // generation/unmount (ISSUE-880).
-  useEffect(() => {
-    if (connection !== 'unavailable') return;
-    let cancelled = false;
-    let delay = 1000;
-    const timer = window.setTimeout(function retry() {
-      if (cancelled) return;
-      const ctrl = controller.current;
-      if (!ctrl) return;
-      void ctrl.reconnect().finally(() => {
-        if (cancelled) return;
-        if (ctrl.state() === 'unavailable') {
-          delay = Math.min(delay * 2, 10000);
-          window.setTimeout(retry, delay);
-        }
-      });
-    }, delay);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [connection]);
-
-  const status = mediaStatus(connection, missing);
+  const status = mediaStatus(connection, missing, illHealth);
   return (
     <section aria-label="Live camera and sound">
-      <MediaStage view={view} media={media} tracks={tracks} />
+      <MediaStage
+        view={view}
+        media={media}
+        tracks={tracks}
+        connection={connection}
+        ownIdentity={ownIdentity}
+        ownMuted={microphoneMuted}
+      />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
         <p role="status" className="m-0 text-sm text-ink-muted">
           {status.message}
@@ -254,14 +270,15 @@ function RoundMediaSession({
             aria-pressed={!microphoneMuted}
             onClick={async () => {
               const previous = muted.current;
-              muted.current = !previous;
+              const next = !previous;
+              muted.current = next;
               setChangingMicrophone(true);
               try {
-                await microphone.current?.(!previous);
-                setMicrophoneMuted(!previous);
-                writeMutePreference(actorId ?? null, view.id, !previous);
+                await microphone.current?.(next);
+                setMuted(next);
+                writeMutePreference(actorId ?? null, view.id, next);
               } catch {
-                muted.current = previous;
+                setMuted(previous);
                 setConnection('device-blocked');
               } finally {
                 setChangingMicrophone(false);
@@ -293,8 +310,10 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot =
-  (onRefresh: () => void, actorId?: string | null) =>
+export const roundMediaSlot = (
+  onRefresh: () => void,
+  actorId?: string | null,
+) =>
   function RoundMediaSlot(view: RoundView) {
     return (
       <RoundMediaSession

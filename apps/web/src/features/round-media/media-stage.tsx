@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
+import type { MediaConnectionState } from './media-controller';
 import type { MediaTrack } from './browser-transport';
 
 function TrackElement({ track }: { readonly track: MediaTrack }) {
@@ -29,15 +30,37 @@ function TrackElement({ track }: { readonly track: MediaTrack }) {
   );
 }
 
+/**
+ * An honest caption for one seat: an actual track speaks, but silence, the
+ * media transport still establishing, or a missing publication each say
+ * exactly what they are (ISSUE-881). No grant implies a working microphone.
+ */
+const captionOf = (
+  connection: MediaConnectionState,
+  ownMuted: boolean,
+): string => {
+  if (connection !== 'live') return 'Media is reconnecting…';
+  if (ownMuted) return 'You muted your microphone';
+  return 'Microphone unavailable';
+};
+
 /** Only named debaters become tiles; a hidden judge never enters the identity map. */
 export function MediaStage({
   view,
   media,
   tracks,
+  connection,
+  ownIdentity,
+  ownMuted,
 }: {
   readonly view: RoundView;
   readonly media: RoundMediaState | null;
   readonly tracks: readonly MediaTrack[];
+  readonly connection: MediaConnectionState;
+  /** The signed-in member's own media identity, or null for a viewer. */
+  readonly ownIdentity: string | null;
+  /** My own microphone is deliberately muted and thus absent from tracks. */
+  readonly ownMuted: boolean;
 }) {
   return (
     <div
@@ -59,6 +82,7 @@ export function MediaStage({
           const microphoneTrack = mediaTracks.find(
             (track) => track.source === 'microphone',
           );
+          const mine = identity !== null && identity === ownIdentity;
           return (
             <figure
               key={seat.id}
@@ -78,15 +102,11 @@ export function MediaStage({
                 {seat.label}
                 {seat.kind === 'bot' ? ' · AI' : ''}
                 <span className="block text-xs">
-                  {!peer
-                    ? 'Microphone unavailable'
-                    : !peer.microphone
-                      ? 'Microphone closed'
-                      : !microphoneTrack
-                        ? 'Microphone disconnected'
-                        : mediaTracks.some((track) => track.speaking)
-                          ? 'Speaking'
-                          : 'Microphone open'}
+                  {microphoneTrack
+                    ? mediaTracks.some((track) => track.speaking)
+                      ? 'Speaking'
+                      : 'Microphone open'
+                    : captionOf(connection, mine && ownMuted)}
                 </span>
               </figcaption>
               {mediaTracks

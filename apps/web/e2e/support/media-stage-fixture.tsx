@@ -30,6 +30,9 @@ Object.assign(window, {
           <MediaStage
             view={view}
             media={media}
+            connection={'live'}
+            ownIdentity={null}
+            ownMuted={false}
             tracks={[
               {
                 identity: 'peer',

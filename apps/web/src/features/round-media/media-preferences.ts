@@ -1,9 +1,9 @@
 /**
  * Local media preferences for one principal in one Round (ISSUE-879):
- * storage is scoped by principal + Round so choices cannot leak across
- * account switches, and cleanup drops the record at Round end/leave.
- * Only that signed-in principal's own choice is stored, never device
- * identifiers across accounts.
+ * each record is tab-scoped, so a new tab or a new sign-in starts from the
+ * server default; the key still carries the principal and the Round, so
+ * nothing reads across accounts. Only that signed-in principal's own choice
+ * is stored, never device identifiers that a different account could read.
  */
 
 type StorageLike = Readonly<
@@ -17,31 +17,14 @@ export const mediaPreferenceKey = (
   roundId: string,
 ): string => `daisy:${kind}:media:${actorId ?? 'anonymous'}:${roundId}`;
 
-/** A local session window, so an inherited host cannot exist: one per entry. */
+/** One browser session window whose own edge bounds every record here. */
 type Host = {
   readonly session: StorageLike;
-  readonly local: StorageLike;
 };
 
 const hostFrom = (host?: Partial<Host>): Host => ({
   session: host?.session ?? window.sessionStorage,
-  local: host?.local ?? window.localStorage,
 });
-
-function* eachKey(storage: Storage) {
-  for (let index = 0; index < storage.length; index++)
-    yield storage.key(index);
-}
-
-/** Every persisting entry a reached Round ends with, for cleanup tests. */
-export function* storedMuteKeys(
-  roundId: string,
-  storage: Storage,
-): Generator<string> {
-  const prefix = 'daisy:mute:media:';
-  for (const key of eachKey(storage))
-    if (key?.startsWith(prefix) && key.endsWith(`:${roundId}`)) yield key;
-}
 
 /**
  * Remember that this principal left this Round explicitly this session, so
@@ -68,7 +51,7 @@ export function departedInSession(
   roundId: string,
   host?: Partial<Host>,
 ): boolean {
-  if (actorId === null || actorId === 'anonymous') return false;
+  if (actorId === null) return false;
   try {
     return (
       hostFrom(host).session.getItem(
@@ -87,10 +70,10 @@ export function readMutePreference(
   host?: Partial<Host>,
 ): boolean | null {
   try {
-    const kept = hostFrom(host).local.getItem(
+    const kept = hostFrom(host).session.getItem(
       mediaPreferenceKey('mute', actorId, roundId),
     );
-    return kept === null ? null : kept === 'muted';
+    return kept === 'muted' ? true : kept === 'unmuted' ? false : null;
   } catch {
     return null;
   }
@@ -107,7 +90,7 @@ export function writeMutePreference(
   host?: Partial<Host>,
 ): void {
   try {
-    hostFrom(host).local.setItem(
+    hostFrom(host).session.setItem(
       mediaPreferenceKey('mute', actorId, roundId),
       muted ? 'muted' : 'unmuted',
     );
@@ -116,19 +99,17 @@ export function writeMutePreference(
   }
 }
 
-/** Drop the principal-Round preference when its Round life ends. */
+/** Drop one record the Round's life is done with (this principal's alone). */
 export function clearMutePreference(
   actorId: string | null,
   roundId: string,
   host?: Partial<Host>,
 ): void {
   try {
-    hostFrom(host).local.removeItem(
+    hostFrom(host).session.removeItem(
       mediaPreferenceKey('mute', actorId, roundId),
     );
   } catch {
     // Storage disabled: nothing to clear.
   }
 }
-
-

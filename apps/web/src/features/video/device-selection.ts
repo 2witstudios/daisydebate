@@ -7,16 +7,22 @@ const selectionSchema = z.strictObject({
 });
 type LocalStorage = () => Pick<Storage, 'getItem' | 'setItem'>;
 const tabStorage: LocalStorage = () => window.sessionStorage;
-const selectionKey = (roomId: string) => `daisy:checked-devices:${roomId}`;
+/**
+ * Tab-local and account-scoped: one actor's devices never read another
+ * account's keys, and the tab's own lifetime bounds them (ISSUE-879).
+ */
+const selectionKey = (roomId: string, actorId: string | null) =>
+  `daisy:checked-devices:${roomId}:${actorId ?? 'anonymous'}`;
 
 /** Tab-local continuity across the Room → Round document load; never a server payload. */
 export function readCheckedDevices(
   roomId: string,
   storage = tabStorage,
+  actorId: string | null = null,
 ): z.infer<typeof selectionSchema> {
   try {
     const value = JSON.parse(
-      storage().getItem(selectionKey(roomId)) ?? '{}',
+      storage().getItem(selectionKey(roomId, actorId)) ?? '{}',
     ) as unknown;
     const parsed = selectionSchema.safeParse(value);
     return parsed.success ? parsed.data : {};
@@ -30,8 +36,9 @@ export function rememberCheckedDevices(
   roomId: string,
   snapshot: DeviceCheckSnapshot,
   storage = tabStorage,
+  actorId: string | null = null,
 ) {
-  const choices = readCheckedDevices(roomId, storage);
+  const choices = readCheckedDevices(roomId, storage, actorId);
   for (const kind of ['camera', 'microphone'] as const) {
     const check = snapshot[kind];
     if (check.status === 'passed' && check.deviceId)
@@ -39,7 +46,7 @@ export function rememberCheckedDevices(
     else if (check.reason === 'selection-changed') delete choices[kind];
   }
   try {
-    storage().setItem(selectionKey(roomId), JSON.stringify(choices));
+    storage().setItem(selectionKey(roomId, actorId), JSON.stringify(choices));
   } catch {
     // Storage can be disabled; local device checks still run normally.
   }
@@ -50,11 +57,12 @@ export function forgetCheckedDevices(
   roomId: string,
   kinds: readonly ('camera' | 'microphone')[],
   storage = tabStorage,
+  actorId: string | null = null,
 ) {
-  const choices = readCheckedDevices(roomId, storage);
+  const choices = readCheckedDevices(roomId, storage, actorId);
   for (const kind of kinds) delete choices[kind];
   try {
-    storage().setItem(selectionKey(roomId), JSON.stringify(choices));
+    storage().setItem(selectionKey(roomId, actorId), JSON.stringify(choices));
   } catch {
     // Storage can be disabled; there is then no choice to forget.
   }

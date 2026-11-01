@@ -14,6 +14,7 @@ export type MediaConnectionState =
   | 'live'
   | 'device-missing'
   | 'device-blocked'
+  | 'denied'
   | 'unavailable'
   | 'ended';
 export type BrowserMediaTransport = {
@@ -43,8 +44,20 @@ export const isTransientMediaFailure = (error: unknown) =>
 export function mediaFailure(status: number) {
   return status === 408 || status === 503
     ? transientMediaFailure()
-    : new Error('Media unavailable');
+    : new MediaDeniedError(`Refused with ${status}`);
 }
+/**
+ * A definite refusal (a 401/403/404 answer, or a revoked media state): the
+ * round never recovers by retrying the same request, so recovery stops.
+ */
+export class MediaDeniedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MediaDeniedError';
+  }
+}
+export const isMediaDenial = (error: unknown) =>
+  error instanceof Error && error.name === 'MediaDeniedError';
 
 const deviceBlocked = (error: unknown) =>
   error instanceof Error &&
@@ -68,6 +81,8 @@ export function createMediaController(input: {
   readonly transport: () => BrowserMediaTransport;
   readonly changed: (state: MediaConnectionState) => void;
   readonly received?: (state: RoundMediaState) => void;
+  /** The one admission whose grant the browser transport now works against. */
+  readonly admitted?: (admission: RoundMediaAdmission) => void;
   /** Pauses before each retry of a transient admission failure; none when absent. */
   readonly retry?: {
     readonly delaysMs: readonly number[];
@@ -118,8 +133,25 @@ export function createMediaController(input: {
         ? 'device-missing'
         : deviceBlocked(error)
           ? 'device-blocked'
-          : 'unavailable',
+          : isMediaDenial(error)
+            ? 'denied'
+            : 'unavailable',
     );
+    scheduleRecovery();
+  };
+  const recoveryDelaysMs = [1_000, 2_000, 4_000, 8_000, 10_000];
+  let recoveryStep = 0;
+  /** Index survives every state change: the backoff must not restart per attempt. */
+  const scheduleRecovery = () => {
+    if (ended || state !== 'unavailable') return;
+    const delayMs =
+      recoveryDelaysMs[Math.min(recoveryStep, recoveryDelaysMs.length - 1)];
+    recoveryStep++;
+    const stayed = () => !ended && state === 'unavailable';
+    setTimeout(() => {
+      if (!stayed()) return;
+      void join(true);
+    }, delayMs);
   };
   /** One media request, retried through the configured pauses while it fails transiently. */
   const retrying = async (
@@ -157,7 +189,8 @@ export function createMediaController(input: {
       stop();
       return false;
     }
-    if (snapshot.state !== 'ready') throw new Error('Media unavailable');
+    if (snapshot.state !== 'ready')
+      throw new MediaDeniedError('The Round withdrew its media');
     await current.apply(snapshot);
     if (closeStale(current, generation)) return false;
     announce(snapshot);
@@ -184,11 +217,13 @@ export function createMediaController(input: {
       if (stale(generation)) return;
       if (admission.roundId !== input.roundId)
         throw new Error('Media Round mismatch');
+      input.admitted?.(admission);
       current = input.transport();
       transport = current;
       await current.connect(admission);
       if (closeStale(current, generation)) return;
       if (!(await synchronize(current, generation, joining))) return;
+      recoveryStep = 0;
       change('live');
     } catch (error) {
       fail(current, generation, error);

@@ -10,7 +10,7 @@ import {
 
 setupRitewayBun();
 
-/** A real Storage stand-in so scoped keys and enumerate behave as the DOM does. */
+/** A real Storage stand-in so scoped keys behave as the DOM does. */
 class MemoryStorage implements Storage {
   private readonly entries = new Map<string, string>();
   get length(): number {
@@ -33,17 +33,14 @@ class MemoryStorage implements Storage {
   }
 }
 
-const host = () => ({
-  session: new MemoryStorage(),
-  local: new MemoryStorage(),
-});
+const host = () => ({ session: new MemoryStorage() });
 
 test('mute preference is scoped to one principal in one Round and never aliases another', () => {
   const scope = host();
   writeMutePreference('actor-a', 'round-1', true, scope);
   assert({
     given:
-      'actor-a muted round-1, then read back under actor-b and a different Round',
+      'actor-a muted round-1, then read under a different principal and a different Round',
     should:
       'keep that choice alone in its key and answer null for every other scope',
     actual: [
@@ -55,19 +52,21 @@ test('mute preference is scoped to one principal in one Round and never aliases 
   });
 });
 
-test('an unset or leftover state is reported unknown, and toggling rewrites it', () => {
+test("a tab-scoped preference is only this browser session's: a record placed through the same host is what is read", () => {
   const scope = host();
+  writeMutePreference('actor-a', 'round-1', true, scope);
   assert({
-    given: 'no prior choice read back under the same scope',
-    should: 'report unknown, then report the confirmed replacement',
+    given: 'the same host holding one unmuted replacement',
+    should: 'report a later record, keeping the record at one per scope',
     actual: [
       readMutePreference('actor-a', 'round-1', scope),
+      readMutePreference('actor-a', 'round-2', scope),
       (() => {
         writeMutePreference('actor-a', 'round-1', false, scope);
         return readMutePreference('actor-a', 'round-1', scope);
       })(),
     ],
-    expected: [null, false],
+    expected: [true, null, false],
   });
 });
 
@@ -89,23 +88,23 @@ test('clearing a Round lifecycle ends only that principal-Round record', () => {
   });
 });
 
-test('departure is session-scoped per principal and Round, never anonymous', () => {
+test('departure is session-scoped per principal and Round, never carried by other scopes', () => {
   const scope = host();
   assert({
     given:
-      'no departure recorded, an anonymous actor asked, then a member departure recorded',
+      'no departure record, then departure recorded for actor-a in round-1',
     should:
-      'answer no for the anonymous actor and no, then yes for the member who left',
+      'answer no before, yes after, and no for a different Round or principal',
     actual: [
-      departedInSession('actor-a', 'round-1', scope),
       departedInSession('actor-a', 'round-1', scope),
       (() => {
         markDeparture('actor-a', 'round-1', scope);
         return departedInSession('actor-a', 'round-1', scope);
       })(),
       departedInSession('actor-a', 'round-2', scope),
+      departedInSession('actor-b', 'round-1', scope),
     ],
-    expected: [false, false, true, false],
+    expected: [false, true, false, false],
   });
 });
 

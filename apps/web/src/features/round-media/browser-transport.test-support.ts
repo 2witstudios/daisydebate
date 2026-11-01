@@ -1,4 +1,5 @@
 import { RoomEvent, Track } from 'livekit-client';
+import type { MediaSdk } from './browser-transport';
 
 /** A captured local track that records whether anything stopped it. */
 const capturedTrack = (source: string) => ({
@@ -98,7 +99,7 @@ export function stubSdk(
         captured.push(track);
         return [track];
       },
-    } as never,
+    } as unknown as MediaSdk,
   };
 }
 export const events = {
