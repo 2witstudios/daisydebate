@@ -1,3 +1,4 @@
+import { manualGenerations } from './document-sync.test-support';
 import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type DocumentsApi } from './document-sync';
@@ -41,6 +42,7 @@ describe('draft recovery', () => {
     const { api, saves } = savingApi([{ id: 'a', revision: 3 }]);
     const { timers } = manualTimers();
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.recovery.test:1'),
       budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
@@ -76,15 +78,18 @@ describe('draft recovery', () => {
     store.setItem(
       keyOf('p1', 'd', 'a'),
       JSON.stringify({
-        html: '<p>stale draft</p>',
-        baseRevision: 2,
-        generation: 0,
-        savedAt: now,
-        expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+        recovery: {
+          html: '<p>stale draft</p>',
+          baseRevision: 2,
+          generation: 'recovered-0',
+          savedAt: now,
+          expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+        },
       }),
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.recovery.test:2'),
       budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
@@ -95,7 +100,9 @@ describe('draft recovery', () => {
       wallClock: () => now,
     });
     await sync.load();
-    const draft = sync.recoveredDrafts().get('a');
+    const draft = sync
+      .recoveryOffers()
+      .find((offer) => offer.documentId === 'a')?.copy;
     assert({
       given: 'a recovered draft older than the server copy',
       should: 'be preserved for explicit conflict resolution, not auto-saved',
@@ -110,15 +117,18 @@ describe('draft recovery', () => {
     store.setItem(
       keyOf('p1', 'd', 'a'),
       JSON.stringify({
-        html: '<p>stale draft</p>',
-        baseRevision: 2,
-        generation: 0,
-        savedAt: now,
-        expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+        recovery: {
+          html: '<p>stale draft</p>',
+          baseRevision: 2,
+          generation: 'recovered-0',
+          savedAt: now,
+          expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+        },
       }),
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.recovery.test:3'),
       budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
@@ -129,13 +139,17 @@ describe('draft recovery', () => {
       wallClock: () => now,
     });
     await sync.load();
-    sync.discardRecovered('a');
+    sync.discardRecovered(
+      'a',
+      sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+        .generation,
+    );
     assert({
       given: 'a recovered draft the room refused',
       should: 'drop the stored draft and leave no recoverable copy',
       actual: [
         store.dump().has(keyOf('p1', 'd', 'a')),
-        sync.recoveredDrafts().size,
+        sync.recoveryOffers().length,
       ],
       expected: [false, 0],
     });
@@ -146,6 +160,7 @@ describe('draft recovery', () => {
     store.setItem(keyOf('p1', 'd', 'a'), '123');
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.recovery.test:4'),
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
       api,
@@ -159,7 +174,7 @@ describe('draft recovery', () => {
     assert({
       given: 'a persisted draft that is not a valid record',
       should: 'not be treated as a recoverable draft',
-      actual: sync.recoveredDrafts().size,
+      actual: sync.recoveryOffers().length,
       expected: 0,
     });
   });

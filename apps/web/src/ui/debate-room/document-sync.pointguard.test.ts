@@ -1,9 +1,7 @@
+import { manualGenerations } from './document-sync.test-support';
+import type { DraftStorage } from './note-draft-storage';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createDocumentSync,
-  type DocumentsApi,
-  type DraftStorage,
-} from './document-sync';
+import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
   createKeepaliveBudget,
   type KeepaliveBudget,
@@ -71,6 +69,7 @@ const syncOf = (
   } = {},
 ) =>
   createDocumentSync({
+    nextGeneration: manualGenerations('document-sync.pointguard.test:1'),
     api: api(save, options.documents),
     roundId: 'r',
     principalId: 'p',
@@ -236,7 +235,7 @@ describe('an acknowledged older edit with a newer edit waiting', () => {
     first.release();
     await tick();
     const raw = store.dump().get('daisy:round-notes:draft:p:r:a');
-    const draft = raw ? JSON.parse(raw) : null;
+    const draft = raw ? JSON.parse(raw).active : null;
     assert({
       given: 'A acknowledges at revision 4 while B is still waiting',
       should: 'store B against revision 4 without reporting the room saved',
@@ -245,7 +244,7 @@ describe('an acknowledged older edit with a newer edit waiting', () => {
         draft: {
           html: 'B',
           baseRevision: 4,
-          generation: 2,
+          generation: 'document-sync.pointguard.test:1:2',
           savedAt: 100,
           expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
         },
@@ -273,11 +272,13 @@ describe('a stored record outside DEC-271', () => {
     store.setItem(
       'daisy:round-notes:draft:p:r:a',
       JSON.stringify({
-        html: 'x'.repeat(300_000),
-        baseRevision: 999,
-        generation: 0,
-        savedAt: Number.MAX_SAFE_INTEGER,
-        expiresAt: Number.MAX_SAFE_INTEGER,
+        recovery: {
+          html: 'x'.repeat(300_000),
+          baseRevision: 999,
+          generation: 'recovered-0',
+          savedAt: Number.MAX_SAFE_INTEGER,
+          expiresAt: Number.MAX_SAFE_INTEGER,
+        },
       }),
     );
     const sync = syncOf(
@@ -292,7 +293,9 @@ describe('a stored record outside DEC-271', () => {
       given: 'a 300,000-byte record with an impossible base revision',
       should: 'reject and remove it rather than offer it as recovery',
       actual: {
-        recovered: sync.recoveredDrafts().get('a')?.html.length ?? 0,
+        recovered:
+          sync.recoveryOffers().find((offer) => offer.documentId === 'a')?.copy
+            ?.html.length ?? 0,
         stored: store.dump().has('daisy:round-notes:draft:p:r:a'),
       },
       expected: { recovered: 0, stored: false },
@@ -306,11 +309,13 @@ describe('discarding an older recovery after newer typing', () => {
     store.setItem(
       'daisy:round-notes:draft:p:r:a',
       JSON.stringify({
-        html: '<p>recovered</p>',
-        baseRevision: 3,
-        generation: 0,
-        savedAt: 100,
-        expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
+        recovery: {
+          html: '<p>recovered</p>',
+          baseRevision: 3,
+          generation: 'recovered-0',
+          savedAt: 100,
+          expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
+        },
       }),
     );
     const sent: string[] = [];
@@ -323,7 +328,11 @@ describe('discarding an older recovery after newer typing', () => {
     );
     await sync.load();
     sync.change('a', '<p>newer typing</p>');
-    sync.discardRecovered('a');
+    sync.discardRecovered(
+      'a',
+      sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+        .generation,
+    );
     await sync.flush();
     assert({
       given: 'a stale recovery choice and a newer edit typed after it',
@@ -356,11 +365,13 @@ describe('a storage operation that fails', () => {
       backing.setItem(
         failure === 'key' ? `${target}-other` : target,
         JSON.stringify({
-          html: 'invalid',
-          baseRevision: -1,
-          generation: 0,
-          savedAt: 1,
-          expiresAt: 2,
+          recovery: {
+            html: 'invalid',
+            baseRevision: -1,
+            generation: 'recovered-0',
+            savedAt: 1,
+            expiresAt: 2,
+          },
         }),
       );
     return {
@@ -419,11 +430,13 @@ describe('a storage operation that fails', () => {
       backing.setItem(
         `daisy:round-notes:draft:p:r:${id}`,
         JSON.stringify({
-          html: id,
-          baseRevision: 3,
-          generation: 0,
-          savedAt,
-          expiresAt: savedAt + 7 * 24 * 60 * 60 * 1000,
+          recovery: {
+            html: id,
+            baseRevision: 3,
+            generation: 'recovered-0',
+            savedAt,
+            expiresAt: savedAt + 7 * 24 * 60 * 60 * 1000,
+          },
         }),
       );
     }
@@ -481,11 +494,13 @@ describe('explicit recovery ownership', () => {
     store.setItem(
       'daisy:round-notes:draft:p:r:a',
       JSON.stringify({
-        html: '<p>recovery</p>',
-        baseRevision: 3,
-        generation: 0,
-        savedAt: 100,
-        expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
+        recovery: {
+          html: '<p>recovery</p>',
+          baseRevision: 3,
+          generation: 'recovered-0',
+          savedAt: 100,
+          expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
+        },
       }),
     );
     const sent: string[] = [];
@@ -501,7 +516,7 @@ describe('explicit recovery ownership', () => {
     assert({
       given: 'a recovered copy still awaiting an explicit choice',
       should: 'retain the offer without silently saving invisible text',
-      actual: [sent, sync.recoveredDrafts().size],
+      actual: [sent, sync.recoveryOffers().length],
       expected: [[], 1],
     });
   });
@@ -546,11 +561,13 @@ test('a refused replacement preserves its previous recovery value', async () => 
     backing.setItem(
       `daisy:round-notes:draft:p:r:${id}`,
       JSON.stringify({
-        html: id,
-        baseRevision: 3,
-        generation: 0,
-        savedAt: 100,
-        expiresAt: 604800100,
+        recovery: {
+          html: id,
+          baseRevision: 3,
+          generation: 'recovered-0',
+          savedAt: 100,
+          expiresAt: 604800100,
+        },
       }),
     );
   const before = [...backing.dump()];
@@ -583,11 +600,13 @@ test('one document acknowledgement cannot clear another recovery offer', async (
   store.setItem(
     'daisy:round-notes:draft:p:r:b',
     JSON.stringify({
-      html: '<p>recover B</p>',
-      baseRevision: 3,
-      generation: 0,
-      savedAt: 100,
-      expiresAt: 604800100,
+      recovery: {
+        html: '<p>recover B</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
+        expiresAt: 604800100,
+      },
     }),
   );
   let saved = 0;
@@ -602,15 +621,22 @@ test('one document acknowledgement cannot clear another recovery offer', async (
   assert({
     given: 'A acknowledges while B still awaits a recovery choice',
     should: 'keep B visibly unsaved',
-    actual: [saved, sync.recoveredDrafts().has('b')],
+    actual: [
+      saved,
+      sync.recoveryOffers().some((offer) => offer.documentId === 'b'),
+    ],
     expected: [0, true],
   });
-  sync.restoreRecovered('b');
+  sync.restoreRecovered(
+    'b',
+    sync.recoveryOffers().find((offer) => offer.documentId === 'b')!.copy
+      .generation,
+  );
   await sync.flush();
   assert({
     given: 'B is explicitly restored and acknowledged',
     should: 'then report the owner saved',
-    actual: [saved, sync.recoveredDrafts().size],
+    actual: [saved, sync.recoveryOffers().length],
     expected: [1, 0],
   });
 });
@@ -620,11 +646,13 @@ test('discard matches the recovery generation even when newer text is identical'
   store.setItem(
     'daisy:round-notes:draft:p:r:a',
     JSON.stringify({
-      html: '<p>same text</p>',
-      baseRevision: 3,
-      generation: 0,
-      savedAt: 100,
-      expiresAt: 604800100,
+      recovery: {
+        html: '<p>same text</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
+        expiresAt: 604800100,
+      },
     }),
   );
   const sent: string[] = [];
@@ -637,7 +665,11 @@ test('discard matches the recovery generation even when newer text is identical'
   );
   await sync.load();
   sync.change('a', '<p>same text</p>');
-  sync.discardRecovered('a');
+  sync.discardRecovered(
+    'a',
+    sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+      .generation,
+  );
   const retained = store.dump().has('daisy:round-notes:draft:p:r:a');
   await sync.flush();
   assert({
@@ -653,11 +685,13 @@ test('failed Discard removal keeps its recovery offer and warns', async () => {
   backing.setItem(
     'daisy:round-notes:draft:p:r:a',
     JSON.stringify({
-      html: '<p>recover</p>',
-      baseRevision: 3,
-      generation: 0,
-      savedAt: 100,
-      expiresAt: 604800100,
+      recovery: {
+        html: '<p>recover</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
+        expiresAt: 604800100,
+      },
     }),
   );
   const warnings: string[] = [];
@@ -674,11 +708,15 @@ test('failed Discard removal keeps its recovery offer and warns', async () => {
     onDraftStorageFailed: (id) => warnings.push(id),
   });
   await sync.load();
-  const discarded = sync.discardRecovered('a');
+  const discarded = sync.discardRecovered(
+    'a',
+    sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+      .generation,
+  );
   assert({
     given: 'the browser refuses removal of a selected recovery copy',
     should: 'warn and retain the offer instead of claiming Discard succeeded',
-    actual: [discarded, sync.recoveredDrafts().size, warnings.includes('a')],
+    actual: [discarded, sync.recoveryOffers().length, warnings.includes('a')],
     expected: [false, 1, true],
   });
 });
@@ -690,11 +728,13 @@ test('untrusted preexisting draft counts are bounded when read', async () => {
     store.setItem(
       `daisy:round-notes:draft:p:r:${id}`,
       JSON.stringify({
-        html: '<p>copy</p>',
-        baseRevision: 3,
-        generation: 0,
-        savedAt: i + 1,
-        expiresAt: i + 1 + 604800000,
+        recovery: {
+          html: '<p>copy</p>',
+          baseRevision: 3,
+          generation: 'recovered-0',
+          savedAt: i + 1,
+          expiresAt: i + 1 + 604800000,
+        },
       }),
     );
   const sync = syncOf(async () => ({ status: 'saved', revision: 4 }), {
@@ -704,12 +744,12 @@ test('untrusted preexisting draft counts are bounded when read', async () => {
   await sync.load();
   assert({
     given: 'seventeen preexisting valid local records',
-    should: 'offer at most sixteen and expire the oldest excess copy',
+    should: 'bound offers without silently deleting any unexpired copy',
     actual: [
-      sync.recoveredDrafts().size,
+      sync.recoveryOffers().length,
       store.dump().size,
       store.dump().has('daisy:round-notes:draft:p:r:d0'),
     ],
-    expected: [16, 16, false],
+    expected: [16, 17, true],
   });
 });

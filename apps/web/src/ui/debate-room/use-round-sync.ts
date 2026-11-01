@@ -1,6 +1,6 @@
 'use client';
 
-import { systemClock } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
 import { tabConnection } from '../../features/realtime/browser-adapters';
@@ -10,9 +10,9 @@ import {
   type DocumentSync,
   type DocumentSyncResources,
   type DocumentsApi,
-  type DraftStorage,
   type Timers,
 } from './document-sync';
+import type { DraftStorage } from './note-draft-storage';
 import { createKeepaliveBudget } from './keepalive-budget';
 import {
   NOTES_PRINCIPAL_EVENT,
@@ -55,6 +55,7 @@ const browserStorage = (): DraftStorage | null => {
 
 /** The browser edge supplies every effect; all owners share this page's ledger. */
 export const browserNoteResources = (): DocumentSyncResources => ({
+  nextGeneration: () => systemId.next(),
   timers: browserTimers,
   storage: browserStorage(),
   budget: browserKeepaliveBudget,
@@ -114,7 +115,7 @@ export function roundSync(
       }
       report({ type: 'refused', status });
     },
-    onRecoveredDraft: () => report({ type: 'recovered' }),
+    onRecoveryChanged: () => report({ type: 'recovered' }),
     onDraftStorageFailed: () => report({ type: 'unsaved' }),
     onSaved: () => report({ type: 'saved' }),
   });

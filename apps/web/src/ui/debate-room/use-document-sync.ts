@@ -21,15 +21,29 @@ export function useDocumentSync(
       .then((documents) => {
         if (!live) return;
         dispatch({ type: 'doc/loaded', documents });
-        dispatch({ type: 'doc/recovered', recovered: sync.recoveredDrafts() });
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');
       });
+    const unsubscribe = sync.subscribe(() => {
+      if (!live || sync.available()) return;
+      dispatch({ type: 'doc/loaded', documents: [] });
+      setProblem('Your session changed. Reopen the Round to load your files.');
+    });
+    const refresh = (event: StorageEvent) => {
+      if (
+        event.key === null ||
+        event.key.startsWith('daisy:round-notes:draft:')
+      )
+        sync.refreshRecovery();
+    };
+    window.addEventListener('storage', refresh);
     const flush = () => void sync.flushKeepalive();
     window.addEventListener('pagehide', flush);
     return () => {
       live = false;
+      unsubscribe();
+      window.removeEventListener('storage', refresh);
       window.removeEventListener('pagehide', flush);
       void sync.flush();
     };

@@ -47,7 +47,6 @@ export function RoomDocument({
       {sync ? (
         <RecoveredNotes
           documents={state.documents}
-          recovered={state.recovered}
           sync={sync}
           dispatch={dispatch}
         />

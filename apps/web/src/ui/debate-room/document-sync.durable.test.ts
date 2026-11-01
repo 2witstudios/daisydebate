@@ -1,10 +1,8 @@
+import { manualGenerations } from './document-sync.test-support';
+import { noteDraftKeys } from './note-draft-storage';
 import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createDocumentSync,
-  type DocumentsApi,
-  draftKeys,
-} from './document-sync';
+import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
   manualTimers,
   memoryStorage,
@@ -33,14 +31,17 @@ describe('a durable draft', () => {
     store.setItem(
       keyOf('p1', 'd', 'a'),
       JSON.stringify({
-        html: '<p>stale draft</p>',
-        baseRevision: 0,
-        generation: 0,
-        savedAt: now,
-        expiresAt: 1 + 7 * 24 * 60 * 60 * 1000,
+        recovery: {
+          html: '<p>stale draft</p>',
+          baseRevision: 0,
+          generation: 'recovered-0',
+          savedAt: now,
+          expiresAt: 1 + 7 * 24 * 60 * 60 * 1000,
+        },
       }),
     );
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.durable.test:1'),
       budget: createKeepaliveBudget(),
       api: alwaysSaving(),
       roundId: 'd',
@@ -51,7 +52,9 @@ describe('a durable draft', () => {
       wallClock: () => now,
     });
     await sync.load();
-    const draft = sync.recoveredDrafts().get('a');
+    const draft = sync
+      .recoveryOffers()
+      .find((offer) => offer.documentId === 'a')?.copy;
     assert({
       given: 'a durable stale draft against a newer server document',
       should: 'be recoverable, not auto-saved over the server copy',
@@ -68,15 +71,18 @@ describe('a durable draft', () => {
     store.setItem(
       keyOf('p1', 'd', 'a'),
       JSON.stringify({
-        html: '<p>recover</p>',
-        baseRevision: 1,
-        generation: 0,
-        savedAt: 1,
-        expiresAt: 604800001,
+        recovery: {
+          html: '<p>recover</p>',
+          baseRevision: 1,
+          generation: 'recovered-0',
+          savedAt: 1,
+          expiresAt: 604800001,
+        },
       }),
     );
     let saves = 0;
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.durable.test:2'),
       budget: createKeepaliveBudget(),
       api: {
         ...alwaysSaving(),
@@ -98,18 +104,22 @@ describe('a durable draft', () => {
       should: 'actually offer the stored recovery',
       actual: [
         store.dump().has(keyOf('p1', 'd', 'a')),
-        sync.recoveredDrafts().size,
+        sync.recoveryOffers().length,
       ],
       expected: [true, 1],
     });
-    sync.discardRecovered('a');
+    sync.discardRecovered(
+      'a',
+      sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+        .generation,
+    );
     await sync.flushKeepalive();
     assert({
       given: 'the participant discards that recovery then leaves',
       should: 'erase the record and offer without sending its HTML',
       actual: [
         store.dump().has(keyOf('p1', 'd', 'a')),
-        sync.recoveredDrafts().size,
+        sync.recoveryOffers().length,
         saves,
       ],
       expected: [false, 0, 0],
@@ -121,6 +131,7 @@ describe('the ordinary flush', () => {
   test('sends a oversized document, not the exit cap', async () => {
     const sent: string[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.durable.test:3'),
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
       api: {
@@ -157,6 +168,7 @@ describe('an overlapping exit flush', () => {
     });
     const sent: string[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.durable.test:4'),
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
       api: {
@@ -193,11 +205,12 @@ describe('an overlapping exit flush', () => {
   });
 });
 
-describe('an eviction round', () => {
-  test('evicts the oldest draft when storage is full', async () => {
+describe('a bounded storage round', () => {
+  test('refuses a seventeenth durable draft without evicting earlier copies', async () => {
     const store = memoryStorage();
     const ids = Array.from({ length: 17 }, (_, n) => `d${n}`);
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.durable.test:5'),
       budget: createKeepaliveBudget(),
       api: alwaysSaving(ids),
       roundId: 'r',
@@ -209,13 +222,18 @@ describe('an eviction round', () => {
     });
     await sync.load();
     for (const id of ids) sync.change(id, htmlOf(16));
-    const before = draftKeys.getAll(store).length;
+    const before = noteDraftKeys(store).length;
     sync.change('d0', htmlOf(16));
     assert({
-      given: '17 changed drafts, the 17th evicts the oldest',
+      given: '17 changed drafts and a replacement of the first',
       should: 'stay within the 16-entry cap',
-      actual: { before, after: draftKeys.getAll(store).length },
-      expected: { before: 16, after: 16 },
+      actual: {
+        before,
+        after: noteDraftKeys(store).length,
+        first: store.getItem(keyOf('p1', 'r', 'd0')) !== null,
+        overflow: store.getItem(keyOf('p1', 'r', 'd16')),
+      },
+      expected: { before: 16, after: 16, first: true, overflow: null },
     });
   });
 });

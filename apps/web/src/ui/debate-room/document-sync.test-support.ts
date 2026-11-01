@@ -1,4 +1,5 @@
-import type { DraftStorage, StoredDocument, Timers } from './document-sync';
+import type { DraftStorage } from './note-draft-storage';
+import type { StoredDocument, Timers } from './document-sync';
 
 export const stored = (id: string, revision = 1): StoredDocument => ({
   id,
@@ -51,4 +52,10 @@ export const manualTimers = () => {
     for (const run of runs) run();
   };
   return { timers, fire };
+};
+
+/** Each injected owner gets a deterministic, independent generation sequence. */
+export const manualGenerations = (owner: string) => {
+  let index = 0;
+  return () => `${owner}:${++index}`;
 };

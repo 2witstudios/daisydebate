@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, type Dispatch } from 'react';
+import { useState, useSyncExternalStore, type Dispatch } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
-import type { DocumentSync, RecoveredDraft } from './document-sync';
+import type { DocumentSync } from './document-sync';
+import type { NoteCopy, NoteOffer } from './note-draft';
 import type { RoomAction } from './room-state';
 
 /** The same constrained schema as the editor; stored HTML is never injected into the page. */
@@ -33,11 +34,13 @@ function RecoveryPreview({
 function RecoveredNote({
   document,
   draft,
+  choiceLabel,
   restore,
   discard,
 }: {
   readonly document: WorkspaceDocument;
-  readonly draft: RecoveredDraft;
+  readonly draft: NoteCopy;
+  readonly choiceLabel: string;
   readonly restore: () => void;
   readonly discard: () => void;
 }) {
@@ -54,10 +57,10 @@ function RecoveredNote({
   };
   return (
     <section
-      aria-label={`Recovered ${document.title}`}
+      aria-label={`Recovered ${choiceLabel}`}
       className="flex flex-col gap-2 border-b border-border p-3"
     >
-      <h3 className="font-semibold">Recovered draft: {document.title}</h3>
+      <h3 className="font-semibold">Recovered draft: {choiceLabel}</h3>
       <p className="text-sm text-ink-muted">
         Your unsaved copy is separate from the server copy. Restore replaces the
         editor text; the server checks for newer changes when saving.
@@ -67,7 +70,7 @@ function RecoveredNote({
         <h4>Recovered copy</h4>
         <RecoveryPreview
           html={draft.html}
-          label={`Recovered copy of ${document.title}`}
+          label={`Recovered copy of ${choiceLabel}`}
         />
         <h4>Server copy</h4>
         <RecoveryPreview
@@ -81,21 +84,21 @@ function RecoveredNote({
           onClick={restore}
           className="cursor-pointer px-3 py-1 text-sm text-ink"
         >
-          Restore {document.title}
+          Restore {choiceLabel}
         </button>
         <button
           type="button"
           onClick={() => void copy()}
           className="cursor-pointer px-3 py-1 text-sm text-ink"
         >
-          Copy recovered {document.title}
+          Copy recovered {choiceLabel}
         </button>
         <button
           type="button"
           onClick={discard}
           className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
         >
-          Discard recovered {document.title}
+          Discard recovered {choiceLabel}
         </button>
       </div>
       {copied ? <p role="status">{copied}</p> : null}
@@ -103,45 +106,59 @@ function RecoveredNote({
   );
 }
 
-/** Both Round surfaces offer the same explicit, document-labelled recovery choices. */
+const noOffers: readonly NoteOffer[] = [];
+
+/** The sync owner projects the durable offers; UI state cannot retain a consumed copy. */
 export function RecoveredNotes({
   documents,
-  recovered,
   sync,
   dispatch,
 }: {
   readonly documents: readonly WorkspaceDocument[];
-  readonly recovered: ReadonlyMap<string, RecoveredDraft>;
   readonly sync: DocumentSync;
   readonly dispatch: Dispatch<RoomAction>;
 }) {
+  const offers = useSyncExternalStore(
+    sync.subscribe,
+    sync.recoveryOffers,
+    () => noOffers,
+  );
   return (
     <>
-      {documents
-        .filter((doc) => recovered.has(doc.id))
-        .map((document) => {
-          const draft = recovered.get(document.id)!;
-          return (
-            <RecoveredNote
-              key={document.id}
-              document={document}
-              draft={draft}
-              restore={() => {
-                sync.restoreRecovered(document.id);
-                dispatch({
-                  type: 'doc/recovered/restore',
-                  id: document.id,
-                  html: draft.html,
-                  now: systemClock.now(),
-                });
-              }}
-              discard={() => {
-                if (sync.discardRecovered(document.id))
-                  dispatch({ type: 'doc/recovered/discard', id: document.id });
-              }}
-            />
-          );
-        })}
+      {offers.map((offer) => {
+        const document = documents.find((item) => item.id === offer.documentId);
+        if (!document) return null;
+        return (
+          <RecoveredNote
+            key={`${document.id}:${offer.copy.generation}`}
+            document={document}
+            draft={offer.copy}
+            choiceLabel={
+              offers.filter((item) => item.documentId === document.id).length >
+              1
+                ? `${document.title} (${offer.slot === 'active' ? 'paused edit' : 'recovery copy'})`
+                : document.title
+            }
+            restore={() => {
+              const html = sync.restoreRecovered(
+                document.id,
+                offer.copy.generation,
+              );
+              if (html === null) return;
+              dispatch({
+                type: 'doc/update',
+                id: document.id,
+                html,
+                now: systemClock.now(),
+              });
+              dispatch({ type: 'tabs/open', id: document.id });
+            }}
+            discard={() => {
+              sync.discardRecovered(document.id, offer.copy.generation);
+            }}
+          />
+        );
+      })}
     </>
   );
 }
