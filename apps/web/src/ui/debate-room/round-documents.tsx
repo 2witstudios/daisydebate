@@ -1,7 +1,6 @@
 'use client';
 
 import { useReducer } from 'react';
-import { systemClock } from '@daisy/clock';
 import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
@@ -13,7 +12,7 @@ import {
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 import { useRoundSync } from './use-round-sync';
-import type { RecoveredDraft } from './document-sync';
+import { RecoveredNotes } from './recovered-notes';
 
 /** Private files backed by the persisted Round's participant-scoped document API. */
 export function RoundDocuments({
@@ -46,7 +45,6 @@ export function RoundDocuments({
       setProblem('That file was not created. Try again.');
     }
   };
-  const recovered: [string, RecoveredDraft][] = [...state.recovered];
 
   return (
     <section
@@ -65,44 +63,12 @@ export function RoundDocuments({
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
-          {recovered.length > 0 ? (
-            <div className="border-b border-border p-3">
-              <p className="text-sm font-semibold text-live">
-                An unsaved draft was recovered.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {recovered.map(([id, draft]) => (
-                  <div key={id} className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="cursor-pointer px-3 py-1 text-sm text-ink"
-                      onClick={() => {
-                        sync.change(id, draft.html);
-                        dispatch({
-                          type: 'doc/recovered/restore',
-                          id,
-                          html: draft.html,
-                          now: systemClock.now(),
-                        });
-                      }}
-                    >
-                      Restore {id}
-                    </button>
-                    <button
-                      type="button"
-                      className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
-                      onClick={() => {
-                        sync.discardRecovered(id);
-                        dispatch({ type: 'doc/recovered/discard', id });
-                      }}
-                    >
-                      Discard {id}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <RecoveredNotes
+            documents={state.documents}
+            recovered={state.recovered}
+            sync={sync}
+            dispatch={dispatch}
+          />
           <DocumentPane
             documents={state.documents}
             tabs={state.tabs}

@@ -31,7 +31,7 @@ export function useDocumentSync(
     return () => {
       live = false;
       window.removeEventListener('pagehide', flush);
-      flush();
+      void sync.flush();
     };
   }, [sync, dispatch]);
   return { problem, setProblem };

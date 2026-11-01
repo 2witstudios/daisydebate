@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
+import { tabConnection } from '../../features/realtime/browser-adapters';
 import { createDocumentsApi } from './documents-api';
 import {
   createDocumentSync,
@@ -10,6 +11,14 @@ import {
   type DraftStorage,
   type Timers,
 } from './document-sync';
+import {
+  createKeepaliveBudget,
+  type KeepaliveBudget,
+} from './keepalive-budget';
+import {
+  NOTES_PRINCIPAL_EVENT,
+  publishNotesPrincipal,
+} from './notes-principal';
 import { refusedNotice, RETRYING_NOTICE } from './save-notice';
 
 /** What the room says about saving: the saved state and a standing notice. */
@@ -24,9 +33,13 @@ export type SaveEvent =
   | { readonly type: 'conflict' }
   | { readonly type: 'retrying' }
   | { readonly type: 'refused'; readonly status: number }
-  | { readonly type: 'unsaved' };
+  | { readonly type: 'unsaved' }
+  | { readonly type: 'recovered' };
 
 export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
+
+/** One browser page's shared keepalive body budget across every Round owner. */
+const browserKeepaliveBudget = createKeepaliveBudget();
 
 const CONFLICT_NOTICE =
   'This file changed in another tab. Reload before editing it again.';
@@ -34,6 +47,12 @@ const CONFLICT_NOTICE =
 /** One saving event's effect on the room's save status. */
 export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
   switch (event.type) {
+    case 'recovered':
+      return {
+        save: 'unsaved',
+        notice:
+          'An unsaved draft is available. Restore, copy or discard it below.',
+      };
     case 'edit':
       return { ...status, save: 'saving' };
     case 'saved':
@@ -60,21 +79,34 @@ export function roundSync(
   report: (event: SaveEvent) => void,
   timers?: Timers,
   storage?: DraftStorage,
+  budget: KeepaliveBudget = browserKeepaliveBudget,
 ): DocumentSync {
   const stored = createDocumentSync({
     roundId,
     principalId,
     api,
+    budget,
     ...(storage ? { storage } : {}),
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
-    onSaveRefused: (_id, status) => report({ type: 'refused', status }),
+    onSaveRefused: (_id, status) => {
+      if (status === 401 || status === 403) {
+        stored.dispose({ purge: true });
+        if (typeof window !== 'undefined') publishNotesPrincipal(null);
+      }
+      report({ type: 'refused', status });
+    },
+    onRecoveredDraft: () => report({ type: 'recovered' }),
     onDraftStorageFailed: () => report({ type: 'unsaved' }),
     onSaved: () => report({ type: 'saved' }),
     ...(timers ? { timers } : {}),
   });
   return {
     ...stored,
+    restoreRecovered: (id) => {
+      report({ type: 'edit' });
+      stored.restoreRecovered(id);
+    },
     change: (id, html) => {
       report({ type: 'edit' });
       stored.change(id, html);
@@ -86,6 +118,7 @@ export function roundSync(
 export function useRoundSync(
   roundId: string,
   principalId: string,
+  socketUrl: string | null = null,
 ): SaveStatus & {
   readonly sync: DocumentSync;
 } {
@@ -94,5 +127,48 @@ export function useRoundSync(
     () => roundSync(roundId, principalId, createDocumentsApi(), report),
     [roundId, principalId],
   );
+  useEffect(() => {
+    if (socketUrl === null) return;
+    const connection = tabConnection(socketUrl);
+    const stop = connection.subscribe((state) => {
+      if (state.terminal === 'revoked' || state.terminal === 'signed-out') {
+        sync.dispose({ purge: true });
+        publishNotesPrincipal(null);
+      }
+    });
+    connection.connect();
+    return () => {
+      stop();
+      connection.dispose();
+    };
+  }, [sync, socketUrl]);
+  const lifetime = useRef({ sync });
+  useEffect(() => {
+    const token = { sync };
+    lifetime.current = token;
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<unknown>).detail !== principalId)
+        sync.dispose({ purge: true });
+    };
+    window.addEventListener(NOTES_PRINCIPAL_EVENT, changed);
+    return () => {
+      // Strict Mode reattaches the same owner in this turn. A real unmount
+      // drains normal saves while the identity listener still fences it.
+      queueMicrotask(() => {
+        const remove = () =>
+          window.removeEventListener(NOTES_PRINCIPAL_EVENT, changed);
+        if (lifetime.current !== token && lifetime.current.sync === sync)
+          return remove();
+        if (lifetime.current.sync !== sync) {
+          sync.dispose({ purge: true });
+          return remove();
+        }
+        void sync.flush().finally(() => {
+          sync.dispose();
+          remove();
+        });
+      });
+    };
+  }, [sync, principalId]);
   return { sync, ...status };
 }

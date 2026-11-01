@@ -34,8 +34,9 @@ describe('a durable draft', () => {
       JSON.stringify({
         html: '<p>stale draft</p>',
         baseRevision: 0,
+        generation: 0,
         savedAt: now,
-        expiresAt: Number.MAX_SAFE_INTEGER,
+        expiresAt: 1 + 7 * 24 * 60 * 60 * 1000,
       }),
     );
     const sync = createDocumentSync({
@@ -60,28 +61,55 @@ describe('a durable draft', () => {
     });
   });
 
-  test('discarding removes the durable record and the pending edit', async () => {
+  test('discarding a loaded recovery removes it without an exit save', async () => {
     const store = memoryStorage();
-    const now = 1;
-    const { api } = { api: alwaysSaving() } as { api: DocumentsApi };
+    store.setItem(
+      keyOf('p1', 'd', 'a'),
+      JSON.stringify({
+        html: '<p>recover</p>',
+        baseRevision: 1,
+        generation: 0,
+        savedAt: 1,
+        expiresAt: 604800001,
+      }),
+    );
+    let saves = 0;
     const sync = createDocumentSync({
-      api,
+      api: {
+        ...alwaysSaving(),
+        save: async () => {
+          saves += 1;
+          return { status: 'saved', revision: 2 };
+        },
+      },
       roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
       timers: manualTimers().timers,
       storage: store,
-      wallClock: () => now,
+      wallClock: () => 1,
     });
     await sync.load();
-    sync.change('a', '<p>typed</p>');
-    await sync.flush();
-    sync.discardRecovered('a');
     assert({
-      given: 'a saved draft whose session is now gone',
-      should: 'leave no durable copy',
-      actual: store.dump().has(keyOf('p1', 'd', 'a')),
-      expected: false,
+      given: 'a valid exact-base recovery before Discard',
+      should: 'actually offer the stored recovery',
+      actual: [
+        store.dump().has(keyOf('p1', 'd', 'a')),
+        sync.recoveredDrafts().size,
+      ],
+      expected: [true, 1],
+    });
+    sync.discardRecovered('a');
+    await sync.flushKeepalive();
+    assert({
+      given: 'the participant discards that recovery then leaves',
+      should: 'erase the record and offer without sending its HTML',
+      actual: [
+        store.dump().has(keyOf('p1', 'd', 'a')),
+        sync.recoveredDrafts().size,
+        saves,
+      ],
+      expected: [false, 0, 0],
     });
   });
 });

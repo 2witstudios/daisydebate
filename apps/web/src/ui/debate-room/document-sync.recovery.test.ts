@@ -35,7 +35,7 @@ const keyOf = (principal: string, roundId: string, id: string) =>
   `daisy:round-notes:draft:${principal}:${roundId}:${id}`;
 
 describe('draft recovery', () => {
-  test('preserves newer typed edit over an older saved ack', async () => {
+  test('clears recovery after two sequential acknowledged edits', async () => {
     const store = memoryStorage();
     const { api, saves } = savingApi([{ id: 'a', revision: 3 }]);
     const { timers } = manualTimers();
@@ -55,16 +55,16 @@ describe('draft recovery', () => {
     await sync.flush();
     const draft = store.dump().get(keyOf('p1', 'd', 'a'));
     assert({
-      given: 'an older save acked after newer edits typed',
-      should: 'keep the newer recovery draft committed by the api',
+      given: 'two edits saved sequentially',
+      should: 'commit both edits in order',
       actual: { saves: saves.length, html: saves.map((s) => s.html) },
       expected: { saves: 2, html: ['<p>older A</p>', '<p>newer B</p>'] },
     });
     assert({
-      given: 'the draft after the second edit',
-      should: 'still be available for recovery',
-      actual: draft !== null,
-      expected: true,
+      given: 'the durable copy after the second acknowledgement',
+      should: 'be cleared because the latest text is saved',
+      actual: draft,
+      expected: undefined,
     });
   });
 
@@ -76,8 +76,9 @@ describe('draft recovery', () => {
       JSON.stringify({
         html: '<p>stale draft</p>',
         baseRevision: 2,
+        generation: 0,
         savedAt: now,
-        expiresAt: now + 1000,
+        expiresAt: now + 7 * 24 * 60 * 60 * 1000,
       }),
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
@@ -108,8 +109,9 @@ describe('draft recovery', () => {
       JSON.stringify({
         html: '<p>stale draft</p>',
         baseRevision: 2,
+        generation: 0,
         savedAt: now,
-        expiresAt: now + 1000,
+        expiresAt: now + 7 * 24 * 60 * 60 * 1000,
       }),
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
