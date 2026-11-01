@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { fixedClock } from '@daisy/clock';
 import { memberGate } from '../round-runtime/member-gate.test-support';
 import { ballotFormFixture } from './ballot-form.test-support';
 import { ballotFields } from './fields';
@@ -16,6 +17,7 @@ const fixture = () => {
   const submitted: unknown[] = [];
   const handlers = createRoundBallotHandlers({
     ...memberGate(id, origin),
+    clock: fixedClock('2026-11-01T00:00:00.000Z'),
     operations: {
       submit: async (...args) => {
         submitted.push(args);
@@ -117,5 +119,18 @@ test('ballot reads answer for the session caller', async () => {
     should: 'return the scoped read and the caller-bound list',
     actual: [await read.json(), await assignments.json()],
     expected: [{ roundId: id }, [id]],
+  });
+});
+
+test('authorized ballot reads stamp the injected server clock in milliseconds', async () => {
+  const response = await fixture().handlers.getBallots(
+    new Request(`${origin}/api/rounds/${id}/ballots`, { headers: { origin } }),
+    id,
+  );
+  assert({
+    given: 'the assigned caller passing the canonical ballot read gate',
+    should: 'supply only its own injected server time as calibration metadata',
+    actual: [response.status, response.headers.get('x-server-now-ms')],
+    expected: [200, String(Date.parse('2026-11-01T00:00:00.000Z'))],
   });
 });

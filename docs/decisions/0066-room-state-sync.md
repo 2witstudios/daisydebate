@@ -137,3 +137,31 @@ a navigation itself fails.
 - Messaging still refetches with `router.refresh()` on its doorbells. It
   has the same route-level coupling and should move onto resource sync in
   its own change.
+
+## Round display time
+
+A mounted live Round owns one `features/round-runtime/round-time` clock for
+its whole lifetime. Debater, assigned judge and spectator owners measure the
+start and completion of authorized reads on the browser's monotonic clock.
+The server action returns only `serverNowMs`, from the handler's injected
+server clock; server and browser monotonic epochs never cross the wire.
+Request generations are allocated before sending. Fresh evidence calibrates
+even when the competitive Round revision is unchanged.
+
+For RTT in 0–2000 ms, the receive estimate is the server sample plus RTT/2,
+with uncertainty RTT/2, assuming the server generates its sample within that
+request interval. Invalid intervals, older generations and rollback beyond
+the accepted and candidate uncertainty bounds cannot replace the anchor.
+The server render instant is only the hydration seed, rendered identically
+before effects, never evidence of synchronization. Missing or rejected
+samples retain the projection and visibly report stale timing; accepted
+samples show their uncertainty. Evidence older than 32 seconds is stale.
+
+One serial sampling chain retries seed/stale evidence after two seconds and
+current evidence after thirty, resampling on visibility return. Existing
+resource reads also sample on reconnect and invalidation. Unmount cancels
+timers and subscriptions. Display/control hints and media deadlines read
+the same clock. Calibration changes rearm the actual media timeout without
+requiring a new Round view; view updates do not replace the clock or media
+session. These are display estimates and read triggers only: commands,
+attendance, competitive deadlines and media grants remain server authority.

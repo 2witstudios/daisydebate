@@ -19,7 +19,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
       read={async () => ({
         kind: 'found',
         round: assignedView,
-        serverSample: null,
+        serverNowMs: null,
         socketUrl: null,
       })}
       socketUrl={null}

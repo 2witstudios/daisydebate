@@ -62,7 +62,7 @@ export async function readPersistedJudgeRound(roundId: string) {
     ? {
         kind: 'found' as const,
         round: result.view.round,
-        serverSample: result.serverSample,
+        serverNowMs: result.serverNowMs,
         socketUrl: null,
       }
     : { kind: 'missing' as const, socketUrl: null };

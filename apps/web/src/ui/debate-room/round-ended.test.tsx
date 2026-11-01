@@ -32,7 +32,7 @@ test('a live room whose Round completed points to its result', () => {
       read={async () => ({
         kind: 'found',
         round: ended,
-        serverSample: null,
+        serverNowMs: null,
         socketUrl: null,
       })}
       socketUrl={null}

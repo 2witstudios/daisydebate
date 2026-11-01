@@ -1,12 +1,9 @@
 'use client';
+import { RoundTimeNotice } from './round-time-notice';
 import './zod-jitless';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  createRoundTime,
-  defaultMonotonicClock,
-  RESAMPLE_EVERY_MS,
-} from './use-second';
+import { useCallback, useMemo, type ReactNode } from 'react';
+import { useRoundTime } from './use-round-time';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
@@ -33,42 +30,10 @@ export function LiveJudgeRoom({
   readonly socketUrl: string | null;
   readonly renderedAtMs: number;
 }) {
-  const generationRef = useRef(0);
-  const [roundTime] = useState(() => {
-    const at = defaultMonotonicClock();
-    const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
-    seed.sample({
-      serverNowMs: renderedAtMs,
-      sentAtMs: at,
-      receivedAtMs: at,
-      generation: 0,
-    });
-    return seed;
+  const { roundTime, sampledRead } = useRoundTime({
+    renderedAtMs,
+    read,
   });
-  const sampledRead = useCallback(async () => {
-    const response = await read();
-    if (response.kind === 'found' && response.serverSample !== null)
-      roundTime.sample({
-        ...response.serverSample,
-        generation: ++generationRef.current,
-      });
-    return response;
-  }, [read, roundTime]);
-  // Suspension or a stall must produce a fresh sample, not a frozen anchor.
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => void sampledRead(),
-      RESAMPLE_EVERY_MS,
-    );
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void sampledRead();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [sampledRead]);
   const [synced, driver] = useLiveRoundView({
     view: seed,
     read: sampledRead,
@@ -104,6 +69,7 @@ export function LiveJudgeRoom({
         and the transcript is saved.
       </p>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <RoundTimeNotice roundTime={roundTime} />
       {media(view)}
       {transcript}
       <Link href={`/judge/ballot/${view.id}`} prefetch={false}>
