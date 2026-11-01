@@ -89,7 +89,12 @@ export default async function RoundPage({
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
         ) : null}
       </RoundReceipt>
-      {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}
+      {ownsFiles ? (
+        <RoundDocuments
+          roundId={result.round.id}
+          principalId={identity.principal.userId ?? 'anonymous'}
+        />
+      ) : null}
     </>
   );
 }

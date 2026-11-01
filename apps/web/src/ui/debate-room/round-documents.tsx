@@ -14,12 +14,18 @@ import { useDocumentSync } from './use-document-sync';
 import { useRoundSync } from './use-round-sync';
 
 /** Private files backed by the persisted Round's participant-scoped document API. */
-export function RoundDocuments({ roundId }: { readonly roundId: string }) {
+export function RoundDocuments({
+  roundId,
+  principalId,
+}: {
+  readonly roundId: string;
+  readonly principalId: string;
+}) {
   const [state, dispatch] = useReducer(
     reducePersistedWorkspace,
     initialPersistedWorkspace,
   );
-  const { sync, notice, save } = useRoundSync(roundId);
+  const { sync, notice, save } = useRoundSync(roundId, principalId);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
   usePaletteShortcut(dispatch);
   const choose = async (choice: PaletteChoice) => {
