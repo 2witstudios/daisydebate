@@ -4,7 +4,14 @@ import './zod-jitless';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -23,7 +30,13 @@ import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
-import { useSecond, createRoundTime, defaultMonotonicClock } from './use-second';
+import {
+  useSecond,
+  createRoundTime,
+  defaultMonotonicClock,
+  RESAMPLE_EVERY_MS,
+  type RoundTime,
+} from './use-second';
 
 /**
  * The mounted round room: the position derived each second from the
@@ -63,14 +76,56 @@ export function LiveRoundRoom({
   readonly socketUrl: string | null;
 }) {
   const reconnect = useMemo(() => createAttendanceReconnect(), []);
+  // One shared round clock: SSR seed now, then every authorized read samples it.
+  const generationRef = useRef(0);
+  const [roundTime] = useState(() => {
+    const at = performance.now();
+    const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
+    seed.sample({
+      serverNowMs: renderedAtMs,
+      sentAtMs: at,
+      receivedAtMs: at,
+      generation: 0,
+    });
+    return seed;
+  });
+  const sampledRead = useCallback(async () => {
+    const response = await read();
+    if (response.kind === 'found' && response.serverSample !== null)
+      roundTime.sample({
+        ...response.serverSample,
+        generation: ++generationRef.current,
+      });
+    return response;
+  }, [read, roundTime]);
+  // Suspension or a stall must produce a fresh sample, not a frozen anchor.
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void sampledRead(),
+      RESAMPLE_EVERY_MS,
+    );
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sampledRead();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [sampledRead]);
   const [synced, driver] = useLiveRoundView({
     view: seed,
-    read,
+    read: sampledRead,
     socketUrl,
     onConnectionOpen: reconnect.opened,
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
+  const now = useSecond(renderedAtMs, roundTime);
+  const round = useMemo(
+    () => liveRoundOf(view, actorId, now),
+    [view, actorId, now],
+  );
   const defaultMedia = useMemo(
     () => roundMediaSlot(refresh, roundTime),
     [refresh, roundTime],
@@ -91,26 +146,6 @@ export function LiveRoundRoom({
       else if (answer.error) driver?.signal();
     },
     [driver],
-  );
-  const roundTimeRef = useRef<ReturnType<typeof createRoundTime> | null>(null);
-  if (roundTimeRef.current === null) {
-    const anchor = defaultMonotonicClock();
-    roundTimeRef.current = createRoundTime({
-      initial: {
-        serverNowMs: renderedAtMs,
-        sentAtMs: anchor,
-        receivedAtMs: anchor,
-        generation: 0,
-        uncertaintyMs: 2000,
-      },
-      monotonicNowMs: defaultMonotonicClock,
-    });
-  }
-  const roundTime = roundTimeRef.current!;
-  const now = useSecond(renderedAtMs, roundTime);
-  const round = useMemo(
-    () => liveRoundOf(view, actorId, now),
-    [view, actorId, now],
   );
   const { sync, notice, save } = useRoundSync(view.id);
   const intent = leaveIntent(view, actorId, now);

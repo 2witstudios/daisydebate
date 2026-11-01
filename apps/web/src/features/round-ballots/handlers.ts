@@ -1,4 +1,5 @@
 import { idSchema, type RoundBallotRead } from '@daisy/protocol';
+import { systemClock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { parseValidated } from '../../server/http';
 import {
@@ -25,7 +26,11 @@ export function createRoundBallotHandlers(
   return {
     getBallots: (request: Request, roundId: string) =>
       run(request, 'read', async (caller) =>
-        Response.json(await d.read(caller, parseValidated(idSchema, roundId))),
+        Response.json(await d.read(caller, parseValidated(idSchema, roundId)), {
+          headers: {
+            'x-server-now-ms': String(Date.parse(systemClock.now())),
+          },
+        }),
       ),
     judgeAssignments: (request: Request) =>
       run(request, 'read', async (caller) =>

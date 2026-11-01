@@ -1,8 +1,12 @@
 'use client';
 import './zod-jitless';
 import Link from 'next/link';
-import { useCallback, useMemo, useRef, type ReactNode } from 'react';
-import { createRoundTime, defaultMonotonicClock } from './use-second';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createRoundTime,
+  defaultMonotonicClock,
+  RESAMPLE_EVERY_MS,
+} from './use-second';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
@@ -23,23 +27,44 @@ export function LiveJudgeRoom(props: {
   readonly socketUrl: string | null;
   readonly renderedAtMs: number;
 }) {
-  const [synced, driver] = useLiveRoundView(props);
-  const refresh = useCallback(() => driver?.signal(), [driver]);
-  const roundTimeRef = useRef<ReturnType<typeof createRoundTime> | null>(null);
-  if (roundTimeRef.current === null) {
-    const anchor = defaultMonotonicClock();
-    roundTimeRef.current = createRoundTime({
-      initial: {
-        serverNowMs: props.renderedAtMs,
-        sentAtMs: anchor,
-        receivedAtMs: anchor,
-        generation: 0,
-        uncertaintyMs: 2000,
-      },
-      monotonicNowMs: defaultMonotonicClock,
+  const generationRef = useRef(0);
+  const [roundTime] = useState(() => {
+    const at = defaultMonotonicClock();
+    const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
+    seed.sample({
+      serverNowMs: props.renderedAtMs,
+      sentAtMs: at,
+      receivedAtMs: at,
+      generation: 0,
     });
-  }
-  const roundTime = roundTimeRef.current!;
+    return seed;
+  });
+  const sampledRead = useCallback(async () => {
+    const response = await props.read();
+    if (response.kind === 'found' && response.serverSample !== null)
+      roundTime.sample({
+        ...response.serverSample,
+        generation: ++generationRef.current,
+      });
+    return response;
+  }, [props.read, roundTime]);
+  // Suspension or a stall must produce a fresh sample, not a frozen anchor.
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void sampledRead(),
+      RESAMPLE_EVERY_MS,
+    );
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sampledRead();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [sampledRead]);
+  const [synced, driver] = useLiveRoundView({ ...props, read: sampledRead });
+  const refresh = useCallback(() => driver?.signal(), [driver]);
   const media = useMemo(() => roundMediaSlot(refresh, roundTime), [refresh, roundTime]);
   const view = synced.value;
   const ended = useRoundEndedRoute(view);

@@ -2,7 +2,7 @@
 import '../../ui/debate-room/zod-jitless';
 import { readCheckedDevices } from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
-import type { createRoundTime } from '../../ui/debate-room/use-second';
+import type { RoundTime } from '../../ui/debate-room/use-second';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -61,6 +61,9 @@ const requestMedia = async (
   return response.json() as Promise<unknown>;
 };
 
+/** How often media deadlines re-check the shared clock (a correction re-arms them). */
+const MEDIA_REFRESH_CHECK_MS = 500;
+
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
   view,
@@ -69,7 +72,7 @@ function RoundMediaSession({
 }: {
   readonly view: RoundView;
   readonly onRefresh: () => void;
-  readonly roundTime: ReturnType<typeof createRoundTime>;
+  readonly roundTime: RoundTime;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
   const [microphoneMuted, setMicrophoneMuted] = useState(poi);
@@ -141,16 +144,16 @@ function RoundMediaSession({
     void controller.current?.reconcile();
     const next = nextMediaRefreshAt(view);
     if (next === null) return;
-    const nowServer = roundTime.nowMs();
-    const timer = window.setTimeout(
-      () => {
-        refresh.current();
-        void controller.current?.reconcile();
-      },
-      Math.max(0, next - nowServer),
-    );
-    return () => window.clearTimeout(timer);
-  }, [view]);
+    // Poll the shared clock so an accepted correction re-arms the deadline
+    // even when the Round view is unchanged between reads.
+    const timer = window.setInterval(() => {
+      if (roundTime.nowMs() < next) return;
+      window.clearInterval(timer);
+      refresh.current();
+      void controller.current?.reconcile();
+    }, MEDIA_REFRESH_CHECK_MS);
+    return () => window.clearInterval(timer);
+  }, [view, roundTime]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
@@ -224,7 +227,7 @@ function RoundMediaSession({
 
 export const roundMediaSlot = (
   onRefresh: () => void,
-  roundTime: ReturnType<typeof createRoundTime>,
+  roundTime: RoundTime,
 ) =>
   function RoundMediaSlot(view: RoundView) {
     return (

@@ -18,10 +18,10 @@ test('Round receipt refuses non-success and malformed success responses', async 
     should: 'never turn them into a persisted receipt',
     actual: outcomes,
     expected: [
-      { kind: 'missing' },
-      { kind: 'unavailable' },
-      { kind: 'unavailable' },
-      { kind: 'unavailable' },
+      { kind: 'missing', socketUrl: null },
+      { kind: 'unavailable', socketUrl: null },
+      { kind: 'unavailable', socketUrl: null },
+      { kind: 'unavailable', socketUrl: null },
     ],
   });
 });
@@ -107,6 +107,21 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     checkpoint: emptyRuntimeCheckpoint,
     segments: [],
   } satisfies RoundView;
+  const withSample = await readRoundReceipt(
+    async () => Response.json(frozen, { headers: { 'x-server-now-ms': '1730000000000' } }),
+    id,
+  );
+  if (withSample.kind !== 'found' || withSample.serverSample === null)
+    throw new Error('expected the authorized sample');
+  assert({
+    given: 'an authorized read reporting an explicit server instant',
+    should: 'bind it to the monotonic request interval that measured it',
+    actual: [
+      withSample.serverSample.serverNowMs,
+      withSample.serverSample.sentAtMs <= withSample.serverSample.receivedAtMs,
+    ],
+    expected: [1730000000000, true],
+  });
   const variants = [
     frozen,
     { ...frozen, id: 'g'.repeat(24) },
@@ -125,9 +140,9 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       'preserve the valid persisted fields and refuse substitution or malformed cast',
     actual: results,
     expected: [
-      { kind: 'found', round: frozen, socketUrl: null },
-      { kind: 'unavailable' },
-      { kind: 'unavailable' },
+      { kind: 'found', round: frozen, serverSample: null, socketUrl: null },
+      { kind: 'unavailable', socketUrl: null },
+      { kind: 'unavailable', socketUrl: null },
     ],
   });
 });

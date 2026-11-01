@@ -2,6 +2,7 @@
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { formatCountdown } from '../../lib/clock-display';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -15,7 +16,12 @@ import {
 import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
-import { useSecond } from '../debate-room/use-second';
+import {
+  useSecond,
+  createRoundTime,
+  defaultMonotonicClock,
+  RESAMPLE_EVERY_MS,
+} from '../debate-room/use-second';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
@@ -157,9 +163,45 @@ export function LiveSpectatorRoom(props: {
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
 }) {
-  const [synced] = useLiveRoundView(props);
+  const generationRef = useRef(0);
+  const [roundTime] = useState(() => {
+    const at = defaultMonotonicClock();
+    const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
+    seed.sample({
+      serverNowMs: props.renderedAtMs,
+      sentAtMs: at,
+      receivedAtMs: at,
+      generation: 0,
+    });
+    return seed;
+  });
+  const sampledRead = useCallback(async () => {
+    const response = await props.read();
+    if (response.kind === 'found' && response.serverSample !== null)
+      roundTime.sample({
+        ...response.serverSample,
+        generation: ++generationRef.current,
+      });
+    return response;
+  }, [props.read, roundTime]);
+  // Suspension or a stall must produce a fresh sample, not a frozen anchor.
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void sampledRead(),
+      RESAMPLE_EVERY_MS,
+    );
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sampledRead();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [sampledRead]);
+  const [synced] = useLiveRoundView({ ...props, read: sampledRead });
   const view = synced.value;
-  const now = useSecond(props.renderedAtMs);
+  const now = useSecond(props.renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   const watched = spectatorViewOf(view, now);
