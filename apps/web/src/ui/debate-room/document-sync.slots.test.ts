@@ -1,10 +1,17 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
+  documentApi,
   memoryStorage,
   manualTimers,
   stored,
 } from './document-sync.test-support';
+
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  createDocumentSync,
+  type DocumentSync,
+  type DocumentsApi,
+} from './document-sync';
+
 import { createKeepaliveBudget } from './keepalive-budget';
 import { newNoteCopy } from './note-draft';
 setupRitewayBun();
@@ -15,17 +22,16 @@ const fixture = () => {
     generation = 0;
   let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
   const writes: { html: string; expectedRevision: number }[] = [];
-  const api: DocumentsApi = {
-    list: async () => [server],
-    create: async () => stored('new'),
-    save: async (input) => {
+  const api: DocumentsApi = documentApi(
+    async (input) => {
       writes.push(input);
       if (input.expectedRevision !== server.revision)
         return { status: 'conflict', revision: server.revision };
       server = { ...server, html: input.html, revision: server.revision + 1 };
       return { status: 'saved', revision: server.revision };
     },
-  };
+    () => [server],
+  );
   const recovery = newNoteCopy({
     html: '<p>REC</p>',
     generation: 'REC',
@@ -218,23 +224,26 @@ test('independent expiry removes only REC and account purge withdraws remaining 
   });
 });
 
-test('a remote CAS conflict preserves both swapped copies and reports the conflict', async () => {
-  const f = fixture();
-  let conflicts = 0;
-  const sync = f.owner({
-    api: {
-      list: async () => [stored('a', 3)],
-      create: async () => stored('new'),
-      save: async () => ({ status: 'conflict', revision: 4 }),
-    },
-    onConflict: () => {
-      conflicts++;
-    },
-  });
+const restorePendingNew = async (sync: DocumentSync) => {
   await sync.load();
   sync.change('a', '<p>NEW</p>');
   sync.restoreRecovered('a', 'REC');
   await sync.flush();
+};
+
+test('a remote CAS conflict preserves both swapped copies and reports the conflict', async () => {
+  const f = fixture();
+  let conflicts = 0;
+  const sync = f.owner({
+    api: documentApi(
+      async () => ({ status: 'conflict', revision: 4 }),
+      () => [stored('a', 3)],
+    ),
+    onConflict: () => {
+      conflicts++;
+    },
+  });
+  await restorePendingNew(sync);
   const record = JSON.parse(f.storage.getItem(key)!);
   assert({
     given: 'remote state advanced before the restored edit CAS',
@@ -256,10 +265,8 @@ test('a restored edit with an unknown acknowledgement reconciles its own commit 
     requests = 0,
     conflicts = 0;
   const sync = f.owner({
-    api: {
-      list: async () => [server],
-      create: async () => stored('new'),
-      save: async (input) => {
+    api: documentApi(
+      async (input) => {
         requests++;
         if (requests === 1) {
           server = { ...server, html: input.html, revision: 4 };
@@ -267,15 +274,13 @@ test('a restored edit with an unknown acknowledgement reconciles its own commit 
         }
         return { status: 'conflict', revision: 4 };
       },
-    },
+      () => [server],
+    ),
     onConflict: () => {
       conflicts++;
     },
   });
-  await sync.load();
-  sync.change('a', '<p>NEW</p>');
-  sync.restoreRecovered('a', 'REC');
-  await sync.flush();
+  await restorePendingNew(sync);
   await sync.flush();
   const record = JSON.parse(f.storage.getItem(key)!);
   assert({

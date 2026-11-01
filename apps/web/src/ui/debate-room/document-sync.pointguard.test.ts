@@ -1,4 +1,11 @@
-import { manualGenerations } from './document-sync.test-support';
+import {
+  recordingSave,
+  recoveryRecord,
+  manualNoteResources,
+  memoryStorage,
+  stored,
+} from './document-sync.test-support';
+
 import type { DraftStorage } from './note-draft-storage';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type DocumentsApi } from './document-sync';
@@ -6,11 +13,6 @@ import {
   createKeepaliveBudget,
   type KeepaliveBudget,
 } from './keepalive-budget';
-import {
-  manualTimers,
-  memoryStorage,
-  stored,
-} from './document-sync.test-support';
 
 setupRitewayBun();
 
@@ -69,15 +71,15 @@ const syncOf = (
   } = {},
 ) =>
   createDocumentSync({
-    nextGeneration: manualGenerations('document-sync.pointguard.test:1'),
+    ...manualNoteResources('document-sync.pointguard.test:1', {
+      storage: options.storage ?? memoryStorage(),
+      budget: options.budget ?? createKeepaliveBudget(),
+    }),
+
     api: api(save, options.documents),
     roundId: 'r',
     principalId: 'p',
     onConflict: () => {},
-    timers: manualTimers().timers,
-    storage: options.storage ?? memoryStorage(),
-    budget: options.budget ?? createKeepaliveBudget(),
-    wallClock: () => 100,
     ...(options.onSaved ? { onSaved: options.onSaved } : {}),
     ...(options.onDraftStorageFailed
       ? { onDraftStorageFailed: options.onDraftStorageFailed }
@@ -308,24 +310,15 @@ describe('discarding an older recovery after newer typing', () => {
     const store = memoryStorage();
     store.setItem(
       'daisy:round-notes:draft:p:r:a',
-      JSON.stringify({
-        recovery: {
-          html: '<p>recovered</p>',
-          baseRevision: 3,
-          generation: 'recovered-0',
-          savedAt: 100,
-          expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
-        },
+      recoveryRecord({
+        html: '<p>recovered</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
       }),
     );
     const sent: string[] = [];
-    const sync = syncOf(
-      async ({ html, expectedRevision }) => {
-        sent.push(html);
-        return { status: 'saved' as const, revision: expectedRevision + 1 };
-      },
-      { storage: store },
-    );
+    const sync = syncOf(recordingSave(sent), { storage: store });
     await sync.load();
     sync.change('a', '<p>newer typing</p>');
     sync.discardRecovered(
@@ -398,17 +391,11 @@ describe('a storage operation that fails', () => {
     test(`keeps the online save scheduled and warns for ${failure}`, async () => {
       const warnings: string[] = [];
       const sent: string[] = [];
-      const sync = syncOf(
-        async ({ html, expectedRevision }) => {
-          sent.push(html);
-          return { status: 'saved' as const, revision: expectedRevision + 1 };
-        },
-        {
-          storage: failingStorage(failure),
-          onSaved: () => {},
-          onDraftStorageFailed: (id) => warnings.push(id),
-        },
-      );
+      const sync = syncOf(recordingSave(sent), {
+        storage: failingStorage(failure),
+        onSaved: () => {},
+        onDraftStorageFailed: (id) => warnings.push(id),
+      });
       await sync.load();
       warnings.length = 0;
       sync.change('a', '<p>online</p>');
@@ -458,13 +445,11 @@ describe('a storage operation that fails', () => {
       dump: () => backing.dump(),
     };
     const sent: string[] = [];
-    const sync = syncOf(
-      async ({ html, expectedRevision }) => {
-        sent.push(html);
-        return { status: 'saved' as const, revision: expectedRevision + 1 };
-      },
-      { documents, storage, onDraftStorageFailed: (id) => warnings.push(id) },
-    );
+    const sync = syncOf(recordingSave(sent), {
+      documents,
+      storage,
+      onDraftStorageFailed: (id) => warnings.push(id),
+    });
     await sync.load();
     sync.change('d16', '<p>new</p>');
     const after = storage.dump();
@@ -493,24 +478,17 @@ describe('explicit recovery ownership', () => {
     const store = memoryStorage();
     store.setItem(
       'daisy:round-notes:draft:p:r:a',
-      JSON.stringify({
-        recovery: {
-          html: '<p>recovery</p>',
-          baseRevision: 3,
-          generation: 'recovered-0',
-          savedAt: 100,
-          expiresAt: 100 + 7 * 24 * 60 * 60 * 1000,
-        },
+      recoveryRecord({
+        html: '<p>recovery</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
       }),
     );
     const sent: string[] = [];
-    const sync = syncOf(
-      async ({ html }) => {
-        sent.push(html);
-        return { status: 'saved', revision: 4 };
-      },
-      { storage: store },
-    );
+    const sync = syncOf(recordingSave(sent, { revision: 4 }), {
+      storage: store,
+    });
     await sync.load();
     await sync.flushKeepalive();
     assert({
@@ -560,14 +538,11 @@ test('a refused replacement preserves its previous recovery value', async () => 
   for (const id of documents)
     backing.setItem(
       `daisy:round-notes:draft:p:r:${id}`,
-      JSON.stringify({
-        recovery: {
-          html: id,
-          baseRevision: 3,
-          generation: 'recovered-0',
-          savedAt: 100,
-          expiresAt: 604800100,
-        },
+      recoveryRecord({
+        html: id,
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: 100,
       }),
     );
   const before = [...backing.dump()];
@@ -599,14 +574,11 @@ test('one document acknowledgement cannot clear another recovery offer', async (
   const store = memoryStorage();
   store.setItem(
     'daisy:round-notes:draft:p:r:b',
-    JSON.stringify({
-      recovery: {
-        html: '<p>recover B</p>',
-        baseRevision: 3,
-        generation: 'recovered-0',
-        savedAt: 100,
-        expiresAt: 604800100,
-      },
+    recoveryRecord({
+      html: '<p>recover B</p>',
+      baseRevision: 3,
+      generation: 'recovered-0',
+      savedAt: 100,
     }),
   );
   let saved = 0;
@@ -645,24 +617,15 @@ test('discard matches the recovery generation even when newer text is identical'
   const store = memoryStorage();
   store.setItem(
     'daisy:round-notes:draft:p:r:a',
-    JSON.stringify({
-      recovery: {
-        html: '<p>same text</p>',
-        baseRevision: 3,
-        generation: 'recovered-0',
-        savedAt: 100,
-        expiresAt: 604800100,
-      },
+    recoveryRecord({
+      html: '<p>same text</p>',
+      baseRevision: 3,
+      generation: 'recovered-0',
+      savedAt: 100,
     }),
   );
   const sent: string[] = [];
-  const sync = syncOf(
-    async ({ html }) => {
-      sent.push(html);
-      return { status: 'saved', revision: 4 };
-    },
-    { storage: store },
-  );
+  const sync = syncOf(recordingSave(sent, { revision: 4 }), { storage: store });
   await sync.load();
   sync.change('a', '<p>same text</p>');
   sync.discardRecovered(
@@ -684,14 +647,11 @@ test('failed Discard removal keeps its recovery offer and warns', async () => {
   const backing = memoryStorage();
   backing.setItem(
     'daisy:round-notes:draft:p:r:a',
-    JSON.stringify({
-      recovery: {
-        html: '<p>recover</p>',
-        baseRevision: 3,
-        generation: 'recovered-0',
-        savedAt: 100,
-        expiresAt: 604800100,
-      },
+    recoveryRecord({
+      html: '<p>recover</p>',
+      baseRevision: 3,
+      generation: 'recovered-0',
+      savedAt: 100,
     }),
   );
   const warnings: string[] = [];
@@ -727,14 +687,11 @@ test('untrusted preexisting draft counts are bounded when read', async () => {
   for (const [i, id] of documents.entries())
     store.setItem(
       `daisy:round-notes:draft:p:r:${id}`,
-      JSON.stringify({
-        recovery: {
-          html: '<p>copy</p>',
-          baseRevision: 3,
-          generation: 'recovered-0',
-          savedAt: i + 1,
-          expiresAt: i + 1 + 604800000,
-        },
+      recoveryRecord({
+        html: '<p>copy</p>',
+        baseRevision: 3,
+        generation: 'recovered-0',
+        savedAt: i + 1,
       }),
     );
   const sync = syncOf(async () => ({ status: 'saved', revision: 4 }), {

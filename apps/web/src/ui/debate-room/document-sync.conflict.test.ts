@@ -1,8 +1,12 @@
-import { manualGenerations } from './document-sync.test-support';
-import { createKeepaliveBudget } from './keepalive-budget';
+import {
+  documentApi,
+  manualNoteResources,
+  manualTimers,
+  stored,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type DocumentsApi } from './document-sync';
-import { manualTimers, stored } from './document-sync.test-support';
 
 setupRitewayBun();
 
@@ -18,10 +22,8 @@ const fakeServer = () => {
   const commit = (html: string) => {
     doc = { ...doc, html, revision: doc.revision + 1 };
   };
-  const api: DocumentsApi = {
-    list: async () => [doc],
-    create: async () => stored('new'),
-    save: async ({ html, expectedRevision }) => {
+  const api: DocumentsApi = documentApi(
+    async ({ html, expectedRevision }) => {
       sent.push({ html, expectedRevision });
       if (expectedRevision !== doc.revision)
         return { status: 'conflict', revision: doc.revision };
@@ -32,7 +34,8 @@ const fakeServer = () => {
       }
       return { status: 'saved', revision: doc.revision };
     },
-  };
+    () => [doc],
+  );
   return {
     api,
     sent,
@@ -47,16 +50,13 @@ const watchedSync = (api: DocumentsApi) => {
   const conflicts: string[] = [];
   const saved: string[] = [];
   const sync = createDocumentSync({
-    nextGeneration: manualGenerations('document-sync.conflict.test:1'),
-    storage: null,
-    budget: createKeepaliveBudget(),
-    wallClock: () => 100,
+    ...manualNoteResources('document-sync.conflict.test:1', { timers }),
+
     api,
     roundId: 'd',
     principalId: 'p1',
     onConflict: (id) => conflicts.push(id),
     onSaved: (id) => saved.push(id),
-    timers,
   });
   return { sync, fire, conflicts, saved };
 };

@@ -1,12 +1,15 @@
-import { manualGenerations } from './document-sync.test-support';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { DocumentsApi } from './document-sync';
 import {
+  documentApi,
+  recoveryRecord,
+  manualNoteResources,
   manualTimers,
   memoryStorage,
   stored,
 } from './document-sync.test-support';
-import { createKeepaliveBudget } from './keepalive-budget';
+
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { DocumentsApi } from './document-sync';
+
 import { RETRYING_NOTICE, refusedNotice } from './save-notice';
 import {
   initialSaveStatus,
@@ -61,11 +64,10 @@ describe('roundSync', () => {
       api(async () => ({ status: 'saved', revision: 2 })),
       (event) => events.push(event),
       {
-        nextGeneration: manualGenerations('use-round-sync.test:1'),
-        timers,
-        storage: memoryStorage(),
-        budget: createKeepaliveBudget(),
-        wallClock: () => 100,
+        ...manualNoteResources('use-round-sync.test:1', {
+          timers,
+          storage: memoryStorage(),
+        }),
       },
     );
     await sync.load();
@@ -91,11 +93,10 @@ describe('roundSync', () => {
       }),
       (event) => events.push(event),
       {
-        nextGeneration: manualGenerations('use-round-sync.test:2'),
-        timers,
-        storage: memoryStorage(),
-        budget: createKeepaliveBudget(),
-        wallClock: () => 100,
+        ...manualNoteResources('use-round-sync.test:2', {
+          timers,
+          storage: memoryStorage(),
+        }),
       },
     );
     await sync.load();
@@ -173,11 +174,9 @@ test('refused edits and absent recovery choices leave the real owner state uncha
     save: async () => ({ status: 'saved', revision: 2 }),
   };
   const sync = roundSync('r', 'p', api, (event) => events.push(event), {
-    nextGeneration: manualGenerations('use-round-sync.test:3'),
-    timers: manualTimers().timers,
-    storage: memoryStorage(),
-    budget: createKeepaliveBudget(),
-    wallClock: () => 100,
+    ...manualNoteResources('use-round-sync.test:3', {
+      storage: memoryStorage(),
+    }),
   });
   await sync.load();
   sync.restoreRecovered('missing', 'absent');
@@ -198,33 +197,25 @@ test('a recovery choice remains actionable after newer typing is acknowledged', 
   const storage = memoryStorage();
   storage.setItem(
     'daisy:round-notes:draft:p:r:a',
-    JSON.stringify({
-      recovery: {
-        html: '<p>Recovered copy</p>',
-        baseRevision: 1,
-        generation: 'recovered-0',
-        savedAt: 100,
-        expiresAt: 604800100,
-      },
+    recoveryRecord({
+      html: '<p>Recovered copy</p>',
+      baseRevision: 1,
+      generation: 'recovered-0',
+      savedAt: 100,
     }),
   );
   let document = stored('a');
-  const api: DocumentsApi = {
-    list: async () => [document],
-    create: async () => stored('new'),
-    save: async ({ html, expectedRevision }) => {
+  const api: DocumentsApi = documentApi(
+    async ({ html, expectedRevision }) => {
       if (expectedRevision !== document.revision)
         return { status: 'conflict', revision: document.revision };
       document = { ...document, html, revision: document.revision + 1 };
       return { status: 'saved', revision: document.revision };
     },
-  };
+    () => [document],
+  );
   const sync = roundSync('r', 'p', api, () => {}, {
-    nextGeneration: manualGenerations('use-round-sync.test:4'),
-    timers: manualTimers().timers,
-    storage,
-    budget: createKeepaliveBudget(),
-    wallClock: () => 100,
+    ...manualNoteResources('use-round-sync.test:4', { storage }),
   });
   await sync.load();
   const offered = sync

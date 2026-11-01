@@ -49,7 +49,7 @@ export const removesOnlyNoteCopies = (
   );
 };
 
-export const NOTE_RECORD_MAX_BYTES = 256 * 1024;
+const NOTE_RECORD_MAX_BYTES = 256 * 1024;
 export const NOTE_RECORD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 export const NOTE_RECORD_MAX_COUNT = 16;
 const retentionMs = 7 * 24 * 60 * 60 * 1000;

@@ -1,14 +1,17 @@
+import {
+  recordingSave,
+  documentApi,
+  manualNoteResources,
+  memoryStorage,
+  stored,
+} from './document-sync.test-support';
+
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { releaseNoteOwner } from './note-owner';
 import { createDocumentSync } from './document-sync';
-import { createKeepaliveBudget } from './keepalive-budget';
+
 import { newNoteCopy } from './note-draft';
-import {
-  memoryStorage,
-  manualTimers,
-  manualGenerations,
-  stored,
-} from './document-sync.test-support';
+
 setupRitewayBun();
 const recoveryHtml = (raw: string | null): string | null =>
   raw === null ? null : (JSON.parse(raw).recovery?.html ?? null);
@@ -36,21 +39,11 @@ const fixture = () => {
   const owner = (principalId: string, roundId: string) => ({
     principalId,
     sync: createDocumentSync({
-      api: {
-        list: async () => [stored('a', 1)],
-        create: async () => stored('new'),
-        save: async ({ html, expectedRevision }) => {
-          sent.push(html);
-          return { status: 'saved', revision: expectedRevision + 1 };
-        },
-      },
-      storage,
+      ...manualNoteResources(`${principalId}-${roundId}`, { storage }),
+
+      api: documentApi(recordingSave(sent), () => [stored('a', 1)]),
       principalId,
       roundId,
-      timers: manualTimers().timers,
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
-      nextGeneration: manualGenerations(`${principalId}-${roundId}`),
       onConflict: () => {},
     }),
   });

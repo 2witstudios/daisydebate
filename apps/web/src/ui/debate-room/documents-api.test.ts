@@ -1,7 +1,10 @@
-import { manualGenerations } from './document-sync.test-support';
-import { createKeepaliveBudget } from './keepalive-budget';
+import {
+  loadNoteSync,
+  manualNoteResources,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type Timers } from './document-sync';
+import { type Timers } from './document-sync';
 import { createDocumentsApi } from './documents-api';
 
 setupRitewayBun();
@@ -50,11 +53,9 @@ describe('createDocumentsApi', () => {
     const { send, sent, stalled } = stallingServer();
     const timeout = new AbortController();
     const failures: number[] = [];
-    const sync = createDocumentSync({
-      nextGeneration: manualGenerations('documents-api.test:1'),
-      storage: null,
-      budget: createKeepaliveBudget(),
-      wallClock: () => 100,
+    const sync = await loadNoteSync({
+      ...manualNoteResources('documents-api.test:1', { timers: idleTimers }),
+
       api: createDocumentsApi({
         send,
         signal: () =>
@@ -64,9 +65,8 @@ describe('createDocumentsApi', () => {
       principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_, attempts) => failures.push(attempts),
-      timers: idleTimers,
     });
-    await sync.load();
+
     sync.change('a', '<p>1</p>');
     const first = sync.flush();
     await stalled;
