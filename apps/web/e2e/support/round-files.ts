@@ -16,11 +16,26 @@ import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 export { expect };
 
 export const documentsPath = '/api/debate-room/documents/';
+/** Create a real authenticated Round Flow through its canonical document API. */
+export const createRoundFile = async (
+  request: APIRequestContext,
+  roundId: string,
+) => {
+  const response = await request.post(`${documentsPath}create`, {
+    headers: { origin },
+    data: { roundId, folder: 'round', templateId: 'flow' },
+  });
+  expect(response.status()).toBe(201);
+  const { document } = await response.json();
+  expect(document.id).toMatch(/^[a-z0-9]{24}$/);
+  return document;
+};
 type RoundFiles = {
   readonly page: Page;
   readonly stranger: APIRequestContext;
   readonly roundId: string;
   readonly documentId: string;
+  readonly finishRound: () => Promise<void>;
   readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
 /** A launched round with one server-saved Flow, opened by its first debater. */
@@ -32,6 +47,7 @@ export const test = base.extend<{
   roundFiles: async ({ browser, roundCommands }, provide) => {
     const accounts = await createRoomLaunchAccounts(browser, 2);
     let launched: string | undefined;
+    let finished = false;
     try {
       await accounts.members[0]!.context.grantPermissions(
         ['camera', 'microphone'],
@@ -74,13 +90,7 @@ export const test = base.extend<{
       await readyUp(page);
       const roundId = await startRoundInBrowser(page);
       launched = roundId;
-      const created = await page.request.post(`${documentsPath}create`, {
-        headers: { origin },
-        data: { roundId, folder: 'round', templateId: 'flow' },
-      });
-      expect(created.status()).toBe(201);
-      const { document } = await created.json();
-      expect(document.id).toMatch(/^[a-z0-9]{24}$/);
+      const document = await createRoundFile(page.request, roundId);
       expect(document.title).toBe('Flow');
       const violations = await watchCspViolations(page);
       await page.reload();
@@ -91,13 +101,17 @@ export const test = base.extend<{
         page,
         roundId,
         documentId: document.id,
+        finishRound: async () => {
+          await forfeitAsHost(accounts.members[0]!.context.request, roundId);
+          finished = true;
+        },
         violations,
         stranger: accounts.members[1]!.context.request,
       });
     } finally {
       // Competitive history stays in the dedicated slot until reviewed lifecycle release.
       try {
-        if (launched)
+        if (launched && !finished)
           await forfeitAsHost(accounts.members[0]!.context.request, launched);
         await settledLaunchAuth();
       } finally {

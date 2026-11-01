@@ -8,6 +8,27 @@ const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
 const rated = sampleRound('prep', 'ranked');
 
+test('an accepted recovery uses the ordinary document and tab transitions', () => {
+  const reduce = reduceRoom(casual);
+  const before = initialRoomState(casual);
+  const updated = reduce(before, {
+    type: 'doc/update',
+    id: 'doc-flow',
+    html: '<p>recovered</p>',
+    now,
+  });
+  const opened = reduce(updated, { type: 'tabs/open', id: 'doc-flow' });
+  assert({
+    given: 'HTML accepted by the sync owner',
+    should: 'update and open its document through ordinary editing actions',
+    actual: [
+      opened.documents.find((d) => d.id === 'doc-flow')?.html,
+      opened.tabs.active,
+    ],
+    expected: ['<p>recovered</p>', 'doc-flow'],
+  });
+});
+
 describe('initialRoomState', () => {
   test('opens the round folder', () => {
     const state = initialRoomState(casual);

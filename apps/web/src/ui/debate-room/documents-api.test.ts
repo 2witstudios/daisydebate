@@ -1,5 +1,10 @@
+import {
+  loadNoteSync,
+  manualNoteResources,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type Timers } from './document-sync';
+import { type Timers } from './document-sync';
 import { createDocumentsApi } from './documents-api';
 
 setupRitewayBun();
@@ -26,8 +31,12 @@ const stallingServer = () => {
   const send = async (path: string, init: RequestInit) => {
     if (path.endsWith('/list'))
       return json({ documents: [{ id: 'a', revision: 1 }] });
-    sent.push((JSON.parse(String(init.body)) as { html: string }).html);
-    if (sent.length > 1) return json({ revision: sent.length + 1 });
+    const input = JSON.parse(String(init.body)) as {
+      html: string;
+      expectedRevision: number;
+    };
+    sent.push(input.html);
+    if (sent.length > 1) return json({ revision: input.expectedRevision + 1 });
     arrived();
     return new Promise<Response>((_, reject) => {
       const timedOut = () =>
@@ -44,14 +53,20 @@ describe('createDocumentsApi', () => {
     const { send, sent, stalled } = stallingServer();
     const timeout = new AbortController();
     const failures: number[] = [];
-    const sync = createDocumentSync({
-      api: createDocumentsApi({ send, signal: () => timeout.signal }),
+    const sync = await loadNoteSync({
+      ...manualNoteResources('documents-api.test:1', { timers: idleTimers }),
+
+      api: createDocumentsApi({
+        send,
+        signal: () =>
+          sent.length === 0 ? timeout.signal : new AbortController().signal,
+      }),
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_, attempts) => failures.push(attempts),
-      timers: idleTimers,
     });
-    await sync.load();
+
     sync.change('a', '<p>1</p>');
     const first = sync.flush();
     await stalled;

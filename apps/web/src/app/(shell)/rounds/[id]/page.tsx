@@ -1,3 +1,4 @@
+import { roundDocumentPrincipal } from '../../../../features/debate-room/documents/document-principal';
 import { requestRoundRatings } from '../../../../lib/request-session';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
@@ -62,10 +63,11 @@ export default async function RoundPage({
     isLiveDebater(result.round, identity.principal.actorId)
   )
     redirect(`/rounds/${id}/room`);
+  const filePrincipal = roundDocumentPrincipal(identity);
   const ownsFiles =
-    identity.state === 'member' &&
+    filePrincipal !== null &&
     result.round.participants.some(
-      (p) => !('anonymous' in p) && p.actorId === identity.principal.actorId,
+      (p) => !('anonymous' in p) && p.actorId === filePrincipal.actorId,
     );
   const debater =
     identity.state === 'member' &&
@@ -89,7 +91,12 @@ export default async function RoundPage({
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
         ) : null}
       </RoundReceipt>
-      {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}
+      {ownsFiles && filePrincipal !== null ? (
+        <RoundDocuments
+          roundId={result.round.id}
+          principalId={filePrincipal.userId}
+        />
+      ) : null}
     </>
   );
 }

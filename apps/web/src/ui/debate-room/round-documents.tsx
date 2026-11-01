@@ -12,14 +12,30 @@ import {
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 import { useRoundSync } from './use-round-sync';
+import { RecoveredNotes } from './recovered-notes';
 
 /** Private files backed by the persisted Round's participant-scoped document API. */
-export function RoundDocuments({ roundId }: { readonly roundId: string }) {
+export function RoundDocuments({
+  roundId,
+  principalId,
+}: {
+  readonly roundId: string;
+  readonly principalId: string;
+}) {
+  const saving = useRoundSync(roundId, principalId);
+  return <RoundWorkspace key={`${roundId}:${principalId}`} {...saving} />;
+}
+
+/** Document UI state follows its owner identity; the sync lifetime remains outside the key. */
+function RoundWorkspace({
+  sync,
+  notice,
+  save,
+}: ReturnType<typeof useRoundSync>) {
   const [state, dispatch] = useReducer(
     reducePersistedWorkspace,
     initialPersistedWorkspace,
   );
-  const { sync, notice, save } = useRoundSync(roundId);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
   usePaletteShortcut(dispatch);
   const choose = async (choice: PaletteChoice) => {
@@ -38,6 +54,7 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
       setProblem('That file was not created. Try again.');
     }
   };
+
   return (
     <section
       aria-label="Your Round files"
@@ -55,6 +72,11 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
+          <RecoveredNotes
+            documents={state.documents}
+            sync={sync}
+            dispatch={dispatch}
+          />
           <DocumentPane
             documents={state.documents}
             tabs={state.tabs}

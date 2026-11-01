@@ -63,3 +63,21 @@ describe('isolated Launch browser container', () => {
     });
   });
 });
+
+test('startup diagnostics accept only known progress markers and retain the latest stage', async () => {
+  const { launchBrowserStartupStage } =
+    await import('../e2e/support/launch-browser-container');
+  assert({
+    given:
+      'startup output including package messages, known stages and an unknown marker',
+    should:
+      'report the last known stage without copying arbitrary output into errors',
+    actual: [
+      launchBrowserStartupStage(
+        'noise\ndaisy-browser-stage:apt-index\ndaisy-browser-stage:nss-package\n',
+      ),
+      launchBrowserStartupStage('daisy-browser-stage:unknown-private-value\n'),
+    ],
+    expected: ['nss-package', null],
+  });
+});

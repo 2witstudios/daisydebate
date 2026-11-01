@@ -25,6 +25,27 @@ const read = async <T>(response: Response): Promise<T> => {
   );
 };
 
+/** The server returns one integer revision, never an unchecked JSON assertion. */
+const receiptRevision = (value: unknown): number => {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    !Object.hasOwn(value, 'revision') ||
+    Object.keys(value).length !== 1
+  )
+    throw new Error('Invalid document acknowledgement.');
+  const revision = (value as { readonly revision: unknown }).revision;
+  if (
+    typeof revision !== 'number' ||
+    !Number.isSafeInteger(revision) ||
+    revision < 1 ||
+    revision > 2_147_483_647
+  )
+    throw new Error('Invalid document acknowledgement.');
+  return revision;
+};
+
 /**
  * The room's documents, over the server's document routes. Each request
  * carries `signal()`, which by default aborts it after REQUEST_TIMEOUT_MS,
@@ -37,12 +58,13 @@ export function createDocumentsApi({
   readonly send?: Fetch;
   readonly signal?: () => AbortSignal;
 } = {}): DocumentsApi {
-  const post = (path: string, body: unknown) =>
+  const post = (path: string, body: unknown, keepalive = false) =>
     send(`/api/debate-room/documents/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: signal(),
+      keepalive,
     });
   return {
     list: async (roundId) =>
@@ -54,13 +76,24 @@ export function createDocumentsApi({
     create: async (input) =>
       (await read<{ document: StoredDocument }>(await post('create', input)))
         .document,
-    save: async (input) => {
-      const response = await post('save', input);
-      if (response.status === 409) {
-        const { revision } = (await response.json()) as { revision: number };
-        return { status: 'conflict', revision };
-      }
-      const { revision } = await read<{ revision: number }>(response);
+    save: async ({ keepalive, ...input }) => {
+      const response = await post('save', input, keepalive === true);
+      if (response.status === 409)
+        return {
+          status: 'conflict',
+          revision: receiptRevision(await response.json()),
+        };
+      const revision = receiptRevision(await read<unknown>(response));
+      // saveDocument uses revision = revision + 1 under an exact revision CAS.
+      // A lost acknowledgement retries that original CAS and receives 409;
+      // only the existing reread/content reconciliation may adopt that commit.
+      if (
+        !Number.isSafeInteger(input.expectedRevision) ||
+        input.expectedRevision < 1 ||
+        !Number.isSafeInteger(input.expectedRevision + 1) ||
+        revision !== input.expectedRevision + 1
+      )
+        throw new Error('Invalid document acknowledgement.');
       return { status: 'saved', revision };
     },
   };

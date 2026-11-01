@@ -19,17 +19,33 @@ export function useDocumentSync(
     sync
       .load()
       .then((documents) => {
-        if (live) dispatch({ type: 'doc/loaded', documents });
+        if (!live) return;
+        dispatch({ type: 'doc/loaded', documents });
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');
       });
-    const flush = () => void sync.flush();
+    const unsubscribe = sync.subscribe(() => {
+      if (!live || sync.available()) return;
+      dispatch({ type: 'doc/loaded', documents: [] });
+      setProblem('Your session changed. Reopen the Round to load your files.');
+    });
+    const refresh = (event: StorageEvent) => {
+      if (
+        event.key === null ||
+        event.key.startsWith('daisy:round-notes:draft:')
+      )
+        sync.refreshRecovery();
+    };
+    window.addEventListener('storage', refresh);
+    const flush = () => void sync.flushKeepalive();
     window.addEventListener('pagehide', flush);
     return () => {
       live = false;
+      unsubscribe();
+      window.removeEventListener('storage', refresh);
       window.removeEventListener('pagehide', flush);
-      flush();
+      void sync.flush();
     };
   }, [sync, dispatch]);
   return { problem, setProblem };
