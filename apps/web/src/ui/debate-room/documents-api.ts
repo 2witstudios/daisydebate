@@ -37,12 +37,13 @@ export function createDocumentsApi({
   readonly send?: Fetch;
   readonly signal?: () => AbortSignal;
 } = {}): DocumentsApi {
-  const post = (path: string, body: unknown) =>
+  const post = (path: string, body: unknown, keepalive = false) =>
     send(`/api/debate-room/documents/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: signal(),
+      keepalive,
     });
   return {
     list: async (roundId) =>
@@ -54,8 +55,8 @@ export function createDocumentsApi({
     create: async (input) =>
       (await read<{ document: StoredDocument }>(await post('create', input)))
         .document,
-    save: async (input) => {
-      const response = await post('save', input);
+    save: async ({ keepalive, ...input }) => {
+      const response = await post('save', input, keepalive === true);
       if (response.status === 409) {
         const { revision } = (await response.json()) as { revision: number };
         return { status: 'conflict', revision };
