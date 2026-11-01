@@ -1,3 +1,4 @@
+import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type DocumentsApi } from './document-sync';
 import { manualTimers, stored } from './document-sync.test-support';
@@ -23,6 +24,8 @@ describe('document sync keepalive budget', () => {
       return { status: 'saved', revision: input.expectedRevision + 1 };
     });
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
+      wallClock: () => 100,
       api,
       roundId: 'r',
       principalId: 'p1',

@@ -1,3 +1,4 @@
+import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type Timers } from './document-sync';
 import { createDocumentsApi } from './documents-api';
@@ -45,6 +46,9 @@ describe('createDocumentsApi', () => {
     const timeout = new AbortController();
     const failures: number[] = [];
     const sync = createDocumentSync({
+      storage: null,
+      budget: createKeepaliveBudget(),
+      wallClock: () => 100,
       api: createDocumentsApi({ send, signal: () => timeout.signal }),
       roundId: 'd',
       principalId: 'p1',

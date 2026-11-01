@@ -1,3 +1,4 @@
+import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type DocumentsApi } from './document-sync';
 import {
@@ -40,6 +41,7 @@ describe('draft recovery', () => {
     const { api, saves } = savingApi([{ id: 'a', revision: 3 }]);
     const { timers } = manualTimers();
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
       principalId: 'p1',
@@ -83,6 +85,7 @@ describe('draft recovery', () => {
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
       principalId: 'p1',
@@ -116,6 +119,7 @@ describe('draft recovery', () => {
     );
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api,
       roundId: 'd',
       principalId: 'p1',
@@ -142,6 +146,8 @@ describe('draft recovery', () => {
     store.setItem(keyOf('p1', 'd', 'a'), '123');
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
+      wallClock: () => 100,
       api,
       roundId: 'd',
       principalId: 'p1',

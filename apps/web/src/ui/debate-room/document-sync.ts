@@ -2,12 +2,8 @@ import {
   breakLines,
   sameDocumentHtml,
 } from '../../features/documents/document-lines';
-import { systemClock } from '@daisy/clock';
 import z from 'zod';
-import {
-  createKeepaliveBudget,
-  type KeepaliveBudget,
-} from './keepalive-budget';
+import type { KeepaliveBudget } from './keepalive-budget';
 import type {
   FolderId,
   TemplateId,
@@ -41,12 +37,7 @@ export type Timers = {
   readonly clear: (handle: unknown) => void;
 };
 
-const browserTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
-
-/** Minimal storage seam; defaults to window.localStorage when available. */
+/** Storage seam supplied by the authenticated browser owner. */
 export type DraftStorage = Pick<
   Storage,
   'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'
@@ -90,7 +81,7 @@ export type StoredDraftDecision =
   | { readonly ok: true; readonly draft: RecoveredDraft }
   | { readonly ok: false; readonly reason: 'invalid' | 'expired' };
 
-export const readStoredDraft = (
+const readStoredDraft = (
   raw: string,
   context: { readonly now: number; readonly serverRevision: number },
 ): StoredDraftDecision => {
@@ -128,9 +119,9 @@ type DraftEntry = {
  * Chooses the oldest *other* drafts that must go for a new or replacement
  * write. A replacement never consumes a second slot or its own old bytes;
  * victims are only a plan — the I/O adapter removes them after a successful
- * write (or restores them if a retry fails).
+ * write. A failed write leaves the old copies intact.
  */
-export const draftEvictionPlan = (
+const draftEvictionPlan = (
   entries: readonly DraftEntry[],
   input: {
     readonly addingBytes: number;
@@ -161,16 +152,6 @@ export const draftEvictionPlan = (
     count -= 1;
   }
   return victims;
-};
-
-const defaultStorage = (): DraftStorage | null => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage)
-      return window.localStorage;
-  } catch {
-    return null;
-  }
-  return null;
 };
 
 const draftKey = (principalId: string, roundId: string, id: string) =>
@@ -224,6 +205,13 @@ const statusOf = (error: unknown): number | null => {
 const retryable = (status: number | null) =>
   status === null || status === 408 || status === 429 || status >= 500;
 
+export type DocumentSyncResources = {
+  readonly timers: Timers;
+  readonly storage: DraftStorage | null;
+  readonly budget: KeepaliveBudget;
+  readonly wallClock: () => number;
+};
+
 export function createDocumentSync({
   api,
   roundId,
@@ -234,12 +222,12 @@ export function createDocumentSync({
   onRecoveredDraft = () => {},
   onDraftStorageFailed = () => {},
   delayMs = 1000,
-  timers = browserTimers,
-  storage = defaultStorage(),
+  timers,
+  storage,
   principalId,
-  budget = createKeepaliveBudget(),
-  wallClock = () => Date.parse(systemClock.now()),
-}: {
+  budget,
+  wallClock,
+}: DocumentSyncResources & {
   readonly api: DocumentsApi;
   readonly roundId: string;
   readonly principalId: string;
@@ -250,12 +238,6 @@ export function createDocumentSync({
   readonly onRecoveredDraft?: (id: string, html: string) => void;
   readonly onDraftStorageFailed?: (id: string) => void;
   readonly delayMs?: number;
-  readonly timers?: Timers;
-  readonly storage?: DraftStorage | null;
-  /** The page-wide keepalive body budget; the browser owner injects one. */
-  readonly budget?: KeepaliveBudget;
-  /** The absolute wall-clock source for persisted draft expiry/eviction. */
-  readonly wallClock?: () => number;
 }): DocumentSync {
   let disposed = false;
   const revisions = new Map<string, number>();

@@ -1,5 +1,6 @@
 'use client';
 
+import { systemClock } from '@daisy/clock';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
 import { tabConnection } from '../../features/realtime/browser-adapters';
@@ -7,14 +8,12 @@ import { createDocumentsApi } from './documents-api';
 import {
   createDocumentSync,
   type DocumentSync,
+  type DocumentSyncResources,
   type DocumentsApi,
   type DraftStorage,
   type Timers,
 } from './document-sync';
-import {
-  createKeepaliveBudget,
-  type KeepaliveBudget,
-} from './keepalive-budget';
+import { createKeepaliveBudget } from './keepalive-budget';
 import {
   NOTES_PRINCIPAL_EVENT,
   publishNotesPrincipal,
@@ -40,6 +39,27 @@ export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
 
 /** One browser page's shared keepalive body budget across every Round owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
+
+const browserTimers: Timers = {
+  set: (run, ms) => setTimeout(run, ms),
+  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
+
+const browserStorage = (): DraftStorage | null => {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+/** The browser edge supplies every effect; all owners share this page's ledger. */
+export const browserNoteResources = (): DocumentSyncResources => ({
+  timers: browserTimers,
+  storage: browserStorage(),
+  budget: browserKeepaliveBudget,
+  wallClock: () => Date.parse(systemClock.now()),
+});
 
 const CONFLICT_NOTICE =
   'This file changed in another tab. Reload before editing it again.';
@@ -77,16 +97,13 @@ export function roundSync(
   principalId: string,
   api: DocumentsApi,
   report: (event: SaveEvent) => void,
-  timers?: Timers,
-  storage?: DraftStorage,
-  budget: KeepaliveBudget = browserKeepaliveBudget,
+  resources: DocumentSyncResources,
 ): DocumentSync {
   const stored = createDocumentSync({
     roundId,
     principalId,
     api,
-    budget,
-    ...(storage ? { storage } : {}),
+    ...resources,
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {
@@ -99,7 +116,6 @@ export function roundSync(
     onRecoveredDraft: () => report({ type: 'recovered' }),
     onDraftStorageFailed: () => report({ type: 'unsaved' }),
     onSaved: () => report({ type: 'saved' }),
-    ...(timers ? { timers } : {}),
   });
   return {
     ...stored,
@@ -124,7 +140,14 @@ export function useRoundSync(
 } {
   const [status, report] = useReducer(reduceSave, initialSaveStatus);
   const sync = useMemo(
-    () => roundSync(roundId, principalId, createDocumentsApi(), report),
+    () =>
+      roundSync(
+        roundId,
+        principalId,
+        createDocumentsApi(),
+        report,
+        browserNoteResources(),
+      ),
     [roundId, principalId],
   );
   useEffect(() => {

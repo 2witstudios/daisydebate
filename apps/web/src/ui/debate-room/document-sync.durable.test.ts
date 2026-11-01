@@ -1,3 +1,4 @@
+import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createDocumentSync,
@@ -40,6 +41,7 @@ describe('a durable draft', () => {
       }),
     );
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api: alwaysSaving(),
       roundId: 'd',
       principalId: 'p1',
@@ -75,6 +77,7 @@ describe('a durable draft', () => {
     );
     let saves = 0;
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api: {
         ...alwaysSaving(),
         save: async () => {
@@ -118,6 +121,8 @@ describe('the ordinary flush', () => {
   test('sends a oversized document, not the exit cap', async () => {
     const sent: string[] = [];
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
+      wallClock: () => 100,
       api: {
         list: async () => [stored('a', 1)],
         create: async () => stored('new'),
@@ -152,6 +157,8 @@ describe('an overlapping exit flush', () => {
     });
     const sent: string[] = [];
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
+      wallClock: () => 100,
       api: {
         list: async () => [stored('a', 1), stored('b', 1)],
         create: async () => stored('new'),
@@ -191,6 +198,7 @@ describe('an eviction round', () => {
     const store = memoryStorage();
     const ids = Array.from({ length: 17 }, (_, n) => `d${n}`);
     const sync = createDocumentSync({
+      budget: createKeepaliveBudget(),
       api: alwaysSaving(ids),
       roundId: 'r',
       principalId: 'p1',
