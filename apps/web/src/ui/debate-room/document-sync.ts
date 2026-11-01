@@ -10,6 +10,8 @@ import {
   discardNoteRecord,
   editNoteRecord,
   newNoteCopy,
+  noteCopies,
+  sameNoteCopy,
   NOTE_RECORD_MAX_COUNT,
   offerNoteRecord,
   restoreNoteRecord,
@@ -77,10 +79,6 @@ const statusOf = (error: unknown): number | null => {
 };
 const retryable = (status: number | null) =>
   status === null || status === 408 || status === 429 || status >= 500;
-const copiesOf = (record: NoteRecord): readonly NoteCopy[] =>
-  [record.active, record.recovery].filter(
-    (copy): copy is NoteCopy => copy !== undefined,
-  );
 const sameOffers = (one: readonly NoteOffer[], two: readonly NoteOffer[]) =>
   one.length === two.length &&
   one.every((offer, i) => {
@@ -89,11 +87,7 @@ const sameOffers = (one: readonly NoteOffer[], two: readonly NoteOffer[]) =>
       other !== undefined &&
       offer.documentId === other.documentId &&
       offer.slot === other.slot &&
-      offer.copy.generation === other.copy.generation &&
-      offer.copy.html === other.copy.html &&
-      offer.copy.baseRevision === other.copy.baseRevision &&
-      offer.copy.savedAt === other.copy.savedAt &&
-      offer.copy.expiresAt === other.copy.expiresAt
+      sameNoteCopy(offer.copy, other.copy)
     );
   });
 
@@ -191,12 +185,12 @@ export function createDocumentSync({
 
   const publish = () => {
     const retained = [...records].filter(
-      ([, snapshot]) => copiesOf(snapshot.record).length > 0,
+      ([, snapshot]) => noteCopies(snapshot.record).length > 0,
     );
     unavailableCopies =
       retained.length > NOTE_RECORD_MAX_COUNT ||
       retained.some(([id, snapshot]) =>
-        copiesOf(snapshot.record).some(
+        noteCopies(snapshot.record).some(
           (copy) => copy.baseRevision > (revisions.get(id) ?? -1),
         ),
       );
@@ -226,7 +220,7 @@ export function createDocumentSync({
     }
     timers.clear(expiryHandle);
     const deadlines = retained.flatMap(([, snapshot]) =>
-      copiesOf(snapshot.record).map((copy) => copy.expiresAt),
+      noteCopies(snapshot.record).map((copy) => copy.expiresAt),
     );
     if (!disposed && deadlines.length > 0)
       expiryHandle = timers.set(
