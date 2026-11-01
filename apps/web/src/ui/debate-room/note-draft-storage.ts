@@ -2,6 +2,7 @@ import {
   decodeNoteRecord,
   encodeNoteRecord,
   expireNoteRecord,
+  removesOnlyNoteCopies,
   NOTE_RECORD_MAX_COUNT,
   NOTE_RECORD_MAX_TOTAL_BYTES,
   type NoteRecord,
@@ -106,7 +107,8 @@ export function createNoteStorage({
     }
     try {
       const key = keyOf(principalId, roundId, id);
-      if (storage.getItem(key) !== previous.raw) {
+      const currentRaw = storage.getItem(key);
+      if (currentRaw !== previous.raw) {
         failed(id);
         return { stored: false, snapshot: read(id, now) };
       }
@@ -139,12 +141,32 @@ export function createNoteStorage({
           ? bounded.bytes
           : new TextEncoder().encode(raw).length;
       }
-      if (
+      const overfull =
         otherCount + 1 > NOTE_RECORD_MAX_COUNT ||
-        otherBytes + encoded.bytes > NOTE_RECORD_MAX_TOTAL_BYTES
-      ) {
-        failed(id);
-        return { stored: false, snapshot: previous };
+        otherBytes + encoded.bytes > NOTE_RECORD_MAX_TOTAL_BYTES;
+      if (overfull) {
+        // Decode the fresh durable value, never a caller-supplied record, for
+        // this strict-removal decision. Shrinking cannot strand both choices
+        // in an already overfull record, nor admit new or changed copies.
+        const prior =
+          currentRaw === null
+            ? null
+            : decodeNoteRecord(currentRaw, {
+                now,
+                serverRevision: Number.MAX_SAFE_INTEGER,
+              });
+        if (
+          !prior?.ok ||
+          !removesOnlyNoteCopies(
+            prior.record,
+            record,
+            new TextEncoder().encode(currentRaw!).length,
+            encoded.bytes,
+          )
+        ) {
+          failed(id);
+          return { stored: false, snapshot: previous };
+        }
       }
       storage.setItem(key, encoded.raw);
       return { stored: true, snapshot: { record, raw: encoded.raw } };

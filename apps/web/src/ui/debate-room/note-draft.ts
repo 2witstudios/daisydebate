@@ -19,6 +19,36 @@ export type NoteTransition = {
   readonly status: 'changed' | 'unchanged' | 'stale' | 'occupied' | 'overflow';
   readonly record: NoteRecord;
 };
+export const noteCopies = (record: NoteRecord): readonly NoteCopy[] =>
+  [record.active, record.recovery].filter(
+    (copy): copy is NoteCopy => copy !== undefined,
+  );
+
+export const sameNoteCopy = (one: NoteCopy, two: NoteCopy): boolean =>
+  one.generation === two.generation &&
+  one.html === two.html &&
+  one.baseRevision === two.baseRevision &&
+  one.savedAt === two.savedAt &&
+  one.expiresAt === two.expiresAt;
+
+/** Overfull untrusted storage permits removal only, never replacement or renewal. */
+export const removesOnlyNoteCopies = (
+  before: NoteRecord,
+  after: NoteRecord,
+  beforeBytes: number,
+  afterBytes: number,
+): boolean => {
+  const previous = noteCopies(before),
+    next = noteCopies(after);
+  return (
+    next.length < previous.length &&
+    afterBytes <= beforeBytes &&
+    next.every((copy) =>
+      previous.some((original) => sameNoteCopy(copy, original)),
+    )
+  );
+};
+
 export const NOTE_RECORD_MAX_BYTES = 256 * 1024;
 export const NOTE_RECORD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 export const NOTE_RECORD_MAX_COUNT = 16;
