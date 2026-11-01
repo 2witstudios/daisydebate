@@ -1,3 +1,4 @@
+import { manualGenerations } from './document-sync.test-support';
 import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -31,6 +32,7 @@ const bumping = (revision: number): SaveResult => ({
 /** A sync over the api with manual timers and no conflict handling. */
 const quietSync = (api: DocumentsApi, timers = manualTimers().timers) =>
   createDocumentSync({
+    nextGeneration: manualGenerations('document-sync.test:1'),
     storage: null,
     budget: createKeepaliveBudget(),
     wallClock: () => 100,
@@ -79,6 +81,7 @@ describe('createDocumentSync', () => {
     const { api } = fakeApi(() => ({ status: 'conflict', revision: 7 }));
     const conflicts: string[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.test:2'),
       storage: null,
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
@@ -186,6 +189,7 @@ describe('createDocumentSync when a save fails', () => {
     const failed: number[] = [];
     const saved: string[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.test:3'),
       storage: null,
       budget: createKeepaliveBudget(),
       wallClock: () => 100,
@@ -227,6 +231,7 @@ describe('createDocumentSync when the server refuses a save', () => {
     const { timers, fire } = manualTimers();
     const refused: number[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('document-sync.test:4'),
       storage: null,
       budget: createKeepaliveBudget(),
       wallClock: () => 100,

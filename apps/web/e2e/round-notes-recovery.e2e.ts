@@ -37,7 +37,7 @@ test('offline edit survives page loss and explicitly restores into the live edit
   await context.setOffline(true);
   await edit(page, 'Offline recovery text');
   await expect
-    .poll(async () => (await draftFor(page, documentId))?.html)
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
     .toContain('Offline recovery text');
   await page.close();
   await context.setOffline(false);
@@ -73,7 +73,7 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Local conflict copy');
   await expect
-    .poll(async () => (await draftFor(page, documentId))?.html)
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
     .toContain('Local conflict copy');
   const current = await serverDocument(page, roundId, documentId);
   const saved = await page.request.post(`${documentsPath}save`, {
@@ -135,7 +135,7 @@ test('Discard of a recovery offer preserves newer editor typing', async ({
   await page
     .getByRole('button', { name: 'Discard recovered Flow', exact: true })
     .click();
-  expect((await draftFor(page, documentId)).html).toContain(
+  expect((await draftFor(page, documentId)).active.html).toContain(
     'Newer typing survives discard',
   );
   await page.unroute(`**${documentsPath}save`);
@@ -162,7 +162,7 @@ test('lost acknowledgement keeps newer typed notes through reload and explicit r
   await expect.poll(() => committed).toBe(true);
   await edit(page, 'Newer B after lost acknowledgement');
   await expect
-    .poll(async () => (await draftFor(page, documentId))?.html)
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
     .toContain('Newer B');
   await page.reload();
   await expect(
@@ -314,8 +314,8 @@ test('multibyte multi-document exit keeps overflow recoverable and each choice t
       0,
     ),
   ).toBeLessThanOrEqual(65536);
-  expect((await draftFor(page, documentId)).html).toContain('界');
-  expect((await draftFor(page, second.id)).html).toContain('語');
+  expect((await draftFor(page, documentId)).active.html).toContain('界');
+  expect((await draftFor(page, second.id)).active.html).toContain('語');
   release();
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
@@ -391,8 +391,10 @@ test('actual deferred A acknowledgement rebases B and leaves it unsaved until it
     a.resolve();
     await expect.poll(() => requests).toBe(2);
     const durable = await draftFor(page, documentId);
-    expect(durable.html).toContain('Newer B while A awaits acknowledgement');
-    expect(durable.baseRevision).toBe(original.revision + 1);
+    expect(durable.active.html).toContain(
+      'Newer B while A awaits acknowledgement',
+    );
+    expect(durable.active.baseRevision).toBe(original.revision + 1);
     await expect(page.getByText('Saved', { exact: true })).toHaveCount(0);
     b.resolve();
     await expect.poll(() => draftFor(page, documentId)).toBeNull();
@@ -434,7 +436,7 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     'Accepted first-tab text',
   );
-  expect((await draftFor(other, documentId)).html).toContain(
+  expect((await draftFor(other, documentId)).active.html).toContain(
     'Conflicting second-tab text',
   );
   await other.reload();
@@ -451,4 +453,85 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
     .poll(async () => (await serverDocument(other, roundId, documentId)).html)
     .toContain('Conflicting second-tab text');
   await expect.poll(() => draftFor(other, documentId)).toBeNull();
+});
+
+for (const reloadBeforeRestore of [false, true])
+  test(`recovery survives newer typing and acknowledgement${reloadBeforeRestore ? ' and another reload' : ''} before explicit Restore`, async ({
+    roundFiles,
+  }) => {
+    const { page, documentId, roundId } = roundFiles;
+    await page.route(`**${documentsPath}save`, (route) => route.abort());
+    await edit(page, 'Independent REC');
+    await expect
+      .poll(async () => (await draftFor(page, documentId))?.active?.html)
+      .toContain('Independent REC');
+    await page.reload();
+    const recovery = (await draftFor(page, documentId)).recovery;
+    await expect(
+      page.getByRole('button', { name: 'Restore Flow', exact: true }),
+    ).toBeVisible();
+    await page.unroute(`**${documentsPath}save`);
+    await edit(page, 'Acknowledged NEW');
+    await expect
+      .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+      .toContain('Acknowledged NEW');
+    await expect
+      .poll(async () => (await draftFor(page, documentId))?.active)
+      .toBeUndefined();
+    expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
+    if (reloadBeforeRestore) await page.reload();
+    await expect(
+      page.getByRole('button', { name: 'Restore Flow', exact: true }),
+    ).toBeVisible();
+    expect((await serverDocument(page, roundId, documentId)).html).toContain(
+      'Acknowledged NEW',
+    );
+    await page
+      .getByRole('button', { name: 'Restore Flow', exact: true })
+      .click();
+    await expect(
+      page.getByRole('textbox', { name: 'Flow', exact: true }),
+    ).toContainText('Independent REC');
+    await expect
+      .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+      .toContain('Independent REC');
+    await expect.poll(() => draftFor(page, documentId)).toBeNull();
+  });
+
+test('Restore over pending NEW keeps NEW as an independent durable offer after REC saves', async ({
+  roundFiles,
+}) => {
+  const { page, documentId, roundId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await edit(page, 'REC for swap');
+  await expect
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
+    .toContain('REC for swap');
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  await edit(page, 'Pending NEW for swap');
+  await expect
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
+    .toContain('Pending NEW for swap');
+  const pending = (await draftFor(page, documentId)).active;
+  await page.getByRole('button', { name: 'Restore Flow', exact: true }).click();
+  expect((await draftFor(page, documentId)).recovery).toEqual(pending);
+  await page.unroute(`**${documentsPath}save`);
+  await page.evaluate(() =>
+    window.dispatchEvent(new PageTransitionEvent('pagehide')),
+  );
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('REC for swap');
+  expect((await draftFor(page, documentId)).recovery).toEqual(pending);
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Flow')).toContainText(
+    'Pending NEW for swap',
+  );
 });

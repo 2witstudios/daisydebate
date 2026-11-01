@@ -1,3 +1,4 @@
+import { manualGenerations } from './document-sync.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { DocumentsApi } from './document-sync';
 import {
@@ -60,6 +61,7 @@ describe('roundSync', () => {
       api(async () => ({ status: 'saved', revision: 2 })),
       (event) => events.push(event),
       {
+        nextGeneration: manualGenerations('use-round-sync.test:1'),
         timers,
         storage: memoryStorage(),
         budget: createKeepaliveBudget(),
@@ -89,6 +91,7 @@ describe('roundSync', () => {
       }),
       (event) => events.push(event),
       {
+        nextGeneration: manualGenerations('use-round-sync.test:2'),
         timers,
         storage: memoryStorage(),
         budget: createKeepaliveBudget(),
@@ -170,13 +173,14 @@ test('refused edits and absent recovery choices leave the real owner state uncha
     save: async () => ({ status: 'saved', revision: 2 }),
   };
   const sync = roundSync('r', 'p', api, (event) => events.push(event), {
+    nextGeneration: manualGenerations('use-round-sync.test:3'),
     timers: manualTimers().timers,
     storage: memoryStorage(),
     budget: createKeepaliveBudget(),
     wallClock: () => 100,
   });
   await sync.load();
-  sync.restoreRecovered('missing');
+  sync.restoreRecovered('missing', 'absent');
   sync.change('not-loaded', '<p>refused</p>');
   sync.change('a', '<p>accepted</p>');
   await sync.flush();
@@ -187,5 +191,57 @@ test('refused edits and absent recovery choices leave the real owner state uncha
       'ignore refused operations and acknowledge only the actual pending edit',
     actual: events.map((event) => event.type),
     expected: ['edit', 'saved'],
+  });
+});
+
+test('a recovery choice remains actionable after newer typing is acknowledged', async () => {
+  const storage = memoryStorage();
+  storage.setItem(
+    'daisy:round-notes:draft:p:r:a',
+    JSON.stringify({
+      recovery: {
+        html: '<p>Recovered copy</p>',
+        baseRevision: 1,
+        generation: 'recovered-0',
+        savedAt: 100,
+        expiresAt: 604800100,
+      },
+    }),
+  );
+  let document = stored('a');
+  const api: DocumentsApi = {
+    list: async () => [document],
+    create: async () => stored('new'),
+    save: async ({ html, expectedRevision }) => {
+      if (expectedRevision !== document.revision)
+        return { status: 'conflict', revision: document.revision };
+      document = { ...document, html, revision: document.revision + 1 };
+      return { status: 'saved', revision: document.revision };
+    },
+  };
+  const sync = roundSync('r', 'p', api, () => {}, {
+    nextGeneration: manualGenerations('use-round-sync.test:4'),
+    timers: manualTimers().timers,
+    storage,
+    budget: createKeepaliveBudget(),
+    wallClock: () => 100,
+  });
+  await sync.load();
+  const offered = sync
+    .recoveryOffers()
+    .find((offer) => offer.documentId === 'a')?.copy;
+  sync.change('a', '<p>New typing</p>');
+  await sync.flush();
+  sync.restoreRecovered(
+    'a',
+    sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
+      .generation,
+  );
+  await sync.flush();
+  assert({
+    given: 'the UI still offers recovery while a newer editor edit saves',
+    should: 'honor the explicit Restore on the current acknowledged revision',
+    actual: [offered?.html, document.html, document.revision],
+    expected: ['<p>Recovered copy</p>', '<p>Recovered copy</p>', 3],
   });
 });

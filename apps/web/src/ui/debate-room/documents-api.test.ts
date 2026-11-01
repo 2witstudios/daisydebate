@@ -1,3 +1,4 @@
+import { manualGenerations } from './document-sync.test-support';
 import { createKeepaliveBudget } from './keepalive-budget';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentSync, type Timers } from './document-sync';
@@ -46,6 +47,7 @@ describe('createDocumentsApi', () => {
     const timeout = new AbortController();
     const failures: number[] = [];
     const sync = createDocumentSync({
+      nextGeneration: manualGenerations('documents-api.test:1'),
       storage: null,
       budget: createKeepaliveBudget(),
       wallClock: () => 100,

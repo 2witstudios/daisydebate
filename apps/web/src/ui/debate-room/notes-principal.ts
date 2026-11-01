@@ -1,4 +1,4 @@
-import { draftKeys, type DraftStorage } from './document-sync';
+import { noteDraftKeys, type DraftStorage } from './note-draft-storage';
 
 export const NOTES_PRINCIPAL_KEY = 'daisy:round-notes:principal';
 export const NOTES_PRINCIPAL_EVENT = 'daisy:round-notes:principal-changed';
@@ -9,7 +9,7 @@ export function retainPrincipalDrafts(
   principalId: string | null,
 ) {
   try {
-    for (const key of draftKeys.getAll(storage))
+    for (const key of noteDraftKeys(storage))
       if (
         principalId === null ||
         !key.startsWith(`daisy:round-notes:draft:${principalId}:`)
@@ -70,9 +70,9 @@ export function hasPrincipalDrafts(
   principalId: string,
 ): boolean | null {
   try {
-    return draftKeys
-      .getAll(storage)
-      .some((key) => key.startsWith(`daisy:round-notes:draft:${principalId}:`));
+    return noteDraftKeys(storage).some((key) =>
+      key.startsWith(`daisy:round-notes:draft:${principalId}:`),
+    );
   } catch {
     return null;
   }

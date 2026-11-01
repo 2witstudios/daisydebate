@@ -65,7 +65,6 @@ export function RoundDocuments({
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
           <RecoveredNotes
             documents={state.documents}
-            recovered={state.recovered}
             sync={sync}
             dispatch={dispatch}
           />
