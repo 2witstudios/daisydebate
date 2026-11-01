@@ -54,15 +54,17 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
 /** The Round's document sync, reporting every saving event it sees. */
 export function roundSync(
   roundId: string,
-  api: DocumentsApi,
   principalId: string,
+  api: DocumentsApi,
   report: (event: SaveEvent) => void,
   timers?: Timers,
+  storage?: ReturnType<typeof memoryStorage>,
 ): DocumentSync {
   const stored = createDocumentSync({
     roundId,
     principalId,
     api,
+    ...(storage ? { storage } : {}),
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => report({ type: 'refused', status }),
@@ -88,7 +90,7 @@ export function useRoundSync(
 } {
   const [status, report] = useReducer(reduceSave, initialSaveStatus);
   const sync = useMemo(
-    () => roundSync(roundId, createDocumentsApi(), principalId, report),
+    () => roundSync(roundId, principalId, createDocumentsApi(), report),
     [roundId, principalId],
   );
   return { sync, ...status };

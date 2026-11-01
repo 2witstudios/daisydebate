@@ -1,12 +1,90 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
+import {
+  initialRoomState,
+  pageToneOf,
+  reduceRoom,
+} from './room-state';
 
 setupRitewayBun();
 
 const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
 const rated = sampleRound('prep', 'ranked');
+
+describe('reduceRoom recovered drafts', () => {
+  const reduce = reduceRoom(casual);
+  const draft = {
+    html: '<p>offline draft</p>',
+    baseRevision: 1,
+    savedAt: 0,
+    expiresAt: Number.MAX_SAFE_INTEGER,
+  };
+
+  test('loading with no recovered drafts reaches no missing reducer', () => {
+    const prepared = reduce(
+      initialRoomState(casual),
+      { type: 'doc/recovered', recovered: new Map() },
+    );
+    assert({
+      given: 'a doc/recovered action with no drafts',
+      should: 'reach a reducer and change nothing',
+      actual: prepared.recovered.size,
+      expected: 0,
+    });
+  });
+
+  test('restoring the current draft puts it in the editor once', () => {
+    const prepared = reduce(
+      initialRoomState(casual),
+      { type: 'doc/recovered', recovered: new Map([['doc-flow', draft]]) },
+    );
+    const restored = reduce(prepared, {
+      type: 'doc/recovered/restore',
+      id: 'doc-flow',
+      html: draft.html,
+      now,
+    });
+    assert({
+      given: 'an editor open on the document a draft was recovered for',
+      should: 'put the draft into the editor and clear the pending choice',
+      actual: {
+        html: restored.documents.find((d) => d.id === 'doc-flow')?.html,
+        pending: restored.recovered.size,
+        active: restored.tabs.active,
+      },
+      expected: {
+        html: '<p>offline draft</p>',
+        pending: 0,
+        active: 'doc-flow',
+      },
+    });
+  });
+
+  test('discarding clears the pending choice only', () => {
+    const prepared = reduce(
+      initialRoomState(casual),
+      { type: 'doc/recovered', recovered: new Map([['doc-flow', draft]]) },
+    );
+    const discarded = reduce(prepared, {
+      type: 'doc/recovered/discard',
+      id: 'doc-flow',
+    });
+    assert({
+      given: 'a recovered draft the debater refuses',
+      should: 'forget the choice and leave the editor alone',
+      actual: {
+        pending: discarded.recovered.size,
+        html: discarded.documents.find((d) => d.id === 'doc-flow')?.html,
+      },
+      expected: {
+        pending: 0,
+        html: initialRoomState(casual).documents.find((d) => d.id === 'doc-flow')
+          ?.html,
+      },
+    });
+  });
+});
 
 describe('initialRoomState', () => {
   test('opens the round folder', () => {
