@@ -66,6 +66,15 @@ function ForfeitLeave({
     roundCommandUnavailable,
   );
   useMovedOn(answer.next);
+  /**
+   * Suppression records only an acknowledged forfeit (ISSUE-879): a
+   * refused, conflicted or unknown outcome leaves the participant's
+   * recovery exactly as live as their membership still is.
+   */
+  useEffect(() => {
+    if (!pending && !answer.error && answer.next && left)
+      markDeparture(left.actorId, left.roundId);
+  }, [pending, answer, left]);
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
       <input type="hidden" name="version" value="1" />
@@ -83,9 +92,6 @@ function ForfeitLeave({
         type="submit"
         disabled={pending}
         className={`${action} bg-live text-background`}
-        onClick={() => {
-          if (left) markDeparture(left.actorId, left.roundId);
-        }}
       >
         Leave and forfeit
       </button>

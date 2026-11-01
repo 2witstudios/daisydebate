@@ -62,9 +62,14 @@ test('the media bar names a missing checked device and offers Retry while stayin
 
 test('Retry forgets only the checked devices found gone, then clears them', () => {
   const forgotten: unknown[] = [];
-  const next = retryMissingDevices('room-a', ['camera'], (roomId, kinds) => {
-    forgotten.push([roomId, kinds]);
-  });
+  const next = retryMissingDevices(
+    'room-a',
+    ['camera'],
+    'actor-a',
+    (roomId, kinds) => {
+      forgotten.push([roomId, kinds]);
+    },
+  );
   assert({
     given: 'a Retry while only the checked camera is missing',
     should:

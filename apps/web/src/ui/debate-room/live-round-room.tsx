@@ -141,7 +141,11 @@ export function LiveRoundRoom({
               leave={leaving}
             />
           ) : (
-            <RoundEndedNotice roundId={view.id} />
+            <RoundEndedNotice
+              roundId={view.id}
+              actorId={actorId}
+              roomId={view.roomId}
+            />
           )
         }
       </RoundCommandActions>

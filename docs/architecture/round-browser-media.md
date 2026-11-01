@@ -54,6 +54,16 @@ Browser deadlines request fresh server views and reconciliation; they never
 open microphones. Local device checks, live tracks and speaking indicators do
 not establish capture completeness, transcript credit or peer audibility.
 
+A source that cannot capture or publish (a device the browser cannot read, a
+denied site permission, a missing checked device) is per-source ill-health,
+reported under its own name, compared to whole-call transport failures: the
+state of one source never tears down another, and denial (a definite 401/403/
+404 or a Round that withdrew its media) stops all automated recovery (ISSUE-817
+/829, ISSUE-880). Local mute and the explicit departure suppression it records
+for auto-resume are tab-scoped keys under `daisy:<kind>:media:<actor>:<roundId>`
+in sessionStorage: one account's record can never be read by another principal
+and every record dies with the tab (ISSUE-879).
+
 ### Admission fairness
 
 Media admissions announce an expendable waiter hint through the existing Redis

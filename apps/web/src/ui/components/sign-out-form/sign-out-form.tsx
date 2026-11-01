@@ -1,3 +1,5 @@
+import { clearAccountMediaPreferences } from '../../../features/round-media/account-signout-cleanup';
+
 /** The notice a page shows when it comes back from a failed sign-out. */
 export const SIGN_OUT_FAILED_NOTICE =
   'We couldn’t sign you out. Please try again.';
@@ -17,7 +19,11 @@ export function SignOutForm({
   return (
     <form method="post" action="/auth/sign-out">
       <input type="hidden" name="next" value={next} />
-      <button type="submit" className={className}>
+      <button
+        type="submit"
+        className={className}
+        onSubmit={() => clearAccountMediaPreferences()}
+      >
         Sign out
       </button>
     </form>

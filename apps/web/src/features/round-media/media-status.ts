@@ -36,25 +36,64 @@ export function classifySourceFailure(error: unknown): SourceFailureKind {
   }
 }
 
+/**
+ * What this device actually knows about its own microphone right now
+ * (ISSUE-881): a server grant alone is permission, a live track is
+ * publication, and a deliberate mute is neither loss nor health.
+ */
+export type MicrophoneEvidence = {
+  /** The server's grant names the microphone; null before any state. */
+  readonly granted: boolean | null;
+  /** A local microphone track is actually published and live. */
+  readonly published: boolean;
+  /** The participant deliberately muted it; the track may still exist. */
+  readonly muted: boolean;
+};
+
 const illHealthWord = {
   permission: 'access is denied',
   absence: 'is unavailable',
   failure: 'could not start',
 } as const;
 
-/** One sentence: the failed sources named alone, not a whole call report. */
-const illHealthMessage = (bad: readonly SourceIllHealth[]): string => {
-  const [first] = bad;
-  if (bad.length === 1 && first) {
-    const [source, kind] = first;
-    const word = illHealthWord[kind];
-    return source === 'camera'
-      ? `Your camera ${word}. Your microphone stays live.`
-      : `Your microphone ${word}. Other media keeps working.`;
+/**
+ * One sentence naming exactly the failed sources, claiming nothing about
+ * any source without its own evidence: a camera error never implies a
+ * working microphone, and a grant never implies publication.
+ */
+const illHealthMessage = (
+  bad: readonly SourceIllHealth[],
+  microphone: MicrophoneEvidence | null,
+): string => {
+  const names = bad.map(([source]) => source);
+  const both = names.includes('camera') && names.includes('microphone');
+  if (both)
+    return `Your camera and microphone ${joinKinds(bad, 'could not start')}.`;
+  if (names.includes('microphone')) {
+    const [, kind] = bad.find(([source]) => source === 'microphone')!;
+    return `Your microphone ${illHealthWord[kind]}.`;
   }
-  return `Your camera and microphone ${bad
-    .map((entry) => illHealthWord[entry[1]])
-    .join(' and ')}.`;
+  const [entry] = bad;
+  if (!entry) return '';
+  const [, kind] = entry;
+  const cameraSentence = `Your camera ${illHealthWord[kind]}.`;
+  // Only evidence of a live, unmuted published microphone can say it stays live.
+  if (microphone === null) return cameraSentence;
+  if (!microphone.published)
+    return microphone.granted
+      ? `${cameraSentence} Your microphone is not publishing.`
+      : cameraSentence;
+  return microphone.muted
+    ? `${cameraSentence} Your microphone is muted.`
+    : `${cameraSentence} Your microphone stays live.`;
+};
+
+const joinKinds = (
+  bad: readonly SourceIllHealth[],
+  fallback: string,
+): string => {
+  const kinds = [...new Set(bad.map(([, kind]) => illHealthWord[kind]))];
+  return kinds.length === 1 ? kinds[0]! : fallback;
 };
 
 /** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
@@ -62,6 +101,7 @@ export function mediaStatus(
   connection: MediaConnectionState,
   missing: readonly Source[],
   illHealth: readonly SourceIllHealth[] = [],
+  microphone: MicrophoneEvidence | null = null,
 ) {
   const gone = missing.length > 0;
   const baseMessage =
@@ -75,7 +115,7 @@ export function mediaStatus(
   return {
     message:
       connection === 'live' && illHealth.length > 0
-        ? `${gone ? baseMessage : messages.live} ${illHealthMessage(illHealth)}`.trim()
+        ? `${gone ? baseMessage : messages.live} ${illHealthMessage(illHealth, microphone)}`.trim()
         : baseMessage,
     retry:
       gone ||
@@ -87,14 +127,17 @@ export function mediaStatus(
 
 /**
  * An explicit Retry uses the browser default only for the checked devices
- * found gone; a checked device that still works keeps its choice. Returns
- * the cleared missing set.
+ * found gone; a checked device that still works keeps its choice. The forget
+ * runs under the same principal whose check chose them (ISSUE-879), so the
+ * reconnect after Retry captures the default instead of the same missing
+ * device. Returns the cleared missing set.
  */
 export function retryMissingDevices(
   roomId: string,
   missing: readonly Source[],
+  actorId: string | null = null,
   forget: typeof forgetCheckedDevices = forgetCheckedDevices,
 ): readonly Source[] {
-  forget(roomId, missing);
+  forget(roomId, missing, undefined, actorId);
   return [];
 }

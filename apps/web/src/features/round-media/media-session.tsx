@@ -30,6 +30,19 @@ import {
   readMutePreference,
   writeMutePreference,
 } from './media-preferences';
+import {
+  claimOwnership,
+  heartbeatOwnership,
+  mayResumeTab,
+  readOwnership,
+  resumeOwnershipHeartbeatMs,
+  subscribeOwnership,
+  tabIdOf,
+} from '../rooms/resume-ownership';
+import {
+  localPublicationOf,
+  reportLocalPublication,
+} from './local-publication';
 
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
 const ADMISSION_RETRY_MS = [500, 1000, 2000];
@@ -208,6 +221,68 @@ function RoundMediaSession({
     );
     return () => window.clearTimeout(timer);
   }, [view]);
+  /** The controls read this device's own capture truth as a named input. */
+  useEffect(() => {
+    const captured = tracks
+      .filter((track) => track.local && track.source === 'microphone')
+      .map((track) => track.source);
+    reportLocalPublication(
+      actorId ?? 'anonymous',
+      localPublicationOf({
+        connection,
+        grants: media?.grants.publish,
+        captured,
+        muted: microphoneMuted,
+      }),
+    );
+  }, [actorId, connection, media, tracks, microphoneMuted]);
+  /**
+   * While this tab publishes, it owns the Round's advisory resume claim and
+   * heartbeats it, so no other tab treats this one as stale and takes over.
+   * If another tab does take the claim over, this tab's media stops rather
+   * than publish beside it (ISSUE-879; advisory only, never authority).
+   */
+  useEffect(() => {
+    if (actorId === null || actorId === undefined) return;
+    if (connection !== 'live') return;
+    const session = window.sessionStorage;
+    const storage = window.localStorage;
+    const tabId = tabIdOf(
+      session,
+      () =>
+        window.crypto?.randomUUID?.() ??
+        `tab-${Date.parse(systemClock.now())}-advisory-no-secret`,
+    );
+    const held = readOwnership(storage, actorId, view.id);
+    const verdict = mayResumeTab(tabId, held, Date.parse(systemClock.now()));
+    // A fresh foreign owner means this tab joined late: it keeps its media
+    // (the server grants govern) but never claims the resume for itself.
+    if (verdict !== 'defer')
+      claimOwnership({
+        storage,
+        actorId,
+        roundId: view.id,
+        tabId,
+        nowMs: Date.parse(systemClock.now()),
+      });
+    const beat = () =>
+      heartbeatOwnership({
+        storage,
+        actorId,
+        roundId: view.id,
+        tabId,
+        nowMs: Date.parse(systemClock.now()),
+      });
+    const heartbeat = window.setInterval(beat, resumeOwnershipHeartbeatMs);
+    const unsubscribe = subscribeOwnership(window, actorId, view.id, () => {
+      const owner = readOwnership(storage, actorId, view.id).owner;
+      if (owner !== null && owner !== tabId) controller.current?.stop();
+    });
+    return () => {
+      window.clearInterval(heartbeat);
+      unsubscribe();
+    };
+  }, [actorId, view.id, connection]);
   /**
    * Online and visibility are nudges only: the controller owns its recovery
    * attempts and backoff across every state change, so a nudge restarts work
@@ -230,7 +305,13 @@ function RoundMediaSession({
     };
   }, []);
 
-  const status = mediaStatus(connection, missing, illHealth);
+  const status = mediaStatus(connection, missing, illHealth, {
+    granted: media?.grants.publish.includes('microphone') ?? null,
+    published: tracks.some(
+      (track) => track.local && track.source === 'microphone',
+    ),
+    muted: microphoneMuted,
+  });
   return (
     <section aria-label="Live camera and sound">
       <MediaStage
@@ -293,7 +374,9 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
-              setMissing(retryMissingDevices(view.roomId, missing));
+              setMissing(
+                retryMissingDevices(view.roomId, missing, actorId ?? null),
+              );
               refresh.current();
               void controller.current?.reconnect();
             }}

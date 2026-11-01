@@ -2,9 +2,16 @@
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import {
+  localPublicationOf,
+  readLocalPublication,
+  subscribeLocalPublication,
+  type LocalPublication,
+} from '../../features/round-media/local-publication';
+import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type Dispatch,
   type KeyboardEvent,
   type ReactNode,
@@ -264,6 +271,29 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
 }
 
 /**
+ * The actual publication state of this viewer's microphone, as a client
+ * subscription to the media session's store: none without a mounted media
+ * session, where the phase-derived fallback remains the floor permission.
+ */
+function useLocalPublication(roundId: string): LocalPublication {
+  return useSyncExternalStore(
+    (listener) => subscribeLocalPublication(roundId, listener),
+    () => readLocalPublication(roundId),
+    () => null,
+  );
+}
+
+const micState: Record<
+  Exclude<LocalPublication, null>,
+  readonly [label: string, tinted: boolean]
+> = {
+  published: ['Mic live', true],
+  muted: ['Mic muted', false],
+  ill: ['Mic not captured', false],
+  absent: ['Mic not captured', false],
+};
+
+/**
  * Three columns: the mic the server controls and both prep clocks; the
  * clock; the phase action, Tech issue and the layout menu. No Mute.
  */
@@ -272,6 +302,18 @@ export function RoundControls({
   layout,
   actions,
 }: Props & { readonly layout?: ReactNode }) {
+  const publication = useLocalPublication(round.self.id);
+  // Before a client media session reports, the seat's server grant is all
+  // that is known: the label keeps carrying that phase-derived permission,
+  // not capture health.
+  const micLabel =
+    publication === null
+      ? round.micLive
+        ? ('Mic live' as const)
+        : ('Mic closed' as const)
+      : micState[publication][0];
+  const micTinted =
+    publication === null ? round.micLive : micState[publication][1];
   return (
     <nav
       aria-label="Round controls"
@@ -281,13 +323,13 @@ export function RoundControls({
         <span
           className={cn(
             'inline-flex items-center gap-1 rounded-round px-3 py-1 text-sm font-strong',
-            round.micLive
+            micTinted
               ? 'bg-live-soft text-live'
               : 'bg-surface-raised text-ink-muted',
           )}
         >
           <Icon name="mic" size={14} />
-          {round.micLive ? 'Mic live' : 'Mic closed'}
+          {micLabel}
         </span>
         <PrepClocks round={round} />
       </div>

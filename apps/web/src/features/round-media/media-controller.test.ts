@@ -304,3 +304,195 @@ test('only a missing checked device says so; an unchecked missing device is bloc
     expected: ['device-missing', 'device-blocked'],
   });
 });
+
+test('the request boundary classifies authorization refusals final and temporary failures recoverable (ISSUE-880)', async () => {
+  const stateAfter = async (failure: () => unknown) => {
+    const changed: string[] = [];
+    const controller = createMediaController({
+      roundId,
+      api: {
+        admit: async () => {
+          throw failure();
+        },
+        reconcile: async () => snapshot,
+      },
+      transport: transportStub,
+      changed: (state) => void changed.push(state),
+    });
+    await controller.join();
+    const finalState = controller.state();
+    controller.stop();
+    return [finalState, changed];
+  };
+  const authorization = [401, 403, 404].map((status) => mediaFailure(status));
+  const temporary = [408, 429, 500, 502, 503, 504].map((status) =>
+    mediaFailure(status),
+  );
+  const network = transientMediaFailure();
+  const denied = await Promise.all(
+    authorization.map((failure) => stateAfter(() => failure)),
+  );
+  const recoverable = await stateAfter(() => temporary[0]);
+  assert({
+    given:
+      '401/403/404 answers, one 408/429/5xx answer, and a network refusal at the actual request boundary',
+    should:
+      'deny authorization refusals without recovery, and keep every temporary or network refusal unavailable for paced recovery',
+    actual: {
+      authorizationStates: denied.map(([state]) => state),
+      authorizationRetryable: authorization.map((failure) =>
+        isTransientMediaFailure(failure),
+      ),
+      temporaryRetryable: temporary.map((failure) =>
+        isTransientMediaFailure(failure),
+      ),
+      temporaryState: recoverable[0],
+      networkRetryable: isTransientMediaFailure(network),
+    },
+    expected: {
+      authorizationStates: ['denied', 'denied', 'denied'],
+      authorizationRetryable: [false, false, false],
+      temporaryRetryable: [true, true, true, true, true, true],
+      temporaryState: 'unavailable',
+      networkRetryable: true,
+    },
+  });
+});
+
+/** One owned, generation-guarded recovery timer: deterministic scheduler. */
+const scheduled = () => {
+  const timers: {
+    fire: () => void;
+    cancelled: boolean;
+    fired: boolean;
+  }[] = [];
+  return {
+    timers,
+    drain: async () => {
+      for (let index = 0; index < 200; index++) await Promise.resolve();
+    },
+    schedule: (fire: () => void) => {
+      const timer = { fire, cancelled: false, fired: false };
+      timers.push(timer);
+      return timer;
+    },
+    cancel: (handle: unknown) => {
+      (handle as { cancelled: boolean }).cancelled = true;
+    },
+    /** Fires one timer the way a host timer would: once, then spent. */
+    trigger: (timer: { fire: () => void; fired: boolean }) => {
+      timer.fired = true;
+      timer.fire();
+    },
+    due: () => timers.filter((timer) => !timer.cancelled && !timer.fired),
+  };
+};
+
+test('an obsolete recovery timer is inert after a newer attempt failed again (ISSUE-880)', async () => {
+  const clock = scheduled();
+  let requests = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        requests++;
+        throw transientMediaFailure();
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    retry: { delaysMs: [], wait: async () => undefined },
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  const afterJoin = requests;
+  await controller.reconnect();
+  const afterReconnect = requests;
+  // The first join's timer belongs to a dead generation: firing it must not
+  // start a third admission, even though the newer attempt also failed.
+  clock.trigger(clock.timers[0]!);
+  await clock.drain();
+  const staleFired = requests;
+  // The current generation's own timer is the only live one.
+  clock.trigger(clock.due().at(-1)!);
+  await clock.drain();
+  assert({
+    given:
+      'a failed join, a failed manual reconnect, the obsolete timer fired, then the current timer fired',
+    should:
+      'leave the obsolete generation inert, its handle cancelled or spent, and exactly one live retry for the current generation',
+    actual: {
+      afterJoin,
+      afterReconnect,
+      staleFired,
+      afterCurrentFired: requests,
+      cancelledTimers: clock.timers.filter((timer) => timer.cancelled).length,
+      spentTimers: clock.timers.filter(
+        (timer) => timer.fired && !timer.cancelled,
+      ).length,
+      liveTimers: clock.due().length,
+    },
+    expected: {
+      afterJoin: 1,
+      afterReconnect: 2,
+      staleFired: 2,
+      afterCurrentFired: 3,
+      cancelledTimers: 1,
+      spentTimers: 1,
+      liveTimers: 1,
+    },
+  });
+  controller.stop();
+});
+
+test('recovery owns one scheduled retry at a time and none survives a stop or success', async () => {
+  const clock = scheduled();
+  let refusals = 0;
+  let grants = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        if (refusals === 0) {
+          refusals++;
+          throw transientMediaFailure();
+        }
+        grants++;
+        return admission;
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: () => undefined,
+    retry: { delaysMs: [], wait: async () => undefined },
+    recovery: { schedule: clock.schedule, cancel: clock.cancel },
+  });
+  await controller.join();
+  const whileUnavailable = clock.due().length;
+  clock.trigger(clock.due().at(-1)!);
+  await clock.drain();
+  const live = controller.state();
+  const afterSuccess = clock.due().length;
+  controller.stop();
+  assert({
+    given:
+      'a first refusal then recovery through the timer, and a terminal stop',
+    should:
+      'hold exactly one live retry while unavailable, none once live, and none resurrecting after stop',
+    actual: {
+      whileUnavailable,
+      live,
+      afterSuccess,
+      afterStop: clock.due().length,
+      grants,
+    },
+    expected: {
+      whileUnavailable: 1,
+      live: 'live',
+      afterSuccess: 0,
+      afterStop: 0,
+      grants: 1,
+    },
+  });
+});
