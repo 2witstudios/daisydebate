@@ -54,15 +54,31 @@ Browser deadlines request fresh server views and reconciliation; they never
 open microphones. Local device checks, live tracks and speaking indicators do
 not establish capture completeness, transcript credit or peer audibility.
 
-A source that cannot capture or publish (a device the browser cannot read, a
-denied site permission, a missing checked device) is per-source ill-health,
-reported under its own name, compared to whole-call transport failures: the
-state of one source never tears down another, and denial (a definite 401/403/
-404 or a Round that withdrew its media) stops all automated recovery (ISSUE-817
-/829, ISSUE-880). Local mute and the explicit departure suppression it records
-for auto-resume are tab-scoped keys under `daisy:<kind>:media:<actor>:<roundId>`
-in sessionStorage: one account's record can never be read by another principal
-and every record dies with the tab (ISSUE-879).
+Capture, transport connectivity, subscription and playback are independent facts.
+The SDK adapter validates serialized errors into the one closed source-failure
+vocabulary; outer error names and status fields cannot confer device or account
+authority. Only actual local publications establish capture; neither server
+grants nor a desired mute choice establish it.
+
+| Requested sources | Actual started sources    | Local outcome                                           | Independent receive path                                       |
+| ----------------- | ------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| None              | None                      | Receive-only; no failed capture                         | Retain authorized subscriptions and report playback separately |
+| One or both       | Some                      | Report failures only for the affected sources           | Preserve working local sources and reception                   |
+| One or both       | None, with typed failures | Report blocked or missing capture; offer explicit Retry | Preserve healthy authorized reception                          |
+
+Explicit local Retry reconciles fresh server grants and reattempts capture
+without readmission or reconnecting healthy reception. A failed mute operation
+stops the uncertain microphone and reports its source failure while preserving
+the camera and receive path. Actual transport failure, revoked/terminal authority
+and ownership step-down release the lifetime. A definite 401/403/404 stops
+automatic retries; an unavailable media projection requests fresh authority,
+and a 409 follows the contract's fresh-read path (ISSUE-817/829, ISSUE-880).
+Source failures never establish attendance, results or peer audibility.
+
+Local mute and confirmed explicit departure suppression are tab-scoped keys under
+`daisy:<kind>:media:<actor>:<roundId>` in sessionStorage: one account's record
+cannot be read by another principal, and every record dies with the tab
+(ISSUE-879).
 
 ### Browser effect ownership
 
