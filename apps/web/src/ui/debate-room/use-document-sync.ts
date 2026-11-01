@@ -26,7 +26,7 @@ export function useDocumentSync(
             type: 'doc/update',
             id,
             html: draft.html,
-            now: new Date().toISOString(),
+            now: new Date(performance.now()).toISOString(),
           });
         }
       })
