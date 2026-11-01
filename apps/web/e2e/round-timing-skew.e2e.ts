@@ -6,6 +6,7 @@
  * displayed clock against the server's segment rows.
  */
 import { origin } from './support/accounts';
+import { isRoundClockResponse } from './support/round-timing-response';
 import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -163,6 +164,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     // Delay real authorized action replies beyond the accepted RTT envelope.
     // The resource may be current while its clock evidence is visibly stale.
     let delayed = false;
+    let clockActionId = '';
     await host.route(roomUrl, async (route) => {
       if (
         route.request().method() !== 'POST' ||
@@ -172,6 +174,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       const response = await route.fetch();
       const body = await response.text();
       if (body.includes('serverNowMs')) {
+        clockActionId = route.request().headers()['next-action'] ?? '';
         delayed = true;
         await new Promise((resolve) => setTimeout(resolve, 2300));
       }
@@ -223,11 +226,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect
       .poll(async () => (await serverNow(accounts, roundId!)) - before)
       .toBeGreaterThan(3000);
-    const resumedRead = host.waitForResponse(
-      async (response) =>
-        response.request().method() === 'POST' &&
-        Boolean(response.request().headers()['next-action']) &&
-        (await response.text()).includes('serverNowMs'),
+    expect(clockActionId).not.toBe('');
+    const resumedRead = host.waitForResponse((response) =>
+      isRoundClockResponse(response, clockActionId),
     );
     await session.send('Page.setWebLifecycleState', { state: 'active' });
     await host.evaluate(() =>
