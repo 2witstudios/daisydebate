@@ -34,7 +34,7 @@ export function ShareSheet() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={src}
-                      alt={`${label}, ${scheme}: Daisy Debate. Competitive debate, structured like chess.`}
+                      alt={`${label}, ${scheme}: Daisy Debate. The arena for competitive debate. Better arguments. A more thoughtful world.`}
                       width={width}
                       height={height}
                       className="max-w-none"

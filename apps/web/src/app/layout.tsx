@@ -40,7 +40,8 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: { type: 'website', siteName: 'Daisy Debate' },
     twitter: { card: 'summary_large_image' },
     title: { default: 'Daisy Debate', template: '%s · Daisy Debate' },
-    description: 'Competitive debate, structured like chess.',
+    description:
+      'The arena for competitive debate. Better arguments. A more thoughtful world.',
   };
 }
 
