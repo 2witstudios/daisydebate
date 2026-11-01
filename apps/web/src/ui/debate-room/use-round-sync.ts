@@ -87,7 +87,8 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
     case 'unsaved':
       return {
         save: 'unsaved',
-        notice: 'Storage is unavailable; your latest changes are not saved.',
+        notice:
+          'Storage is unavailable for recovery. Keep this page open until your edits save online.',
       };
   }
 }
