@@ -91,7 +91,14 @@ consumes ownership before issuing its destination. Disposing the origin or
 replacing the conversation cannot revive an old answer. Link `onNavigate`
 observes intent before route commitment; modified/new-tab clicks and prefetch
 do not invalidate it. Invalid or canceled search submissions retain it.
-Native server actions still perform their server-authorized mutation and 303.
+The same owner records confirmed sends separately from navigation permission.
+A successful command adopts the next server-rendered request ID even when
+same-conversation navigation suppresses its redirect. Pending, unsent and
+failed/unknown-commit drafts keep their exact ID; already-used IDs and old
+answers cannot reset a newly typed draft. Client dispatch stamps its own
+completion origin before awaiting the server, and removes that client-only
+origin from the previous state sent over the action boundary. Server rendering
+retains the exact original action reference for native POST and 303.
 Other form consumers keep the shared `useMovedOn` behavior.
 
 The sequential browser journey waits for the exact sent-message destination

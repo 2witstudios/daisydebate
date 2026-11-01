@@ -6,13 +6,26 @@ import {
 
 export async function durableMessages(page: Page, channelId: string) {
   const response = await page.request.get(
-    `/api/messaging/channels/${channelId}/messages?limit=100`,
+    `/api/messaging/channels/${channelId}/messages`,
   );
   expect(response.status()).toBe(200);
   return createMessagingCoreSchemas({
     messageUnits: messagingBetaLimits.messageUnits,
     pageItems: 100,
   }).historyResult.parse(await response.json());
+}
+
+export async function durableMessage(
+  page: Page,
+  channelId: string,
+  text: string,
+) {
+  const history = await durableMessages(page, channelId);
+  const matches = history.messages.filter(
+    (message) => !('unavailable' in message) && message.text === text,
+  );
+  expect(matches).toHaveLength(1);
+  return matches[0]!;
 }
 
 export async function composerRequestId(page: Page) {
@@ -52,13 +65,9 @@ export async function completedSend(
   ).toBeEnabled();
   await expect(page.getByLabel('Your message')).toHaveValue('');
   expect(await composerRequestId(page)).not.toBe(requestId);
-  const history = await durableMessages(page, channelId);
-  const sent = history.messages.filter(
-    (message) => !('unavailable' in message) && message.text === text,
-  );
-  expect(sent).toHaveLength(1);
-  expect(sent[0]!.id).toBe(id);
-  return { edit, message: sent[0]! };
+  const message = await durableMessage(page, channelId, text);
+  expect(message.id).toBe(id);
+  return { edit, message };
 }
 
 export async function oneDurableEdit(

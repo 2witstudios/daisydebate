@@ -40,6 +40,7 @@ export default async function ConversationPage({
   const id = idSchema.safeParse((await params).channelId);
   if (!id.success) notFound();
   const query = await searchParams;
+  const requestId = systemId.next();
   const [{ searchQuery, conversation }, entry] = await Promise.all([
     readPageConversation(id.data, query),
     readChannelEntry(id.data),
@@ -55,7 +56,7 @@ export default async function ConversationPage({
           paging: typeof query.before === 'string',
         });
   return (
-    <ConversationNavigation key={id.data}>
+    <ConversationNavigation key={id.data} requestId={requestId}>
       <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
         <PageHeader
           title={names.title}
@@ -124,7 +125,6 @@ export default async function ConversationPage({
               channelId={id.data}
               key={typeof query.sent === 'string' ? query.sent : id.data}
               action={sendMessageAction.bind(null, id.data)}
-              requestId={systemId.next()}
               maxUnits={conversation.bounds.messageUnits}
               readThrough={readThrough}
             />

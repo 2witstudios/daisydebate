@@ -6,23 +6,28 @@ import {
 } from './messaging-journey';
 import {
   composerRequestId,
-  durableMessages,
+  durableMessage,
   oneDurableEdit,
 } from './messaging-completion';
 import { watchChannelObservation } from './channel-observation';
 import { effectsRan } from './hydration';
 
 /** Hold actual Next action/RSC responses, after each real server request completes. */
-function holdResponses(page: Page, channelId: string) {
+export function holdConversationResponses(
+  page: Page,
+  channelId: string,
+  target: 'editor' | 'history' = 'editor',
+  sendResult: 'deliver' | 'lose' = 'deliver',
+) {
   const send = Promise.withResolvers<void>();
   const edit = Promise.withResolvers<void>();
   const deliveredSend = Promise.withResolvers<void>();
-  const deliveredEdit = Promise.withResolvers<void>();
+  const deliveredNavigation = Promise.withResolvers<void>();
   const state = {
     sendReady: false,
-    editReady: false,
+    navigationReady: false,
     sends: 0,
-    edits: 0,
+    navigations: 0,
     saves: 0,
   };
   const intercept = async (route: Route) => {
@@ -39,21 +44,25 @@ function holdResponses(page: Page, channelId: string) {
       expect(response.status()).toBe(200);
       state.sendReady = true;
       await send.promise;
-      await route.fulfill({ response });
+      if (sendResult === 'lose') await route.abort('internetdisconnected');
+      else await route.fulfill({ response });
       deliveredSend.resolve();
     } else if (
-      url.pathname === `/messages/${channelId}/message` &&
+      (target === 'editor'
+        ? url.pathname === `/messages/${channelId}/message`
+        : url.pathname === `/messages/${channelId}` &&
+          url.searchParams.has('before')) &&
       request.method() === 'GET' &&
       headers.rsc === '1' &&
       !headers['next-router-prefetch']
     ) {
-      state.edits++;
+      state.navigations++;
       const response = await route.fetch();
       expect(response.status()).toBe(200);
-      state.editReady = true;
+      state.navigationReady = true;
       await edit.promise;
       await route.fulfill({ response });
-      deliveredEdit.resolve();
+      deliveredNavigation.resolve();
     } else {
       if (
         url.pathname === `/messages/${channelId}/message` &&
@@ -71,9 +80,9 @@ function holdResponses(page: Page, channelId: string) {
       send.resolve();
       await deliveredSend.promise;
     },
-    releaseEdit: async () => {
+    releaseNavigation: async () => {
       edit.resolve();
-      await deliveredEdit.promise;
+      await deliveredNavigation.promise;
     },
     releaseAll: () => {
       send.resolve();
@@ -88,7 +97,7 @@ export function testMessagingNavigationOverlap() {
       browser,
     }) => {
       const journey = await openMessagingJourney(browser);
-      let held: ReturnType<typeof holdResponses> | undefined;
+      let held: ReturnType<typeof holdConversationResponses> | undefined;
       try {
         const page = await acceptMessagingJourney(journey);
         // Reopen this exact conversation with observation listeners installed.
@@ -96,7 +105,7 @@ export function testMessagingNavigationOverlap() {
         await page.reload();
         await observed.ready();
         await effectsRan(page);
-        held = holdResponses(page, journey.channelId);
+        held = holdConversationResponses(page, journey.channelId);
         await page.route('**/messages/**', held.intercept);
         const requestId = await composerRequestId(page);
         const text = `Overlap contribution ${first}`;
@@ -118,12 +127,7 @@ export function testMessagingNavigationOverlap() {
           exact: true,
         });
         await expect(edit).toBeVisible();
-        const before = await durableMessages(page, journey.channelId);
-        const matches = before.messages.filter(
-          (message) => !('unavailable' in message) && message.text === text,
-        );
-        expect(matches).toHaveLength(1);
-        const message = matches[0]!;
+        const message = await durableMessage(page, journey.channelId, text);
         await observed.heard(message.changeVersion);
         expect(await composerRequestId(page)).toBe(requestId);
         const editorDestination = new URL(
@@ -131,7 +135,7 @@ export function testMessagingNavigationOverlap() {
           page.url(),
         ).toString();
         await edit.click();
-        await expect.poll(() => held!.state.editReady).toBe(true);
+        await expect.poll(() => held!.state.navigationReady).toBe(true);
         // Neither response has reached Next; origin really remains mounted.
         await expect(page.getByLabel('Your message')).toBeDisabled();
         expect(new URL(page.url()).pathname).toBe(
@@ -144,9 +148,9 @@ export function testMessagingNavigationOverlap() {
           await expect(
             page.getByRole('button', { name: 'Sending…', exact: true }),
           ).toHaveCount(0);
-          await held.releaseEdit();
+          await held.releaseNavigation();
         } else {
-          await held.releaseEdit();
+          await held.releaseNavigation();
           await expect(page.getByLabel('Revise your message')).toBeVisible();
           await held.releaseSend();
         }
@@ -166,7 +170,7 @@ export function testMessagingNavigationOverlap() {
           `Revised overlap ${first}`,
         );
         expect(held.state.sends).toBe(1);
-        expect(held.state.edits).toBe(1);
+        expect(held.state.navigations).toBe(1);
         expect(held.state.saves).toBe(1);
       } finally {
         held?.releaseAll();
