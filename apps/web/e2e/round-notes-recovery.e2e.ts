@@ -3,15 +3,19 @@ import { openPage } from './support/fixtures';
 import { origin } from './support/accounts';
 import { documentsPath, expect, test } from './support/round-files';
 
-const draftFor = (page: Page, id: string) =>
+const rawDraftFor = (page: Page, id: string) =>
   page.evaluate((documentId) => {
     const key = Object.keys(localStorage).find(
       (one) =>
         one.startsWith('daisy:round-notes:draft:') &&
         one.endsWith(`:${documentId}`),
     );
-    return key ? JSON.parse(localStorage.getItem(key)!) : null;
+    return key ? localStorage.getItem(key) : null;
   }, id);
+const draftFor = async (page: Page, id: string) => {
+  const raw = await rawDraftFor(page, id);
+  return raw === null ? null : JSON.parse(raw);
+};
 const edit = (page: Page, text: string) =>
   page.getByRole('textbox', { name: 'Flow', exact: true }).fill(text);
 const serverDocument = async (
@@ -98,7 +102,23 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   );
   await page.bringToFront();
   await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page
+    .context()
+    .grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  expect(
+    await page.evaluate(async () =>
+      Promise.all(
+        ['camera', 'microphone', 'clipboard-read', 'clipboard-write'].map(
+          async (name) =>
+            (
+              await navigator.permissions.query({
+                name: name as PermissionName,
+              })
+            ).state,
+        ),
+      ),
+    ),
+  ).toEqual(['granted', 'granted', 'granted', 'granted']);
   // Observe the real browser API; preserve both success and rejection. This
   // allowlisted diagnostic contains no clipboard text, HTML, keys or identity.
   await page.evaluate(() => {
@@ -245,7 +265,13 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
 }) => {
   await roundFiles.finishRound();
   const { page, documentId } = roundFiles;
-  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await page.clock.install();
+  let loggedOut = false,
+    lateSends = 0;
+  await page.route(`**${documentsPath}save`, (route) => {
+    if (loggedOut) lateSends++;
+    return route.abort();
+  });
   await edit(page, 'Private pending notes before logout');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
   const shell = await openPage(
@@ -257,9 +283,17 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   await shell.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(shell).toHaveURL(/\/sign-in/);
   await expect.poll(() => draftFor(page, documentId)).toBeNull();
-  await edit(page, 'Stale tab after logout');
+  loggedOut = true;
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(
+    'Private pending notes before logout',
+  );
+  await page.clock.runFor(30_000);
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   expect(await draftFor(page, documentId)).toBeNull();
+  expect(lateSends).toBe(0);
 });
 
 test('observed session revocation purges private notes and fences further editing', async ({
@@ -507,10 +541,12 @@ for (const reloadBeforeRestore of [false, true])
       .poll(async () => (await draftFor(page, documentId))?.active?.html)
       .toContain('Independent REC');
     await page.reload();
-    const recovery = (await draftFor(page, documentId)).recovery;
     await expect(
       page.getByRole('button', { name: 'Restore Flow', exact: true }),
     ).toBeVisible();
+    const recovery = (await draftFor(page, documentId)).recovery;
+    expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
+    expect(recovery.html).toContain('Independent REC');
     await page.unroute(`**${documentsPath}save`);
     await edit(page, 'Acknowledged NEW');
     await expect
@@ -524,6 +560,7 @@ for (const reloadBeforeRestore of [false, true])
     await expect(
       page.getByRole('button', { name: 'Restore Flow', exact: true }),
     ).toBeVisible();
+    expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
     expect((await serverDocument(page, roundId, documentId)).html).toContain(
       'Acknowledged NEW',
     );
@@ -662,8 +699,11 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
     const gate = Promise.withResolvers<void>();
     let arrived = false;
     await page.route(`**${documentsPath}save`, async (route) => {
-      arrived = true;
-      await gate.promise;
+      const body = route.request().postDataJSON() as { html: string };
+      if (body.html.includes(next)) {
+        arrived = true;
+        await gate.promise;
+      }
       const response = await route.fetch();
       await route.fulfill({ response });
     });
@@ -679,6 +719,11 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
     try {
       await edit(page, next);
       await expect.poll(() => arrived).toBe(true);
+      const beforeRestore = await rawDraftFor(page, documentId);
+      expect(beforeRestore).not.toBeNull();
+      const previous = JSON.parse(beforeRestore!);
+      expect(previous.recovery).toEqual(recovery);
+      expect(previous.active?.html ?? '').not.toContain(next);
       await page
         .getByRole('button', { name: 'Restore Flow', exact: true })
         .click();
@@ -686,7 +731,7 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
         page.getByRole('textbox', { name: 'Flow', exact: true }),
       ).toContainText(next);
       expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
-      expect((await draftFor(page, documentId)).active).toBeUndefined();
+      expect(await rawDraftFor(page, documentId)).toBe(beforeRestore);
       await expect(
         page.getByRole('alert').filter({ hasText: 'Storage is unavailable' }),
       ).toBeVisible();
