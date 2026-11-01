@@ -1,7 +1,8 @@
 'use client';
 import './zod-jitless';
 import Link from 'next/link';
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { createRoundTime, defaultMonotonicClock } from './use-second';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
@@ -20,10 +21,26 @@ export function LiveJudgeRoom(props: {
   readonly view: RoundView;
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
+  readonly renderedAtMs: number;
 }) {
   const [synced, driver] = useLiveRoundView(props);
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const media = useMemo(() => roundMediaSlot(refresh), [refresh]);
+  const roundTimeRef = useRef<ReturnType<typeof createRoundTime> | null>(null);
+  if (roundTimeRef.current === null) {
+    const anchor = defaultMonotonicClock();
+    roundTimeRef.current = createRoundTime({
+      initial: {
+        serverNowMs: props.renderedAtMs,
+        sentAtMs: anchor,
+        receivedAtMs: anchor,
+        generation: 0,
+        uncertaintyMs: 2000,
+      },
+      monotonicNowMs: defaultMonotonicClock,
+    });
+  }
+  const roundTime = roundTimeRef.current!;
+  const media = useMemo(() => roundMediaSlot(refresh, roundTime), [refresh, roundTime]);
   const view = synced.value;
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
