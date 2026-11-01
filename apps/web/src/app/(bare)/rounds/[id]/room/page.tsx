@@ -91,7 +91,11 @@ export default async function RoundRoomPage({
   if (!idSchema.safeParse(id).success) notFound();
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
-  if (actorId === null) redirect(`/rounds/${id}`);
+  const principalId =
+    identity.state === 'member' && identity.principal.userId !== null
+      ? identity.principal.userId
+      : null;
+  if (actorId === null || principalId === null) redirect(`/rounds/${id}`);
   // Independent reads; the transcript's own audience policy decides it.
   const [result, text] = await Promise.all([
     readPersistedRound(id),
@@ -137,6 +141,7 @@ export default async function RoundRoomPage({
         commandIds={roundCommandIds(() => systemId.next())}
         view={result.round}
         actorId={actorId}
+        principalId={principalId}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}
         socketUrl={result.socketUrl}
