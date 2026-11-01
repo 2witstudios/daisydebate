@@ -1,3 +1,4 @@
+import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
 import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
@@ -89,13 +90,9 @@ export default async function RoundRoomPage({
   const { id } = await params;
   const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
-  const actorId =
-    identity.state === 'member' ? identity.principal.actorId : null;
-  const principalId =
-    identity.state === 'member' && identity.principal.userId !== null
-      ? identity.principal.userId
-      : null;
-  if (actorId === null || principalId === null) redirect(`/rounds/${id}`);
+  const principal = roundDocumentPrincipal(identity);
+  if (principal === null) redirect(`/rounds/${id}`);
+  const { actorId, userId: principalId } = principal;
   // Independent reads; the transcript's own audience policy decides it.
   const [result, text] = await Promise.all([
     readPersistedRound(id),

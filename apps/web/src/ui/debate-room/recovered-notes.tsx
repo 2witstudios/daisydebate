@@ -69,8 +69,7 @@ function RecoveredNote({
     >
       <h3 className="font-semibold">Recovered draft: {choiceLabel}</h3>
       <p className="text-sm text-ink-muted">
-        Your unsaved copy is separate from the server copy. Restore replaces the
-        editor text; the server checks for newer changes when saving.
+        Restore replaces the editor text.
       </p>
       <details>
         <summary>Compare recovered and server copies</summary>

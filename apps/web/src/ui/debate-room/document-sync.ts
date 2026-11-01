@@ -187,13 +187,7 @@ export function createDocumentSync({
     const retained = [...records].filter(
       ([, snapshot]) => noteCopies(snapshot.record).length > 0,
     );
-    unavailableCopies =
-      retained.length > NOTE_RECORD_MAX_COUNT ||
-      retained.some(([id, snapshot]) =>
-        noteCopies(snapshot.record).some(
-          (copy) => copy.baseRevision > (revisions.get(id) ?? -1),
-        ),
-      );
+    unavailableCopies = retained.length > NOTE_RECORD_MAX_COUNT;
     if (unavailableCopies) onDraftStorageFailed('');
     const next: NoteOffer[] = retained
       .slice(0, NOTE_RECORD_MAX_COUNT)

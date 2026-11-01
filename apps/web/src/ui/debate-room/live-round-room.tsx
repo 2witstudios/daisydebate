@@ -130,6 +130,7 @@ export function LiveRoundRoom({
         {(actions) =>
           round ? (
             <DebateRoom
+              key={`${view.id}:${principalId}`}
               transcript={transcript}
               media={(mediaSlot ?? defaultMedia)(view)}
               actions={actions}
