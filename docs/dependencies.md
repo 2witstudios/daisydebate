@@ -200,3 +200,30 @@ Version-matched official source read 2026-10-29:
 Next.js 16.4.2 installed `dist/docs/.../serverActions.md` was read: Next compares
 Origin against forwarded Host or Host; the custom server strips forwarded
 headers and supplies no wildcard allowedOrigins exception.
+
+### Isolated Launch browser preparation (ISSUE-896)
+
+The test-only prepared image uses Playwright `1.63.0-noble` at OCI index
+`sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27`.
+Native manifests: linux/arm64
+`sha256:a0f4498920a5dbac63196d9140ed738ef00470f27e2e74029abd8850b7bd5717`;
+linux/amd64
+`sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7`.
+It adds Ubuntu Noble `libnss3-tools=2:3.98-1ubuntu0.3` for per-run fixture CA
+administration. Browser libraries already exist in the upstream image.
+[Ubuntu's package/dependency listing](https://packages.ubuntu.com/noble-updates/libnss3-tools)
+and [Playwright 1.63.0 native dependencies](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/server/registry/nativeDeps.ts)
+were read before selection. Actual resolved package inventory is recorded in
+the image; moving transitive apt inputs are not a reproducible-build promise.
+
+Cold preparation owns a disposable `moby/buildkit:v0.32.2` backend at index
+`sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8`;
+arm64 manifest `sha256:5a8cd84cb3fcfd082789a08f92bd36f8e745c6231edd78e24a3bf34fd471a823`;
+amd64 manifest `sha256:040d34121c27906c4ff9ac152a30d52bf2c5d328d3bb748916bb3d2743c02528`.
+[Version-matched BuildKit documentation](https://github.com/moby/buildkit/blob/v0.32.2/README.md)
+and [buildx 0.36.1 lifecycle documentation](https://github.com/docker/buildx/blob/v0.36.1/docs/reference/buildx_create.md)
+were read before configuration. Native Docker/buildx with the docker-container
+driver, stdin-only build and local load/save is required. The policy includes
+this toolchain digest in the image/cache identity. No new vendor, paid service,
+production image or registry push is involved. See
+[prepared tooling lifecycle](development/round-browser-proof.md#prepared-browser-tooling).

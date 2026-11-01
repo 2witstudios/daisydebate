@@ -5,7 +5,7 @@ setupRitewayBun();
 
 const input = {
   name: 'daisy-browser-x',
-  version: '1.63.0',
+  image: `sha256:${'a'.repeat(64)}`,
   checkout: '/repo',
   ca: '/tmp/ca.crt',
   seccomp: '/repo/seccomp.json',
@@ -48,7 +48,7 @@ describe('isolated Launch browser container', () => {
         network: valueAfter(args, '--network'),
         published: valueAfter(args, '-p'),
         env: valueAfter(args, '-e'),
-        image: args.includes('mcr.microsoft.com/playwright:v1.63.0-noble'),
+        image: args.includes(input.image),
       },
       expected: {
         network: ['host'],
@@ -61,5 +61,50 @@ describe('isolated Launch browser container', () => {
         image: true,
       },
     });
+  });
+});
+
+test('runtime performs only local fresh trust and sandbox startup', async () => {
+  const shell = await Bun.file(
+    new URL('../e2e/support/launch-browser-container.sh', import.meta.url),
+  ).text();
+  assert({
+    given: 'the disposable prepared browser launcher',
+    should:
+      'never run apt, reuse a trust database, or bypass certificate verification',
+    actual: {
+      apt: /apt-get|apt install/.test(shell),
+      fresh: shell.includes('certutil -N'),
+      import: shell.includes('-i /fixture/ca.crt'),
+      nonroot: shell.includes('exec runuser -u pwuser'),
+    },
+    expected: { apt: false, fresh: true, import: true, nonroot: true },
+  });
+});
+
+test('prepared runtime cannot acquire an image or relax the sandbox contract', () => {
+  const args = launchBrowserDockerArgs({ ...input, hostNetwork: false });
+  assert({
+    given: 'a validated prepared image ID',
+    should:
+      'refuse runtime pulls and retain init, shm, seccomp and readonly fixture mounts',
+    actual: {
+      pull: args.includes('--pull=never'),
+      init: args.includes('--init'),
+      shm: args.includes('--shm-size=512m'),
+      seccomp: valueAfter(args, '--security-opt'),
+      mounts: valueAfter(args, '-v'),
+      unsafe: args.some((arg) =>
+        /privileged|NET_ADMIN|ignore-certificate|no-sandbox/.test(arg),
+      ),
+    },
+    expected: {
+      pull: true,
+      init: true,
+      shm: true,
+      seccomp: ['seccomp=/repo/seccomp.json'],
+      mounts: ['/repo:/workspace:ro', '/tmp/ca.crt:/fixture/ca.crt:ro'],
+      unsafe: false,
+    },
   });
 });

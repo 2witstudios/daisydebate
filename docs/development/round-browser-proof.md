@@ -69,3 +69,50 @@ The carrier is a branch transition until its secure device, media, outage,
 restart and multi-browser proofs pass with actual production dependencies.
 Its slice PR merges only once those proofs pass in CI and its review threads are
 resolved.
+
+## Prepared browser tooling
+
+`bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image.ts`
+prepares the Launch-owned image. The canonical runner calls the same preparer
+before generating certificates. Preparation has an eight-minute total budget,
+including backend pull/create/build/load/save and owned cleanup; browser startup
+retains its separate 120-second deadline. Cold preparation needs repository
+access. Warm runtime performs only fresh OS/NSS trust import and browser startup,
+with no apt index or installation.
+
+The Dockerfile is sent as plain stdin without a filesystem build context. Only
+NSS tools are added to the existing Playwright 1.63.0 Noble image. No checkout,
+fixture certificate, private key or user NSS database enters a build layer or
+archive. A disposable, uniquely named Docker-container BuildKit backend handles
+a cold build and is removed with its state on every exit. No shared builder is
+selected or pruned. Docker with buildx's docker-container driver and local
+`--load` output is required; no registry publication is used.
+
+The image policy records the full upstream OCI index and arm64/amd64 manifests,
+pinned BuildKit image, NSS version and explicit dependency-refresh revision.
+The image/cache identity also covers the Dockerfile, preparation sources,
+Bun version and lockfile. Update the policy's dependency revision deliberately
+when refreshing packages. A pinned direct NSS package does not freeze moving
+transitive apt inputs: cold rebuilding is not claimed to be bit-for-bit
+reproducible. `/usr/local/share/daisy-launch-packages.txt` records actual installed
+package versions. Execution uses the inspected immutable image ID.
+
+An optional directory argument saves/loads `image.tar` and `receipt.json` for
+CI. The existing pinned Actions cache uses exact OS/architecture/input keys,
+with no restore prefixes. Only same-repository PR and main-push events save;
+forks and manual runs cannot publish reusable caches. GitHub ref scoping still
+applies. Archives and local tags are consistency-checked against expected
+metadata/platform and the receipt's image ID. A corrupt/mismatched archive is
+rejected and rebuilt once within the preparation budget. Metadata is a
+consistency check within that repository/event trust boundary, not a signature
+or acceptance proof. Failed saves remove their own partial files. Cache misses
+and preparation failures are distinct from browser and journey outcomes.
+
+References read for this configuration: [Playwright 1.63.0 Docker guide](https://github.com/microsoft/playwright/blob/v1.63.0/docs/src/docker.md),
+[its Noble Dockerfile](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/Dockerfile.noble),
+[BuildKit 0.32.2](https://github.com/moby/buildkit/tree/v0.32.2),
+[buildx 0.36.1 create](https://github.com/docker/buildx/blob/v0.36.1/docs/reference/buildx_create.md),
+[empty Docker context](https://docs.docker.com/build/concepts/context/#empty-context),
+[Docker-container backend lifecycle](https://docs.docker.com/build/builders/drivers/docker-container/),
+[Actions cache 6.1.0](https://github.com/actions/cache/tree/v6.1.0), and
+[GitHub cache trust/ref restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
