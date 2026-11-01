@@ -5,18 +5,8 @@ import {
   type RoundMediaState,
 } from '@daisy/protocol';
 
-/** The transport's error for a device the Room check passed that is now gone. */
-export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
-
 export type MediaConnectionState =
-  | 'connecting'
-  | 'reconnecting'
-  | 'live'
-  | 'device-missing'
-  | 'device-blocked'
-  | 'denied'
-  | 'unavailable'
-  | 'ended';
+  'connecting' | 'reconnecting' | 'live' | 'denied' | 'unavailable' | 'ended';
 export type BrowserMediaTransport = {
   readonly connect: (admission: RoundMediaAdmission) => Promise<void>;
   readonly apply: (state: RoundMediaState) => Promise<void>;
@@ -66,15 +56,6 @@ export function mediaFailure(status: number) {
   return new MediaRequestFailure(status === 409 ? 'refresh' : 'definite');
 }
 
-const deviceBlocked = (error: unknown) =>
-  error instanceof Error &&
-  [
-    'NotAllowedError',
-    'SecurityError',
-    'NotFoundError',
-    'NotReadableError',
-  ].includes(error.name);
-
 type ControllerPhase =
   | { readonly connection: Exclude<MediaConnectionState, 'unavailable'> }
   | {
@@ -91,9 +72,6 @@ const recoveryDecision = (
     : phase.failure;
 
 const failurePhase = (error: unknown): ControllerPhase => {
-  if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
-    return { connection: 'device-missing' };
-  if (deviceBlocked(error)) return { connection: 'device-blocked' };
   if (isMediaDenial(error)) return { connection: 'denied' };
   return {
     connection: 'unavailable',
@@ -323,6 +301,8 @@ export function createMediaController(input: {
     state: () => phase.connection,
     join: () => join(),
     reconnect: () => join(true),
+    /** Local recovery reads current grants without replacing healthy reception. */
+    retry: () => (phase.connection === 'live' ? reconcile() : join(true)),
     nudge: () =>
       recoveryDecision(phase) === 'stop' ? Promise.resolve() : join(true),
     reconcile,

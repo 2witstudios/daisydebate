@@ -170,10 +170,6 @@ function RoundMediaSession({
             setMuted(value);
             writeMutePreference(actorId ?? null, view.id, value);
           },
-          microphoneFailed: () => {
-            setChangingMicrophone(false);
-            setConnection('device-blocked');
-          },
           invalidated: () => {
             refresh.current();
             void mounted.reconcile();
@@ -346,7 +342,7 @@ function RoundMediaSession({
                 retryMissingDevices(view.roomId, missing, actorId ?? null),
               );
               refresh.current();
-              void controller.current?.reconnect();
+              void controller.current?.retry();
             }}
           >
             Retry camera and sound

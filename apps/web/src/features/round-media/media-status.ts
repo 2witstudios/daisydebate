@@ -7,10 +7,6 @@ const messages: Record<MediaConnectionState, string> = {
   connecting: 'Connecting camera and sound…',
   reconnecting: 'Reconnecting camera and sound…',
   live: 'Connected',
-  'device-blocked':
-    'Camera or microphone access is blocked. Check your browser permissions, then retry.',
-  'device-missing':
-    'Your checked camera or microphone is missing. Reconnect it, or retry to use your default device.',
   denied:
     'Camera and sound were refused for this Round. A fresh admission is needed; refresh the page or leave and return once admitted.',
   unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
@@ -128,9 +124,8 @@ export function mediaStatus(
       .join(' '),
     retry:
       gone ||
-      connection === 'unavailable' ||
-      connection === 'device-blocked' ||
-      connection === 'device-missing',
+      (connection === 'live' && illHealth.length > 0) ||
+      connection === 'unavailable',
   };
 }
 

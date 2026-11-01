@@ -39,8 +39,6 @@ const connectionCaption: Record<MediaConnectionState, string | null> = {
   connecting: 'Media is connecting…',
   reconnecting: 'Media is reconnecting…',
   live: null,
-  'device-missing': 'Checked device missing',
-  'device-blocked': 'Camera or microphone blocked',
   denied: 'Media refused',
   unavailable: 'Media unavailable',
   ended: 'Call ended',
@@ -74,7 +72,7 @@ export function MediaStage({
   readonly connection: MediaConnectionState;
   /** The signed-in member's own media identity, or null for a viewer. */
   readonly ownIdentity: string | null;
-  /** My own microphone is deliberately muted and thus absent from tracks. */
+  /** My own deliberate mute choice; presence remains separately observed. */
   readonly ownMuted: boolean;
 }) {
   return (

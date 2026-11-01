@@ -105,7 +105,7 @@ test('a non-live connection states its own condition, never source health claims
     actual: [
       mediaStatus('reconnecting', [], { illHealth: [...cameraFailed] }).message,
       mediaStatus('denied', [], { illHealth: [...cameraFailed] }),
-      mediaStatus('device-blocked', [], { illHealth: [...cameraFailed] }).retry,
+      mediaStatus('live', [], { illHealth: [...cameraFailed] }).retry,
       mediaStatus('live', ['camera'], { illHealth: [...cameraFailed] }).retry,
     ],
     expected: [
@@ -144,7 +144,7 @@ test('blocked playback names itself and never masquerades as a device failure', 
       {
         message:
           'Connected Sound is blocked by your browser. Press Enable sound to play it. Your camera could not start.',
-        retry: false,
+        retry: true,
       },
       { message: 'Connected', retry: false },
     ],

@@ -26,16 +26,15 @@ const render = (
     }),
   );
 
-test('tiles preserve refused, blocked and ended conditions instead of calling all of them reconnecting', () => {
+test('tiles preserve refused and ended transport conditions instead of calling them reconnecting', () => {
   assert({
-    given: 'no tracks after refusal, browser block and terminal stop',
+    given: 'no tracks after refusal and terminal stop',
     should: 'name each observed connection condition',
     actual: [
       render('denied').includes('Media refused'),
-      render('device-blocked').includes('Camera or microphone blocked'),
       render('ended').includes('Call ended'),
     ],
-    expected: [true, true, true],
+    expected: [true, true],
   });
 });
 

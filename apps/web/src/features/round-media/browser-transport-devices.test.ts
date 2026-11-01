@@ -176,7 +176,7 @@ test('only a checked device the Room check passed is named missing; other failur
     given:
       'a default camera that is absent, and a checked camera the browser refuses, each the pass’s only source',
     should:
-      'reject each all-blocked pass with its browser error, name each through the typed report, and report no missing checked device',
+      'report each failed source without rejecting healthy reception, and report no missing checked device',
     actual: {
       uncheckedFailure,
       deniedFailure,
@@ -184,8 +184,8 @@ test('only a checked device the Room check passed is named missing; other failur
       missing,
     },
     expected: {
-      uncheckedFailure: 'OverconstrainedError',
-      deniedFailure: 'NotAllowedError',
+      uncheckedFailure: '',
+      deniedFailure: '',
       typed: [
         ['camera', 'OverconstrainedError'],
         ['camera', 'NotAllowedError'],
@@ -415,108 +415,59 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
  * pass with one working source keeps it (ISSUE-817/829 alongside the
  * attendance suite's one-open-socket invariant).
  */
-test('an all-blocked pass fails; one working source keeps the session live', async () => {
-  const both = stubSdk({ settles: true });
-  const refusingEverything = {
-    room: both.sdk.room,
-    capture: (() =>
-      Promise.reject(
-        new DOMException('private', 'NotAllowedError'),
-      )) as unknown as typeof both.sdk.capture,
-  };
-  const microphoneWorks = stubSdk({
-    settles: true,
-    missingSource: 'camera',
-    missingError: 'NotAllowedError',
-  });
-  let stoppedAllBlocked = 0;
-  const allBlocked = createBrowserMediaTransport(
-    {
-      ...events,
-      sourceFailed: () => undefined,
-    },
-    refusingEverything,
-  ).transport;
-  const controllerAllBlocked = createMediaController({
-    recovery: noRecovery,
-    roundId,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => snapshot,
-    },
-    transport: () => ({
-      connect: allBlocked.connect,
-      apply: async (state) => {
-        try {
-          await allBlocked.apply(state);
-        } finally {
-          void 0;
-        }
+test('serialized SDK capture failures cross the actual adapter as closed device facts', async () => {
+  const run = async (name: string, checked: boolean) => {
+    const stub = stubSdk({ settles: true });
+    const reported: string[] = [];
+    const missing: Source[] = [];
+    const browser = createBrowserMediaTransport(
+      {
+        ...events,
+        devices: checked
+          ? { camera: 'checked-camera', microphone: 'checked-mic' }
+          : {},
+        missing: (source) => void missing.push(source),
+        sourceFailed: (_source, failure) => void reported.push(failure.kind),
       },
-      stopTracks: () => {
-        stoppedAllBlocked++;
-      },
-      disconnect: allBlocked.disconnect,
-    }),
-    changed: () => undefined,
-  });
-  await controllerAllBlocked.join();
-  const partialController = createMediaController({
-    recovery: noRecovery,
-    roundId,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => snapshot,
-    },
-    transport: () =>
-      createBrowserMediaTransport(
-        {
-          ...events,
-          devices: { microphone: 'checked-microphone' },
+      {
+        ...stub.sdk,
+        capture: async () => {
+          throw { name };
         },
-        // The camera alone is refused; the checked microphone still captures.
-        (() => {
-          let refusedCamera = false;
-          const capture = microphoneWorks.sdk.capture.bind(microphoneWorks.sdk);
-          const sdk = {
-            room: microphoneWorks.sdk.room,
-            capture: ((options: {
-              audio?: boolean | undefined;
-              video?: unknown;
-            }) =>
-              !options.audio && !refusedCamera
-                ? ((refusedCamera = true),
-                  Promise.reject(
-                    new DOMException('private', 'NotAllowedError'),
-                  ))
-                : capture(
-                    options as never,
-                  )) as unknown as typeof microphoneWorks.sdk.capture,
-          };
-          return sdk as unknown as typeof microphoneWorks.sdk;
-        })(),
-      ).transport,
-    changed: () => undefined,
-  });
-  await partialController.join();
+      },
+    );
+    const controller = createMediaController({
+      recovery: noRecovery,
+      roundId,
+      api: { admit: async () => admission, reconcile: async () => snapshot },
+      transport: () => browser.transport,
+      changed: () => undefined,
+    });
+    await controller.join();
+    const result = { state: controller.state(), missing, reported };
+    controller.stop();
+    return result;
+  };
   assert({
     given:
-      'both granted sources refused by the browser, then the same refusal with a working checked microphone',
+      'serialized permission refusal and absent checked inputs from the SDK capture boundary',
     should:
-      'tear the empty session down to device-blocked, and keep the partial one live with the microphone published',
-    actual: {
-      allBlockedState: controllerAllBlocked.state(),
-      allBlockedStoppedTracks: stoppedAllBlocked > 0,
-      partialState: partialController.state(),
-      partialPublished: sources(microphoneWorks.published),
-    },
-    expected: {
-      allBlockedState: 'device-blocked',
-      allBlockedStoppedTracks: true,
-      partialState: 'live',
-      partialPublished: ['microphone'],
-    },
+      'stop an all-blocked session honestly and name checked absence without claiming live capture',
+    actual: [
+      await run('NotAllowedError', false),
+      await run('NotFoundError', true),
+    ],
+    expected: [
+      {
+        state: 'live',
+        missing: [],
+        reported: ['permission', 'permission'],
+      },
+      {
+        state: 'live',
+        missing: ['camera', 'microphone'],
+        reported: [],
+      },
+    ],
   });
-  controllerAllBlocked.stop();
-  partialController.stop();
 });

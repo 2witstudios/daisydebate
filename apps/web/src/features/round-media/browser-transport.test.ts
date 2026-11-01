@@ -235,11 +235,12 @@ test('POI local mute changes audio without changing server publish grants', asyn
   browser.transport.stopTracks();
 });
 
-test('a failed local microphone change stops capture before offering device recovery', async () => {
+test('a failed local microphone change stops only that source and preserves reception', async () => {
   const { stub, browser, microphone } = await mutedMicrophone();
   microphone.unmute = async () => {
     throw new Error('Device disconnected');
   };
+  stub.subscribePeer('microphone');
   let failed = false;
   try {
     await browser.setMicrophoneMuted(false);
@@ -248,10 +249,13 @@ test('a failed local microphone change stops capture before offering device reco
   }
   assert({
     given: 'unmuting fails with an unknown track outcome',
-    should:
-      'fail and stop every captured track instead of leaving unknown audio live',
-    actual: [failed, stub.captured.every((track) => track.ended)],
-    expected: [true, true],
+    should: 'stop the unknown microphone while preserving the working camera',
+    actual: [
+      failed,
+      microphone.ended,
+      stub.captured.find((track) => track.source === 'camera')!.ended,
+    ],
+    expected: [true, true, false],
   });
 });
 

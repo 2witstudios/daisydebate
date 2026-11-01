@@ -10,10 +10,7 @@ import {
   type LocalTrack,
 } from 'livekit-client';
 import type { RoundMediaState } from '@daisy/protocol';
-import {
-  CHECKED_DEVICE_MISSING,
-  type BrowserMediaTransport,
-} from './media-controller';
+import type { BrowserMediaTransport } from './media-controller';
 
 export type MediaTrack = {
   readonly identity: string;
@@ -58,15 +55,6 @@ const desiredSources = (
   permitted: readonly Source[] | null,
 ): readonly Source[] => permitted ?? granted;
 
-const deviceAbsent = (error: unknown) =>
-  error instanceof Error &&
-  ['NotFoundError', 'OverconstrainedError'].includes(error.name);
-/** A device the Room check passed is gone; carries no browser detail. */
-const checkedDeviceMissing = () =>
-  Object.assign(new Error('Checked device missing'), {
-    name: CHECKED_DEVICE_MISSING,
-  });
-
 /** Browser SDK only. Opaque identities stay in memory; no SDK diagnostics reach console. */
 export function createBrowserMediaTransport(
   events: {
@@ -77,7 +65,6 @@ export function createBrowserMediaTransport(
     readonly playbackChanged?: (allowed: boolean) => void;
     /** A successful explicit choice, not an automatic floor/permission mute. */
     readonly microphoneChanged?: (muted: boolean) => void;
-    readonly microphoneFailed?: () => void;
     readonly microphoneMuted?: boolean;
     readonly devices?: {
       readonly camera?: string;
@@ -136,7 +123,11 @@ export function createBrowserMediaTransport(
             : publication.source === Track.Source.Microphone
               ? 'microphone'
               : null;
-        if (source && publication.track)
+        if (
+          source &&
+          publication.track &&
+          publication.track.mediaStreamTrack?.readyState !== 'ended'
+        )
           snapshot.push({
             identity: participant.identity,
             source,
@@ -190,12 +181,18 @@ export function createBrowserMediaTransport(
   const audioCapture = events.devices?.microphone
     ? { deviceId: { exact: events.devices.microphone } }
     : true;
-  /** Only a device the Room check passed is reported missing (ISSUE-573). */
-  const checked = <T>(source: Source, work: Promise<T>) =>
+  /** Device errors are closed source facts; they never invalidate reception. */
+  const reportSourceFailure = (source: Source, error: unknown) => {
+    if (stopped) return;
+    const failure = sourceFailureOf(error);
+    if (events.devices?.[source] && failure.kind === 'absence')
+      events.missing?.(source);
+    else events.sourceFailed?.(source, failure);
+  };
+  const checked = (source: Source, work: Promise<LocalTrack[]>) =>
     work.catch((error: unknown) => {
-      if (!events.devices?.[source] || !deviceAbsent(error)) throw error;
-      if (!stopped) events.missing?.(source);
-      throw checkedDeviceMissing();
+      reportSourceFailure(source, error);
+      return [];
     });
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
@@ -235,20 +232,12 @@ export function createBrowserMediaTransport(
   };
   const warmMicrophone = async (desired: readonly Source[]) => {
     if (desired.length === 0) return releaseWarm();
+    if (desired.includes('microphone')) return;
     if (holdsMicrophone()) return;
     const [track] = await checked(
       'microphone',
       sdk.capture({ audio: audioCapture, video: false }),
-    ).catch((error: unknown) => {
-      if (stopped) return [] as LocalTrack[];
-      // A checked device gone is already reported through `missing`; every
-      // other warm failure is a per-source failure to report, never a silent
-      // swallow (ISSUE-817/829).
-      if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
-        return [] as LocalTrack[];
-      events.sourceFailed?.('microphone', sourceFailureOf(error));
-      return [] as LocalTrack[];
-    });
+    );
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };
@@ -283,7 +272,8 @@ export function createBrowserMediaTransport(
       } catch (error) {
         track.stop();
         tracks.delete(source);
-        throw error;
+        reportSourceFailure(source, error);
+        continue;
       }
       if (stopped) {
         track.stop();
@@ -300,39 +290,13 @@ export function createBrowserMediaTransport(
       const desired = desiredSources(granted, permitted());
       for (const [source, track] of tracks)
         if (!desired.includes(source)) await retire(source, track, desired);
-      // A source that cannot capture or publish is per-source ill-health,
-      // not a fatal session: report it and keep every other source
-      // publishing (ISSUE-817/829). Never a silent swallow. One exception
-      // stays fatal: when a pass grants sources and not one of them could
-      // publish, the session holds nothing — publish must not keep an empty
-      // transport (and its subscription sockets) alive on behalf of devices
-      // the browser refused entirely.
-      const failed: [Source, unknown][] = [];
+      // Local capture and publication failures are per source. Even zero
+      // local publications cannot invalidate independently authorized reception.
       for (const source of desired) {
         if (stopped) return;
-        if (tracks.has(source)) continue;
-        try {
-          await publishSource(source);
-        } catch (error) {
-          if (stopped) return;
-          failed.push([source, error]);
-          if (!(
-            error instanceof Error && error.name === CHECKED_DEVICE_MISSING
-          ))
-            events.sourceFailed?.(source, sourceFailureOf(error));
-        }
+        if (!tracks.has(source)) await publishSource(source);
       }
-      if (desired.length > 0 && tracks.size === 0 && failed.length > 0) {
-        const firstError = failed[0]![1];
-        // A checked device gone is per-source ill-health (ISSUE-573), never
-        // a refusal to publish: only true capture/publish refusals fail.
-        if (
-          firstError instanceof Error &&
-          firstError.name !== CHECKED_DEVICE_MISSING
-        )
-          throw firstError;
-      }
-      await warmMicrophone(desired).catch(() => undefined);
+      await warmMicrophone(desired);
       if (!stopped) emit();
     });
     return work;
@@ -376,8 +340,15 @@ export function createBrowserMediaTransport(
       } catch (error) {
         microphoneMuted = previousMuted;
         if (!stopped) {
-          events.microphoneFailed?.();
-          stopTracks();
+          microphone?.stop();
+          tracks.delete('microphone');
+          if (warm === microphone) warm = null;
+          reportSourceFailure('microphone', error);
+          if (microphone)
+            void room.localParticipant
+              .unpublishTrack(microphone, true)
+              .catch(() => undefined);
+          emit();
         }
         throw error;
       }
