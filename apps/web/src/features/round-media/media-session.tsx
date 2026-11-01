@@ -1,8 +1,8 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
-import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
+import type { createRoundTime } from '../../ui/debate-room/use-second';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -65,9 +65,11 @@ const requestMedia = async (
 function RoundMediaSession({
   view,
   onRefresh,
+  roundTime,
 }: {
   readonly view: RoundView;
   readonly onRefresh: () => void;
+  readonly roundTime: ReturnType<typeof createRoundTime>;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
   const [microphoneMuted, setMicrophoneMuted] = useState(poi);
@@ -139,12 +141,13 @@ function RoundMediaSession({
     void controller.current?.reconcile();
     const next = nextMediaRefreshAt(view);
     if (next === null) return;
+    const nowServer = roundTime.nowMs();
     const timer = window.setTimeout(
       () => {
         refresh.current();
         void controller.current?.reconcile();
       },
-      Math.max(0, next - Date.parse(systemClock.now())),
+      Math.max(0, next - nowServer),
     );
     return () => window.clearTimeout(timer);
   }, [view]);
@@ -219,9 +222,17 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void) =>
+export const roundMediaSlot = (
+  onRefresh: () => void,
+  roundTime: ReturnType<typeof createRoundTime>,
+) =>
   function RoundMediaSlot(view: RoundView) {
     return (
-      <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+      <RoundMediaSession
+        key={view.id}
+        view={view}
+        onRefresh={onRefresh}
+        roundTime={roundTime}
+      />
     );
   };

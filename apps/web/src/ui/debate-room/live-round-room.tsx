@@ -4,7 +4,7 @@ import './zod-jitless';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -23,7 +23,7 @@ import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
-import { useSecond } from './use-second';
+import { useSecond, createRoundTime, defaultMonotonicClock } from './use-second';
 
 /**
  * The mounted round room: the position derived each second from the
@@ -71,7 +71,10 @@ export function LiveRoundRoom({
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const defaultMedia = useMemo(() => roundMediaSlot(refresh), [refresh]);
+  const defaultMedia = useMemo(
+    () => roundMediaSlot(refresh, roundTime),
+    [refresh, roundTime],
+  );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
@@ -89,7 +92,22 @@ export function LiveRoundRoom({
     },
     [driver],
   );
-  const now = useSecond(renderedAtMs);
+  const roundTimeRef = useRef<ReturnType<typeof createRoundTime> | null>(null);
+  if (roundTimeRef.current === null) {
+    const anchor = defaultMonotonicClock();
+    roundTimeRef.current = createRoundTime({
+      initial: {
+        serverNowMs: renderedAtMs,
+        sentAtMs: anchor,
+        receivedAtMs: anchor,
+        generation: 0,
+        uncertaintyMs: 2000,
+      },
+      monotonicNowMs: defaultMonotonicClock,
+    });
+  }
+  const roundTime = roundTimeRef.current!;
+  const now = useSecond(renderedAtMs, roundTime);
   const round = useMemo(
     () => liveRoundOf(view, actorId, now),
     [view, actorId, now],
