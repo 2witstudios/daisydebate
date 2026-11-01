@@ -172,9 +172,9 @@ test('only a checked device the Room check passed is named missing; other failur
   const deniedFailure = await failureOf(denied.apply(publish(['camera'])));
   assert({
     given:
-      'a default camera that is absent, and a checked camera the browser refuses',
+      'a default camera that is absent, and a checked camera the browser refuses, each the pass’s only source',
     should:
-      'resolve each per-source failure as source ill-health, name the unchecked absence through its own typed report, and keep device-missing for a checked device the browser names gone',
+      'reject each all-blocked pass with its browser error, name each through the typed report, and report no missing checked device',
     actual: {
       uncheckedFailure,
       deniedFailure,
@@ -182,8 +182,8 @@ test('only a checked device the Room check passed is named missing; other failur
       missing,
     },
     expected: {
-      uncheckedFailure: '',
-      deniedFailure: '',
+      uncheckedFailure: 'OverconstrainedError',
+      deniedFailure: 'NotAllowedError',
       typed: [
         ['camera', 'OverconstrainedError'],
         ['camera', 'NotAllowedError'],
@@ -439,4 +439,121 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
     },
   });
   transport.stopTracks();
+});
+
+/**
+ * The CI-shaped regression: a browser that refuses every granted device
+ * (headless Chromium without permissions). A pass with nothing publishable
+ * must fail honestly instead of holding an empty transport — while the same
+ * pass with one working source keeps it (ISSUE-817/829 alongside the
+ * attendance suite's one-open-socket invariant).
+ */
+test('an all-blocked pass fails; one working source keeps the session live', async () => {
+  const roundId = 'r'.repeat(24);
+  const both = stubSdk({ settles: true });
+  const refusingEverything = {
+    room: both.sdk.room,
+    capture: (() =>
+      Promise.reject(
+        new DOMException('private', 'NotAllowedError'),
+      )) as unknown as typeof both.sdk.capture,
+  };
+  const microphoneWorks = stubSdk({
+    settles: true,
+    missingSource: 'camera',
+    missingError: 'NotAllowedError',
+  });
+  let stoppedAllBlocked = 0;
+  let connection = 'connecting';
+  const allBlocked = createBrowserMediaTransport(
+    {
+      ...events,
+      sourceFailed: () => undefined,
+    },
+    refusingEverything,
+  ).transport;
+  const controllerAllBlocked = createMediaController({
+    roundId,
+    api: {
+      admit: async () => liveAdmission(roundId),
+      reconcile: async () => liveSnapshot(roundId),
+    },
+    transport: () => ({
+      connect: allBlocked.connect,
+      apply: async (state) => {
+        try {
+          await allBlocked.apply(state);
+        } finally {
+          void 0;
+        }
+      },
+      stopTracks: () => {
+        stoppedAllBlocked++;
+      },
+      disconnect: allBlocked.disconnect,
+    }),
+    changed: (state) => {
+      connection = state;
+    },
+  });
+  await controllerAllBlocked.join();
+  const partialController = createMediaController({
+    roundId,
+    api: {
+      admit: async () => liveAdmission(roundId),
+      reconcile: async () => liveSnapshot(roundId),
+    },
+    transport: () =>
+      createBrowserMediaTransport(
+        {
+          ...events,
+          devices: { microphone: 'checked-microphone' },
+        },
+        // The camera alone is refused; the checked microphone still captures.
+        (() => {
+          let refusedCamera = false;
+          const capture = microphoneWorks.sdk.capture.bind(microphoneWorks.sdk);
+          const sdk = {
+            room: microphoneWorks.sdk.room,
+            capture: ((options: {
+              audio?: boolean | undefined;
+              video?: unknown;
+            }) =>
+              !options.audio && !refusedCamera
+                ? ((refusedCamera = true),
+                  Promise.reject(
+                    new DOMException('private', 'NotAllowedError'),
+                  ))
+                : capture(
+                    options as never,
+                  )) as unknown as typeof microphoneWorks.sdk.capture,
+          };
+          return sdk as unknown as typeof microphoneWorks.sdk;
+        })(),
+      ).transport,
+    changed: (state) => {
+      if (state === 'live') connection = state;
+    },
+  });
+  await partialController.join();
+  assert({
+    given:
+      'both granted sources refused by the browser, then the same refusal with a working checked microphone',
+    should:
+      'tear the empty session down to device-blocked, and keep the partial one live with the microphone published',
+    actual: {
+      allBlockedState: controllerAllBlocked.state(),
+      allBlockedStoppedTracks: stoppedAllBlocked > 0,
+      partialState: partialController.state(),
+      partialPublished: sources(microphoneWorks.published),
+    },
+    expected: {
+      allBlockedState: 'device-blocked',
+      allBlockedStoppedTracks: true,
+      partialState: 'live',
+      partialPublished: ['microphone'],
+    },
+  });
+  controllerAllBlocked.stop();
+  partialController.stop();
 });

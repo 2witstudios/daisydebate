@@ -281,19 +281,34 @@ export function createBrowserMediaTransport(
         if (!desired.includes(source)) await retire(source, track, desired);
       // A source that cannot capture or publish is per-source ill-health,
       // not a fatal session: report it and keep every other source
-      // publishing (ISSUE-817/829). Never a silent swallow. Transport-level
-      // and connection failures keep their own fatal paths.
+      // publishing (ISSUE-817/829). Never a silent swallow. One exception
+      // stays fatal: when a pass grants sources and not one of them could
+      // publish, the session holds nothing — publish must not keep an empty
+      // transport (and its subscription sockets) alive on behalf of devices
+      // the browser refused entirely.
+      const failed: [Source, unknown][] = [];
       for (const source of desired) {
         if (stopped) return;
         if (tracks.has(source)) continue;
         try {
           await publishSource(source);
         } catch (error) {
+          failed.push([source, error]);
           if (!(
             error instanceof Error && error.name === CHECKED_DEVICE_MISSING
           ))
             events.sourceFailed?.(source, error);
         }
+      }
+      if (desired.length > 0 && tracks.size === 0 && failed.length > 0) {
+        const firstError = failed[0]![1];
+        // A checked device gone is per-source ill-health (ISSUE-573), never
+        // a refusal to publish: only true capture/publish refusals fail.
+        if (
+          firstError instanceof Error &&
+          firstError.name !== CHECKED_DEVICE_MISSING
+        )
+          throw firstError;
       }
       await warmMicrophone(desired).catch(() => undefined);
       if (!stopped) emit();
