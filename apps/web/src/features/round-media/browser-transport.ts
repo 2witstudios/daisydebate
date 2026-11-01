@@ -1,4 +1,9 @@
-import { sourceFailureOf, type SourceFailure } from './source-failure';
+import type { CheckedDeviceRead } from '../video/device-selection';
+import {
+  preferenceFailureOf,
+  sourceFailureOf,
+  type SourceFailure,
+} from './source-failure';
 import {
   Room,
   RoomEvent,
@@ -66,10 +71,7 @@ export function createBrowserMediaTransport(
     /** A successful explicit choice, not an automatic floor/permission mute. */
     readonly microphoneChanged?: (muted: boolean) => void;
     readonly microphoneMuted?: boolean;
-    readonly devices?: {
-      readonly camera?: string;
-      readonly microphone?: string;
-    };
+    readonly checkedDevices?: () => CheckedDeviceRead;
     /** A device the Room check passed is gone (ISSUE-573); the transport stays up. */
     readonly missing?: (source: Source) => void;
     /**
@@ -178,43 +180,63 @@ export function createBrowserMediaTransport(
       events.reconnect();
     }
   });
-  const audioCapture = events.devices?.microphone
-    ? { deviceId: { exact: events.devices.microphone } }
-    : true;
-  /** Device errors are closed source facts; they never invalidate reception. */
-  const reportSourceFailure = (source: Source, error: unknown) => {
+  const reportSourceFailure = (
+    source: Source,
+    error: unknown,
+    checked = false,
+  ) => {
     if (stopped) return;
     const failure = sourceFailureOf(error);
-    if (events.devices?.[source] && failure.kind === 'absence')
-      events.missing?.(source);
+    if (checked && failure.kind === 'absence') events.missing?.(source);
     else events.sourceFailed?.(source, failure);
   };
-  const checked = (source: Source, work: Promise<LocalTrack[]>) =>
-    work.catch((error: unknown) => {
-      reportSourceFailure(source, error);
+  const readInputs = (): CheckedDeviceRead => {
+    try {
+      return events.checkedDevices?.() ?? { state: 'available', choices: {} };
+    } catch {
+      return { state: 'unavailable', reason: 'unreadable' };
+    }
+  };
+  const capture = async (source: Source): Promise<LocalTrack[]> => {
+    if (stopped) return [];
+    const read = readInputs();
+    if (stopped) return [];
+    if (read.state === 'unavailable') {
+      events.sourceFailed?.(source, preferenceFailureOf(read.reason));
       return [];
-    });
+    }
+    // One immutable attempt snapshot supplies both constraints and attribution.
+    const choices = { ...read.choices };
+    try {
+      return await sdk.capture({
+        audio:
+          source === 'microphone'
+            ? choices.microphone
+              ? { deviceId: { exact: choices.microphone } }
+              : true
+            : false,
+        video:
+          source === 'camera'
+            ? {
+                resolution: VideoPresets.h360.resolution,
+                ...(choices.camera
+                  ? { deviceId: { exact: choices.camera } }
+                  : {}),
+              }
+            : false,
+      });
+    } catch (error) {
+      reportSourceFailure(source, error, Boolean(choices[source]));
+      return [];
+    }
+  };
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
       const held = warm;
       warm = null;
       return [held];
     }
-    return checked(
-      source,
-      sdk.capture({
-        audio: source === 'microphone' ? audioCapture : false,
-        video:
-          source === 'camera'
-            ? {
-                resolution: VideoPresets.h360.resolution,
-                ...(events.devices?.camera
-                  ? { deviceId: { exact: events.devices.camera } }
-                  : {}),
-              }
-            : false,
-      }),
-    );
+    return capture(source);
   };
   /**
    * A seat that publishes anything is a debater's: its microphone waits warm
@@ -234,10 +256,7 @@ export function createBrowserMediaTransport(
     if (desired.length === 0) return releaseWarm();
     if (desired.includes('microphone')) return;
     if (holdsMicrophone()) return;
-    const [track] = await checked(
-      'microphone',
-      sdk.capture({ audio: audioCapture, video: false }),
-    );
+    const [track] = await capture('microphone');
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };

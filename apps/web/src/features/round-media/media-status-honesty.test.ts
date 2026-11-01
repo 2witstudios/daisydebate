@@ -1,13 +1,14 @@
 import { sourceFailureOf } from './source-failure';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { mediaStatus, type MicrophoneEvidence } from './media-status';
+import {
+  mediaStatus,
+  type MicrophoneEvidence,
+  type SourceIllHealth,
+} from './media-status';
 
 setupRitewayBun();
 
-const cameraFailed: readonly (readonly [
-  'camera',
-  'permission' | 'absence' | 'failure',
-])[] = [
+const cameraFailed: readonly SourceIllHealth[] = [
   ['camera', sourceFailureOf(new DOMException('x', 'NotReadableError')).kind],
 ];
 
@@ -163,5 +164,31 @@ test('serialized browser source errors retain their permission and absence class
       sourceFailureOf('NotAllowedError').kind,
     ],
     expected: ['permission', 'absence', 'failure', 'failure'],
+  });
+});
+
+test('preference read failures name saved choices without inventing hardware or permission failure', () => {
+  assert({
+    given:
+      'unreadable saved camera preference and invalid microphone preference',
+    should: 'retain each typed reason and allow explicit retry',
+    actual: [
+      mediaStatus('live', [], {
+        illHealth: [['camera', 'preference-unreadable']],
+      }),
+      mediaStatus('live', [], {
+        illHealth: [['microphone', 'preference-invalid']],
+      }),
+    ],
+    expected: [
+      {
+        message: 'Connected Your saved camera choice could not be read.',
+        retry: true,
+      },
+      {
+        message: 'Connected Your saved microphone choice is invalid.',
+        retry: true,
+      },
+    ],
   });
 });

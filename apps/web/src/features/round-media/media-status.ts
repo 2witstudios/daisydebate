@@ -47,7 +47,14 @@ const illHealthWord = {
   permission: 'access is denied',
   absence: 'is unavailable',
   failure: 'could not start',
+  'preference-unreadable': 'could not be read',
+  'preference-invalid': 'is invalid',
 } as const;
+
+const isPreferenceFailure = (kind: SourceFailureKind) =>
+  kind === 'preference-unreadable' || kind === 'preference-invalid';
+const sourceFailureMessage = ([source, kind]: SourceIllHealth) =>
+  `${isPreferenceFailure(kind) ? `Your saved ${source} choice` : `Your ${source}`} ${illHealthWord[kind]}.`;
 
 /**
  * One sentence naming exactly the failed sources, claiming nothing about
@@ -61,15 +68,17 @@ const illHealthMessage = (
   const names = bad.map(([source]) => source);
   const both = names.includes('camera') && names.includes('microphone');
   if (both)
-    return `Your camera and microphone ${joinKinds(bad, 'could not start')}.`;
+    return bad.some(([, kind]) => isPreferenceFailure(kind))
+      ? bad.map(sourceFailureMessage).join(' ')
+      : `Your camera and microphone ${joinKinds(bad, 'could not start')}.`;
   if (names.includes('microphone')) {
-    const [, kind] = bad.find(([source]) => source === 'microphone')!;
-    return `Your microphone ${illHealthWord[kind]}.`;
+    return sourceFailureMessage(
+      bad.find(([source]) => source === 'microphone')!,
+    );
   }
   const [entry] = bad;
   if (!entry) return '';
-  const [, kind] = entry;
-  const cameraSentence = `Your camera ${illHealthWord[kind]}.`;
+  const cameraSentence = sourceFailureMessage(entry);
   // Only evidence of a live, unmuted published microphone can say it stays live.
   if (microphone === null) return cameraSentence;
   if (!microphone.published)
@@ -142,6 +151,5 @@ export function retryMissingDevices(
   actorId: string | null = null,
   forget: typeof forgetCheckedDevices = forgetCheckedDevices,
 ): readonly Source[] {
-  forget(roomId, missing, undefined, actorId);
-  return [];
+  return forget(roomId, missing, undefined, actorId) ? [] : missing;
 }

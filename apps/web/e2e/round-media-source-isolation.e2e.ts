@@ -1,12 +1,14 @@
+import { z } from 'zod';
 import { roundMediaStateSchema } from '@daisy/protocol';
-import { test, expect, openPage } from './support/fixtures';
+import { test, expect } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
-import { createHumanBallotRound } from './support/human-ballot-round';
 import {
   MEDIA_POLL,
   grantMedia,
   installMediaCapture,
+  openCheckedMediaRound,
+  expectConnected,
 } from './support/round-media';
 
 test('a camera capture failure after Ready keeps permitted microphone audio reaching the peer', async ({
@@ -14,20 +16,19 @@ test('a camera capture failure after Ready keeps permitted microphone audio reac
 }) => {
   const accounts = await createRoomLaunchAccounts(browser, 2);
   try {
-    const round = await createHumanBallotRound(accounts.members, 0);
-    const [speaker, listener] = accounts.members;
-    if (!speaker || !listener) throw new Error('Two actual members required');
+    const [speaker] = accounts.members;
+    if (!speaker) throw new Error('Actual speaker required');
     await grantMedia(accounts.members);
-    const source = await openPage(speaker.context, 'camera-failed speaker');
-    await installMediaCapture(source, 'camera-failure');
-    const peer = await openPage(
-      listener.context,
-      'hearing isolated microphone',
+    const { round, pages } = await openCheckedMediaRound(
+      accounts.members,
+      (page, index) =>
+        installMediaCapture(
+          page,
+          index === 0 ? 'camera-failure' : 'alternating',
+        ),
     );
-    await Promise.all([
-      source.goto(`/rounds/${round.id}/room`),
-      peer.goto(`/rounds/${round.id}/room`),
-    ]);
+    const [source, peer] = pages;
+    if (!source || !peer) throw new Error('Actual media pages required');
     await expect(
       source
         .getByRole('status')
@@ -95,6 +96,93 @@ test('a camera capture failure after Ready keeps permitted microphone audio reac
     expect(state.grants.subscribe).toBe(true);
     await source.screenshot({
       path: test.info().outputPath('camera-failed-microphone-live.png'),
+    });
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
+test('actual checked-device loss retries only the default camera and preserves the microphone choice', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    await grantMedia(accounts.members);
+    const { round, pages } = await openCheckedMediaRound(
+      accounts.members,
+      (page) => installMediaCapture(page, 'alternating'),
+    );
+    const source = pages[0]!;
+    await expectConnected(source);
+    const selection = z
+      .object({ camera: z.string().min(1), microphone: z.string().min(1) })
+      .parse(
+        await source.evaluate((roomId) => {
+          const entry = Object.entries(sessionStorage).find(([key]) =>
+            key.startsWith(`daisy:checked-devices:${roomId}:`),
+          );
+          return entry ? JSON.parse(entry[1]) : null;
+        }, round.roomId),
+      );
+    await source.addInitScript(() => {
+      const capture = navigator.mediaDevices.getUserMedia.bind(
+        navigator.mediaDevices,
+      );
+      navigator.mediaDevices.getUserMedia = (constraints) => {
+        const video = constraints?.video;
+        if (
+          location.pathname.startsWith('/rounds/') &&
+          video &&
+          typeof video === 'object' &&
+          video.deviceId
+        )
+          return Promise.reject(
+            new DOMException(
+              'controlled missing checked camera',
+              'OverconstrainedError',
+            ),
+          );
+        return capture(constraints);
+      };
+    });
+    let admissions = 0;
+    source.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname ===
+        `/api/rounds/${round.id}/media/session`
+      )
+        admissions++;
+    });
+    await source.reload();
+    await expect(
+      source
+        .getByRole('status')
+        .filter({ hasText: /checked camera is missing/ }),
+    ).toBeVisible(MEDIA_POLL);
+    await expect(source.getByLabel('Your camera', { exact: true })).toHaveCount(
+      0,
+    );
+    await source
+      .getByRole('button', { name: 'Retry camera and sound', exact: true })
+      .click();
+    await expect(source.getByLabel('Your camera', { exact: true })).toBeVisible(
+      MEDIA_POLL,
+    );
+    await expect(
+      source
+        .getByRole('status')
+        .filter({ hasText: /checked camera is missing/ }),
+    ).toHaveCount(0);
+    expect(admissions).toBe(1);
+    const after = await source.evaluate((roomId) => {
+      const entry = Object.entries(sessionStorage).find(([key]) =>
+        key.startsWith(`daisy:checked-devices:${roomId}:`),
+      );
+      return entry ? JSON.parse(entry[1]) : null;
+    }, round.roomId);
+    expect(after).toEqual({ microphone: selection.microphone });
+    await source.screenshot({
+      path: test.info().outputPath('checked-camera-default-recovery.png'),
     });
   } finally {
     await closeSettledLaunchContexts(accounts);

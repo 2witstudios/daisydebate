@@ -1,3 +1,4 @@
+import type { CheckedDeviceRead } from '../video/device-selection';
 import { z } from 'zod';
 
 const sourceErrorName = z.enum([
@@ -7,7 +8,12 @@ const sourceErrorName = z.enum([
   'OverconstrainedError',
   'NotReadableError',
 ]);
-export type SourceFailureKind = 'permission' | 'absence' | 'failure';
+export type SourceFailureKind =
+  | 'permission'
+  | 'absence'
+  | 'failure'
+  | 'preference-unreadable'
+  | 'preference-invalid';
 export type SourceFailure = {
   readonly name: z.infer<typeof sourceErrorName> | 'UnknownError';
   readonly kind: SourceFailureKind;
@@ -31,3 +37,12 @@ export function sourceFailureOf(error: unknown): SourceFailure {
     ? { name: parsed.data, kind: kinds[parsed.data] }
     : { name: 'UnknownError', kind: 'failure' };
 }
+
+/** A typed preference failure is separate from SDK permission or missing hardware. */
+export const preferenceFailureOf = (
+  reason: Extract<CheckedDeviceRead, { state: 'unavailable' }>['reason'],
+): SourceFailure => ({
+  name: 'UnknownError',
+  kind:
+    reason === 'unreadable' ? 'preference-unreadable' : 'preference-invalid',
+});

@@ -28,7 +28,10 @@ test('Round capture pins the same camera and warm microphone that passed the Roo
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'checked-camera', microphone: 'checked-mic' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'checked-camera', microphone: 'checked-mic' },
+      }),
     },
     stub.sdk,
   );
@@ -65,7 +68,10 @@ test('a missing checked camera at Round entry is reported explicitly and never f
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'gone-device' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'gone-device' },
+      }),
       missing: (source) => void missing.push(source),
       sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
@@ -103,7 +109,10 @@ test('a missing checked microphone keeps the camera turn live and is reported ex
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      devices: { microphone: 'gone-device' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { microphone: 'gone-device' },
+      }),
       missing: (source) => void missing.push(source),
       sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
@@ -164,7 +173,10 @@ test('only a checked device the Room check passed is named missing; other failur
   const denied = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'checked-camera' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'checked-camera' },
+      }),
       missing: (source) => void missing.push(source),
       sourceFailed: (source, error) => void reported.push([source, error.name]),
     },
@@ -207,7 +219,10 @@ test('a camera failure no longer stops the microphone: the pass isolates per sou
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'empty-slots' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'empty-slots' },
+      }),
       sourceFailed: (source, error) => void typed.push([source, error.name]),
     },
     broken.sdk,
@@ -257,7 +272,10 @@ test('the real controller keeps the working microphone and its subscriptions liv
   const browser = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'empty-slots' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'empty-slots' },
+      }),
       sourceFailed: (source, error) => void typed.push([source, error.name]),
       sourceHealthy: (source) => void healthy.push(source),
     },
@@ -314,7 +332,10 @@ test('a checked camera gone keeps the microphone live at Round entry through the
   const browser = createBrowserMediaTransport(
     {
       ...events,
-      devices: { camera: 'gone-device' },
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { camera: 'gone-device' },
+      }),
       missing: (source) => void missing.push(source),
       sourceFailed: (source, error) => void typed.push([source, error.name]),
     },
@@ -423,9 +444,12 @@ test('serialized SDK capture failures cross the actual adapter as closed device 
     const browser = createBrowserMediaTransport(
       {
         ...events,
-        devices: checked
-          ? { camera: 'checked-camera', microphone: 'checked-mic' }
-          : {},
+        checkedDevices: () => ({
+          state: 'available',
+          choices: checked
+            ? { camera: 'checked-camera', microphone: 'checked-mic' }
+            : {},
+        }),
         missing: (source) => void missing.push(source),
         sourceFailed: (_source, failure) => void reported.push(failure.kind),
       },

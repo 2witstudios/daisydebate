@@ -56,6 +56,7 @@ test('Retry forgets only the checked devices found gone, then clears them', () =
     'actor-a',
     (roomId, kinds) => {
       forgotten.push([roomId, kinds]);
+      return true;
     },
   );
   assert({
@@ -64,5 +65,15 @@ test('Retry forgets only the checked devices found gone, then clears them', () =
       'forget the camera choice alone for this Room and report nothing missing',
     actual: { forgotten, next },
     expected: { forgotten: [['room-a', ['camera']]], next: [] },
+  });
+});
+
+test('failed preference persistence cannot clear missing capture state', () => {
+  assert({
+    given: 'Retry whose forget adapter refuses persistence',
+    should:
+      'retain the missing kind instead of claiming the choice was removed',
+    actual: retryMissingDevices('room-a', ['camera'], 'actor-a', () => false),
+    expected: ['camera'],
   });
 });

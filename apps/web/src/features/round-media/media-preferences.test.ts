@@ -149,8 +149,11 @@ test('Round departure cleanup removes only its actor’s actual checked-device a
       scope.session.getItem('daisy:checked-devices:room-a:actor-a'),
     ],
     expected: [
-      {},
-      { camera: 'camera-actual', microphone: 'microphone-actual' },
+      { state: 'available', choices: {} },
+      {
+        state: 'available',
+        choices: { camera: 'camera-actual', microphone: 'microphone-actual' },
+      },
       null,
       false,
       null,

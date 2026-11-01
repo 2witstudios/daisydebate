@@ -148,7 +148,8 @@ function RoundMediaSession({
       transport: () => {
         const browser = createBrowserMediaTransport({
           microphoneMuted: muted.current,
-          devices: readCheckedDevices(view.roomId, undefined, actorId ?? null),
+          checkedDevices: () =>
+            readCheckedDevices(view.roomId, undefined, actorId ?? null),
           missing: (source) =>
             setMissing((current) =>
               current.includes(source) ? current : [...current, source],

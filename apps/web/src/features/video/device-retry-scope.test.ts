@@ -38,9 +38,12 @@ test('the actual Retry path clears only the missing device for the actor who che
       'drop only that actor’s missing camera so the reconnect captures the default, keep the microphone choice, and never write another principal’s key',
     actual: { before, after, otherActor },
     expected: {
-      before: { camera: 'gone-camera', microphone: 'good-microphone' },
-      after: { microphone: 'good-microphone' },
-      otherActor: {},
+      before: {
+        state: 'available',
+        choices: { camera: 'gone-camera', microphone: 'good-microphone' },
+      },
+      after: { state: 'available', choices: { microphone: 'good-microphone' } },
+      otherActor: { state: 'available', choices: {} },
     },
   });
 });
@@ -55,6 +58,9 @@ test('a retry that names no actor forgets nothing silently: the anonymous scope 
     should:
       'leave the signed-in actor’s record untouched rather than half-clearing it',
     actual: readCheckedDevices('room-1', host, 'actor-a'),
-    expected: { camera: 'gone-camera', microphone: 'good-microphone' },
+    expected: {
+      state: 'available',
+      choices: { camera: 'gone-camera', microphone: 'good-microphone' },
+    },
   });
 });
