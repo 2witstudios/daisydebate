@@ -87,6 +87,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'realtime-connection-store.e2e.ts': realtime,
   'round-clock-csp.e2e.ts': round,
   'stall-evidence.e2e.ts': round,
+  'round-timing-skew.e2e.ts': round,
   'room-launch.e2e.ts': room,
   'train.e2e.ts': [
     ...room,

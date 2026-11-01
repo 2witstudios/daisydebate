@@ -35,7 +35,6 @@ import {
   createRoundTime,
   defaultMonotonicClock,
   RESAMPLE_EVERY_MS,
-  type RoundTime,
 } from './use-second';
 
 /**
