@@ -108,18 +108,18 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     segments: [],
   } satisfies RoundView;
   const withSample = await readRoundReceipt(
-    async () => Response.json(frozen, { headers: { 'x-server-now-ms': '1730000000000' } }),
+    async () =>
+      Response.json(frozen, {
+        headers: { 'x-server-now-ms': '1730000000000' },
+      }),
     id,
   );
-  if (withSample.kind !== 'found' || withSample.serverSample === null)
+  if (withSample.kind !== 'found' || withSample.serverNowMs === null)
     throw new Error('expected the authorized sample');
   assert({
     given: 'an authorized read reporting an explicit server instant',
-    should: 'bind it to the monotonic request interval that measured it',
-    actual: [
-      withSample.serverSample.serverNowMs,
-      withSample.serverSample.sentAtMs <= withSample.serverSample.receivedAtMs,
-    ],
+    should: 'carry the server clock millisecond instant verbatim',
+    actual: [withSample.serverNowMs, Number.isFinite(withSample.serverNowMs)],
     expected: [1730000000000, true],
   });
   const variants = [
@@ -140,9 +140,44 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       'preserve the valid persisted fields and refuse substitution or malformed cast',
     actual: results,
     expected: [
-      { kind: 'found', round: frozen, serverSample: null, socketUrl: null },
+      { kind: 'found', round: frozen, serverNowMs: null, socketUrl: null },
       { kind: 'unavailable', socketUrl: null },
       { kind: 'unavailable', socketUrl: null },
     ],
+  });
+});
+
+test('the browser measures around the complete authorized reader, not its server process epoch', async () => {
+  const { round } = await import('../room-runtime/operations.test-support');
+  const { createMeasuredRead, createRoundTime } = await import('./round-time');
+  let clientMono = 1000;
+  const clock = createRoundTime({ monotonicNowMs: () => clientMono });
+  const gate = Promise.withResolvers<void>();
+  const read = createMeasuredRead({
+    read: () =>
+      readRoundReceipt(async () => {
+        await gate.promise;
+        return Response.json(round, {
+          headers: { 'x-server-now-ms': '90000' },
+        });
+      }, round.id),
+    roundTime: clock,
+    monotonicNowMs: () => clientMono,
+    nextGeneration: () => 1,
+  });
+  const pending = read();
+  clientMono = 1200;
+  gate.resolve();
+  const response = await pending;
+  assert({
+    given:
+      'a server-action-shaped complete reader whose server epoch never crosses the wire',
+    should: 'carry only serverNowMs and calibrate with client1000..1200',
+    actual: [
+      response.kind === 'found' ? Object.keys(response).sort() : [],
+      clock.calibration()?.serverAtReceiveMs,
+      clock.calibration()?.monoAtReceiveMs,
+    ],
+    expected: [['kind', 'round', 'serverNowMs', 'socketUrl'], 90100, 1200],
   });
 });

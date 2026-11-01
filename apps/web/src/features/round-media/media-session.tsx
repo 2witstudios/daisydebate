@@ -2,7 +2,9 @@
 import '../../ui/debate-room/zod-jitless';
 import { readCheckedDevices } from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
-import type { RoundTime } from '../../ui/debate-room/use-second';
+import { scheduleMediaDeadline } from './schedule-deadline';
+import { systemScheduler } from '../realtime/browser-adapters';
+import type { RoundTime } from '../round-runtime/round-time';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -60,9 +62,6 @@ const requestMedia = async (
   if (!response.ok) throw mediaFailure(response.status);
   return response.json() as Promise<unknown>;
 };
-
-/** How often media deadlines re-check the shared clock (a correction re-arms them). */
-const MEDIA_REFRESH_CHECK_MS = 500;
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
@@ -144,15 +143,15 @@ function RoundMediaSession({
     void controller.current?.reconcile();
     const next = nextMediaRefreshAt(view);
     if (next === null) return;
-    // Poll the shared clock so an accepted correction re-arms the deadline
-    // even when the Round view is unchanged between reads.
-    const timer = window.setInterval(() => {
-      if (roundTime.nowMs() < next) return;
-      window.clearInterval(timer);
-      refresh.current();
-      void controller.current?.reconcile();
-    }, MEDIA_REFRESH_CHECK_MS);
-    return () => window.clearInterval(timer);
+    return scheduleMediaDeadline({
+      deadlineMs: next,
+      roundTime,
+      scheduler: systemScheduler,
+      refresh: () => {
+        refresh.current();
+        void controller.current?.reconcile();
+      },
+    });
   }, [view, roundTime]);
   const status = mediaStatus(connection, missing);
   return (
@@ -225,10 +224,7 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (
-  onRefresh: () => void,
-  roundTime: RoundTime,
-) =>
+export const roundMediaSlot = (onRefresh: () => void, roundTime: RoundTime) =>
   function RoundMediaSlot(view: RoundView) {
     return (
       <RoundMediaSession

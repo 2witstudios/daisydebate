@@ -1,8 +1,8 @@
 'use client';
+import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { formatCountdown } from '../../lib/clock-display';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -16,12 +16,8 @@ import {
 import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
-import {
-  useSecond,
-  createRoundTime,
-  defaultMonotonicClock,
-  RESAMPLE_EVERY_MS,
-} from '../debate-room/use-second';
+import { useSecond } from '../debate-room/use-second';
+import { useRoundTime } from '../debate-room/use-round-time';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
@@ -163,42 +159,10 @@ export function LiveSpectatorRoom(props: {
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
 }) {
-  const generationRef = useRef(0);
-  const [roundTime] = useState(() => {
-    const at = defaultMonotonicClock();
-    const seed = createRoundTime({ monotonicNowMs: defaultMonotonicClock });
-    seed.sample({
-      serverNowMs: props.renderedAtMs,
-      sentAtMs: at,
-      receivedAtMs: at,
-      generation: 0,
-    });
-    return seed;
+  const { roundTime, sampledRead } = useRoundTime({
+    renderedAtMs: props.renderedAtMs,
+    read: props.read,
   });
-  const sampledRead = useCallback(async () => {
-    const response = await props.read();
-    if (response.kind === 'found' && response.serverSample !== null)
-      roundTime.sample({
-        ...response.serverSample,
-        generation: ++generationRef.current,
-      });
-    return response;
-  }, [props.read, roundTime]);
-  // Suspension or a stall must produce a fresh sample, not a frozen anchor.
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => void sampledRead(),
-      RESAMPLE_EVERY_MS,
-    );
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void sampledRead();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [sampledRead]);
   const [synced] = useLiveRoundView({ ...props, read: sampledRead });
   const view = synced.value;
   const now = useSecond(props.renderedAtMs, roundTime);
@@ -236,6 +200,7 @@ export function LiveSpectatorRoom(props: {
         </p>
       </section>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <RoundTimeNotice roundTime={roundTime} />
       {note ? <p role="status">{note}</p> : null}
       <ul
         aria-label="Debaters"

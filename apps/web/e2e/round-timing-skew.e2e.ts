@@ -6,10 +6,15 @@
  * displayed clock against the server's segment rows.
  */
 import { origin } from './support/accounts';
-import type { APIRequestContext } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
-import { createProofRoom, claim } from './support/room-launch-flow';
+import {
+  createProofRoom,
+  claim,
+  openRoomSetup,
+  saveRoundSettings,
+} from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { roundViewSchema, type RoundView } from '@daisy/protocol';
 
@@ -43,27 +48,6 @@ const openSegmentRemaining = (view: RoundView, atMs: number) => {
   return Date.parse(row.startedAt) + row.durationMs - atMs;
 };
 
-/** Read the round until it stores one open segment, with generous patience. */
-const readTheOpenRound = async (
-  request: APIRequestContext,
-  roundId: string,
-): Promise<{ readonly view: RoundView; readonly readAtMs: number }> => {
-  const started = elapsedMs();
-  for (;;) {
-    const response = await request.get(`/api/rounds/${roundId}`);
-    expect(response.status()).toBe(200);
-    const view = roundViewSchema.parse(await response.json());
-    const readAtMs = elapsedMs();
-    if (openSegmentRemaining(view, readAtMs) !== null)
-      return { view, readAtMs };
-    if (view.status === 'completed')
-      throw new Error('The round ended before the journey checked its display');
-    if (elapsedMs() - started > WAIT_FOR_ROUND_READ_MS)
-      throw new Error('The round never opened its first speech in the window');
-    await new Promise((resume) => setTimeout(resume, 1_000));
-  }
-};
-
 test('a live debater clock reads the server read, not the adjusted browser wall clock', async ({
   browser,
 }) => {
@@ -76,11 +60,19 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const host = await openPage(accounts.members[0]!.context, 'skew host');
     const guest = await openPage(accounts.members[1]!.context, 'skew guest');
     const seed = await createProofRoom(host, 'Timing skew proof');
+    const settings = await openRoomSetup(host, true);
+    for (const segment of seed.rules.segments)
+      await settings
+        .locator(`[name="duration.segment.${segment.key}"]`)
+        .fill('1:00');
+    await saveRoundSettings(host);
     await claim(host, seed, 'Affirmative 1');
     await claim(guest, seed, 'Negative 1');
     await host.reload();
     for (const page of [host, guest]) {
-      await page.getByRole('button', { name: 'Check camera', exact: true }).click();
+      await page
+        .getByRole('button', { name: 'Check camera', exact: true })
+        .click();
       await expect(page.getByText('✓ Camera', { exact: true })).toBeVisible();
       await page
         .getByRole('button', { name: 'Check microphone', exact: true })
@@ -88,7 +80,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       await expect(
         page.getByText('✓ Microphone', { exact: true }),
       ).toBeVisible();
-      await page.getByRole('button', { name: 'I’m ready', exact: true }).click();
+      await page
+        .getByRole('button', { name: 'I’m ready', exact: true })
+        .click();
       await expect(
         page.getByRole('button', { name: 'Not ready', exact: true }),
       ).toBeEnabled();
@@ -96,55 +90,223 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect(
       host.getByRole('button', { name: 'Start round', exact: true }),
     ).toBeEnabled();
-    await host.getByRole('button', { name: 'Start round', exact: true }).click();
+    await host
+      .getByRole('button', { name: 'Start round', exact: true })
+      .click();
     await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
     roundId = new URL(host.url()).pathname.split('/').at(-2)!;
     await expect(guest).toHaveURL(host.url());
+    // The Room's start-round admits a frozen scheduled Round; its own host
+    // Start command is what begins the speeches (the probe posts the same
+    // command over HTTP; this journey presses the real control).
+    await expect(
+      host.getByRole('button', { name: 'Start round', exact: true }),
+    ).toBeEnabled({ timeout: 15_000 });
+    await host
+      .getByRole('button', { name: 'Start round', exact: true })
+      .click();
 
-    // This round room's browser session now reports a wall clock two minutes
-    // fast. A display computed from raw wall time would drift, hanging the
-    // whole round by the skew; the server read and monotonic elapsed keep it
-    // pinned to authority.
+    // The assertion: with this session's wall clock shifted two minutes
+    // ahead, the display must still read the server's own authority. A raw
+    // wall-time display would sit a full two minutes off; the calibrated
+    // monotonic projection stays inside the m:ss reading tolerance.
     await host.clock.setSystemTime(elapsedMs() + TWO_MINUTE_SKEW_MS);
-    const { view, readAtMs } = await readTheOpenRound(
-      accounts.members[0]!.context.request,
-      roundId,
-    );
-    expect(
-      ['active'].includes(view.status),
-      `${roundId} is live with a stored ${view.segments.length} row(s)`,
-    ).toBe(true);
-    expect(view.rules.segments.length).toBeGreaterThan(0);
-    const remainingAtRead = openSegmentRemaining(view, readAtMs)!;
-    expect(
-      remainingAtRead > 0,
-      `the open segment has ${remainingAtRead} ms left on read`,
-    ).toBe(true);
     await expect
-      .poll(
-        async () => {
-          const aria = await host
-            .getByRole('timer')
-            .getAttribute('aria-label');
-          const displayed = parseClock(aria);
-          const latest = openSegmentRemaining(
-            roundViewSchema.parse(
-              await (
-                await accounts.members[0]!.context.request.get(
-                  `/api/rounds/${roundId}`,
-                )
-              ).json(),
-            ),
-            elapsedMs(),
-          );
-          if (displayed === Number.POSITIVE_INFINITY || latest === null)
-            return Number.POSITIVE_INFINITY; // keep polling until both are in place
-          return Math.abs(displayed - latest);
-        },
-        { timeout: WAIT_FOR_ROUND_READ_MS },
-      )
+      .poll(() => displayDeltaMs(host, accounts, roundId!), {
+        timeout: WAIT_FOR_ROUND_READ_MS,
+      })
       .toBeLessThan(READING_TOLERANCE_MS);
+
+    // The same room, wall clock shifted two minutes BEHIND: an adjustment in
+    // the other direction moves nothing on the display either.
+    await host.clock.setSystemTime(elapsedMs() - TWO_MINUTE_SKEW_MS);
+    await expect
+      .poll(() => displayDeltaMs(host, accounts, roundId!), {
+        timeout: WAIT_FOR_ROUND_READ_MS,
+      })
+      .toBeLessThan(READING_TOLERANCE_MS);
+
+    // Delay the actual SSR response after its render seed was generated.
+    // The first calibrated read must remove this six-second hydration lag.
+    const roomUrl = host.url();
+    const mediaAt: number[] = [];
+    host.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        request.url().endsWith('/media/reconcile')
+      )
+        mediaAt.push(elapsedMs());
+    });
+    await host.route(roomUrl, async (route) => {
+      if (!route.request().isNavigationRequest()) return route.continue();
+      const response = await route.fetch();
+      await new Promise((resolve) => setTimeout(resolve, 6000));
+      await route.fulfill({ response });
+    });
+    await host.reload();
+    await host.unrouteAll({ behavior: 'wait' });
+    const clockStatus = host.locator('[data-round-time]');
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+    await expect(clockStatus).toContainText('±');
+    await expect
+      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .toBeLessThan(2000);
+
+    // Delay real authorized action replies beyond the accepted RTT envelope.
+    // The resource may be current while its clock evidence is visibly stale.
+    let delayed = false;
+    await host.route(roomUrl, async (route) => {
+      if (
+        route.request().method() !== 'POST' ||
+        !route.request().headers()['next-action']
+      )
+        return route.continue();
+      const response = await route.fetch();
+      const body = await response.text();
+      if (body.includes('serverNowMs')) {
+        delayed = true;
+        await new Promise((resolve) => setTimeout(resolve, 2300));
+      }
+      await route.fulfill({ response, body });
+    });
+    await host.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect.poll(() => delayed).toBe(true);
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'stale', {
+      timeout: 10000,
+    });
+    await host.unrouteAll({ behavior: 'wait' });
+    await host.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'current', {
+      timeout: 10000,
+    });
+
+    // A bounded delayed reply is accepted and its measured RTT is visible.
+    await host.route(roomUrl, async (route) => {
+      if (
+        route.request().method() !== 'POST' ||
+        !route.request().headers()['next-action']
+      )
+        return route.continue();
+      const response = await route.fetch();
+      const body = await response.text();
+      if (body.includes('serverNowMs'))
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.fulfill({ response, body });
+    });
+    await host.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect(clockStatus).toContainText(/±[2-9]\d{2} ms/);
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+    await expect
+      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .toBeLessThan(2000);
+    await host.unrouteAll({ behavior: 'wait' });
+
+    // Freeze the browser renderer, let the real server advance, then resume.
+    // Visibility return must obtain fresh evidence, not merely retick the seed.
+    const session = await host.context().newCDPSession(host);
+    const before = await serverNow(accounts, roundId!);
+    await session.send('Page.setWebLifecycleState', { state: 'frozen' });
+    await expect
+      .poll(async () => (await serverNow(accounts, roundId!)) - before)
+      .toBeGreaterThan(3000);
+    const resumedRead = host.waitForResponse(
+      async (response) =>
+        response.request().method() === 'POST' &&
+        Boolean(response.request().headers()['next-action']) &&
+        (await response.text()).includes('serverNowMs'),
+    );
+    await session.send('Page.setWebLifecycleState', { state: 'active' });
+    await host.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+    await expect
+      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .toBeLessThan(2000);
+    expect((await resumedRead).status()).toBe(200);
+    await session.detach();
+
+    // Observe the mounted media session's real reconcile HTTP at the speech
+    // boundary after the same-view hydration correction. No media is mocked.
+    const response = await accounts.members[0]!.context.request.get(
+      `/api/rounds/${roundId}`,
+    );
+    const view = roundViewSchema.parse(await response.json());
+    const segment = view.segments[0]!;
+    const deadline = Date.parse(segment.startedAt) + segment.durationMs;
+    await expect
+      .poll(() => Math.min(...mediaAt.map((at) => Math.abs(at - deadline))), {
+        timeout: 70000,
+      })
+      .toBeLessThan(2000);
+    await expect
+      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .toBeLessThan(2000);
+    await test.info().attach('round-timing-evidence', {
+      body: JSON.stringify({
+        candidate: process.env.GIT_COMMIT ?? null,
+        cases: [
+          'ahead wall skew',
+          'reverse wall skew',
+          'six-second SSR delay',
+          'rejected2300ms RTT with visible stale',
+          'accepted400ms reply with visible uncertainty',
+          'renderer freeze/resume with fresh authorized read',
+          'actual media boundary',
+        ],
+        clockStatus: await clockStatus.textContent(),
+        displayDeltaMs: await displayDeltaMs(host, accounts, roundId!),
+        deadlineMs: deadline,
+        closestMediaReconcileDeltaMs: Math.min(
+          ...mediaAt.map((at) => Math.abs(at - deadline)),
+        ),
+      }),
+      contentType: 'application/json',
+    });
+    await test.info().attach('round-timing-browser', {
+      body: await host.screenshot(),
+      contentType: 'image/png',
+    });
   } finally {
     await closeSettledLaunchContexts(accounts);
   }
 });
+
+/** |displayed remaining − server-authoritative remaining| at one instant. */
+async function displayDeltaMs(
+  host: Page,
+  accounts: Awaited<ReturnType<typeof createRoomLaunchAccounts>>,
+  roundId: string,
+): Promise<number> {
+  const [aria, body] = await Promise.all([
+    host.getByRole('timer').getAttribute('aria-label'),
+    accounts.members[0]!.context.request.get(`/api/rounds/${roundId}`),
+  ]);
+  const displayed = parseClock(aria);
+  const latest = openSegmentRemaining(
+    roundViewSchema.parse(await body.json()),
+    Number(body.headers()['x-server-now-ms']),
+  );
+  if (displayed === Number.POSITIVE_INFINITY || latest === null)
+    return Number.POSITIVE_INFINITY; // keep polling until both are in place
+  return Math.abs(displayed - latest);
+}
+
+async function serverNow(
+  accounts: Awaited<ReturnType<typeof createRoomLaunchAccounts>>,
+  roundId: string,
+) {
+  const response = await accounts.members[0]!.context.request.get(
+    `/api/rounds/${roundId}`,
+  );
+  expect(response.status()).toBe(200);
+  const now = Number(response.headers()['x-server-now-ms']);
+  expect(Number.isFinite(now)).toBe(true);
+  return now;
+}

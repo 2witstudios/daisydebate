@@ -22,7 +22,7 @@ const render = (round: RoundView, nowMs: number) =>
       read={async () => ({
         kind: 'found',
         round,
-        serverSample: null,
+        serverNowMs: null,
         socketUrl: null,
       })}
       socketUrl={null}
