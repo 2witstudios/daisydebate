@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { DocumentsApi } from './document-sync';
-import { manualTimers, stored } from './document-sync.test-support';
+import { manualTimers, memoryStorage, stored } from './document-sync.test-support';
 import { RETRYING_NOTICE, refusedNotice } from './save-notice';
 import {
   initialSaveStatus,
@@ -51,9 +51,11 @@ describe('roundSync', () => {
     const { timers, fire } = manualTimers();
     const sync = roundSync(
       'r',
+      'user',
       api(async () => ({ status: 'saved', revision: 2 })),
       (event) => events.push(event),
       timers,
+      memoryStorage(),
     );
     await sync.load();
     sync.change('a', '<p>edited</p>');
@@ -72,11 +74,13 @@ describe('roundSync', () => {
     const { timers, fire } = manualTimers();
     const sync = roundSync(
       'r',
+      'user',
       api(async () => {
         throw new Error('offline');
       }),
       (event) => events.push(event),
       timers,
+      memoryStorage(),
     );
     await sync.load();
     sync.change('a', '<p>edited</p>');

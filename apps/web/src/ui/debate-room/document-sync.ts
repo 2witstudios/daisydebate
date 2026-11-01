@@ -90,6 +90,8 @@ export type DocumentSync = {
   readonly flushKeepalive: () => Promise<void>;
   /** Recovered drafts offered back to the room. */
   readonly recoveredDrafts: () => ReadonlyMap<string, RecoveredDraft>;
+  /** Discards a recovered draft and any waiting edit behind it. */
+  readonly discardRecovered: (id: string) => void;
 };
 
 /** The longest wait between retries of a failed save. */
@@ -149,6 +151,10 @@ export function createDocumentSync({
   const refused = new Map<string, string>();
 
   const recovered = new Map<string, RecoveredDraft>();
+
+  /** Reserved body bytes across outstanding keepalive sends. */
+  let keepaliveReserved = 0;
+  const reservePool = new Map<string, number>();
 
   const schedule = (id: string, ms: number) => {
     timers.clear(handles.get(id));
@@ -306,10 +312,17 @@ export function createDocumentSync({
       .catch((error: unknown) => failed(id, html, error));
   }
 
+  function releaseReservation(id: string): void {
+    keepaliveReserved -= reservePool.get(id) ?? 0;
+    reservePool.delete(id);
+  }
+
   function saveNow(id: string, keepalive = false): Promise<void> {
-    const run = (saving.get(id) ?? Promise.resolve()).then(() =>
-      attempt(id, keepalive),
-    );
+    const run = (saving.get(id) ?? Promise.resolve())
+      .then(() => attempt(id, keepalive))
+      .finally(() => {
+        if (keepalive) releaseReservation(id);
+      });
     saving.set(id, run);
     return run;
   }
@@ -354,12 +367,29 @@ export function createDocumentSync({
       else persistDraft(id, html);
       schedule(id, delayMs);
     },
-    flush: () => flushWithKeepalive(false),
-    flushKeepalive: () => flushWithKeepalive(true),
+    discardRecovered: (id) => {
+      recovered.delete(id);
+      waiting.delete(id);
+      clearDraft(id);
+      handles.delete(id);
+      failures.delete(id);
+      refused.delete(id);
+      conflicted.delete(id);
+      unanswered.delete(id);
+      reservePool.delete(id);
+    },
+    flush: () => flushNormal(),
+    flushKeepalive: () => flushWithKeepalive(),
     recoveredDrafts: () => new Map(recovered),
   };
 
-  async function flushWithKeepalive(keepalive: boolean): Promise<void> {
+  async function flushNormal(): Promise<void> {
+    for (const handle of handles.values()) timers.clear(handle);
+    handles.clear();
+    await Promise.all([...waiting.keys()].map((id) => saveNow(id)));
+  }
+
+  async function flushWithKeepalive(): Promise<void> {
     for (const handle of handles.values()) timers.clear(handle);
     handles.clear();
     // Persist every waiting edit first, so recovery survives a close.
@@ -367,7 +397,7 @@ export function createDocumentSync({
     // Keep combined keepalive request bodies within the browser budget.
     const ids = [...waiting.keys()];
     const toSend: string[] = [];
-    let budget = KEEPALIVE_BODY_BUDGET;
+    let budget = KEEPALIVE_BODY_BUDGET - keepaliveReserved;
     for (const id of ids) {
       const html = waiting.get(id);
       const expectedRevision = revisions.get(id);
@@ -378,11 +408,16 @@ export function createDocumentSync({
           .length + 64;
       if (bodySize <= budget) {
         toSend.push(id);
+        reservePool.set(id, bodySize);
+        keepaliveReserved += bodySize;
         budget -= bodySize;
       } else {
         persistDraft(id, html);
       }
     }
-    await Promise.all(toSend.map((id) => saveNow(id, keepalive)));
+    // The reservation releases as each send settles; the overlap test
+    // below uses the exhaustive budget to expose it.
+    const settled = toSend.map((id) => saveNow(id, true));
+    await Promise.all(settled);
   }
 }

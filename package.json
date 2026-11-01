@@ -120,6 +120,10 @@
     "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "zod": "4.6.6"
   }
 }

@@ -114,6 +114,7 @@ export type RoomAction =
   | {
       readonly type: 'doc/recovered/restore';
       readonly id: string;
+      readonly html: string;
       readonly now: string;
     }
   | { readonly type: 'doc/recovered/discard'; readonly id: string }
@@ -244,6 +245,24 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'page/tone': (s, a) => ({
     ...s,
     pages: { ...s.pages, [a.documentId]: a.tone },
+  }),
+  'doc/recovered': (s, a) => ({ ...s, recovered: a.recovered }),
+  'doc/recovered/restore': (s, a) => {
+    if (!s.recovered.has(a.id)) return s;
+    const restored = withDocument(s, a.id, (doc) =>
+      updateDocumentHtml(doc, a.html, a.now),
+    );
+    return {
+      ...restored,
+      tabs: openTab(restored.tabs, a.id),
+      recovered: new Map(
+        [...restored.recovered].filter(([id]) => id !== a.id),
+      ),
+    };
+  },
+  'doc/recovered/discard': (s, a) => ({
+    ...s,
+    recovered: new Map([...s.recovered].filter(([id]) => id !== a.id)),
   }),
 };
 
