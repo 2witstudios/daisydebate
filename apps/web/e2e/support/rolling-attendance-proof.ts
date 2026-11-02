@@ -119,6 +119,17 @@ export async function rollingAttendancePeer({
     expect(replay.receivedAt).toBe(present[0]!.receipt.receivedAt);
     expect(replay.replayed).toBe(true);
     await attendedResolution(round.id, speech.id);
+    // On-time credit settles at once, so hold the measured window open: the point
+    // here is that samples stay healthy across the switch, not how fast it decides.
+    await expect
+      .poll(
+        async () =>
+          (await attendanceEvidence(round.id)).samples.filter(
+            (row) => row.at >= since,
+          ).length,
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(3);
     const paused = await latestSample(round.id);
     await controlLaunch('start-web');
     primaryStopped = false;
