@@ -11,6 +11,7 @@ const seed: Calibration = {
   monoAtReceiveMs: 0,
   uncertaintyMs: Number.POSITIVE_INFINITY,
   generation: -1,
+  freshAtMs: 0,
   real: false,
 };
 const sample = (overrides: Partial<RoundTimeSample> = {}): RoundTimeSample => ({

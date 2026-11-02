@@ -4,6 +4,7 @@ import type {
   RoundTime,
   RoundTimeStatus,
 } from '../../features/round-runtime/round-time';
+import { roundTimeNotice } from '../../features/round-runtime/round-time-notice';
 
 /** Clock freshness is independent of the competitive Round revision's freshness. */
 export function RoundTimeNotice({
@@ -25,17 +26,14 @@ export function RoundTimeNotice({
       window.clearInterval(timer);
     };
   }, [roundTime]);
+  const { announcement, detail } = roundTimeNotice(status);
   return (
     <p
-      role="status"
       className="px-4 py-1 text-sm text-ink-muted"
       data-round-time={status.kind}
     >
-      {status.kind === 'seed'
-        ? 'Synchronizing round clock…'
-        : status.kind === 'stale'
-          ? 'Round clock may be out of date. Reconnecting…'
-          : `Round clock synchronized · ±${Math.ceil(status.uncertaintyMs ?? 0)} ms`}
+      <span role="status">{announcement}</span>
+      {detail ? ` · ${detail}` : null}
     </p>
   );
 }

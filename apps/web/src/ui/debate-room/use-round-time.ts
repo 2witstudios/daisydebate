@@ -1,4 +1,5 @@
 'use client';
+import { systemClock } from '@daisy/clock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readRoundClock } from '../../features/round-runtime/read-round-clock';
 import {
@@ -6,6 +7,7 @@ import {
   createRoundTime,
 } from '../../features/round-runtime/round-time';
 import { sampleRoundTime } from '../../features/round-runtime/sample-round-time';
+import { watchClockSuspension } from '../../features/round-runtime/watch-clock-suspension';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import {
   secureRandom,
@@ -42,8 +44,18 @@ export function useRoundTime(options: {
       random: secureRandom,
     });
     wake.current = sampler.wake;
+    const stopWatching = watchClockSuspension({
+      scheduler: systemScheduler,
+      wallNowMs: () => Date.parse(systemClock.now()),
+      onResume: sampler.wake,
+    });
+    window.addEventListener('pageshow', sampler.wake);
+    window.addEventListener('online', sampler.wake);
     return () => {
       wake.current = noWake;
+      stopWatching();
+      window.removeEventListener('pageshow', sampler.wake);
+      window.removeEventListener('online', sampler.wake);
       sampler.stop();
     };
   }, [clockUrl, roundTime]);

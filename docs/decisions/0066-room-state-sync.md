@@ -171,10 +171,15 @@ evidence, so a read that never settles cannot end sampling. Failed samples retry
 from two seconds, doubling to thirty with half-range jitter; current evidence
 resamples every thirty. A hidden tab does not sample. Visibility returns and
 realtime reconnects request a sample at once, and wakes during a read coalesce
-into one followup after two seconds. Unmount aborts the sampling lifetime and
+into one followup after two seconds. `pageshow`, `online` and a jump between wall
+and monotonic time also wake it, because `performance.now` may not advance through
+an OS sleep; that wall reading is only a wake signal and never reaches displayed
+time. A read answering 404 ends the chain. Unmount aborts the sampling lifetime and
 cancels its timers and subscriptions.
 
-A sample rolling back past both uncertainty bounds is refused, so one outlier
+A slower reply that agrees with the anchor renews its evidence without moving it,
+so a poor sample cannot jump the countdown or loosen its uncertainty. A sample
+rolling back past both uncertainty bounds is refused, so one outlier
 cannot move the clock. Three fresh, ordered samples whose offsets agree are the
 authority having moved, and the clock re-anchors on the third. A media boundary
 waits for the clock's lower bound to pass, deadline plus uncertainty, because it

@@ -2,7 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import { scheduleMediaDeadline } from '../round-media/schedule-deadline';
 import { createRoundTime } from './round-time';
+import { roundTimeNotice } from './round-time-notice';
 import { sampleRoundTime } from './sample-round-time';
+import { watchClockSuspension } from './watch-clock-suspension';
 import { timingFixture } from './sample-round-time.test-support';
 setupRitewayBun();
 
@@ -167,13 +169,6 @@ test('a media boundary waits out the clock uncertainty', () => {
     monotonicNowMs: edges.scheduler.now,
     hydrationSeedServerMs: 0,
   });
-  clock.sample({
-    serverNowMs: 9000,
-    sentAtMs: 0,
-    receivedAtMs: edges.scheduler.now(),
-    generation: 1,
-  });
-  edges.advance(0);
   const sent = edges.scheduler.now();
   edges.advance(1000);
   clock.sample({
@@ -199,4 +194,106 @@ test('a media boundary waits out the clock uncertainty', () => {
     expected: [[11_000, 0], 1],
   });
   stop();
+});
+
+test('a slower reply that agrees cannot loosen a tighter anchor', () => {
+  let mono = 0;
+  const clock = createRoundTime({
+    monotonicNowMs: () => mono,
+    hydrationSeedServerMs: 0,
+  });
+  clock.sample({
+    serverNowMs: 50_000,
+    sentAtMs: 0,
+    receivedAtMs: 0,
+    generation: 1,
+  });
+  mono = 40_000;
+  clock.sample({
+    serverNowMs: 89_500,
+    sentAtMs: 39_000,
+    receivedAtMs: 40_000,
+    generation: 2,
+  });
+  assert({
+    given: 'an exact anchor and an agreeing reply measured at ±500',
+    should: 'keep the anchor and its uncertainty, and count as fresh evidence',
+    actual: [clock.nowMs(), clock.status()],
+    expected: [90_000, { kind: 'current', uncertaintyMs: 0 }],
+  });
+  mono = 71_000;
+  assert({
+    given: 'thirty-one seconds after that agreeing reply',
+    should: 'still be current, because the reply renewed the evidence',
+    actual: clock.status().kind,
+    expected: 'current',
+  });
+});
+
+test('a Round the caller can no longer read ends the retry chain', async () => {
+  const { edges, roundTime, read } = timingFixture<{
+    kind: 'missing';
+    serverNowMs: null;
+  }>(10_000);
+  const sampler = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.answer({ kind: 'missing', serverNowMs: null });
+  await edges.flush();
+  edges.advance(120_000);
+  await edges.flush();
+  assert({
+    given: 'an authorized read answering missing',
+    should: 'stop retrying rather than spend the read budget for the mount',
+    actual: [edges.reads(), edges.timers()],
+    expected: [1, []],
+  });
+  sampler.stop();
+});
+
+test('a jump between wall and monotonic time wakes the sampler', () => {
+  const edges = driverEdges<never>();
+  let wall = 1_000_000;
+  let wakes = 0;
+  const stop = watchClockSuspension({
+    scheduler: edges.scheduler,
+    wallNowMs: () => wall,
+    onResume: () => wakes++,
+  });
+  wall += 5000;
+  edges.advance(5000);
+  const steady = wakes;
+  wall += 600_000 + 5000;
+  edges.advance(5000);
+  stop();
+  wall += 600_000;
+  edges.advance(5000);
+  assert({
+    given: 'steady ticks, a ten-minute wall gap, then disposal',
+    should: 'wake only on the gap and leave no timer',
+    actual: [steady, wakes, edges.timers()],
+    expected: [0, 1, []],
+  });
+});
+
+test('the clock notice announces only its state, never the changing number', () => {
+  assert({
+    given: 'two synchronized statuses whose uncertainty differs',
+    should: 'keep one announcement and carry the number apart',
+    actual: [
+      roundTimeNotice({ kind: 'current', uncertaintyMs: 12 }),
+      roundTimeNotice({ kind: 'current', uncertaintyMs: 17 }),
+      roundTimeNotice({ kind: 'stale', uncertaintyMs: 17 }).detail,
+      roundTimeNotice({ kind: 'seed', uncertaintyMs: null }).detail,
+    ],
+    expected: [
+      { announcement: 'Round clock synchronized', detail: '±12 ms' },
+      { announcement: 'Round clock synchronized', detail: '±17 ms' },
+      null,
+      null,
+    ],
+  });
 });

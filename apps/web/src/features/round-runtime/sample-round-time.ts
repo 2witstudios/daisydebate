@@ -20,7 +20,7 @@ const abandoned = (signal: AbortSignal) =>
  * visibility return.
  */
 export function sampleRoundTime(options: {
-  readonly read: (signal: AbortSignal) => Promise<unknown>;
+  readonly read: (signal: AbortSignal) => Promise<{ readonly kind: string }>;
   readonly roundTime: RoundTime;
   readonly scheduler: Scheduler;
   readonly visibility: SyncVisibility;
@@ -63,7 +63,7 @@ export function sampleRoundTime(options: {
     const release = () => attempt.abort();
     lifetime.signal.addEventListener('abort', release, { once: true });
     const deadline = scheduler.setTimeout(release, MAX_SAMPLE_RTT_MS);
-    await Promise.race([
+    const answer = await Promise.race([
       // The measured read has already marked a failed read stale.
       options.read(attempt.signal).catch(() => undefined),
       abandoned(attempt.signal),
@@ -71,7 +71,9 @@ export function sampleRoundTime(options: {
     scheduler.clearTimeout(deadline);
     lifetime.signal.removeEventListener('abort', release);
     pending = false;
-    if (!lifetime.signal.aborted) arm(nextDelayMs());
+    // A Round this caller can no longer read will not answer differently.
+    if (!lifetime.signal.aborted && answer?.kind !== 'missing')
+      arm(nextDelayMs());
   };
   const unsubscribe = visibility.onVisible(() => void resample());
   void resample();

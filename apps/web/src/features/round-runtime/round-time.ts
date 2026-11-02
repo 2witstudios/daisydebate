@@ -32,6 +32,8 @@ export type Calibration = {
   readonly monoAtReceiveMs: number;
   readonly uncertaintyMs: number;
   readonly generation: number;
+  /** When evidence last renewed this anchor, which can outlive its sample. */
+  readonly freshAtMs: number;
   readonly real: boolean;
 };
 
@@ -73,6 +75,20 @@ export const decideSample = (
       return { accepted: false, refusal: 'server-rollback' };
   }
   return { accepted: true };
+};
+/** A less certain reply that agrees is evidence, but must not loosen the anchor. */
+const keepsAnchor = (
+  current: Calibration,
+  { serverNowMs, sentAtMs, receivedAtMs }: RoundTimeSample,
+) => {
+  const uncertaintyMs = (receivedAtMs - sentAtMs) / 2;
+  const projected =
+    current.serverAtReceiveMs + receivedAtMs - current.monoAtReceiveMs;
+  return (
+    current.real &&
+    uncertaintyMs >= current.uncertaintyMs &&
+    Math.abs(serverNowMs + uncertaintyMs - projected) <= uncertaintyMs
+  );
 };
 type RollbackRun = {
   readonly offsetMs: number;
@@ -118,6 +134,7 @@ export function createRoundTime(options: {
     monoAtReceiveMs: monotonic(),
     uncertaintyMs: Number.POSITIVE_INFINITY,
     generation: -1,
+    freshAtMs: 0,
     real: false,
   };
   let allocated = 0;
@@ -148,13 +165,19 @@ export function createRoundTime(options: {
     }
     rollbackRun = null;
     const rtt = candidate.receivedAtMs - candidate.sentAtMs;
-    calibration = {
-      serverAtReceiveMs: candidate.serverNowMs + rtt / 2,
-      monoAtReceiveMs: candidate.receivedAtMs,
-      uncertaintyMs: rtt / 2,
+    const renewed = {
       generation: candidate.generation,
+      freshAtMs: candidate.receivedAtMs,
       real: true,
     };
+    calibration = keepsAnchor(calibration, candidate)
+      ? { ...calibration, ...renewed }
+      : {
+          ...renewed,
+          serverAtReceiveMs: candidate.serverNowMs + rtt / 2,
+          monoAtReceiveMs: candidate.receivedAtMs,
+          uncertaintyMs: rtt / 2,
+        };
     notify();
     return { accepted: true };
   };
@@ -170,7 +193,7 @@ export function createRoundTime(options: {
       kind: !calibration.real
         ? 'seed'
         : failedGeneration > calibration.generation ||
-            monotonic() - calibration.monoAtReceiveMs >
+            monotonic() - calibration.freshAtMs >
               RESAMPLE_EVERY_MS + MAX_SAMPLE_RTT_MS
           ? 'stale'
           : 'current',

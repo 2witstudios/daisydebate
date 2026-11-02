@@ -206,17 +206,25 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       timeout: 10000,
     });
 
-    // A bounded delayed reply is accepted and its measured RTT is visible.
-    clockReads.use(delayClockReads(400));
+    // A bounded delayed reply is fresh evidence. It agrees with the tighter
+    // anchor, so it cannot loosen the number on screen or move the display.
+    const tightStatus = await clockStatus.textContent();
+    let slowReadDelivered = false;
+    clockReads.use(
+      delayClockReads(400, () => {
+        slowReadDelivered = true;
+      }),
+    );
     await host.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     );
-    await expect(clockStatus).toContainText(/±[2-9]\d{2} ms/);
+    await expect.poll(() => slowReadDelivered).toBe(true);
+    await clockReads.pass();
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+    expect(await clockStatus.textContent()).toBe(tightStatus);
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
-    await clockReads.pass();
 
     // Freeze the browser renderer, let the real server advance, then resume.
     // Visibility return must obtain fresh evidence, not merely retick the seed.
@@ -310,7 +318,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
           'reverse wall skew',
           'six-second SSR delay',
           'abandoned read past the RTT envelope with visible stale',
-          'accepted400ms reply with visible uncertainty',
+          'agreeing400ms reply that cannot loosen the anchor',
           'renderer freeze/resume with fresh authorized read',
           'clock read reaches the server while Server Actions are held',
           'actual media boundary',
