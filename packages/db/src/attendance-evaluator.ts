@@ -103,7 +103,9 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
     )
       throw createAppError('VALIDATION');
     let ended: Awaited<ReturnType<typeof endOpenJudgingJobs>> = [];
-    const outcome = await transaction(async (tx) => {
+    const outcome = await transaction(async (tx): Promise<
+      AttendanceResolution | AttendanceHold | null
+    > => {
       await requireCurrentWeb(tx, input.instanceId);
       const { current, round, seats } = await fenceAttendance(
         tx,
