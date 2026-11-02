@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { launchLiveKit } from './launch-livekit';
 import { defineConfig } from '@playwright/test';
 import canonical from '../../playwright.config';
 import { requireLaunchSlot } from './room-launch-slot';
@@ -96,10 +97,10 @@ export default defineConfig({
         NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS!,
         E2E_LOCAL_TLS_CERT: process.env.E2E_LOCAL_TLS_CERT!,
         E2E_LOCAL_TLS_KEY: process.env.E2E_LOCAL_TLS_KEY!,
-        LIVEKIT_URL: 'http://127.0.0.1:7880',
+        LIVEKIT_URL: launchLiveKit.url,
         LIVEKIT_PUBLIC_URL: `wss://localhost:${slot.port + 4}`,
-        LIVEKIT_API_KEY: 'daisy-local',
-        LIVEKIT_API_SECRET: 'local-development-only-livekit-secret',
+        LIVEKIT_API_KEY: launchLiveKit.apiKey,
+        LIVEKIT_API_SECRET: launchLiveKit.apiSecret,
       },
     };
   }),
