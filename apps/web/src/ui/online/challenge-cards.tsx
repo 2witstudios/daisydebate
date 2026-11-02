@@ -124,17 +124,27 @@ function AcceptedCard({
   );
 }
 
-const FOLLOWED_KEY = 'daisy.followed-room';
-const followedRoom = () => {
+const FOLLOWED_KEY = 'daisy.followed-rooms';
+/** Far more than two minutes of accepts can name. */
+const FOLLOWED_MAX = 20;
+const followedRooms = (): readonly string[] => {
   try {
-    return localStorage.getItem(FOLLOWED_KEY);
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(FOLLOWED_KEY) ?? '[]',
+    );
+    return Array.isArray(stored)
+      ? stored.filter((id): id is string => typeof id === 'string')
+      : [];
   } catch {
-    return null;
+    return [];
   }
 };
-const rememberFollowed = (roomId: string) => {
+const rememberFollowed = (rooms: readonly string[]) => {
   try {
-    localStorage.setItem(FOLLOWED_KEY, roomId);
+    localStorage.setItem(
+      FOLLOWED_KEY,
+      JSON.stringify(rooms.slice(-FOLLOWED_MAX)),
+    );
   } catch {
     // Without storage the short follow window is the only limit.
   }
@@ -150,9 +160,13 @@ function useFollowAccepted(
 ) {
   useEffect(() => {
     if (activeRoomId !== null) return;
-    const offer = accepted.find((row) => row.roomId !== followedRoom());
+    // Newest first: every accept is marked followed, and only the newest is
+    // taken, so several at once never bounce a challenger between rooms.
+    const followed = followedRooms();
+    const fresh = accepted.filter((row) => !followed.includes(row.roomId));
+    const offer = fresh[0];
     if (!offer) return;
-    rememberFollowed(offer.roomId);
+    rememberFollowed([...followed, ...fresh.map((row) => row.roomId)]);
     if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
       window.location.assign(`/rooms/${offer.roomId}`);
   }, [accepted, activeRoomId]);

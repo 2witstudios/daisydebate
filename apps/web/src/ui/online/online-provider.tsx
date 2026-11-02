@@ -140,12 +140,21 @@ export function OnlineProvider({
   const pagesLoaded = useRef(1);
   // Only the newest read may land, so an old answer never undoes a block.
   const readSeq = useRef(0);
+  // One read at a time: a ring during a read asks for one more after it, so
+  // steady rings can never keep superseding a slow read until nothing lands.
+  const reading = useRef(false);
+  const readAgain = useRef(false);
   const readRoster = useCallback(async () => {
+    if (reading.current) {
+      readAgain.current = true;
+      return;
+    }
+    reading.current = true;
     const { filter: wanted, query: named } = shown.current;
-    readSeq.current += 1;
     const seq = readSeq.current;
     lastRead.current = systemScheduler.now();
     let merged: OnlineRoster | null = null;
+    let complete = true;
     for (let page = 0; page < pagesLoaded.current; page += 1) {
       const cursor: string | undefined = merged?.nextCursor ?? undefined;
       const read: {
@@ -155,15 +164,24 @@ export function OnlineProvider({
       const { value, response } = read;
       const endpoint = response && realtimeEndpointOf(response);
       if (endpoint) setSocketUrl(endpoint);
-      if (!value) return;
+      if (!value) {
+        complete = false;
+        break;
+      }
       const next: OnlineRoster = merged
         ? { ...value, members: [...merged.members, ...value.members] }
         : value;
       merged = next;
       if (!next.nextCursor) break;
     }
-    if (merged && seq === readSeq.current) setRoster(merged);
+    if (complete && merged && seq === readSeq.current) setRoster(merged);
+    reading.current = false;
+    if (readAgain.current) {
+      readAgain.current = false;
+      void readRosterRef.current();
+    }
   }, []);
+  const readRosterRef = useRef(readRoster);
   const readChallenges = useCallback(async () => {
     const { value } = await readJson('/api/challenges', parseChallenges);
     if (!value) return;
@@ -241,18 +259,27 @@ export function OnlineProvider({
     [],
   );
 
+  const loadingMore = useRef(false);
   const loadMore = useCallback(() => {
     const cursor = roster.nextCursor;
-    if (!cursor) return;
+    if (!cursor || loadingMore.current) return;
+    loadingMore.current = true;
     const seq = readSeq.current;
     void readJson(rosterUrl(filter, query, cursor), parseRoster).then(
       ({ value }) => {
+        loadingMore.current = false;
         if (!value || seq !== readSeq.current) return;
         pagesLoaded.current += 1;
-        setRoster((current) => ({
-          ...value,
-          members: [...current.members, ...value.members],
-        }));
+        setRoster((current) => {
+          const seen = new Set(current.members.map((m) => m.username));
+          return {
+            ...value,
+            members: [
+              ...current.members,
+              ...value.members.filter((m) => !seen.has(m.username)),
+            ],
+          };
+        });
       },
     );
   }, [filter, query, roster.nextCursor]);

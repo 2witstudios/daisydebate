@@ -162,6 +162,7 @@ export async function acceptChallengeAction(
         : undefined;
     if (!template || catalog.kind !== 'found')
       return { notice: challengeRefusal('accept', 500) };
+    let notNamed: string | undefined;
     const created = await submitRoomCreation(
       inProcessFetch(routes.createRoom, incoming),
       incoming,
@@ -184,21 +185,25 @@ export async function acceptChallengeAction(
               body: JSON.stringify({ version: 1, challengeId, roomId }),
             },
           );
-          return named.ok ? undefined : challengeRefusal('accept-lost', 404);
+          if (named.ok) return undefined;
+          notNamed = challengeRefusal(
+            named.status === 404 ? 'accept-lost' : 'accept-unnamed',
+            named.status,
+          );
         } catch {
-          return challengeRefusal('accept-lost', 500);
+          notNamed = challengeRefusal('accept-unnamed', 500);
         }
+        return notNamed;
       },
       moveOn,
     );
     if (created.next !== undefined) return { next: created.next };
     return {
       notice:
-        offer.mode === 'ranked'
-          ? created.error === challengeRefusal('accept-lost', 404)
-            ? created.error
-            : challengeRefusal('accept-ranked', 500)
-          : (created.error ?? challengeRefusal('accept', 500)),
+        notNamed ??
+        (offer.mode === 'ranked'
+          ? challengeRefusal('accept-ranked', 500)
+          : (created.error ?? challengeRefusal('accept', 500))),
     };
   } catch (error) {
     // moveOn's redirect for a native post is not a failure.

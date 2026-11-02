@@ -18,6 +18,7 @@ export function challengeRefusal(
     | 'accept-ranked'
     | 'accept-placed'
     | 'accept-lost'
+    | 'accept-unnamed'
     | 'end',
   status: number,
 ): string {
@@ -30,6 +31,8 @@ export function challengeRefusal(
   if (intent === 'accept-placed') return 'Leave your room first.';
   if (intent === 'accept-lost')
     return 'That challenge is no longer open. Your new room is still open.';
+  if (intent === 'accept-unnamed')
+    return 'Could not finish accepting. Your new room is still open.';
   if (intent === 'accept-ranked')
     return 'Could not open a ranked room right now. Decline, or ask them for a casual one.';
   if (intent === 'accept') {
