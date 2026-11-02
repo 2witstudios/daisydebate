@@ -60,6 +60,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.citations',
         'ballots.feedback',
         'ballots.scores',
+        'broadcasts.release_policy',
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
