@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from './ladder.test-support';
+import { readLadder as readStoredLadder } from './read-leaderboard';
 import { readLadder } from './read-leaderboard.test-support';
 import { buildSeasonsView, parseSeasonsQuery, seasonsHref } from './seasons';
 
@@ -96,6 +97,57 @@ describe('buildSeasonsView', () => {
       should: 'have no champion and an empty snapshot',
       actual: [view.champion, view.snapshot],
       expected: [null, []],
+    });
+  });
+});
+
+describe('when the current resolutions show', () => {
+  test('a running season, and a closed one picked while another runs', () => {
+    const view = (season: string | null) =>
+      buildSeasonsView(readLadder(season, NOW, null).data, NOW);
+    assert({
+      given: 'the running season, then a closed one with another running',
+      should:
+        'list them for the running season only and say nothing is missing',
+      actual: [null, '3'].map((season) => [
+        view(season).listsPublishedResolutions,
+        view(season).noActiveSeason,
+      ]),
+      expected: [
+        [true, false],
+        [false, false],
+      ],
+    });
+  });
+
+  test('no active season, read through the standings fallback', async () => {
+    const read = await readStoredLadder(
+      {
+        readRatingBlindings: async () => [],
+        listLadderSeasons: async () => [
+          {
+            id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
+            name: 'Season 1',
+            startsAt: '2026-09-01T00:00:00.000Z',
+            endsAt: '2026-10-01T00:00:00.000Z',
+            status: 'closed',
+            version: 2,
+          },
+        ],
+        readStandings: async () => ({ ratings: [], changes: [] }),
+      },
+      { seasonId: null, ladder: 'value', now: NOW, username: null },
+    );
+    const view = buildSeasonsView(read!.data, NOW);
+    assert({
+      given: 'only a closed season, which the read falls back to',
+      should: 'show that closed season, say none is active and list them',
+      actual: [
+        view.closed,
+        view.noActiveSeason,
+        view.listsPublishedResolutions,
+      ],
+      expected: [true, true, true],
     });
   });
 });

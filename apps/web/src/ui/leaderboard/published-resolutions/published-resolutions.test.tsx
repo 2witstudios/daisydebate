@@ -1,11 +1,12 @@
+import type { PublishedResolution } from '@daisy/protocol';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { SeasonResolutions } from './season-resolutions';
+import { PublishedResolutions } from './published-resolutions';
 
 setupRitewayBun();
 
-const publication = {
+const publication: PublishedResolution = {
   id: 'pryied8jvkvrn7g0p60iv632',
   kind: 'policy',
   text: 'Resolved: Cities should abolish minimum parking requirements.',
@@ -13,18 +14,15 @@ const publication = {
   publishedAt: '2026-10-29T00:00:00.000Z',
   edition: 'Edition one',
   theme: 'Cities',
-} as const;
+};
 
-const render = (resolutions: readonly (typeof publication | object)[]) =>
-  renderToString(
-    h(SeasonResolutions, {
-      resolutions: resolutions as Parameters<
-        typeof SeasonResolutions
-      >[0]['resolutions'],
-    }),
-  ).replace(/<!-- -->/g, '');
+const render = (resolutions: readonly PublishedResolution[]) =>
+  renderToString(h(PublishedResolutions, { resolutions })).replace(
+    /<!-- -->/g,
+    '',
+  );
 
-describe('SeasonResolutions', () => {
+describe('PublishedResolutions', () => {
   test('a published resolution', () => {
     const html = render([publication]);
     assert({

@@ -14,9 +14,9 @@ const options: readonly PlayOption[] = [
     comingSoon: false,
   },
   {
-    id: 'ranked',
-    title: 'Ranked match',
-    blurb: 'Matched near your rating. Rated.',
+    id: 'bot',
+    title: 'Practice with a bot',
+    blurb: 'Pick a personality.',
     href: '/coming-soon/train',
     comingSoon: true,
   },
@@ -27,9 +27,9 @@ describe('PlayChoices', () => {
     const html = renderToStaticMarkup(<PlayChoices options={options} />);
     const [open, soon] = html.split('</li>');
     assert({
-      given: 'an open room form and a ranked match that is not launched',
+      given: 'an open room form and bot practice that is not launched',
       should:
-        'link each where its option says and tag only the ranked one Coming soon',
+        'link each where its option says and tag only the bot one Coming soon',
       actual: [
         open?.includes('href="/play/room"'),
         open?.includes('Coming soon'),

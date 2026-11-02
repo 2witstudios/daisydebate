@@ -105,6 +105,29 @@ describe('SeasonsPage', () => {
     });
   });
 
+  test('a closed season with no active one', () => {
+    const data = readLadder('3', NOW, null).data;
+    const view = buildSeasonsView(
+      { ...data, seasons: data.seasons.filter(({ id }) => id !== '4') },
+      NOW,
+    );
+    const html = renderToString(h(SeasonsPage, { view, resolutions })).replace(
+      /<!-- -->/g,
+      '',
+    );
+    assert({
+      given: 'only closed seasons',
+      should: 'say none is active and list the resolutions before that season',
+      actual: [
+        html.includes('No season is active.'),
+        html.indexOf('Resolved: Test wording.') > -1 &&
+          html.indexOf('Resolved: Test wording.') <
+            html.indexOf('Final standings'),
+      ],
+      expected: [true, true],
+    });
+  });
+
   test('no one established', () => {
     const html = render(null, 'none');
     assert({

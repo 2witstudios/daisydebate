@@ -47,7 +47,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   seasons: {
     slug: 'seasons',
     title: 'Seasons',
-    tagline: 'This season’s resolutions and standings.',
+    tagline: 'Resolutions and standings.',
   },
   leaderboard: {
     slug: 'leaderboard',

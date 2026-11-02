@@ -9,7 +9,7 @@ import type { SeasonsView } from '../../../features/leaderboard/seasons';
 import type { PublishedResolution } from '@daisy/protocol';
 import { Badge } from '../../components/badge/badge';
 import { LadderRow } from '../ladder-row/ladder-row';
-import { SeasonResolutions } from '../season-resolutions/season-resolutions';
+import { PublishedResolutions } from '../published-resolutions/published-resolutions';
 import { LadderHeading } from '../ladder-row/ladder-heading';
 import { Segmented } from '../segmented/segmented';
 import { cn } from '../../cn';
@@ -85,7 +85,7 @@ function RangePicture() {
 }
 
 /**
- * One season at a glance: today's resolutions while it runs, dates, champion,
+ * One season at a glance: the current resolutions where they apply, dates, champion,
  * a top-ten snapshot, and how rating works. With no active season, the
  * resolutions alone.
  */
@@ -95,7 +95,7 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
       <div className="flex flex-col gap-5 p-6">
         <h1>Seasons</h1>
         <p>No season is active.</p>
-        <SeasonResolutions resolutions={resolutions} />
+        <PublishedResolutions resolutions={resolutions} />
       </div>
     );
   const champion = view.champion;
@@ -107,7 +107,12 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
         </h1>
         <Segmented label="Season" segments={view.chips} />
       </header>
-      {view.closed ? null : <SeasonResolutions resolutions={resolutions} />}
+      {view.noActiveSeason ? (
+        <p className="text-base text-ink-muted">No season is active.</p>
+      ) : null}
+      {view.listsPublishedResolutions ? (
+        <PublishedResolutions resolutions={resolutions} />
+      ) : null}
       <section className={card}>
         <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
         <h2 className="font-display text-2xl font-bold">

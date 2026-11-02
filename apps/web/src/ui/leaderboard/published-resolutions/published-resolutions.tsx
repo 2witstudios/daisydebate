@@ -5,11 +5,8 @@ const kindLabel: Readonly<Record<PublishedResolution['kind'], string>> = {
   value: 'Value',
 };
 
-/**
- * The resolutions published now. Formats owns them and they carry no link to
- * a rating season (ADR 0092), so a closed season never shows them as its own.
- */
-export function SeasonResolutions({
+/** The resolutions published now, which Formats owns (ADR 0092). */
+export function PublishedResolutions({
   resolutions,
 }: {
   readonly resolutions: readonly PublishedResolution[];
@@ -17,10 +14,10 @@ export function SeasonResolutions({
   if (resolutions.length === 0) return null;
   return (
     <section
-      aria-labelledby="season-resolutions"
+      aria-labelledby="published-resolutions"
       className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1"
     >
-      <h2 id="season-resolutions" className="text-lg font-bold">
+      <h2 id="published-resolutions" className="text-lg font-bold">
         Resolutions
       </h2>
       <ul className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">

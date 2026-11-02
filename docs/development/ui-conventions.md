@@ -228,7 +228,9 @@ data:
   resources and rating, settings export and deletion) is left out.
 
 Flipping a flag lists the destination, sends its links to the live route and
-redirects its explainer there.
+redirects its explainer there. Two exceptions: `seasons` is a landing tile for
+a page under Leaderboard, so its flag changes only the tile and the explainer
+redirect; and the `/ranked` page has no flag.
 
 ## Pre-round Room
 

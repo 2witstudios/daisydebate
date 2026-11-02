@@ -37,6 +37,13 @@ export type SeasonsView = {
   readonly ladderLabel: string;
   readonly label: string;
   readonly closed: boolean;
+  /** Every season is closed: the read fell back to one of them. */
+  readonly noActiveSeason: boolean;
+  /**
+   * Publications have no link to a season (ADR 0092), so they show unless the
+   * viewer picked a closed season while another runs.
+   */
+  readonly listsPublishedResolutions: boolean;
   readonly tag: string;
   readonly dates: string;
   readonly statusLine: string;
@@ -70,11 +77,14 @@ export function buildSeasonsView(
     .slice(0, SNAPSHOT_SIZE)
     .map((entry) => toRow(entry, context));
   const { day, length, percent } = seasonProgress(season, now);
+  const noActiveSeason = data.seasons.every(isClosed);
   return {
     season,
     ladderLabel: ladder[0]!.toUpperCase() + ladder.slice(1),
     label: seasonLabel(season),
     closed,
+    noActiveSeason,
+    listsPublishedResolutions: !closed || noActiveSeason,
     tag: closed ? 'Closed' : 'Current season',
     dates: seasonDates(season),
     statusLine: closed
