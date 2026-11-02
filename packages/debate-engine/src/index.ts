@@ -1,4 +1,12 @@
 export { formatStanding } from './format-standing';
+export {
+  delayAlert,
+  factReleased,
+  releasedThrough,
+  resolveReleasePolicy,
+  segmentDue,
+} from './broadcast-release';
+export type { BroadcastReleasePolicy, HeldSegment } from './broadcast-release';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
