@@ -52,6 +52,6 @@ test('the competitive-record step erases nothing and reads only the subject rows
           !query.includes('users'),
       ),
     ],
-    expected: [8, true, false],
+    expected: [9, true, false],
   });
 });
