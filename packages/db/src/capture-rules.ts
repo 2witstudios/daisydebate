@@ -177,6 +177,8 @@ export function sealState(input: {
   readonly expectedChunks: number;
   readonly authority: readonly CaptureInterval[];
   readonly tolerance: CoverageEdges;
+  /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
+  readonly grantUnused?: boolean;
 }): 'complete' | 'partial' {
   const observed = input.observations.map((row) => ({
     start: row.start.getTime(),
@@ -195,7 +197,16 @@ export function sealState(input: {
       storedChunks: input.storedChunks,
       expectedChunks: input.expectedChunks,
     });
-  return complete ? 'complete' : 'partial';
+  const nothingOwed =
+    input.grantUnused === true &&
+    !input.interrupted &&
+    !input.framesLost &&
+    input.observations.length === 0 &&
+    input.chunks?.count === 0 &&
+    input.chunks.otherEpochChunks === 0 &&
+    input.storedChunks === 0 &&
+    input.expectedChunks === 0;
+  return complete || nothingOwed ? 'complete' : 'partial';
 }
 
 /** Capture closes at freeze, at the admission cutoff, or at a terminal Round without one. */

@@ -24,7 +24,10 @@ export type RoundRatingsView = {
 export async function readRoundRatings(
   store: Pick<
     Database,
-    'listLadderSeasons' | 'readStandings' | 'readRatingBlindings'
+    | 'listLadderSeasons'
+    | 'readStandings'
+    | 'readRatingBlindings'
+    | 'readRoundAwaitsRating'
   >,
   input: {
     readonly round: RoundView;
@@ -99,7 +102,8 @@ export async function readRoundRatings(
     pending:
       round.status === 'completed' &&
       round.outcome !== null &&
-      postings.length === 0,
+      postings.length === 0 &&
+      (await store.readRoundAwaitsRating(round.id)),
     rows: seats.flatMap((seat) => {
       if (!('actorId' in seat)) return [];
       if (published.blindedActorIds.includes(seat.actorId))

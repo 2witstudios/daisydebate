@@ -7,6 +7,9 @@ export const CAPTURE_FINISHED_EXIT = 3;
 type Scope = Session & { readonly workerId: string };
 type Process = { readonly exited: Promise<number>; readonly stop: () => void };
 
+/** The most recent ids a discovery query leaves out, which bounds its size. */
+const MAX_EXCLUDED_SESSIONS = 256;
+
 /**
  * One capture process per discovered session, up to capacity. Discovery is
  * advisory; the process itself claims the lease through the signed web path.
@@ -18,7 +21,11 @@ export function createCaptureSupervisor(input: {
   readonly retryMs: { readonly initial: number; readonly max: number };
   readonly nowMs: () => number;
   readonly nextWorkerId: () => string;
-  readonly discover: (limit: number) => Promise<readonly Session[]>;
+  /** `excluded` sessions must not count toward `limit`: the query leaves them out. */
+  readonly discover: (
+    limit: number,
+    excluded: readonly string[],
+  ) => Promise<readonly Session[]>;
   readonly launch: (scope: Scope) => Process;
   readonly failed: (status: number) => void;
 }) {
@@ -59,7 +66,16 @@ export function createCaptureSupervisor(input: {
     async tick() {
       const capacity = input.maxSessions - running.size;
       if (stopped || capacity <= 0) return;
-      const found = await input.discover(Math.min(64, capacity + backoff.size));
+      const found = await input.discover(
+        Math.min(64, capacity),
+        [
+          ...finished,
+          ...running.keys(),
+          ...[...backoff]
+            .filter(([, retry]) => input.nowMs() < retry.retryAt)
+            .map(([sessionId]) => sessionId),
+        ].slice(-MAX_EXCLUDED_SESSIONS),
+      );
       const now = input.nowMs();
       for (const session of found) {
         if (stopped || running.size >= input.maxSessions) return;

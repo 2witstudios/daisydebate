@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import type {
   CaptureTx,
   CaptureStream,
@@ -63,6 +63,30 @@ export async function captureHistory(
     throw createAppError('CONFLICT', 'No historical capture authority');
   return required;
 }
+/**
+ * True for a bot seat holding a grant it did not use: not its scheduled turn,
+ * and no credited publication window. It owes no stream, so nothing of it can
+ * be missing. Its scheduled turn stays owed, so a bot that fails to speak never
+ * passes as complete. A turn the rules cannot name stays owed. Takes SQL columns or
+ * values, so the freeze and the seal decide by this one rule.
+ */
+export const botGrantUnused = (
+  roundId: SQLWrapper | string,
+  segmentId: SQLWrapper | string,
+  roundParticipantId: SQLWrapper | string,
+) => sql`exists(select 1 from round_participants unused_seat
+    join actors unused_actor on unused_actor.id=unused_seat.actor_id
+    join rounds unused_round on unused_round.id=unused_seat.round_id
+    join round_segments unused_segment on unused_segment.round_id=unused_seat.round_id and unused_segment.id=${segmentId}
+    where unused_seat.round_id=${roundId} and unused_seat.id=${roundParticipantId} and unused_actor.kind='bot'
+      and (
+        unused_round.rules_snapshot->'segments'->unused_segment.sequence->>'side'=unused_seat.role
+        and (unused_round.rules_snapshot->'segments'->unused_segment.sequence->>'slot')::integer=unused_seat.slot
+      ) is false
+      and not exists(select 1 from round_bot_publication_windows unused_credit
+        where unused_credit.round_id=${roundId} and unused_credit.segment_id=${segmentId}
+          and unused_credit.round_participant_id=${roundParticipantId}))`;
+
 /**
  * What a seat's stream must cover for a 'complete' seal and how far its edges
  * may move (DEC-218, DEC-220): a human's speaking grants, joined within the
