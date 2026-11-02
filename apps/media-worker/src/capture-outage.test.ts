@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
+import { createTrackClocks } from '@daisy/media/observation';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { maintainCaptureLease } from './capture-lease';
@@ -234,9 +235,10 @@ async function consumeOne(answers: {
   append: (Error | object)[];
   observe: (Error | object)[];
   stepMs?: number;
+  clips?: number;
 }) {
   const stop = new AbortController();
-  const queue = [heldClip];
+  const queue = Array.from({ length: answers.clips ?? 1 }, () => heldClip);
   const writes: unknown[] = [];
   const events: string[] = [];
   let now = 0;
@@ -271,7 +273,7 @@ async function consumeOne(answers: {
     committed: () => events.push('committed'),
     settled: () => undefined,
   });
-  return { finished, writes, events };
+  return { finished, writes, events, remaining: () => queue.length };
 }
 const outage = () => createAppError('INFRASTRUCTURE', 'unavailable');
 
@@ -303,23 +305,98 @@ test('a transcribed clip stays pending through an outage and commits once it end
   });
 });
 
-test('a write refused for now past the outage budget is lost, not a block on every later clip', async () => {
+test('a write refused for now past the budget ends the session, not one clip at a time', async () => {
   const forever = Array.from({ length: 2000 }, outage);
-  const { finished, events } = await consumeOne({
+  const { finished, events, remaining } = await consumeOne({
+    clips: 3,
     append: forever,
     observe: [],
     stepMs: 10_000,
   });
-  await finished;
+  await assertRejects({
+    given: 'three clips and an append the server keeps refusing for now',
+    should: 'surface the failure so the session logs and relaunches',
+    code: 'INFRASTRUCTURE',
+    actual: () => finished,
+  });
   assert({
-    given: 'an append the server keeps refusing for now, on a moving clock',
-    should: 'give up within the budget, record the loss and keep consuming',
+    given: 'the same run, on a moving clock',
+    should: 'spend the budget once, mark that clip lost and leave the others',
     actual: [
       events.filter((event) => event === 'append').length < 20,
       events.includes('lost'),
       events.includes('committed'),
+      remaining(),
     ],
-    expected: [true, true, false],
+    expected: [true, true, false, 2],
+  });
+});
+
+test('a held frame whose history read fails goes back to staging', async () => {
+  const held: unknown[] = [];
+  const old = 'o'.repeat(24);
+  const frame = (segment: string, at: number) => ({
+    seat,
+    segmentId: segment,
+    frame: {
+      pcm: new Int16Array(160),
+      trackId: 'track',
+      nominalStartMs: at,
+      beforeMs: at,
+      afterMs: at + 10,
+    },
+  });
+  await assertRejects({
+    given: 'frames of an older segment and a history read that is refused',
+    should: 'surface the refusal',
+    code: 'AUTHORIZATION',
+    actual: () =>
+      validateCaptureBatch({
+        nowMs: () => 0,
+        waitUntilMs: async () => undefined,
+        frames: [frame(old, 1000), frame(old, 1010), frame(segmentId, 2000)],
+        current: { state: consumerState, calibration: {} } as never,
+        client: {
+          read: async () => {
+            throw createAppError('AUTHORIZATION');
+          },
+        } as never,
+        roundId: 'r'.repeat(24),
+        epoch: 4,
+        signal: new AbortController().signal,
+        dropped: () => undefined,
+        straddled: () => undefined,
+        clip: () => undefined,
+        held: (frames) => held.push(...frames),
+        carries: new Map(),
+      }),
+  });
+  assert({
+    given: 'that failure',
+    should: 'hand every uncut frame back, so closing still reports it',
+    actual: held.length,
+    expected: 3,
+  });
+});
+
+test('a new track past the calibration age is refused: the recorded limit', () => {
+  const clocks = createTrackClocks();
+  const calibration = {
+    sentAtMs: 0,
+    receivedAtMs: 0,
+    serverNowMs: 0,
+    precisionMs: 1,
+  };
+  const startAt = (afterMs: number, trackId: string) =>
+    clocks.observe(
+      { trackId, sequence: 0, beforeMs: afterMs - 1, afterMs },
+      calibration,
+    ) !== null;
+  assert({
+    given: 'tracks first heard 29 s and 31 s after the last history read',
+    should: 'time the first and refuse the second until a read answers',
+    actual: [startAt(29_000, 'early'), startAt(31_000, 'late')],
+    expected: [true, false],
   });
 });
 

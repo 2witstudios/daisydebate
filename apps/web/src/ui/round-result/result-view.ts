@@ -3,7 +3,6 @@ import {
   type Ballot,
   type RoundBallotRead,
   type LiveTranscriptRead,
-  type RoundView,
 } from '@daisy/protocol';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
 import { speechName } from '../../features/debate-room/vocabulary';

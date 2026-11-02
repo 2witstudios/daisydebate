@@ -145,7 +145,7 @@ and a vendor-room deletion request (`deletion_requested_at`, which is not data
 erasure) each close the session. After the earliest close a write is admitted
 only if its audio was captured strictly before that instant (an append's clip
 end, an observation's end) and it reaches the database within the injected
-(`sttLagMs`, which web composition sets to `CAPTURE_STT_LAG_MS`: the worker's history read, speech-to-text timeout and an append with its one retry, 66.5 s, from `@daisy/protocol` `capture-timing`, which also sets the 120 s transcript admission window that must cover it), so lagging transcription of earlier audio still lands and a
+(`sttLagMs`, which web composition sets to `CAPTURE_STT_LAG_MS`: the worker's history read, speech-to-text timeout and two call deadlines, 66.5 s, a window for ordinary lag only, so a write held through an outage past it is refused and that audio is lost, from `@daisy/protocol` `capture-timing`, which also sets the 120 s transcript admission window that must cover it), so lagging transcription of earlier audio still lands and a
 worker stamp alone never admits late audio. Reads and seals carry no capture
 time and are admitted.
 
@@ -437,10 +437,9 @@ never stored and never implies what was said.
 outage is not a capture failure. While LiveKit stays connected the worker keeps
 hearing; frames wait in staging, in memory only, and history reads, renewals,
 appends and observations retry until the server answers, for at most 120 s.
-Past that, a read or renewal ends the session, so a server failing the same way
-reaches the logs and a relaunch instead of a silent stall, and a write is lost
-and recorded, since a late clip of a closed session is refused that way for good
-and must not hold every later clip. A definite refusal
+Past that, the read, renewal or write ends the session, so a server failing the
+same way reaches the logs and a relaunch instead of a silent stall, and no write
+holds every later clip behind it. A definite refusal
 still stops capture at once. An expired lease refuses every write. It answers
 `503 lease-expired` rather than a final refusal, because its worker may renew
 and reinstate the same epoch if the row is untouched; a takeover or rotation
@@ -451,8 +450,10 @@ are reported on seal as `framesLost`, which is
 never complete, and they leave a hole in the observations. A frame's position
 comes from its native sequence, so contiguity comes from frames actually held,
 never from the lease. `capture-memory.ts` divides one total pending-audio bound
-across `MEDIA_WORKER_MAX_SESSIONS`. An outage that spans a speech boundary loses
-the next speech's opening, since that segment is unknown until the server
+across `MEDIA_WORKER_MAX_SESSIONS`. A track that first produces frames more than 30 s after the last answered read
+is refused until a read answers, since calibration ages out, and a running track
+is not affected; that also records a gap. An outage that spans a speech boundary
+loses the next speech's opening, since that segment is unknown until the server
 answers, and it records a gap. A stopping session releases its lease so a
 successor need not wait out its expiry. A takeover, or a worker reporting loss, which may have written a chunk it never
 heard answered, seals at the stored count,

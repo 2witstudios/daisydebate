@@ -365,7 +365,6 @@ export {
   roundTranscriptReadSchema,
   TRANSCRIPT_CONTRACT_VERSION,
   type LiveTranscriptRead,
-  type RoundTranscriptRead,
 } from './round-transcript';
 
 // Shared resource observation (ADR 0089).

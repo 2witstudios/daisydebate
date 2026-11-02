@@ -42,7 +42,6 @@ export const roundTranscriptReadSchema = z.strictObject({
   ),
   utterances: z.array(roundUtteranceSchema),
 });
-export type RoundTranscriptRead = z.infer<typeof roundTranscriptReadSchema>;
 /**
  * What a browser needs to render the transcript, and nothing else: a tab left
  * open across a deploy keeps reading through any field added anywhere, the Round

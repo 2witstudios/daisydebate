@@ -92,7 +92,8 @@ export async function validateCaptureBatch(input: {
   readonly held: (frames: readonly StagedFrame[]) => void;
   readonly carries: ClipCarries;
 }) {
-  for (const frames of bySegmentSeat(input.frames)) {
+  const groups = [...bySegmentSeat(input.frames)];
+  for (const [index, frames] of groups.entries()) {
     const first = frames[0]!;
     const history =
       first.segmentId === input.current.state.segment?.id
@@ -103,7 +104,11 @@ export async function validateCaptureBatch(input: {
             input.signal,
             input,
             first.segmentId,
-          );
+          ).catch((error: unknown) => {
+            // Uncut frames go back, so a closing session still reports them.
+            input.held(groups.slice(index).flat());
+            throw error;
+          });
     const segment = history.state.segment;
     if (!segment) {
       input.dropped(frames.length);
