@@ -139,7 +139,11 @@ reusable caches. GitHub ref scoping applies. Local and restored images undergo
 configuration, layer, package and filesystem checks, independently of cache-hit
 metadata. Cache is an optimization within its repository/event trust boundary,
 not a signature or acceptance authority. A rejected archive gets one bounded
-rebuild; failed writes remove their own partial files.
+rebuild; failed writes remove their own partial files. A CI cache entry cannot be
+replaced under its key, so a rejected entry rebuilds on every run until its key
+changes: bump `refresh` in the base descriptor or delete the entry. A cache hit
+holds only the prepared image, so anything needing the upstream base acquires it
+through the same verified step.
 
 The archive has one format and one reader. A format-2 archive holds exactly the
 OCI index, its single manifest, that manifest's config and ordered layers, the
@@ -157,11 +161,17 @@ published unchanged, which is what containerd writes. Moby's classic exporter
 also writes one V1 config per layer and a `repositories` file outside the graph.
 Those bytes are fully determined by the image config, so the producer recomputes
 them exactly (`launchExporterLegacyObjects`, from Moby v28 `tarexport`) and omits
-them only on an exact match of the whole set. Any other object refuses the save;
-nothing is filtered. Retained entries are copied byte for byte and no layer is
+them only on an exact match of the whole set. Any other object refuses the save and
+nothing is filtered. The preparation path logs a refusal and continues without a
+cache, since it already holds a valid image; the archive proof fails on it. Retained entries are copied byte for byte and no layer is
 transcoded. Hashing, copying, loading and cleanup all stream in bounded chunks
 under the same eight-minute owner. A classic daemon running outside UTC writes a
 different epoch timestamp, so its save refuses rather than guessing.
+
+A `labelCount` refusal means the commit added or dropped an image label, as a
+Docker Desktop release could. Inspect the label name yourself, and if it is
+Desktop-owned and harmless, add it to `artifactLabels` in the base descriptor,
+which also changes the cache key. Never relax the count.
 
 The real preparation lifecycle proof exercises timeout, partial creation,
 pre-execution credential/config rejection and commit failure against owned
@@ -176,7 +186,7 @@ References read before configuration: [Playwright 1.63.0 Docker guide](https://g
 [Docker create](https://docs.docker.com/reference/cli/docker/container/create/),
 [Docker commit](https://docs.docker.com/reference/cli/docker/container/commit/),
 [Docker proxy credential persistence](https://docs.docker.com/engine/cli/proxy/),
-[Ubuntu Noble NSS metadata](https://packages.ubuntu.com/noble-updates/libnss3-tools),
+[Ubuntu Noble NSS metadata](https://packages.ubuntu.com/noble/libnss3-tools),
 [Noble curl 8.5.0](https://manpages.ubuntu.com/manpages/noble/en/man1/curl.1.html),
 [Noble dpkg 1.22.6](https://manpages.ubuntu.com/manpages/noble/en/man1/dpkg.1.html),
 [Actions cache 6.1.0](https://github.com/actions/cache/tree/v6.1.0) and

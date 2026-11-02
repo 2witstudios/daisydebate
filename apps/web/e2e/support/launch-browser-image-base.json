@@ -1,8 +1,8 @@
 {
   "version": "1.63.0",
   "index": "sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
-  "nssVersion": "2:3.98-1ubuntu0.3",
-  "refresh": "noble-nss-2026-11-01-deb-1",
+  "nssVersion": "2:3.98-1build1",
+  "refresh": "noble-nss-2026-11-02-release-pocket-1",
   "env": [
     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "LANG=C.UTF-8",
@@ -23,9 +23,9 @@
         "sha256:d023fc73a0c9387f6a0ac936351a8e1fb6f00182647ec635d0a58949a4a857e8"
       ],
       "nss": {
-        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.3_arm64.deb",
-        "sha256": "f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd",
-        "bytes": 597572
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1build1_arm64.deb",
+        "sha256": "273a3da5dc5d11dbc4efceb787cbe65e1775a3489c84bb393a672f7df17060b8",
+        "bytes": 597570
       }
     },
     "linux/amd64": {
@@ -41,9 +41,9 @@
         "sha256:656afaafaa812f188da425142df4d594b7639d8918fd42490523da6f151b11a8"
       ],
       "nss": {
-        "url": "https://archive.ubuntu.com/ubuntu/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.3_amd64.deb",
-        "sha256": "0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0",
-        "bytes": 615126
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/n/nss/libnss3-tools_3.98-1build1_amd64.deb",
+        "sha256": "d8d6093edcf2206edeee40eaddd90a54bacc84cde4d8cc9c4fb50bd7aa12cf0d",
+        "bytes": 615188
       }
     }
   },

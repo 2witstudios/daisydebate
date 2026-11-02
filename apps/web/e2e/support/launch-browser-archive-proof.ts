@@ -3,12 +3,14 @@ import { copyFile, mkdir, mkdtemp, open, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
-  createLaunchPreparationProcess,
   prepareLaunchBrowserImage,
   readLaunchImageInputs,
+} from './launch-browser-image';
+import {
   restoreLaunchImageArchive,
   saveLaunchImageArchive,
-} from './launch-browser-image';
+} from './launch-browser-image-cache';
+import { createLaunchPreparationProcess } from './launch-browser-image-process';
 import { readLaunchArchiveGraph } from './launch-browser-image-archive-policy';
 import { launchArchiveProjection } from './launch-browser-image-export-policy';
 import { readLaunchArchiveInventory } from './launch-browser-image-archive';
@@ -41,7 +43,9 @@ try {
   const archive = join(saved, 'image.tar');
   const receiptPath = join(saved, 'receipt.json');
   const saveStarted = performance.now();
-  await saveLaunchImageArchive(owner, image, id, saved);
+  const save = await saveLaunchImageArchive(owner, image, id, saved);
+  if (!save.saved)
+    throw new Error(`Launch archive save refused: ${save.reason}`);
   const saveMs = Math.round(performance.now() - saveStarted);
   const bytes = (await stat(archive)).size;
   const receiptText = await Bun.file(receiptPath).text();
@@ -281,8 +285,9 @@ try {
   if ((await restoreLaunchImageArchive(observed, image, saved)) !== id)
     throw new Error('Undone negatives left the archive unusable');
 
-  // The shared outer owner: a corrupt cache causes one fresh preparation and a
-  // validated replacement, never acceptance of stale data.
+  // The shared outer owner: a corrupt archive directory causes one fresh
+  // preparation, never acceptance of stale data. A CI cache entry itself is
+  // immutable under its key; see round-browser-proof.md for recovery.
   if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
     throw new Error(
       'Corrupt-cache proof could not release its owned reference',
@@ -301,6 +306,14 @@ try {
     image: rebuilt.id,
     elapsedMs: Math.round(performance.now() - rebuildStarted),
   });
+
+  // Cold rebuilds are not byte-identical, so leave the exact cached bytes for
+  // the later proofs and browser suite instead of this control's rebuild.
+  if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
+    throw new Error('Could not release the rebuilt control image');
+  if ((await restoreLaunchImageArchive(observed, image, saved)) !== id)
+    throw new Error('Could not restore the exact cached image');
+  log({ case: 'cached-image-restored', image: id });
   if (performance.now() - started > 480000)
     throw new Error('Archive proof exceeded the preparation budget');
 } finally {

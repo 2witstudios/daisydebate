@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDigest, record } from './launch-browser-image-values';
 import { launchArchiveFormat } from './launch-browser-image-archive-policy';
 import base from './launch-browser-image-base.json';
 
@@ -14,15 +15,11 @@ const proxyNames = [
   'all_proxy',
   'no_proxy',
 ];
-const safeEnv = [...base.env, ...proxyNames.map((name) => `${name}=`)];
-const same = (actual: unknown, expected: unknown) =>
-  JSON.stringify(actual) === JSON.stringify(expected);
-const record = (value: unknown): Record<string, unknown> =>
-  value !== null && typeof value === 'object'
-    ? (value as Record<string, unknown>)
-    : {};
-const isDigest = (value: unknown): value is string =>
-  typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+const safeEnv: readonly string[] = [
+  ...base.env,
+  ...proxyNames.map((name) => `${name}=`),
+];
+const isSafeName = /^daisy-image-[a-z0-9]+$/;
 export const launchDependencyRevision = base.refresh;
 const launchImageStores = ['overlay2', 'containerd-overlayfs'] as const;
 export type LaunchImageStore = (typeof launchImageStores)[number];
@@ -116,7 +113,7 @@ export function launchDaemonImageContract(raw: unknown) {
   return null;
 }
 
-const recipeCommand = (image: LaunchImage) => [
+export const launchRecipeCommand = (image: LaunchImage) => [
   'sh',
   '-s',
   '--',
@@ -137,7 +134,7 @@ export function launchImagePrepareArgs(
   name: string,
   baseId: string,
 ): readonly string[] {
-  if (!isDigest(baseId) || !/^daisy-image-[a-z0-9]+$/.test(name))
+  if (!isDigest(baseId) || !isSafeName.test(name))
     throw new Error('Invalid owned image preparation inputs');
   return [
     'container',
@@ -160,7 +157,7 @@ export function launchImagePrepareArgs(
       `${key}=${value}`,
     ]),
     baseId,
-    ...recipeCommand(image),
+    ...launchRecipeCommand(image),
   ];
 }
 
@@ -171,7 +168,7 @@ export function launchImageCommitArgs(
   packages: string,
 ): readonly string[] {
   if (
-    !/^daisy-image-[a-z0-9]+$/.test(name) ||
+    !isSafeName.test(name) ||
     !/^daisy-launch-preparing:[a-z0-9]+$/.test(tag) ||
     !isDigest(packages)
   )
@@ -192,229 +189,6 @@ export function launchImageCommitArgs(
     name,
     tag,
   ];
-}
-
-function safeConfig(
-  raw: unknown,
-  image: LaunchImage,
-  prepared: boolean,
-): boolean {
-  const config = record(raw);
-  const allowed = [
-    'Hostname',
-    'Domainname',
-    'User',
-    'AttachStdin',
-    'AttachStdout',
-    'AttachStderr',
-    'ExposedPorts',
-    'Tty',
-    'OpenStdin',
-    'StdinOnce',
-    'Env',
-    'Cmd',
-    'Healthcheck',
-    'ArgsEscaped',
-    'Image',
-    'Volumes',
-    'WorkingDir',
-    'Entrypoint',
-    'NetworkDisabled',
-    'MacAddress',
-    'OnBuild',
-    'Labels',
-    'StopSignal',
-    'StopTimeout',
-    'Shell',
-  ];
-  if (Object.keys(config).some((key) => !allowed.includes(key))) return false;
-  if (
-    prepared
-      ? config.Hostname != null &&
-        !base.preparedHostnames.includes(config.Hostname as string)
-      : config.Hostname !== base.preparationHostname
-  )
-    return false;
-  if (
-    config.Domainname ||
-    config.MacAddress ||
-    config.StopSignal ||
-    config.ExposedPorts
-  )
-    return false;
-  if (
-    config.Image &&
-    ![
-      image.labels['io.daisy.launch.upstream'],
-      image.native.manifest,
-      image.native.config,
-    ].includes(config.Image as string)
-  )
-    return false;
-  const environment = config.Env;
-  if (
-    !Array.isArray(environment) ||
-    !environment.every((value) => typeof value === 'string') ||
-    !same([...environment].sort(), [...image.environment].sort())
-  )
-    return false;
-  return (
-    same(config.Cmd, prepared ? ['/bin/bash'] : recipeCommand(image)) &&
-    (config.Entrypoint == null || same(config.Entrypoint, [])) &&
-    config.User === '0:0' &&
-    config.WorkingDir === '/' &&
-    config.Volumes == null &&
-    config.OnBuild == null &&
-    config.Healthcheck == null &&
-    config.Shell == null
-  );
-}
-
-/** Verify immutable native base bytes/config instead of trusting a mutable tag or labels. */
-export function validateLaunchBase(
-  raw: unknown,
-  image: LaunchImage,
-): string | null {
-  const value = record(raw),
-    config = record(value.Config),
-    layers = record(value.RootFS).Layers;
-  const knownIds =
-    image.store === 'overlay2'
-      ? [image.native.config]
-      : [image.labels['io.daisy.launch.upstream'], image.native.manifest];
-  if (
-    !isDigest(value.Id) ||
-    !knownIds.includes(value.Id) ||
-    value.Os !== 'linux' ||
-    `linux/${value.Architecture}` !== image.platform ||
-    !same(layers, image.native.layers)
-  )
-    return null;
-  return same(config.Env, base.env) &&
-    Object.keys(record(config.Labels)).length ===
-      Object.keys(base.labels).length &&
-    Object.entries(base.labels).every(
-      ([key, value]) => record(config.Labels)[key] === value,
-    ) &&
-    same(config.Cmd, ['/bin/bash']) &&
-    config.Entrypoint == null &&
-    !config.User &&
-    !config.WorkingDir &&
-    config.Volumes == null &&
-    config.OnBuild == null
-    ? value.Id
-    : null;
-}
-
-/** Inspect before start AND before commit; injected configuration never executes or persists. */
-export function validateLaunchPreparation(
-  raw: unknown,
-  image: LaunchImage,
-  baseId: string,
-  exited = false,
-): boolean {
-  const value = record(raw),
-    config = record(value.Config),
-    host = record(value.HostConfig),
-    state = record(value.State);
-  return (
-    value.Image === baseId &&
-    safeConfig(config, image, false) &&
-    Object.keys(record(config.Labels)).length ===
-      Object.keys(image.preparationLabels).length &&
-    Object.entries(image.preparationLabels).every(
-      ([key, value]) => record(config.Labels)[key] === value,
-    ) &&
-    same(value.Mounts, []) &&
-    host.Binds == null &&
-    !host.Privileged &&
-    host.CapAdd == null &&
-    host.NetworkMode === 'bridge' &&
-    (exited
-      ? state.Status === 'exited' && state.ExitCode === 0
-      : state.Status === 'created')
-  );
-}
-
-/** The cache trust boundary is repository/event scoped; consistency checks are not signatures. */
-export function validateLaunchImage(
-  raw: unknown,
-  image: LaunchImage,
-  receiptId?: string,
-): string | null {
-  const value = record(raw),
-    config = record(value.Config),
-    labels = record(config.Labels),
-    layers = record(value.RootFS).Layers;
-  if (
-    !isDigest(value.Id) ||
-    value.Os !== 'linux' ||
-    `linux/${value.Architecture}` !== image.platform ||
-    (receiptId !== undefined && receiptId !== value.Id) ||
-    !safeConfig(config, image, true)
-  )
-    return null;
-  if (
-    !Array.isArray(layers) ||
-    layers.length !== image.native.layers.length + 1 ||
-    !same(layers.slice(0, -1), image.native.layers) ||
-    !isDigest(layers.at(-1))
-  )
-    return null;
-  if (
-    !Object.entries(image.labels).every(
-      ([key, expected]) => labels[key] === expected,
-    ) ||
-    !isDigest(labels['io.daisy.launch.packages']) ||
-    Object.keys(labels).length !== Object.keys(image.labels).length + 1
-  )
-    return null;
-  return value.Id;
-}
-
-/** Fixed field categories only: no untrusted metadata, key names or values escape. */
-export function launchImageContractChecks(
-  raw: unknown,
-  image: LaunchImage,
-  receiptId?: string,
-) {
-  const value = record(raw),
-    config = record(value.Config),
-    labels = record(config.Labels),
-    layers = record(value.RootFS).Layers;
-  return {
-    immutableId: isDigest(value.Id),
-    receiptId: receiptId === undefined || receiptId === value.Id,
-    linux: value.Os === 'linux',
-    nativeArchitecture: `linux/${value.Architecture}` === image.platform,
-    safeConfiguration: safeConfig(config, image, true),
-    hostnameEmpty: config.Hostname == null || config.Hostname === '',
-    hostnameOwned: config.Hostname === base.preparationHostname,
-    environment:
-      Array.isArray(config.Env) &&
-      same([...config.Env].sort(), [...image.environment].sort()),
-    command: same(config.Cmd, ['/bin/bash']),
-    entrypoint: config.Entrypoint == null || same(config.Entrypoint, []),
-    user: config.User === '0:0',
-    workingDirectory: config.WorkingDir === '/',
-    imageReference:
-      !config.Image ||
-      [
-        image.labels['io.daisy.launch.upstream'],
-        image.native.manifest,
-        image.native.config,
-      ].includes(config.Image as string),
-    labels: Object.entries(image.labels).every(
-      ([key, expected]) => labels[key] === expected,
-    ),
-    labelCount:
-      Object.keys(labels).length === Object.keys(image.labels).length + 1,
-    packageInventoryDigest: isDigest(labels['io.daisy.launch.packages']),
-    nativeLayerPrefix:
-      Array.isArray(layers) && same(layers.slice(0, -1), image.native.layers),
-    layerCount:
-      Array.isArray(layers) && layers.length === image.native.layers.length + 1,
-  };
 }
 
 export function readLaunchPackages(output: string): string | null {

@@ -209,16 +209,17 @@ Native manifests: linux/arm64
 `sha256:a0f4498920a5dbac63196d9140ed738ef00470f27e2e74029abd8850b7bd5717`;
 linux/amd64
 `sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7`.
-It adds Ubuntu Noble `libnss3-tools=2:3.98-1ubuntu0.3` for per-run fixture CA
+It adds Ubuntu Noble `libnss3-tools=2:3.98-1build1` for per-run fixture CA
 administration. Browser libraries already exist in the upstream image.
-[Ubuntu's package/dependency listing](https://packages.ubuntu.com/noble-updates/libnss3-tools)
+[Ubuntu's package/dependency listing](https://packages.ubuntu.com/noble/libnss3-tools)
 and [Playwright 1.63.0 native dependencies](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/server/registry/nativeDeps.ts)
 were read before selection. The reviewed descriptor pins the official HTTPS deb
-for each architecture: arm64 SHA256
-`f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd`
-(597572 bytes), amd64 SHA256
-`0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0`
-(615126 bytes). Its exact dependency contract is checked against installed native
+for each architecture from Noble's release pocket, because Ubuntu's pool drops
+superseded `noble-updates` versions and only `certutil` is needed: arm64 SHA256
+`273a3da5dc5d11dbc4efceb787cbe65e1775a3489c84bb393a672f7df17060b8`
+(597570 bytes), amd64 SHA256
+`d8d6093edcf2206edeee40eaddd90a54bacc84cde4d8cc9c4fb50bd7aa12cf0d`
+(615188 bytes). Its exact dependency contract is checked against installed native
 base packages using dpkg version semantics before ordinary installation. No apt,
 force option or dependency resolver is used. Actual package inventory is recorded;
 bit-for-bit cold rebuilds are not promised.

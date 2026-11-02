@@ -3,11 +3,13 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { acquireLaunchBase } from '../e2e/support/launch-browser-image-build';
 import {
-  createLaunchPreparationProcess,
+  cacheLaunchImage,
   restoreLaunchImageArchive,
   saveLaunchImageArchive,
-} from '../e2e/support/launch-browser-image';
+} from '../e2e/support/launch-browser-image-cache';
+import { createLaunchPreparationProcess } from '../e2e/support/launch-browser-image-process';
 import { readLaunchArchiveInventory } from '../e2e/support/launch-browser-image-archive';
 import {
   blob,
@@ -101,38 +103,25 @@ test('a refused export publishes nothing and leaves no temporary archive', async
       'an unknown extra object',
       { ...closed, ...legacy, [blob(sha('x'))]: 'x' },
       config,
-      'Launch image archive refused: unknown-object',
+      'unknown-object',
     ],
     [
       'a daemon ID from the wrong descriptor',
       { ...closed, ...legacy },
       manifest,
-      'Launch image archive refused: daemon-identity',
+      'daemon-identity',
     ],
-    [
-      'a foreign root object',
-      { ...closed, payload: 'x' },
-      config,
-      'Launch image archive refused: inventory',
-    ],
+    ['a foreign root object', { ...closed, payload: 'x' }, config, 'inventory'],
   ];
-  for (const [given, entries, id, message] of attempts) {
+  for (const [given, entries, id, reason] of attempts) {
     const directory = await scratch();
     const { owner } = fakeDocker(tarOf(entries));
-    const failure = await saveLaunchImageArchive(
-      owner,
-      image,
-      id,
-      directory,
-    ).then(
-      () => 'saved',
-      (error: Error) => error.message,
-    );
+    const outcome = await saveLaunchImageArchive(owner, image, id, directory);
     assert({
       given,
-      should: 'refuse explicitly with no published or temporary file',
-      actual: [failure, await readdir(directory)],
-      expected: [message, []],
+      should: 'return its refusal with no published or temporary file',
+      actual: [outcome, await readdir(directory)],
+      expected: [{ saved: false, reason }, []],
     });
   }
 });
@@ -164,5 +153,99 @@ test('restore has no raw fallback: unprojected exports never reach Docker', asyn
       calls.length,
     ],
     expected: [null, 0],
+  });
+});
+
+test('a refused cache keeps the valid image, but the deadline still stops preparation', async () => {
+  const { image, closed, legacy, config } = classicExport();
+  const directory = await scratch();
+  const { owner } = fakeDocker(
+    tarOf({ ...closed, ...legacy, [blob(sha('x'))]: 'x' }),
+  );
+  assert({
+    given: 'an exporter output this producer does not recognize',
+    should: 'report the refusal as a result, publishing nothing',
+    actual: [
+      await cacheLaunchImage(owner, image, config, directory),
+      await readdir(directory),
+    ],
+    expected: [{ saved: false, reason: 'unknown-object' }, []],
+  });
+  const expired = {
+    ...owner,
+    checkpoint: () => {
+      throw new Error('deadline');
+    },
+  };
+  assert({
+    given: 'the preparation deadline passing during archive work',
+    should: 'still fail preparation instead of hiding it as a cache refusal',
+    actual: await cacheLaunchImage(expired, image, config, directory).then(
+      () => 'continued',
+      (error: Error) => error.message,
+    ),
+    expected: 'deadline',
+  });
+});
+
+test('a cache hit with no base acquires it through one verified step', async () => {
+  const { image } = classicExport();
+  const baseMetadata = {
+    Id: image.native.config,
+    Os: 'linux',
+    Architecture: 'arm64',
+    RootFS: { Layers: image.native.layers },
+    Config: {
+      Env: image.environment.slice(0, 4),
+      Cmd: ['/bin/bash'],
+      Labels: image.baseLabels,
+    },
+  };
+  const daemon = (pullCode: number, pulled: unknown) => {
+    const calls: string[] = [];
+    let present = false;
+    const process = createLaunchPreparationProcess();
+    process.close();
+    const owner: typeof process = {
+      ...process,
+      run: async (args) => {
+        calls.push(args[0]!);
+        if (args[0] === 'pull') {
+          present = pullCode === 0;
+          return { code: pullCode, stdout: '' };
+        }
+        return present
+          ? { code: 0, stdout: JSON.stringify([pulled]) }
+          : { code: 1, stdout: '' };
+      },
+    };
+    return { owner, calls };
+  };
+  const failure = (owner: ReturnType<typeof daemon>['owner']) =>
+    acquireLaunchBase(owner, image).then(
+      () => 'acquired',
+      (error: Error) => error.message,
+    );
+  const good = daemon(0, baseMetadata);
+  assert({
+    given: 'a daemon holding only the restored image, as after a cache hit',
+    should: 'pull once and return the verified native identity',
+    actual: [await acquireLaunchBase(good.owner, image), good.calls],
+    expected: [image.native.config, ['image', 'pull', 'image']],
+  });
+  assert({
+    given: 'an unavailable upstream',
+    should: 'fail with the acquisition error',
+    actual: await failure(daemon(1, baseMetadata).owner),
+    expected:
+      'Launch image base acquisition failed; check pinned upstream availability',
+  });
+  assert({
+    given: 'a pulled image whose identity is not the pinned one',
+    should: 'refuse it',
+    actual: await failure(
+      daemon(0, { ...baseMetadata, Id: sha('foreign') }).owner,
+    ),
+    expected: 'Launch image upstream native identity or config mismatch',
   });
 });

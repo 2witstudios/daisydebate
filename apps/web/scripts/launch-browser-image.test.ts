@@ -5,12 +5,14 @@ import {
   launchDaemonImageContract,
   launchImagePrepareArgs,
   launchImageCommitArgs,
+  launchPreparationRemaining,
+} from '../e2e/support/launch-browser-image-policy';
+import {
   validateLaunchBase,
   validateLaunchImage,
   launchImageContractChecks,
   validateLaunchPreparation,
-  launchPreparationRemaining,
-} from '../e2e/support/launch-browser-image-policy';
+} from '../e2e/support/launch-browser-image-validation';
 setupRitewayBun();
 const inputs = {
   version: '1.63.0',
@@ -378,11 +380,11 @@ test('native artifact and complete dependency contract are explicit recipe input
       'sh',
       '-s',
       '--',
-      '2:3.98-1ubuntu0.3',
+      '2:3.98-1build1',
       'arm64',
-      'https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.3_arm64.deb',
-      'f6f1f244dcf90322f2c8733589c35ee0c66f647ea065b1ac9f5452afe110c4dd',
-      '597572',
+      'https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1build1_arm64.deb',
+      '273a3da5dc5d11dbc4efceb787cbe65e1775a3489c84bb393a672f7df17060b8',
+      '597570',
       'libc6 (>= 2.34), libnspr4 (>= 2:4.34), libnss3 (>= 2:3.94), zlib1g (>= 1:1.1.4)',
       'libc6',
       '2.34',

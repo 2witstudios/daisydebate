@@ -285,19 +285,19 @@ describe('e2e artifact sanitizer', () => {
     writeFileSync(join(root, 'server.log'), 'token=synthetic-private-token');
     writeFileSync(join(child, 'trace.log'), 'token=synthetic-private-token');
     chmodSync(child, 0o000);
-    let refused = false;
+    let refused = '';
     try {
       try {
         sanitizeArtifactTree(root);
-      } catch {
-        refused = true;
+      } catch (error) {
+        refused = (error as NodeJS.ErrnoException).code ?? 'unexpected';
       }
       assert({
         given: 'existing evidence with an unreadable subtree',
         should:
           'refuse publication instead of treating unscanned artifacts as absent',
         actual: refused,
-        expected: true,
+        expected: 'EACCES',
       });
     } finally {
       chmodSync(child, 0o755);
@@ -313,19 +313,19 @@ describe('e2e artifact sanitizer', () => {
     const payload = 'token=synthetic-private-token';
     writeFileSync(outside, payload);
     symlinkSync(outside, join(root, 'linked.log'));
-    let refused = false;
+    let refused = '';
     try {
       try {
         sanitizeArtifactTree(root);
-      } catch {
-        refused = true;
+      } catch (error) {
+        refused = (error as Error).message;
       }
       assert({
         given: 'an artifact symlink to a file outside the owned tree',
         should:
           'refuse publication without traversing or rewriting the external target',
         actual: [refused, readFileSync(outside, 'utf8')],
-        expected: [true, payload],
+        expected: ['Artifact symlink refused; refusing publication', payload],
       });
     } finally {
       rmSync(parent, { recursive: true, force: true });

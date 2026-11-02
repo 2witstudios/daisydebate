@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { record, sha256 } from './launch-browser-image-values';
 import {
   launchArchiveBlobPath,
   launchArchiveImageId,
@@ -12,13 +12,6 @@ import type { LaunchImage } from './launch-browser-image-policy';
  * Producer-only. Restore never imports this: it is not legacy compatibility,
  * only the proof that what a projection omits is exactly what the exporter wrote.
  */
-const sha256 = (bytes: Uint8Array | string) =>
-  `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-const record = (value: unknown): Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-
 // Go's encoding/json escapes these even inside json.RawMessage.
 const GO_ESCAPED = new RegExp('[<>&\\u2028\\u2029]', 'g');
 const goJson = (value: unknown) =>

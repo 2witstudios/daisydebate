@@ -26,7 +26,7 @@ test('native evidence survives an earlier prerequisite refusal without bypassing
     given:
       'a failed archive prerequisite followed by realtime artifacts, or no artifacts at all',
     should:
-      'always sanitize existing evidence, publish only after success, and truthfully ignore an empty upload',
+      'always sanitize existing evidence, publish only after success, and ignore an empty upload only when the suite never ran',
     actual: {
       sanitize: steps[sanitize]?.if,
       uploadAfterSanitize: upload > sanitize,
@@ -42,7 +42,8 @@ test('native evidence survives an earlier prerequisite refusal without bypassing
       uploadAfterSanitize: true,
       uploadGuard:
         "${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}",
-      noFiles: 'ignore',
+      noFiles:
+        "${{ steps.launch.outcome == 'skipped' && 'ignore' || 'error' }}",
       selectedReportGuard:
         "${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}",
     },

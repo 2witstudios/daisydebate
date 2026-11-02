@@ -1,12 +1,15 @@
 import { createId } from '@paralleldrive/cuid2';
 import { resolve } from 'node:path';
 import {
-  createLaunchPreparationProcess,
-  createPreparedLaunchImage,
-  closeLaunchPreparation,
   readLaunchImageInputs,
   readLaunchDockerContract,
 } from './launch-browser-image';
+import {
+  acquireLaunchBase,
+  closeLaunchPreparation,
+  createPreparedLaunchImage,
+} from './launch-browser-image-build';
+import { createLaunchPreparationProcess } from './launch-browser-image-process';
 import { launchImagePrepareArgs } from './launch-browser-image-policy';
 
 const checkout = resolve(import.meta.dir, '../../../..');
@@ -19,12 +22,8 @@ const { image } = await readLaunchImageInputs(
   engine,
   store,
 );
-const inspected = await prerequisite.run(['image', 'inspect', image.base]);
-if (inspected.code !== 0)
-  throw new Error(
-    'Preparation lifecycle proof requires its exact acquired base',
-  );
-const baseId = JSON.parse(inspected.stdout)[0].Id as string;
+// A cache hit restores only the prepared image, so the base may be absent here.
+const baseId = await acquireLaunchBase(prerequisite, image);
 prerequisite.close();
 
 for (const mode of [
@@ -73,9 +72,9 @@ for (const mode of [
     }
     // Synthetic recipe output reaches a real failed commit without installing
     // packages. It is never accepted as a prepared image or package proof.
-    const inventory = Buffer.from(
-      'libnss3-tools\t2:3.98-1ubuntu0.3\n',
-    ).toString('base64');
+    const inventory = Buffer.from('libnss3-tools\t2:3.98-1build1\n').toString(
+      'base64',
+    );
     const recipe =
       mode === 'deadline'
         ? 'printf "daisy-image-stage:artifact-download\\n"\nsleep 600\n'

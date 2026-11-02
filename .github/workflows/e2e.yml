@@ -543,7 +543,8 @@ jobs:
         with:
           name: room-launch-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
-          if-no-files-found: ignore
+          # Silence only when the suite never ran; a run with no evidence fails.
+          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && 'ignore' || 'error' }}
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.

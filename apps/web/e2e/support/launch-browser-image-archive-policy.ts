@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { isDigest, record, same, sha256 } from './launch-browser-image-values';
 import type { LaunchImage } from './launch-browser-image-policy';
 
 /**
@@ -65,16 +65,6 @@ const ROOT_FILES = [
   'repositories',
 ];
 
-const sha256 = (bytes: Uint8Array | string) =>
-  `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-const isDigest = (value: unknown): value is string =>
-  typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
-const same = (actual: unknown, expected: unknown) =>
-  JSON.stringify(actual) === JSON.stringify(expected);
-const record = (value: unknown): Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 const onlyKeys = (value: object, allowed: readonly string[]) =>
   Object.keys(value).every((key) => allowed.includes(key));
 export const launchArchiveBlobPath = (digest: string) =>
