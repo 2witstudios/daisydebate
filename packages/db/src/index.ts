@@ -330,7 +330,7 @@ export function createDatabase({
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
-     * feature; no production path calls that feature yet (RATE-2).
+     * feature's maintenance sweep.
      */
     rateRound: (input: RateDebateInput) =>
       instrumented(eventSink, 'rateRound', () =>
