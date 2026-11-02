@@ -1,6 +1,6 @@
 # Privacy Policy — draft for counsel
 
-**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-2`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 
@@ -50,7 +50,7 @@ We do not sell your personal data or use it for advertising. When a round is jud
 
 ## Speech, transcripts and AI
 
-When a round uses live audio, short clips of your speech are sent to our AI provider to be turned into text. We do not record or keep the audio: it is held in memory only until it is transcribed.
+When a round uses live audio, short clips of your speech are sent to our AI provider to be turned into text. For transcription we do not keep the audio: it is held in memory only until it is transcribed. Recording a round is a separate thing, described under “Ranked rounds and recordings”.
 
 To judge a round, give feedback, or let an AI opponent reply, the AI provider receives the resolution and the transcript, labelled by side and seat only, never with your name, username or email.
 
@@ -66,9 +66,19 @@ Your friends see whether you are online, away or offline, unless you hide your p
 
 People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses.
 
+## Ranked rounds and recordings
+
+Ranked rounds are always public, broadcast with a delay and recorded. Before you can be Ready for one you sign the ranked content waiver once per season, and each ranked round shows you a notice first. We keep a record of each: your account, the version and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
+
+We keep ranked video, with the results and ballots, as Daisy’s content for as long as Daisy runs ranked seasons, including after you close your account, because ranked season rounds are qualifying artifacts for tournaments: the results and the video stand as the evidence behind qualification, disputes and integrity review. Lawful basis: our contract with you, and our legitimate interest in the integrity of qualification. Moderation can still take a recording down. [COUNSEL: this purpose, basis and period are proposed and not yet reviewed (COMP-4, docs/operations/compliance.md).]
+
+On any other round, recording happens only if the host opts in, and you are told before you are Ready. A casual recording is kept until any participant removes it, and then the whole recording goes.
+
+A subscriber can download a recording they can watch. A copy outside Daisy is beyond our reach, so neither erasure nor takedown can remove it.
+
 ## Service providers and international transfers
 
-Fly.io hosts the service, its databases and the live audio and video relay, in [OWNER: hosting region, for example the United States]. Everything we hold is stored there.
+Fly.io hosts the service, its databases and the live audio and video relay, in [OWNER: hosting region, for example the United States]. Everything we hold is stored there. Tigris stores broadcast and recorded video, on Fly.io. [OWNER: confirm the Tigris region and contract (PRIV-H).]
 
 Resend sends our email: sign-in links, security notices and beta access emails. It receives your email address and the message.
 
@@ -126,7 +136,7 @@ You can ask to access, correct, export or delete your personal data, to restrict
 
 Today you can end sessions and manage passkeys and your sign-in email in Settings. For anything else, including deleting your account or getting a copy of your data, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
 
-When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages and the transcripts of what you said. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. We keep them because other members’ records depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
+When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages and the transcripts of what you said. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. Ranked rounds also keep their video, and your signed waiver and notice records stay as the evidence of what you agreed to. We keep them because other members’ records and tournament qualification depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
 
 While your beta access is pending or withdrawn you can still reduce your own footprint, as the terms of service describe under “The beta and the waiting list”.
 
@@ -144,7 +154,7 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
+- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
 - **Error tracking (Sentry) is wired in code, inert without its keys** (ADR 0037), and the draft above now describes it (scrubbed events, `user.id` only). Keys stay off until PRIV-H records the account, region and DPA; the processor row in [compliance](../operations/compliance.md) says the same.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.
