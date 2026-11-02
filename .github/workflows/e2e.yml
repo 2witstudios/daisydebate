@@ -466,6 +466,51 @@ jobs:
             ~/.cache/ms-playwright
             ~/.cache/daisy-apt-archives
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+      - name: Resolve prepared Launch browser identity
+        id: launch-image
+        run: |
+          key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      # Exact input keys only. Cache is a repository-scoped optimization and forks
+      # never restore it; the shared preparer validates receipt and image again.
+      - name: Restore prepared Launch browser archive
+        id: launch-image-cache
+        # A stalled cache is a miss, never a red required check: the hit output stays
+        # empty, so the proofs run in full, and a partial directory is rebuilt.
+        continue-on-error: true
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        timeout-minutes: 8
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image
+          key: launch-image-${{ runner.os }}-${{ runner.arch }}-${{ steps.launch-image.outputs.key }}
+      - name: Prepare isolated Launch browser image
+        id: launch-image-prepare
+        timeout-minutes: 9
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image.ts .cache/launch-browser-image
+      - name: Prove owned preparation deadline, configuration and cleanup
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+        env:
+          LAUNCH_IMAGE_CACHE_HIT: ${{ steps.launch-image-cache.outputs.cache-hit }}
+      - name: Prove exact archive load, timing and rejection boundaries
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-archive-proof.ts
+        env:
+          LAUNCH_IMAGE_CACHE_HIT: ${{ steps.launch-image-cache.outputs.cache-hit }}
+      - name: Prove prepared browser trust, repository isolation and cleanup
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
+      # After the proofs, so a cache hit means they passed on these exact inputs.
+      - name: Save trusted prepared Launch browser archive
+        continue-on-error: true
+        if: >-
+          steps.launch-image-cache.outputs.cache-hit != 'true' &&
+          hashFiles('.pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image/receipt.json') != '' &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        timeout-minutes: 8
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image
+          key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
       - name: Run real isolated Launch browser suite
         id: launch
         run: bun test:e2e:room-launch
@@ -500,7 +545,7 @@ jobs:
         run: bun scripts/e2e-selection-report.ts room-launch
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
-        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() }}
         run: bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
       - name: Retain Launch evidence on success and failure
         if: ${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}
@@ -508,7 +553,8 @@ jobs:
         with:
           name: room-launch-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
-          if-no-files-found: error
+          # Silence only when the suite never ran; a run with no evidence fails.
+          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && 'ignore' || 'error' }}
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.
