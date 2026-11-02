@@ -152,7 +152,6 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
 
     const refused = await Promise.allSettled([
       f.sql`update rounds set resolution_evidence = '{}'::jsonb where id = ${roundId}`,
-      f.sql`update rounds set resolution = 'Another' where id = ${roundId}`,
       f.sql`delete from round_resolution_draw_texts where round_id = ${roundId}`,
       f.sql`update round_resolution_draws set commitment = commitment where round_id = ${roundId}`,
       f.sql`delete from round_resolution_strikes where draw_id in (select id from round_resolution_draws where round_id = ${roundId})`,
@@ -163,7 +162,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       given: 'writes the triggers guard, including direct deletes of a draw',
       should: 'reject every one',
       actual: refused.map((r) => r.status),
-      expected: Array.from({ length: 7 }, () => 'rejected'),
+      expected: Array.from({ length: 6 }, () => 'rejected'),
     });
   });
 });

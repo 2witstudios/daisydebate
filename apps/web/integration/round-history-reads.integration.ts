@@ -70,7 +70,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
         seat: hostSeat.id,
         startCommand: envelope.commandId,
         endCommand: envelope.commandId,
-        version: 3,
+        version: 2,
       },
     });
     const query = {

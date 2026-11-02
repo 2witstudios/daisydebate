@@ -139,17 +139,4 @@ $$;--> statement-breakpoint
 CREATE TRIGGER round_resolution_draw_items_immutable BEFORE UPDATE OR DELETE ON round_resolution_draw_items
 FOR EACH ROW EXECUTE FUNCTION guard_round_draw_children();--> statement-breakpoint
 CREATE TRIGGER round_resolution_strikes_immutable BEFORE UPDATE OR DELETE ON round_resolution_strikes
-FOR EACH ROW EXECUTE FUNCTION guard_round_draw_children();--> statement-breakpoint
--- A Round's resolution is set once, at Start round or at its reveal.
-CREATE FUNCTION preserve_round_resolution() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF OLD.resolution IS NOT NULL AND NEW.resolution IS DISTINCT FROM OLD.resolution THEN
-    RAISE EXCEPTION 'A Round resolution is immutable'
-      USING ERRCODE = '23514', CONSTRAINT = 'rounds_resolution_immutable';
-  END IF;
-  RETURN NEW;
-END;
-$$;--> statement-breakpoint
-CREATE TRIGGER rounds_resolution_immutable BEFORE UPDATE ON rounds
-FOR EACH ROW EXECUTE FUNCTION preserve_round_resolution();
+FOR EACH ROW EXECUTE FUNCTION guard_round_draw_children();
