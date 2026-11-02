@@ -1,9 +1,9 @@
 /**
  * A Round room whose read was temporarily refused. It takes no Round input:
  * nothing was read or authorized, so it says the same to anyone, and the next
- * load applies every access and redirect rule again. A plain refresh brings the page back with or without
- * script and always as a GET, so it never replays a form post. The page's next
- * real read decides what renders, and the Round's clock stays on the server.
+ * load applies every access and redirect rule again. A plain refresh brings
+ * the page back with or without script and always as a GET, so it never
+ * replays a form post. The Round's clock stays on the server.
  */
 export function RoundRoomReconnecting({
   retrySeconds,

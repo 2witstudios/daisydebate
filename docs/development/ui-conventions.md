@@ -9,14 +9,16 @@ ink, brand graphics and contrast pairs) has its own guide:
 ## A live Round's page survives a temporary read failure
 
 The Round keeps running on the server, so its room must not wait on anyone
-pressing Try again. When a read is temporarily refused (`temporary-read.ts`:
-a capacity refusal or its 503), the room page renders an honest status page
-that holds a plain `meta refresh` of 2 to 4 s, so pages refused together do
-not return together, the same with and without JavaScript. It shows no Round
-state, because none was read, and each refresh applies the access and redirect
-rules again. It answers 200 and `no-store`: a Next page cannot choose a 5xx.
-Any other failure stays on the error boundary: it is not known to pass and
-must not say so (ISSUE-927).
+pressing Try again. When the Round read answers temporarily (`temporary-read.ts`:
+the route's 503, which a capacity refusal becomes), the room page renders an
+honest status page that holds a plain `meta refresh` of 2 to 4 s, so pages
+refused together do not return together, the same with and without JavaScript.
+It shows no Round state, because none was read, and each refresh applies the
+access and redirect rules again. It answers 200 and `no-store`: a Next page
+cannot choose a 5xx. Reads beside the room (ratings, transcript, attendance)
+degrade in place, because a refresh would cost the room for less than its
+controls. Any other failure, an unavailable identity included, stays on the
+error boundary: it is not known to pass and must not say so (ISSUE-927).
 
 ## Mutating forms work without JavaScript
 

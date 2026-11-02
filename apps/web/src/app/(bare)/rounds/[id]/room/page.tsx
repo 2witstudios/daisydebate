@@ -13,12 +13,10 @@ import {
 import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
+import { isCapacityRefusal } from '@daisy/db/capacity';
+import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
-import {
-  isTemporaryReadFailure,
-  retrySeconds,
-  unreadable,
-} from '../../../../../server/temporary-read';
+import { retrySeconds } from '../../../../../server/temporary-read';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
@@ -37,6 +35,18 @@ import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-r
 
 export const metadata: Metadata = { title: 'Round' };
 
+const reconnecting = () => {
+  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
+  return <RoundRoomReconnecting retrySeconds={retrySeconds(entropy!)} />;
+};
+
+/** Stakes beside the room never outrank its controls: a refusal only omits them. */
+const ratingsUnlessRefused = (round: RoundView) =>
+  requestRoundRatings(round).catch((error: unknown) => {
+    if (isCapacityRefusal(error)) return null;
+    throw error;
+  });
+
 /**
  * A member without a seat: the assigned judge's live view, a seatless
  * host's spectator view, or the receipt for everyone else.
@@ -49,7 +59,10 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
-  if (assigned.kind === 'unavailable') throw unreadable(assigned);
+  if (assigned.kind === 'unavailable') {
+    if (assigned.temporary) return reconnecting();
+    throw createAppError('INFRASTRUCTURE');
+  }
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
     audience: spectatorAudienceOf(round, actorId),
@@ -79,31 +92,19 @@ async function watchingRoom(
   );
 }
 
-type RoomProps = {
-  readonly params: Promise<{ id: string }>;
-  readonly searchParams: Promise<SearchParams>;
-};
-
-/**
- * A temporary read failure never costs a speaker the room (ISSUE-927): the
- * Round keeps running, so the page recovers by itself rather than wait on the
- * error boundary's manual retry, which also has no page without script.
- */
-export default async function RoundRoomPage(props: RoomProps) {
-  try {
-    return await roundRoom(props);
-  } catch (error) {
-    if (!isTemporaryReadFailure(error)) throw error;
-    const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-    return <RoundRoomReconnecting retrySeconds={retrySeconds(entropy!)} />;
-  }
-}
-
 /**
  * Fresh assigned members enter their own live view, a seatless host watches
- * as a spectator, and everyone else gets the receipt.
+ * as a spectator, and everyone else gets the receipt. A temporarily refused
+ * read never costs a speaker the room (ISSUE-927): the Round keeps running, so
+ * the page recovers by itself instead of waiting on the error boundary.
  */
-async function roundRoom({ params, searchParams }: RoomProps) {
+export default async function RoundRoomPage({
+  params,
+  searchParams,
+}: {
+  readonly params: Promise<{ id: string }>;
+  readonly searchParams: Promise<SearchParams>;
+}) {
   const { id } = await params;
   const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
@@ -116,7 +117,8 @@ async function roundRoom({ params, searchParams }: RoomProps) {
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
-  if (result.kind !== 'found') throw unreadable(result);
+  if (result.kind === 'unavailable' && result.temporary) return reconnecting();
+  if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcript =
     text.kind === 'found' ? (
       <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />
@@ -139,7 +141,7 @@ async function roundRoom({ params, searchParams }: RoomProps) {
       <LiveRoundRoom
         attendanceSlot={
           <>
-            <RoundRatings view={await requestRoundRatings(result.round)} />
+            <RoundRatings view={await ratingsUnlessRefused(result.round)} />
             <RoundNativeAttendance
               view={result.round}
               state={await readPersistedAttendance(id)}

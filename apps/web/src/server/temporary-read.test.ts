@@ -1,13 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
-import { createAppError } from '@daisy/errors';
 import { handleOperation } from './http';
-import {
-  isTemporaryReadFailure,
-  retrySeconds,
-  unavailableRead,
-  unreadable,
-} from './temporary-read';
+import { retrySeconds, unavailableRead } from './temporary-read';
 import { silentLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -36,31 +30,6 @@ test('a read answer is temporary only when the route says it refused work that n
       { kind: 'unavailable' },
       { kind: 'unavailable' },
     ],
-  });
-});
-
-test('a page recovers only from a failure that is really temporary', () => {
-  assert({
-    given:
-      'a thrown refusal, a wrapped one, and what the page throws for a temporary and an other read',
-    should: 'recognise the temporary ones',
-    actual: [
-      refuseCapacity(),
-      new Error('driver', { cause: refuseCapacity() }),
-      unreadable({ temporary: true }),
-      unreadable({}),
-    ].map(isTemporaryReadFailure),
-    expected: [true, true, true, false],
-  });
-  assert({
-    given: "a Next redirect's control-flow error, a conflict and a stray value",
-    should: 'leave each to whatever already owns it',
-    actual: [
-      Object.assign(new Error('NEXT_REDIRECT'), { digest: 'NEXT_REDIRECT;x' }),
-      createAppError('CONFLICT'),
-      'stray',
-    ].map(isTemporaryReadFailure),
-    expected: [false, false, false],
   });
 });
 
