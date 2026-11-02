@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { launchArchiveFormat } from './launch-browser-image-archive-policy';
 import base from './launch-browser-image-base.json';
 
 const proxyNames = [
@@ -23,12 +24,15 @@ const record = (value: unknown): Record<string, unknown> =>
 const isDigest = (value: unknown): value is string =>
   typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
 export const launchDependencyRevision = base.refresh;
+const launchImageStores = ['overlay2', 'containerd-overlayfs'] as const;
+export type LaunchImageStore = (typeof launchImageStores)[number];
 
 /** Complete reusable inputs, excluding paths, fixture trust and credentials. */
 export function launchImageIdentity(input: {
   readonly version: string;
   readonly coreVersion: string;
   readonly platform: string;
+  readonly store: LaunchImageStore;
   readonly recipe: string;
   readonly toolchain: string;
   readonly lock: string;
@@ -38,7 +42,8 @@ export function launchImageIdentity(input: {
   if (
     input.version !== base.version ||
     input.coreVersion !== input.version ||
-    !native
+    !native ||
+    !launchImageStores.includes(input.store)
   )
     throw new Error('Unsupported Launch browser image inputs');
   const key = createHash('sha256')
@@ -47,6 +52,8 @@ export function launchImageIdentity(input: {
         version: input.version,
         coreVersion: input.coreVersion,
         platform: input.platform,
+        store: input.store,
+        archiveFormat: launchArchiveFormat,
         recipe: input.recipe,
         toolchain: input.toolchain,
         lock: input.lock,
@@ -69,6 +76,7 @@ export function launchImageIdentity(input: {
     key,
     tag: `daisy-launch-browser:${key}`,
     platform: input.platform,
+    store: input.store,
     base: `mcr.microsoft.com/playwright:v${base.version}-noble@${base.index}`,
     native,
     baseLabels: base.labels,
@@ -81,6 +89,32 @@ export function launchImageIdentity(input: {
   };
 }
 export type LaunchImage = ReturnType<typeof launchImageIdentity>;
+
+/** Recognized native daemon stores determine which content descriptor is its image ID. */
+export function launchDaemonImageContract(raw: unknown) {
+  const value = record(raw);
+  const architecture = value.Architecture;
+  const platform =
+    architecture === 'arm64' || architecture === 'aarch64'
+      ? 'linux/arm64'
+      : architecture === 'amd64' || architecture === 'x86_64'
+        ? 'linux/amd64'
+        : null;
+  if (
+    value.OSType !== 'linux' ||
+    !platform ||
+    !Array.isArray(value.DriverStatus)
+  )
+    return null;
+  const marker = value.DriverStatus.find(
+    (entry) => Array.isArray(entry) && entry[0] === 'driver-type',
+  )?.[1];
+  if (value.Driver === 'overlayfs' && marker === 'io.containerd.snapshotter.v1')
+    return { platform, store: 'containerd-overlayfs' as const };
+  if (value.Driver === 'overlay2' && marker === undefined)
+    return { platform, store: 'overlay2' as const };
+  return null;
+}
 
 const recipeCommand = (image: LaunchImage) => [
   'sh',
@@ -244,11 +278,10 @@ export function validateLaunchBase(
   const value = record(raw),
     config = record(value.Config),
     layers = record(value.RootFS).Layers;
-  const knownIds = [
-    image.labels['io.daisy.launch.upstream'],
-    image.native.manifest,
-    image.native.config,
-  ];
+  const knownIds =
+    image.store === 'overlay2'
+      ? [image.native.config]
+      : [image.labels['io.daisy.launch.upstream'], image.native.manifest];
   if (
     !isDigest(value.Id) ||
     !knownIds.includes(value.Id) ||
@@ -403,57 +436,3 @@ export const launchPreparationRemaining = (
   elapsed: number,
   cleanup: boolean,
 ) => Math.max(0, budget - elapsed - (cleanup ? 0 : 30000));
-export function readLaunchArchiveReceipt(
-  value: unknown,
-  key: string,
-): string | null {
-  const receipt = record(value);
-  return receipt.key === key && isDigest(receipt.id) ? receipt.id : null;
-}
-
-/** Load may touch only this exact local cache reference, never foreign tags. */
-export function validateLaunchArchive(
-  value: unknown,
-  image: LaunchImage,
-  index?: unknown,
-  receiptId?: string,
-): boolean {
-  if (!Array.isArray(value) || value.length !== 1) return false;
-  const manifest = record(value[0]);
-  const path = (value: unknown) =>
-    typeof value === 'string' &&
-    /^(?:[a-f0-9]{64}\.json|[a-f0-9]{64}\/layer\.tar|blobs\/sha256\/[a-f0-9]{64})$/.test(
-      value,
-    );
-  const dockerManifest =
-    same(manifest.RepoTags, [image.tag]) &&
-    path(manifest.Config) &&
-    Array.isArray(manifest.Layers) &&
-    manifest.Layers.length === image.native.layers.length + 1 &&
-    manifest.Layers.every(path);
-  if (!dockerManifest || index === undefined) return dockerManifest;
-  const oci = record(index);
-  if (
-    oci.schemaVersion !== 2 ||
-    oci.mediaType !== 'application/vnd.oci.image.index.v1+json' ||
-    !Array.isArray(oci.manifests) ||
-    oci.manifests.length !== 1
-  )
-    return false;
-  const descriptor = record(oci.manifests[0]);
-  const annotations = record(descriptor.annotations);
-  return (
-    descriptor.mediaType === 'application/vnd.oci.image.manifest.v1+json' &&
-    isDigest(receiptId) &&
-    descriptor.digest === receiptId &&
-    (descriptor.platform == null ||
-      same(descriptor.platform, {
-        os: 'linux',
-        architecture: image.platform.slice('linux/'.length),
-      })) &&
-    Object.keys(annotations).length === 2 &&
-    annotations['io.containerd.image.name'] ===
-      `docker.io/library/${image.tag}` &&
-    annotations['org.opencontainers.image.ref.name'] === image.key
-  );
-}

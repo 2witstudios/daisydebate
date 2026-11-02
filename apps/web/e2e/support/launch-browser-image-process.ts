@@ -19,8 +19,14 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
   };
   process.once('SIGTERM', abort);
   process.once('SIGINT', abort);
+  const expired = (cleanup: boolean) =>
+    launchPreparationRemaining(
+      budgetMs,
+      performance.now() - started,
+      cleanup,
+    ) <= 0 ||
+    (interrupted && !cleanup);
   const execute = async (
-    command: 'docker' | 'tar',
     args: readonly string[],
     options: {
       readonly stdin?: string;
@@ -33,11 +39,11 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
       performance.now() - started,
       options.cleanup ?? false,
     );
-    if (remaining <= 0 || (interrupted && !options.cleanup))
+    if (expired(options.cleanup ?? false))
       throw new Error(
         'Launch image preparation deadline; rerun preparation after checking Docker and upstream availability',
       );
-    const child = spawn(command, [...args], { detached: true, stdio: 'pipe' });
+    const child = spawn('docker', [...args], { detached: true, stdio: 'pipe' });
     const pid = child.pid;
     if (pid) groups.add(pid);
     let stdout = '',
@@ -91,16 +97,14 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
     }
   };
   return {
-    run: (args: readonly string[], options?: Parameters<typeof execute>[2]) =>
-      execute('docker', args, options),
-    archiveDocument: (path: string, entry: 'manifest.json' | 'index.json') =>
-      execute('tar', ['-xOf', path, entry]),
-    archiveBlobDocument: (path: string, digest: string) => {
-      if (!/^sha256:[a-f0-9]{64}$/.test(digest))
-        throw new Error('Invalid Launch archive content address');
-      return execute('tar', ['-xOf', path, `blobs/sha256/${digest.slice(7)}`]);
+    run: execute,
+    /** In-process archive streaming stops at the same deadline and interrupt. */
+    checkpoint: () => {
+      if (expired(false))
+        throw new Error(
+          'Launch image preparation deadline during archive work',
+        );
     },
-    archiveEntries: (path: string) => execute('tar', ['-tf', path]),
     close: () => {
       process.removeListener('SIGTERM', abort);
       process.removeListener('SIGINT', abort);

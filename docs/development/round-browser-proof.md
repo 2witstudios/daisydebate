@@ -137,13 +137,31 @@ inexact restores are discarded only from the owned archive directory. Only
 same-repository PR and main-push events save; forks/manual runs cannot publish
 reusable caches. GitHub ref scoping applies. Local and restored images undergo
 configuration, layer, package and filesystem checks, independently of cache-hit
-metadata. The receipt binds the expected input key and actual immutable image
-ID. Cache is an optimization within its repository/event trust boundary, not a
-signature or acceptance authority. A rejected archive gets one bounded rebuild;
-failed writes remove their own partial files.
-Both the Docker archive manifest and any OCI index must name only the exact
-expected local reference; the OCI digest must match the receipt. Foreign tags,
-annotations, platforms and extra image entries are rejected before load.
+metadata. Cache is an optimization within its repository/event trust boundary,
+not a signature or acceptance authority. A rejected archive gets one bounded
+rebuild; failed writes remove their own partial files.
+
+The archive has one format and one reader. A format-2 archive holds exactly the
+OCI index, its single manifest, that manifest's config and ordered layers, the
+mirrored Docker `manifest.json` and `oci-layout`. Restore refuses anything else
+before Docker sees it: an extra object, entry type or path, a foreign tag,
+annotation or platform, or a hash, size or DiffID that disagrees with the chain.
+There is no raw fallback. The receipt binds format, input key and the store
+family measured from `docker info` to the verified config and manifest digests.
+The family alone selects the image ID: the config digest on classic `overlay2`,
+the manifest digest on containerd `overlayfs`. Family and format are both in the
+cache key.
+
+The one producer is `saveLaunchImageArchive`. An export already in that shape is
+published unchanged, which is what containerd writes. Moby's classic exporter
+also writes one V1 config per layer and a `repositories` file outside the graph.
+Those bytes are fully determined by the image config, so the producer recomputes
+them exactly (`launchExporterLegacyObjects`, from Moby v28 `tarexport`) and omits
+them only on an exact match of the whole set. Any other object refuses the save;
+nothing is filtered. Retained entries are copied byte for byte and no layer is
+transcoded. Hashing, copying, loading and cleanup all stream in bounded chunks
+under the same eight-minute owner. A classic daemon running outside UTC writes a
+different epoch timestamp, so its save refuses rather than guessing.
 
 The real preparation lifecycle proof exercises timeout, partial creation,
 pre-execution credential/config rejection and commit failure against owned

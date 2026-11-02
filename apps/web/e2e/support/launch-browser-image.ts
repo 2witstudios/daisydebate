@@ -3,6 +3,7 @@ import { mkdir, rename, rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import {
   launchDependencyRevision,
+  launchDaemonImageContract,
   launchImageIdentity,
   launchImagePrepareArgs,
   launchImageCommitArgs,
@@ -11,10 +12,20 @@ import {
   validateLaunchImage,
   launchImageContractChecks,
   readLaunchPackages,
-  readLaunchArchiveReceipt,
-  validateLaunchArchive,
   type LaunchImage,
+  type LaunchImageStore,
 } from './launch-browser-image-policy';
+import { launchArchiveProjection } from './launch-browser-image-export-policy';
+import {
+  launchArchiveReceipt,
+  launchArchiveReceiptMatches,
+  readLaunchArchiveGraph,
+} from './launch-browser-image-archive-policy';
+import {
+  launchArchiveLayersMatch,
+  readLaunchArchiveInventory,
+  writeClosedLaunchArchive,
+} from './launch-browser-image-archive';
 import { createLaunchPreparationProcess } from './launch-browser-image-process';
 export { createLaunchPreparationProcess } from './launch-browser-image-process';
 type Owner = ReturnType<typeof createLaunchPreparationProcess>;
@@ -32,11 +43,18 @@ async function inspect(
     return null;
   }
 }
-async function toolchain(owner: Owner) {
-  const result = await owner.run([
-    'version',
-    '--format',
-    '{{.Client.Version}}/{{.Server.Version}}',
+export async function readLaunchDockerContract(owner: Owner) {
+  const [result, info] = await Promise.all([
+    owner.run([
+      'version',
+      '--format',
+      '{{.Client.Version}}/{{.Server.Version}}',
+    ]),
+    owner.run([
+      'info',
+      '--format',
+      '{"OSType":{{json .OSType}},"Architecture":{{json .Architecture}},"Driver":{{json .Driver}},"DriverStatus":{{json .DriverStatus}}}',
+    ]),
   ]);
   const version = result.stdout.trim();
   if (
@@ -46,12 +64,24 @@ async function toolchain(owner: Owner) {
     throw new Error(
       'Launch image preparation requires a reachable Docker daemon',
     );
-  return version;
+  let contract: ReturnType<typeof launchDaemonImageContract> = null;
+  try {
+    if (info.code === 0)
+      contract = launchDaemonImageContract(JSON.parse(info.stdout));
+  } catch {
+    /* Refuse unsupported daemon metadata. */
+  }
+  if (!contract)
+    throw new Error(
+      'Launch preparation requires a supported native overlay2 or containerd overlayfs image store',
+    );
+  return { ...contract, engine: version };
 }
 export async function readLaunchImageInputs(
   checkout: string,
   platform: string,
   engine: string,
+  store: LaunchImageStore,
 ) {
   const manifest = await Bun.file(
     resolve(checkout, 'apps/web/package.json'),
@@ -61,6 +91,9 @@ export async function readLaunchImageInputs(
     'launch-browser-image-policy.ts',
     'launch-browser-image.ts',
     'launch-browser-image-process.ts',
+    'launch-browser-image-archive-policy.ts',
+    'launch-browser-image-export-policy.ts',
+    'launch-browser-image-archive.ts',
   ];
   const [recipe, ...implementation] = await Promise.all(
     files.map((name) => Bun.file(resolve(import.meta.dir, name)).text()),
@@ -73,6 +106,7 @@ export async function readLaunchImageInputs(
     version: manifest.devDependencies['@playwright/test'],
     coreVersion: manifest.devDependencies['playwright-core'],
     platform,
+    store,
     recipe: recipe!,
     toolchain: JSON.stringify([implementation, bun, engine]),
     lock,
@@ -273,53 +307,37 @@ export async function createPreparedLaunchImage(
   return id;
 }
 
+/** The one restore: a closed format-2 archive, fully verified before Docker sees it. */
 export async function restoreLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
   directory: string,
 ) {
   try {
-    const receiptId = readLaunchArchiveReceipt(
-      await Bun.file(join(directory, 'receipt.json')).json(),
-      image.key,
-    );
-    if (!receiptId) return null;
     const archive = join(directory, 'image.tar');
-    const entries = await owner.archiveEntries(archive);
-    if (entries.code !== 0) return null;
-    const manifest = await owner.archiveDocument(archive, 'manifest.json');
-    let index: unknown;
-    if (entries.stdout.split('\n').includes('index.json')) {
-      const document = await owner.archiveDocument(archive, 'index.json');
-      if (document.code !== 0) return null;
-      index = JSON.parse(document.stdout);
-    }
+    const entries = await readLaunchArchiveInventory(archive, owner.checkpoint);
+    const graph = entries && readLaunchArchiveGraph(entries, image);
     if (
-      manifest.code !== 0 ||
-      !validateLaunchArchive(
-        JSON.parse(manifest.stdout),
+      !graph?.ok ||
+      graph.extras.length > 0 ||
+      !launchArchiveReceiptMatches(
+        await Bun.file(join(directory, 'receipt.json')).json(),
+        graph,
         image,
-        index,
-        receiptId,
-      )
+      ) ||
+      !(await launchArchiveLayersMatch(archive, graph.layers, owner.checkpoint))
     )
       return null;
-    if (
-      (
-        await owner.run([
-          'image',
-          'load',
-          '--input',
-          join(directory, 'image.tar'),
-        ])
-      ).code !== 0
-    )
+    const { id } = launchArchiveReceipt(graph, image);
+    if ((await owner.run(['image', 'load', '--input', archive])).code !== 0)
       return null;
-    return await validatedImage(owner, image, image.tag, receiptId);
+    return await validatedImage(owner, image, image.tag, id);
   } catch {
     return null;
   }
 }
+
+/** The one producer: save, recognize exactly, project if needed, verify, then publish. */
 export async function saveLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
@@ -327,22 +345,68 @@ export async function saveLaunchImageArchive(
   directory: string,
 ) {
   await mkdir(directory, { recursive: true });
-  const temporary = join(directory, `image-${createId()}.tmp`);
+  const temporary = join(directory, `image-${createId()}`);
+  const paths = {
+    raw: `${temporary}.raw`,
+    closed: `${temporary}.closed`,
+    receipt: `${temporary}.json`,
+  };
+  const refuse = (reason: string) =>
+    new Error(`Launch image archive refused: ${reason}`);
   try {
     if (
-      (await owner.run(['image', 'save', '--output', temporary, image.tag]))
+      (await owner.run(['image', 'save', '--output', paths.raw, image.tag]))
         .code !== 0
     )
       throw new Error('Launch image archive save failed');
-    await Bun.write(
-      `${temporary}.json`,
-      JSON.stringify({ key: image.key, id }),
+    const rawEntries = await readLaunchArchiveInventory(
+      paths.raw,
+      owner.checkpoint,
     );
-    await rename(temporary, join(directory, 'image.tar'));
-    await rename(`${temporary}.json`, join(directory, 'receipt.json'));
+    const raw = rawEntries && readLaunchArchiveGraph(rawEntries, image);
+    if (!raw) throw refuse('inventory');
+    if (!raw.ok) throw refuse(raw.reason);
+    const projection = launchArchiveProjection(raw, image, id);
+    if (!projection.ok) throw refuse(projection.reason);
+    const archive = projection.omitted === 0 ? paths.raw : paths.closed;
+    if (projection.omitted > 0)
+      await writeClosedLaunchArchive(
+        paths.raw,
+        paths.closed,
+        raw.retained,
+        owner.checkpoint,
+      );
+    const closedEntries = await readLaunchArchiveInventory(
+      archive,
+      owner.checkpoint,
+    );
+    const closed =
+      closedEntries && readLaunchArchiveGraph(closedEntries, image);
+    if (
+      !closed?.ok ||
+      closed.extras.length > 0 ||
+      closed.config !== raw.config ||
+      closed.manifest !== raw.manifest ||
+      !(await launchArchiveLayersMatch(
+        archive,
+        closed.layers,
+        owner.checkpoint,
+      ))
+    )
+      throw refuse('closed-format');
+    await Bun.write(
+      paths.receipt,
+      JSON.stringify(launchArchiveReceipt(closed, image)),
+    );
+    await rename(archive, join(directory, 'image.tar'));
+    await rename(paths.receipt, join(directory, 'receipt.json'));
+    process.stdout.write(
+      `${JSON.stringify({ event: 'browser.image.archive.saved', store: image.store, omitted: projection.omitted, image: id, inputs: image.key })}\n`,
+    );
   } finally {
-    await rm(temporary, { force: true });
-    await rm(`${temporary}.json`, { force: true });
+    await Promise.all(
+      Object.values(paths).map((path) => rm(path, { force: true })),
+    );
   }
 }
 
@@ -353,23 +417,15 @@ export async function prepareLaunchBrowserImage(input: {
 }) {
   const owner = createLaunchPreparationProcess();
   try {
-    const info = await owner.run([
-      'info',
-      '--format',
-      '{{.OSType}}/{{.Architecture}}',
-    ]);
-    const platform = info.stdout
-      .trim()
-      .replace('/aarch64', '/arm64')
-      .replace('/x86_64', '/amd64');
-    const engine = await toolchain(owner);
+    const { platform, engine, store } = await readLaunchDockerContract(owner);
     const { image, recipe } = await readLaunchImageInputs(
       input.checkout,
       platform,
       engine,
+      store,
     );
     process.stdout.write(
-      `${JSON.stringify({ event: 'browser.image.toolchain', docker: engine })}\n`,
+      `${JSON.stringify({ event: 'browser.image.toolchain', docker: engine, store })}\n`,
     );
     let id = await validatedImage(owner, image, image.tag);
     let source = 'local';
@@ -400,8 +456,9 @@ if (import.meta.main) {
   if (Bun.argv[2] === '--key') {
     const owner = createLaunchPreparationProcess();
     try {
+      const { platform, engine, store } = await readLaunchDockerContract(owner);
       process.stdout.write(
-        `${(await readLaunchImageInputs(checkout, Bun.argv[3] ?? '', await toolchain(owner))).image.key}\n`,
+        `${(await readLaunchImageInputs(checkout, platform, engine, store)).image.key}\n`,
       );
     } finally {
       owner.close();

@@ -2,21 +2,21 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import {
   launchImageIdentity,
+  launchDaemonImageContract,
   launchImagePrepareArgs,
   launchImageCommitArgs,
   validateLaunchBase,
   validateLaunchImage,
   launchImageContractChecks,
   validateLaunchPreparation,
-  readLaunchArchiveReceipt,
   launchPreparationRemaining,
-  validateLaunchArchive,
 } from '../e2e/support/launch-browser-image-policy';
 setupRitewayBun();
 const inputs = {
   version: '1.63.0',
   coreVersion: '1.63.0',
   platform: 'linux/arm64',
+  store: 'containerd-overlayfs' as const,
   recipe: 'recipe',
   toolchain: 'adapter',
   lock: 'lock',
@@ -280,20 +280,6 @@ describe('prepared Launch browser identity', () => {
     });
   });
 });
-test('a restored receipt cannot supply a foreign content identity', () => {
-  const image = launchImageIdentity(inputs);
-  assert({
-    given: 'matching, stale, corrupt and malformed image receipts',
-    should: 'admit only the expected immutable image reference',
-    actual: [
-      readLaunchArchiveReceipt({ key: image.key, id: imageId }, image.key),
-      readLaunchArchiveReceipt({ key: 'old', id: imageId }, image.key),
-      readLaunchArchiveReceipt({ key: image.key, id: 'latest' }, image.key),
-      readLaunchArchiveReceipt(null, image.key),
-    ],
-    expected: [imageId, null, null, null],
-  });
-});
 test('preparation leaves a real reserved cleanup window', () => {
   assert({
     given:
@@ -380,33 +366,6 @@ test('Docker-normalized label order and explicit bridge mode preserve safe prepa
   });
 });
 
-test('archive preflight cannot overwrite foreign daemon image references', () => {
-  const image = launchImageIdentity(inputs);
-  const manifest = {
-    Config: `${'c'.repeat(64)}.json`,
-    RepoTags: [image.tag],
-    Layers: Array.from(
-      { length: image.native.layers.length + 1 },
-      () => `${'d'.repeat(64)}/layer.tar`,
-    ),
-  };
-  assert({
-    given:
-      'one exact artifact, a foreign tag, multiple images and unsafe paths',
-    should: 'allow only the owned cache reference before Docker load',
-    actual: [
-      validateLaunchArchive([manifest], image),
-      validateLaunchArchive(
-        [{ ...manifest, RepoTags: ['foreign:latest'] }],
-        image,
-      ),
-      validateLaunchArchive([manifest, manifest], image),
-      validateLaunchArchive([{ ...manifest, Config: '../../private' }], image),
-    ],
-    expected: [true, false, false, false],
-  });
-});
-
 test('native artifact and complete dependency contract are explicit recipe inputs', () => {
   const image = launchImageIdentity(inputs),
     args = launchImagePrepareArgs(image, 'daisy-image-artifact', imageId);
@@ -475,81 +434,6 @@ test('a committed image has the canonical empty hostname without accepting forei
   });
 });
 
-test('OCI archive references cannot override the checked Docker manifest', () => {
-  const image = launchImageIdentity(inputs);
-  const manifest = [
-    {
-      Config: `blobs/sha256/${'c'.repeat(64)}`,
-      RepoTags: [image.tag],
-      Layers: image.native.layers
-        .concat(packageHash)
-        .map((id) => `blobs/sha256/${id.slice(7)}`),
-    },
-  ];
-  const descriptor = {
-    mediaType: 'application/vnd.oci.image.manifest.v1+json',
-    digest: imageId,
-    annotations: {
-      'io.containerd.image.name': `docker.io/library/${image.tag}`,
-      'org.opencontainers.image.ref.name': image.key,
-    },
-  };
-  const index = {
-    schemaVersion: 2,
-    mediaType: 'application/vnd.oci.image.index.v1+json',
-    manifests: [descriptor],
-  };
-  assert({
-    given:
-      'an exact Docker manifest alongside a foreign OCI reference, digest or platform',
-    should: 'admit only the exact receipt-bound archive reference',
-    actual: [
-      validateLaunchArchive(manifest, image, index, imageId),
-      validateLaunchArchive(
-        manifest,
-        image,
-        {
-          ...index,
-          manifests: [
-            {
-              ...descriptor,
-              annotations: {
-                ...descriptor.annotations,
-                'io.containerd.image.name': 'docker.io/library/foreign:tag',
-              },
-            },
-          ],
-        },
-        imageId,
-      ),
-      validateLaunchArchive(
-        manifest,
-        image,
-        { ...index, manifests: [{ ...descriptor, digest: packageHash }] },
-        imageId,
-      ),
-      validateLaunchArchive(
-        manifest,
-        image,
-        {
-          ...index,
-          manifests: [
-            { ...descriptor, platform: { os: 'linux', architecture: 'amd64' } },
-          ],
-        },
-        imageId,
-      ),
-      validateLaunchArchive(
-        manifest,
-        image,
-        { ...index, manifests: [descriptor, descriptor] },
-        imageId,
-      ),
-    ],
-    expected: [true, false, false, false, false],
-  });
-});
-
 test('artifact refusal diagnostics cannot serialize credentials or unknown keys', () => {
   const image = launchImageIdentity(inputs),
     valid = imageMetadata(image);
@@ -598,5 +482,69 @@ test('commit retains only the exact owned hostname or its OCI omission', () => {
       ),
     ),
     expected: [imageId, imageId, null],
+  });
+});
+
+test('daemon identity representation is an explicit cache and base contract', () => {
+  const manifest = launchImageIdentity(inputs);
+  const config = launchImageIdentity({
+    ...inputs,
+    store: 'overlay2' as const,
+  });
+  const base = {
+    Os: 'linux',
+    Architecture: 'arm64',
+    RootFS: { Layers: manifest.native.layers },
+    Config: {
+      Env: manifest.environment.slice(0, 4),
+      Cmd: ['/bin/bash'],
+      Labels: manifest.baseLabels,
+    },
+  };
+  assert({
+    given: 'the measured manifest-ID or config-ID daemon contract',
+    should:
+      'invalidate cache across stores and admit only its verified native base identity representation',
+    actual: [
+      manifest.key !== config.key,
+      validateLaunchBase({ ...base, Id: manifest.native.config }, manifest),
+      validateLaunchBase(
+        { ...base, Id: manifest.labels['io.daisy.launch.upstream'] },
+        config,
+      ),
+      validateLaunchBase({ ...base, Id: manifest.native.config }, config),
+    ],
+    expected: [true, null, null, manifest.native.config],
+  });
+});
+
+test('only measured daemon image-store contracts select receipt identity', () => {
+  const info = {
+    OSType: 'linux',
+    Architecture: 'aarch64',
+    Driver: 'overlayfs',
+    DriverStatus: [['driver-type', 'io.containerd.snapshotter.v1']],
+  };
+  assert({
+    given:
+      'containerd overlayfs, classic overlay2, an ambiguous store, or an unsupported driver',
+    should: 'derive one explicit native identity contract or refuse',
+    actual: [
+      launchDaemonImageContract(info),
+      launchDaemonImageContract({
+        ...info,
+        Architecture: 'x86_64',
+        Driver: 'overlay2',
+        DriverStatus: [['Backing Filesystem', 'extfs']],
+      }),
+      launchDaemonImageContract({ ...info, Driver: 'overlay2' }),
+      launchDaemonImageContract({ ...info, Driver: 'unknown' }),
+    ],
+    expected: [
+      { platform: 'linux/arm64', store: 'containerd-overlayfs' },
+      { platform: 'linux/amd64', store: 'overlay2' },
+      null,
+      null,
+    ],
   });
 });

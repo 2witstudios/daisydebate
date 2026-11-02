@@ -5,29 +5,19 @@ import {
   createPreparedLaunchImage,
   closeLaunchPreparation,
   readLaunchImageInputs,
+  readLaunchDockerContract,
 } from './launch-browser-image';
 import { launchImagePrepareArgs } from './launch-browser-image-policy';
 
 const checkout = resolve(import.meta.dir, '../../../..');
 const prerequisite = createLaunchPreparationProcess();
-const engine = await prerequisite.run([
-  'version',
-  '--format',
-  '{{.Client.Version}}/{{.Server.Version}}',
-]);
-const info = await prerequisite.run([
-  'info',
-  '--format',
-  '{{.OSType}}/{{.Architecture}}',
-]);
-const platform = info.stdout
-  .trim()
-  .replace('/aarch64', '/arm64')
-  .replace('/x86_64', '/amd64');
+const { engine, platform, store } =
+  await readLaunchDockerContract(prerequisite);
 const { image } = await readLaunchImageInputs(
   checkout,
   platform,
-  engine.stdout.trim(),
+  engine,
+  store,
 );
 const inspected = await prerequisite.run(['image', 'inspect', image.base]);
 if (inspected.code !== 0)
