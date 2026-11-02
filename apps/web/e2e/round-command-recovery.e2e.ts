@@ -214,7 +214,12 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
     await controlLaunch('refuse-round-reads');
     try {
       for (const seat of seats) {
-        await seat.goto(path);
+        const answer = await seat.goto(path);
+        // A Next page cannot choose a 5xx; it can stay uncacheable.
+        expect(answer?.headers()['cache-control']).toContain('no-store');
+        await expect(
+          seat.locator('meta[http-equiv="refresh"]'),
+        ).toHaveAttribute('content', /^[234]$/);
         await expect(
           seat.getByRole('heading', {
             name: 'Reconnecting to the Round',

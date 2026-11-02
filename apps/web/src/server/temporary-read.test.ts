@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { handleOperation } from './http';
 import {
   isTemporaryReadFailure,
+  retrySeconds,
   unavailableRead,
   unreadable,
 } from './temporary-read';
@@ -60,5 +61,15 @@ test('a page recovers only from a failure that is really temporary', () => {
       'stray',
     ].map(isTemporaryReadFailure),
     expected: [false, false, false],
+  });
+});
+
+test('pages refused together spread their return above a fixed floor', () => {
+  const seconds = Array.from({ length: 256 }, (_, byte) => retrySeconds(byte));
+  assert({
+    given: 'every possible random byte',
+    should: 'answer whole seconds from 2 to 4, each of them reachable',
+    actual: [...new Set(seconds)].sort(),
+    expected: [2, 3, 4],
   });
 });

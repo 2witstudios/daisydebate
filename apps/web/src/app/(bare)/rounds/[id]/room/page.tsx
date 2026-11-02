@@ -16,6 +16,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import {
   isTemporaryReadFailure,
+  retrySeconds,
   unreadable,
 } from '../../../../../server/temporary-read';
 import type { Metadata } from 'next';
@@ -93,7 +94,8 @@ export default async function RoundRoomPage(props: RoomProps) {
     return await roundRoom(props);
   } catch (error) {
     if (!isTemporaryReadFailure(error)) throw error;
-    return <RoundRoomReconnecting />;
+    const [entropy] = crypto.getRandomValues(new Uint8Array(1));
+    return <RoundRoomReconnecting retrySeconds={retrySeconds(entropy!)} />;
   }
 }
 

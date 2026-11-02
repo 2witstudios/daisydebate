@@ -11,9 +11,12 @@ ink, brand graphics and contrast pairs) has its own guide:
 The Round keeps running on the server, so its room must not wait on anyone
 pressing Try again. When a read is temporarily refused (`temporary-read.ts`:
 a capacity refusal or its 503), the room page renders an honest status page
-that holds a plain `meta refresh`, the same with and without JavaScript. It
-shows no Round state, because none was read. Any other failure stays on the
-error boundary: it is not known to pass and must not say so (ISSUE-927).
+that holds a plain `meta refresh` of 2 to 4 s, so pages refused together do
+not return together, the same with and without JavaScript. It shows no Round
+state, because none was read, and each refresh applies the access and redirect
+rules again. It answers 200 and `no-store`: a Next page cannot choose a 5xx.
+Any other failure stays on the error boundary: it is not known to pass and
+must not say so (ISSUE-927).
 
 ## Mutating forms work without JavaScript
 
