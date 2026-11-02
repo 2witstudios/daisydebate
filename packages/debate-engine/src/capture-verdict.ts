@@ -203,6 +203,17 @@ const chunksCounted = ({
   storedChunks === expectedChunks &&
   storedChunks === chunks.count;
 
+/** What stops a stream's evidence being this epoch's own and fully counted. */
+const evidenceReasons = (facts: CaptureFacts): CapturePartialReason[] => [
+  ...(facts.interrupted ? (['session-interrupted'] as const) : []),
+  ...(facts.framesLost ? (['frames-lost'] as const) : []),
+  ...((facts.chunks?.otherEpochChunks ?? 0) > 0 ||
+  facts.observations.some((row) => row.epoch !== facts.epoch)
+    ? (['other-worker-evidence'] as const)
+    : []),
+  ...(chunksCounted(facts) ? [] : (['chunks-uncounted'] as const)),
+];
+
 /**
  * Complete only with this epoch's own evidence, every stored chunk counted and
  * full coverage of the authority windows (DEC-218); a new worker cannot recover
@@ -215,17 +226,10 @@ export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
     observed: facts.observations,
   });
   if (nothingOwed(facts)) return { state: 'complete', gaps: [] };
-  const reasons: CapturePartialReason[] = [
-    ...(facts.interrupted ? (['session-interrupted'] as const) : []),
-    ...(facts.framesLost ? (['frames-lost'] as const) : []),
-    ...((facts.chunks?.otherEpochChunks ?? 0) > 0 ||
-    facts.observations.some((row) => row.epoch !== facts.epoch)
-      ? (['other-worker-evidence'] as const)
-      : []),
-    ...(chunksCounted(facts) ? [] : (['chunks-uncounted'] as const)),
+  const [first, ...rest] = [
+    ...evidenceReasons(facts),
     ...(problem ? [problem] : []),
   ];
-  const [first, ...rest] = reasons;
   return first
     ? { state: 'partial', reasons: [first, ...rest], gaps }
     : { state: 'complete', gaps: [] };

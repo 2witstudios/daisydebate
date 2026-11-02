@@ -111,7 +111,7 @@ test('a closed stream with a grant still open reports what nobody observed', asy
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
       await fixture.sql`update round_speaking_intervals set ended_at=null,ended_version=null where round_id=${roundId}`;
-      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,sealed_at,sealed_chunk_count) values(${roundId},${f.stream.segmentId},${f.stream.roundParticipantId},'partial',now(),0)`;
+      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,partial_reasons,sealed_at,sealed_chunk_count) values(${roundId},${f.stream.segmentId},${f.stream.roundParticipantId},'partial','{never-sealed}',now(),0)`;
       const read = await transaction((tx) =>
         readTranscriptSnapshot(tx, roundId, captureRule),
       );

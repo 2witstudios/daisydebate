@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Why a stream's transcript is not complete. A gap is only one of these. */
-export const capturePartialReasons = [
+const capturePartialReasons = [
   'session-interrupted',
   'frames-lost',
   'other-worker-evidence',

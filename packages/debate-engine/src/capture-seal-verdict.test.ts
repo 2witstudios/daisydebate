@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { decideStreamCapture } from './capture-verdict';
+import { createCaptureRule, decideStreamCapture } from './capture-verdict';
 
 setupRitewayBun();
 
@@ -197,5 +197,28 @@ test('a bot grant it did not use seals complete only with no evidence of speech 
       'partial',
       'partial',
     ],
+  });
+});
+
+test('what a stream must cover depends on who holds the seat (DEC-218, DEC-219)', () => {
+  const rule = createCaptureRule({ joinMs: 4000, relayMs: 1000 });
+  const grants = [{ start: 1000, end: 6000 }];
+  const windows = [{ start: 1880, end: 4790 }];
+  assert({
+    given: 'a human seat',
+    should:
+      'require its grants, opening by join tolerance and closing by relay',
+    actual: rule.coverage('human', grants, windows),
+    expected: { authority: grants, tolerance: { openMs: 4000, closeMs: 1000 } },
+  });
+  assert({
+    given: 'a bot seat',
+    should:
+      'require only its credited windows, with relay edges and a terminal zone',
+    actual: rule.coverage('bot', grants, windows),
+    expected: {
+      authority: windows,
+      tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
+    },
   });
 });
