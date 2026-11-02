@@ -341,7 +341,13 @@ const refusalRestrictions = [
   },
   {
     selector:
-      "CallExpression[callee.name='createAppError'] Literal[value=/^[a-z]+(-[a-z]+)+$/]",
+      "CallExpression[callee.name='createAppError'] > Literal.arguments:nth-child(2)[value=/^[a-z]+(-[a-z]+)+$/]",
+    message:
+      'A refusal word is a reason: createRefusal(code, reason), from a closed @daisy/protocol vocabulary.',
+  },
+  {
+    selector:
+      "CallExpression[callee.name='createAppError'] > ConditionalExpression.arguments:nth-child(2) > Literal[value=/^[a-z]+(-[a-z]+)+$/]",
     message:
       'A refusal word is a reason: createRefusal(code, reason), from a closed @daisy/protocol vocabulary.',
   },

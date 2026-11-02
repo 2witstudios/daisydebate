@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createRefusal } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import { fixedClock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
@@ -129,7 +130,6 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
     role: 'host',
     href: `/rooms/${'m'.repeat(24)}`,
   };
-  const { createAppError } = await import('@daisy/errors');
   const handlers = createRoomHandlers(
     dependencies(member, {
       create: async () => {

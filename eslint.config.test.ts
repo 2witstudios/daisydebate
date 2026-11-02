@@ -77,7 +77,8 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
   });
   test('leaves a reason, plain internal text and a vendor error alone', async () => {
     assert({
-      given: 'a reason read, an English message and a vendor text check',
+      given:
+        'a reason read, an English message, a vendor text check, a code ternary and a cause object',
       should: 'report nothing',
       actual: [
         await problems(
@@ -89,8 +90,14 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
         await problems(
           "export const a = (error: Error) => error.message.includes('NOSCRIPT');",
         ),
+        await problems(
+          "export const a = (b: string) => createAppError(b === 'too-large' ? 'PAYLOAD_TOO_LARGE' : 'VALIDATION');",
+        ),
+        await problems(
+          "export const a = createAppError('INFRASTRUCTURE', 'Transaction failed', { recovery: 'rolled-back' });",
+        ),
       ],
-      expected: [0, 0, 0],
+      expected: [0, 0, 0, 0, 0],
     });
   });
 });
