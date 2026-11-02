@@ -30,6 +30,22 @@ export const createRoundFile = async (
   expect(document.id).toMatch(/^[a-z0-9]{24}$/);
   return document;
 };
+/** A second real Round for same-principal receipt navigation; always release its competitive slot. */
+export const createFinishedRoundFile = async (page: Page) => {
+  await prepareRoomAs(
+    page,
+    `Notes lifetime ${createId().slice(0, 8)}`,
+    'Affirmative 1',
+  );
+  await readyUp(page);
+  const roundId = await startRoundInBrowser(page);
+  try {
+    const document = await createRoundFile(page.request, roundId);
+    return { roundId, documentId: document.id as string };
+  } finally {
+    await forfeitAsHost(page.request, roundId);
+  }
+};
 type RoundFiles = {
   readonly page: Page;
   readonly stranger: APIRequestContext;

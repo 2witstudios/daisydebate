@@ -1,8 +1,10 @@
 import type { Page } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { origin } from './support/accounts';
+import { profileLink } from './support/shell-links';
 import {
   createRoundFile,
+  createFinishedRoundFile,
   documentsPath,
   expect,
   test,
@@ -754,3 +756,264 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
       gate.resolve();
     }
   });
+
+test('Server copy comparison keeps showing the server text while newer typing is unsaved', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await offeredAfterReload(page, documentId, 'Offered REC');
+  const server = await serverDocument(page, roundId, documentId);
+  expect(server.html).not.toContain('Unsaved NEW');
+  await edit(page, 'Unsaved NEW');
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Flow')).toContainText(
+    'Offered REC',
+  );
+  await expect(page.getByLabel('Server copy of Flow')).not.toContainText(
+    'Unsaved NEW',
+  );
+  expect((await serverDocument(page, roundId, documentId)).html).toBe(
+    server.html,
+  );
+});
+
+test('original copy expiry withdraws only that offer while later swapped recovery survives reload', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await roundFiles.finishRound();
+  await page.goto(`${origin}/rounds/${roundId}`);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  const { revision: startRevision } = await serverDocument(
+    page,
+    roundId,
+    documentId,
+  );
+  const revisionTrail: Record<string, number> = {};
+  const noteRevision = async (step: string) => {
+    revisionTrail[step] = (
+      await serverDocument(page, roundId, documentId)
+    ).revision;
+  };
+  await page.clock.install();
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  const recovery = await offeredAfterReload(
+    page,
+    documentId,
+    'Original expiring REC',
+  );
+  await noteRevision('after first reload');
+  await page.clock.setSystemTime(new Date(recovery.savedAt + 60_000));
+  await edit(page, 'Later independent NEW');
+  const beforeSwap = await draftFor(page, documentId);
+  expect(beforeSwap.recovery).toEqual(recovery);
+  const active = beforeSwap.active;
+  expect(active.generation).toMatch(/^[a-z0-9]{24}$/);
+  expect(active.html).toContain('Later independent NEW');
+  expect(active.savedAt).toBeGreaterThan(recovery.savedAt);
+  await page.getByRole('button', { name: 'Restore Flow', exact: true }).click();
+  const swapped = await draftFor(page, documentId);
+  await noteRevision('after Restore');
+  expect(swapped.recovery).toEqual(active);
+  expect(swapped.active.generation).toMatch(/^[a-z0-9]{24}$/);
+  expect(swapped.active.generation).not.toBe(recovery.generation);
+  expect(swapped.active.generation).not.toBe(active.generation);
+  expect(swapped.active.savedAt).toBe(recovery.savedAt);
+  expect(swapped.active.expiresAt).toBe(recovery.expiresAt);
+  expect(swapped.active.html).toBe(recovery.html);
+  await page.clock.setSystemTime(new Date(recovery.expiresAt));
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  expect(await draftFor(page, documentId)).toEqual({ recovery: active });
+  await noteRevision('after second reload');
+  // Every save is routed to abort, so this trail shows whether an exit send
+  // still reached the server, and at which reload.
+  expect(revisionTrail).toEqual({
+    'after first reload': startRevision,
+    'after Restore': startRevision,
+    'after second reload': startRevision,
+  });
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Flow')).toContainText(
+    'Later independent NEW',
+  );
+  await expect(
+    page.getByRole('region', { name: 'Recovered Flow', exact: true }),
+  ).not.toContainText('Original expiring REC');
+});
+
+test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending notes without purging either Round recovery', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await roundFiles.finishRound();
+  const second = await createFinishedRoundFile(page);
+  const identity = await page.request.get('/api/auth/get-session');
+  expect(identity.status()).toBe(200);
+  const principalId = (await identity.json()).user.id as string;
+  expect(principalId).toMatch(/^[a-z0-9]{24}$/);
+  await page.goto(`${origin}/rounds/${second.roundId}`);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  const secondRecovery = await offeredAfterReload(
+    page,
+    second.documentId,
+    'Second Round REC',
+  );
+  await page.goto(`${origin}/rounds/${roundId}`);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  const firstRecovery = await offeredAfterReload(
+    page,
+    documentId,
+    'First Round REC',
+  );
+  const scopes = await page.evaluate(
+    ({ principalId, roundId, documentId, second }) => {
+      const firstKey = `daisy:round-notes:draft:${principalId}:${roundId}:${documentId}`;
+      const secondKey = `daisy:round-notes:draft:${principalId}:${second.roundId}:${second.documentId}`;
+      return [
+        localStorage.getItem(firstKey),
+        localStorage.getItem(secondKey),
+      ].map((raw) => (raw === null ? null : JSON.parse(raw)));
+    },
+    { principalId, roundId, documentId, second },
+  );
+  expect(scopes).toEqual([
+    { recovery: firstRecovery },
+    { recovery: secondRecovery },
+  ]);
+  const sends: { html: string; expectedRevision: number }[] = [];
+  page.on('request', (request) => {
+    if (!request.url().endsWith(`${documentsPath}save`)) return;
+    const body = request.postDataJSON() as {
+      id: string;
+      html: string;
+      expectedRevision: number;
+    };
+    if (body.id === documentId)
+      sends.push({ html: body.html, expectedRevision: body.expectedRevision });
+  });
+  await page.unroute(`**${documentsPath}save`);
+  await page.clock.install({ time: new Date(firstRecovery.savedAt + 1_000) });
+  await page.clock.pauseAt(new Date(firstRecovery.savedAt + 2_000));
+  await page.evaluate(() =>
+    Reflect.set(window, '__notesRoundNavigation', 'same-browser-owner'),
+  );
+  await edit(page, 'First Round pending NEW');
+  expect((await draftFor(page, documentId)).active.html).toContain(
+    'First Round pending NEW',
+  );
+  // Next exposes its actual public AppRouter instance for browser diagnostics.
+  // Exercise its production route transition without adding a test bridge to the app.
+  await page.evaluate((href) => {
+    const next = Reflect.get(window, 'next') as {
+      router: { push: (href: string) => void };
+    };
+    next.router.push(href);
+  }, `/rounds/${second.roundId}`);
+  await expect(page).toHaveURL(`${origin}/rounds/${second.roundId}`);
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => Reflect.get(window, '__notesRoundNavigation')),
+  ).toBe('same-browser-owner');
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('First Round pending NEW');
+  expect(await draftFor(page, documentId)).toEqual({ recovery: firstRecovery });
+  expect(await draftFor(page, second.documentId)).toEqual({
+    recovery: secondRecovery,
+  });
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).not.toContainText('First Round pending NEW');
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Flow')).toContainText(
+    'Second Round REC',
+  );
+  expect(sends).toHaveLength(1);
+  expect(sends[0]!.html).toContain('First Round pending NEW');
+  await page.clock.runFor(30_000);
+  await page.evaluate(() =>
+    window.dispatchEvent(new PageTransitionEvent('pagehide')),
+  );
+  expect(sends).toHaveLength(1);
+  expect(await draftFor(page, documentId)).toEqual({ recovery: firstRecovery });
+  expect(await draftFor(page, second.documentId)).toEqual({
+    recovery: secondRecovery,
+  });
+});
+
+test('end-user navigation: leaving a Round through the account menu saves pending notes and profile history opens the other Round recovery', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await roundFiles.finishRound();
+  const second = await createFinishedRoundFile(page);
+  const identity = await page.request.get('/api/auth/get-session');
+  expect(identity.status()).toBe(200);
+  const username = (await identity.json()).user.username as string;
+  await page.goto(`${origin}/rounds/${second.roundId}`);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  const secondRecovery = await offeredAfterReload(
+    page,
+    second.documentId,
+    'Second Round REC',
+  );
+  await page.unroute(`**${documentsPath}save`);
+  await page.goto(`${origin}/rounds/${roundId}`);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  const sends: string[] = [];
+  page.on('request', (request) => {
+    if (!request.url().endsWith(`${documentsPath}save`)) return;
+    const body = request.postDataJSON() as { id: string; html: string };
+    if (body.id === documentId) sends.push(body.html);
+  });
+  // A paused page clock holds the debounce, so only leaving can send this edit.
+  await page.clock.install({ time: new Date(secondRecovery.savedAt + 1_000) });
+  await page.clock.pauseAt(new Date(secondRecovery.savedAt + 2_000));
+  await edit(page, 'First Round pending NEW');
+  expect((await draftFor(page, documentId)).active.html).toContain(
+    'First Round pending NEW',
+  );
+  await (await profileLink(page, username)).click();
+  await expect(page).toHaveURL(`${origin}/profile/${username}`);
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('First Round pending NEW');
+  await expect.poll(() => draftFor(page, documentId)).toBeNull();
+  await page
+    .getByRole('region', { name: 'Match history' })
+    .locator(`a[href="/rounds/${second.roundId}"]`)
+    .click();
+  await expect(page).toHaveURL(`${origin}/rounds/${second.roundId}`);
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).not.toContainText('First Round pending NEW');
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Flow')).toContainText(
+    'Second Round REC',
+  );
+  expect(sends).toHaveLength(1);
+  expect(await draftFor(page, second.documentId)).toEqual({
+    recovery: secondRecovery,
+  });
+});
