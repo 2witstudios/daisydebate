@@ -41,7 +41,7 @@ describe('Explainer', () => {
   });
 
   test('has one h1 outside the hidden preview', () => {
-    const html = render('ranked');
+    const html = render('watch');
     assert({
       given: 'an explainer',
       should: 'have exactly one h1, before the preview',
@@ -71,12 +71,12 @@ describe('Explainer', () => {
   });
 
   test('sends a visitor to sign in to get notified, and home', () => {
-    const html = render('ranked');
+    const html = render('watch');
     assert({
       given: 'a signed-out visitor',
       should: 'link Get notified to sign-in and Back to home to /',
       actual: [
-        html.includes('href="/sign-in?next=%2Fcoming-soon%2Franked"'),
+        html.includes('href="/sign-in?next=%2Fcoming-soon%2Fwatch"'),
         html.includes('href="/"'),
         html.includes('disabled=""'),
       ],
@@ -85,7 +85,7 @@ describe('Explainer', () => {
   });
 
   test('gives a signed-in member a working Get notified', () => {
-    const html = render('ranked', true);
+    const html = render('watch', true);
     assert({
       given: 'a signed-in member',
       should: 'answer Get notified on the same page, without a sign-in link',

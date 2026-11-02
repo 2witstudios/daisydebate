@@ -16,12 +16,32 @@ describe('tiles config', () => {
     });
   });
 
-  test('orders the primary competitive modes first', () => {
+  test('orders the destinations for the landing', () => {
     assert({
       given: 'the tile configuration',
-      should: 'lead with ranked, lobby, and watch',
-      actual: tiles.slice(0, 3).map((tile) => tile.title),
-      expected: ['Ranked', 'Lobby', 'Watch'],
+      should: 'lead with Play and carry no Ranked or Lobby tile',
+      actual: tiles.map((tile) => tile.title),
+      expected: [
+        'Play',
+        'Watch',
+        'Judge',
+        'Tournaments',
+        'Seasons',
+        'Leaderboard',
+        'Train',
+        'Prep',
+      ],
+    });
+  });
+
+  test('sends Play to the Lobby and Seasons to its page', () => {
+    assert({
+      given: 'the launched Play and Seasons tiles',
+      should: 'link them to the Lobby and the seasons page',
+      actual: tiles
+        .filter(({ title }) => title === 'Play' || title === 'Seasons')
+        .map(({ href }) => href),
+      expected: ['/lobby', '/leaderboard/seasons'],
     });
   });
 

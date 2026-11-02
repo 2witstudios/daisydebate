@@ -6,13 +6,18 @@ import {
   recordText,
 } from '../../../features/leaderboard/labels';
 import type { SeasonsView } from '../../../features/leaderboard/seasons';
+import type { PublishedResolution } from '@daisy/protocol';
 import { Badge } from '../../components/badge/badge';
 import { LadderRow } from '../ladder-row/ladder-row';
+import { SeasonResolutions } from '../season-resolutions/season-resolutions';
 import { LadderHeading } from '../ladder-row/ladder-heading';
 import { Segmented } from '../segmented/segmented';
 import { cn } from '../../cn';
 
-export type SeasonsPageProps = { readonly view: SeasonsView };
+export type SeasonsPageProps = {
+  readonly view: SeasonsView;
+  readonly resolutions: readonly PublishedResolution[];
+};
 
 const card = 'flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1';
 const eyebrow = 'text-2xs font-bold tracking-wider text-ink-faint uppercase';
@@ -78,8 +83,11 @@ function RangePicture() {
   );
 }
 
-/** One season at a glance: dates, champion, a top-ten snapshot, and how rating works. */
-export function SeasonsPage({ view }: SeasonsPageProps) {
+/**
+ * One season at a glance: today's resolutions while it runs, dates, champion,
+ * a top-ten snapshot, and how rating works.
+ */
+export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
   const champion = view.champion;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -89,6 +97,7 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
         </h1>
         <Segmented label="Season" segments={view.chips} />
       </header>
+      {view.closed ? null : <SeasonResolutions resolutions={resolutions} />}
       <section className={card}>
         <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
         <h2 className="font-display text-2xl font-bold">

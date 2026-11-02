@@ -17,7 +17,7 @@ const options: readonly PlayOption[] = [
     id: 'ranked',
     title: 'Ranked match',
     blurb: 'Matched near your rating. Rated.',
-    href: '/coming-soon/ranked',
+    href: '/coming-soon/train',
     comingSoon: true,
   },
 ];
@@ -33,7 +33,7 @@ describe('PlayChoices', () => {
       actual: [
         open?.includes('href="/play/room"'),
         open?.includes('Coming soon'),
-        soon?.includes('href="/coming-soon/ranked"'),
+        soon?.includes('href="/coming-soon/train"'),
         soon?.includes('Coming soon'),
       ],
       expected: [true, false, true, true],

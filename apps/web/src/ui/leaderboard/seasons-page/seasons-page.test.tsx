@@ -8,10 +8,25 @@ import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
 
+const resolutions = [
+  {
+    id: 'pryied8jvkvrn7g0p60iv632',
+    kind: 'policy',
+    text: 'Resolved: Test wording.',
+    provenance: 'Test publication',
+    publishedAt: '2026-10-29T00:00:00.000Z',
+    edition: null,
+    theme: null,
+  },
+] as const;
+
 const render = (season: string | null, entries?: 'none') => {
   const data = readLadder(season, NOW, null).data;
   const view = buildSeasonsView(entries ? { ...data, entries: [] } : data, NOW);
-  return renderToString(h(SeasonsPage, { view })).replace(/<!-- -->/g, '');
+  return renderToString(h(SeasonsPage, { view, resolutions })).replace(
+    /<!-- -->/g,
+    '',
+  );
 };
 
 describe('SeasonsPage', () => {
@@ -31,8 +46,9 @@ describe('SeasonsPage', () => {
         html.includes('Provisional while rating deviation is above 110.'),
         html.includes('Current season'),
         html.match(/href="\/leaderboard\?season=4"/g)?.length,
+        html.includes('Resolved: Test wording.'),
       ],
-      expected: [1, true, true, true, 10, true, true, true, 2],
+      expected: [1, true, true, true, 10, true, true, true, 2, true],
     });
   });
 
@@ -48,8 +64,9 @@ describe('SeasonsPage', () => {
         html.includes('>Season<'),
         html.includes('value="100"'),
         html.includes('aria-current="page"'),
+        html.includes('Resolved: Test wording.'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, false],
     });
     assert({
       given: 'the closed season champion',

@@ -1,10 +1,10 @@
 /** The eight product destinations, in landing order. */
 export const destinationSlugs = [
-  'ranked',
   'lobby',
   'watch',
   'judge',
   'tournaments',
+  'seasons',
   'leaderboard',
   'train',
   'prep',
@@ -24,15 +24,10 @@ export type Destination = {
  * Explainer copy for every destination. Rated play shares the normal Room lifecycle.
  */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
-  ranked: {
-    slug: 'ranked',
-    title: 'Ranked',
-    tagline: 'Freestyle, Policy and Value ratings each season.',
-  },
   lobby: {
     slug: 'lobby',
-    title: 'Lobby',
-    tagline: 'Open tables and live rooms.',
+    title: 'Play',
+    tagline: 'Rated and casual rooms.',
   },
   watch: {
     slug: 'watch',
@@ -48,6 +43,11 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
     slug: 'tournaments',
     title: 'Tournaments',
     tagline: 'Bracket and round-robin events.',
+  },
+  seasons: {
+    slug: 'seasons',
+    title: 'Seasons',
+    tagline: 'This season’s resolutions and standings.',
   },
   leaderboard: {
     slug: 'leaderboard',

@@ -11,14 +11,6 @@ export type PreviewRowData = {
   readonly trailing?: string;
 };
 
-export const rankedLadder: readonly PreviewRowData[] = [
-  { id: 'r1', who: 'debater-a', title: '1 · @debater-a', trailing: '1712 +8' },
-  { id: 'r2', who: 'debater-b', title: '2 · @debater-b', trailing: '1688 -4' },
-  { id: 'r3', who: 'debater-c', title: '3 · @debater-c', trailing: '1651 +12' },
-  { id: 'r4', who: 'debater-d', title: '4 · @debater-d', trailing: '1604 +2' },
-  { id: 'me', who: 'You', title: '212 · You', trailing: '1412 +14' },
-];
-
 export const lobbyRooms: readonly PreviewRowData[] = [
   {
     id: 'l1',

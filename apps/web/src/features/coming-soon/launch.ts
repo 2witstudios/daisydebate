@@ -9,11 +9,11 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  * into it goes to its explainer, never to sample data.
  */
 export const launched: LaunchConfig = {
-  ranked: true,
   lobby: true,
   watch: false,
   judge: true,
   tournaments: false,
+  seasons: true,
   leaderboard: true,
   train: true,
   prep: false,
@@ -29,8 +29,14 @@ export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
  */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
 
+/** The destinations that live somewhere other than their own slug. */
+const nestedRoutes: Partial<Readonly<Record<DestinationSlug, string>>> = {
+  seasons: '/leaderboard/seasons',
+};
+
 /** The live route of a destination. */
-export const liveHref = (slug: DestinationSlug): string => `/${slug}`;
+export const liveHref = (slug: DestinationSlug): string =>
+  nestedRoutes[slug] ?? `/${slug}`;
 
 /** The public explainer route of a destination. */
 export const explainerHref = (slug: DestinationSlug): string =>
