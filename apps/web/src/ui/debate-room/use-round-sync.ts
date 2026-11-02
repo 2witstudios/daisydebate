@@ -114,7 +114,7 @@ export function roundSync(
     onSaveRefused: (_id, status) => {
       // An expired session stops and hides the notes but keeps their copies for
       // the same person. A 403 is not about identity, so nothing is withdrawn.
-      if (status === 401) stored.dispose();
+      if (status === 401) stored.fence();
       report({ type: 'refused', status });
     },
     onRecoveryChanged: () => report({ type: 'recovered' }),
@@ -170,7 +170,7 @@ export function useRoundSync(
       if ((event as CustomEvent<unknown>).detail !== principalId)
         sync.dispose({ purge: true });
     };
-    const fenced = () => sync.dispose();
+    const fenced = () => void sync.fence();
     window.addEventListener(NOTES_PRINCIPAL_EVENT, changed);
     window.addEventListener(NOTES_FENCE_EVENT, fenced);
     return () => {

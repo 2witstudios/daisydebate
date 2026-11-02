@@ -77,3 +77,35 @@ test('retained private copies coalesce focus checks and cancel stale identity an
     await page.unroute('**/api/auth/get-session');
   }
 });
+
+test('closing an account erases its private copies in this browser', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  const response = await page.request.get('/api/auth/get-session');
+  const { user } = await response.json();
+  await page.goto('/settings');
+  const retainedKey = `daisy:round-notes:draft:${user.id}:${'r'.repeat(24)}:${'d'.repeat(24)}`;
+  await page.evaluate(
+    (key) =>
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          recovery: {
+            html: '<p>Copy of a closed account</p>',
+            baseRevision: 1,
+            generation: 'retained',
+            savedAt: Date.parse('2099-01-01T00:00:00Z'),
+            expiresAt: Date.parse('2099-01-08T00:00:00Z'),
+          },
+        }),
+      ),
+    retainedKey,
+  );
+  await page.getByLabel('I understand this cannot be undone.').check();
+  await page.getByRole('button', { name: 'Close your account' }).click();
+  await expect(page).toHaveURL(/\/sign-in/);
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key), retainedKey))
+    .toBeNull();
+});

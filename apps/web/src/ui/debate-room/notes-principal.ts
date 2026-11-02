@@ -94,5 +94,6 @@ export const rootMountAction = (
 ): 'publish' | 'keep' =>
   principalId !== null || signOutIntent ? 'publish' : 'keep';
 
-export const isSignOutForm = (form: HTMLFormElement) =>
-  new URL(form.action, window.location.href).pathname === '/auth/sign-out';
+/** Sign-out and account closure end the person's claim on the copies. */
+export const endsAccountSession = (pathname: string) =>
+  pathname === '/auth/sign-out' || pathname === '/api/privacy/erase';

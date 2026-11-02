@@ -30,7 +30,9 @@ export function useDocumentSync(
       if (!live || sync.available()) return;
       dispatch({ type: 'doc/loaded', documents: [] });
       setProblem(
-        'Your session ended. Sign in and reopen the Round to get your notes back.',
+        sync.closedBy() === 'purge'
+          ? 'This Round’s files are closed. Reopen the Round to load them.'
+          : 'Your session ended. Sign in and reopen the Round to get your notes back.',
       );
     });
     const refresh = (event: StorageEvent) => {

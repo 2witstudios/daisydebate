@@ -60,10 +60,7 @@ const withinBrowserBound = (
   const stored = others.reduce((sum, raw) => sum + bytesOf(raw), bytes);
   if (fits(others.length + 1, stored)) return true;
   const live = others.flatMap((raw) => {
-    const decoded = decodeNoteRecord(raw, {
-      now,
-      serverRevision: Number.MAX_SAFE_INTEGER,
-    });
+    const decoded = decodeNoteRecord(raw, now);
     if (!decoded.ok) return [raw];
     return hasCopies(decoded.record)
       ? [encodeNoteRecord(decoded.record)!.raw]
@@ -80,10 +77,7 @@ export function pruneExpiredNoteDrafts(storage: DraftStorage, now: number) {
   for (const key of noteDraftKeys(storage)) {
     const raw = storage.getItem(key);
     if (raw === null) continue;
-    const decoded = decodeNoteRecord(raw, {
-      now,
-      serverRevision: Number.MAX_SAFE_INTEGER,
-    });
+    const decoded = decodeNoteRecord(raw, now);
     if (!decoded.ok || !hasCopies(decoded.record)) storage.removeItem(key);
     else if (decoded.expired)
       storage.setItem(key, encodeNoteRecord(decoded.record)!.raw);
@@ -102,17 +96,13 @@ export function createNoteStorage({
   readonly roundId: string;
   readonly failed: (id: string) => void;
 }) {
-  const read = (
-    id: string,
-    now: number,
-    serverRevision = Number.MAX_SAFE_INTEGER,
-  ): NoteSnapshot => {
+  const read = (id: string, now: number): NoteSnapshot => {
     if (!storage) return empty();
     try {
       const key = keyOf(principalId, roundId, id);
       const raw = storage.getItem(key);
       if (raw === null) return empty();
-      const decoded = decodeNoteRecord(raw, { now, serverRevision });
+      const decoded = decodeNoteRecord(raw, now);
       if (!decoded.ok) {
         // A corrupt record is simply discarded; only a failed removal is a problem.
         try {

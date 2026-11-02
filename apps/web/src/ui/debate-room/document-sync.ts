@@ -79,6 +79,9 @@ export type DocumentSync = {
   readonly discardRecovered: (id: string, generation: string) => boolean;
   readonly available: () => boolean;
   readonly dispose: (options?: { readonly purge?: boolean }) => void;
+  /** Stop and hide for an ended session, unless that would destroy unstored text. */
+  readonly fence: () => boolean;
+  readonly closedBy: () => 'fence' | 'purge' | null;
 };
 const statusOf = (error: unknown): number | null => {
   const status = (error as { readonly status?: unknown } | null)?.status;
@@ -88,6 +91,7 @@ const retryable = (status: number | null) =>
   status === null || status === 408 || status === 429 || status >= 500;
 const UNANSWERED_LIMIT = 8;
 const LATE_COMMIT_RECHECK_MS = 2000;
+const LONGEST_TIMER_MS = 2 ** 31 - 1;
 const sameOffers = (one: readonly NoteOffer[], two: readonly NoteOffer[]) =>
   one.length === two.length &&
   one.every((offer, i) => {
@@ -135,11 +139,15 @@ export function createDocumentSync({
   let disposed = false;
   let offers: readonly NoteOffer[] = [];
   let expiryHandle: unknown;
+  let recheckHandle: unknown;
+  let closedBy: 'fence' | 'purge' | null = null;
   const revisions = new Map<string, number>();
   const serverCopies = new Map<string, string>();
   const pending = new Map<string, NoteCopy>();
   const records = new Map<string, NoteSnapshot>();
   const ownedDurable = new Map<string, string>();
+  // Generations this owner wrote that its next acknowledgement replaces.
+  const ownEarlier = new Map<string, Set<string>>();
   const handles = new Map<string, unknown>();
   const saving = new Map<string, Promise<void>>();
   const failures = new Map<string, number>();
@@ -231,9 +239,7 @@ export function createDocumentSync({
       const emptied = offers.length > 0 && next.length === 0;
       offers = next;
       for (const listener of listeners) listener();
-      if (offers.length > 0 && storageProblems.size === 0)
-        onRecoveryChanged(offers);
-      else if (emptied) idle('');
+      if (offers.length > 0 || emptied) idle('');
     }
     timers.clear(expiryHandle);
     const deadlines = retained.flatMap(([, snapshot]) =>
@@ -242,7 +248,10 @@ export function createDocumentSync({
     if (!disposed && deadlines.length > 0)
       expiryHandle = timers.set(
         refreshRecovery,
-        Math.max(0, Math.min(...deadlines) - wallClock()),
+        Math.min(
+          LONGEST_TIMER_MS,
+          Math.max(0, Math.min(...deadlines) - wallClock()),
+        ),
       );
   };
   function refreshRecovery() {
@@ -297,18 +306,18 @@ export function createDocumentSync({
       generation: sent.generation,
       revision,
       rebaseGeneration: pending.get(id)?.generation ?? null,
-      ownedActive: ownedDurable.get(id) ?? null,
+      supersededByThisOwner: (generation) =>
+        ownEarlier.get(id)?.has(generation) === true,
     });
+    if (!pending.has(id)) ownEarlier.delete(id);
     if (proposal.record !== previous.record)
       write(id, previous, proposal.record, wallClock());
     publish();
     idle(id);
   };
   const conflict = async (id: string, revision: number) => {
-    const doc = await api
-      .list(roundId)
-      .then((documents) => documents.find((one) => one.id === id))
-      .catch(() => undefined);
+    // A failed list establishes nothing, so it goes to the retry or refusal path.
+    const doc = (await api.list(roundId)).find((one) => one.id === id);
     if (disposed) return;
     const own =
       doc?.revision === revision
@@ -334,10 +343,17 @@ export function createDocumentSync({
       onSaveRefused(id, status);
       return;
     }
-    unanswered.set(id, [
-      ...(unanswered.get(id) ?? []).slice(-(UNANSWERED_LIMIT - 1)),
-      sent,
-    ]);
+    const earlier = unanswered.get(id) ?? [];
+    if (!earlier.some((copy) => copy.generation === sent.generation)) {
+      // Keep the oldest: it is the one most likely to have committed unanswered.
+      const [oldest, ...rest] = earlier;
+      unanswered.set(
+        id,
+        oldest
+          ? [oldest, ...rest.slice(-(UNANSWERED_LIMIT - 2)), sent]
+          : [sent],
+      );
+    }
     const attempts = (failures.get(id) ?? 0) + 1;
     failures.set(id, attempts);
     onSaveFailed(id, attempts);
@@ -423,20 +439,47 @@ export function createDocumentSync({
     if (keepalive) for (const [id, copy] of pending) persist(id, copy);
     await Promise.all([...pending.keys()].map((id) => saveNow(id, keepalive)));
   };
+  const dispose = ({ purge = false }: { readonly purge?: boolean }) => {
+    if (disposed) return;
+    disposed = true;
+    closedBy = purge ? 'purge' : 'fence';
+    for (const handle of handles.values()) timers.clear(handle);
+    timers.clear(expiryHandle);
+    timers.clear(recheckHandle);
+    handles.clear();
+    pending.clear();
+    records.clear();
+    unanswered.clear();
+    ownedDurable.clear();
+    ownEarlier.clear();
+    offers = [];
+    if (purge) drafts.purge();
+    for (const listener of listeners) listener();
+  };
   const reconcileLateCommits = async () => {
+    if (disposed) return;
     const documents = await api.list(roundId).catch(() => null);
     if (disposed || documents === null) return;
     const now = wallClock();
     for (const doc of documents) {
       if (pending.has(doc.id) || conflicted.has(doc.id)) continue;
-      remember([doc]);
       const previous = read(doc.id, now);
       const settled = settleNoteRecord(previous.record, (html) =>
         sameDocumentHtml(html, doc.html),
       );
-      if (settled !== previous.record) write(doc.id, previous, settled, now);
+      if (settled === previous.record) continue;
+      write(doc.id, previous, settled, now);
+      // The editor still shows the older text, so the revision must not move:
+      // that would let the next edit overwrite this commit. Nothing sends until
+      // a reload shows the server's text.
+      if (doc.revision !== revisions.get(doc.id)) {
+        serverCopies.set(doc.id, doc.html);
+        latestRevisions.set(doc.id, doc.revision);
+        conflicted.add(doc.id);
+      }
     }
     publish();
+    if (conflicted.size > 0) idle('');
   };
   return {
     load: async () => {
@@ -459,7 +502,10 @@ export function createDocumentSync({
       publish();
       // A previous page's exit save can commit after this list; check once.
       if (offers.length > 0)
-        timers.set(() => void reconcileLateCommits(), LATE_COMMIT_RECHECK_MS);
+        recheckHandle = timers.set(
+          () => void reconcileLateCommits(),
+          LATE_COMMIT_RECHECK_MS,
+        );
       return documents;
     },
     create: async (folder, templateId) => {
@@ -478,6 +524,9 @@ export function createDocumentSync({
         generation: nextGeneration(),
         now: wallClock(),
       });
+      const own = ownEarlier.get(id) ?? new Set<string>();
+      own.add(copy.generation);
+      ownEarlier.set(id, own);
       pending.set(id, copy);
       persist(id, copy);
       if (conflicted.has(id)) {
@@ -505,6 +554,9 @@ export function createDocumentSync({
       if (!transition(id, previous, proposal) || !proposal.record.active)
         return null;
       const copy = proposal.record.active;
+      // Text Restore set aside is a choice to keep, not a superseded draft.
+      const setAside = proposal.record.recovery?.generation;
+      if (setAside) ownEarlier.get(id)?.delete(setAside);
       ownedDurable.set(id, copy.generation);
       revisions.set(id, revision);
       latestRevisions.delete(id);
@@ -537,19 +589,15 @@ export function createDocumentSync({
     },
     refreshRecovery,
     available: () => !disposed,
-    dispose: ({ purge = false } = {}) => {
-      if (disposed) return;
-      disposed = true;
-      for (const handle of handles.values()) timers.clear(handle);
-      timers.clear(expiryHandle);
-      handles.clear();
-      pending.clear();
-      records.clear();
-      unanswered.clear();
-      ownedDurable.clear();
-      offers = [];
-      if (purge) drafts.purge();
-      for (const listener of listeners) listener();
+    fence: () => {
+      const unstored = [...pending].some(
+        ([id, copy]) => ownedDurable.get(id) !== copy.generation,
+      );
+      if (unstored) return false;
+      dispose({ purge: false });
+      return true;
     },
+    closedBy: () => closedBy,
+    dispose: (options) => dispose(options ?? {}),
   };
 }

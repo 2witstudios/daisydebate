@@ -84,3 +84,15 @@ test('only proof of a change purges on a server-rendered mount', async () => {
     expected: ['keep', 'publish', 'publish'],
   });
 });
+
+test('only sign-out and account closure end the claim on the copies', async () => {
+  const { endsAccountSession } = await import('./notes-principal');
+  assert({
+    given: 'the sign-out and account closure forms, and any other form',
+    should: 'mark only those two',
+    actual: ['/auth/sign-out', '/api/privacy/erase', '/settings'].map(
+      endsAccountSession,
+    ),
+    expected: [true, true, false],
+  });
+});

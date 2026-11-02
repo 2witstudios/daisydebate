@@ -25,7 +25,7 @@ test('typing and acknowledgements preserve an independent recovery identity and 
     generation: 'NEW',
     revision: 4,
     rebaseGeneration: null,
-    ownedActive: null,
+    supersededByThisOwner: () => false,
   });
   assert({
     given: 'REC followed by NEW typing and acknowledgement',
@@ -42,7 +42,7 @@ test('an older acknowledgement rebases only the named current active copy', () =
     generation: 'A',
     revision: 4,
     rebaseGeneration: 'B',
-    ownedActive: null,
+    supersededByThisOwner: () => false,
   });
   assert({
     given: 'A acknowledges with B pending and REC independent',
@@ -86,11 +86,11 @@ test('a recovery offer survives serialization and reload after NEW acknowledgeme
       generation: 'NEW',
       revision: 4,
       rebaseGeneration: null,
-      ownedActive: null,
+      supersededByThisOwner: () => false,
     },
   );
   const encoded = encodeNoteRecord(acked.record)!;
-  const loaded = decodeNoteRecord(encoded.raw, { now: 300, serverRevision: 4 });
+  const loaded = decodeNoteRecord(encoded.raw, 300);
   assert({
     given: 'NEW acknowledged before the browser reloads',
     should: 'still load the independent REC for explicit Restore',
@@ -163,26 +163,20 @@ test('each slot expires independently and a paused active copy is offered withou
   });
 });
 
-test('the pre-ship record validator rejects the old shape and malformed or future copies', () => {
+test('the pre-ship record validator rejects the old shape and malformed copies', () => {
   const valid = copy('A', '<p>A</p>');
   const invalid = [
     valid,
     { active: { ...valid, generation: 1 } },
-    { recovery: { ...valid, baseRevision: 999 } },
     { active: valid, extra: true },
   ];
   assert({
-    given:
-      'legacy single-copy data, malformed identities, future revisions and unknown slots',
+    given: 'legacy single-copy data, malformed identities and unknown slots',
     should: 'fail closed without a compatibility mode',
     actual: invalid.map(
-      (record) =>
-        decodeNoteRecord(JSON.stringify(record), {
-          now: 200,
-          serverRevision: 3,
-        }).ok,
+      (record) => decodeNoteRecord(JSON.stringify(record), 200).ok,
     ),
-    expected: [false, false, false, false],
+    expected: [false, false, false],
   });
 });
 
@@ -195,7 +189,7 @@ test('an acknowledgement clears every slot it proves saved', () => {
       generation: 'REC',
       revision: 4,
       rebaseGeneration: null,
-      ownedActive: null,
+      supersededByThisOwner: () => false,
     },
   );
   const unstored = acknowledgeNoteRecord(
@@ -204,7 +198,7 @@ test('an acknowledgement clears every slot it proves saved', () => {
       generation: 'newest-not-stored',
       revision: 4,
       rebaseGeneration: null,
-      ownedActive: 'older',
+      supersededByThisOwner: (generation) => generation === 'older',
     },
   );
   const foreign = acknowledgeNoteRecord(
@@ -213,7 +207,7 @@ test('an acknowledgement clears every slot it proves saved', () => {
       generation: 'newest-not-stored',
       revision: 4,
       rebaseGeneration: null,
-      ownedActive: 'mine',
+      supersededByThisOwner: (generation) => generation === 'mine',
     },
   );
   assert({
@@ -232,10 +226,7 @@ test('a copy saved later than a stepped-back clock is kept', () => {
     baseRevision: 3,
     now: 5000,
   });
-  const decoded = decodeNoteRecord(JSON.stringify({ active: later }), {
-    now: 4000,
-    serverRevision: 3,
-  });
+  const decoded = decodeNoteRecord(JSON.stringify({ active: later }), 4000);
   assert({
     given: 'a wall clock now earlier than the copy savedAt',
     should: 'keep the copy, since only its expiry decides',

@@ -9,7 +9,7 @@ import {
   NOTES_PRINCIPAL_KEY,
   NOTES_SIGN_OUT_INTENT_KEY,
   hasPrincipalDrafts,
-  isSignOutForm,
+  endsAccountSession,
   publishNotesPrincipal,
   readSessionPrincipal,
   rootMountAction,
@@ -47,7 +47,8 @@ const takeSignOutIntent = () => {
 
 const markSignOutIntent = (event: Event) => {
   if (!(event.target instanceof HTMLFormElement)) return;
-  if (!isSignOutForm(event.target)) return;
+  const { pathname } = new URL(event.target.action, window.location.href);
+  if (!endsAccountSession(pathname)) return;
   try {
     browserStorage(() => window.sessionStorage)?.setItem(
       NOTES_SIGN_OUT_INTENT_KEY,
@@ -78,10 +79,9 @@ export function RoundNotesPrivacy({
       });
   }, []);
   useEffect(() => {
-    // An unavailable server identity is not evidence of logout. The server's
-    // identity already covers this mount; never refresh a fresh session here.
-    if (principalId === undefined) return;
-    let observed = principalId;
+    // An unavailable server identity is not evidence of logout, so this mount
+    // publishes nothing, yet still listens for changes from other tabs.
+    let observed: string | null | undefined = principalId;
     let live = true;
     let pending: AbortController | null = null;
     const syncPrincipal = (next: string | null) => {
@@ -93,7 +93,10 @@ export function RoundNotesPrivacy({
       setCleanupFailed(!publishNotesPrincipal(next));
     };
     const fence = () => window.dispatchEvent(new Event(NOTES_FENCE_EVENT));
-    if (rootMountAction(principalId, takeSignOutIntent()) === 'publish')
+    if (
+      principalId !== undefined &&
+      rootMountAction(principalId, takeSignOutIntent()) === 'publish'
+    )
       syncPrincipal(principalId);
     const read = async () => {
       if (!live || pending !== null || observed === null) return;
@@ -128,7 +131,11 @@ export function RoundNotesPrivacy({
     const check = async () => {
       if (observed === null) return;
       try {
-        if (hasPrincipalDrafts(window.localStorage, observed) === false) return;
+        if (
+          observed !== undefined &&
+          hasPrincipalDrafts(window.localStorage, observed) === false
+        )
+          return;
       } catch {
         // A denied storage getter cannot establish that no private copy exists.
       }

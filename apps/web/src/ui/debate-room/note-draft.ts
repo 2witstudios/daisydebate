@@ -95,10 +95,7 @@ export const expireNoteRecord = (record: NoteRecord, now: number): NoteRecord =>
 /** Pre-ship shape only. Expiration removes each copy independently; invalid data is never offered. */
 export function decodeNoteRecord(
   raw: string,
-  {
-    now,
-    serverRevision,
-  }: { readonly now: number; readonly serverRevision: number },
+  now: number,
 ):
   | {
       readonly ok: true;
@@ -106,12 +103,7 @@ export function decodeNoteRecord(
       readonly expired: boolean;
     }
   | { readonly ok: false } {
-  if (
-    bytesOf(raw) > NOTE_RECORD_MAX_BYTES ||
-    !count(now) ||
-    !count(serverRevision)
-  )
-    return { ok: false };
+  if (bytesOf(raw) > NOTE_RECORD_MAX_BYTES || !count(now)) return { ok: false };
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -138,12 +130,6 @@ export function decodeNoteRecord(
   )
     return { ok: false };
   // A clock can step backwards past savedAt, so only expiresAt governs time.
-  if (
-    [active, recovery].some(
-      (copy) => copy !== undefined && copy.baseRevision > serverRevision,
-    )
-  )
-    return { ok: false };
   const record = expireNoteRecord(slots(active, recovery), now);
   return {
     ok: true,
@@ -180,8 +166,9 @@ export function editNoteRecord(
 
 /**
  * An acknowledged generation is proven committed, so no slot keeps it. A named
- * newer edit rebases. With nothing newer pending, this owner's own older active
- * copy is obsolete too: its newest edit could not be stored but has now saved.
+ * newer edit rebases. With nothing newer pending, this owner's own earlier
+ * copies are obsolete too, even if another tab moved one aside. Copies from
+ * elsewhere are never touched.
  */
 export function acknowledgeNoteRecord(
   record: NoteRecord,
@@ -189,29 +176,32 @@ export function acknowledgeNoteRecord(
     generation,
     revision,
     rebaseGeneration,
-    ownedActive,
+    supersededByThisOwner,
   }: {
     readonly generation: string;
     readonly revision: number;
     readonly rebaseGeneration: string | null;
-    readonly ownedActive: string | null;
+    /** An earlier copy this owner wrote and its newest saved edit replaces. */
+    readonly supersededByThisOwner: (generation: string) => boolean;
   },
 ): NoteTransition {
-  const recovery =
-    record.recovery?.generation === generation ? undefined : record.recovery;
+  const obsolete = (copy: NoteCopy | undefined) =>
+    copy !== undefined &&
+    (copy.generation === generation ||
+      (rebaseGeneration === null && supersededByThisOwner(copy.generation)));
+  const recovery = obsolete(record.recovery) ? undefined : record.recovery;
   const active = record.active;
   if (active && active.generation === rebaseGeneration)
     return proposed(
       record,
       slots({ ...active, baseRevision: revision }, recovery),
     );
-  const obsolete =
-    active !== undefined &&
-    (active.generation === generation ||
-      (rebaseGeneration === null && active.generation === ownedActive));
-  if (!obsolete && recovery === record.recovery)
+  if (!obsolete(active) && recovery === record.recovery)
     return { status: 'unchanged', record };
-  return proposed(record, slots(obsolete ? undefined : active, recovery));
+  return proposed(
+    record,
+    slots(obsolete(active) ? undefined : active, recovery),
+  );
 }
 
 /** Whether a 409 revision is the server's copy of one of this owner's unanswered saves. */

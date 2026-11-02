@@ -502,7 +502,7 @@ test('a corrupt record for one file does not block another file from Saved', asy
   });
 });
 
-test('an exit save committing after the list withdraws its false offer', async () => {
+const lateCommitFixture = async () => {
   const f = fixture();
   const clock = manualTimers();
   const late = newNoteCopy({
@@ -513,20 +513,260 @@ test('an exit save committing after the list withdraws its false offer', async (
   });
   f.storage.setItem(key, JSON.stringify({ active: late }));
   let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  const sent: { html: string; expectedRevision: number }[] = [];
+  const events: string[] = [];
+  let lists = 0;
+  const api: DocumentsApi = {
+    ...documentApi(
+      async ({ html, expectedRevision }) => {
+        sent.push({ html, expectedRevision });
+        return { status: 'conflict', revision: server.revision };
+      },
+      () => [server],
+    ),
+    list: async () => {
+      lists += 1;
+      return [server];
+    },
+  };
+  const sync = f.owner({
+    api,
+    timers: clock.timers,
+    onConflict: () => events.push('conflict'),
+    onSaved: () => events.push('saved'),
+  });
+  await sync.load();
+  return {
+    ...f,
+    clock,
+    sync,
+    sent,
+    events,
+    lists: () => lists,
+    commit: () => {
+      server = { ...server, html: '<p>EXIT</p>', revision: 4 };
+    },
+  };
+};
+const settled = () => new Promise((resolve) => setImmediate(resolve));
+
+test('a late exit commit withdraws its offer and can never be overwritten', async () => {
+  const f = await lateCommitFixture();
+  const before = f.sync.recoveryOffers().length;
+  f.commit();
+  f.clock.fire();
+  await settled();
+  const withdrawn = [f.sync.recoveryOffers().length, f.storage.getItem(key)];
+  f.sync.change('a', '<p>SERVER plus typing</p>');
+  f.clock.fire();
+  await f.sync.flush();
+  assert({
+    given:
+      'an exit save committing after this page listed, then typing on the older editor text',
+    should:
+      'withdraw the offer, report the conflict rather than Saved, and send nothing over it',
+    actual: [
+      before,
+      withdrawn,
+      f.events.includes('saved'),
+      f.events.at(-1),
+      f.sent,
+    ],
+    expected: [1, [0, null], false, 'conflict', []],
+  });
+});
+
+test('disposing cancels the late commit recheck', async () => {
+  const f = await lateCommitFixture();
+  const lists = f.lists();
+  f.sync.dispose();
+  f.clock.fire();
+  await settled();
+  assert({
+    given: 'an owner ended before its recheck ran',
+    should: 'send no further request',
+    actual: f.lists(),
+    expected: lists,
+  });
+});
+
+test('a list failing during a 409 is retried, not reported as a conflict', async () => {
+  const f = fixture();
+  const conflicts: string[] = [];
+  const clock = manualTimers();
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  let saves = 0;
+  let failList = false;
+  const api: DocumentsApi = {
+    ...documentApi(
+      async (input) => {
+        saves += 1;
+        if (saves === 1) {
+          server = { ...server, html: input.html, revision: 4 };
+          failList = true;
+          throw new Error('answer lost after commit');
+        }
+        return { status: 'conflict', revision: server.revision };
+      },
+      () => [server],
+    ),
+    list: async () => {
+      if (failList) {
+        failList = false;
+        throw new Error('list failed on the same bad network');
+      }
+      return [server];
+    },
+  };
+  const sync = f.owner({
+    api,
+    timers: clock.timers,
+    onConflict: (id) => conflicts.push(id),
+  });
+  await sync.load();
+  sync.discardRecovered('a', 'REC');
+  sync.change('a', '<p>MINE</p>');
+  await sync.flush();
+  await sync.flush();
+  const afterFailedList = [...conflicts];
+  await sync.flush();
+  assert({
+    given: 'a commit with a lost answer, then a 409 whose list also fails',
+    should: 'establish nothing, then recognize the own commit on retry',
+    actual: [afterFailedList, conflicts, saves],
+    expected: [[], [], 3],
+  });
+});
+
+test('retries of one edit cannot evict the save that really committed', async () => {
+  const f = fixture();
+  const conflicts: string[] = [];
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  let outage = true;
+  let saves = 0;
   const api: DocumentsApi = documentApi(
-    async () => ({ status: 'saved', revision: 4 }),
+    async (input) => {
+      saves += 1;
+      if (saves === 1) {
+        server = { ...server, html: input.html, revision: 4 };
+        throw new Error('answer lost after commit');
+      }
+      if (outage) throw new Error('offline');
+      return input.expectedRevision === server.revision
+        ? { status: 'saved', revision: server.revision + 1 }
+        : { status: 'conflict', revision: server.revision };
+    },
     () => [server],
   );
-  const sync = f.owner({ api, timers: clock.timers });
+  const sync = f.owner({ api, onConflict: (id) => conflicts.push(id) });
   await sync.load();
-  const before = sync.recoveryOffers().length;
-  server = { ...server, html: '<p>EXIT</p>', revision: 4 };
-  clock.fire();
-  await new Promise((resolve) => setImmediate(resolve));
+  sync.change('a', '<p>A</p>');
+  await sync.flush();
+  sync.change('a', '<p>B</p>');
+  for (let i = 0; i < 12; i++) await sync.flush();
+  outage = false;
+  await sync.flush();
+  await sync.flush();
   assert({
-    given: 'a previous page exit save that commits just after this page lists',
-    should: 'withdraw the offer once and clear the copy',
-    actual: [before, sync.recoveryOffers().length, f.storage.getItem(key)],
-    expected: [1, 0, null],
+    given:
+      'A commits unanswered, then B retries twelve times through an outage',
+    should:
+      'still recognize A as this owner, so no false conflict stops saving',
+    actual: conflicts,
+    expected: [],
+  });
+});
+
+test('fencing never destroys text that has no stored copy', async () => {
+  const f = fixture();
+  const storedOwner = f.owner();
+  await storedOwner.load();
+  storedOwner.change('a', '<p>durable</p>');
+  const unstoredOwner = f.owner({ storage: null, nextGeneration: () => 'x' });
+  await unstoredOwner.load();
+  unstoredOwner.change('a', '<p>memory only</p>');
+  assert({
+    given: 'one owner whose text is stored and one whose text is not',
+    should: 'hide the first and keep the second on screen',
+    actual: [
+      storedOwner.fence(),
+      storedOwner.closedBy(),
+      unstoredOwner.fence(),
+      unstoredOwner.available(),
+    ],
+    expected: [true, 'fence', false, true],
+  });
+});
+
+test('an earlier edit another tab moved aside does not survive its replacement saving', async () => {
+  const f = fixture();
+  f.storage.removeItem(key);
+  const sync = f.owner();
+  await sync.load();
+  sync.change('a', '<p>A1</p>');
+  const other = f.owner({ nextGeneration: () => 'other' });
+  await other.load();
+  sync.change('a', '<p>A2</p>');
+  await sync.flush();
+  assert({
+    given: 'a second tab moved A1 to recovery before A2 replaced and saved it',
+    should: 'leave no superseded offer behind',
+    actual: [f.server().html, f.storage.getItem(key), sync.recoveryOffers()],
+    expected: ['<p>A2</p>', null, []],
+  });
+});
+
+test('a new offer does not overwrite a conflict notice', async () => {
+  const f = fixture();
+  const events: string[] = [];
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  const sync = f.owner({
+    api: documentApi(
+      async () => ({ status: 'conflict', revision: 9 }),
+      () => [server],
+    ),
+    onConflict: () => events.push('conflict'),
+    onRecoveryChanged: () => events.push('recovered'),
+  });
+  await sync.load();
+  sync.discardRecovered('a', 'REC');
+  server = { ...server, revision: 9 };
+  sync.change('a', '<p>MINE</p>');
+  await sync.flush();
+  f.storage.setItem(key, JSON.stringify({ recovery: f.recovery }));
+  sync.refreshRecovery();
+  assert({
+    given: 'a conflicted document when another tab adds an offer',
+    should: 'keep the conflict as the last status',
+    actual: [sync.recoveryOffers().length, events.at(-1)],
+    expected: [1, 'conflict'],
+  });
+});
+
+test('a far-future expiry is capped to a valid timer delay', async () => {
+  const f = fixture();
+  const delays: number[] = [];
+  const far = newNoteCopy({
+    html: '<p>FAR</p>',
+    generation: 'FAR',
+    baseRevision: 3,
+    now: 100 + 30 * 24 * 60 * 60 * 1000,
+  });
+  f.storage.setItem(key, JSON.stringify({ recovery: far }));
+  const sync = f.owner({
+    timers: {
+      set: (_run, ms) => {
+        delays.push(ms);
+        return delays.length;
+      },
+      clear: () => {},
+    },
+  });
+  await sync.load();
+  assert({
+    given: 'a copy expiring more than 24.8 days ahead of this clock',
+    should: 'never ask for a delay browsers treat as zero',
+    actual: delays.every((ms) => ms <= 2 ** 31 - 1),
+    expected: true,
   });
 });
