@@ -10,6 +10,7 @@ SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ADD COLUMN "outcome" text;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ADD COLUMN "answered_at" timestamp with time zone;--> statement-breakpoint
 UPDATE "round_judging_attempts" SET "outcome" = 'failed';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ALTER COLUMN "category" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ALTER COLUMN "diagnostic" DROP NOT NULL;--> statement-breakpoint
 -- The dispatches only the run snapshot recorded: a success, or a call lost to a crash.
@@ -21,6 +22,7 @@ SELECT a."id", j."round_id", j."judge_participant_id",
 FROM "agent_runs" a JOIN "round_judging_jobs" j ON j."judge_participant_id" = a."round_participant_id"
 WHERE a."kind" = 'judging' AND a."configuration_snapshot"->>'providerOutcome' IN ('unknown', 'received')
   AND NOT EXISTS (SELECT 1 FROM "round_judging_attempts" t WHERE t."agent_run_id" = a."id");--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 UPDATE "round_judging_attempts" t SET "answered_at" = t."created_at"
 FROM "agent_runs" a WHERE a."id" = t."agent_run_id" AND a."configuration_snapshot"->>'providerOutcome' = 'received';--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
