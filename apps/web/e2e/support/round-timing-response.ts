@@ -1,6 +1,10 @@
 import type { Page, Request, Route } from '@playwright/test';
 
 export type StepRoute = (route: Route) => Promise<void>;
+export type RoutedRequest = Pick<
+  Request,
+  'method' | 'headers' | 'isNavigationRequest'
+>;
 
 export type RoundClockDelivery = {
   readonly status: number;
@@ -83,14 +87,13 @@ export function createClockReadWitness(expected: {
 const passThrough: StepRoute = (route) => route.fallback();
 
 /**
- * One long-lived route whose behavior the journey swaps. Replacing the route
- * between steps left requests no handler saw. `pass` returns to pass-through
- * once in-flight steps finish.
+ * One long-lived route whose behavior the journey swaps. `pass` returns to
+ * pass-through once in-flight steps finish.
  */
 export async function routeStepped(
   page: Pick<Page, 'route'>,
   url: string,
-  matches: (request: Pick<Request, 'method' | 'headers'>) => boolean,
+  matches: (request: RoutedRequest) => boolean,
 ) {
   let current = passThrough;
   const inFlight = new Set<Promise<void>>();

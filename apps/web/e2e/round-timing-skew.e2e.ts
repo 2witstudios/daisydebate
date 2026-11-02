@@ -9,9 +9,10 @@ import { origin } from './support/accounts';
 import {
   createClockReadWitness,
   routeStepped,
+  type RoutedRequest,
   type StepRoute,
 } from './support/round-timing-response';
-import type { Page, Request } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
@@ -139,9 +140,34 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       })
       .toBeLessThan(READING_TOLERANCE_MS);
 
+    // One route per request kind owns the rest of the journey; each step swaps
+    // its behavior. They are installed once, here, and never removed: replacing
+    // routes between steps left requests no handler answered.
+    const roomUrl = host.url();
+    let delayed = false;
+    const delayClockReads =
+      (delayMs: number, delivered?: () => void): StepRoute =>
+      async (route) => {
+        const response = await route.fetch();
+        delivered?.();
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await route.fulfill({ response });
+      };
+    const documents = await routeStepped(host, roomUrl, (request) =>
+      request.isNavigationRequest(),
+    );
+    const clockReads = await routeStepped(
+      host,
+      new URL(`/api/rounds/${roundId}`, roomUrl).href,
+      (request) => request.method() === 'GET',
+    );
+    const isServerAction = (request: RoutedRequest) =>
+      request.method() === 'POST' && Boolean(request.headers()['next-action']);
+    const hostActions = await routeStepped(host, roomUrl, isServerAction);
+    const guestActions = await routeStepped(guest, roomUrl, isServerAction);
+
     // Delay the actual SSR response after its render seed was generated.
     // The first calibrated read must remove this six-second hydration lag.
-    const roomUrl = host.url();
     const mediaAt: number[] = [];
     let documentEpoch = 0;
     host.on('domcontentloaded', () => documentEpoch++);
@@ -152,37 +178,19 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       )
         mediaAt.push(elapsedMs());
     });
-    await host.route(roomUrl, async (route) => {
-      if (!route.request().isNavigationRequest()) return route.continue();
+    documents.use(async (route) => {
       const response = await route.fetch();
       await new Promise((resolve) => setTimeout(resolve, 6000));
       await route.fulfill({ response });
     });
     await host.reload();
-    await host.unrouteAll({ behavior: 'wait' });
+    await documents.pass();
     const clockStatus = host.locator('[data-round-time]');
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
     await expect(clockStatus).toContainText('±');
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
-
-    // One route owns the page's clock reads for the rest of the journey; each
-    // step swaps its behavior.
-    let delayed = false;
-    const delayClockReads =
-      (delayMs: number, delivered?: () => void): StepRoute =>
-      async (route) => {
-        const response = await route.fetch();
-        delivered?.();
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        await route.fulfill({ response });
-      };
-    const clockReads = await routeStepped(
-      host,
-      new URL(`/api/rounds/${roundId}`, roomUrl).href,
-      (request) => request.method() === 'GET',
-    );
 
     // Delay real authorized clock reads beyond the accepted RTT envelope.
     // The resource may be current while its clock evidence is visibly stale.
@@ -281,10 +289,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       await actionsHeld;
       await route.fallback();
     };
-    const isServerAction = (request: Pick<Request, 'method' | 'headers'>) =>
-      request.method() === 'POST' && Boolean(request.headers()['next-action']);
-    const hostActions = await routeStepped(host, roomUrl, isServerAction);
-    const guestActions = await routeStepped(guest, roomUrl, isServerAction);
     hostActions.use(holdActions);
     guestActions.use(holdActions);
     // Calibration does not wait on that queue: a stuck action cannot hold it.
