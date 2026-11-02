@@ -6,7 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { freezeRoomDraw, persistRoomDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
-import { friendChallenges } from './schema/friends';
+import { challenges } from './schema/challenges';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
@@ -67,8 +67,8 @@ export const persistRoomMutation = async (
   // so it goes the moment the room is no longer open (Rooms' own vocabulary).
   if (!isOpenRoomStatus(next.status))
     await tx
-      .delete(friendChallenges)
-      .where(eq(friendChallenges.roomId, next.id));
+      .delete(challenges)
+      .where(eq(challenges.roomId, next.id));
   await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
   if (next.participants.length)
     await tx.insert(roomParticipants).values(

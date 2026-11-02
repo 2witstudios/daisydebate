@@ -22,6 +22,7 @@ const topicFamilies = [
   'user:inbox',
   'standings',
   'channel',
+  'online',
 ] as const;
 const topicFamilySchema = z.enum(topicFamilies);
 export type TopicFamily = z.infer<typeof topicFamilySchema>;
@@ -30,10 +31,11 @@ type ParsedTopic =
   | {
       readonly family: Exclude<
         TopicFamily,
-        'user:inbox' | 'standings' | 'channel' | 'room'
+        'user:inbox' | 'standings' | 'channel' | 'room' | 'online'
       >;
       readonly roundId: string;
     }
+  | { readonly family: 'online' }
   | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
   | { readonly family: 'channel'; readonly channelId: string }
@@ -62,6 +64,8 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
   const family = topicFamilySchema.safeParse(familyOf(segments));
   if (!family.success) return undefined;
   const key = segments[1]!;
+  if (family.data === 'online')
+    return key === 'members' ? { family: 'online' } : undefined;
   if (family.data === 'standings')
     return seasonIdSchema.safeParse(key).success
       ? { family: 'standings', season: key }
@@ -98,6 +102,12 @@ export const topicStringSchema = z
  */
 export const buildUserInboxTopic = (actorId: string): string =>
   `user:${idSchema.parse(actorId)}:inbox`;
+
+/**
+ * The online list's doorbell (ADR 0097): one shared topic for every member.
+ * Its frame names nobody, and the list itself is an authorized read.
+ */
+export const ONLINE_TOPIC = 'online:members';
 
 /** A Round's public doorbell topic (phase and transcript changes). */
 export const buildRoundTopic = (roundId: string): string =>

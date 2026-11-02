@@ -15,6 +15,10 @@ type OperatorResource = Extract<
 const operatorCapabilities: readonly AuthorizationCapability[] = [
   'account.collection.read',
   'account.beta_access.update',
+  'report.collection.read',
+  'report.resolve',
+  'moderation.collection.read',
+  'moderation.lift',
 ];
 
 /** The resources only operator capabilities address. */
@@ -39,7 +43,7 @@ export function operatorDecision(
     !principal.capabilities.includes(capability)
   )
     return { allow: false, reason: 'missing-capability' };
-  if (capability === 'account.collection.read') return { allow: true };
+  if (capability !== 'account.beta_access.update') return { allow: true };
   return context.account !== null && context.account.beta !== null
     ? { allow: true }
     : { allow: false, reason: 'denied' };

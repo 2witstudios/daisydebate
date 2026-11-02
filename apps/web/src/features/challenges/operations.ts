@@ -1,0 +1,183 @@
+import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type { Clock } from '@daisy/clock';
+import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
+import { createAppError, isAppError } from '@daisy/errors';
+import type {
+  ChallengeFormat,
+  ChallengeList,
+  ChallengeMode,
+  ChallengeResult,
+  PresenceActivity,
+} from '@daisy/protocol';
+import type { DiscoverActor } from '../account/username-discovery';
+import { requireMemberActor } from '../access/actor';
+
+/** How long an offer stands; the challenged member is online, or soon gone. */
+export const CHALLENGE_TTL_MS = 120_000;
+
+/** Sending or answering, per member per minute: generous for people, not scripts. */
+export const challengeRateLimit = {
+  key: (actorId: string) => `challenges:${actorId}`,
+  rule: { windowSeconds: 60, max: 30 },
+} as const;
+/** Offers per member per hour, since anyone can now challenge anyone. */
+export const challengeSendLimit = {
+  key: (actorId: string) => `challenges-sent:${actorId}`,
+  rule: { windowSeconds: 3_600, max: 30 },
+} as const;
+
+type Capability =
+  | 'social.challenge.send'
+  | 'social.challenge.accept'
+  | 'social.challenge.decline'
+  | 'social.challenge.cancel';
+
+export type ChallengeDependencies = {
+  readonly clock: Clock;
+  readonly limit: (actorId: string) => Promise<void>;
+  readonly limitSend: (actorId: string) => Promise<void>;
+  /** The one username port: it spends discovery before each lookup. */
+  readonly discover: DiscoverActor;
+  readonly activity: (
+    actorId: string,
+  ) => Promise<PresenceActivity | null>;
+  readonly store: (capability: Capability) => ChallengeStore;
+  /** The actor an offer names on the other end, for its contact fence. */
+  readonly counterpart: (
+    actorId: string,
+    challengeId: string,
+  ) => Promise<string | null>;
+};
+
+/** A block or a closed account answers NOT_FOUND, never saying which. */
+const unnamed = async <T>(work: () => Promise<T>): Promise<T> => {
+  try {
+    return await work();
+  } catch (error) {
+    if (isAppError(error) && error.code === 'AUTHORIZATION')
+      throw createAppError('NOT_FOUND');
+    throw error;
+  }
+};
+
+/**
+ * Offers a debate to anyone available (ADR 0097), ranked or casual. No lease,
+ * Busy, appearing offline or already placed are one refusal, so a challenger
+ * never learns which. Nothing is created until the other member accepts.
+ */
+export async function sendChallenge(
+  principal: AuthorizationPrincipal,
+  input: {
+    readonly commandId: string;
+    readonly username: string;
+    readonly mode: ChallengeMode;
+    readonly format: ChallengeFormat;
+  },
+  dependencies: ChallengeDependencies,
+): Promise<Omit<ChallengeResult, 'version'>> {
+  const { actorId, userId } = requireMemberActor(principal);
+  await dependencies.limit(actorId);
+  await dependencies.limitSend(actorId);
+  const otherActorId = await dependencies.discover(actorId, input.username);
+  if (!otherActorId || otherActorId === actorId)
+    throw createAppError('NOT_FOUND');
+  if ((await dependencies.activity(otherActorId)) === null)
+    throw createAppError('CONFLICT', 'challenge-unavailable');
+  const now = dependencies.clock.now();
+  const { challengeId } = await unnamed(() =>
+    dependencies.store('social.challenge.send').withContacts(
+      { actorId, userId, memberActorIds: [actorId, otherActorId] },
+      (frame) =>
+        frame.send({
+          id: input.commandId,
+          mode: input.mode,
+          format: input.format,
+          now,
+          expiresAt: new Date(Date.parse(now) + CHALLENGE_TTL_MS).toISOString(),
+        }),
+    ),
+  );
+  return { challengeId, state: 'sent' };
+}
+
+/** Records the room the acceptor just opened; both sides' bells ring. */
+export async function acceptChallenge(
+  principal: AuthorizationPrincipal,
+  input: { readonly challengeId: string; readonly roomId: string },
+  dependencies: ChallengeDependencies,
+): Promise<Omit<ChallengeResult, 'version'>> {
+  const { actorId, userId } = requireMemberActor(principal);
+  await dependencies.limit(actorId);
+  const other = await dependencies.counterpart(actorId, input.challengeId);
+  if (!other) throw createAppError('NOT_FOUND');
+  await unnamed(() =>
+    dependencies.store('social.challenge.accept').withContacts(
+      { actorId, userId, memberActorIds: [actorId, other] },
+      (frame) =>
+        frame.accept({
+          challengeId: input.challengeId,
+          roomId: input.roomId,
+          now: dependencies.clock.now(),
+        }),
+    ),
+  );
+  return { challengeId: input.challengeId, state: 'accepted' };
+}
+
+/** Declining and cancelling are exits: open across a block, and idempotent. */
+export async function endChallenge(
+  principal: AuthorizationPrincipal,
+  command: 'decline' | 'cancel',
+  challengeId: string,
+  dependencies: ChallengeDependencies,
+): Promise<Omit<ChallengeResult, 'version'>> {
+  const { actorId, userId } = requireMemberActor(principal);
+  await dependencies.limit(actorId);
+  const state = command === 'decline' ? 'declined' : 'cancelled';
+  const other = await dependencies.counterpart(actorId, challengeId);
+  if (!other) return { challengeId, state };
+  await dependencies
+    .store(
+      command === 'decline'
+        ? 'social.challenge.decline'
+        : 'social.challenge.cancel',
+    )
+    .withContacts(
+      { actorId, userId, memberActorIds: [actorId, other] },
+      (frame) =>
+        frame.remove({
+          challengeId,
+          role: command === 'decline' ? 'challenged' : 'challenger',
+        }),
+    );
+  return { challengeId, state };
+}
+
+/** Splits one member's rows into what waits on them and what they await. */
+export function challengeListOf(
+  rows: readonly ChallengeListRow[],
+): Omit<ChallengeList, 'version'> {
+  const summary = ({
+    id,
+    username,
+    mode,
+    format,
+    createdAt,
+    expiresAt,
+  }: ChallengeListRow) => ({ id, username, mode, format, createdAt, expiresAt });
+  const open = rows.filter((row) => row.roomId === null);
+  return {
+    incoming: open
+      .filter((row) => row.direction === 'incoming')
+      .slice(0, 20)
+      .map(summary),
+    outgoing: open
+      .filter((row) => row.direction === 'outgoing')
+      .slice(0, 20)
+      .map(summary),
+    accepted: rows
+      .filter((row) => row.roomId !== null)
+      .slice(0, 20)
+      .map((row) => ({ ...summary(row), roomId: row.roomId! })),
+  };
+}

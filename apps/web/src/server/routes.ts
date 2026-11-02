@@ -7,7 +7,9 @@ import { createRoundMediaHandlers } from '../features/round-media/handlers';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
+import { composeChallengeRoutes } from '../features/challenges/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
+import { composeReportRoutes } from '../features/reports/composition';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
@@ -81,6 +83,8 @@ export function createRoutes(app: App) {
     attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),
     friends: composeFriendRoutes(app),
+    challenges: composeChallengeRoutes(app),
+    reports: composeReportRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     rounds: {

@@ -1,44 +1,41 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
+import type { ChosenStatus } from '@daisy/protocol';
 import { requireMemberActor } from '../access/actor';
 
-/**
- * The member's own choice to hide their online status from friends (ADR
- * 0072). Hidden, every friend sees them offline and no friend's badge counts
- * them; nothing tells a friend that they chose to hide.
- */
-export async function setPresenceHidden(
+/** The member's own status choice (ADR 0097): Online, Busy or Appear offline. */
+export async function setChosenStatus(
   principal: AuthorizationPrincipal,
-  hidden: boolean,
+  status: ChosenStatus,
   dependencies: {
     readonly clock: Clock;
     readonly limit: (actorId: string) => Promise<void>;
     readonly write: (
       scope: { readonly userId: string; readonly actorId: string },
-      input: { readonly hidden: boolean; readonly now: string },
-    ) => Promise<boolean>;
+      input: { readonly status: ChosenStatus; readonly now: string },
+    ) => Promise<ChosenStatus>;
   },
-): Promise<{ readonly hidden: boolean }> {
+): Promise<{ readonly status: ChosenStatus }> {
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   return {
-    hidden: await dependencies.write(
+    status: await dependencies.write(
       { userId, actorId },
-      { hidden, now: dependencies.clock.now() },
+      { status, now: dependencies.clock.now() },
     ),
   };
 }
 
-/** The member's own presence setting, read behind their own decision. */
-export async function readPresenceSetting(
+/** The member's own chosen status, read behind their own decision. */
+export async function readChosen(
   principal: AuthorizationPrincipal,
   dependencies: {
     readonly read: (scope: {
       readonly userId: string;
       readonly actorId: string;
-    }) => Promise<boolean>;
+    }) => Promise<ChosenStatus>;
   },
-): Promise<{ readonly hidden: boolean }> {
+): Promise<{ readonly status: ChosenStatus }> {
   const { actorId, userId } = requireMemberActor(principal);
-  return { hidden: await dependencies.read({ userId, actorId }) };
+  return { status: await dependencies.read({ userId, actorId }) };
 }

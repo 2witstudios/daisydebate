@@ -111,6 +111,7 @@ export type {
 export {
   parseTopic,
   buildUserInboxTopic,
+  ONLINE_TOPIC,
   buildRoundTopic,
   buildChannelTopic,
   buildRoomTopic,
@@ -333,28 +334,69 @@ export {
 } from './member-profile';
 
 export {
-  challengeCommandResultSchema,
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
-  friendPresences,
   friendshipStates,
   onlineCountsSchema,
 } from './friends';
 export {
+  chosenStatuses,
+  memberStatuses,
+  onlineFilters,
+  onlineQuerySchema,
+  onlineRosterSchema,
   presenceSettingResultSchema,
   presenceSettingSchema,
+  ratingVisibilitySchema,
 } from './presence-setting';
+export type {
+  ChosenStatus,
+  MemberStatus,
+  OnlineFilter,
+  OnlineMember,
+  OnlineRoster,
+  PresenceSetting,
+  RatingVisibility,
+} from './presence-setting';
+export {
+  challengeCommandSchemas,
+  challengeFormats,
+  challengeListSchema,
+  challengeModes,
+  challengeResultSchema,
+} from './challenges';
+export type {
+  ChallengeFormat,
+  ChallengeList,
+  ChallengeMode,
+  ChallengeResult,
+} from './challenges';
+export {
+  moderationKinds,
+  moderationNoticeSchema,
+  reportCommandSchema,
+  reportOutcomes,
+  reportReasonLabels,
+  reportReasons,
+  reportResultSchema,
+  reportSurfaces,
+} from './reports';
+export type {
+  ModerationKind,
+  ModerationNotice,
+  ReportOutcome,
+  ReportReason,
+  ReportSurface,
+} from './reports';
 export {
   contactBlockResultSchema,
   contactBlockSchema,
   contactBlockUsernameSchema,
 } from './contacts';
 export type {
-  ChallengeCommandResult,
   FriendCommandResult,
   FriendList,
-  FriendPresence,
   FriendRelation,
   FriendshipState,
   OnlineCounts,

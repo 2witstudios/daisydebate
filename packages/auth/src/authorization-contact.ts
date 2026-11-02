@@ -76,8 +76,12 @@ const pairCapabilities = {
   'social.block': 'exit',
   'social.friend.end': 'exit',
   'social.challenge.decline': 'exit',
+  'social.challenge.cancel': 'exit',
+  // Reporting is safety, so it stays open across a block (ADR 0097).
+  'social.report': 'exit',
   'social.friend.request': 'ask',
   'social.challenge.send': 'ask',
+  'social.challenge.accept': 'ask',
 } as const satisfies Readonly<Record<string, 'exit' | 'ask'>>;
 
 /** The capabilities decided on one contact pair (ADR 0061, ADR 0072). */

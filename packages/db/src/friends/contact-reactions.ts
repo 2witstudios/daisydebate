@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { friendships } from '../schema/friends';
 import type { ContactPairKey, ContactTransaction } from '../contacts/reactions';
-import { endPairChallenges } from './challenge-frame';
+import { endPairChallenges } from '../challenges/frame';
 
 /** A block ends any friendship or request and its challenges; unblocking never restores one. */
 async function endFriendshipOnBlock(

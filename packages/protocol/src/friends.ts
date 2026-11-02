@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
+import { memberStatuses } from './presence-setting';
 import { usernameSchema as username } from './username';
 
 /**
@@ -16,10 +16,6 @@ export type FriendshipState = (typeof friendshipStates)[number];
 const friendRelations = ['none', 'friends', 'outgoing', 'incoming'] as const;
 export type FriendRelation = (typeof friendRelations)[number];
 
-/** What a friend's online status shows: presence without seat facts. */
-export const friendPresences = ['online', 'away', 'offline'] as const;
-export type FriendPresence = (typeof friendPresences)[number];
-
 const command = { version: z.literal(1), username };
 
 export const friendCommandSchemas = {
@@ -29,10 +25,6 @@ export const friendCommandSchemas = {
     decision: z.enum(['accept', 'decline']),
   }),
   remove: z.strictObject(command),
-  /** Records a challenge to a friend for a room the caller just opened. */
-  challenge: z.strictObject({ ...command, roomId: idSchema }),
-  /** Declines a friend's challenge to the caller. */
-  declineChallenge: z.strictObject({ ...command, roomId: idSchema }),
 } as const;
 
 export const friendCommandResultSchema = z.strictObject({
@@ -42,17 +34,6 @@ export const friendCommandResultSchema = z.strictObject({
 });
 export type FriendCommandResult = z.infer<typeof friendCommandResultSchema>;
 
-/** A challenge sent to a friend, or one the caller declined (ADR 0072). */
-export const challengeCommandResultSchema = z.strictObject({
-  version: z.literal(1),
-  username: z.string(),
-  roomId: idSchema,
-  challenge: z.enum(['sent', 'declined']),
-});
-export type ChallengeCommandResult = z.infer<
-  typeof challengeCommandResultSchema
->;
-
 const count = z.number().int().nonnegative().safe();
 
 export const friendListSchema = z.strictObject({
@@ -60,7 +41,7 @@ export const friendListSchema = z.strictObject({
   friends: z.array(
     z.strictObject({
       username: z.string(),
-      presence: z.enum(friendPresences),
+      presence: z.enum(memberStatuses),
     }),
   ),
   incoming: z.array(
@@ -68,15 +49,6 @@ export const friendListSchema = z.strictObject({
   ),
   outgoing: z.array(
     z.strictObject({ username: z.string(), requestedAt: z.iso.datetime() }),
-  ),
-  /** Friends' challenges waiting for the reader, rooms still assembling. */
-  challenges: z.array(
-    z.strictObject({
-      username: z.string(),
-      roomId: idSchema,
-      title: z.string(),
-      challengedAt: z.iso.datetime(),
-    }),
   ),
 });
 export type FriendList = z.infer<typeof friendListSchema>;

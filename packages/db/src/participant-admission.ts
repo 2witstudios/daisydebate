@@ -22,7 +22,11 @@ export function principalAccessOf(
 ): PrincipalAccess {
   const account = accounts.find((a) => a?.actorId === actorId);
   return account
-    ? { beta: account.beta?.state ?? null, ageBand: account.ageBand }
+    ? {
+        beta: account.beta?.state ?? null,
+        ageBand: account.ageBand,
+        ...(account.restricted ? { restricted: true } : {}),
+      }
     : { beta: null, ageBand: null };
 }
 

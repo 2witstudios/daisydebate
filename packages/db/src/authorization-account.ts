@@ -15,6 +15,8 @@ export type AuthorizationAccountRow = {
   readonly betaRevision: number | null;
   /** ADR 0075: the account's age band now, from its durable age record; null without one. */
   readonly ageBand: string | null;
+  /** ADR 0097: a suspension or ban is in force. */
+  readonly restricted?: boolean;
 };
 const ageBands = ['under-13', '13-15', '16-17', 'adult'] as const;
 function validBeta(row: AuthorizationAccountRow) {
@@ -63,5 +65,6 @@ export function authorizationAccountFact(row: AuthorizationAccountRow | null) {
     revision: row.revision,
     beta,
     ageBand,
+    restricted: row.restricted === true,
   };
 }

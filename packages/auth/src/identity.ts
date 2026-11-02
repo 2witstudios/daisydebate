@@ -23,6 +23,8 @@ export type SessionReader = (cookie: string) => Promise<VerifiedSession | null>;
 export type Participation = {
   readonly betaState: BetaAccessState | null;
   readonly ageBand: AgeBand | null;
+  /** A suspension or ban is in force (ADR 0097). */
+  readonly restricted?: boolean;
 };
 
 const anonymous = { kind: 'anonymous' } as const;
@@ -48,7 +50,7 @@ export type Identity =
        * Why it waits: `pending` approval, `revoked` access, or
        * `age-required` (no durable age record at the floor yet).
        */
-      readonly reason: 'pending' | 'revoked' | 'age-required';
+      readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
       readonly principal: UserPrincipal;
     }
   | {
@@ -152,13 +154,21 @@ function participation(
   facts: {
     readonly betaState: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
+    readonly restricted?: boolean;
   },
 ): Identity {
-  const { betaState, ageBand } = facts;
-  if (participantAccess({ beta: betaState && { state: betaState }, ageBand }))
+  const { betaState, ageBand, restricted } = facts;
+  if (
+    participantAccess({
+      beta: betaState && { state: betaState },
+      ageBand,
+      ...(restricted ? { restricted } : {}),
+    })
+  )
     return { state: 'member', username, principal };
-  const reason =
-    betaState === 'revoked'
+  const reason = restricted
+    ? 'restricted'
+    : betaState === 'revoked'
       ? 'revoked'
       : ageAdmitted(ageBand)
         ? 'pending'

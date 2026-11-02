@@ -12,17 +12,22 @@ const bandsAtFloor: Record<AgeFloor, readonly AgeBand[]> = {
 };
 /**
  * The one participant admission rule (ADR 0075): an approved beta account
- * whose durable age record meets the account floor. A missing age record
- * is no access. Identity, realtime and UI hints ask this, never the raw
+ * under no suspension or ban (ADR 0097) whose durable age record meets the
+ * account floor. A missing age record is no access. Identity, realtime and UI hints ask this, never the raw
  * facts.
  */
 export function participantAccess(
   account: {
     readonly beta: { readonly state: AccountBetaState } | null;
     readonly ageBand: AgeBand | null;
+    readonly restricted?: boolean;
   } | null,
 ): boolean {
-  return account?.beta?.state === 'approved' && ageAdmitted(account.ageBand);
+  return (
+    account?.beta?.state === 'approved' &&
+    account.restricted !== true &&
+    ageAdmitted(account.ageBand)
+  );
 }
 /** Whether a durable age band meets the account floor; no record never does. */
 export function ageAdmitted(band: AgeBand | null): boolean {
@@ -53,6 +58,7 @@ const withdrawals: readonly AuthorizationCapability[] = [
   'channel.invitation.cancel',
   // ADR 0072: declining a challenge only deletes a row naming the caller.
   'social.challenge.decline',
+  'social.challenge.cancel',
 ];
 /** Whether a bound member holds a capability under the admission rule. */
 export function admitsCapability(
@@ -70,12 +76,14 @@ export function admitsPrincipalAccess(
   access: {
     readonly beta: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
+    readonly restricted?: boolean;
   } | null,
 ): boolean {
   return participantAccess(
     access && {
       beta: access.beta && { state: access.beta },
       ageBand: access.ageBand,
+      ...(access.restricted === true ? { restricted: true } : {}),
     },
   );
 }

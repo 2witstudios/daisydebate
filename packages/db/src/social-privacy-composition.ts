@@ -1,16 +1,21 @@
+import { challengesPrivacyAdopter } from './challenges/privacy';
 import { contactsPrivacyAdopter } from './contacts/privacy';
+import { reportsPrivacyAdopter } from './reports/privacy';
 import { friendsPrivacyAdopter } from './friends/privacy';
 import { createMessagingPrivacyAdopter } from './messaging/privacy';
 import { presencePrivacyAdopter } from './presence/privacy';
 
 /**
  * The social capabilities' subject rights, in their required order:
- * Messaging before authentication is scrubbed, then Friends and Presence,
+ * Messaging before authentication is scrubbed, then Friends, Challenges,
+ * Reports and Presence,
  * and Contacts last, once nothing built on the pair remains (B5).
  */
 export const socialPrivacyAdoption = () => [
   createMessagingPrivacyAdopter(),
   friendsPrivacyAdopter,
+  challengesPrivacyAdopter,
+  reportsPrivacyAdopter,
   presencePrivacyAdopter,
   contactsPrivacyAdopter,
 ];

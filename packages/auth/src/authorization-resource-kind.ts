@@ -13,6 +13,11 @@ export function validResourceKind(
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'social.friend.list': 'friend_collection',
+    'social.challenge.list': 'friend_collection',
+    'social.online.list': 'friend_collection',
+    'social.rating_visibility.read': 'friend_collection',
+    'social.rating_visibility.update': 'friend_collection',
+    'social.moderation_notice.read': 'friend_collection',
     'social.presence.read': 'presence_setting',
     'social.presence.update': 'presence_setting',
     'channel.retained.read': 'messaging_collection',
@@ -21,6 +26,10 @@ export function validResourceKind(
     'channel.file.cleanup': 'pending_file',
     'account.collection.read': 'account_collection',
     'account.beta_access.update': 'account',
+    'report.collection.read': 'account_collection',
+    'report.resolve': 'account_collection',
+    'moderation.collection.read': 'account_collection',
+    'moderation.lift': 'account_collection',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];
   if (kind) return resource.kind === kind;
@@ -28,6 +37,7 @@ export function validResourceKind(
     return resource.kind === 'group_invitation';
   if (
     capability === 'social.block' ||
+    capability === 'social.report' ||
     capability.startsWith('social.friend.') ||
     capability.startsWith('social.challenge.')
   )

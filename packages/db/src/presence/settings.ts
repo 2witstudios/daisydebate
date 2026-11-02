@@ -1,12 +1,15 @@
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { sql, eq, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { buildUserInboxTopic, type ChosenStatus } from '@daisy/protocol';
 import { presenceSettings } from '../schema/presence';
 import {
   readOwnCollection,
   requireOwnScope,
+  type AuthorizationTransaction,
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import { appendOutboxEvent } from '../outbox';
 
 /** The member whose own presence setting is read or written. */
 type PresenceScope = {
@@ -15,39 +18,49 @@ type PresenceScope = {
 };
 
 /**
- * Presence's published read for other features: whether the member named by
- * `actorId` (a column or value) hides their online status. No row means
- * visible.
+ * Presence's published read for other features: the status the member named
+ * by `actorId` (a column or value) chose. No row means online.
  */
-export const presenceHiddenOf = (actorId: SQL) =>
-  sql<boolean>`coalesce((select ${presenceSettings.hidden} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), false)`;
+export const chosenStatusOf = (actorId: SQL) =>
+  sql<ChosenStatus>`coalesce((select ${presenceSettings.status} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`;
 
-/** Whether the member hides their online status; no row means visible. */
-export function readPresenceHidden(
+const chosen = async (
+  tx: Pick<BunSQLDatabase, 'select'>,
+  actorId: string,
+): Promise<ChosenStatus> => {
+  const [row] = await tx
+    .select({ status: presenceSettings.status })
+    .from(presenceSettings)
+    .where(eq(presenceSettings.actorId, actorId));
+  return (row?.status as ChosenStatus | undefined) ?? 'online';
+};
+
+/** The status the member chose; no row means online. */
+export function readChosenStatus(
   database: BunSQLDatabase,
   scope: PresenceScope,
   authorize: OwnCollectionFence<PresenceScope>,
-): Promise<boolean> {
+): Promise<ChosenStatus> {
   requireOwnScope(scope);
-  return readOwnCollection(database, scope, authorize, async (tx) => {
-    const [row] = await tx
-      .select({ hidden: presenceSettings.hidden })
-      .from(presenceSettings)
-      .where(eq(presenceSettings.actorId, scope.actorId));
-    return row?.hidden ?? false;
-  });
+  return readOwnCollection(database, scope, authorize, (tx) =>
+    chosen(tx, scope.actorId),
+  );
 }
 
-/** Sets the member's own choice, after `authorize` on their locked account. */
-export function writePresenceHidden(
+/**
+ * Sets the member's own choice after `authorize` on their locked account. The
+ * control row rings every realtime node (ADR 0097); it names only the member,
+ * on their own inbox, and is never forwarded to a client.
+ */
+export function writeChosenStatus(
   database: BunSQLDatabase,
   scope: PresenceScope,
-  input: { readonly hidden: boolean; readonly now: string },
+  input: { readonly status: ChosenStatus; readonly now: string },
   authorize: OwnCollectionFence<PresenceScope>,
-): Promise<boolean> {
+): Promise<ChosenStatus> {
   requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
-    const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
+    const values = { status: input.status, updatedAt: new Date(input.now) };
     await tx
       .insert(presenceSettings)
       .values({ actorId: scope.actorId, ...values })
@@ -55,11 +68,21 @@ export function writePresenceHidden(
         target: presenceSettings.actorId,
         set: values,
       });
-    return input.hidden;
+    await appendOutboxEvent(tx as AuthorizationTransaction, {
+      topic: buildUserInboxTopic(scope.actorId),
+      kind: 'actor.presence-preference-changed',
+      version: 1,
+      payload: {
+        entityVersion: 1,
+        kind: 'actor.presence-preference-changed',
+        ids: [scope.actorId],
+      },
+    });
+    return input.status;
   });
 }
 
-/** The member's own presence visibility (ADR 0072), instrumented. */
+/** The member's own chosen status (ADR 0097), instrumented. */
 export const presenceSettingOperations = ({
   database,
   eventSink,
@@ -67,19 +90,19 @@ export const presenceSettingOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  readPresenceHidden: (
+  readChosenStatus: (
     scope: PresenceScope,
     authorize: OwnCollectionFence<PresenceScope>,
   ) =>
-    instrumented(eventSink, 'readPresenceHidden', () =>
-      readPresenceHidden(database, scope, authorize),
+    instrumented(eventSink, 'readChosenStatus', () =>
+      readChosenStatus(database, scope, authorize),
     ),
-  writePresenceHidden: (
+  writeChosenStatus: (
     scope: PresenceScope,
-    input: { readonly hidden: boolean; readonly now: string },
+    input: { readonly status: ChosenStatus; readonly now: string },
     authorize: OwnCollectionFence<PresenceScope>,
   ) =>
-    instrumented(eventSink, 'writePresenceHidden', () =>
-      writePresenceHidden(database, scope, input, authorize),
+    instrumented(eventSink, 'writeChosenStatus', () =>
+      writeChosenStatus(database, scope, input, authorize),
     ),
 });

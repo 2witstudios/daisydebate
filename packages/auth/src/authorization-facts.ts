@@ -52,6 +52,8 @@ export type AccountAuthorizationFact = {
    * null when it has none. Participant access needs a band at the floor.
    */
   readonly ageBand: import('./age-band').AgeBand | null;
+  /** A suspension or ban is in force (ADR 0097); it withdraws participant access. */
+  readonly restricted?: boolean;
 };
 export type RoomAuthorizationFact = {
   readonly kind: 'room';

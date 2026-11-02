@@ -9,7 +9,9 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
+  moderationLiftCommandAction,
   operatorCommandStateSchema,
+  reportResolveCommandAction,
   type OperatorCommandState,
 } from '@daisy/protocol/operator';
 import {
@@ -30,7 +32,11 @@ const commandStateReaders = new Map<
     commandId: string,
     result: unknown,
   ) => Promise<Omit<OperatorCommandState, 'action'>>
->([[betaAccessCommandAction, readBetaAccessCommandState]]);
+>([
+  [betaAccessCommandAction, readBetaAccessCommandState],
+  [reportResolveCommandAction, async (_db, _id, result) => ({ result })],
+  [moderationLiftCommandAction, async (_db, _id, result) => ({ result })],
+] as never);
 
 const instant = z
   .union([z.date(), z.string()])

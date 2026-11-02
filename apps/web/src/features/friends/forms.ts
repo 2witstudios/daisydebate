@@ -9,7 +9,6 @@ const friendIntents = [
   'decline',
   'cancel',
   'remove',
-  'decline-challenge',
 ] as const;
 export type FriendIntent = (typeof friendIntents)[number];
 
@@ -21,17 +20,7 @@ export type FriendFormState = {
 };
 
 /** Which route each intent posts to, and the body it sends. */
-export function friendRouteFor(
-  intent: FriendIntent,
-  username: string,
-  roomId = '',
-) {
-  if (intent === 'decline-challenge')
-    return {
-      route: 'declineChallenge',
-      path: '/api/friends/challenges/decline',
-      body: { version: 1, username, roomId },
-    } as const;
+export function friendRouteFor(intent: FriendIntent, username: string) {
   if (intent === 'request')
     return {
       route: 'request',
@@ -60,8 +49,6 @@ export function parseFriendForm(input: unknown) {
   return {
     intent: intent as FriendIntent,
     username: singleFormField(input, 'username'),
-    roomId:
-      intent === 'decline-challenge' ? singleFormField(input, 'roomId') : '',
   };
 }
 
@@ -76,13 +63,9 @@ export const friendFormUnavailable = (form: FormData): FriendFormState => ({
   notice: 'Could not reach Daisy. Your entry is kept; try again.',
 });
 
-/** What a member reads after declining a friend's challenge. */
-export const challengeDeclinedNotice = (username: string) =>
-  `Declined @${username}'s challenge.`;
-
 /** The confirmation for a change that went through. */
 export function friendDoneNotice(
-  intent: Exclude<FriendIntent, 'decline-challenge'>,
+  intent: FriendIntent,
   username: string,
   relation: FriendRelation,
 ): string {
