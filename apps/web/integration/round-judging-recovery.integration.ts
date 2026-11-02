@@ -48,7 +48,7 @@ test('cached judging response retries actual shared completion without redispatc
                 new AbortController().signal,
               );
             } catch (error) {
-              if (isAppError(error)) refusals.push(error.message);
+              if (isAppError(error)) refusals.push(error.reason);
               throw error;
             }
           },
