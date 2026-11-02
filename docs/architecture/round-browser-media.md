@@ -105,6 +105,14 @@ Measured on the CI runner, one native three-browser journey per row:
 So the bars are: permission under 2 seconds, burst included; reply about 2.5 to 2.8
 seconds after the last event on that runner, where a read alone takes up to about
 1.7 seconds.
+A deadline right after a supersession is the case pacing could hold back, since the
+boundary lets the young read finish and the fresh read starts up to 2 seconds late.
+It does not hold back the floor, because other reads and the recovery tick set the
+permission first. On the CI runner, deadline to permission took 438 ms with the
+next speaker's browser reading, and 1082 ms with no browser read reaching the
+server, so on the tick alone. That second figure has the thinner margin: one local
+run reached 2011 ms, cause not established. So pacing stays as it is.
+
 Inside a burst the wait is the burst's own length, not a stall. It reached 10 seconds
 on the runner because the scripted burst itself ran about 8.7 seconds, and the seat
 says it is checking throughout. The scripted journey clicks faster than a debate, but
