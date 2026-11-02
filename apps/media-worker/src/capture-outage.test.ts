@@ -11,7 +11,7 @@ import {
   capturePendingBytes,
   CAPTURE_PENDING_TOTAL_BYTES,
 } from './capture-memory';
-import { validateCaptureBatch } from './capture-batch';
+import { validateCaptureBatch, type ClipCarries } from './capture-batch';
 import { createCaptureStaging } from './capture-staging';
 import { createClipQueue } from './clip-queue';
 setupRitewayBun();
@@ -412,6 +412,7 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
   });
   const clips: { durationMs: number; startOffsetMs: number }[] = [];
   let dropped = 0;
+  const carries: ClipCarries = new Map();
   await validateCaptureBatch({
     nowMs: () => 0,
     waitUntilMs: async () => undefined,
@@ -434,9 +435,13 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
     straddled: () => undefined,
     clip: (clip) => clips.push(clip),
     held: () => undefined,
-    carries: new Map(),
+    carries,
   });
   const span = clips.reduce((sum, clip) => sum + clip.durationMs, 0);
+  const carried = [...carries.values()].reduce(
+    (sum, carry) => sum + carry.frames.length,
+    0,
+  );
   assert({
     given: 'five minutes of one seat held through an outage',
     should: 'refuse nothing, and cut contiguous clips up to its carry',
@@ -451,7 +456,7 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
             clips[index - 1]!.startOffsetMs + clips[index - 1]!.durationMs,
       ),
     ],
-    expected: [0, 1000, 300_000 - span === 0 ? 300_000 : span, true],
+    expected: [0, 1000, 300_000 - carried * 10, true],
   });
 });
 

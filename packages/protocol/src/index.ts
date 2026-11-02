@@ -361,7 +361,10 @@ export type {
 } from './friends';
 
 export {
+  liveTranscriptReadSchema,
   roundTranscriptReadSchema,
+  TRANSCRIPT_CONTRACT_VERSION,
+  type LiveTranscriptRead,
   type RoundTranscriptRead,
 } from './round-transcript';
 

@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ENVELOPE_VERSION,
   buildRoundTopic,
-  type RoundTranscriptRead,
+  type LiveTranscriptRead,
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import type { ResourceRead } from '../resource-sync/driver';
@@ -13,7 +13,8 @@ import {
   seedTranscript,
 } from './transcript-sync';
 setupRitewayBun();
-const transcript = (revision: number): RoundTranscriptRead => ({
+const transcript = (revision: number): LiveTranscriptRead => ({
+  contractVersion: 1,
   round,
   revision,
   freeze: null,
@@ -21,7 +22,7 @@ const transcript = (revision: number): RoundTranscriptRead => ({
   utterances: [],
 });
 const connectedTranscript = () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
   const driver = createTranscriptSync({
     seed: seedTranscript(transcript(0)),
     ...edges,
@@ -65,7 +66,7 @@ test('capture invalidation refreshes independently of competitive Round version'
   driver.dispose();
 });
 test('a no-socket client has a slow single-flight fallback and a refusal removes access', async () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
   const driver = createTranscriptSync({
     seed: seedTranscript(transcript(1)),
     ...edges,
@@ -155,7 +156,7 @@ test('transient unavailability keeps committed text and real refusal clears it',
 });
 
 const holding = () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
   const holder = createTranscriptHolder(transcript(5), edges.read);
   const { scheduler, visibility, connection } = edges;
   const driverOnly = { scheduler, visibility, connection };
@@ -205,7 +206,7 @@ test('a render arriving after a refusal never shows protected text again', async
 test('a shape this build cannot read asks for a reload, and an outage does not', async () => {
   const { edges, holder, driverOnly } = holding();
   const driver = holder.start(driverOnly);
-  const answering = async (answer: ResourceRead<RoundTranscriptRead>) => {
+  const answering = async (answer: ResourceRead<LiveTranscriptRead>) => {
     driver.signal();
     edges.answer(answer);
     await edges.flush();

@@ -4,6 +4,7 @@ import { readTranscript } from './read-transcript';
 setupRitewayBun();
 test('protected transcript reads validate identity and clear denied access', async () => {
   const value = {
+    contractVersion: 1,
     round,
     revision: 0,
     freeze: null,
@@ -29,6 +30,37 @@ test('protected transcript reads validate identity and clear denied access', asy
   });
 });
 
+test('an open tab reads through any added field, even in the Round view', async () => {
+  const good = {
+    contractVersion: 1,
+    round: { ...round, waitingOn: 'added' },
+    revision: 3,
+    added: 'top',
+    freeze: null,
+    streams: [
+      {
+        segmentId: round.segments[0]?.id ?? 's'.repeat(24),
+        roundParticipantId: 'p'.repeat(24),
+        state: 'open',
+        gaps: [],
+        added: 'stream',
+      },
+    ],
+    utterances: [],
+  };
+  const read = await readTranscript(async () => Response.json(good), round.id);
+  const raised = await readTranscript(
+    async () => Response.json({ ...good, contractVersion: 2 }),
+    round.id,
+  );
+  assert({
+    given: 'fields this build has never seen, then a raised contract version',
+    should: 'keep reading through the first and ask for a reload on the second',
+    actual: [read.kind, raised],
+    expected: ['found', { kind: 'unavailable', outdated: true }],
+  });
+});
+
 test('only a reply in another shape is outdated', async () => {
   const reply = (body: unknown) => async () => Response.json(body);
   assert({
@@ -38,6 +70,7 @@ test('only a reply in another shape is outdated', async () => {
       await readTranscript(reply({ added: 'field' }), round.id),
       await readTranscript(
         reply({
+          contractVersion: 1,
           round: { ...round, id: 'x'.repeat(24) },
           revision: 0,
           freeze: null,

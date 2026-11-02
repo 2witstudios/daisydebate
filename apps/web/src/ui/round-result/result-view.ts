@@ -2,7 +2,7 @@ import {
   isNamedSeat,
   type Ballot,
   type RoundBallotRead,
-  type RoundTranscriptRead,
+  type LiveTranscriptRead,
   type RoundView,
 } from '@daisy/protocol';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
@@ -123,7 +123,7 @@ export function transcriptSections(
  * A transcript's lines by played position with their speaker's seat name,
  * for any card on the page that cites a line.
  */
-export function transcriptLines(view: RoundTranscriptRead) {
+export function transcriptLines(view: LiveTranscriptRead) {
   return view.utterances.map((line) => ({
     segment: line.segmentSequence,
     sequence: line.sequence,
@@ -133,7 +133,7 @@ export function transcriptLines(view: RoundTranscriptRead) {
 }
 
 const gapRow = (
-  round: RoundView,
+  round: TranscriptRound,
   gap: {
     readonly roundParticipantId: string;
     readonly fromOffsetMs: number;
@@ -146,12 +146,15 @@ const gapRow = (
   untilOffsetMs: gap.untilOffsetMs,
 });
 
-const speakerOf = (round: RoundView, participantId: string) =>
+/** The Round's fields a transcript renders; any fuller view satisfies it. */
+type TranscriptRound = LiveTranscriptRead['round'];
+
+const speakerOf = (round: TranscriptRound, participantId: string) =>
   round.participants.filter(isNamedSeat).find((p) => p.id === participantId)
     ?.label ?? 'Unknown speaker';
 
 function sectionsOf(
-  round: RoundView,
+  round: TranscriptRound,
   utterances: NonNullable<RoundBallotRead['transcript']>['utterances'],
 ): readonly TranscriptSection[] {
   const speaker = (participantId: string) => speakerOf(round, participantId);
@@ -179,7 +182,7 @@ function sectionsOf(
 
 /** Only explicit open coverage can claim capture; a freeze always closes it. */
 export function transcriptState(
-  view: RoundTranscriptRead,
+  view: LiveTranscriptRead,
 ): NonNullable<TranscriptSection['status']> {
   if (view.freeze)
     return view.freeze.completeness === 'complete' ? 'complete' : 'partial';
@@ -189,7 +192,7 @@ export function transcriptState(
 
 /** Viewer-neutral sections: authorization has already happened at the read boundary. */
 export function liveTranscriptSections(
-  view: RoundTranscriptRead,
+  view: LiveTranscriptRead,
 ): readonly TranscriptSection[] {
   const sections = sectionsOf(view.round, view.utterances);
   return view.round.segments.map((segment) => {
@@ -211,7 +214,10 @@ export function liveTranscriptSections(
   });
 }
 
-function emptySection(round: RoundView, sequence: number): TranscriptSection {
+function emptySection(
+  round: TranscriptRound,
+  sequence: number,
+): TranscriptSection {
   const played = round.segments[sequence];
   const rules = round.rules.segments.find(
     (s) => s.key === played?.rulesSegmentKey,
@@ -232,7 +238,7 @@ function emptySection(round: RoundView, sequence: number): TranscriptSection {
  * short). Before the freeze it is pending.
  */
 function streamStatus(
-  streams: RoundTranscriptRead['streams'],
+  streams: LiveTranscriptRead['streams'],
   frozen: boolean,
 ): NonNullable<TranscriptSection['status']> {
   const open = streams.some((s) => s.state === 'open');

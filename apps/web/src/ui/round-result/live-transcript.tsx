@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { RoundTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
 import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';
@@ -22,7 +22,7 @@ export function LiveTranscript({
   seed,
   socketUrl,
 }: {
-  readonly seed: RoundTranscriptRead;
+  readonly seed: LiveTranscriptRead;
   readonly socketUrl: string | null;
 }) {
   const roundId = seed.round.id;

@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol';
 import { completed } from './result.test-support';
 import {
   liveTranscriptSections,
@@ -14,7 +14,8 @@ setupRitewayBun();
 const read = (
   state: 'open' | 'partial' | 'complete',
   frozen = false,
-): RoundTranscriptRead => ({
+): LiveTranscriptRead => ({
+  contractVersion: 1,
   round: { ...completed.round, status: 'active' },
   revision: 3,
   freeze: frozen
@@ -96,7 +97,7 @@ test('a gap sits where the capture stopped and shows the seat it belongs to', ()
     sequence: index,
     startOffsetMs: index === 0 ? 355 : 251_900,
   }));
-  const value: RoundTranscriptRead = {
+  const value: LiveTranscriptRead = {
     ...base,
     utterances,
     streams: base.streams.map((stream) => ({
@@ -127,7 +128,7 @@ test('a gap sits where the capture stopped and shows the seat it belongs to', ()
 
 test('a gap under a second still shows a real span', () => {
   const base = read('partial');
-  const value: RoundTranscriptRead = {
+  const value: LiveTranscriptRead = {
     ...base,
     streams: base.streams.map((stream) => ({
       ...stream,

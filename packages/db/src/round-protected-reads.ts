@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   idSchema,
   roundTranscriptReadSchema,
+  TRANSCRIPT_CONTRACT_VERSION,
   type LaunchedRound,
 } from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
@@ -33,6 +34,7 @@ export const roundProtectedReads = ({
     return database.transaction(async (tx) => {
       const round = await readAuthorizedRound(tx, input);
       return roundTranscriptReadSchema.parse({
+        contractVersion: TRANSCRIPT_CONTRACT_VERSION,
         round: roundViewFor(round, input.caller.actorId),
         ...(await readTranscriptSnapshot(tx, input.roundId)),
       });

@@ -8,8 +8,8 @@ export const CAPTURE_OUTAGE_BUDGET_MS = 120_000;
 export const CAPTURE_PENDING_TOTAL_BYTES = 256 * 1024 * 1024;
 /** One 10 ms frame of 16 kHz mono 16-bit PCM (the frame processor refuses others). */
 const FRAME_BYTES = 320;
-/** Two minutes for two seats speaking at once: the agreed control-plane outage. */
-const OUTAGE_FRAMES = 24_000;
+/** The outage budget for two seats speaking at once, in 10 ms frames. */
+const OUTAGE_FRAMES = (CAPTURE_OUTAGE_BUDGET_MS / 10) * 2;
 const QUEUE_BYTES = 20 * 1024 * 1024;
 const QUEUE_MS = 120_000;
 const STAGED_SHARE = 0.3;
