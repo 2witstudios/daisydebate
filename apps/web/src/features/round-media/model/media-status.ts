@@ -48,7 +48,7 @@ const established = (state: MediaState): EstablishedLive | null =>
     ? (state.link as EstablishedLive)
     : null;
 
-type IllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+type IllHealth = readonly [Source, SourceFailureKind | 'waiting' | 'stuck'];
 
 const illHealthOf = (live: LiveConnection): readonly IllHealth[] =>
   SOURCES.flatMap((source): IllHealth[] => {
@@ -57,6 +57,11 @@ const illHealthOf = (live: LiveConnection): readonly IllHealth[] =>
     if (state.phase === 'stale-publication') return [[source, 'removal']];
     if (state.phase === 'capturing' && state.waiting)
       return [[source, 'waiting']];
+    if (
+      (state.phase === 'publishing' || state.phase === 'unpublishing') &&
+      state.stuck
+    )
+      return [[source, 'stuck']];
     return [];
   });
 
@@ -75,6 +80,7 @@ const illHealthWord = {
   failure: 'could not start',
   removal: 'could not be removed from the call',
   waiting: 'is waiting for your browser’s permission',
+  stuck: 'is not responding. Retry reconnects everything',
   'preference-unreadable': 'could not be read',
   'preference-invalid': 'is invalid',
 } as const;

@@ -304,3 +304,69 @@ test('a released connection shows no last-known microphone state', () => {
     expected: [false, null, []],
   });
 });
+
+const stuckCamera = (publish: readonly ('camera' | 'microphone')[]) => {
+  const d = driver();
+  d.join(publish);
+  d.send({ type: 'read-requested', read: { kind: 'wake' } });
+  d.flushDeferred();
+  d.answer(['camera', ...publish]);
+  d.room({ type: 'captured', source: 'camera' });
+  if (publish.length === 0)
+    d.room({
+      type: 'capture-failed',
+      source: 'microphone',
+      kind: 'permission',
+      checked: false,
+    });
+  d.timer('read-budget');
+  d.effects.length = 0;
+  d.advance(testPolicy.readBudgetMs);
+  d.timer('recovery');
+  return d;
+};
+
+test('a stuck publish rebuilds by itself only when no source is healthy', () => {
+  const healthy = stuckCamera(['microphone']);
+  const unhealthy = stuckCamera([]);
+  assert({
+    given: 'a wake past the budget, with and without a live microphone',
+    should: 'name the camera beside the microphone, and rebuild without one',
+    actual: {
+      healthy: [
+        healthy.count('release-connection'),
+        healthy.count('admit'),
+        healthy.live().sources.camera,
+        healthy.live().sources.microphone.phase,
+        armedOf(healthy.state()),
+        statusOf(healthy.state()).retry,
+      ],
+      unhealthy: [
+        unhealthy.count('release-connection'),
+        unhealthy.state().link.phase,
+      ],
+    },
+    expected: {
+      healthy: [
+        0,
+        0,
+        { phase: 'publishing', sinceMs: 1_000_000, stuck: true },
+        'published',
+        'wake',
+        true,
+      ],
+      unhealthy: [1, 'admitting'],
+    },
+  });
+});
+
+test('the source that stuck recovers without a click if its publish lands', () => {
+  const d = stuckCamera(['microphone']);
+  d.room({ type: 'published', source: 'camera' });
+  assert({
+    given: 'a publish named stuck that finally settles',
+    should: 'stop naming it',
+    actual: d.live().sources.camera,
+    expected: { phase: 'published', swapped: false },
+  });
+});

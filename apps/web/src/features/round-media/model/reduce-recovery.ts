@@ -22,7 +22,9 @@ import { showStale } from './reduce-reads';
 import {
   convergeSources,
   desiredSources,
+  hasHealthySource,
   hasStuckWork,
+  nameStuckSources,
 } from './reduce-sources';
 
 /** A live connection whose stale answer has its read still to come. */
@@ -48,22 +50,27 @@ export const attemptRecovery = (
     link.establishment.stage !== 'established'
   )
     return rejected(state);
-  // A stuck SDK call holds every later answer, so only a new connection escapes it.
-  if (hasStuckWork(link, ctx.atMs, ctx.policy.readBudgetMs))
+  const stuck = hasStuckWork(link, ctx.atMs, ctx.policy.readBudgetMs);
+  // Only a new connection escapes stuck SDK work, but it drops what is healthy. With
+  // nothing healthy there is nothing to protect; otherwise Retry is the person's choice.
+  if (stuck && !hasHealthySource(link))
     return prepend(
       teardownEffects(link),
       join({ ...state, recovery }, true, ctx.atMs),
     );
+  const named = stuck
+    ? nameStuckSources(link, ctx.atMs, ctx.policy.readBudgetMs)
+    : link;
   // A read could not start: the wake stays owed, at the next step of the pace.
   if (applyHoldsReads(state, link)) {
-    const armed = showStale(state, link, 'transient', ctx);
+    const armed = showStale(state, named, 'transient', ctx);
     return {
       state: withLive(armed.state, armed.live),
       effects: armed.effects,
     };
   }
   const fired: LiveConnection = {
-    ...link,
+    ...named,
     establishment: {
       ...link.establishment,
       freshness: { status: 'stale', cause: 'transient', wakeArmed: false },

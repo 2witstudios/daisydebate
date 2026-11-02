@@ -51,6 +51,7 @@ function convergeSource(input: {
               phase: 'unpublishing',
               sinceMs: input.atMs,
               keepWarm: warm,
+              stuck: false,
             },
             effects: [
               ...(warm
@@ -131,7 +132,7 @@ export function settleCaptured(input: {
   const { name: source, desired, connection } = input;
   if (desired.includes(source))
     return {
-      source: { phase: 'publishing', sinceMs: input.atMs },
+      source: { phase: 'publishing', sinceMs: input.atMs, stuck: false },
       effects: [{ type: 'publish', connection, source, muted: input.muted }],
     };
   if (warmable(source, desired)) return stay({ phase: 'warm' });
@@ -147,6 +148,28 @@ export const holdsAnswer = (state: SourceState) =>
   state.phase === 'publishing' ||
   state.phase === 'unpublishing' ||
   (state.phase === 'capturing' && !state.waiting);
+
+/** Something a rebuild would cost: a source published and live. */
+export const hasHealthySource = (live: LiveConnection) =>
+  SOURCES.some((name) => live.sources[name].phase === 'published');
+
+/** Names what is past the budget, so the bar can say which source is not responding. */
+export const nameStuckSources = (
+  live: LiveConnection,
+  atMs: number,
+  budgetMs: number,
+): LiveConnection => {
+  const sources = { ...live.sources };
+  for (const name of SOURCES) {
+    const state = sources[name];
+    if (
+      (state.phase === 'publishing' || state.phase === 'unpublishing') &&
+      atMs - state.sinceMs >= budgetMs
+    )
+      sources[name] = { ...state, stuck: true };
+  }
+  return { ...live, sources };
+};
 
 /** A stuck SDK call holds every later answer, so only a new connection escapes it. */
 export const hasStuckWork = (

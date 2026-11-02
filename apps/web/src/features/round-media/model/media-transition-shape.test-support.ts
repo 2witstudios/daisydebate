@@ -9,6 +9,11 @@ const sourceShape = (source: SourceState) => {
     return 'failed(removing)';
   if (source.phase === 'published' && source.swapped)
     return 'published(swapped)';
+  if (
+    (source.phase === 'publishing' || source.phase === 'unpublishing') &&
+    source.stuck
+  )
+    return `${source.phase}(stuck)`;
   if (source.phase === 'unpublishing' && source.keepWarm)
     return 'unpublishing(to warm)';
   return source.phase;

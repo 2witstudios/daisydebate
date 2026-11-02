@@ -17,13 +17,19 @@ export type SourceState =
   | { readonly phase: 'capturing'; readonly waiting: boolean }
   /** A debater's microphone between turns: its grant costs a publish, not a device open. */
   | { readonly phase: 'warm' }
-  | { readonly phase: 'publishing'; readonly sinceMs: number }
+  /** `stuck`: past the budget beside a healthy source, so it is named and a person decides. */
+  | {
+      readonly phase: 'publishing';
+      readonly sinceMs: number;
+      readonly stuck: boolean;
+    }
   /** `swapped`: the SDK restarted a dead checked device on another input. */
   | { readonly phase: 'published'; readonly swapped: boolean }
   | {
       readonly phase: 'unpublishing';
       readonly sinceMs: number;
       readonly keepWarm: boolean;
+      readonly stuck: boolean;
     }
   /** `removingSinceMs`: its publication is still being taken down after the failure. */
   | {

@@ -3,6 +3,7 @@ import type { Source } from '../model/media-state';
 import { createBrowserMediaTransport } from '../media-harness.test-support';
 import { createMediaHarness } from '../media-harness.test-support';
 import { admission, snapshot, roundId } from '../media-fixtures.test-support';
+import { createLiveKitRoom } from './livekit-room';
 import { events, publish, sources, stubSdk } from './livekit-room.test-support';
 setupRitewayBun();
 
@@ -477,5 +478,41 @@ test('serialized SDK capture failures cross the actual adapter as closed device 
         reported: [],
       },
     ],
+  });
+});
+
+test('a capture with defaults reuses a healthy held track, and opens one only when it must', async () => {
+  const stub = stubSdk({ settles: true });
+  const room = createLiveKitRoom(
+    {
+      report: () => undefined,
+      handles: () => undefined,
+      checkedDevices: () => ({
+        state: 'available',
+        choices: { microphone: 'checked-mic' },
+      }),
+    },
+    stub.sdk,
+  );
+  await room.capture('microphone', false);
+  await room.capture('microphone', true);
+  const reused = [stub.captures.length, stub.captured[0]!.ended];
+  stub.captured[0]!.mediaStreamTrack.readyState = 'ended';
+  await room.capture('microphone', true);
+  assert({
+    given:
+      'a checked microphone held and healthy, Retry choosing defaults, then that track dying',
+    should:
+      'keep the same device while it works, then open the browser default, not the checked one',
+    actual: {
+      reused,
+      opened: stub.captures.length,
+      last: stub.captures.at(-1),
+    },
+    expected: {
+      reused: [1, false],
+      opened: 2,
+      last: { audio: true, video: false },
+    },
   });
 });

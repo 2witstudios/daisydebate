@@ -326,3 +326,49 @@ test('storage refusing a forgotten device keeps the source named', async () => {
     expected: ['missing', 'missing', 'live'],
   });
 });
+
+test('a stuck camera beside a live microphone is named, and only a person rebuilds', async () => {
+  const w = await sdkWorld({
+    replies: (read) =>
+      read === 1
+        ? publishing('microphone')
+        : publishing('camera', 'microphone'),
+    sdk: { publishGates: [undefined, never] },
+  });
+  await w.send({ kind: 'wake' });
+  await w.advance(testPolicy.readBudgetMs);
+  for (const paced of testPolicy.recoveryDelaysMs) await w.advance(paced);
+  const microphone = w.stub.captured.find(
+    (track) => track.source === 'microphone',
+  );
+  const { message, retry } = statusOf(w.runtime.state());
+  const before = {
+    rooms: w.rooms(),
+    microphoneEnded: microphone?.ended,
+    named: message.includes('Your camera is not responding'),
+    live: message.includes('Your microphone'),
+    retry,
+    state: connectionOf(w.runtime.state()),
+  };
+  w.runtime.dispatch({ type: 'retry-pressed' });
+  await settle();
+  assert({
+    given:
+      'a camera publish hung past every paced wake, then a person pressing Retry',
+    should:
+      'leave the microphone and room alone and name the camera, then rebuild on Retry',
+    actual: { before, rooms: w.rooms() },
+    expected: {
+      before: {
+        rooms: 1,
+        microphoneEnded: false,
+        named: true,
+        live: true,
+        retry: true,
+        state: 'out-of-date',
+      },
+      rooms: 2,
+    },
+  });
+  w.stop();
+});

@@ -395,6 +395,34 @@ export const everyState = (): readonly (readonly [string, MediaState])[] => {
         d.send({ type: 'retry-pressed' });
       }),
     ],
+    [
+      'stuck publish beside a live microphone',
+      at((d) => {
+        d.join(['microphone']);
+        d.send({ type: 'read-requested', read: { kind: 'wake' } });
+        d.flushDeferred();
+        d.answer(['camera', 'microphone']);
+        d.room({ type: 'captured', source: 'camera' });
+        d.timer('read-budget');
+      }),
+    ],
+    [
+      'stuck publish with nothing healthy',
+      at((d) => {
+        d.join([]);
+        d.send({ type: 'read-requested', read: { kind: 'wake' } });
+        d.flushDeferred();
+        d.answer(['camera', 'microphone']);
+        d.room({ type: 'captured', source: 'camera' });
+        d.room({
+          type: 'capture-failed',
+          source: 'microphone',
+          kind: 'permission',
+          checked: false,
+        });
+        d.timer('read-budget');
+      }),
+    ],
     ['ended', at((d) => d.send({ type: 'page-left' }))],
   ];
 };
