@@ -58,3 +58,41 @@ test('ISSUE-532: the real wiring passes the configured probe Round to maintenanc
     expected: [first, second, probeRound].sort(),
   });
 });
+
+test('a judging job an attendance decision ended reaches the failure report', async () => {
+  const logged: unknown[] = [];
+  const service = startRoundCompetitiveMaintenance({
+    app: {
+      config: {},
+      ids: { next: () => id('g') },
+      logger: { log: (entry: unknown) => logged.push(entry) },
+      database: {
+        readRoundMaintenanceCandidates: async () => ({
+          roundIds: [first],
+          afterId: null,
+          exhausted: true,
+        }),
+        tickDueRound: async () => {},
+        evaluateRoundAttendance: async (input: {
+          readonly judgingEnded?: (reason: string) => void;
+        }) => {
+          input.judgingEnded?.('round_ended');
+          return null;
+        },
+        finalizeDueRoundTranscript: async () => ({ status: 'pending' }),
+        readUnratedRatingRounds: async () => [],
+      },
+    } as never,
+    instanceId: id('i'),
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+  });
+  await service.ready;
+  for (let turn = 0; turn < 4; turn++) await new Promise(setImmediate);
+  await service.stop();
+  assert({
+    given: 'the evaluator reporting a job it ended',
+    should: 'log the judging failure event',
+    actual: JSON.stringify(logged).includes('round.judging.failed'),
+    expected: true,
+  });
+});

@@ -24,6 +24,8 @@ export type DryRunFacts = {
   readonly status: string;
   readonly ladderId: string | null;
   readonly finalEndedAt: string | null;
+  /** Null before the ADR 0095 migrations: then the policy from the final end applies. */
+  readonly resolutionCutoffAt: string | null;
   readonly completeness: 'complete' | 'incomplete' | null;
   readonly frozenAt: string | null;
   readonly ballotDeadlineAt: string | null;
@@ -100,6 +102,34 @@ function windowsOf(facts: DryRunFacts) {
     }));
 }
 
+const cutoffMs = (facts: DryRunFacts) =>
+  facts.resolutionCutoffAt
+    ? Date.parse(facts.resolutionCutoffAt)
+    : Date.parse(facts.finalEndedAt ?? '') +
+      attendanceTimingPolicy.resolutionCutoffMs;
+const isOpen = (job: DryRunFacts['jobs'][number]) =>
+  ['queued', 'leased'].includes(job.status);
+const budgetEndsMs = (facts: DryRunFacts, job: DryRunFacts['jobs'][number]) =>
+  job.generationDeadlineAt
+    ? Date.parse(job.generationDeadlineAt)
+    : Date.parse(facts.frozenAt ?? '') + AI_JUDGING_BUDGET_MS;
+
+/** A job inside its budget can buy calls before attendance settles, on any branch. */
+const newPaidCalls = (facts: DryRunFacts) =>
+  facts.status !== 'active'
+    ? 0
+    : facts.jobs
+        .filter(
+          (job) =>
+            isOpen(job) &&
+            !job.holdsBallot &&
+            facts.nowMs < budgetEndsMs(facts, job),
+        )
+        .reduce(
+          (calls, job) => calls + Math.max(0, MAX_CALLS - job.paidCalls),
+          0,
+        );
+
 /**
  * What the deployed completion rules would do to this Round on their next
  * passes (ADR 0095), from its recorded facts alone. It treats every speaker as
@@ -124,7 +154,7 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   };
   const done = (prediction: Record<string, unknown>) => ({
     ...report,
-    prediction: { mostNewPaidCalls: 0, ...prediction },
+    prediction: { mostNewPaidCalls: newPaidCalls(facts), ...prediction },
   });
   if (facts.status !== 'active')
     return done({ result: 'unchanged', reason: 'already_terminal' });
@@ -133,38 +163,30 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   if (!facts.finalEndedAt)
     return done({ result: 'unchanged', reason: 'speeches_not_ended' });
   if (unproven.length > 0) {
-    const cutoffMs =
-      Date.parse(facts.finalEndedAt) +
-      attendanceTimingPolicy.resolutionCutoffMs;
     // What history can prove is not predicted here: this reads no samples.
     return done({
       result: 'depends_on_availability_history',
       unproven: unproven.map((w) => w.key),
       ifHistoryCannotDecide: {
         result: 'abandoned_no_winner',
-        at: new Date(Math.max(cutoffMs, facts.nowMs)).toISOString(),
+        at: new Date(Math.max(cutoffMs(facts), facts.nowMs)).toISOString(),
       },
     });
   }
   if (!facts.completeness)
     return done({ result: 'unchanged', reason: 'transcript_not_frozen' });
-  const endsAtCutoffMs =
-    Date.parse(facts.finalEndedAt) + attendanceTimingPolicy.resolutionCutoffMs;
-  const running = facts.jobs.filter((job) => {
-    if (!['queued', 'leased'].includes(job.status)) return false;
-    const budgetEndsMs = job.generationDeadlineAt
-      ? Date.parse(job.generationDeadlineAt)
-      : Date.parse(facts.frozenAt ?? '') + AI_JUDGING_BUDGET_MS;
-    return (
-      facts.nowMs < budgetEndsMs ||
-      (job.holdsBallot &&
-        facts.nowMs <
-          Math.max(
-            endsAtCutoffMs,
-            facts.lastSettledAtMs + HELD_BALLOT_GRACE_MS,
-          ))
-    );
-  });
+  // An on-time window not yet recorded is decided on the next pass, now.
+  const settledAtMs = windows.some((w) => !w.alreadyDecided)
+    ? facts.nowMs
+    : facts.lastSettledAtMs;
+  const running = facts.jobs.filter(
+    (job) =>
+      isOpen(job) &&
+      (facts.nowMs < budgetEndsMs(facts, job) ||
+        (job.holdsBallot &&
+          facts.nowMs <
+            Math.max(cutoffMs(facts), settledAtMs + HELD_BALLOT_GRACE_MS))),
+  );
   const decision = decidePanelCompletion({
     completeness: facts.completeness,
     humanJudgeSeatIds: facts.seats
@@ -188,12 +210,6 @@ export function predictRoundCompletion(facts: DryRunFacts) {
     nowMs: facts.nowMs,
   });
   return done({
-    mostNewPaidCalls: running
-      .filter((job) => !job.holdsBallot)
-      .reduce(
-        (calls, job) => calls + Math.max(0, MAX_CALLS - job.paidCalls),
-        0,
-      ),
     ...(decision.kind === 'pending'
       ? { result: 'waiting_on_a_judge' }
       : {
@@ -223,6 +239,7 @@ export async function readDryRunFacts(
       throw new Error('The dry run requires a read-only transaction');
     const [round] = await tx`select r.status,r.ladder_id,r.rules_snapshot,
       r.final_segment_ended_at,r.ballot_deadline_at,z.completeness,z.frozen_at,
+      to_jsonb(r)->>'attendance_resolution_cutoff_at' as cutoff,
       clock_timestamp() as now,
       (select count(*)::int from round_check_in_attempts a where a.round_id=r.id and a.state='pending') as pending,
       greatest(
@@ -251,6 +268,7 @@ export async function readDryRunFacts(
       status: round.status,
       ladderId: round.ladder_id,
       finalEndedAt: iso(round.final_segment_ended_at),
+      resolutionCutoffAt: round.cutoff,
       completeness: round.completeness,
       frozenAt: iso(round.frozen_at),
       ballotDeadlineAt: iso(round.ballot_deadline_at),

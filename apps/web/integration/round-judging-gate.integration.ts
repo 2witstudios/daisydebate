@@ -299,7 +299,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
     );
     assert({
       given: 'a played Round with a human judge, frozen',
-      should: 'bump the version once, ring it, and show the human window',
+      should: 'bump the version, ring it, and show the human window',
       actual: {
         bumped: after - before >= 1,
         ring: Number(rings[0]?.version),

@@ -5,6 +5,7 @@ import { requireTestServices } from '@daisy/config';
 import { buildRoundTopic, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   createRoundMaintenanceOperations,
@@ -358,3 +359,103 @@ test('an AI job out of budget with no worker running is reported once, with the 
     },
   );
 });
+
+const judgingOptions = {
+  judging: {
+    leaseMs: 60000,
+    model: 'fixture-model',
+    nextToken: () => randomBytes(32).toString('base64url'),
+  },
+};
+/** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */
+async function jobPastBudget(f: Fixture, holds: boolean) {
+  const { roundId, target } = await freezeBotJudge(f);
+  if (holds) {
+    const claim = await f.store.claimRoundJudgingJob(target);
+    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+    await f.store.saveRoundJudgingResult(
+      claim.scope,
+      claim.token,
+      ruling('negative'),
+      { inputTokens: 1, outputTokens: 1 },
+    );
+  }
+  await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 hour' where round_id=${roundId}`;
+  await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 hour' where id=${roundId}`;
+  return roundId;
+}
+
+test('a held ballot dropped at its bound is reported once, with the reason', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await jobPastBudget(f, true);
+    await seedSettledAttendanceLedger(f, roundId);
+    await f.sql`update round_commands set applied_at=clock_timestamp()-interval '1 hour' where round_id=${roundId} and type='adjudicate'`;
+    const reported: string[] = [];
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const maintenance = createRoundMaintenanceOperations({
+      store: f.store,
+      instanceId,
+      ids: { next: createId },
+      ratingFailed: () => {},
+      evaluate: async () => null,
+      startHorizonMs: 60_000,
+      probeRoundId: null,
+      judgingEnded: (reason) => reported.push(reason),
+    });
+    await maintenance.finalize(roundId);
+    await maintenance.finalize(roundId);
+    const [job] =
+      await f.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
+    await f.sql`delete from service_instances where instance_id=${instanceId}`;
+    const done = (await f.store.getRound(roundId))!;
+    assert({
+      given: 'a held ballot that never submitted, past every bound',
+      should: 'end the job, end the Round with no winner, and report it once',
+      actual: { job, reported, done: [done.status, done.outcome] },
+      expected: {
+        job: { status: 'failed', terminal_reason: 'round_ended' },
+        reported: ['round_ended'],
+        done: ['completed', null],
+      },
+    });
+  }, judgingOptions);
+});
+
+for (const { holds, reason } of [
+  { holds: true, reason: 'round_ended' },
+  { holds: false, reason: 'generation_deadline' },
+])
+  test(`the abandoned path reports a job it ends ${holds ? 'holding a ballot' : 'past its budget'}`, async () => {
+    await withRoomRuntime(async (f) => {
+      const roundId = await jobPastBudget(f, holds);
+      const reported: string[] = [];
+      const instanceId = createId();
+      await f.store.renewServiceInstance({ instanceId, role: 'web' });
+      const attendance = createAttendanceFeature({
+        checkIns: f.store,
+        evaluate: f.store.evaluateRoundAttendance,
+        nextId: createId,
+        instanceId,
+        judgingEnded: (ended) => reported.push(ended),
+      });
+      for (let pass = 0; pass < 8; pass++) {
+        const decided = await attendance.evaluate(roundId);
+        if (!decided || decided.decision === 'abandoned') break;
+      }
+      const [job] =
+        await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      assert({
+        given:
+          'no attendance evidence past the cutoff, and an open judging job',
+        should: 'end the Round abandoned and report the job once',
+        actual: {
+          status: (await f.store.getRound(roundId))!.status,
+          reason: job.terminal_reason,
+          reported,
+        },
+        expected: { status: 'abandoned', reason, reported: [reason] },
+      });
+    }, judgingOptions);
+  });

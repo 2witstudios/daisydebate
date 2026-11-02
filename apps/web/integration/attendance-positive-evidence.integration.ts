@@ -36,10 +36,14 @@ const stamp = async (
 const adjudications = ({ f, roundId }: Input) =>
   f.sql`select decision,evidence,effective_deadline,settled_horizon,receipt_participant_id from round_attendance_adjudications where round_id=${roundId}`;
 /** Age the opening so the window has long closed, with no sample anywhere. */
-const ageOpening = async ({ f, roundId, segmentId }: Input) => {
-  await f.sql`update rounds set started_at=started_at-interval '10 minutes' where id=${roundId}`;
-  await f.sql`update round_segments set started_at=started_at-interval '10 minutes' where id=${segmentId}`;
-  await f.sql`update round_speaking_intervals set started_at=started_at-interval '10 minutes' where round_id=${roundId}`;
+const ageOpening = async (
+  { f, roundId, segmentId }: Input,
+  byMs = 10 * 60_000,
+) => {
+  const by = `${byMs} milliseconds`;
+  await f.sql`update rounds set started_at=started_at-${by}::interval where id=${roundId}`;
+  await f.sql`update round_segments set started_at=started_at-${by}::interval where id=${segmentId}`;
+  await f.sql`update round_speaking_intervals set started_at=started_at-${by}::interval where round_id=${roundId}`;
 };
 const cleanUp = async ({ f, roundId }: Input) => {
   await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
@@ -183,19 +187,28 @@ test('an on-time speaker leaves the window open: a later receipt is taken, not r
 
 test('a long-outage evaluation at the read cap stays inside its transaction budget', () =>
   withAttendanceRound(async (input) => {
-    const { f, attendance, roundId } = input;
+    const { f, attendance, roundId, segmentId } = input;
     const { opponent } = await seatsOf(input);
-    await ageOpening(input);
-    await stamp(input, opponent, 1000);
-    // Past the read cap, so this is the most one evaluation can ever read.
+    // Past the read cap, so this is the most one evaluation can ever read. Every
+    // sample falls after the opening, or the read would skip it.
     const samples = 11_000;
+    await ageOpening(input, (samples + 400) * 1000);
+    await stamp(input, opponent, 1000);
     await f.sql.begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(59003)`;
       await tx`insert into availability_samples(at,healthy,cause)
-        select clock_timestamp()-interval '4 hours'+n*interval '1 second',false,'public_probe_failed'
-        from generate_series(1,${samples}::int) n`;
+        select s.started_at+n*interval '1 second',false,'public_probe_failed'
+        from generate_series(1,${samples}::int) n, round_segments s where s.id=${segmentId}`;
     });
     try {
+      const [{ read }] =
+        await f.sql`select count(*)::int as read from availability_samples a, round_segments s where s.id=${segmentId} and a.at>=s.started_at`;
+      assert({
+        given: 'the history this evaluation reads from',
+        should: 'hold more samples after the opening than the read cap',
+        actual: read >= samples,
+        expected: true,
+      });
       const began = performance.now();
       const undecided = await attendance.evaluate(roundId);
       const elapsedMs = performance.now() - began;

@@ -61,8 +61,7 @@ on, and the Round read carries it. Only a human window shows a clock, counted to
   winner, and a human ballot already cast is dropped. That is the honest result,
   and it can cost a real win.
 - One evaluation reads at most 10,800 samples, a true settled prefix. An overrun of
-  its transaction would delay that Round's end by backoff. The cap was measured
-  inside the slice on local PostgreSQL only.
+  its transaction would delay that Round's end by backoff. Measured at the cap on local PostgreSQL only, with no other load: 10,800 rows read in about 10 ms and a whole evaluation in 21 to 25 ms over 3 runs. Staging is unmeasured.
 - The deferred database guard on winnerless completion now fences only the human
   window. An AI seat's bound is enforced by the panel decision and its job.
 - Rounds still active when this deploys resolve through these same paths on their

@@ -39,7 +39,8 @@ async function readResolutionCutoff(
 
 /**
  * The read is capped, so an old window can still be decided on what it proves.
- * The cap was measured inside the transaction slice on local PostgreSQL only.
+ * A read at the cap fits the transaction slice on local PostgreSQL; staging is
+ * unmeasured (ADR 0095).
  */
 async function withEvidence(
   tx: AttendanceTransactionContext,
@@ -199,9 +200,12 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
         return resolution;
       },
     );
-    // After commit. A job a forfeit cut off is normal; one past its budget is not.
+    // After commit. A job a forfeit cut off is normal. One past its budget is not,
+    // and at the abandoned path a job, and any ballot it held, ends with no winner.
+    const abandoned = outcome?.decision === 'abandoned';
     for (const { reason } of ended)
-      if (reason === 'generation_deadline') input.judgingEnded?.(reason);
+      if (reason && (abandoned || reason === 'generation_deadline'))
+        input.judgingEnded?.(reason);
     return outcome;
   };
 }
