@@ -21,26 +21,12 @@ import { eligibleCompetitorIds } from './seat-eligibility';
 import {
   adjudicationColumns,
   adjudicationCommand,
+  nextAttendanceSegment,
   requireAttendanceTarget,
   requireResolutionProjection,
   type AttendanceResolution,
 } from './attendance-adjudication';
 
-/** The earliest undecided speech other than the final one: windows resolve in order. */
-function nextAttendanceWindow(
-  round: AttendanceFacts['round'],
-  finalizedSegmentIds: readonly string[],
-) {
-  const lastSpeech = round.rules.segments
-    .filter((segment) => segment.type === 'speech')
-    .at(-1)?.key;
-  return round.segments.find(
-    (segment) =>
-      segment.type === 'speech' &&
-      segment.rulesSegmentKey !== lastSpeech &&
-      !finalizedSegmentIds.includes(segment.id),
-  );
-}
 async function readResolutionCutoff(
   tx: AttendanceTransactionContext,
   roundId: string,
@@ -139,7 +125,11 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           ...facts,
           samples: await attendanceSamples(
             tx,
-            nextAttendanceWindow(round, finalizedSegmentIds)?.startedAt ?? null,
+            nextAttendanceSegment({
+              ruleSegments: round.rules.segments,
+              segments: round.segments,
+              finalizedSegmentIds,
+            })?.startedAt ?? null,
           ),
           resolutionCutoffAt: await readResolutionCutoff(tx, round.id),
         });

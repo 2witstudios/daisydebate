@@ -140,3 +140,26 @@ describe('ballotLines by server state', () => {
     });
   });
 });
+
+describe('ballotLines for a human judge', () => {
+  const line = (state: Parameters<typeof ballotLines>[2]) =>
+    ballotLines({ judge: 'human', ai: null }, 'casual', state)[0]?.status;
+  test('never shows an AI job state on a human ballot', () => {
+    assert({
+      given: 'AI job states beside a human judge, and a closed window',
+      should: 'say the result is settling',
+      actual: [line('ai_failed'), line('ai_processing'), line('settling')],
+      expected: [
+        'Settling the result',
+        'Settling the result',
+        'Settling the result',
+      ],
+    });
+    assert({
+      given: 'the human window',
+      should: 'say the judge is writing',
+      actual: line('human_window'),
+      expected: 'Writing · decides the result',
+    });
+  });
+});

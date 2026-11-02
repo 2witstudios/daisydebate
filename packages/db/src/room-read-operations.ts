@@ -7,6 +7,7 @@ import {
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { unresolvedAttendance } from './attendance-settlement';
+import { judgingJobCanRule } from './round-judging-end';
 import { roundJudgingStatus } from './round-judging-status';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -70,7 +71,7 @@ async function readJudgingStatus(
     coalesce((select json_agg(judge_participant_id) from ballots where round_id=${row.id} and status='submitted'),'[]'::json) as ruled,
     coalesce((select json_agg(json_build_object(
       'generationDeadlineAt',to_char(generation_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-      'running',status in ('queued','leased') and (pending_ballot is not null or generation_deadline_at>clock_timestamp()),
+      'running',${judgingJobCanRule},
       'holdsBallot',pending_ballot is not null)) from round_judging_jobs where round_id=${row.id} and status<>'succeeded'),'[]'::json) as jobs
   `)) as unknown as {
     now: string;
@@ -102,7 +103,7 @@ async function readJudgingStatus(
   });
 }
 export async function launchedRoundRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
   roundId: string,
 ): Promise<LaunchedRound> {
   const [row] = await tx

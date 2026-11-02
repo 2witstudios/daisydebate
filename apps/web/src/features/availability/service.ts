@@ -34,19 +34,26 @@ export function startAvailabilityService(deps: {
 }) {
   const nowMs = deps.nowMs ?? (() => performance.now());
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
-  const checkProbeResources = async () => {
+  let checkingResources = false;
+  /** Beside the cycle, never in it: pool pressure must not stall the sampler. */
+  const checkProbeResources = () => {
     if (
       !deps.probeResources ||
+      checkingResources ||
       nowMs() - resourcesCheckedAt < PROBE_RESOURCE_CHECK_MS
     )
       return;
-    resourcesCheckedAt = nowMs();
-    try {
-      for (const problem of await deps.probeResources())
-        deps.probeInvalid?.(problem);
-    } catch {
-      deps.failed();
-    }
+    checkingResources = true;
+    void deps
+      .probeResources()
+      .then((problems) => {
+        resourcesCheckedAt = nowMs();
+        for (const problem of problems) deps.probeInvalid?.(problem);
+      })
+      .catch(() => deps.probeInvalid?.('check_failed'))
+      .finally(() => {
+        checkingResources = false;
+      });
   };
   const sampler = deps.store.availabilitySampler();
   let stopped = false;
@@ -54,7 +61,7 @@ export function startAvailabilityService(deps: {
   let renewing: Promise<boolean> | null = null;
   const cycle = async () => {
     if (!(await sampler.elect())) return;
-    await checkProbeResources();
+    checkProbeResources();
     const [probe, reconciliation] = await Promise.allSettled([
       deps.probe(),
       deps.store.reconcileRoundCheckInAttempts(100),

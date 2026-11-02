@@ -200,3 +200,21 @@ test('ISSUE-818 ISSUE-830: finished sessions never consume the discovery limit',
     expected: { excluded: ['a'], launched: ['a', 'b'], lastLimit: 1 },
   });
 });
+
+test('a session already running never uses up the discovery page', async () => {
+  const h = harness(2);
+  h.offer('a', 'b');
+  await h.supervisor.tick();
+  await h.exit(h.launched[0]!.workerId, CAPTURE_FINISHED_EXIT);
+  h.offer('b', 'c');
+  await h.supervisor.tick();
+  assert({
+    given: 'a running session whose lease is not held yet and one free slot',
+    should: 'exclude it, so the free slot finds the new session',
+    actual: {
+      excludes: h.excluded().includes('b'),
+      launched: h.launched.map((scope) => scope.sessionId),
+    },
+    expected: { excludes: true, launched: ['a', 'b', 'c'] },
+  });
+});

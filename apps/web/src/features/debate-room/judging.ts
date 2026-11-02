@@ -31,22 +31,31 @@ export function judgingBallotsOf(
 const decides = (competition: CompetitionType) =>
   competition === 'ranked' ? 'decides the rating' : 'decides the result';
 
-/** The deciding ballot's line for what the server says the Round is waiting on. */
+/**
+ * The deciding ballot's line for what the server says the Round is waiting on.
+ * AI job states never describe a human judge's ballot.
+ */
 const decidingStatus = (
+  judge: JudgingBallots['judge'],
   state: RoundJudgingStatus['state'] | null,
   competition: CompetitionType,
-): { readonly status: string; readonly ready: boolean } => {
+): string => {
+  const writing = `Writing · ${decides(competition)}`;
   switch (state) {
-    case 'ai_failed':
-      return { status: 'Could not rule', ready: false };
     case 'awaiting_attendance':
-      return { status: 'Waiting on attendance', ready: false };
+      return 'Waiting on attendance';
     case 'held_by_writer':
-      return { status: 'Waiting on a check-in', ready: false };
+      return 'Waiting on a check-in';
     case 'closing_transcript':
-      return { status: 'Closing the transcript', ready: false };
+      return 'Closing the transcript';
+    case 'settling':
+      return 'Settling the result';
+    case 'ai_failed':
+      return judge === 'ai' ? 'Could not rule' : 'Settling the result';
+    case 'ai_processing':
+      return judge === 'ai' ? writing : 'Settling the result';
     default:
-      return { status: `Writing · ${decides(competition)}`, ready: false };
+      return writing;
   }
 };
 
@@ -61,7 +70,8 @@ export function ballotLines(
 ): readonly BallotLine[] {
   const deciding: BallotLine = {
     title: ballots.judge === 'ai' ? 'AI judge’s ballot' : 'Judge’s ballot',
-    ...decidingStatus(state, competition),
+    status: decidingStatus(ballots.judge, state, competition),
+    ready: false,
   };
   if (ballots.judge === 'ai' || ballots.ai === null) return [deciding];
   const ready = ballots.ai === 'ready';

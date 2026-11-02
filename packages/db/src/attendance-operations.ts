@@ -16,6 +16,7 @@ import { roundCommands } from './schema/round-commands';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import {
   attendanceSamples,
+  closedAttendanceSegments,
   fenceAttendance,
   finalizedAttendanceSegments,
   principalColumns,
@@ -178,7 +179,7 @@ export function createAttendanceOperations(deps: {
             deps.verifyWorker,
             input.admits,
           );
-          const finalizedSegmentIds = await finalizedAttendanceSegments(
+          const finalizedSegmentIds = await closedAttendanceSegments(
             tx,
             round.id,
           );

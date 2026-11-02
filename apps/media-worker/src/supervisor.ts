@@ -70,6 +70,7 @@ export function createCaptureSupervisor(input: {
         Math.min(64, capacity),
         [
           ...finished,
+          ...running.keys(),
           ...[...backoff]
             .filter(([, retry]) => input.nowMs() < retry.retryAt)
             .map(([sessionId]) => sessionId),

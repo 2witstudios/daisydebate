@@ -4,6 +4,7 @@ import {
 } from '@daisy/debate-engine';
 import { attendanceTimingPolicy, type RoundRules } from '@daisy/protocol';
 import type { SQL } from 'bun';
+import { AI_JUDGING_BUDGET_MS } from './maintenance';
 
 type Seat = {
   readonly id: string;
@@ -45,10 +46,10 @@ export type DryRunFacts = {
     readonly judgeParticipantId: string;
     readonly status: string;
     readonly holdsBallot: boolean;
+    /** Null before the ADR 0095 migrations: then the budget from the freeze applies. */
+    readonly generationDeadlineAt: string | null;
   }[];
 };
-
-const AI_BUDGET_MS = 5 * 60_000;
 
 /** Which non-final speeches the on-time rule settles, in actual order. */
 function windowsOf(facts: DryRunFacts) {
@@ -97,8 +98,9 @@ function windowsOf(facts: DryRunFacts) {
 
 /**
  * What the deployed completion rules would do to this Round on their next
- * passes (ADR 0095), from its recorded facts alone. It assumes every debater
- * seat is still eligible, and says so in its report. Prediction, not authority.
+ * passes (ADR 0095), from its recorded facts alone. It treats every speaker as
+ * eligible when reading receipts, and says so in its report. Prediction, not
+ * authority.
  */
 export function predictRoundCompletion(facts: DryRunFacts) {
   const windows = windowsOf(facts);
@@ -114,7 +116,7 @@ export function predictRoundCompletion(facts: DryRunFacts) {
       pendingWriters: facts.pendingWriters,
     },
     windows,
-    assumes: 'every debater seat is still eligible',
+    assumes: 'every scheduled speaker is still eligible to attend',
   };
   const done = (prediction: Record<string, unknown>) => ({
     ...report,
@@ -139,13 +141,18 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   }
   if (!facts.completeness)
     return done({ result: 'unchanged', reason: 'transcript_not_frozen' });
-  const budgetLeft =
-    facts.frozenAt !== null &&
-    facts.nowMs < Date.parse(facts.frozenAt) + AI_BUDGET_MS;
-  const open = facts.jobs.filter((job) =>
-    ['queued', 'leased'].includes(job.status),
-  );
-  const running = open.filter((job) => job.holdsBallot || budgetLeft);
+  const endsAtCutoffMs =
+    Date.parse(facts.finalEndedAt) + attendanceTimingPolicy.resolutionCutoffMs;
+  const running = facts.jobs.filter((job) => {
+    if (!['queued', 'leased'].includes(job.status)) return false;
+    const budgetEndsMs = job.generationDeadlineAt
+      ? Date.parse(job.generationDeadlineAt)
+      : Date.parse(facts.frozenAt ?? '') + AI_JUDGING_BUDGET_MS;
+    return (
+      facts.nowMs < budgetEndsMs ||
+      (job.holdsBallot && facts.nowMs < endsAtCutoffMs)
+    );
+  });
   const decision = decideUnjudgedCompletion({
     completeness: facts.completeness,
     humanJudgeSeatIds: facts.seats
@@ -213,7 +220,7 @@ export async function readDryRunFacts(
     const ballots =
       await tx`select judge_participant_id,winner,status from ballots where round_id=${roundId}`;
     const jobs =
-      await tx`select judge_participant_id,status,pending_ballot is not null as holds from round_judging_jobs where round_id=${roundId}`;
+      await tx`select judge_participant_id,status,pending_ballot is not null as holds,to_jsonb(j)->>'generation_deadline_at' as deadline from round_judging_jobs j where round_id=${roundId}`;
     return {
       roundId,
       nowMs: (round.now as Date).getTime(),
@@ -264,10 +271,12 @@ export async function readDryRunFacts(
           judge_participant_id: string;
           status: string;
           holds: boolean;
+          deadline: string | null;
         }) => ({
           judgeParticipantId: j.judge_participant_id,
           status: j.status,
           holdsBallot: j.holds,
+          generationDeadlineAt: j.deadline,
         }),
       ),
     };

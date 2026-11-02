@@ -10,7 +10,6 @@ const scheduled: RoundReceiptView = {
   status: 'scheduled',
   outcome: null,
   unjudgedRuling: null,
-  judging: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {

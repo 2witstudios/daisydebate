@@ -40,6 +40,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
+  /** A renewal found the job out of budget and ended it. */
+  readonly outOfBudget?: () => void;
   /** `stage` names the work that failed: execute, scan or renew. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -143,7 +145,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.scope,
             entry.claim.token,
           );
-          if (renewed === null) release(entry);
+          if (renewed === null) {
+            release(entry);
+            input.outOfBudget?.();
+          }
         } catch (error) {
           // A lease lost to completion or another claimant is a release, not
           // a fault. Any other failure leaves the paid call running; the next

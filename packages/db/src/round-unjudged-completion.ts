@@ -10,7 +10,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
-import { endOpenJudgingJobs } from './round-judging-end';
+import { endOpenJudgingJobs, judgingJobCanRule } from './round-judging-end';
 import { requireCurrentWeb } from './round-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
@@ -48,6 +48,8 @@ type CompletionFacts = Parameters<
   /** The frozen transcript's completeness and the human judge seats (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
   readonly humanJudgeSeatIds: readonly string[];
+  readonly runningAiSeatIds: readonly string[];
+  readonly failedAiSeatIds: readonly string[];
 };
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
@@ -90,15 +92,15 @@ async function replay(
 }
 
 /**
- * Whether each AI seat can still rule. A held ballot can; a job with budget
- * can; anything else ended, even if no worker has recorded that yet.
+ * Whether each AI seat can still rule; anything else ended, even if no worker
+ * has recorded that yet.
  */
 async function readAiSeatStates(
   tx: BoundedTransactionContext,
   roundId: string,
 ) {
   const rows = (await tx.execute(sql`select judge_participant_id as id,
-    (status in ('queued','leased') and (pending_ballot is not null or generation_deadline_at>clock_timestamp())) as running,
+    ${judgingJobCanRule} as running,
     status from round_judging_jobs where round_id=${roundId}`)) as unknown as {
     id: string;
     running: boolean;
@@ -130,7 +132,6 @@ async function readCompletionFacts(
   const { freeze: frozen, ballotDeadlineAt } = requireUnjudgedFacts({
     freezeRevision: input.freezeRevision,
     freeze,
-    seats: facts.seats,
     durable: durable as UnjudgedDurableFacts | undefined,
   });
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });

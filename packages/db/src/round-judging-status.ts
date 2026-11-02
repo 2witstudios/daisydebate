@@ -42,7 +42,10 @@ export function roundJudgingStatus(input: {
         .sort()
         .at(-1)!,
     };
-  if (input.attendanceUnresolved || input.jobs.some((job) => job.holdsBallot))
+  if (
+    input.attendanceUnresolved ||
+    input.jobs.some((job) => job.running && job.holdsBallot)
+  )
     return {
       state: 'awaiting_attendance',
       deadlineAt: input.attendanceCutoffAt,

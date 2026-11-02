@@ -9,13 +9,14 @@ Round is rewritten.
 `availability.probe_invalid` names what is wrong with the resources
 `ATTENDANCE_PUBLIC_PROBE` points at:
 
-| `cause`               | Meaning                              |
-| --------------------- | ------------------------------------ |
-| `not_configured`      | The secret is absent                 |
-| `round_missing`       | The synthetic Round no longer exists |
-| `round_not_active`    | The synthetic Round has ended        |
-| `segment_missing`     | The configured segment is not in it  |
-| `participant_missing` | The configured seat is not in it     |
+| `cause`               | Meaning                                   |
+| --------------------- | ----------------------------------------- |
+| `not_configured`      | The secret is absent                      |
+| `round_missing`       | The synthetic Round no longer exists      |
+| `round_not_active`    | The synthetic Round has ended             |
+| `segment_missing`     | The configured segment is not in it       |
+| `participant_missing` | The configured seat is not in it          |
+| `check_failed`        | The check could not read them; it retries |
 
 These describe the resources only. A healthy result here does not prove public
 ingress works: only a real check-in does.
@@ -49,5 +50,5 @@ DATABASE_URL=<target> bun apps/web/scripts/round-completion-dry-run.ts <roundId>
 ```
 
 It reads metadata inside a READ ONLY transaction, so PostgreSQL refuses any write,
-and prints no text. It assumes every debater seat is still eligible. Never fabricate a receipt, a horizon or a ballot, and never reopen an
+and prints no text. It treats every scheduled speaker as still eligible to attend. Never fabricate a receipt, a horizon or a ballot, and never reopen an
 expired window.

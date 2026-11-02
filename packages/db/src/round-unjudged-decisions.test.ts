@@ -64,11 +64,6 @@ const facts = (
   requireUnjudgedFacts({
     freezeRevision: 2,
     freeze: { revision: 2 },
-    seats: [
-      { role: 'affirmative', eligible: true },
-      { role: 'negative', eligible: true },
-      { role: 'judge', eligible: false },
-    ],
     durable,
     ...overrides,
   });
@@ -203,19 +198,10 @@ test('only a fully played Round is eligible, on any ladder, judged or not', asyn
   });
 });
 
-test('durable facts must show the frozen revision, eligible debaters and no ladder or rating', async () => {
+test('durable facts must show the frozen revision and no rating', async () => {
   for (const [label, overrides] of [
     ['no freeze', { freeze: null }],
     ['another freeze revision', { freeze: { revision: 3 } }],
-    [
-      'an ineligible debater',
-      {
-        seats: [
-          { role: 'affirmative', eligible: true },
-          { role: 'negative', eligible: false },
-        ],
-      },
-    ],
     ['no durable Round row', { durable: undefined }],
     ['no final end', { durable: { ...durable, final_segment_ended_at: null } }],
     [
@@ -231,8 +217,7 @@ test('durable facts must show the frozen revision, eligible debaters and no ladd
       code: 'CONFLICT',
     });
   assert({
-    given:
-      'the requested freeze, eligible debaters beside a judge who left, and a clean casual Round',
+    given: 'the requested freeze and a clean Round',
     should: 'return the freeze and the persisted ballot deadline',
     actual: [
       facts({}),

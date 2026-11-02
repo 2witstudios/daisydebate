@@ -156,3 +156,27 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
       await cleanUp(input);
     }
   }));
+
+test('an on-time speaker leaves the window open: a later receipt is taken, not refused', () =>
+  withAttendanceRound(async (input) => {
+    const { f, attendance, roundId, segmentId } = input;
+    const { speaker } = await seatsOf(input);
+    await stamp(input, speaker, 1000);
+    try {
+      await attendance.evaluate(roundId);
+      const opponent = f.guest;
+      const answer = await attendance.checkIn(
+        { kind: 'human', actorId: opponent.actorId },
+        roundId,
+        { version: 1, commandId: createId(), segmentId },
+      );
+      assert({
+        given: 'the opponent checking in just after the speaker was credited',
+        should: 'record it rather than refuse it as finalized',
+        actual: answer.segmentId,
+        expected: segmentId,
+      });
+    } finally {
+      await cleanUp(input);
+    }
+  }));

@@ -1,6 +1,9 @@
 import { requireTestServices } from '@daisy/config';
 import type { JudgingAttemptDiagnostic } from '@daisy/protocol';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { judgingJobCanRule } from '../src/round-judging-end';
 import {
   syntheticPendingBallot,
   withJudgingJob,
@@ -339,6 +342,34 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
         reason: 'provider_refused',
         paid: 0,
       },
+    });
+  });
+});
+
+test('a held ballot that can never submit stops holding the Round at the cutoff', async () => {
+  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
+    const claim = await jobs.claim(target);
+    await jobs.beginModelCall(claim.scope, claim.token);
+    await jobs.saveResult(
+      claim.scope,
+      claim.token,
+      syntheticPendingBallot,
+      usage,
+    );
+    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+    const canRule = async () => {
+      const [row] = await drizzle({ client: fixture.sql }).execute(
+        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
+      );
+      return (row as { can: boolean }).can;
+    };
+    const before = await canRule();
+    await fixture.sql`update rounds set final_segment_ended_at=clock_timestamp()-interval '2 hours',transcript_admission_cutoff=clock_timestamp()-interval '2 hours',attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    assert({
+      given: 'a validated ballot past its budget, before and after the cutoff',
+      should: 'count as able to rule only until the cutoff',
+      actual: [before, await canRule()],
+      expected: [true, false],
     });
   });
 });

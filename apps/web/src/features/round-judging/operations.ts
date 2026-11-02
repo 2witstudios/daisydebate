@@ -125,12 +125,16 @@ export function createRoundJudgingOperations(input: {
             concluded = true;
             return;
           }
-          concluded = !(await input.store.saveRoundJudgingResult(
+          const held = await input.store.saveRoundJudgingResult(
             scope,
             token,
             judged.ballot,
             usage,
-          ));
+          );
+          if (!held) {
+            input.jobEnded?.('out_of_budget');
+            concluded = true;
+          }
         });
       }
       if (concluded) return null;

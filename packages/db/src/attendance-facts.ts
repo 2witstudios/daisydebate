@@ -103,6 +103,23 @@ export async function finalizedAttendanceSegments(
 }
 
 /**
+ * The speeches no further receipt can reach. A window an on-time speaker settled
+ * stays open: nothing reads a later receipt, and an opponent's or a retried one
+ * must not be refused because the speaker was fast.
+ */
+export async function closedAttendanceSegments(
+  tx: AttendanceTransactionContext,
+  roundId: string,
+): Promise<readonly string[]> {
+  const closed = await tx.execute(
+    sql`select segment_id from round_attendance_adjudications where round_id=${roundId} and evidence<>'on_time_receipt'`,
+  );
+  return (closed as unknown as { segment_id: string }[]).map(
+    (row) => row.segment_id,
+  );
+}
+
+/**
  * The samples a decision about a window opened at `from` needs. Reading from
  * the window in question, never the Round's first speech, keeps this bounded:
  * an on-time speaker settles without it and the cutoff caps how old a window

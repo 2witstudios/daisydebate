@@ -124,8 +124,9 @@ export function requireUnjudgedRound(
 }
 
 /**
- * The requested freeze, eligible debaters and no rating fact yet. A
- * judge who left cannot hold the Round open: the deadline records no ruling.
+ * The requested freeze and no rating fact yet. Nobody's seat can hold a played
+ * Round open: a closed account ends in a result like any other, and the deadline
+ * records no ruling for a judge who left.
  * Returns the freeze and the ballot deadline persisted at it, as UTC ISO.
  */
 export function requireUnjudgedFacts<
@@ -133,17 +134,12 @@ export function requireUnjudgedFacts<
 >(input: {
   readonly freezeRevision: number;
   readonly freeze: Freeze | null | undefined;
-  readonly seats: readonly {
-    readonly role: string;
-    readonly eligible: boolean;
-  }[];
   readonly durable: UnjudgedDurableFacts | undefined;
 }): { readonly freeze: Freeze; readonly ballotDeadlineAt: string | null } {
   const { freeze, durable } = input;
   if (
     !freeze ||
     freeze.revision !== input.freezeRevision ||
-    input.seats.some((seat) => seat.role !== 'judge' && !seat.eligible) ||
     !durable ||
     !durable.final_segment_ended_at ||
     !durable.transcript_admission_cutoff ||

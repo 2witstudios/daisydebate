@@ -7,6 +7,7 @@ import {
   requireAttendanceDecision,
   effectiveAttendanceDeadline,
 } from '@daisy/debate-engine';
+import { nextAttendanceSegment } from '@daisy/db/attendance';
 import type {
   AttendanceStore,
   AttendanceEvaluator,
@@ -33,15 +34,11 @@ const availabilityFor = (facts: Pick<LockedAttendanceCheckIn, 'samples'>) =>
     })),
   );
 const windowOf = (facts: AttendanceReceiptFacts) => {
-  const lastSpeech = facts.round.rules.segments
-    .filter((segment) => segment.type === 'speech')
-    .at(-1)?.key;
-  const target = facts.round.segments.find(
-    (segment) =>
-      segment.type === 'speech' &&
-      segment.rulesSegmentKey !== lastSpeech &&
-      !facts.finalizedSegmentIds.includes(segment.id),
-  );
+  const target = nextAttendanceSegment({
+    ruleSegments: facts.round.rules.segments,
+    segments: facts.round.segments,
+    finalizedSegmentIds: facts.finalizedSegmentIds,
+  });
   if (!target) return null;
   return {
     target,
