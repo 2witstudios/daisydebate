@@ -76,8 +76,9 @@ test('an authority failure names its cause without the raw error', async () => {
   fire();
   const spent = await checked.catch((error: unknown) => error);
   assert({
-    given: 'a lane refusal, the spent budget and a failed read',
-    should: 'report the lane, reason and pressure, the budget, or the read',
+    given: 'a lane refusal, the spent budget, a code bug and a lock timeout',
+    should:
+      'report the lane, reason and pressure, the budget, a code bug, or what the database said',
     actual: [
       authorityFailureFields(
         refuseCapacity({
@@ -88,11 +89,15 @@ test('an authority failure names its cause without the raw error', async () => {
       ),
       authorityFailureFields(spent),
       authorityFailureFields(new Error('private adapter failure')),
+      authorityFailureFields(
+        Object.assign(new Error('private text'), { errno: '55P03' }),
+      ),
     ],
     expected: [
       { cause: 'admission.expired', pending: 2, running: 1, oldestAgeMs: 400 },
       { cause: 'budget' },
-      { cause: 'read' },
+      { cause: 'internal' },
+      { cause: 'lock_timeout' },
     ],
   });
 });

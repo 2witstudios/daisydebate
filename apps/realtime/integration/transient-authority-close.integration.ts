@@ -29,7 +29,7 @@ test(
       });
       assert({
         given: 'a hello blocked past the session lock bound',
-        should: 'close 4007, then accept a fresh ticket',
+        should: 'close 4007, log a lock timeout, then accept a fresh ticket',
         actual: [code, await reconnects(world)],
         expected: [4007, true],
       });
@@ -51,7 +51,7 @@ test(
       });
       assert({
         given: 'a frame check blocked past the session lock bound',
-        should: 'close 4007, then accept a fresh ticket',
+        should: 'close 4007, log a lock timeout, then accept a fresh ticket',
         actual: [code, await reconnects(world)],
         expected: [4007, true],
       });

@@ -54,12 +54,11 @@ const COMPETITIVE = lane(10, 16, 1000);
 /**
  * Subscribes and hellos share one connection and each read takes the account
  * fence. A mitigation for ISSUE-914, whose trigger is not established: a
- * waiter outlasts one read blocked to the session's lock bound, and a burst of
- * reads, instead of expiring at 250 ms. It does not outlast several blocked
- * reads in a row. The queue count sheds a flood and the authority check's 5s
- * budget bounds an authority read. If `admission.expired` or `budget` shows in
- * `realtime.subscription.unavailable`, its pressure fields say which it was;
- * add capacity or stop blocked reads holding the connection, not more wait.
+ * waiter outlasts one read that blocks once to the session's lock bound, and a
+ * burst of reads, instead of expiring at 250 ms. It does not outlast several
+ * blocked reads in a row, and a Round subscribe takes this lane three times
+ * inside one 5s budget, so ADR 0088 §6 states where throughput falls. A
+ * refusal's pressure fields say what the lane was waiting on.
  */
 const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */

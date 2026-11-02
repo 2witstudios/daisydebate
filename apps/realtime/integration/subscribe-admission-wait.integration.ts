@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
 import {
   holdingFence,
   productionLanes,
@@ -11,10 +10,6 @@ import { waitFor } from './support';
 setupRitewayBun();
 
 type Peer = Awaited<ReturnType<LaneWorld['connect']>>;
-const askFor = (peer: Peer, id: string, topic: string) =>
-  peer.socket.send(
-    JSON.stringify({ v: ENVELOPE_VERSION, type: 'subscribe', id, topic }),
-  );
 const answersTo = (peer: Peer, id: string) =>
   peer.frames.flatMap((frame) =>
     'id' in frame && frame.id === id
@@ -38,7 +33,7 @@ async function queuedBehindAFence(
   await holdingFence(world, async (blocked) => {
     const held = sendHello(world.port, ticket);
     await blocked();
-    askFor(peer, 'first', round.topic);
+    peer.ask(round.topic, 'first');
     await waitFor(() => world.queuedBounds().length > 0);
     world.expireWaiters(elapsedMs);
     await settled(peer);
@@ -102,7 +97,7 @@ test(
         const asks = peers.flatMap((peer) =>
           topics.map((topic, index) => ({ peer, id: `t${index}`, topic })),
         );
-        asks.forEach(({ peer, id, topic }) => askFor(peer, id, topic));
+        asks.forEach(({ peer, id, topic }) => peer.ask(topic, id));
         await waitFor(
           () => asks.every(({ peer, id }) => answersTo(peer, id).length > 0),
           10_000,

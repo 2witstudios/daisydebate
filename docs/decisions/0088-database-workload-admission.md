@@ -57,15 +57,24 @@ needs.
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
    An `admission` waiter waits 3s, a mitigation for ISSUE-914, whose trigger is
    not established: lane waiter expiry is well supported, but whether a blocked
-   read or a burst caused it in CI is not. The wait outlasts one read blocked to
-   the 2s session lock bound and a burst of reads, not several blocked reads in
-   a row. A refusal logs its pressure (waiters, running, oldest hold), so the
-   next one says which it was; the answer then is capacity or keeping blocked
-   reads off the connection, not more wait. A hello that reaches its 5s deadline
-   while being checked closes retryably (ADR 0031 §8). A waiter's age is about
-   the subscribes in flight times one transaction's time, so the lane holds
-   `min(100, 3000 / transaction ms)` at once. Locally, 40 together took about
-   450 ms, or about 4 ms a transaction. Time under CI load is not measured.
+   read or a burst caused it in CI is not. The wait outlasts one read that
+   blocks once to the 2s session lock bound, and a burst, not several blocked
+   reads in a row: one participant's fence can still stall every subscribe on
+   the process. A refusal logs its pressure (waiters, running, oldest hold), and
+   a failed read says `lock_timeout`, `statement_timeout`, `database` or
+   `internal`. A hello that reaches its 5s deadline while being checked closes
+   retryably (ADR 0031 §8).
+   A Round subscribe takes this lane three times, each behind the others in
+   flight, inside one 5s budget per authority attempt. A subscribe may make 3
+   attempts when writes land mid-read, and its catch-up also reads here outside
+   any budget, turning a refusal into a resync. So `n` subscribes at once fit
+   while about `n × transaction ms` stays under 1.6s, up to the queue's 100.
+   Past that, throughput falls and the lane is spent on subscribes that then
+   fail. In a model of 100 at once, the old 250 ms wait accepted 36, 12, 6 and 5
+   at 4, 20, 40 and 60 ms a transaction; this wait accepts 100, 24, 0 and 0.
+   Stopping a check once its budget is spent does not change that. Transaction
+   time under load is not measured; locally it is about 4 ms. ISSUE-932 owns
+   capacity and blocked reads on this lane.
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves
    (`createRealtimeDatabase`). Subscribes and their outbox catch-up read on

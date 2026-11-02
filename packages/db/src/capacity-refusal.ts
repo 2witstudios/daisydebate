@@ -27,7 +27,7 @@ const reportedRefusals = new WeakSet<Error>();
  * followed; hostile links and execution recovery detail objects fail
  * closed to ordinary failure reporting.
  */
-function causeChainMember(
+export function causeChainMember(
   marked: (error: Error) => boolean,
   error: unknown,
 ): Error | undefined {

@@ -200,3 +200,83 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
     expected: ['INFRASTRUCTURE'],
   });
 });
+
+test('a subscribe whose budget is spent stops before taking the lane again', async () => {
+  let fire!: () => void;
+  let finishSession!: (value: unknown) => void;
+  let factsReads = 0;
+  const instant = '2026-10-09T00:00:00.000Z';
+  const resources = {
+    database: bothLanes({
+      readAuthorizationSession: () =>
+        new Promise((resolve) => {
+          finishSession = resolve;
+        }),
+      readRoundAuthorizationFacts: async () => {
+        factsReads += 1;
+        return null;
+      },
+    }),
+    clock: { now: () => instant },
+    logger: { log: () => {} },
+  } as unknown as RealtimeApp;
+  const { registry } = createRealtimeDelivery({
+    readingPolicy: refuseAllReading,
+    resources,
+    now: () => 0,
+    publish: () => {},
+    timers: {
+      setInterval: (callback) => {
+        fire = callback;
+        return {} as ReturnType<typeof setInterval>;
+      },
+      clearInterval: () => {},
+    },
+  });
+  const principal = {
+    actorId: 'a'.repeat(24),
+    userId: 'b'.repeat(24),
+    sessionId: 'c'.repeat(24),
+  };
+  const sent: unknown[] = [];
+  const connection = registry.add(
+    {
+      bufferedAmount: () => 0,
+      send: (frame) => sent.push(frame),
+      subscribe: () => {},
+      unsubscribe: () => {},
+      close: () => {},
+    },
+    principal,
+  );
+  const subscribing = registry.subscribe(connection, {
+    id: 'first',
+    topic: `round:${'d'.repeat(24)}`,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  fire();
+  await subscribing;
+  finishSession({
+    ...principal,
+    expiresAt: '2026-10-09T01:00:00.000Z',
+    account: {
+      userId: principal.userId,
+      actorId: principal.actorId,
+      member: true,
+      erased: false,
+      revision: 1,
+      beta: { state: 'approved', revision: 1 },
+      ageBand: 'adult',
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert({
+    given: 'a budget spent while the first of three reads is pending',
+    should: 'refuse as transient and never start the next read',
+    actual: {
+      factsReads,
+      codes: sent.map((frame) => (frame as { code?: string }).code),
+    },
+    expected: { factsReads: 0, codes: ['INFRASTRUCTURE'] },
+  });
+});

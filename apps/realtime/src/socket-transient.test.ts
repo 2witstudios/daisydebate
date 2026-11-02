@@ -28,6 +28,7 @@ async function closeAfter(
   >,
 ) {
   const closes: number[] = [];
+  const reported: unknown[] = [];
   const ws = {
     data: { origin: 'https://app.example.test' } as SocketData,
     send: () => 1,
@@ -43,19 +44,20 @@ async function closeAfter(
       clearTimeout: () => {},
     },
     now: () => 0,
+    failed: (error) => reported.push(error),
     ...checks,
   });
   handlers.open(ws);
   await handlers.message(ws, hello);
   if (closes.length === 0) await handlers.message(ws, ping);
-  return closes;
+  return { closes, reported: reported.length };
 }
 const failure = () => Promise.reject(new Error('private adapter failure'));
 
 test('a hello or frame check that cannot answer closes retryably; a definite answer does not', async () => {
   assert({
     given: 'each check failing, then answering no',
-    should: 'close 4007 only when nothing was decided',
+    should: 'close 4007 and report the failure only when nothing was decided',
     actual: {
       helloFailed: await closeAfter({ authenticate: failure }),
       helloDenied: await closeAfter({ authenticate: async () => null }),
@@ -69,10 +71,10 @@ test('a hello or frame check that cannot answer closes retryably; a definite ans
       }),
     },
     expected: {
-      helloFailed: [4007],
-      helloDenied: [4001],
-      frameFailed: [4007],
-      frameDenied: [4002],
+      helloFailed: { closes: [4007], reported: 1 },
+      helloDenied: { closes: [4001], reported: 0 },
+      frameFailed: { closes: [4007], reported: 1 },
+      frameDenied: { closes: [4002], reported: 0 },
     },
   });
 });

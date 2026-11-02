@@ -310,6 +310,7 @@ export function createConnectionStore(
     terminal = null;
     consecutiveAuthFailures = 0;
     reconnectAttempt = 0;
+    authorityFailures = 0;
     outstanding.clear();
     const current = socket;
     socket = null;

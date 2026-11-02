@@ -193,7 +193,7 @@ test('a queued subscribe outlasts one read blocked on a fence (ISSUE-914)', () =
   const { realtime, 'realtime-observer': observer } = WORKLOAD_PROFILES;
   assert({
     given: 'every realtime profile and the session lock bound',
-    should: 'let an admission waiter outlast a read holding the one connection',
+    should: 'let an admission waiter outlast one read holding the connection',
     actual: [realtime, observer].map(
       ({ lanes }) => lanes.admission.maxWaitMs > RUNTIME_SESSION.lock_timeout,
     ),

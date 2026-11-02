@@ -55,6 +55,13 @@ export async function productionLanes(
     },
     clock: { now: () => instant },
   });
+  const causes: unknown[] = [];
+  const log = resources.logger.log;
+  (resources.logger as { log: typeof log }).log = (event, fields, message) => {
+    if (event === 'realtime.subscription.unavailable')
+      causes.push(fields?.cause);
+    log(event, fields, message);
+  };
   const debater = authorityParticipant(admin);
   const fenced = authorityParticipant(admin);
   const rounds = roundAudienceFixture(admin, debater.actorId);
@@ -87,6 +94,7 @@ export async function productionLanes(
       rounds,
       ticket,
       port,
+      causes,
       connect: async (participant) =>
         openAuthorityPeer(port, await ticket(participant)),
       revalidate: () => revalidate?.(),
@@ -118,6 +126,8 @@ export type LaneWorld = {
     participant: ReturnType<typeof authorityParticipant>,
   ) => Promise<string>;
   readonly port: number;
+  /** The `cause` of each `realtime.subscription.unavailable` logged. */
+  readonly causes: readonly unknown[];
   readonly connect: (
     participant: ReturnType<typeof authorityParticipant>,
   ) => ReturnType<typeof openAuthorityPeer>;

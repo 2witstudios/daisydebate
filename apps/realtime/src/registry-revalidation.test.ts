@@ -28,17 +28,17 @@ test('periodic session checks start together rather than starving later connecti
   });
 });
 
-test('a periodic session check that cannot answer closes retryably, not as revoked', async () => {
-  const f = fixture();
+test('a periodic session check that cannot answer closes retryably and reports why', async () => {
+  const reported: unknown[] = [];
+  const failure = new Error('private adapter failure');
+  const f = fixture({ failed: (error) => reported.push(error) });
   f.setNow(50_000);
-  await f.registry.revalidate(() =>
-    Promise.reject(new Error('private adapter failure')),
-  );
+  await f.registry.revalidate(() => Promise.reject(failure));
   assert({
     given: 'a session read that fails rather than answering',
-    should: 'close with the retryable code',
-    actual: f.closed,
-    expected: [4007],
+    should: 'close with the retryable code and report the failure',
+    actual: { closed: f.closed, reported },
+    expected: { closed: [4007], reported: [failure] },
   });
 });
 

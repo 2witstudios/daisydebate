@@ -56,6 +56,17 @@ export function createRealtimeDelivery({
     maxSubscriptions: 64,
     allowedOrigins: [],
   };
+  // Codes only; the raw error never reaches a log line (ADR 0037).
+  const reportUnavailable = (error: unknown) =>
+    resources.logger.log(
+      'realtime.subscription.unavailable',
+      {
+        operation: 'realtime.subscription',
+        errorCode: isAppError(error) ? error.code : 'INTERNAL',
+        ...authorityFailureFields(error),
+      },
+      'Subscription authority unavailable',
+    );
   const registry = createSubscriptionRegistry({
     now,
     lifetimeMs: 60_000,
@@ -63,33 +74,24 @@ export function createRealtimeDelivery({
     maxSubscriptions: tuning.maxSubscriptions,
     authorize: (principal, topic) =>
       boundedAuthorityCheck({
-        check: () => authority.authorizeTopic(principal, topic),
+        check: (signal) => authority.authorizeTopic(principal, topic, signal),
         timers,
         budgetMs: 5_000,
       }),
     renew: (principal, topic) =>
       boundedAuthorityCheck({
-        check: () => renewal.authorizeTopic(principal, topic),
+        check: (signal) => renewal.authorizeTopic(principal, topic, signal),
         timers,
         budgetMs: 5_000,
       }),
     readCatchup: resources.database.readOutboxCatchup,
     readRetentionBoundary: resources.database.readOutboxRetentionBoundary,
     publish,
-    // Codes only; the raw error never reaches a log line (ADR 0037).
-    failed: (error) =>
-      resources.logger.log(
-        'realtime.subscription.unavailable',
-        {
-          operation: 'realtime.subscription',
-          errorCode: isAppError(error) ? error.code : 'INTERNAL',
-          ...authorityFailureFields(error),
-        },
-        'Subscription authority unavailable',
-      ),
+    failed: reportUnavailable,
   });
   return {
     registry,
+    reportUnavailable,
     admission: createAdmission({ now, ...tuning }),
     validatePrincipal: (principal: SocketPrincipal) =>
       boundedAuthorityCheck({
