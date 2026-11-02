@@ -168,8 +168,8 @@ export function updateDocumentHtml(
   now: string,
 ): WorkspaceDocument {
   if (html === document.html) return document;
-  const { textFromServer: _adopted, ...rest } = document;
-  return { ...rest, html, updatedAt: now };
+  const { textFromServer, ...rest } = document;
+  return { ...(textFromServer ? rest : document), html, updatedAt: now };
 }
 
 /** Text a late commit put on the server, which the person did not type here. */
