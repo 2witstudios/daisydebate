@@ -32,6 +32,8 @@ export function captureMemoryBudget(pendingBytes: number) {
     // A recovering batch cuts everything staged at once, before the consumer
     // can run, so the queue must hold all of it on top of its ordinary backlog.
     maxQueueMs: staged * 10 + QUEUE_MS,
+    // Speech cuts clips at its pauses: bytes and duration bound the audio.
+    maxQueueClips: 4096,
   };
 }
 export const capturePendingBytes = (maxSessions: number) =>

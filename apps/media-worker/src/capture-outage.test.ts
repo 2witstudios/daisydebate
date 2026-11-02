@@ -13,6 +13,7 @@ import {
 } from './capture-memory';
 import { validateCaptureBatch } from './capture-batch';
 import { createCaptureStaging } from './capture-staging';
+import { createClipQueue } from './clip-queue';
 setupRitewayBun();
 
 /** The real signed client over a scripted network: an Error is a failed fetch. */
@@ -451,6 +452,25 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
       ),
     ],
     expected: [0, 1000, 300_000 - span === 0 ? 300_000 : span, true],
+  });
+});
+
+test('two seats held through the whole budget all fit the queue', () => {
+  const budget = captureMemoryBudget(capturePendingBytes(8));
+  const queue = createClipQueue<{ bytes: number; durationMs: number }>({
+    maxClips: budget.maxQueueClips,
+    maxBytes: budget.maxQueueBytes,
+    maxDurationMs: budget.maxQueueMs,
+  });
+  // Two minutes for each of two seats, cut at a pause every second.
+  const discarded = Array.from({ length: 240 }, () =>
+    queue.push({ bytes: 32_044, durationMs: 1000 }),
+  ).flat();
+  assert({
+    given: '240 s of one-second clips released at once',
+    should: 'discard none',
+    actual: discarded.length,
+    expected: 0,
   });
 });
 

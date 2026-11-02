@@ -27,8 +27,12 @@ test('an expired lease refuses writes until its own worker reinstates the untouc
     assert({
       given: 'a renewal naming the untouched epoch after expiry',
       should: 'keep the epoch and admit the same clip again',
-      actual: [renewed.epoch, appended.duplicate],
-      expected: [1, false],
+      actual: [
+        renewed.epoch,
+        appended.duplicate,
+        (renewed.reinstatedAfterMs ?? 0) > 0,
+      ],
+      expected: [1, false, true],
     });
   });
 });

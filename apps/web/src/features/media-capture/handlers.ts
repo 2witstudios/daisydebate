@@ -83,8 +83,18 @@ export function createMediaCaptureHandlers(input: {
               return Response.json(null);
             }
             const capture = input.capture();
+            if (operation === 'lease') {
+              const { reinstatedAfterMs, ...lease } =
+                await capture.claimMediaWorkerLease(payload);
+              if (reinstatedAfterMs !== undefined)
+                input.logger.log(
+                  'media.capture.lease_reinstated',
+                  { durationMs: reinstatedAfterMs },
+                  'Capture lease reinstated after an outage',
+                );
+              return Response.json(lease);
+            }
             const operations = {
-              lease: capture.claimMediaWorkerLease,
               release: capture.releaseMediaWorkerLease,
               read: capture.readMediaCaptureState,
               append: capture.appendCapturedTranscript,

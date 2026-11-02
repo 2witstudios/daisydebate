@@ -43,7 +43,8 @@ type TranscriptSyncEdges = Omit<
 /**
  * Holds one Round's transcript across its sync drivers: a replaced driver
  * starts from the newest text held, a later server render's seed never replaces
- * newer text, and a real refusal stays final whatever render arrives after it.
+ * newer text, a real refusal stays final whatever render arrives after it, and a
+ * contract this build cannot read is told apart from an outage.
  */
 export function createTranscriptHolder(
   seed: RoundTranscriptRead,
@@ -51,14 +52,22 @@ export function createTranscriptHolder(
 ) {
   let held = seed;
   let gone = false;
+  let outdated = false;
+  const tracked = async () => {
+    const answer = await read();
+    outdated = answer.kind === 'unavailable' && answer.outdated === true;
+    return answer;
+  };
   let current: ReturnType<typeof createTranscriptSync> | null = null;
   return {
     seed: () => seedTranscript(held),
+    /** The last read answered in a shape this build cannot read. */
+    outdated: () => outdated,
     start(edges: TranscriptSyncEdges) {
       const started = seedTranscript(held);
       const running = createTranscriptSync({
         ...edges,
-        read,
+        read: tracked,
         seed: gone ? { ...started, freshness: 'gone' } : started,
       });
       current = running;

@@ -95,6 +95,15 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(status.getByText('Partial', { exact: true })).toBeVisible();
     await page.unroute(routeOf(round.id));
 
+    // A contract this build cannot read asks for a reload, not patience.
+    await page.route(routeOf(round.id), (route) =>
+      route.fulfill({ json: { added: 'field' } }),
+    );
+    await lookAgain(page);
+    await expect(status.getByRole('button', { name: 'Reload' })).toBeVisible();
+    await expect(first).toBeVisible();
+    await page.unroute(routeOf(round.id));
+
     await page.reload();
     await transcriptOf(page)
       .getByText('Show the transcript', { exact: true })

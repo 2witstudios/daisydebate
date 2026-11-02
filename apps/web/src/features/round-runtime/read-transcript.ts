@@ -23,7 +23,9 @@ export async function readTranscript(
     if ([401, 403, 404].includes(response.status)) return { kind: 'missing' };
     if (!response.ok) return { kind: 'unavailable' };
     const parsed = roundTranscriptReadSchema.safeParse(await response.json());
-    return parsed.success && parsed.data.round.id === roundId
+    // The server answered in a shape this build cannot read: only a reload helps.
+    if (!parsed.success) return { kind: 'unavailable', outdated: true };
+    return parsed.data.round.id === roundId
       ? { kind: 'found', value: parsed.data }
       : { kind: 'unavailable' };
   } catch {

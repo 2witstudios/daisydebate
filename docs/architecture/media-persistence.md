@@ -415,7 +415,9 @@ and reconnect/visibility recovery; clients without a connected socket use a
 30-second fallback. Refused reads remove the displayed text; any other failed
 read keeps it and shows Reconnecting beside the evidence state, never instead
 of it. The browser reads this route rather than a server action, because a
-build's action ids do not survive a web deploy (ISSUE-904). One sync driver
+build's action ids do not survive a web deploy (ISSUE-904). A reply the open
+build cannot parse shows Reload instead of Reconnecting, since retrying cannot
+help. One sync driver
 holds a Round's transcript for the life of the page, and a later server
 render's seed is adopted only if it is not older. Native page reloads
 use the identical read and the shared transcript disclosure works without

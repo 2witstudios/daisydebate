@@ -29,6 +29,12 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
    during active capture, counting only fresh leases and never blocking forever,
    ships separately behind human sign-off (CCAP-10).
 5. A partial stream reports its gaps from durable evidence on each read.
+6. The live transcript reads its HTTP route, not a server action. The route has
+   no version: a reply this build cannot parse asks the reader to reload rather
+   than reading as an outage. Older text stays on screen meanwhile.
+7. A reinstated lease logs `media.capture.lease_reinstated` with how long it was
+   expired. A session that reaches the budget exits with its stage, already
+   logged as `media.capture.failed`.
 
 Rejected: a longer lease, which lengthens the gap after every crash; a new epoch
 in the same process, which seals partial by rule although the same process heard

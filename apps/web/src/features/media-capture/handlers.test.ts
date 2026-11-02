@@ -13,6 +13,7 @@ const base = 'http://localhost/internal/media/capture';
 const fixture = (
   seal?: () => Promise<unknown>,
   token?: () => Promise<never>,
+  lease?: { result: unknown; logged: unknown[] },
 ) => {
   const calls: [string, unknown][] = [];
   const record =
@@ -22,7 +23,14 @@ const fixture = (
       return result;
     };
   const handlers = createMediaCaptureHandlers({
-    logger: silentLogger,
+    logger: lease
+      ? {
+          ...silentLogger,
+          log: (event: string, fields: unknown) => {
+            lease.logged.push([event, fields]);
+          },
+        }
+      : silentLogger,
     reporter: noopErrorReporter,
     authentication: () =>
       ({
@@ -34,7 +42,10 @@ const fixture = (
       }) as never,
     capture: () =>
       ({
-        claimMediaWorkerLease: record('lease'),
+        claimMediaWorkerLease: record(
+          'lease',
+          lease?.result ?? { ok: 'lease' },
+        ),
         readMediaCaptureState: record('read'),
         appendCapturedTranscript: record('append'),
         observeCapturedStream: record('observe'),
@@ -199,6 +210,34 @@ test('only an ended session or closed admission is named closed for good', async
       [503, 'capture-paused'],
       [503, 'lease-expired'],
       [409, undefined],
+    ],
+  });
+});
+
+test('a reinstated lease is measured and its reply keeps the worker contract', async () => {
+  const lease = {
+    result: {
+      epoch: 2,
+      expiresAt: new Date(15000).toISOString(),
+      reinstatedAfterMs: 3200,
+    },
+    logged: [] as unknown[],
+  };
+  const response = await fixture(undefined, undefined, lease).handlers.handle(
+    signed('lease', '{}'),
+  );
+  assert({
+    given: 'a renewal that reinstated an expired lease',
+    should: 'log how long it was expired and answer only epoch and expiry',
+    actual: [
+      lease.logged.filter(
+        (entry) => (entry as string[])[0] === 'media.capture.lease_reinstated',
+      ),
+      await response.json(),
+    ],
+    expected: [
+      [['media.capture.lease_reinstated', { durationMs: 3200 }]],
+      { epoch: 2, expiresAt: new Date(15000).toISOString() },
     ],
   });
 });

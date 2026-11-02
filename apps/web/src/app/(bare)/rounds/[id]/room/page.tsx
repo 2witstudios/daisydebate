@@ -20,10 +20,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import {
-  readPersistedRound,
-  readPersistedTranscript,
-} from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
 import {
   spectatorAudienceOf,

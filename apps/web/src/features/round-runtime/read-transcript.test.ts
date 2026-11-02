@@ -29,6 +29,31 @@ test('protected transcript reads validate identity and clear denied access', asy
   });
 });
 
+test('only a reply in another shape is outdated', async () => {
+  const reply = (body: unknown) => async () => Response.json(body);
+  assert({
+    given: 'a corrupt shape, then a foreign Round in a good shape',
+    should: 'flag the shape alone',
+    actual: [
+      await readTranscript(reply({ added: 'field' }), round.id),
+      await readTranscript(
+        reply({
+          round: { ...round, id: 'x'.repeat(24) },
+          revision: 0,
+          freeze: null,
+          streams: [],
+          utterances: [],
+        }),
+        round.id,
+      ),
+    ],
+    expected: [
+      { kind: 'unavailable', outdated: true },
+      { kind: 'unavailable' },
+    ],
+  });
+});
+
 test('only an authorization answer clears the transcript', async () => {
   const answering = (status: number) => async () =>
     new Response('x', { status });

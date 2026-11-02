@@ -201,3 +201,29 @@ test('a render arriving after a refusal never shows protected text again', async
   });
   second.dispose();
 });
+
+test('a shape this build cannot read asks for a reload, and an outage does not', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const driver = holder.start(driverOnly);
+  const answering = async (answer: ResourceRead<RoundTranscriptRead>) => {
+    driver.signal();
+    edges.answer(answer);
+    await edges.flush();
+    return [driver.readSnapshot().freshness, holder.outdated()];
+  };
+  assert({
+    given: 'an outage, a changed contract, then a good read',
+    should: 'flag only the changed contract, keeping text throughout',
+    actual: [
+      await answering({ kind: 'unavailable' }),
+      await answering({ kind: 'unavailable', outdated: true }),
+      await answering({ kind: 'found', value: transcript(6) }),
+    ],
+    expected: [
+      ['stale', false],
+      ['stale', true],
+      ['current', false],
+    ],
+  });
+  driver.dispose();
+});

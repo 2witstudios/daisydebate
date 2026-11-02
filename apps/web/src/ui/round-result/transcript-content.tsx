@@ -1,6 +1,6 @@
 import { sideTextClass } from '../ballot/ballot-class';
 import { cn } from '../cn';
-import { formatOffset } from '../../features/debate-room/transcript';
+import { formatCountdown, formatSeconds } from '../../lib/clock-display';
 import { sectionItems, type TranscriptSection } from './result-view';
 
 /** One wording for a transcript's capture state, live and completed. */
@@ -42,8 +42,9 @@ export function TranscriptContent({
             {sectionItems(section).map((item) =>
               item.kind === 'gap' ? (
                 <li key={item.key} className="text-sm text-ink-muted">
-                  {item.speaker}: not captured {formatOffset(item.fromOffsetMs)}
-                  –{formatOffset(Math.ceil(item.untilOffsetMs / 1000) * 1000)}
+                  {item.speaker}: not captured{' '}
+                  {formatSeconds(item.fromOffsetMs / 1000)}–
+                  {formatCountdown(item.untilOffsetMs)}
                 </li>
               ) : (
                 <li key={item.id} className="text-sm wrap-anywhere text-ink">

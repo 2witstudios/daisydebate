@@ -103,7 +103,16 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           target: mediaWorkerLeases.sessionId,
           set: { workerId: input.workerId, epoch, expiresAt },
         });
-      return { epoch, expiresAt: expiresAt.toISOString() };
+      // A renewal past expiry is a ride-through ending: its length is the measure.
+      const expiredForMs =
+        current && input.expectedEpoch !== undefined
+          ? now.getTime() - current.expiresAt.getTime()
+          : 0;
+      return {
+        epoch,
+        expiresAt: expiresAt.toISOString(),
+        ...(expiredForMs > 0 ? { reinstatedAfterMs: expiredForMs } : {}),
+      };
     });
   },
   /**

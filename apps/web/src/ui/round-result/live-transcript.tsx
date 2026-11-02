@@ -14,8 +14,8 @@ import {
 /**
  * Authorized data only: this component has no reader identity or seat
  * assumption. One driver holds a Round's transcript for as long as the page
- * shows it, reading the versioned route, which survives a web deploy as a
- * build's server actions do not. A later server render's seed is offered to
+ * shows it, reading the HTTP route, which survives a web deploy as a build's
+ * server actions do not; a changed contract asks for a reload. A later server render's seed is offered to
  * it and never replaces newer text.
  */
 export function LiveTranscript({
@@ -51,7 +51,17 @@ export function LiveTranscript({
         </h2>
         <div role="status" className="flex gap-2 text-sm text-ink-muted">
           <p>{labels[transcriptState(synced.value)]}</p>
-          {synced.freshness === 'stale' ? <p>Reconnecting</p> : null}
+          {synced.freshness !== 'stale' ? null : holder.outdated() ? (
+            <button
+              type="button"
+              className="cursor-pointer font-strong underline"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          ) : (
+            <p>Reconnecting</p>
+          )}
         </div>
       </div>
       <TranscriptContent

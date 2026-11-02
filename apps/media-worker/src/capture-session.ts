@@ -117,8 +117,7 @@ async function captureSession(
     },
   });
   const queue = createClipQueue<QueuedClip>({
-    // Speech cuts clips at its pauses: only bytes and duration bound the audio.
-    maxClips: 4096,
+    maxClips: budget.maxQueueClips,
     maxBytes: budget.maxQueueBytes,
     maxDurationMs: budget.maxQueueMs,
   });

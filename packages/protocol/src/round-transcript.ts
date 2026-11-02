@@ -28,7 +28,7 @@ export const roundTranscriptReadSchema = z.strictObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
       state: z.enum(['open', 'complete', 'partial']),
-      /** Required speech with no capture, as offsets into the speech. Closed streams only. */
+      /** Required speech with no capture, as offsets into the speech. Closed or frozen streams only. */
       gaps: z.array(
         z.strictObject({
           fromOffsetMs: z.int().nonnegative(),
