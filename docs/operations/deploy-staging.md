@@ -786,11 +786,12 @@ own committed config and its own app-scoped deploy token, and
 `scripts/verify-deploy-config.ts` checks the configs and the workflow
 steps (`SERVICE_APPS`).
 
-| App                                 | Config                  | Image                                 | Network                       | Secrets                                                                                         |
-| ----------------------------------- | ----------------------- | ------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)         | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
-| `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis) | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
-| `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)        | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
+| App                                 | Config                  | Image                                 | Network                                                                              | Secrets                                                                                         |
+| ----------------------------------- | ----------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)                                                                | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
+| `daisy-debate-staging-media-redis`  | `fly.media-redis.toml`  | `redis:8.6.1-alpine`                  | private 6PN, password, nothing persisted; the bus LiveKit and Egress share (BCAST-2) |                                                                                                 |     |
+| `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis)                                                        | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
+| `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)                                                               | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
 
 Realtime redeems the connect tickets the web app issues, and tickets are
 namespaced, so `REDIS_NAMESPACE` lives only in the committed `[env]` of
@@ -804,6 +805,12 @@ and `MEDIA_WORKER_SECRET` (the worker's value) as secrets, and
 `LIVEKIT_URL`, `LIVEKIT_PUBLIC_URL`, `REALTIME_PUBLIC_URL`,
 `COMPETITIVE_PROVIDER_CONCURRENCY`, `ROUND_BOT_WORKER_POLICY`,
 `ROUND_JUDGING_POLICY` and `ROUND_ANALYSIS_POLICY` in `fly.toml`.
+
+**Media Redis.** LiveKit reads `REDIS_HOST` and `REDIS_PASSWORD` from Fly
+secrets on `daisy-debate-staging-livekit`, not from `infra/livekit`, so a main
+deploy keeps them (BCAST-2, superseding DEC-228). LiveKit needs this Redis while
+it runs, so the app is never stopped when idle. To detach, run
+`fly secrets unset REDIS_HOST REDIS_PASSWORD -a daisy-debate-staging-livekit`.
 
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,
