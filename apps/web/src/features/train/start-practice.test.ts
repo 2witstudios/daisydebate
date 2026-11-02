@@ -7,6 +7,7 @@ setupRitewayBun();
 
 const catalog: PracticeCatalog = {
   bots: [debater('wren-actor-id-000000', { label: 'Wren' }), judge()],
+  casualAiJudge: true,
   freestyle: { formatId: 'freestyle', formatVersion: 1, presetVersion: 1 },
 };
 
@@ -60,7 +61,12 @@ test('Start practice refuses truthfully before any request', () => {
     bots: PracticeCatalog['bots'],
     bot: string,
     freestyle: PracticeCatalog['freestyle'] = catalog.freestyle,
-  ) => preparePractice(form(bot), { bots, freestyle }, 'command-1');
+  ) =>
+    preparePractice(
+      form(bot),
+      { bots, freestyle, casualAiJudge: true },
+      'command-1',
+    );
   assert({
     given:
       'an unknown opponent, an ineligible roster, a missing judge and a missing format',
@@ -75,5 +81,34 @@ test('Start practice refuses truthfully before any request', () => {
       refusalOf(catalog.bots, 'wren-actor-id-000000', null).kind,
     ],
     expected: ['refused', 'refused', 'refused', 'refused'],
+  });
+});
+
+test('Start practice without the casual AI judge leaves the judge seat for a person (WATCH-16)', () => {
+  const ready = preparePractice(
+    form('wren-actor-id-000000'),
+    { ...catalog, casualAiJudge: false },
+    'command-1',
+  );
+  assert({
+    given: 'a member without the entitlement',
+    should: 'seat only the bot, so the host invites a person to judge',
+    actual: ready.kind === 'ready' ? ready.body.cast : ready,
+    expected: [{ actorId: 'wren-actor-id-000000', role: 'negative', slot: 0 }],
+  });
+  const noJudge = preparePractice(
+    form('wren-actor-id-000000'),
+    {
+      ...catalog,
+      casualAiJudge: false,
+      bots: [debater('wren-actor-id-000000', { label: 'Wren' })],
+    },
+    'command-1',
+  );
+  assert({
+    given: 'a member without the entitlement and no AI judge on the roster',
+    should: 'still build the practice',
+    actual: noJudge.kind,
+    expected: 'ready',
   });
 });

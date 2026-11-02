@@ -89,7 +89,7 @@ export function BotSelectorPage({
   /** The catalog read failed; nothing here can promise a practice. */
   readonly unavailable?: boolean;
 }) {
-  const { chosen, opponents, available } = view;
+  const { chosen, opponents, available, judge } = view;
   const canPractice = available && chosen?.eligible;
   const chosenIndex = opponents.findIndex((card) => card.selected);
   const previous = chosenIndex > 0 ? opponents[chosenIndex - 1] : null;
@@ -141,6 +141,13 @@ export function BotSelectorPage({
                 >
                   {({ error, pending }) => (
                     <>
+                      {judge === 'person' ? (
+                        <p className="mb-3 text-sm text-ink-muted">
+                          AI judging on casual rounds is premium, and your
+                          account doesn’t include it. You can still practise:
+                          invite a person to judge from the room.
+                        </p>
+                      ) : null}
                       <input type="hidden" name="bot" value={chosen.actorId} />
                       <button
                         type="submit"

@@ -34,7 +34,7 @@ test('Train reads its opponents and judge from the one roster (train-room)', () 
 
 test('Train selects the addressed opponent and reports availability truthfully', () => {
   const landing = (params: Record<string, string>, bots = roster) =>
-    trainLanding(params as never, bots);
+    trainLanding(params as never, bots, true);
   assert({
     given: 'no address, another address, and AI off',
     should:
@@ -70,6 +70,7 @@ test('every opponent card is an address link that works without JavaScript', () 
   const landing = trainLanding(
     { bot: 'juno-actor-id-000000' } as never,
     roster,
+    true,
   );
   assert({
     given: 'the chosen card and its neighbours',
@@ -79,5 +80,29 @@ test('every opponent card is an address link that works without JavaScript', () 
       ['wren-actor-id-000000', false],
       ['juno-actor-id-000000', true],
     ],
+  });
+});
+
+test('a member without the casual AI judge can still practise with a person judging (WATCH-16)', () => {
+  const landing = trainLanding(
+    {} as never,
+    [debater('wren-actor-id-000000')],
+    false,
+  );
+  assert({
+    given: 'an eligible opponent, no AI judge and no entitlement',
+    should: 'offer the practice with a person judging',
+    actual: [landing.available, landing.judge],
+    expected: [true, 'person'],
+  });
+  assert({
+    given: 'an entitled member and an AI judge that is unavailable',
+    should: 'keep the landing unavailable',
+    actual: trainLanding(
+      {} as never,
+      [debater('wren-actor-id-000000'), judge({ eligible: false })],
+      true,
+    ).available,
+    expected: false,
   });
 });

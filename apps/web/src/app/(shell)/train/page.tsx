@@ -21,6 +21,7 @@ export default async function TrainPage({
       view={trainLanding(
         await searchParams,
         templates.kind === 'found' ? templates.bots : [],
+        templates.kind === 'found' && templates.casualAiJudge,
       )}
       action={startPracticeAction}
       unavailable={templates.kind !== 'found'}

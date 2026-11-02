@@ -1,10 +1,13 @@
 import type { RoomCastChoice, RoomCreate } from '@daisy/protocol';
 import { field, refused, type FormState } from '../forms/form-state';
+import { aiJudgePremiumText } from '../rooms/ai-judge-copy';
 import { opponents, practiceJudge } from './bots';
 
 /** What the practice form needs from the one catalog read. */
 export type PracticeCatalog = {
   readonly bots: readonly RoomCastChoice[];
+  /** The member may seat an AI judge on this casual Round (WATCH-16). */
+  readonly casualAiJudge: boolean;
   readonly freestyle: {
     readonly formatId: 'freestyle';
     readonly formatVersion: number;
@@ -23,7 +26,9 @@ export type PracticeRequest =
 /**
  * The create a Start practice post asks for (DEC-269): a casual Freestyle
  * Room whose resolution the pre-round strike draws, with the chosen bot at
- * negative and the AI judge judging. The host claims a side in the Room.
+ * negative. The AI judge judges for a member holding the casual AI judge
+ * entitlement (WATCH-16); otherwise the judge seat stays open for a person the
+ * host invites from the Room. The host claims a side in the Room.
  */
 export function preparePractice(
   form: FormData,
@@ -39,8 +44,8 @@ export function preparePractice(
       kind: 'refused',
       error: 'Choose an opponent to practise against.',
     };
-  const judge = practiceJudge(catalog.bots);
-  if (!judge)
+  const judge = catalog.casualAiJudge ? practiceJudge(catalog.bots) : null;
+  if (catalog.casualAiJudge && !judge)
     return {
       kind: 'refused',
       error: 'The AI judge is unavailable, so a practice room can’t assemble.',
@@ -63,7 +68,9 @@ export function preparePractice(
       },
       cast: [
         { actorId: bot.actorId, role: 'negative', slot: 0 },
-        { actorId: judge.actorId, role: 'judge', slot: 0 },
+        ...(judge
+          ? [{ actorId: judge.actorId, role: 'judge' as const, slot: 0 }]
+          : []),
       ],
     },
   };
@@ -104,6 +111,7 @@ export async function practiceAnswer(
     'actor-ineligible':
       'That opponent can’t start a practice right now. Pick another.',
     'seat-unavailable': 'Someone took that seat first. Start again.',
+    'ai-judge-premium': aiJudgePremiumText,
   };
   return refused(
     form,
