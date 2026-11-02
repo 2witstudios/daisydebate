@@ -240,3 +240,15 @@ describe('presence lease delete', () => {
     });
   });
 });
+
+describe('the roster revision (ADR 0098)', () => {
+  test('reads as a number, zero before any lease', async () => {
+    const { redis } = createTestRedis();
+    assert({
+      given: 'no lease has ever been written',
+      should: 'read zero',
+      actual: await redis.readRosterRevision(),
+      expected: 0,
+    });
+  });
+});

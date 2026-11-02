@@ -21,17 +21,6 @@ type Tx = Pick<
   'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
-/** A challenge's facts as a command reads them under the pair lock. */
-export type ChallengeRow = {
-  readonly id: string;
-  readonly challengerActorId: string;
-  readonly challengedActorId: string;
-  readonly mode: ChallengeMode;
-  readonly formatId: ChallengeFormat;
-  readonly roomId: string | null;
-  readonly expiresAt: Date;
-};
-
 /** One challenge command over a locked contact pair (ADR 0097). */
 export type ChallengeFrame = {
   readonly otherActorId: string;
@@ -43,11 +32,6 @@ export type ChallengeFrame = {
     readonly now: string;
     readonly expiresAt: string;
   }) => Promise<{ readonly challengeId: string }>;
-  /** The offer the other member made the caller, still open at `now`. */
-  readonly readIncoming: (
-    challengeId: string,
-    now: string,
-  ) => Promise<ChallengeRow | null>;
   /** Names the room the caller just opened for it. */
   readonly accept: (input: {
     readonly challengeId: string;
@@ -157,22 +141,6 @@ export function challengeFrame(
         );
       if (!open) throw createAppError('CONFLICT');
       return { challengeId: open.id };
-    },
-    async readIncoming(challengeId, now) {
-      requireId(challengeId);
-      const [row] = await tx
-        .select()
-        .from(challenges)
-        .where(
-          and(
-            eq(challenges.id, challengeId),
-            eq(challenges.challengerActorId, other),
-            eq(challenges.challengedActorId, input.actorId),
-            sql`${challenges.roomId} is null`,
-            sql`${challenges.expiresAt} > ${new Date(now)}`,
-          ),
-        );
-      return (row as ChallengeRow | undefined) ?? null;
     },
     async accept({ challengeId, roomId, now }) {
       await authorize();

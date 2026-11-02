@@ -32,7 +32,7 @@ const placementSql = sql<MemberPlacement>`case
 export const placementOf = (actorId: SQL) =>
   sql<MemberPlacement>`(select ${placementSql} from room_active_memberships m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`;
 
-export type RosterRow = {
+type RosterRow = {
   readonly actorId: string;
   readonly username: string;
   readonly chosen: ChosenStatus;
@@ -42,7 +42,7 @@ export type RosterRow = {
   readonly friendshipState: 'pending' | 'accepted' | null;
 };
 
-export type RosterCursor = {
+type RosterCursor = {
   readonly friend: boolean;
   readonly username: string;
   readonly actorId: string;

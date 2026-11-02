@@ -15,7 +15,7 @@ type Visibility = {
   readonly showValue: boolean;
 };
 
-export type CardRatingRow = {
+type CardRatingRow = {
   readonly actorId: string;
   readonly ladder: RatingLadder;
   readonly rating: number;
@@ -24,7 +24,7 @@ export type CardRatingRow = {
   readonly lastRatedAt: string | null;
 };
 
-export type CardRecordRow = {
+type CardRecordRow = {
   readonly actorId: string;
   readonly status: string;
   readonly outcome: string | null;

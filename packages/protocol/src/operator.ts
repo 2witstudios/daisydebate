@@ -165,12 +165,10 @@ const operatorReportSchema = z.strictObject({
   createdAt: z.iso.datetime(),
   reportsOnSubject: z.number().int().positive(),
 });
-export type OperatorReport = z.infer<typeof operatorReportSchema>;
 export const operatorReportsPageSchema = z.strictObject({
   items: z.array(operatorReportSchema).max(100),
   nextCursor: z.string().max(256).nullable(),
 });
-export type OperatorReportsPage = z.infer<typeof operatorReportsPageSchema>;
 
 const restrictionKinds = moderationKinds.filter((kind) => kind !== 'warning');
 const operatorRestrictionSchema = z.strictObject({
@@ -181,7 +179,6 @@ const operatorRestrictionSchema = z.strictObject({
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime().nullable(),
 });
-export type OperatorRestriction = z.infer<typeof operatorRestrictionSchema>;
 export const operatorRestrictionsSchema = z.strictObject({
   items: z.array(operatorRestrictionSchema).max(100),
 });

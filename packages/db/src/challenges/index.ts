@@ -1,3 +1,2 @@
-export { createChallengeStore } from './store';
 export type { ChallengeListRow, ChallengeStore } from './store';
-export type { ChallengeFrame, ChallengeRow } from './frame';
+export type { ChallengeFrame } from './frame';

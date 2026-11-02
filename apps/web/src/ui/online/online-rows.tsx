@@ -116,7 +116,7 @@ export function usePersonOverlay(
  * profile, which carries every action as a form, so a row works without script;
  * hydrated, they open the menu instead.
  */
-export function PersonRow({
+function PersonRow({
   member,
   overlay,
   active,

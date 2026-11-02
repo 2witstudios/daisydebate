@@ -2,7 +2,7 @@ import type { OutboxRow } from '@daisy/db/outbox';
 import type { IntervalTimers } from './outbox-drain';
 
 /** How often a node looks for a change, so browsers hear within about a second. */
-export const ONLINE_RING_MS = 1_000;
+const ONLINE_RING_MS = 1_000;
 
 /** Row kinds that can move someone's status, read from every node's own drain. */
 const statusRows = new Set([

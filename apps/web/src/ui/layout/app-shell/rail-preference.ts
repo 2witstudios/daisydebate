@@ -44,11 +44,10 @@ export const flipRailPreference = (
  * The online rail's choice (ADR 0097). Absent is automatic: CSS opens it on a
  * screen wider than 1280px, and the first choice sticks across every page.
  */
-export const ONLINE_RAIL_CHOICES = ['open', 'mini'] as const;
+const ONLINE_RAIL_CHOICES = ['open', 'mini'] as const;
 export type OnlineRailChoice = (typeof ONLINE_RAIL_CHOICES)[number];
 export type OnlineRailPreference = OnlineRailChoice | 'auto';
 export const ONLINE_RAIL_COOKIE = 'daisy.online-rail';
-export const ONLINE_RAIL_COOKIE_OPTIONS = RAIL_COOKIE_OPTIONS;
 
 export const isOnlineRailChoice = (raw: unknown): raw is OnlineRailChoice =>
   ONLINE_RAIL_CHOICES.some((choice) => choice === raw);

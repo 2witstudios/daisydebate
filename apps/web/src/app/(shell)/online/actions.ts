@@ -38,7 +38,7 @@ import { processRoute } from '../../../server/process-app';
 import {
   isOnlineRailChoice,
   ONLINE_RAIL_COOKIE,
-  ONLINE_RAIL_COOKIE_OPTIONS,
+  RAIL_COOKIE_OPTIONS,
 } from '../../../ui/layout/app-shell/rail-preference';
 
 const routes = {
@@ -76,7 +76,7 @@ const post = async (
 export async function setOnlineRail(form: FormData): Promise<void> {
   const choice = form.get('rail');
   if (!isOnlineRailChoice(choice)) return;
-  (await cookies()).set(ONLINE_RAIL_COOKIE, choice, ONLINE_RAIL_COOKIE_OPTIONS);
+  (await cookies()).set(ONLINE_RAIL_COOKIE, choice, RAIL_COOKIE_OPTIONS);
 }
 
 /** The member's own status, from the account menu. */

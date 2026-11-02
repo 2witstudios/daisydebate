@@ -29,7 +29,6 @@ export const presenceSettingResultSchema = z.strictObject({
   version: z.literal(1),
   status: z.enum(chosenStatuses),
 });
-export type PresenceSetting = z.infer<typeof presenceSettingResultSchema>;
 
 /** Which ratings a member's card shows besides Freestyle (ADR 0097). */
 export const ratingVisibilitySchema = z.strictObject({
@@ -60,7 +59,7 @@ const onlineMemberSchema = z.strictObject({
 export type OnlineMember = z.infer<typeof onlineMemberSchema>;
 
 /** Whom an online read lists: everyone, or the reader's friends. */
-export const onlineFilters = ['all', 'friends'] as const;
+const onlineFilters = ['all', 'friends'] as const;
 export type OnlineFilter = (typeof onlineFilters)[number];
 
 export const onlineQuerySchema = z.strictObject({

@@ -343,7 +343,6 @@ export {
 export {
   chosenStatuses,
   memberStatuses,
-  onlineFilters,
   onlineQuerySchema,
   onlineRosterSchema,
   presenceSettingResultSchema,
@@ -356,7 +355,6 @@ export type {
   OnlineFilter,
   OnlineMember,
   OnlineRoster,
-  PresenceSetting,
   RatingVisibility,
 } from './presence-setting';
 export {
@@ -384,7 +382,6 @@ export {
   reportSurfaces,
 } from './reports';
 export type {
-  ModerationKind,
   ModerationNotice,
   ReportOutcome,
   ReportReason,

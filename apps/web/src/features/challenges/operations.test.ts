@@ -35,7 +35,6 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
       calls.push(['send', input]);
       return { challengeId: input.id };
     },
-    readIncoming: async () => null,
     accept: async (input) => {
       calls.push(['accept', input]);
     },

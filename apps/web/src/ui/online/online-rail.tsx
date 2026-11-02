@@ -27,7 +27,7 @@ const tab =
   'inline-flex min-h-10 items-center gap-1.5 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-ink';
 
 /** The list's search and tabs, shared with the phone's Online view. */
-export function OnlineControls() {
+function OnlineControls() {
   const { query, setQuery, filter, setFilter, roster } = useOnline();
   return (
     <>

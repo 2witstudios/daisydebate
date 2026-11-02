@@ -32,7 +32,6 @@ export const reportOutcomes = [
 export type ReportOutcome = (typeof reportOutcomes)[number];
 
 export const moderationKinds = ['warning', 'suspension', 'ban'] as const;
-export type ModerationKind = (typeof moderationKinds)[number];
 
 export const reportCommandSchema = z.strictObject({
   version: z.literal(1),
@@ -47,7 +46,7 @@ export const reportResultSchema = z.strictObject({
 });
 
 /** A member's own unread warning, shown once until they acknowledge it. */
-export const moderationNoticeSchema = z.strictObject({
+const moderationNoticeSchema = z.strictObject({
   id: idSchema,
   kind: z.enum(moderationKinds),
   startsAt: z.iso.datetime(),
