@@ -544,6 +544,13 @@ export function createDocumentSync({
     change: (id, html) => {
       const baseRevision = revisions.get(id);
       if (isClosed() || baseRevision === undefined) return;
+      // Clicking into a document can make the editor normalize it. Text the
+      // server already holds is no edit, unless it undoes one still pending.
+      if (
+        !pending.has(id) &&
+        sameDocumentHtml(html, serverCopies.get(id) ?? '')
+      )
+        return;
       const copy = newNoteCopy({
         html,
         baseRevision,

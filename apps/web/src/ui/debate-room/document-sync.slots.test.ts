@@ -689,6 +689,26 @@ test('a real conflict drops an offer the server already holds and keeps the typi
   });
 });
 
+test('the editor adding its trailing paragraph is not an edit', async () => {
+  const f = fixture();
+  f.storage.removeItem(key);
+  const sync = f.owner();
+  await sync.load();
+  sync.change('a', '<p>SERVER</p><p></p>');
+  await sync.flush();
+  const untouched = [f.writes.length, f.storage.getItem(key)];
+  sync.change('a', '<p>TYPED</p>');
+  sync.change('a', '<p>SERVER</p>');
+  await sync.flush();
+  assert({
+    given: 'a click adding only the trailing paragraph, then real edits undone',
+    should:
+      'send and store nothing for the click, but still save an undo while an edit is pending',
+    actual: [untouched, f.server().html],
+    expected: [[0, null], '<p>SERVER</p>'],
+  });
+});
+
 test('a pending edit keeps its text when a late commit lands', async () => {
   const f = await lateCommitFixture();
   const shown: string[] = [];

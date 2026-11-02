@@ -68,8 +68,15 @@ export const joinLines = (html: string): string =>
   html.replace(/\n(?=<)|(?<=>)\n/g, '');
 
 /** True when two HTML strings differ only by storage line breaks. */
+const withoutTrailingParagraph = (html: string) =>
+  joinLines(html).replace(/<p><\/p>$/, '');
+
+/**
+ * The same document, ignoring the empty last paragraph the editor adds after a
+ * list or heading on its first selection, which is no one's content.
+ */
 export const sameDocumentHtml = (a: string, b: string): boolean =>
-  joinLines(a) === joinLines(b);
+  withoutTrailingParagraph(a) === withoutTrailingParagraph(b);
 
 /** The stored lines, one per array entry. */
 export const linesOf = (html: string): readonly string[] =>
