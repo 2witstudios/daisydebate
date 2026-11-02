@@ -26,15 +26,18 @@ const draftFor = async (page: Page, id: string) => {
 const edit = (page: Page, text: string) =>
   page.getByRole('textbox', { name: 'Flow', exact: true }).fill(text);
 /**
- * A page lost without its exit save. Routing saves to abort is not enough: an
- * unload keepalive still reaches the server, as the expiry revision trail proved.
+ * The exit save is lost on its way out. Neither a routed abort nor offline
+ * emulation can stop a real unload keepalive, so the page's own request fails.
  */
 const reloadLosingExitSave = async (page: Page) => {
-  const url = page.url();
-  await page.context().setOffline(true);
-  await expect(page.goto(url)).rejects.toThrow(/ERR_INTERNET_DISCONNECTED/);
-  await page.context().setOffline(false);
-  await page.goto(url);
+  await page.evaluate((path) => {
+    const send = window.fetch;
+    window.fetch = (input, init) =>
+      String(input).endsWith(`${path}save`)
+        ? Promise.reject(new TypeError('Exit save lost'))
+        : send(input, init);
+  }, documentsPath);
+  await page.reload();
 };
 /** Wait for the actual offer before sampling its independent durable identity. */
 const offeredAfterReload = async (
