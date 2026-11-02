@@ -93,9 +93,9 @@ touched. CI holds the blocking gates. Heavy commands queue machine-wide through
   `bun metrics:check` are reports. CI runs them in its non-blocking
   "Advisory reports" job, and knip blocks only the nightly main run.
 - CI runs the quick check once per PR or main push; a branch push without a
-  PR runs no CI, so open the slice PR early. Chromium Playwright runs on every
-  PR, and Isolated Room Launch is skipped only when every changed file is
-  documentation or in a known non-room area. The
+  PR runs no CI, so open the slice PR early. The only required check is CI
+  gate. Browser E2E runs on main after merge, and a PR may dispatch it by
+  choice ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)). The
   nightly run on main adds every Playwright project.
 - Run `bun migrations:check` whenever migrations change.
 
