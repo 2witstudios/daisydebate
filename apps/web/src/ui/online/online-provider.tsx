@@ -142,17 +142,20 @@ export function OnlineProvider({
     lastRead.current = systemScheduler.now();
     let merged: OnlineRoster | null = null;
     for (let page = 0; page < pagesLoaded.current; page += 1) {
-      const { value, response } = await readJson(
-        rosterUrl(wanted, named, merged?.nextCursor ?? undefined),
-        parseRoster,
-      );
+      const cursor: string | undefined = merged?.nextCursor ?? undefined;
+      const read: {
+        readonly value: OnlineRoster | null;
+        readonly response: Response | null;
+      } = await readJson(rosterUrl(wanted, named, cursor), parseRoster);
+      const { value, response } = read;
       const endpoint = response && realtimeEndpointOf(response);
       if (endpoint) setSocketUrl(endpoint);
       if (!value) return;
-      merged = merged
+      const next: OnlineRoster = merged
         ? { ...value, members: [...merged.members, ...value.members] }
         : value;
-      if (!merged.nextCursor) break;
+      merged = next;
+      if (!next.nextCursor) break;
     }
     if (
       merged &&
