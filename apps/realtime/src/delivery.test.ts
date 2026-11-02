@@ -128,36 +128,52 @@ test('real delivery principal validation refuses a canonical read exceeding its 
   });
 });
 
-test('a subscribe refused by a lane logs the lane and reason', async () => {
+const principal = {
+  actorId: 'a'.repeat(24),
+  userId: 'b'.repeat(24),
+  sessionId: 'c'.repeat(24),
+};
+const account = {
+  ...principal,
+  member: true,
+  erased: false,
+  revision: 1,
+  beta: { state: 'approved', revision: 1 },
+  ageBand: 'adult',
+};
+const session = {
+  ...principal,
+  expiresAt: '2026-10-09T01:00:00.000Z',
+  account,
+};
+const roundId = 'd'.repeat(24);
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** The real delivery over fake reads, one connection, and a manual budget timer. */
+function subscribeRig(reads: unknown) {
   const logged: unknown[] = [];
   const sent: unknown[] = [];
-  const resources = {
-    database: bothLanes({
-      readAuthorizationSession: () =>
-        Promise.reject(
-          refuseCapacity({
-            lane: 'admission',
-            reason: 'expired',
-            pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
-          }),
-        ),
-    }),
-    clock: { now: () => '2026-10-09T00:00:00.000Z' },
-    logger: {
-      log: (event: string, fields: unknown) => logged.push([event, fields]),
-    },
-  } as unknown as RealtimeApp;
-  const { registry } = createRealtimeDelivery({
+  let fire = () => {};
+  const delivery = createRealtimeDelivery({
     readingPolicy: refuseAllReading,
-    resources,
+    resources: {
+      database: bothLanes(reads),
+      clock: { now: () => '2026-10-09T00:00:00.000Z' },
+      logger: {
+        log: (event: string, fields: unknown) => logged.push([event, fields]),
+      },
+    } as unknown as RealtimeApp,
     now: () => 0,
     publish: () => {},
     timers: {
-      setInterval: () => ({}) as ReturnType<typeof setInterval>,
+      setInterval: (callback) => {
+        fire = callback;
+        return {} as ReturnType<typeof setInterval>;
+      },
       clearInterval: () => {},
     },
   });
-  const connection = registry.add(
+  const connection = delivery.registry.add(
     {
       bufferedAmount: () => 0,
       send: (frame) => sent.push(frame),
@@ -165,20 +181,37 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
       unsubscribe: () => {},
       close: () => {},
     },
-    {
-      actorId: 'a'.repeat(24),
-      userId: 'b'.repeat(24),
-      sessionId: 'c'.repeat(24),
-    },
+    principal,
   );
-  await registry.subscribe(connection, {
-    id: 'first',
-    topic: `round:${'d'.repeat(24)}`,
+  return {
+    delivery,
+    logged,
+    sent,
+    spendBudget: () => fire(),
+    subscribe: () =>
+      delivery.registry.subscribe(connection, {
+        id: 'first',
+        topic: `round:${roundId}`,
+      }),
+  };
+}
+
+test('a subscribe refused by a lane logs the lane, reason and pressure', async () => {
+  const rig = subscribeRig({
+    readAuthorizationSession: () =>
+      Promise.reject(
+        refuseCapacity({
+          lane: 'admission',
+          reason: 'expired',
+          pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
+        }),
+      ),
   });
+  await rig.subscribe();
   assert({
     given: 'a first subscribe whose authority read a lane refuses',
     should: 'log the code, lane, reason and pressure',
-    actual: logged,
+    actual: rig.logged,
     expected: [
       [
         'realtime.subscription.unavailable',
@@ -196,156 +229,77 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
   assert({
     given: 'the same refusal',
     should: 'answer the subscriber with the transient code',
-    actual: sent.map((frame) => (frame as { code?: string }).code),
+    actual: rig.sent.map((frame) => (frame as { code?: string }).code),
     expected: ['INFRASTRUCTURE'],
   });
 });
 
+test('an unanswered check logs the operation its caller names', () => {
+  const rig = subscribeRig({});
+  rig.delivery.reportUnavailable(new Error('private'), 'realtime.hello');
+  assert({
+    given: 'a hello check reported as failed',
+    should: 'log that operation, not the subscription default',
+    actual: rig.logged,
+    expected: [
+      [
+        'realtime.subscription.unavailable',
+        {
+          operation: 'realtime.hello',
+          errorCode: 'INTERNAL',
+          cause: 'internal',
+        },
+      ],
+    ],
+  });
+});
+
 test('a subscribe whose budget is spent stops before taking the lane again', async () => {
-  let fire!: () => void;
-  let finishSession!: (value: unknown) => void;
+  let finishSession = (_value: unknown) => {};
   let factsReads = 0;
-  const instant = '2026-10-09T00:00:00.000Z';
-  const resources = {
-    database: bothLanes({
-      readAuthorizationSession: () =>
-        new Promise((resolve) => {
-          finishSession = resolve;
-        }),
-      readRoundAuthorizationFacts: async () => {
-        factsReads += 1;
-        return null;
-      },
-    }),
-    clock: { now: () => instant },
-    logger: { log: () => {} },
-  } as unknown as RealtimeApp;
-  const { registry } = createRealtimeDelivery({
-    readingPolicy: refuseAllReading,
-    resources,
-    now: () => 0,
-    publish: () => {},
-    timers: {
-      setInterval: (callback) => {
-        fire = callback;
-        return {} as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {},
+  const rig = subscribeRig({
+    readAuthorizationSession: () =>
+      new Promise((resolve) => {
+        finishSession = resolve;
+      }),
+    readRoundAuthorizationFacts: async () => {
+      factsReads += 1;
+      return null;
     },
   });
-  const principal = {
-    actorId: 'a'.repeat(24),
-    userId: 'b'.repeat(24),
-    sessionId: 'c'.repeat(24),
-  };
-  const sent: unknown[] = [];
-  const connection = registry.add(
-    {
-      bufferedAmount: () => 0,
-      send: (frame) => sent.push(frame),
-      subscribe: () => {},
-      unsubscribe: () => {},
-      close: () => {},
-    },
-    principal,
-  );
-  const subscribing = registry.subscribe(connection, {
-    id: 'first',
-    topic: `round:${'d'.repeat(24)}`,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  fire();
+  const subscribing = rig.subscribe();
+  await settle();
+  rig.spendBudget();
   await subscribing;
-  finishSession({
-    ...principal,
-    expiresAt: '2026-10-09T01:00:00.000Z',
-    account: {
-      userId: principal.userId,
-      actorId: principal.actorId,
-      member: true,
-      erased: false,
-      revision: 1,
-      beta: { state: 'approved', revision: 1 },
-      ageBand: 'adult',
-    },
-  });
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  finishSession(session);
+  await settle();
   assert({
     given: 'a budget spent while the first of three reads is pending',
     should: 'refuse as transient and never start the next read',
     actual: {
       factsReads,
-      codes: sent.map((frame) => (frame as { code?: string }).code),
+      codes: rig.sent.map((frame) => (frame as { code?: string }).code),
     },
     expected: { factsReads: 0, codes: ['INFRASTRUCTURE'] },
   });
 });
 
 test('a subscribe whose budget is spent during the facts read stops before the last read', async () => {
-  let fire!: () => void;
-  let finishFacts!: (value: unknown) => void;
+  let finishFacts = (_value: unknown) => {};
   let sessionReads = 0;
-  const principal = {
-    actorId: 'a'.repeat(24),
-    userId: 'b'.repeat(24),
-    sessionId: 'c'.repeat(24),
-  };
-  const account = {
-    ...principal,
-    member: true,
-    erased: false,
-    revision: 1,
-    beta: { state: 'approved', revision: 1 },
-    ageBand: 'adult',
-  };
-  const roundId = 'd'.repeat(24);
-  const resources = {
-    database: bothLanes({
-      readAuthorizationSession: async () => {
-        sessionReads += 1;
-        return {
-          ...principal,
-          expiresAt: '2026-10-09T01:00:00.000Z',
-          account,
-        };
-      },
-      readRoundAuthorizationFacts: () =>
-        new Promise((resolve) => {
-          finishFacts = resolve;
-        }),
-    }),
-    clock: { now: () => '2026-10-09T00:00:00.000Z' },
-    logger: { log: () => {} },
-  } as unknown as RealtimeApp;
-  const { registry } = createRealtimeDelivery({
-    readingPolicy: refuseAllReading,
-    resources,
-    now: () => 0,
-    publish: () => {},
-    timers: {
-      setInterval: (callback) => {
-        fire = callback;
-        return {} as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {},
+  const rig = subscribeRig({
+    readAuthorizationSession: async () => {
+      sessionReads += 1;
+      return session;
     },
+    readRoundAuthorizationFacts: () =>
+      new Promise((resolve) => {
+        finishFacts = resolve;
+      }),
   });
-  const connection = registry.add(
-    {
-      bufferedAmount: () => 0,
-      send: () => {},
-      subscribe: () => {},
-      unsubscribe: () => {},
-      close: () => {},
-    },
-    principal,
-  );
-  const subscribing = registry.subscribe(connection, {
-    id: 'first',
-    topic: `round:${roundId}`,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  fire();
+  const subscribing = rig.subscribe();
+  await settle();
+  rig.spendBudget();
   await subscribing;
   finishFacts({
     account,
@@ -359,7 +313,7 @@ test('a subscribe whose budget is spent during the facts read stops before the l
       participants: [],
     },
   });
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await settle();
   assert({
     given: 'a budget spent during the facts read, which then allows',
     should: 'never start the final session read',

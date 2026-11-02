@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { ServerWebSocket } from 'bun';
-import { createWebSocketHandlers, type SocketData } from './socket';
+import {
+  createWebSocketHandlers,
+  HELLO_TIMEOUT_MS,
+  type SocketData,
+} from './socket';
 
 setupRitewayBun();
 
@@ -76,5 +80,43 @@ test('a hello or frame check that cannot answer closes retryably; a definite ans
       frameFailed: { closes: [4007], reported: ['realtime.frame'] },
       frameDenied: { closes: [4002], reported: [] },
     },
+  });
+});
+
+test('a check answering after the hello deadline, before its timer fires, closes retryably', async () => {
+  const closes: number[] = [];
+  const sent: unknown[] = [];
+  const rejections: unknown[] = [];
+  let elapsed = 0;
+  const ws = {
+    data: { origin: 'https://app.example.test' } as SocketData,
+    send: (frame: unknown) => sent.push(frame),
+    getBufferedAmount: () => 0,
+    close: (code: number) => closes.push(code),
+    subscribe: () => true,
+    unsubscribe: () => {},
+  } as unknown as ServerWebSocket<SocketData>;
+  const handlers = createWebSocketHandlers({
+    logger: {
+      log: (_event: string, fields: { cause?: unknown }) =>
+        rejections.push(fields.cause),
+    } as unknown as typeof logger,
+    timers: {
+      setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
+      clearTimeout: () => {},
+    },
+    now: () => elapsed,
+    authenticate: async () => {
+      elapsed = HELLO_TIMEOUT_MS;
+      return principal;
+    },
+  });
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  assert({
+    given: 'a hello in time whose check answers past the deadline',
+    should: 'close 4007 as a hello timeout and never send ready',
+    actual: { closes, sent, rejections },
+    expected: { closes: [4007], sent: [], rejections: ['hello_timeout'] },
   });
 });
