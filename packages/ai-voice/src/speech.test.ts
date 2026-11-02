@@ -1,9 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  phrasesOf,
-  splitSentences,
-  wordBudget,
-} from './speech';
+import { phrasesOf, splitSentences, wordBudget } from './speech';
 
 setupRitewayBun();
 
