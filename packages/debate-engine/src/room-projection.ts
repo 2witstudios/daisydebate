@@ -174,7 +174,12 @@ export function projectRoom(
     prep: prepView(room, now),
     capabilities: roomCapabilities(room, actorId, blocker, now, phase, consent),
     startRefusal: blocker,
-    roundRef: room.roundRef,
+    // A non-participant learns of a live Round only from the spectator timeline.
+    roundRef:
+      room.hostActorId === actorId ||
+      room.participants.some((p) => p.actorId === actorId)
+        ? room.roundRef
+        : null,
   };
 }
 

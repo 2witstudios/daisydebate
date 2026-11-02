@@ -17,7 +17,7 @@ const render = (round: RoundView, nowMs: number) =>
   renderToStaticMarkup(
     <LiveSpectatorRoom
       view={round}
-      audience="host"
+      audience="undelayed-observer"
       renderedAtMs={nowMs}
       read={async () => ({
         kind: 'found',

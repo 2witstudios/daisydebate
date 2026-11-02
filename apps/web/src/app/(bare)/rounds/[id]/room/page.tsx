@@ -47,7 +47,7 @@ async function watchingRoom(
   if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
-    audience: spectatorAudienceOf(round, actorId),
+    audience: spectatorAudienceOf(round),
   });
   if (room.kind === 'receipt') redirect(`/rounds/${id}`);
   if (room.kind === 'spectator')

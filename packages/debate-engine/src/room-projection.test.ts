@@ -236,3 +236,29 @@ describe('projectRoom format (FMT-1)', () => {
     });
   });
 });
+
+describe('projectRoom round reference', () => {
+  const started = {
+    ...room,
+    status: 'started' as const,
+    roundRef: { id: 'round', status: 'active' as const },
+  };
+  const consent = { available: true, readyActorIds: [] };
+  const refFor = (actorId: string) =>
+    projectRoom(started, actorId, consent, '2026-01-01T00:00:00.000Z', null)
+      .roundRef;
+  test('names a live Round only to its seats and host', () => {
+    assert({
+      given: 'a started public Room read by a non-participant',
+      should: 'carry no Round reference (WATCH-6)',
+      actual: refFor('outsider'),
+      expected: null,
+    });
+    assert({
+      given: 'the same Room read by its host and by a seated judge',
+      should: 'carry the Round reference',
+      actual: [refFor(started.hostActorId), refFor('judge-actor')],
+      expected: [started.roundRef, started.roundRef],
+    });
+  });
+});
