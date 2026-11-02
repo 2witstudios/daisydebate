@@ -36,7 +36,8 @@ function webApp() {
       return Response.json({ error: { code: 'CONFLICT' } }, { status: 409 });
     if (body.expectedEpoch !== undefined) {
       if (
-        current?.workerId !== body.workerId ||
+        !current ||
+        current.workerId !== body.workerId ||
         current.epoch !== body.expectedEpoch
       )
         return Response.json({ error: { code: 'CONFLICT' } }, { status: 409 });
@@ -59,7 +60,7 @@ function webApp() {
     if (op === 'lease') return claim(body);
     if (op === 'release') {
       const held = state.lease;
-      if (held?.workerId === body.workerId && held.epoch === body.epoch)
+      if (held && held.workerId === body.workerId && held.epoch === body.epoch)
         held.expiresAt = Math.min(held.expiresAt, nowMs());
       return Response.json(null);
     }
