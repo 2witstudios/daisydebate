@@ -120,28 +120,30 @@ export const heldSecondRead = async () => {
   };
 };
 
-/** A read budget whose timer the test advances by hand. */
+/** A read budget whose timers the test advances by hand. */
 export const fakeBudget = (ms = 40_000) => {
   let nowMs = 0;
-  let due: { readonly atMs: number; readonly fire: () => void } | null = null;
+  const timers = new Set<{
+    readonly atMs: number;
+    readonly fire: () => void;
+  }>();
   return {
     budget: {
       now: () => nowMs,
       ms,
       at: (after: number, fire: () => void) => {
-        due = { atMs: nowMs + after, fire };
-        return () => {
-          due = null;
-        };
+        const timer = { atMs: nowMs + after, fire };
+        timers.add(timer);
+        return () => void timers.delete(timer);
       },
     },
     advance: (by: number) => {
       nowMs += by;
-      const timer = due;
-      if (timer && nowMs >= timer.atMs) {
-        due = null;
-        timer.fire();
-      }
+      for (const timer of [...timers])
+        if (nowMs >= timer.atMs) {
+          timers.delete(timer);
+          timer.fire();
+        }
     },
   };
 };

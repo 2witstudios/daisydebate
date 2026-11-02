@@ -3,7 +3,6 @@ import {
   admission,
   readController,
   snapshot,
-  transportStub,
   viewAt,
   heldSecondRead,
   holdingSecondApply,
@@ -87,7 +86,6 @@ test('a receipt superseded in any microtask gap after apply is never announced',
   for (let gap = 0; gap < 12; gap++) {
     const applying = Promise.withResolvers<void>();
     const receipts: string[] = [];
-    let applies = 0;
     let reads = 0;
     const controller = readController({
       admit: async () => admission,

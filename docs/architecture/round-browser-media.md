@@ -70,8 +70,9 @@ In a burst, the first supersession since the last answered read aborts at once. 
 later one lets a read under 2 seconds old finish rather than abort it, so fewer
 reads overlap. This limits load and does not shorten the wait. Its reply is still
 fenced, so a reply older than the current intent never applies, and a fenced read
-does not retry. An older read is aborted as usual; a read let finish that then
-stalls is bounded by its own deadline.
+does not retry. An older read is aborted as usual, and a read let finish is aborted
+once it passes that age, so a stall cannot hold the fresh read. A pass's failure is
+not its readers' answer: each gets the retryable 503.
 
 The grant moves before the reply. A pass sets LiveKit's permission as part of
 serving a read, and the browser follows LiveKit's permission without waiting for
@@ -80,8 +81,9 @@ including in bursts, whether or not abort reaches the server. A reply arrives
 later and cannot apply while newer versions keep arriving, so its wait lasts at
 least the burst. Aborting
 never cancels a pass already started, and a read that follows always joins or
-starts one. A pass starts only from a browser read, so the grant moves once some
-page has seen the version and asked.
+starts one. Passes start from browser reads and from the server's recovery tick
+every 500 ms, so the measured commit-to-permission figures below include recovery
+and do not rest on a page asking.
 
 While a reply is not current the Round does not claim a microphone state: from a
 supersession until the next answer applies, a seat says it is checking. That cannot

@@ -10,6 +10,7 @@ import {
 import {
   decideMediaRead,
   decideSupersededRead,
+  MEDIA_READ_LET_FINISH_MS,
   type MediaReadEvent,
   type MediaReadIntent,
 } from './media-read-intent';
@@ -136,16 +137,12 @@ export function createMediaController(input: {
     drop(previous);
     change('ended');
   };
-  const fail = (
-    generation: number,
-    error: unknown,
-    failure: MediaFailureKind = failureKind(error),
-  ) => {
+  const fail = (generation: number, error: unknown) => {
     if (stale(generation)) return;
     const previous = connection;
     connection = null;
     drop(previous);
-    if (!stale(generation)) change(failureState(error), failure);
+    if (!stale(generation)) change(failureState(error), failureKind(error));
   };
   const retrying = async (
     signal: AbortSignal,
@@ -360,6 +357,12 @@ export function createMediaController(input: {
       : 'abort';
     owner.supersededSinceAnswer++;
     if (pacing === 'abort') inFlight.abort.abort();
+    // Let finish, not let hang: a stalled read must not hold the fresh one.
+    else if (budget)
+      budget.at(
+        MEDIA_READ_LET_FINISH_MS - (budget.now() - inFlight.startedAtMs),
+        () => inFlight.abort.abort(),
+      );
   };
   const reconcile = (event: MediaReadEvent) => {
     const decision = decideMediaRead(intent, event);

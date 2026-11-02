@@ -208,6 +208,40 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
   controller.stop();
 });
 
+test('a read let finish cannot hold the fresh read past the young limit', async () => {
+  const { budget, advance } = fakeBudget();
+  const signals: AbortSignal[] = [];
+  let reads = 0;
+  const controller = readController({
+    readBudget: budget,
+    reconcile: (_id, signal) => {
+      signals.push(signal);
+      return ++reads === 1 || reads === 4
+        ? Promise.resolve(snapshot)
+        : new Promise(() => undefined);
+    },
+  });
+  await controller.join();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  advance(100);
+  void controller.reconcile(viewAt(5));
+  await settle();
+  advance(100);
+  void controller.reconcile(viewAt(6));
+  await settle();
+  const whileYoung = [signals[2]?.aborted, reads];
+  advance(1_900);
+  await settle();
+  assert({
+    given: 'the last event landing on a young read that then stalls',
+    should: 'leave it alone while young, then abort it and read fresh',
+    actual: [whileYoung, signals[2]?.aborted, reads, controller.state()],
+    expected: [[false, 3], true, 4, 'live'],
+  });
+  controller.stop();
+});
+
 test('a read let finish spends no attempt after its retry pause', async () => {
   let nowMs = 0;
   let reads = 0;

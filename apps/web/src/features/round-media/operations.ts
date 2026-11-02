@@ -12,6 +12,7 @@ import {
   seatGrants,
 } from './projection';
 import { listenIdentity } from './listen-identity';
+import { cancelMediaWork } from './cancel-media-work';
 import { createMediaReconcileRun } from './reconcile-run';
 import type {
   Store,
@@ -36,29 +37,14 @@ const callerOf = (actorId: string) => ({
 export const MEDIA_ADMISSION_WAIT_MS = 8_000;
 const MEDIA_DEFERRED = 'media-deferred';
 /** Expected backpressure: a retryable 503 that needs no one to look. */
-const mediaDeferred = () => createAppError('INFRASTRUCTURE', MEDIA_DEFERRED);
+const mediaDeferred = (cause?: unknown) =>
+  createAppError('INFRASTRUCTURE', MEDIA_DEFERRED, cause);
 export const isMediaDeferred = (error: unknown) =>
   isAppError(error) && error.message === MEDIA_DEFERRED;
 /** One read waiting until a pass has served its own version. */
 type ServeWaiter = {
   readonly version: number;
   readonly served: ReturnType<typeof Promise.withResolvers<void>>;
-};
-/** Settles with `work`, or at once with `failure()` when its reader leaves. */
-const cancelOnAbort = async (
-  signal: AbortSignal,
-  work: Promise<void>,
-  failure: () => Error,
-) => {
-  if (signal.aborted) throw failure();
-  const left = Promise.withResolvers<never>();
-  const leave = () => left.reject(failure());
-  signal.addEventListener('abort', leave, { once: true });
-  try {
-    await Promise.race([work, left.promise]);
-  } finally {
-    signal.removeEventListener('abort', leave);
-  }
 };
 type AdmissionLimit = {
   readonly untilMs: number;
@@ -127,7 +113,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         else await input.wait();
       }
     } catch (error) {
-      for (const waiter of waiters) waiter.served.reject(error);
+      // A pass's failure says nothing about these readers' access: they retry.
+      for (const waiter of waiters) waiter.served.reject(mediaDeferred(error));
     } finally {
       // In the same step as the exit, so no later read can join a finished loop.
       polls.delete(sessionId);
@@ -139,7 +126,6 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     version: number,
     signal?: AbortSignal,
   ) => {
-    if (signal?.aborted) throw mediaDeferred();
     const waiter: ServeWaiter = {
       version,
       served: Promise.withResolvers<void>(),
@@ -153,7 +139,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     }
     try {
       await (signal
-        ? cancelOnAbort(signal, waiter.served.promise, mediaDeferred)
+        ? cancelMediaWork(signal, () => waiter.served.promise)
         : waiter.served.promise);
     } finally {
       waiters.delete(waiter);
@@ -178,6 +164,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     actorId?: string,
     signal?: AbortSignal,
   ): Promise<RoundMediaState> => {
+    // Before the round lock: a read already abandoned should cost nothing.
+    if (signal?.aborted) throw mediaDeferred();
     const request = await input.store.requestMediaReconcile({
       roundId,
       ...(actorId ? { caller: callerOf(actorId) } : {}),

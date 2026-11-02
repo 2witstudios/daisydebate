@@ -457,7 +457,7 @@ test('a read that leaves stops waiting while the others keep being served', asyn
   assert({
     given: 'two reads waiting on one session, one of which is abandoned',
     should: 'release the abandoned one at once and still serve the other',
-    actual: isMediaDeferred(failure),
+    actual: failure === leaving.signal.reason,
     expected: true,
   });
 });
@@ -498,7 +498,7 @@ test('a read after every earlier read left still gets its own pass', async () =>
     should:
       'release the abandoned read at once, finish its pass, and run a further pass for the newer read',
     actual: [
-      isMediaDeferred(failure),
+      failure === client.signal.reason,
       world.reconciles() - passesBefore,
       served,
     ],
@@ -584,6 +584,65 @@ test('a later pass failing does not fail a read already served', async () => {
     should: 'answer the served read and fail only the later one',
     actual: [answer.state, (await later) instanceof Error],
     expected: ['ready', true],
+  });
+});
+
+test('a failed pass defers every reader rather than answering for it', async () => {
+  const { world, affirmative } = await admitted();
+  const conflict = createAppError(
+    'CONFLICT',
+    'Media reconciliation lease changed',
+  );
+  const outcomes: unknown[] = [];
+  for (const fault of [
+    { finishMediaReconcile: () => Promise.reject(conflict) },
+    { mediaReconcileProgress: () => Promise.reject(new Error('down')) },
+  ]) {
+    const operations = createRoundMediaOperations({
+      ...world.input,
+      store: { ...world.input.store, ...fault },
+    });
+    const reads = await Promise.all(
+      [0, 1].map(() =>
+        operations
+          .reconcile(world.roundId, affirmative.actorId)
+          .catch((error: unknown) => error),
+      ),
+    );
+    outcomes.push(reads.map(isMediaDeferred));
+  }
+  assert({
+    given: 'two reads on a pass whose lease is lost, or whose polling fails',
+    should:
+      'give each the retryable deferral, not an authority answer or a 500',
+    actual: outcomes,
+    expected: [
+      [true, true],
+      [true, true],
+    ],
+  });
+});
+
+test('an abandoned read takes no round lock', async () => {
+  const world = createMediaWorld();
+  let requests = 0;
+  const request = world.input.store.requestMediaReconcile;
+  world.input.store.requestMediaReconcile = ((
+    ...args: Parameters<typeof request>
+  ) => {
+    requests++;
+    return request(...args);
+  }) as typeof request;
+  const client = new AbortController();
+  client.abort();
+  await createRoundMediaOperations(world.input)
+    .reconcile(world.roundId, world.seats[0].actorId, client.signal)
+    .catch(() => undefined);
+  assert({
+    given: 'a read abandoned before it reached the request',
+    should: 'not ask for a reconcile',
+    actual: requests,
+    expected: 0,
   });
 });
 
