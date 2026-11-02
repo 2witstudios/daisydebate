@@ -142,3 +142,58 @@ test('a deferred media request answers 503 without alerting anyone', async () =>
     expected: [503, true, 0],
   });
 });
+
+test('session and reconcile receive the client request signal', async () => {
+  const seen: Record<string, AbortSignal | undefined> = {};
+  const handlers = createRoundMediaHandlers({
+    logger: silentLogger,
+    reporter: noopErrorReporter,
+    origin: () => origin,
+    identify: async () =>
+      ({ state: 'member', principal: { userId: id, actorId: id } }) as never,
+    getActorByUserId: async () => ({ id }) as never,
+    limiter: () =>
+      ({
+        consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
+      }) as never,
+    active: () => true,
+    operations: () =>
+      ({
+        session: async (
+          _round: string,
+          _actor: string,
+          signal: AbortSignal,
+        ) => {
+          seen.session = signal;
+          return {};
+        },
+        reconcile: async (
+          _round: string,
+          _actor: string,
+          signal: AbortSignal,
+        ) => {
+          seen.reconcile = signal;
+          return {};
+        },
+      }) as never,
+  });
+  const request = (path: string) =>
+    new Request(`${origin}/api/rounds/${id}/media/${path}`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: '{}',
+    });
+  const session = request('session');
+  const reconcile = request('reconcile');
+  await handlers.session(session, id);
+  await handlers.reconcile(reconcile, id);
+  assert({
+    given: 'browser requests that can be abandoned',
+    should: 'pass each request signal to its operation',
+    actual: [
+      seen.session === session.signal,
+      seen.reconcile === reconcile.signal,
+    ],
+    expected: [true, true],
+  });
+});

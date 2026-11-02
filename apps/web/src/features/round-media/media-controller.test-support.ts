@@ -81,3 +81,7 @@ export const readController = (
     api: { admit: admit ?? (async () => admission), reconcile },
   });
 };
+
+/** A newer accepted Round view, as the caller reports it. */
+export const viewAt = (value: number) =>
+  ({ kind: 'view', roundViewVersion: value }) as const;

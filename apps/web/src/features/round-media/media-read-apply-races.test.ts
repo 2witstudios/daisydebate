@@ -4,12 +4,10 @@ import {
   readController,
   snapshot,
   transportStub,
+  viewAt,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
-
-const version = (value: number) =>
-  ({ kind: 'view', roundViewVersion: value }) as const;
 
 test('a reply superseded in any microtask gap never ends or fails its successor', async () => {
   const results = new Set<string>();
@@ -25,12 +23,7 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
       const controller = readController({
         admit: async () => admission,
         reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-        transport: () =>
-          transportStub({
-            stopTracks: () => {
-              stops++;
-            },
-          }),
+        transport: () => transportStub({ stopTracks: () => void stops++ }),
       });
       await controller.join();
       const pending = controller.reconcile({ kind: 'wake' });
@@ -39,7 +32,7 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
       for (let tick = 0; tick < gap; tick++) await Promise.resolve();
       // A reply already acted on is not obsolete; only a live connection counts.
       if (controller.state() === 'live' && stops === 0) {
-        void controller.reconcile(version(4));
+        void controller.reconcile(viewAt(4));
         await pending;
         await settle();
         results.add(`${controller.state()}:${stops}`);
@@ -81,9 +74,9 @@ test('a queued fresh reply superseded while waiting for the old apply never star
   receipts.length = 0;
   const pending = controller.reconcile({ kind: 'wake' });
   await settle();
-  void controller.reconcile(version(4));
+  void controller.reconcile(viewAt(4));
   await settle();
-  void controller.reconcile(version(5));
+  void controller.reconcile(viewAt(5));
   await settle();
   const held = [reads, [...applied]];
   applying.resolve();
@@ -137,7 +130,7 @@ test('a receipt superseded in any microtask gap after apply is never announced',
     applying.resolve();
     for (let tick = 0; tick < gap; tick++) await Promise.resolve();
     const announced = receipts.length > 0;
-    void controller.reconcile(version(4));
+    void controller.reconcile(viewAt(4));
     await pending;
     await settle();
     // A receipt delivered before the view arrived was still current.

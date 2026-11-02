@@ -6,13 +6,11 @@ import {
   roundId,
   snapshot,
   transportStub,
+  viewAt,
 } from './media-controller.test-support';
 import { mediaFailure } from './media-failure';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
-
-const version = (value: number) =>
-  ({ kind: 'view', roundViewVersion: value }) as const;
 
 test('a stale ended, mismatched or malformed reply cannot end or fail its successor', async () => {
   const results = [];
@@ -27,17 +25,12 @@ test('a stale ended, mismatched or malformed reply cannot end or fail its succes
     const controller = readController({
       admit: async () => admission,
       reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-      transport: () =>
-        transportStub({
-          stopTracks: () => {
-            stops++;
-          },
-        }),
+      transport: () => transportStub({ stopTracks: () => void stops++ }),
     });
     await controller.join();
     const pending = controller.reconcile({ kind: 'wake' });
     await settle();
-    await controller.reconcile(version(4));
+    await controller.reconcile(viewAt(4));
     held.resolve(late);
     await pending;
     await settle();
@@ -80,7 +73,7 @@ test('an old apply finishing after its successor failed releases what it publish
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
   await settle();
-  await controller.reconcile(version(4));
+  await controller.reconcile(viewAt(4));
   await settle();
   const failed = [controller.state(), stops];
   applying.resolve();
@@ -106,7 +99,7 @@ test('events emitted synchronously from an abort still leave one fresh read', as
       seen.push(signal);
       if (++reads !== 2) return snapshot;
       signal.addEventListener('abort', () => {
-        void controller.reconcile(version(5));
+        void controller.reconcile(viewAt(5));
         void controller.reconcile({ kind: 'wake' });
       });
       return held.promise;
@@ -115,7 +108,7 @@ test('events emitted synchronously from an abort still leave one fresh read', as
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
   await settle();
-  await controller.reconcile(version(4));
+  await controller.reconcile(viewAt(4));
   await pending;
   await settle();
   assert({
@@ -141,7 +134,7 @@ test('a newer view emitted from a receipt rereads before announcing live', async
     changed: (state) => states.push(state),
     received: () => {
       receipts.push(reads);
-      if (reads === 1) void controller.reconcile(version(4));
+      if (reads === 1) void controller.reconcile(viewAt(4));
     },
   });
   await controller.join();
@@ -173,7 +166,7 @@ test('events after failure stay inert until reconnect, which uses the current in
   });
   await controller.join();
   await controller.reconcile({ kind: 'wake' });
-  await controller.reconcile(version(4));
+  await controller.reconcile(viewAt(4));
   await controller.reconcile({
     kind: 'boundary',
     roundViewVersion: 4,
@@ -310,12 +303,7 @@ test('the failure kind is exposed and a definite live refusal still releases', a
       if (++reads === 1) return snapshot;
       throw refusal.value;
     },
-    transport: () =>
-      transportStub({
-        stopTracks: () => {
-          stops++;
-        },
-      }),
+    transport: () => transportStub({ stopTracks: () => void stops++ }),
     changed: (state, failure) => seen.push([state, failure]),
   });
   await controller.join();

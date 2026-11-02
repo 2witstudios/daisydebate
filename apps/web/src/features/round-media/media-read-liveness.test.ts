@@ -3,13 +3,11 @@ import {
   readController,
   snapshot,
   transportStub,
+  viewAt,
 } from './media-controller.test-support';
 import { mediaFailure } from './media-failure';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
-
-const version = (value: number) =>
-  ({ kind: 'view', roundViewVersion: value }) as const;
 
 test('only an authority answer ends a live connection', async () => {
   const results = [];
@@ -21,12 +19,7 @@ test('only an authority answer ends a live connection', async () => {
         if (++reads === 1) return snapshot;
         throw mediaFailure(answer);
       },
-      transport: () =>
-        transportStub({
-          stopTracks: () => {
-            stops++;
-          },
-        }),
+      transport: () => transportStub({ stopTracks: () => void stops++ }),
     });
     await controller.join();
     await controller.reconcile({ kind: 'wake' });
@@ -58,12 +51,7 @@ test('a server reply saying unavailable still ends a live connection', async () 
   const controller = readController({
     reconcile: async () =>
       ++reads === 1 ? snapshot : { ...snapshot, state: 'unavailable' },
-    transport: () =>
-      transportStub({
-        stopTracks: () => {
-          stops++;
-        },
-      }),
+    transport: () => transportStub({ stopTracks: () => void stops++ }),
   });
   await controller.join();
   await controller.reconcile({ kind: 'wake' });
@@ -87,7 +75,7 @@ test('reads that keep being superseded still show out of date at the budget', as
   const states = [];
   for (let view = 4; view <= 13; view++) {
     nowMs += 5_000;
-    void controller.reconcile(version(view));
+    void controller.reconcile(viewAt(view));
     await settle();
     states.push(controller.state());
   }

@@ -62,9 +62,9 @@ at the current version with a new deadline, supersedes the read in flight:
 `decideMediaRead` advances the intent, the old ticket is invalid before its own
 abort signal fires, and one fresh read starts on the same connection. Malformed,
 equal, older and duplicate events change nothing, and wakes coalesce into one
-followup; each accepted projection also sends one, so a refresh at the same
-version corrects a boundary read that reached the server too early. These inputs only request a read; the server's reply still decides
-every grant.
+followup. Each accepted projection also sends one, so a refresh at the same
+version corrects a boundary read that reached the server too early. These inputs
+only request a read; the server's reply still decides every grant.
 
 An obsolete reply or rejection cannot apply, announce, fail the connection or
 clear its successor. Aborting releases the client's wait; it does not prove the
@@ -84,8 +84,9 @@ included, makes the state `out-of-date`, shown as such rather than as plain
 connected, until a later read answers. Later view, boundary and wake events and the
 view's backstop poll start those reads. Supersession restarts a read's retries but
 not the stall, so reads kept unanswered past the read budget also show `out-of-date`.
-A local device failure the Round has shown is not overwritten by later reads; revocation, terminal state and disposal still end the
-connection, and admission failure before a connection goes live is unchanged.
+A local device failure the Round has shown is not overwritten by later reads.
+Revocation, terminal state and disposal still end the connection, and admission
+failure before a connection goes live is unchanged.
 The deadline bounds HTTP only. An SDK apply that never settles still holds later
 applies, as it always has; nothing here cancels or times out SDK work.
 

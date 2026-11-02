@@ -10,6 +10,17 @@ import {
 } from './browser-transport.test-support';
 setupRitewayBun();
 
+/** A transport whose shared track list records each length it is sent. */
+const countingTrackList = () => {
+  const stub = stubSdk();
+  const emitted: number[] = [];
+  const { transport } = createBrowserMediaTransport(
+    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
+    stub.sdk,
+  );
+  return { stub, emitted, transport };
+};
+
 test('a terminal stop ends a camera captured while its publish is in flight', async () => {
   const stub = stubSdk();
   const { transport } = createBrowserMediaTransport(events, stub.sdk);
@@ -274,12 +285,7 @@ test('a failed publish rejects its own apply and the next apply still publishes'
 });
 
 test('only the first stop empties the shared track list', () => {
-  const stub = stubSdk();
-  const emitted: number[] = [];
-  const { transport } = createBrowserMediaTransport(
-    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
-    stub.sdk,
-  );
+  const { emitted, transport } = countingTrackList();
   transport.stopTracks();
   transport.stopTracks();
   assert({
@@ -310,12 +316,7 @@ test('a failed unpublish of a kept microphone stops it instead of orphaning it',
 });
 
 test('a released room cannot overwrite the shared track list', async () => {
-  const stub = stubSdk();
-  const emitted: number[] = [];
-  const { transport } = createBrowserMediaTransport(
-    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
-    stub.sdk,
-  );
+  const { stub, emitted, transport } = countingTrackList();
   transport.stopTracks();
   await transport.disconnect();
   stub.fire(RoomEvent.LocalTrackPublished);
@@ -329,12 +330,7 @@ test('a released room cannot overwrite the shared track list', async () => {
 });
 
 test('tracks stopped by a local failure still follow the connected room', () => {
-  const stub = stubSdk();
-  const emitted: number[] = [];
-  const { transport } = createBrowserMediaTransport(
-    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
-    stub.sdk,
-  );
+  const { stub, emitted, transport } = countingTrackList();
   transport.stopTracks();
   stub.fire(RoomEvent.TrackSubscribed);
   assert({

@@ -66,16 +66,21 @@ const mounted = async () => {
   return { state, held, controller, armed, deadlines, fire, follow };
 };
 
+/** Starts a read that never answers; the reads after it answer at once. */
+const holdRead = async (media: Awaited<ReturnType<typeof mounted>>) => {
+  media.held.reply = new Promise(() => undefined);
+  void media.controller.reconcile({ kind: 'wake' });
+  await settle();
+  media.held.reply = null;
+  return media.state.signals.at(-1);
+};
+
 test('a due boundary from the caller supersedes the read held at that version', async () => {
   const media = await mounted();
   media.follow(view, deadlineMs - 5_000);
   await settle();
   const reads = media.state.reads;
-  media.held.reply = new Promise(() => undefined);
-  void media.controller.reconcile({ kind: 'wake' });
-  await settle();
-  const heldSignal = media.state.signals.at(-1);
-  media.held.reply = null;
+  const heldSignal = await holdRead(media);
   media.fire();
   await settle();
   assert({
@@ -135,12 +140,8 @@ test('a newer view whose deadline already passed costs one read', async () => {
 
 test('a newer view from the caller supersedes the read it finds held', async () => {
   const media = await mounted();
-  media.held.reply = new Promise(() => undefined);
-  void media.controller.reconcile({ kind: 'wake' });
-  await settle();
-  const heldSignal = media.state.signals.at(-1);
+  const heldSignal = await holdRead(media);
   const before = media.state.reads;
-  media.held.reply = null;
   media.follow({ ...view, version: view.version + 1 }, deadlineMs - 5_000);
   await settle();
   assert({
@@ -156,12 +157,8 @@ test('a same-version view arriving after the deadline still supersedes a held re
   const media = await mounted();
   media.follow(view, deadlineMs - 5_000);
   await settle();
-  media.held.reply = new Promise(() => undefined);
-  void media.controller.reconcile({ kind: 'wake' });
-  await settle();
-  const heldSignal = media.state.signals.at(-1);
+  const heldSignal = await holdRead(media);
   const before = media.state.reads;
-  media.held.reply = null;
   media.follow({ ...view }, deadlineMs + 1);
   await settle();
   assert({
