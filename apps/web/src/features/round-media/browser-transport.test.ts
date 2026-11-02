@@ -353,6 +353,31 @@ test('a known failed unpublish rejects before any device work', async () => {
   });
 });
 
+test('an apply queued behind a failing permission pass rejects', async () => {
+  const gate = Promise.withResolvers<void>();
+  const stub = stubSdk({
+    settles: true,
+    failFirstUnpublish: true,
+    unpublishGate: gate.promise,
+  });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  await settle();
+  stub.permit([Track.Source.Camera]);
+  await settle();
+  const queued = transport
+    .apply(publish(['camera', 'microphone']))
+    .catch((error: Error) => error.message);
+  gate.resolve();
+  assert({
+    given:
+      'an unpublish still in flight when the next apply queues, then failing',
+    should: 'reject that apply rather than report a pass that did nothing',
+    actual: await queued,
+    expected: 'Unpublish refused',
+  });
+});
+
 test('a released room cannot overwrite the shared track list', async () => {
   const { stub, emitted, transport } = countingTrackList();
   transport.stopTracks();

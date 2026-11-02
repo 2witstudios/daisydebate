@@ -285,11 +285,16 @@ export function createBrowserMediaTransport(
       });
     return work;
   };
+  const rejectIfUnrecoverable = () => {
+    if (lastingFailure) throw lastingFailure.error;
+  };
   const apply = async (state: RoundMediaState) => {
     // Before any device work: only a rebuild clears this, so no pass should run.
-    if (lastingFailure) throw lastingFailure.error;
+    rejectIfUnrecoverable();
     granted = state.grants.publish;
     await settle();
+    // It may have failed in a pass this apply queued behind, which then did nothing.
+    rejectIfUnrecoverable();
   };
   const transport: BrowserMediaTransport = {
     connect: async (admission) => {

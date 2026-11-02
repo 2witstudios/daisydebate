@@ -66,15 +66,41 @@ test('a server reply saying unavailable still ends a live connection', async () 
   });
 });
 
-test('reads that keep being superseded still show out of date at the budget', async () => {
-  const { budget, advance } = fakeBudget();
+/** Joined on a test budget; every read after the first stalls unless answered. */
+const readsStallAfterFirst = async (answeredRead?: number) => {
+  const { budget, advance, pending } = fakeBudget();
+  const signals: AbortSignal[] = [];
   let reads = 0;
   const controller = readController({
     readBudget: budget,
-    reconcile: () =>
-      ++reads === 1 ? Promise.resolve(snapshot) : new Promise(() => undefined),
+    reconcile: (_id, signal) => {
+      signals.push(signal);
+      return ++reads === 1 || reads === answeredRead
+        ? Promise.resolve(snapshot)
+        : new Promise(() => undefined);
+    },
   });
   await controller.join();
+  return { controller, advance, pending, signals, reads: () => reads };
+};
+
+/** Three newer views 100 ms apart, so the last two land on a young read. */
+const burstOfThree = async (
+  controller: Awaited<ReturnType<typeof readsStallAfterFirst>>['controller'],
+  advance: (by: number) => void,
+) => {
+  void controller.reconcile(viewAt(4));
+  await settle();
+  advance(100);
+  void controller.reconcile(viewAt(5));
+  await settle();
+  advance(100);
+  void controller.reconcile(viewAt(6));
+  await settle();
+};
+
+test('reads that keep being superseded still show out of date at the budget', async () => {
+  const { controller, advance } = await readsStallAfterFirst();
   const states = [];
   for (let view = 4; view <= 13; view++) {
     advance(5_000);
@@ -209,34 +235,15 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
 });
 
 test('a read let finish cannot hold the fresh read past the young limit', async () => {
-  const { budget, advance } = fakeBudget();
-  const signals: AbortSignal[] = [];
-  let reads = 0;
-  const controller = readController({
-    readBudget: budget,
-    reconcile: (_id, signal) => {
-      signals.push(signal);
-      return ++reads === 1 || reads === 4
-        ? Promise.resolve(snapshot)
-        : new Promise(() => undefined);
-    },
-  });
-  await controller.join();
-  void controller.reconcile(viewAt(4));
-  await settle();
-  advance(100);
-  void controller.reconcile(viewAt(5));
-  await settle();
-  advance(100);
-  void controller.reconcile(viewAt(6));
-  await settle();
-  const whileYoung = [signals[2]?.aborted, reads];
+  const { controller, advance, signals, reads } = await readsStallAfterFirst(4);
+  await burstOfThree(controller, advance);
+  const whileYoung = [signals[2]?.aborted, reads()];
   advance(1_900);
   await settle();
   assert({
     given: 'the last event landing on a young read that then stalls',
     should: 'leave it alone while young, then abort it and read fresh',
-    actual: [whileYoung, signals[2]?.aborted, reads, controller.state()],
+    actual: [whileYoung, signals[2]?.aborted, reads(), controller.state()],
     expected: [[false, 3], true, 4, 'live'],
   });
   controller.stop();
@@ -249,24 +256,8 @@ test('no timer outlives what it was timing', async () => {
       controller: ReturnType<typeof readController>,
     ) => Promise<void> | void,
   ) => {
-    const { budget, advance, pending } = fakeBudget();
-    let reads = 0;
-    const controller = readController({
-      readBudget: budget,
-      reconcile: () =>
-        ++reads === 1
-          ? Promise.resolve(snapshot)
-          : new Promise(() => undefined),
-    });
-    await controller.join();
-    void controller.reconcile(viewAt(4));
-    await settle();
-    advance(100);
-    void controller.reconcile(viewAt(5));
-    await settle();
-    advance(100);
-    void controller.reconcile(viewAt(6));
-    await settle();
+    const { controller, advance, pending } = await readsStallAfterFirst();
+    await burstOfThree(controller, advance);
     const armed = pending();
     await end(controller);
     await settle();
@@ -487,19 +478,7 @@ test('in a burst a young read finishes, is fenced, and the newest read applies',
 });
 
 test('a read past the young limit is still aborted in a burst', async () => {
-  const { budget, advance } = fakeBudget();
-  const signals: AbortSignal[] = [];
-  let reads = 0;
-  const controller = readController({
-    readBudget: budget,
-    reconcile: (_id, signal) => {
-      signals.push(signal);
-      return ++reads === 1
-        ? Promise.resolve(snapshot)
-        : new Promise(() => undefined);
-    },
-  });
-  await controller.join();
+  const { controller, advance, signals, reads } = await readsStallAfterFirst();
   void controller.reconcile({ kind: 'wake' });
   await settle();
   void controller.reconcile(viewAt(4));
@@ -510,7 +489,7 @@ test('a read past the young limit is still aborted in a burst', async () => {
   assert({
     given: 'a read that has run the whole young limit when a newer view lands',
     should: 'abort it and read fresh, so a stall cannot hold the burst',
-    actual: [signals[2]?.aborted, reads],
+    actual: [signals[2]?.aborted, reads()],
     expected: [true, 4],
   });
   controller.stop();
