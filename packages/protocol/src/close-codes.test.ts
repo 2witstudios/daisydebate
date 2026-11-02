@@ -16,6 +16,7 @@ describe('close codes', () => {
         ['rate_limited', 4004],
         ['slow_consumer', 4005],
         ['server_restarting', 4006],
+        ['authority_unavailable', 4007],
       ],
     });
   });

@@ -7,6 +7,7 @@ import {
   WORKLOAD_PROFILES,
   type LaneTimer,
 } from './workload-admission';
+import { RUNTIME_SESSION } from './session-bounds';
 
 setupRitewayBun();
 
@@ -37,6 +38,10 @@ const settled = <T>(promise: Promise<T>) =>
     (error: unknown) => ({ ok: false as const, error }),
   );
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const reasonOf = (error: unknown) => {
+  const detail = capacityRefusalDetail(error);
+  return detail && { lane: detail.lane, reason: detail.reason };
+};
 
 test('a lane refuses beyond its counted queue and reports why', async () => {
   const { timer } = manualTimer();
@@ -53,7 +58,7 @@ test('a lane refuses beyond its counted queue and reports why', async () => {
     should: 'refuse the next at once as saturated on that lane',
     actual: [
       refused.ok,
-      refused.ok ? undefined : capacityRefusalDetail(refused.error),
+      refused.ok ? undefined : reasonOf(refused.error),
       gate.stats(),
     ],
     expected: [
@@ -80,10 +85,7 @@ test('a waiter older than the lane age is refused and leaves the queue', async (
   assert({
     given: 'a waiter still queued when the competitive lane age passes',
     should: 'refuse it as expired, unrun, and free the lane for later work',
-    actual: [
-      outcome.ok ? undefined : capacityRefusalDetail(outcome.error),
-      gate.stats(),
-    ],
+    actual: [outcome.ok ? undefined : reasonOf(outcome.error), gate.stats()],
     expected: [
       { lane: 'competitive', reason: 'expired' },
       { active: 0, waiting: 0 },
@@ -165,10 +167,7 @@ test('release is idempotent and an unconfigured lane refuses everything', async 
   assert({
     given: 'a double release, then a lane the profile does not configure',
     should: 'count the connection back once, and refuse as unconfigured',
-    actual: [
-      gate.stats(),
-      absent.ok ? undefined : capacityRefusalDetail(absent.error),
-    ],
+    actual: [gate.stats(), absent.ok ? undefined : reasonOf(absent.error)],
     expected: [
       { active: 0, waiting: 0 },
       { lane: 'headers', reason: 'unconfigured' },
@@ -188,4 +187,45 @@ test('the deployed profiles are valid and sized as the plan states', () => {
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
     expected: [27, 7, 11],
   });
+});
+
+test('a queued subscribe outlasts one read blocked on a fence (ISSUE-914)', () => {
+  const { realtime, 'realtime-observer': observer } = WORKLOAD_PROFILES;
+  assert({
+    given: 'every realtime profile and the session lock bound',
+    should: 'let an admission waiter outlast one read holding the connection',
+    actual: [realtime, observer].map(
+      ({ lanes }) => lanes.admission.maxWaitMs > RUNTIME_SESSION.lock_timeout,
+    ),
+    expected: [true, true],
+  });
+});
+
+test('a refusal says what the lane was waiting on', async () => {
+  const lane = manualTimer();
+  let now = 0;
+  const gate = createLaneGate(
+    'admission',
+    { connections: 1, queue: 8, maxWaitMs: 100 },
+    lane.timer,
+    () => now,
+  );
+  await gate.admit();
+  const expiring = settled(gate.admit());
+  lane.advance(50);
+  const queued = settled(gate.admit());
+  now = 400;
+  lane.advance(50);
+  const outcome = await expiring;
+  assert({
+    given: 'one hold of 400 ms, a waiter expiring and another still queued',
+    should: 'report the waiters left, the running work and its age',
+    actual: outcome.ok ? undefined : capacityRefusalDetail(outcome.error),
+    expected: {
+      lane: 'admission',
+      reason: 'expired',
+      pressure: { pending: 1, running: 1, oldestAgeMs: 400 },
+    },
+  });
+  void queued;
 });

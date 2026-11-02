@@ -65,7 +65,7 @@ export function createSubscriptionRegistry({
   readonly readRetentionBoundary: () => Promise<OutboxPosition | null>;
   readonly publish: (topic: string, frame: ServerMessage) => void;
   /** Reports an authority read that failed rather than decided. */
-  readonly failed: (error: unknown) => void;
+  readonly failed: (error: unknown, operation?: string) => void;
 }) {
   const connections = new Set<Connection>();
   let nextConnection = 0;
