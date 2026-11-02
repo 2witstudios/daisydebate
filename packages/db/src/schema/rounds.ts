@@ -208,7 +208,7 @@ export const rounds = pgTable(
         sql`(${scheduled}) or (${active}) or (${completed}) or (${abandoned})`,
       ),
       check(
-        'rounds_rated_ladder_check',
+        'rounds_ranked_ladder_check',
         sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null and ${table.ladderId} = ${table.formatId}) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
       ),
       check(
