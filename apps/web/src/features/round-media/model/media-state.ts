@@ -1,6 +1,9 @@
 import type { RoundMediaState } from '@daisy/protocol';
 import type { MediaReadIntent } from '../media-read-intent';
-import type { SourceFailureKind } from '../source-failure';
+import type {
+  DeviceFailureKind,
+  PreferenceFailureKind,
+} from '../source-failure';
 import type { MediaTimer } from './media-effects';
 
 /**
@@ -34,8 +37,14 @@ export type SourceState =
   /** `removingSinceMs`: its publication is still being taken down after the failure. */
   | {
       readonly phase: 'failed';
-      readonly kind: SourceFailureKind;
+      readonly kind: DeviceFailureKind;
       readonly removingSinceMs: number | null;
+    }
+  /** A saved choice that could not be read fails before anything is published. */
+  | {
+      readonly phase: 'failed';
+      readonly kind: PreferenceFailureKind;
+      readonly removingSinceMs: null;
     }
   /** The device the Room check passed is gone. */
   | { readonly phase: 'missing' }
@@ -210,7 +219,6 @@ export const initialMediaState = (input: {
       roundViewVersion: input.roundViewVersion,
       deadlineMs: null,
       generation: 0,
-      disposed: false,
     },
     recovery: { step: 0, lastAttemptMs: null, heldSinceMs: null },
     microphoneMuted: input.microphoneMuted,

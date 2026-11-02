@@ -1,6 +1,6 @@
 import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
 import type { MediaReadEvent } from '../media-read-intent';
-import type { SourceFailureKind } from '../source-failure';
+import type { DeviceFailureKind, SourceFailureKind } from '../source-failure';
 import type { MediaTimer } from './media-effects';
 import type { ObservedPeer, ObservedTrack, Source } from './media-state';
 
@@ -39,7 +39,7 @@ export type RoomEvent =
   | {
       readonly type: 'publish-failed';
       readonly source: Source;
-      readonly kind: SourceFailureKind;
+      readonly kind: DeviceFailureKind;
     }
   | { readonly type: 'unpublished'; readonly source: Source }
   | { readonly type: 'unpublish-failed'; readonly source: Source }
@@ -47,7 +47,7 @@ export type RoomEvent =
   | { readonly type: 'device-swapped'; readonly source: Source }
   | { readonly type: 'mute-applied'; readonly muted: boolean }
   | { readonly type: 'mute-abandoned' }
-  | { readonly type: 'mute-failed'; readonly kind: SourceFailureKind }
+  | { readonly type: 'mute-failed'; readonly kind: DeviceFailureKind }
   | { readonly type: 'playback-changed'; readonly allowed: boolean };
 
 export type MediaEvent =

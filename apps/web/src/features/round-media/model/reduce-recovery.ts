@@ -167,7 +167,14 @@ export const budgetExpired = (
   if (link.phase !== 'live') return rejected(state);
   if (link.establishment.stage === 'establishing')
     return release(state, 'transient', ctx);
-  if (link.establishment.freshness.status === 'stale') return moved(state);
+  const { freshness } = link.establishment;
+  // An answer's SDK work hung after its wake was spent: another is owed.
+  const wakeOwed =
+    freshness.status === 'stale' &&
+    freshness.cause === 'transient' &&
+    !freshness.wakeArmed &&
+    applyHoldsReads(state, link);
+  if (freshness.status === 'stale' && !wakeOwed) return moved(state);
   const stale = showStale(state, link, 'transient', ctx);
   return { state: withLive(stale.state, stale.live), effects: stale.effects };
 };

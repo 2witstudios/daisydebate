@@ -449,3 +449,36 @@ test('reception counts as live when a wake weighs a rebuild', () => {
     expected: ['admitting', 'live'],
   });
 });
+
+test('a wake whose answer then hangs leaves another wake owed', () => {
+  const d = driver();
+  d.join(['microphone']);
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 2 },
+  });
+  d.timer('read-budget');
+  d.flushDeferred();
+  d.send({ type: 'read-failed', ticket: d.ticket(), failure: 'transient' });
+  d.timer('read-retry');
+  d.send({ type: 'read-aborted', ticket: d.ticket() });
+  d.timer('recovery');
+  const spent = armedOf(d.state());
+  d.answer(['camera', 'microphone']);
+  d.room({ type: 'captured', source: 'camera' });
+  d.timer('read-budget');
+  const owed = armedOf(d.state());
+  d.advance(testPolicy.readBudgetMs);
+  d.timer('recovery');
+  assert({
+    given:
+      'a stale link, its wake answered, and that answer hanging in the SDK',
+    should: 'owe another wake past the budget, then name the stuck camera',
+    actual: [spent, owed, d.live().sources.camera],
+    expected: [
+      null,
+      'wake',
+      { phase: 'publishing', sinceMs: 1_000_000, stuck: true },
+    ],
+  });
+});

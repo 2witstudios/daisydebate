@@ -8,16 +8,14 @@ const sourceErrorName = z.enum([
   'OverconstrainedError',
   'NotReadableError',
 ]);
-export type SourceFailureKind =
-  | 'permission'
-  | 'absence'
-  | 'failure'
-  | 'preference-unreadable'
-  | 'preference-invalid';
+export type DeviceFailureKind = 'permission' | 'absence' | 'failure';
+export type PreferenceFailureKind =
+  'preference-unreadable' | 'preference-invalid';
+export type SourceFailureKind = DeviceFailureKind | PreferenceFailureKind;
 export type SourceFailure = {
   readonly kind: SourceFailureKind;
 };
-const kinds: Record<z.infer<typeof sourceErrorName>, SourceFailureKind> = {
+const kinds: Record<z.infer<typeof sourceErrorName>, DeviceFailureKind> = {
   NotAllowedError: 'permission',
   SecurityError: 'permission',
   NotFoundError: 'absence',
@@ -26,7 +24,9 @@ const kinds: Record<z.infer<typeof sourceErrorName>, SourceFailureKind> = {
 };
 
 /** SDK boundary: closed display-only facts, never authorization or retry authority. */
-export function sourceFailureOf(error: unknown): SourceFailure {
+export function sourceFailureOf(error: unknown): {
+  readonly kind: DeviceFailureKind;
+} {
   const parsed = sourceErrorName.safeParse(
     typeof error === 'object' && error !== null && 'name' in error
       ? error.name

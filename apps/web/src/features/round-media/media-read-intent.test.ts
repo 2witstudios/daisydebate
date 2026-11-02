@@ -11,7 +11,6 @@ const initial = {
   roundViewVersion: 3,
   deadlineMs: null,
   generation: 0,
-  disposed: false,
 };
 test('new view and boundary are distinct read intents', () => {
   const boundary = decideMediaRead(initial, {
@@ -52,37 +51,23 @@ test('old duplicate malformed and disposed events are inert', () => {
     { kind: 'boundary', roundViewVersion: 2, deadlineMs: 70000 },
     { kind: 'boundary', roundViewVersion: 4, deadlineMs: 70000 },
   ];
-  const disposed = { ...intent, disposed: true };
   assert({
-    given: 'non-advancing or malformed keys and a disposed lifetime',
+    given: 'non-advancing or malformed keys',
     should: 'retain identical state without scheduling work',
-    actual: [
-      events.every((event) => {
-        const next = decideMediaRead(intent, event);
-        return next.intent === intent && next.action === 'ignore';
-      }),
-      [...events, { kind: 'wake' } as const].every(
-        (event) =>
-          decideMediaRead(disposed, event).intent === disposed &&
-          decideMediaRead(disposed, event).action === 'ignore',
-      ),
-    ],
-    expected: [true, true],
+    actual: events.every((event) => {
+      const next = decideMediaRead(intent, event);
+      return next.intent === intent && next.action === 'ignore';
+    }),
+    expected: true,
   });
 });
-test('wake keeps authority and dispose is terminal', () => {
+test('wake keeps authority', () => {
   const wake = decideMediaRead(initial, { kind: 'wake' });
-  const stop = decideMediaRead(initial, { kind: 'dispose' });
   assert({
-    given: 'a same-intent wake then disposal',
-    should: 'nudge without minting authority and invalidate on disposal',
-    actual: [wake.action, wake.intent === initial, stop.action, stop.intent],
-    expected: [
-      'wake',
-      true,
-      'supersede',
-      { ...initial, disposed: true, generation: 1 },
-    ],
+    given: 'a same-intent wake',
+    should: 'nudge without minting authority',
+    actual: [wake.action, wake.intent === initial],
+    expected: ['wake', true],
   });
 });
 
