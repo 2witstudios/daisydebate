@@ -10,8 +10,8 @@ import {
 } from './scratch-migrations.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const budget = '20261102023652_overrated_silver_samurai';
-const cutoff = '20261102024123_tearful_starfox';
+const budget = '20261102142301_overrated_silver_samurai';
+const cutoff = '20261102142302_tearful_starfox';
 const scratch = scratchDatabase(databaseUrl, 'roundcompletion');
 afterAll(() => scratch.drop());
 
