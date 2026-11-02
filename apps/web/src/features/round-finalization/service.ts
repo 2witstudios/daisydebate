@@ -45,6 +45,12 @@ const terminalRace = (error: unknown) =>
   error.message === 'attendance-terminal';
 
 type Evaluation = 'ended' | 'continue';
+const evaluationOf = (
+  resolution: { readonly decision: string } | null,
+): Evaluation =>
+  resolution?.decision === 'forfeit' || resolution?.decision === 'abandoned'
+    ? 'ended'
+    : 'continue';
 /** Backoff and hold state per Round, so a known-blocked Round costs little and says why. */
 function createEvaluationPacing(input: MaintenancePorts) {
   const now = input.now ?? (() => performance.now());
@@ -61,6 +67,24 @@ function createEvaluationPacing(input: MaintenancePorts) {
       oldestMs: Math.round(at - Math.min(...heldSince.values())),
     });
   };
+  const noteHold = (
+    roundId: string,
+    resolution: { readonly decision: string } | null,
+  ) => {
+    if (resolution?.decision === 'held') {
+      if (!heldSince.has(roundId)) heldSince.set(roundId, now());
+      reportHeld();
+    } else heldSince.delete(roundId);
+    if (resolution === null || resolution.decision === 'held')
+      retryAt.set(roundId, now() + EVALUATION_RETRY_MS);
+    else retryAt.delete(roundId);
+  };
+  const backOff = (roundId: string) => {
+    const failed = (failures.get(roundId) ?? 0) + 1;
+    failures.set(roundId, failed);
+    const waitMs = EVALUATION_RETRY_MS * 2 ** (failed - 1);
+    retryAt.set(roundId, now() + Math.min(waitMs, EVALUATION_RETRY_MAX_MS));
+  };
   return {
     async evaluate(roundId: string): Promise<Evaluation> {
       if (now() < (retryAt.get(roundId) ?? Number.NEGATIVE_INFINITY))
@@ -68,29 +92,11 @@ function createEvaluationPacing(input: MaintenancePorts) {
       try {
         const resolution = await input.evaluate(roundId);
         failures.delete(roundId);
-        if (resolution?.decision === 'held') {
-          if (!heldSince.has(roundId)) heldSince.set(roundId, now());
-          reportHeld();
-        } else heldSince.delete(roundId);
-        if (resolution === null || resolution.decision === 'held')
-          retryAt.set(roundId, now() + EVALUATION_RETRY_MS);
-        else retryAt.delete(roundId);
-        return resolution?.decision === 'forfeit' ||
-          resolution?.decision === 'abandoned'
-          ? 'ended'
-          : 'continue';
+        noteHold(roundId, resolution);
+        return evaluationOf(resolution);
       } catch (error) {
         if (terminalRace(error)) return 'ended';
-        const failed = (failures.get(roundId) ?? 0) + 1;
-        failures.set(roundId, failed);
-        retryAt.set(
-          roundId,
-          now() +
-            Math.min(
-              EVALUATION_RETRY_MS * 2 ** (failed - 1),
-              EVALUATION_RETRY_MAX_MS,
-            ),
-        );
+        backOff(roundId);
         input.failed(error, 'evaluate');
         return 'continue';
       }

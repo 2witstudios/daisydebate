@@ -133,3 +133,57 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       },
     });
   }, botAdmissionForTests));
+
+const judgingOptions = {
+  ...botAdmissionForTests,
+  judging: {
+    leaseMs: 60000,
+    model: 'fixture-model',
+    nextToken: () => randomBytes(32).toString('base64url'),
+  },
+};
+
+test('a failed AI judge ends a rated Round honestly: no human countdown, no winner, no rating, Room released', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId } = await frozenBotJudgeRound(f, true);
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    const seen = () => f.store.readLaunchedRound(roundId, f.host, () => true);
+    const processing = await seen();
+    const [row] =
+      await f.sql`select ballot_deadline_at from rounds where id=${roundId}`;
+    await seedSettledAttendanceLedger(f, roundId);
+    await f.sql`update round_judging_jobs set status='failed',terminal_reason='attempts_exhausted' where round_id=${roundId}`;
+    const failed = await seen();
+    await finalizeByMaintenance(f, roundId);
+    const done = (await f.store.getRound(roundId))!;
+    const view = await seen();
+    const [facts] =
+      await f.sql`select (select count(*)::int from rating_changes where round_id=${roundId}) as ratings,
+        (select count(*)::int from room_active_memberships m join rounds r on r.room_id=m.room_id where r.id=${roundId}) as held`;
+    assert({
+      given:
+        'a ranked Round whose only judge is an AI with a job that ran out of calls',
+      should:
+        'show AI processing with no human window, then failure, then complete with no winner or rating and hold nobody',
+      actual: {
+        processing: processing.judging?.state,
+        humanDeadline: row.ballot_deadline_at,
+        failed: failed.judging?.state,
+        done: [done.status, done.outcome],
+        ruling: view.unjudgedRuling,
+        terminalStatus: view.judging,
+        ...facts,
+      },
+      expected: {
+        processing: 'ai_processing',
+        humanDeadline: null,
+        failed: 'ai_failed',
+        done: ['completed', null],
+        ruling: 'judging-failed',
+        terminalStatus: null,
+        ratings: 0,
+        held: 0,
+      },
+    });
+  }, judgingOptions);
+});
