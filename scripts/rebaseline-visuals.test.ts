@@ -1,3 +1,4 @@
+import { setDefaultTimeout } from 'bun:test';
 import {
   chmodSync,
   mkdirSync,
@@ -13,6 +14,8 @@ import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
+// A full wait runs 24 passes of real jq, which a loaded machine stretches.
+setDefaultTimeout(30_000);
 
 type Step = {
   id?: string;
@@ -224,7 +227,15 @@ const prRun = (
   status: string,
   conclusion: string | null,
   head_sha = 'a'.repeat(40),
-) => ({ id, status, conclusion, head_sha, event: 'pull_request' });
+  repo = 'owner/daisy',
+) => ({
+  id,
+  status,
+  conclusion,
+  head_sha,
+  event: 'pull_request',
+  head_repository: { full_name: repo },
+});
 const held = (id: number, head_sha?: string) =>
   prRun(id, 'completed', 'action_required', head_sha);
 
@@ -266,20 +277,16 @@ describe('Rebaseline visuals start-checks', () => {
     });
   });
 
-  test('a CI run that has not started', () => {
-    const waiting = (status: string) =>
-      runApprove([{ number: 1 }], [prRun(11, status, null)]);
-    assert({
-      given: 'CI queued, requested or pending for the whole wait, never held',
-      should: 'keep watching, then finish without approving anything',
-      actual: [waiting('queued'), waiting('requested'), waiting('pending')],
-      expected: [
-        { ok: true, approved: [] },
-        { ok: true, approved: [] },
-        { ok: true, approved: [] },
-      ],
+  for (const status of ['queued', 'requested', 'pending']) {
+    test(`a CI run still ${status}`, () => {
+      assert({
+        given: `CI ${status} for the whole wait and never held`,
+        should: 'keep watching, then finish without approving anything',
+        actual: runApprove([{ number: 1 }], [prRun(11, status, null)]),
+        expected: { ok: true, approved: [] },
+      });
     });
-  });
+  }
 
   test('a held run at another commit', () => {
     assert({
@@ -287,6 +294,22 @@ describe('Rebaseline visuals start-checks', () => {
       should: 'never approve that run, and fail when its own never appears',
       actual: runApprove([{ number: 1 }], [held(11, 'b'.repeat(40))]),
       expected: { ok: false, approved: [] },
+    });
+  });
+
+  test('a held run from a fork at the same commit', () => {
+    const fork = prRun(
+      11,
+      'completed',
+      'action_required',
+      undefined,
+      'someone/daisy',
+    );
+    assert({
+      given: 'CI held for a fork pull request at the head commit',
+      should: 'never approve the fork run past GitHub first-time approval',
+      actual: runApprove([{ number: 1 }], [fork], undefined, false),
+      expected: { ok: true, approved: [] },
     });
   });
 

@@ -20,12 +20,12 @@ describe('resolveExplainer', () => {
   });
 
   test('an unlaunched destination shows its explainer', () => {
-    const result = resolveExplainer('ranked', config(''));
+    const result = resolveExplainer('watch', config(''));
     assert({
-      given: 'ranked while nothing is launched',
-      should: 'show the ranked copy',
+      given: 'watch while nothing is launched',
+      should: 'show the watch copy',
       actual: result.kind === 'show' && result.destination.slug,
-      expected: 'ranked',
+      expected: 'watch',
     });
   });
 
@@ -38,6 +38,15 @@ describe('resolveExplainer', () => {
         resolveExplainer('watch', config('lobby')).kind,
       ],
       expected: [{ kind: 'redirect', to: '/lobby' }, 'show'],
+    });
+  });
+
+  test('a launched Seasons redirects to its page under the leaderboard', () => {
+    assert({
+      given: 'seasons flipped to launched',
+      should: 'redirect to /leaderboard/seasons',
+      actual: resolveExplainer('seasons', config('seasons')),
+      expected: { kind: 'redirect', to: '/leaderboard/seasons' },
     });
   });
 });
