@@ -95,15 +95,7 @@ export async function runMessagingNavigationProbe(
             >
               Preferences
             </ConversationLink>
-            <ConversationSearchForm
-              action="/messages/channel"
-              method="get"
-              onSubmitCapture={
-                scenario === 'canceled-search'
-                  ? (event) => event.preventDefault()
-                  : undefined
-              }
-            >
+            <ConversationSearchForm action="/messages/channel" method="get">
               <input
                 name="query"
                 required
@@ -144,7 +136,7 @@ export async function runMessagingNavigationProbe(
   if (scenario === 'search-disposed' || scenario === 'search-replaced') {
     await act(async () => {
       host.querySelector('form')!.requestSubmit();
-      // Dispose/replace before the native submit's cancellation checkpoint runs.
+      // The submit's own choice stands whatever happens to the conversation next.
       if (scenario === 'search-disposed') root.unmount();
       else flushSync(() => root.render(tree('successor')));
     });

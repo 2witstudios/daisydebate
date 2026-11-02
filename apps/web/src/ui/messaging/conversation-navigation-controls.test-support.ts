@@ -35,18 +35,7 @@ export async function initiateConversationNavigation(
       );
     });
   }
-  if (
-    [
-      'search',
-      'canceled-search',
-      'invalid-search',
-      'late-canceled-search',
-    ].includes(scenario)
-  ) {
-    if (scenario === 'late-canceled-search')
-      document.addEventListener('submit', (event) => event.preventDefault(), {
-        once: true,
-      });
+  if (['search', 'invalid-search'].includes(scenario)) {
     await act(async () => {
       host.querySelector('form')!.requestSubmit();
     });

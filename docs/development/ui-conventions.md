@@ -83,42 +83,9 @@ JavaScript only enhances it.
 
 ### Conversation completion ownership
 
-A hydrated DM send's durable result and its right to navigate are separate.
-The conversation composition owns a local completion scope
-(`ui/messaging/conversation-navigation.tsx`): dispatch captures an action
-origin, accepted same-tab conversation navigation supersedes it, and success
-consumes ownership before issuing its destination. Disposing the origin or
-replacing the conversation cannot revive an old answer. Link `onNavigate`
-observes intent before route commitment; modified/new-tab clicks and prefetch
-do not invalidate it. Invalid or canceled search submissions retain it.
-The same owner records confirmed sends separately from navigation permission.
-A successful command adopts the next server-rendered request ID even when
-same-conversation navigation suppresses its redirect. Pending, unsent and
-failed/unknown-commit drafts keep their exact ID; already-used IDs and old
-answers cannot reset a newly typed draft. Client dispatch stamps its own
-completion origin before awaiting the server, and removes that client-only
-origin from the previous state sent over the action boundary. Server rendering
-retains the exact original action reference for native POST and 303.
-The composer form is keyed by the count of adopted commands, never by the
-request ID: React adopts a native POST’s answer only into the same key path, and
-every server render issues a new ID.
-Other form consumers keep the shared `useMovedOn` behavior.
-
-The sequential browser journey waits for the exact sent-message destination
-and ready composer before Edit. Separate held-action/held-editor response
-proofs exercise overlapping intent through the real Next router; mounted
-command controls alone do not establish a real router winner.
-
-A navigation started during the pending send joins that action's React lane, so
-it cannot commit until the send settles, and leaving the conversation then unmounts
-the composer in that same commit. A click in the few milliseconds after the action
-settles and before its answer commits is different: the answer commits first with
-the composer still mounted, and without the ownership decision its `?sent`
-replacement beats the member's newer Edit on the real router. A same-conversation
-page keeps the composer mounted either way, so the same replacement overwrites the
-member's chosen page. The Edit completion-window and held Earlier-messages proofs
-fail without the decision. The held Edit tests are outcome proofs that stay green
-without it.
+A hydrated DM send's durable result and its right to navigate are separate: the
+conversation owns both, and a newer same-tab choice in it supersedes the send's
+destination. See [messaging](../domains/messaging.md#send-completion-ownership).
 
 Recorded exceptions:
 

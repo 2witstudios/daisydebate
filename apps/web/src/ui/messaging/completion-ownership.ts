@@ -1,5 +1,5 @@
 type Command =
-  | { readonly status: 'draft' | 'committed'; readonly id: string }
+  | { readonly status: 'draft' | 'spent'; readonly id: string }
   | {
       readonly status: 'pending';
       readonly id: string;
@@ -19,7 +19,7 @@ type CompletionOwnership = {
   readonly generation: number;
   readonly offeredId: string;
   /** Used IDs stay spent for this mounted conversation lifetime. */
-  readonly committedIds: readonly string[];
+  readonly spentIds: readonly string[];
 };
 type Event =
   | { readonly type: 'dispatch' | 'navigate' | 'dispose' }
@@ -37,12 +37,12 @@ export const initialCompletionOwnership = (
   command: { id: requestId, status: 'draft' },
   generation: 0,
   offeredId: requestId,
-  committedIds: [],
+  spentIds: [],
 });
 
 function nextCommand(state: CompletionOwnership): CompletionOwnership {
-  return state.command.status === 'committed' &&
-    !state.committedIds.includes(state.offeredId)
+  return state.command.status === 'spent' &&
+    !state.spentIds.includes(state.offeredId)
     ? {
         ...state,
         command: { id: state.offeredId, status: 'draft' },
@@ -52,7 +52,7 @@ function nextCommand(state: CompletionOwnership): CompletionOwnership {
 }
 
 function beginCommand(state: CompletionOwnership): CompletionOwnership {
-  return state.command.status === 'committed'
+  return state.command.status === 'spent'
     ? state
     : {
         ...state,
@@ -77,7 +77,7 @@ function offerCommand(
   state: CompletionOwnership,
   requestId: string,
 ): CompletionOwnership {
-  return state.offeredId === requestId || state.committedIds.includes(requestId)
+  return state.offeredId === requestId || state.spentIds.includes(requestId)
     ? state
     : nextCommand({ ...state, offeredId: requestId });
 }
@@ -92,19 +92,19 @@ function settleCommand(
     state.command.origin !== event.origin
   )
     return { state, apply: false };
-  const success = event.type === 'complete';
+  // A form gone before its answer has an unknown outcome and no draft left to retry:
+  // its ID must never carry different text.
+  const spent = event.type !== 'failed';
   return {
     state: nextCommand({
       ...state,
       command: {
         id: state.command.id,
-        status: success ? 'committed' : 'draft',
+        status: spent ? 'spent' : 'draft',
       },
-      committedIds: success
-        ? [...state.committedIds, state.command.id]
-        : state.committedIds,
+      spentIds: spent ? [...state.spentIds, state.command.id] : state.spentIds,
     }),
-    apply: success && state.command.navigation === 'owned',
+    apply: event.type === 'complete' && state.command.navigation === 'owned',
   };
 }
 

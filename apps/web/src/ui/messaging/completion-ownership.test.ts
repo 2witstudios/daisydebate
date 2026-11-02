@@ -67,6 +67,38 @@ test('form generation changes only when a fresh command is adopted', () => {
   });
 });
 
+test('an abandoned command spends its ID whatever its unobserved outcome', () => {
+  const pending = completionOwnership(initialCompletionOwnership('request'), {
+    type: 'dispatch',
+  }).state;
+  const abandoned = completionOwnership(pending, {
+    type: 'abandon',
+    origin: pending.sequence,
+  });
+  const offeredSpent = completionOwnership(abandoned.state, {
+    type: 'rendered',
+    requestId: 'request',
+  }).state;
+  const adopted = completionOwnership(offeredSpent, {
+    type: 'rendered',
+    requestId: 'fresh',
+  }).state;
+  assert({
+    given: 'a form gone before its answer, then server renders offering IDs',
+    should:
+      'never navigate, never reoffer the used ID, and adopt only the fresh one',
+    actual: [
+      abandoned.apply,
+      offeredSpent.command.id,
+      offeredSpent.command.status,
+      adopted.command.id,
+      adopted.command.status,
+      adopted.generation,
+    ],
+    expected: [false, 'request', 'spent', 'fresh', 'draft', 1],
+  });
+});
+
 test('accepted navigation supersedes completion before any pathname changes', () => {
   const started = completionOwnership(initialCompletionOwnership('request'), {
     type: 'dispatch',
@@ -81,7 +113,7 @@ test('accepted navigation supersedes completion before any pathname changes', ()
     should:
       'refuse the old navigation while recording the independently committed send',
     actual: [completed.apply, completed.state.command.status],
-    expected: [false, 'committed'],
+    expected: [false, 'spent'],
   });
 });
 

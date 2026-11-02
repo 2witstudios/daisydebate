@@ -1,35 +1,77 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
-for (const [scenario, commands] of Object.entries({
-  ordinary: ['replace:/messages/channel?sent=message'],
-  edit: ['intent:/messages/channel/message?messageId=message&before=2'],
-  preferences: ['intent:/messages/channel/preferences'],
-  'same-conversation': [
+const sentReplace = 'replace:/messages/channel?sent=message';
+const pending = true;
+/** One command committed once; `commands` are the router effects it left. */
+const oneSend = (commands: readonly string[], extra: object = {}) => ({
+  pending,
+  calls: 1,
+  commits: 1,
+  commands,
+  ...extra,
+});
+const failedDraft = { requestId: 'request', text: 'Draft', ready: true };
+const refused = { pending, calls: 1, commits: 0, commands: [], failedDraft };
+const sameConversation = {
+  pending,
+  calls: 2,
+  commits: 2,
+  commands: [
     'intent:/messages/channel?before=2',
     'replace:/messages/channel?sent=new',
   ],
-  'same-conversation-late': [
-    'intent:/messages/channel?before=2',
-    'replace:/messages/channel?sent=new',
+  nextCommand: { requestId: 'fresh', ready: true, text: '' },
+  retainedNew: { requestId: 'fresh', ready: true, text: 'NEW' },
+  submissions: [
+    { requestId: 'request', text: 'Draft' },
+    { requestId: 'fresh', text: 'NEW' },
   ],
-  'refreshed-draft': ['replace:/messages/channel?sent=message'],
-  refusal: [],
-  transport: [],
-  'unknown-commit': ['replace:/messages/channel?sent=message'],
-  disposed: [],
-  replaced: [],
-  'replaced-active': ['replace:/messages/successor?sent=second'],
-  modified: ['replace:/messages/channel?sent=message'],
-  'new-tab': ['replace:/messages/channel?sent=message'],
-  canceled: ['replace:/messages/channel?sent=message'],
-  search: [],
-  'search-disposed': [],
-  'search-replaced': [],
-  'canceled-search': ['replace:/messages/channel?sent=message'],
-  'late-canceled-search': ['replace:/messages/channel?sent=message'],
-  'invalid-search': ['replace:/messages/channel?sent=message'],
-})) {
+};
+
+const scenarios: Readonly<Record<string, object>> = {
+  ordinary: oneSend([sentReplace]),
+  edit: oneSend([
+    'intent:/messages/channel/message?messageId=message&before=2',
+  ]),
+  preferences: oneSend(['intent:/messages/channel/preferences']),
+  'same-conversation': sameConversation,
+  'same-conversation-late': sameConversation,
+  'refreshed-draft': oneSend([sentReplace], {
+    beforeDispatch: { text: 'Draft', requestId: 'request' },
+  }),
+  refusal: refused,
+  transport: refused,
+  'unknown-commit': {
+    pending,
+    calls: 2,
+    commits: 1,
+    commands: [sentReplace],
+    failedDraft,
+    submissions: [
+      { requestId: 'request', text: 'Draft' },
+      { requestId: 'request', text: 'Draft' },
+    ],
+  },
+  disposed: oneSend([]),
+  replaced: oneSend([]),
+  'replaced-active': {
+    pending,
+    calls: 2,
+    commits: 2,
+    commands: ['replace:/messages/successor?sent=second'],
+    commandsBeforeSuccessor: [],
+  },
+  modified: oneSend([sentReplace]),
+  'new-tab': oneSend([sentReplace]),
+  canceled: oneSend([sentReplace]),
+  search: oneSend([]),
+  'search-disposed': oneSend([]),
+  'search-replaced': oneSend([]),
+  'invalid-search': oneSend([sentReplace]),
+};
+
+for (const [scenario, expected] of Object.entries(scenarios)) {
   test(`actual composer completion ownership: ${scenario}`, async () => {
     const child = Bun.spawn(
       [
@@ -50,52 +92,7 @@ for (const [scenario, commands] of Object.entries({
       should:
         'respect the current local navigation owner without replaying completion or repeating committed work',
       actual: JSON.parse(stdout),
-      expected: {
-        pending: true,
-        calls:
-          scenario === 'replaced-active' ||
-          scenario === 'unknown-commit' ||
-          scenario.startsWith('same-conversation')
-            ? 2
-            : 1,
-        commits:
-          scenario === 'refusal' || scenario === 'transport'
-            ? 0
-            : scenario === 'replaced-active' ||
-                scenario.startsWith('same-conversation')
-              ? 2
-              : 1,
-        commands,
-        ...(scenario.startsWith('same-conversation')
-          ? {
-              nextCommand: { requestId: 'fresh', ready: true, text: '' },
-              retainedNew: { requestId: 'fresh', ready: true, text: 'NEW' },
-              submissions: [
-                { requestId: 'request', text: 'Draft' },
-                { requestId: 'fresh', text: 'NEW' },
-              ],
-            }
-          : {}),
-        ...(['refusal', 'transport', 'unknown-commit'].includes(scenario)
-          ? {
-              failedDraft: { requestId: 'request', text: 'Draft', ready: true },
-              ...(scenario === 'unknown-commit'
-                ? {
-                    submissions: [
-                      { requestId: 'request', text: 'Draft' },
-                      { requestId: 'request', text: 'Draft' },
-                    ],
-                  }
-                : {}),
-            }
-          : {}),
-        ...(scenario === 'refreshed-draft'
-          ? { beforeDispatch: { text: 'Draft', requestId: 'request' } }
-          : {}),
-        ...(scenario === 'replaced-active'
-          ? { commandsBeforeSuccessor: [] }
-          : {}),
-      },
+      expected,
     });
   });
 }

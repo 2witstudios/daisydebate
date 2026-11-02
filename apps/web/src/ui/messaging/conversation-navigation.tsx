@@ -24,8 +24,7 @@ import {
   answerUnavailableOnThrow,
   type FormAction,
 } from '../form-action/form-action';
-import { browserDocument } from '../round-media/browser-document';
-import { replaceRoute } from '../round-media/replace-route';
+import { followAnswer } from '../form-action/use-moved-on';
 
 function createScope(requestId: string, changed: () => void) {
   let state = initialCompletionOwnership(requestId);
@@ -99,7 +98,6 @@ export function ConversationLink(
   );
 }
 
-/** Check cancellation after propagation, before a document can commit. */
 export function ConversationSearchForm(
   props: Omit<ComponentProps<'form'>, 'onSubmit'>,
 ) {
@@ -107,13 +105,7 @@ export function ConversationSearchForm(
   return (
     <form
       {...props}
-      onSubmit={(event) => {
-        const submitted = event.nativeEvent;
-        const scope = navigation?.current();
-        queueMicrotask(() => {
-          if (!submitted.defaultPrevented) scope?.accept({ type: 'navigate' });
-        });
-      }}
+      onSubmit={() => navigation?.current().accept({ type: 'navigate' })}
     />
   );
 }
@@ -200,7 +192,6 @@ export function useConversationCompletion(
       type: answer.next === undefined ? 'failed' : 'complete',
       origin: captured.id,
     });
-    if (apply && answer.next !== undefined)
-      replaceRoute(router, browserDocument(), answer.next);
+    if (apply && answer.next !== undefined) followAnswer(router, answer.next);
   }, [answer, pending, router]);
 }
