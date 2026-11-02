@@ -234,3 +234,38 @@ test('the worker refuses a capture login with any broader privilege', async () =
     await admin.close();
   }
 });
+
+test('only a fresh lease on an active Round counts as live capture', async () => {
+  await withFixture(url, async (fixture) => {
+    const roundId = await fixture.round();
+    const sessionId = createId();
+    await fixture.insert('media_sessions', {
+      id: sessionId,
+      round_id: roundId,
+      room_name: createId(),
+    });
+    await fixture.insert('media_worker_leases', {
+      session_id: sessionId,
+      worker_id: createId(),
+      epoch: 1,
+      expires_at: new Date(Date.parse('2999-01-01T00:00:00Z')),
+    });
+    const client = new SQL(url, { max: 1 });
+    await client`set role daisy_media_worker`;
+    const worker = createMediaWorkerDatabase({ url, client });
+    const others = await worker.countLiveCaptures();
+    const scheduled = (await worker.countLiveCaptures()) - others;
+    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
+    const live = (await worker.countLiveCaptures()) - others;
+    await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${sessionId}`;
+    const expired = (await worker.countLiveCaptures()) - others;
+    assert({
+      given:
+        'a fresh lease before the Round is active, once active, then expired',
+      should: 'count only the live one, so an orphan can never hold a deploy',
+      actual: [scheduled, live, expired],
+      expected: [0, 1, 0],
+    });
+    await client.close();
+  });
+});

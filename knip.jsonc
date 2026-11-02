@@ -113,6 +113,7 @@
       // room-launch composition spawns the e2e worker by path.
       "entry": [
         "src/capture-process.ts",
+        "src/capture-count.ts",
         "src/**/*.test.ts",
         "e2e/launch-worker.ts",
         "e2e/launch-capture.ts",
