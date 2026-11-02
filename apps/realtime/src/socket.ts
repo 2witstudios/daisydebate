@@ -140,21 +140,21 @@ export function createWebSocketHandlers({
       return;
     }
     ws.data.phase = 'authenticating';
-    let principal;
-    try {
-      principal = await authenticate(outcome.ticket, ws.data.origin);
-    } catch {
-      // Nothing was decided, so this is not a failed authentication.
-      if (ws.data.phase === 'authenticating')
-        reject(ws, 'authority_unavailable');
-      return;
-    }
+    await settleHello(ws, () =>
+      authenticate(outcome.ticket, ws.data.origin as string),
+    );
+  }
+  /** A check that could not answer decided nothing, so it is not a failed authentication. */
+  async function settleHello(
+    ws: ServerWebSocket<SocketData>,
+    check: () => Promise<SocketPrincipal | null>,
+  ) {
+    const principal = await check().catch(() => 'unavailable' as const);
     if (ws.data.phase !== 'authenticating') return;
-    if (!principal || helloExpired(ws)) {
-      reject(ws, principal ? 'authority_unavailable' : 'auth_failed');
-      return;
-    }
-    acceptHello(ws, principal);
+    if (!principal) reject(ws, 'auth_failed');
+    else if (principal === 'unavailable' || helloExpired(ws))
+      reject(ws, 'authority_unavailable');
+    else acceptHello(ws, principal);
   }
   function helloExpired(ws: ServerWebSocket<SocketData>) {
     return now() >= (ws.data.helloDeadline ?? 0);
