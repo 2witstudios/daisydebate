@@ -79,7 +79,6 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
         commit: { contents: 'write' },
         startChecks: {
           actions: 'write',
-          contents: 'read',
           'pull-requests': 'read',
         },
       },
@@ -158,7 +157,7 @@ const runApprove = (pulls: unknown[], runs: unknown[]) => {
       `#!/bin/sh
 echo "$*" >> '${calls}'
 case "$*" in
-  *"/pulls") echo '${JSON.stringify(pulls)}' ;;
+  *"/pulls?state=open&head=owner:pu/lobby") echo '${JSON.stringify(pulls)}' ;;
   *"/actions/workflows/ci.yml/runs?"*) echo '${JSON.stringify({ workflow_runs: runs })}' ;;
 esac
 `,
@@ -171,7 +170,9 @@ esac
       env: {
         PATH: `${dir}:${process.env.PATH}`,
         GITHUB_REPOSITORY: 'owner/daisy',
+        GITHUB_REPOSITORY_OWNER: 'owner',
         SHA: 'a'.repeat(40),
+        BRANCH: 'pu/lobby',
       },
     });
     return {
@@ -209,7 +210,7 @@ describe('Rebaseline visuals start-checks', () => {
         uses: job.steps.flatMap((step) => (step.uses ? [step.uses] : [])),
       },
       expected: {
-        needs: 'commit',
+        needs: ['resolve', 'commit'],
         condition: "needs.commit.outputs.sha != ''",
         uses: [],
       },
@@ -248,7 +249,7 @@ describe('Rebaseline visuals start-checks', () => {
 
   test('a branch with no pull request', () => {
     assert({
-      given: 'a pushed commit no pull request holds',
+      given: 'a pushed commit on a branch with no open pull request',
       should: 'finish without approving anything',
       actual: runApprove([], []),
       expected: { ok: true, approved: [] },

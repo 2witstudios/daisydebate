@@ -256,13 +256,12 @@ jobs:
   # by someone with write access, and this job's token has that access.
   start-checks:
     name: Start CI on the rebaselined head
-    needs: commit
+    needs: [resolve, commit]
     if: needs.commit.outputs.sha != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write
-      contents: read
       pull-requests: read
     steps:
       # Only CI at the commit this workflow just pushed, which differs from
@@ -274,10 +273,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ needs.commit.outputs.sha }}
+          BRANCH: ${{ needs.resolve.outputs.branch }}
         run: |
           set -eu
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" | jq length)" = 0 ]; then
-            echo "::notice::No pull request holds $SHA, so no CI runs for it"
+          # By branch: a commit's own pull request link can lag its push, and
+          # reading that as no pull request would leave CI held in silence.
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH" | jq length)" = 0 ]; then
+            echo "::notice::$BRANCH has no open pull request, so no CI runs for it"
             exit 0
           fi
           attempt=0
