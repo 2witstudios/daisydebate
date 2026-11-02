@@ -526,7 +526,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
         'CONFLICT',
         true,
         'suspension',
-        undefined,
+        false,
       ],
     });
   } finally {
