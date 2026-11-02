@@ -5,7 +5,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
