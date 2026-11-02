@@ -10,6 +10,7 @@ import type {
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
 
+import { aiJudgeSeatAdmitted } from './ai-judge-seating';
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
@@ -234,6 +235,12 @@ export const claimSeat = (
   const admission = seatAdmission(room, actorId, command, target);
   if (admission) return refuse(admission);
   if (!target) return refuse('actor-ineligible');
+  if (
+    target.kind === 'bot' &&
+    command.role === 'judge' &&
+    !aiJudgeSeatAdmitted(room, edges.hostHoldsCasualAiJudge)
+  )
+    return refuse('ai-judge-premium');
   if (
     command.slot >= room.rules.seats[command.role] ||
     room.participants.some(

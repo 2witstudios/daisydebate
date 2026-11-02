@@ -52,6 +52,7 @@ export function composeRoomRoutes(app: App) {
         ids: app.ids,
         consentTtlMs: () => policy.consentTtlMs,
         botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
+        betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
       }),
     });

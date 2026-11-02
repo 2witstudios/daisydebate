@@ -18,6 +18,7 @@ const catalog = async () =>
   Response.json({
     choices: [template],
     bots: [],
+    casualAiJudge: false,
     resolutions: [
       {
         id: 'v'.repeat(24),

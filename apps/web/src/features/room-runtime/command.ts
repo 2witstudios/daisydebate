@@ -10,11 +10,13 @@ import type {
   RoomCommandResponse,
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
+import { hostHoldsCasualAiJudge } from './ai-judge-seating';
 export function roomCommandOperation({
   store,
   redis,
   ids,
   botsAvailable,
+  betaGrantsPremium,
   consentTtlMs,
   eligible,
   consentOf,
@@ -25,6 +27,7 @@ export function roomCommandOperation({
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
   ids: IdGenerator;
   botsAvailable: () => boolean;
+  betaGrantsPremium: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
   consentOf: (
@@ -82,6 +85,8 @@ export function roomCommandOperation({
               now: preparedAt,
               participantId: ids.next(),
               formatId: ids.next(),
+              // Ready seats nobody; only seating and Launch read this.
+              hostHoldsCasualAiJudge: false,
               target: null,
               drawSeed: preparedSeed,
               drawStart: null,
@@ -109,6 +114,7 @@ export function roomCommandOperation({
           draw,
           formatFacts,
           resolutionPublication,
+          grants,
         ) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
@@ -122,6 +128,10 @@ export function roomCommandOperation({
               now,
               participantId: ids.next(),
               formatId: ids.next(),
+              // Only the host's own grants speak for the host.
+              hostHoldsCasualAiJudge:
+                state.hostActorId === caller.actorId &&
+                hostHoldsCasualAiJudge(grants, betaGrantsPremium),
               formatFacts,
               resolutionPublication,
               target: target

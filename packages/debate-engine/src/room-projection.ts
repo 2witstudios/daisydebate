@@ -103,6 +103,7 @@ export function projectRoom(
     visibility: room.visibility,
     hostActorId: hostHidden ? null : room.hostActorId,
     hostLabel: hostHidden ? null : room.hostLabel,
+    aiJudgeSeating: null,
     botAdmission: null,
     status: room.status,
     formatId: room.formatId,

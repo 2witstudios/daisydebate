@@ -210,6 +210,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [{ now: new Date('2026-10-09T00:00:00.000Z') }],
+  [], // the caller's entitlement grants, read under the account fence
   [],
   [], // a started Room's friend challenges are deleted (ISSUE-699)
   [],

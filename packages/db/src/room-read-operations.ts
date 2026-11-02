@@ -1,5 +1,6 @@
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
 import type { roomCommandTransaction } from './room-command-transaction';
+import { readEntitlementGrants } from './entitlement-grants';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -361,6 +362,12 @@ export const roomReadOperations = ({
         );
         return bots.filter((bot): bot is Actor => bot !== null);
       }),
+    );
+  },
+  /** The caller's own grants, for display; every seat command rereads them under its fence. */
+  async readOwnEntitlementGrants(caller: Caller) {
+    return instrumented(eventSink, 'readOwnEntitlementGrants', () =>
+      readEntitlementGrants(database, caller.userId),
     );
   },
   async readRoomCreateReceipt(input: {

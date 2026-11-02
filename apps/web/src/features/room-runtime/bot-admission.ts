@@ -15,7 +15,7 @@ export async function roomBotAdmission(
     !state.participants.some((p) => p.kind === 'bot')
   )
     return null;
-  // The same pure cast rule the freeze applies (DEC-186): an AI judge is free.
+  // The same pure cast rule the freeze applies (DEC-186): an AI judge spends no AI Round.
   if (!castSpendsAiRound(state)) return { kind: 'free' };
   try {
     const status = await read(actorId);

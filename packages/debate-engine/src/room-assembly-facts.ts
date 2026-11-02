@@ -29,6 +29,11 @@ export type Edges = {
   readonly participantId: string;
   readonly formatId: string;
   readonly target: Target | null;
+  /**
+   * The host's casual AI judge entitlement (WATCH-16), read under the host's
+   * account fence. It says nothing on a ranked Room, where the seat is free.
+   */
+  readonly hostHoldsCasualAiJudge: boolean;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
   readonly resolutionPublication?: PublishedResolution | null;

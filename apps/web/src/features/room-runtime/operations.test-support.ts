@@ -124,6 +124,7 @@ export function makeOperations(
   const base = {
     databaseNow: async () => now,
     readRoundBotAdmissionStatus: async () => null,
+    readOwnEntitlementGrants: async () => [],
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,
@@ -271,6 +272,7 @@ export function makeOperations(
     ]),
     consentTtlMs: () => 60_000,
     botsAvailable: () => botsAvailable,
+    betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
   return {

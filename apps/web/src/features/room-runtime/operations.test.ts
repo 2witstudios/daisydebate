@@ -69,6 +69,7 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
     ids: fixedIds(['c6n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
+    betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
   const view = await withUnavailableRedis.view(caller, state.id);
@@ -146,6 +147,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
       readRoomAssembly: async () => state,
       readRoomAssemblyFacts: async () => ({ state, drawSeed: null }),
       databaseNow: async () => now,
+      readOwnEntitlementGrants: async () => [],
     } as unknown as Store,
     redis: {
       setRoomConsent: async () => undefined,
@@ -154,6 +156,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
+    betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
   const replayed = await replay.create(caller, body);
@@ -217,9 +220,10 @@ test('Room creation hands the initial cast to the create transaction through the
   const cast = run.createInput()?.cast;
   const seat = cast?.seats[0];
   const accepted =
-    seat && cast?.apply({ ...state, participants: [] }, seat, botTarget, now);
+    seat &&
+    cast?.apply({ ...state, participants: [] }, seat, botTarget, now, []);
   const refused =
-    seat && cast?.apply({ ...state, participants: [] }, seat, null, now);
+    seat && cast?.apply({ ...state, participants: [] }, seat, null, now, []);
   const wrongSeat =
     seat &&
     cast?.apply(
@@ -230,6 +234,7 @@ test('Room creation hands the initial cast to the create transaction through the
         seatRole: 'judge',
       },
       now,
+      [],
     );
   assert({
     given: 'a create casting an eligible bot debater at negative',
@@ -275,6 +280,7 @@ test('Room creation hands the initial cast to the create transaction through the
         unavailableSeat,
         botTarget,
         now,
+        [],
       );
   assert({
     given: 'a direct create request while the provider is unavailable',
@@ -393,5 +399,57 @@ test('Room creation asks the create transaction to recheck its catalog selection
       superseded: false,
       gone: false,
     },
+  });
+});
+
+test('a create seating the AI judge passes the host grants through the entitlement policy (WATCH-16)', async () => {
+  const botActorId = 'j5n6p8r2t4v6x8z1k3b5c7d9';
+  const judgeTarget = {
+    actorId: botActorId,
+    kind: 'bot' as const,
+    label: 'AI judge',
+    eligible: true,
+    seatRole: 'judge' as const,
+  };
+  const run = makeOperations({}, true);
+  await run.operations
+    .create(caller, {
+      commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+      title: 'A casual room',
+      resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+      visibility: 'public',
+      selection: {
+        kind: 'catalog',
+        formatId: 'value',
+        formatVersion: 1,
+        presetVersion: 1,
+        competitionType: 'casual',
+      },
+      cast: [{ actorId: botActorId, role: 'judge', slot: 0 }],
+    })
+    .catch(() => null);
+  const cast = run.createInput()?.cast;
+  const seat = cast?.seats[0];
+  const room = {
+    ...state,
+    participants: [],
+    competitionType: 'casual' as const,
+    rules: { ...state.rules, seats: { ...state.rules.seats, judge: 1 } },
+  };
+  const outcome = (
+    grants: Parameters<NonNullable<typeof cast>['apply']>[4],
+  ) => {
+    const result = seat && cast?.apply(room, seat, judgeTarget, now, grants);
+    return result?.ok ? 'seated' : result?.refusal;
+  };
+  assert({
+    given: 'a casual create by a host with and without the grant',
+    should: 'seat the AI judge only for the grant holder',
+    actual: [
+      outcome([{ entitlement: 'casual_ai_judge', source: 'beta' }]),
+      outcome([{ entitlement: 'ai_rounds', source: 'beta' }]),
+      outcome([]),
+    ],
+    expected: ['seated', 'ai-judge-premium', 'ai-judge-premium'],
   });
 });

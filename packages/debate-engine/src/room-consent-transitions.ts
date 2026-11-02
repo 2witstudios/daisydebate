@@ -1,3 +1,4 @@
+import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
@@ -79,6 +80,8 @@ export const startRound = (
 
   const blocker = startBlocker(room, consent, edges.now);
   if (blocker) return refuse(blocker);
+  if (castHoldsUnadmittedAiJudge(room, edges.hostHoldsCasualAiJudge))
+    return refuse('ai-judge-premium');
   next = { ...room, status: 'started' };
   return acceptedRoomMutation(next, {
     freeze: true,

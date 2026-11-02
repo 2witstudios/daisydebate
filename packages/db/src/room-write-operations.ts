@@ -3,7 +3,9 @@ import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq } from 'drizzle-orm';
 import type { roomCommandTransaction } from './room-command-transaction';
+import { readEntitlementGrants } from './entitlement-grants';
 import type {
+  EntitlementGrant,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -73,6 +75,8 @@ type CommandInput = {
       draw: RoomDrawFacts,
       formatFacts: FormatSelectionFactsRecord | null,
       resolutionPublication: PublishedResolution | null,
+      /** The caller's own grants, read under the account fence this holds. */
+      grants: readonly EntitlementGrant[],
     ) => RoomMutationOutcome
   >;
 };
@@ -177,6 +181,7 @@ async function executeOnce(
     await drawFacts(tx, input.type, state, drawSeed),
     formatFacts,
     publication,
+    await readEntitlementGrants(tx, input.caller.userId),
   );
   if (!outcome.ok)
     throw createAppError(refusalCode(outcome.refusal), outcome.refusal);

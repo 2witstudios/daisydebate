@@ -131,6 +131,8 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'strike-conflict': 'the latest strike',
   'not-your-turn': 'the other side to strike',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
+  'ai-judge-premium':
+    'a person to judge: AI judging on casual rounds is premium',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

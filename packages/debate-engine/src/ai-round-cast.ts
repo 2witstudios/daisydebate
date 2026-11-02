@@ -14,8 +14,8 @@ export const castSeatsBotDebater = (
 
 /**
  * DEC-186 as amended 2026-10-26: a non-ranked Round spends one host AI-round
- * allowance only when a bot debates. An AI judge is free, so a cast whose only
- * bots judge spends nothing.
+ * allowance only when a bot debates. An AI judge is no usage, so a cast whose
+ * only bots judge spends nothing; whether it may sit is `aiJudgeSeatAdmitted`.
  */
 export const castSpendsAiRound = (
   room: Pick<RoomAssemblyState, 'competitionType' | 'participants'>,

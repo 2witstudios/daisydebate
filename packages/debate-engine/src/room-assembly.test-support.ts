@@ -109,6 +109,7 @@ export const edges = {
   participantId: 'new-seat',
   formatId: 'new-format',
   target: null,
+  hostHoldsCasualAiJudge: true,
   drawSeed: null,
   drawStart: null,
 };

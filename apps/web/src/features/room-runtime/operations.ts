@@ -2,6 +2,7 @@ import { roundWaitingOn } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
+import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
@@ -34,6 +35,7 @@ export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
   | 'readRoundBotAdmissionStatus'
+  | 'readOwnEntitlementGrants'
   | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
@@ -60,6 +62,7 @@ export function createRoomRuntimeOperations({
   ids,
   consentTtlMs,
   botsAvailable,
+  betaGrantsPremium,
   entropy,
 }: {
   readonly store: Store;
@@ -67,6 +70,8 @@ export function createRoomRuntimeOperations({
   readonly ids: IdGenerator;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
+  /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
+  readonly betaGrantsPremium: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
   readonly entropy: () => string;
 }) {
@@ -123,6 +128,15 @@ export function createRoomRuntimeOperations({
         now,
         facts.drawSeed,
       ),
+      aiJudgeSeating: await roomAiJudgeSeating(
+        state,
+        caller.actorId,
+        async () =>
+          hostHoldsCasualAiJudge(
+            await store.readOwnEntitlementGrants(caller),
+            betaGrantsPremium,
+          ),
+      ),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
@@ -134,6 +148,8 @@ export function createRoomRuntimeOperations({
   ): Promise<{
     readonly choices: readonly RoomCatalogChoice[];
     readonly resolutions: readonly PublishedResolution[];
+    /** The caller may seat an AI judge on a casual Round (WATCH-16). */
+    readonly casualAiJudge: boolean;
   }> => {
     const sources = await store.listRoomCatalogSources(caller, (account) =>
       can(caller, 'room.list', account),
@@ -156,7 +172,14 @@ export function createRoomRuntimeOperations({
         rankedEligible: source.preset.rankedEligible,
       },
     }));
-    return { choices, resolutions: await store.listPublishedResolutions() };
+    return {
+      choices,
+      resolutions: await store.listPublishedResolutions(),
+      casualAiJudge: hostHoldsCasualAiJudge(
+        await store.readOwnEntitlementGrants(caller),
+        betaGrantsPremium,
+      ),
+    };
   };
   const create = async (
     caller: Caller,
@@ -231,7 +254,7 @@ export function createRoomRuntimeOperations({
               commandId: ids.next(),
               participantId: ids.next(),
             })),
-            apply: (state, seat, target, now) =>
+            apply: (state, seat, target, now, grants) =>
               executeRoomCommand(
                 state,
                 caller.actorId,
@@ -249,6 +272,10 @@ export function createRoomRuntimeOperations({
                   now,
                   participantId: seat.participantId,
                   formatId: '',
+                  hostHoldsCasualAiJudge: hostHoldsCasualAiJudge(
+                    grants,
+                    betaGrantsPremium,
+                  ),
                   target: target
                     ? {
                         ...target,
@@ -360,6 +387,7 @@ export function createRoomRuntimeOperations({
       redis,
       ids,
       botsAvailable,
+      betaGrantsPremium,
       consentTtlMs,
       eligible,
       consentOf,

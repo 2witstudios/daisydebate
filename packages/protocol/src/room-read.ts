@@ -66,6 +66,8 @@ export const roomRefusalSchema = z.enum([
   'not-your-turn',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
   'bots-busy',
+  /** A casual AI judge needs a host holding the entitlement (WATCH-16). */
+  'ai-judge-premium',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -79,11 +81,17 @@ export const roomViewSchema = z.strictObject({
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
+  /**
+   * Host-only display of what seating an AI judge means here (WATCH-16):
+   * free on ranked, included for an entitled casual host, else premium. The
+   * seat command rechecks it under the host's fence. Null for anyone else.
+   */
+  aiJudgeSeating: z.enum(['free', 'included', 'premium']).nullable(),
   /** Host-only display metadata; admission is rechecked atomically at freeze. */
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
-      /** The cast's only bots judge: the AI judge is free (DEC-186). */
+      /** The cast's only bots judge: the AI judge spends no AI Round (DEC-186). */
       z.strictObject({ kind: z.literal('free') }),
       z
         .strictObject({

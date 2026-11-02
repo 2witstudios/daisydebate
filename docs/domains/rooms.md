@@ -166,6 +166,15 @@ round maintenance queues one durable judging job per eligible AI judge. A
 leased server worker then calls the model and commits through the same
 ballot operation.
 
+Seating an AI judge is free on a ranked Round and premium on a casual one
+(WATCH-16). On casual, the assign-seat and create commands refuse the seat with
+`ai-judge-premium` unless the host holds their own `casual_ai_judge` grant, read
+under the host's account fence, and Launch rechecks it. Beta approval writes
+the grant until billing exists, and `PREMIUM_BETA_GRANT` says whether a
+beta-sourced grant counts. A host without it is offered a person, Train's
+practice Rounds included. The gate is on seating only: a ballot that exists is
+read the same with or without premium.
+
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at
 the freeze with no outcome, and its result reads "Transcript incomplete".
