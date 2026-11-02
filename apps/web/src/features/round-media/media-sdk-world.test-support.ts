@@ -17,6 +17,7 @@ export const sdkWorld = async (input: {
   readonly sdk?: SdkOptions;
   readonly openRoomThrows?: () => boolean;
   readonly forgetFails?: boolean;
+  readonly checkedCamera?: string;
   readonly join?: boolean;
 }) => {
   const stub = stubSdk({ settles: true, ...input.sdk });
@@ -54,7 +55,10 @@ export const sdkWorld = async (input: {
       return createLiveKitRoom(
         {
           ...hooks,
-          checkedDevices: () => ({ state: 'available', choices: {} }),
+          checkedDevices: () => ({
+            state: 'available',
+            choices: input.checkedCamera ? { camera: input.checkedCamera } : {},
+          }),
         },
         stub.sdk,
       );

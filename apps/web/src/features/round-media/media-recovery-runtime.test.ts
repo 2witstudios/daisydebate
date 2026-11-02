@@ -10,6 +10,11 @@ setupRitewayBun();
 
 const never = new Promise<void>(() => undefined);
 
+const cameraPhase = (w: Awaited<ReturnType<typeof sdkWorld>>) => {
+  const { link } = w.runtime.state();
+  return link.phase === 'live' ? link.sources.camera.phase : null;
+};
+
 test('a malformed reply says out of date as definite, and sets no timer', async () => {
   const w = await sdkWorld({
     replies: (read) => (read === 2 ? { version: 'not a state' } : publishing()),
@@ -300,19 +305,24 @@ test('a read let finish cannot hold the fresh read past the young limit', async 
 });
 
 test('storage refusing a forgotten device keeps the source named', async () => {
-  const w = await sdkWorld({
-    forgetFails: true,
-    replies: () => publishing('camera', 'microphone'),
-    sdk: { missingSource: 'camera' },
-  });
-  w.runtime.dispatch({ type: 'retry-pressed' });
-  await settle();
-  const { link } = w.runtime.state();
+  const afterRetry = async (forgetFails: boolean) => {
+    const w = await sdkWorld({
+      forgetFails,
+      checkedCamera: 'gone-camera',
+      replies: () => publishing('camera', 'microphone'),
+      sdk: { missingSource: 'camera' },
+    });
+    const before = cameraPhase(w);
+    w.runtime.dispatch({ type: 'retry-pressed' });
+    await settle();
+    const outcome = [before, cameraPhase(w), connectionOf(w.runtime.state())];
+    w.stop();
+    return outcome;
+  };
   assert({
-    given: 'a capture that failed on a device nobody checked, then Retry',
-    should: 'keep the connection and try that source again',
-    actual: [connectionOf(w.runtime.state()), link.phase],
-    expected: ['live', 'live'],
+    given: 'a checked camera gone, Retry, and storage refusing to forget it',
+    should: 'keep naming the camera and keep the connection',
+    actual: await afterRetry(true),
+    expected: ['missing', 'missing', 'live'],
   });
-  w.stop();
 });
