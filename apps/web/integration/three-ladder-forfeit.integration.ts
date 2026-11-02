@@ -7,7 +7,10 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import { readyRankedRoom, recoverRankedResults } from './ranked-room.test-support';
+import {
+  readyRankedRoom,
+  recoverRankedResults,
+} from './ranked-room.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 

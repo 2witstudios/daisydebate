@@ -13,7 +13,10 @@ import {
   playOut,
   submitHumanBallot,
 } from './round-judging.test-support';
-import { readyRankedRoom, recoverRankedResults } from './ranked-room.test-support';
+import {
+  readyRankedRoom,
+  recoverRankedResults,
+} from './ranked-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';

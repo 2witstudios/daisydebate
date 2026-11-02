@@ -43,10 +43,7 @@ export const tabNames: Readonly<Record<DrawerTab, string>> = {
 
 /** Unread chat across the channels this round shows. */
 export function chatUnread(round: RoundSnapshot, state: RoomState): number {
-  const channels = visibleChannels(
-    round.channels,
-    round.competition,
-  );
+  const channels = visibleChannels(round.channels, round.competition);
   return totalUnread(
     unreadByChannel(state.messages, channels, state.readMarkers, round.self.id),
   );
@@ -146,7 +143,10 @@ function DrawerPanel(props: PanelProps) {
       );
     case 'ai':
       return (
-        <AgentPanel {...props} agents={visibleAgents(round.agents, competition)} />
+        <AgentPanel
+          {...props}
+          agents={visibleAgents(round.agents, competition)}
+        />
       );
     case 'room':
       return <DrawerRoom round={round} />;
