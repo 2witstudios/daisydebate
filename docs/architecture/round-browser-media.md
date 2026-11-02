@@ -67,11 +67,26 @@ version corrects a boundary read that reached the server too early. These inputs
 only request a read; the server's reply still decides every grant.
 
 In a burst, the first supersession since the last answered read aborts at once. A
-later one lets a read under 2 seconds old finish rather than abort it, so reads
-stop overlapping and one can finish between versions. Its reply is still fenced,
-so a reply older than the current intent never applies, and a fenced read does
-not retry. An older read is aborted as usual; a read let finish that then stalls
-is bounded by its own deadline.
+later one lets a read under 2 seconds old finish rather than abort it, so fewer
+reads overlap. This limits load and does not shorten the wait. Its reply is still
+fenced, so a reply older than the current intent never applies, and a fenced read
+does not retry. An older read is aborted as usual; a read let finish that then
+stalls is bounded by its own deadline.
+
+The grant moves before the reply. A pass sets LiveKit's permission as part of
+serving a read, and the browser follows LiveKit's permission without waiting for
+the reply. So the bar a debater feels is commit to permission set, under 2 seconds
+including in bursts, whether or not abort reaches the server. A reply arrives
+later and cannot apply while newer versions keep arriving, so its wait lasts at
+least the burst; its bar is under 2 seconds after the last supersession. Aborting
+never cancels a pass already started, and a read that follows always joins or
+starts one. A pass starts only from a browser read, so the grant moves once some
+page has seen the version and asked.
+
+While a reply is not current the Round does not claim a microphone state: from a
+supersession until the next answer applies, a seat says it is checking. Last-known
+grants stay for layout, so video does not disappear. The bar's "Connected" describes
+the connection, not a grant.
 
 Whether a client disconnect reaches `request.signal` in production is unverified.
 Fly's documentation does not say whether its proxy closes the upstream connection,

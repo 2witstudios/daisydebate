@@ -64,6 +64,7 @@ function RoundMediaSession({
   const [connection, setConnection] =
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
+  const [microphoneConfirmed, setMicrophoneConfirmed] = useState(true);
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
   /** Checked devices found gone; the transport keeps running (ISSUE-573). */
   const [missing, setMissing] = useState<readonly Source[]>([]);
@@ -90,7 +91,11 @@ function RoundMediaSession({
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
       },
       changed: showConnection({ connection: setConnection, media: setMedia }),
-      received: setMedia,
+      received: (state) => {
+        setMedia(state);
+        setMicrophoneConfirmed(true);
+      },
+      superseded: () => setMicrophoneConfirmed(false),
       retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
       readBudget: {
         now: () => Date.parse(systemClock.now()),
@@ -152,7 +157,12 @@ function RoundMediaSession({
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
-      <MediaStage view={view} media={media} tracks={tracks} />
+      <MediaStage
+        view={view}
+        media={media}
+        microphoneConfirmed={microphoneConfirmed}
+        tracks={tracks}
+      />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
         <p role="status" className="m-0 text-sm text-ink-muted">
           {status.message}

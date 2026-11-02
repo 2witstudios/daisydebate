@@ -37,6 +37,21 @@ export const showConnection =
     view.media((current) => mediaWhile(state, current));
   };
 
+/**
+ * A grant can move at LiveKit before its reply is applied here, so a seat claims
+ * a microphone state only while the last answer is still current.
+ */
+export function seatMicrophoneCaption(input: {
+  readonly peer: { readonly microphone: boolean } | undefined;
+  readonly confirmed: boolean;
+  readonly speaking: boolean;
+}) {
+  if (!input.peer) return 'Microphone unavailable';
+  if (!input.confirmed) return 'Checking microphone…';
+  if (!input.peer.microphone) return 'Microphone closed';
+  return input.speaking ? 'Speaking' : 'Microphone open';
+}
+
 /** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
 export function mediaStatus(
   connection: MediaConnectionState,

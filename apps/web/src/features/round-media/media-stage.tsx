@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
 import type { MediaTrack } from './browser-transport';
+import { seatMicrophoneCaption } from './media-status';
 
 function TrackElement({ track }: { readonly track: MediaTrack }) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
@@ -33,10 +34,13 @@ function TrackElement({ track }: { readonly track: MediaTrack }) {
 export function MediaStage({
   view,
   media,
+  microphoneConfirmed,
   tracks,
 }: {
   readonly view: RoundView;
   readonly media: RoundMediaState | null;
+  /** False from a supersession until the next answer is applied. */
+  readonly microphoneConfirmed: boolean;
   readonly tracks: readonly MediaTrack[];
 }) {
   return (
@@ -75,13 +79,11 @@ export function MediaStage({
                 {seat.label}
                 {seat.kind === 'bot' ? ' · AI' : ''}
                 <span className="block text-xs">
-                  {!peer
-                    ? 'Microphone unavailable'
-                    : !peer.microphone
-                      ? 'Microphone closed'
-                      : mediaTracks.some((track) => track.speaking)
-                        ? 'Speaking'
-                        : 'Microphone open'}
+                  {seatMicrophoneCaption({
+                    peer,
+                    confirmed: microphoneConfirmed,
+                    speaking: mediaTracks.some((track) => track.speaking),
+                  })}
                 </span>
               </figcaption>
               {mediaTracks

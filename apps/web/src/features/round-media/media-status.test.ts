@@ -3,6 +3,7 @@ import {
   mediaStatus,
   mediaWhile,
   retryMissingDevices,
+  seatMicrophoneCaption,
   showConnection,
 } from './media-status';
 
@@ -137,5 +138,36 @@ test('a missing checked device stays named while status is out of date', () => {
     should: 'name the device its Retry would forget',
     actual: [/microphone is missing/.test(status.message), status.retry],
     expected: [true, true],
+  });
+});
+
+test('a seat caption claims a microphone state only from a current answer', () => {
+  const caption = (
+    peer: { readonly microphone: boolean } | undefined,
+    confirmed: boolean,
+    speaking = false,
+  ) => seatMicrophoneCaption({ peer, confirmed, speaking });
+  assert({
+    given: 'each answer state for a seat',
+    should:
+      'name open, closed or speaking only while the last answer is current, and say it is checking otherwise',
+    actual: [
+      caption(undefined, true),
+      caption(undefined, false),
+      caption({ microphone: false }, true),
+      caption({ microphone: true }, true),
+      caption({ microphone: true }, true, true),
+      caption({ microphone: false }, false),
+      caption({ microphone: true }, false, true),
+    ],
+    expected: [
+      'Microphone unavailable',
+      'Microphone unavailable',
+      'Microphone closed',
+      'Microphone open',
+      'Speaking',
+      'Checking microphone…',
+      'Checking microphone…',
+    ],
   });
 });

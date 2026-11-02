@@ -388,6 +388,10 @@ test('a media read held across a real Round transition is superseded without tou
           }
         ).heldReadProof,
     );
+    // Superseded, the seat stops claiming a state until an answer is current.
+    expect(
+      proof.captions.some((text) => text.includes('Checking microphone…')),
+    ).toBe(true);
     expect(
       proof.captions
         .slice(mark)

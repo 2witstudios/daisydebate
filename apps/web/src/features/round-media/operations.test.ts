@@ -463,6 +463,50 @@ test('a read that leaves stops waiting while the others keep being served', asyn
   });
 });
 
+test('a read after every earlier read left still gets its own pass', async () => {
+  const { world, affirmative } = await admitted();
+  const held = Promise.withResolvers<void>();
+  const inPass = Promise.withResolvers<void>();
+  const { media } = world.input;
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    media: {
+      ...media,
+      publicationPermissions: async (room: string) => {
+        inPass.resolve();
+        await held.promise;
+        return media.publicationPermissions(room);
+      },
+    },
+  });
+  const passesBefore = world.reconciles();
+  const client = new AbortController();
+  const leaving = operations
+    .reconcile(world.roundId, affirmative.actorId, client.signal)
+    .catch((error: unknown) => error);
+  await inPass.promise;
+  client.abort();
+  const failure = await leaving;
+  const fresh = operations.reconcile(world.roundId, affirmative.actorId);
+  held.resolve();
+  await fresh;
+  const { served } = world.state();
+  const newest = await world.input.store.requestMediaReconcile({
+    roundId: world.roundId,
+  });
+  assert({
+    given: 'the only read abandoned mid pass, then a newer read for the room',
+    should:
+      'release the abandoned read at once, finish its pass, and run a further pass for the newer read',
+    actual: [
+      isMediaDeferred(failure),
+      world.reconciles() - passesBefore,
+      served,
+    ],
+    expected: [true, 2, newest.version - 1],
+  });
+});
+
 test('a read arriving as a poll finishes still waits for its own version', async () => {
   const world = createMediaWorld();
   const actor = world.seats[0].actorId;

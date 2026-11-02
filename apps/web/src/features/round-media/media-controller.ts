@@ -76,6 +76,8 @@ export function createMediaController(input: {
     failure?: MediaFailureKind,
   ) => void;
   readonly received?: (state: RoundMediaState) => void;
+  /** The last answer is no longer current; `received` reports the next one. */
+  readonly superseded?: () => void;
   /** How long reads may go unanswered before live tracks show as out of date. */
   readonly readBudget?: { readonly now: () => number; readonly ms: number };
   readonly retry?: {
@@ -352,7 +354,10 @@ export function createMediaController(input: {
     if (decision.action === 'ignore') return Promise.resolve();
     intent = decision.intent;
     const owner = connection;
-    if (decision.action === 'supersede' && owner) supersedeRead(owner);
+    if (decision.action === 'supersede') {
+      if (owner) supersedeRead(owner);
+      input.superseded?.();
+    }
     if (!owner || !active(owner)) return Promise.resolve();
     if (!owner.connected) return Promise.resolve();
     return read(owner);

@@ -7,6 +7,7 @@ import {
   roundId,
   snapshot,
   transportStub,
+  viewAt,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
@@ -202,4 +203,31 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
     actual: [stopped, created, controller.state()],
     expected: [[0, true, 'ended'], 0, 'ended'],
   });
+});
+
+test('the caller learns when the last answer stopped being current', async () => {
+  const held = Promise.withResolvers<unknown>();
+  const events: string[] = [];
+  let reads = 0;
+  const controller = readController({
+    reconcile: async () => (++reads === 2 ? held.promise : snapshot),
+    superseded: () => events.push('superseded'),
+    received: () => events.push('received'),
+  });
+  await controller.join();
+  const newer = controller.reconcile(viewAt(4));
+  const same = controller.reconcile({ kind: 'wake' });
+  const older = controller.reconcile(viewAt(2));
+  await Promise.resolve();
+  const whileHeld = [...events];
+  held.resolve(snapshot);
+  await Promise.all([newer, same, older]);
+  assert({
+    given: 'an answered read, then a newer view with its read still held',
+    should:
+      'report one supersession, none for a wake or an older view, and the next answer after it',
+    actual: [whileHeld, events.at(-1)],
+    expected: [['received', 'superseded'], 'received'],
+  });
+  controller.stop();
 });
