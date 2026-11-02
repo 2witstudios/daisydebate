@@ -7,7 +7,8 @@ const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,
-  capability: 'round.read' | 'round.transcript.read',
+  capability:
+    'round.read' | 'round.transcript.read' | 'round.observe.undelayed',
 ) =>
   authorize({
     principal: { kind: 'user', ...caller },
@@ -36,3 +37,10 @@ export const canReadRound = (
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,
 ) => canRead(caller, round, account, 'round.read');
+
+/** A seatless host's live room (WATCH-6); a seated host reads through the seat. */
+export const canObserveUndelayed = (
+  caller: { readonly userId: string; readonly actorId: string },
+  round: LaunchedRound,
+  account: AccountAuthorizationFact | null,
+) => canRead(caller, round, account, 'round.observe.undelayed');

@@ -22,11 +22,11 @@ import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
 const audienceLabel: Readonly<Record<SpectatorAudience, string>> = {
-  host: 'You’re hosting · watching',
+  'undelayed-observer': 'You’re hosting · watching',
 };
 
 const audienceRoster: Readonly<Record<SpectatorAudience, string>> = {
-  host: 'host, watching',
+  'undelayed-observer': 'host, watching',
 };
 
 const activityLabel: Readonly<Record<SpectatorActivity, string>> = {

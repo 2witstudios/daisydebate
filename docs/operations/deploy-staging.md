@@ -721,12 +721,12 @@ Verify: `fly status -a daisy-debate-staging`,
 ## 10. Continuous deployment (GitHub Actions)
 
 `.github/workflows/deploy-staging.yml` deploys a `main` push once its CI
-gate job and its Browser E2E run are both green, checked out at the
-verified `head_sha`, or on manual `workflow_dispatch`. Both workflows
-trigger it on completion; `scripts/staging-gate.ts` reads the two runs for
-the commit and lets only the later completion deploy, so each commit ships
-once, and only while it is still `main`'s tip: re-running an older commit's
-CI or E2E never rolls staging back. The CI gate needs the dependency audit
+gate job is green, checked out at the verified `head_sha`, or on manual
+`workflow_dispatch`. It does not wait for Browser E2E
+([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)). CI's
+completion triggers it; `scripts/staging-gate.ts` reads the commit's CI run and
+deploys only while the commit is still `main`'s tip: re-running an older
+commit's CI never rolls staging back. The CI gate needs the dependency audit
 job (ADR 0039), so a new advisory holds staging back and posts to
 Incidents. The deploy job's `migrate` step deploys the migrator app
 (`fly.migrate.toml`, `--update-only`) and its `deploy` step, which runs

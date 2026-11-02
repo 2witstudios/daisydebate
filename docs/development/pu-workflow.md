@@ -64,8 +64,11 @@ AGENTS.md ("Channels") names the Delivery and Incidents channel ids.
 - **Merging.** Builders never merge. Only main receives merged PRs, and no
   PR is ever merged into another branch.
   - The point guard's flow sweep merges a PR when its builder has emitted
-    `PR_READY` and the required checks (CI gate, Playwright E2E, Isolated
-    Room Launch E2E) are green at the exact head.
+    `PR_READY` and the required check (CI gate) is green at the exact head.
+    Browser E2E runs on main after merge
+    ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
+  - A red Browser E2E run on main belongs to the merging point guard at once,
+    who fixes forward or reverts.
   - The sweep merges at most two PRs per cycle.
   - After a batch, the point guard runs a local typecheck and knip on main.
 - **After a merge.** The tasks the PR names move to Done when its latest

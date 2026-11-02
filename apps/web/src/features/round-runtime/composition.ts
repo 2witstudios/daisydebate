@@ -1,7 +1,7 @@
 import { roundWaitingOn } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
-import { canReadRound, canReadTranscript } from './reads';
+import { canObserveUndelayed, canReadRound, canReadTranscript } from './reads';
 import { createRoundHandlers } from './handlers';
 import { createRoundRuntimeOperations } from './operations';
 
@@ -12,13 +12,23 @@ export function composeRoundRoutes(app: App) {
       store: app.database,
       nextSegmentId: () => app.ids.next(),
     }),
-    view: (caller, roundId) =>
-      app.database.readLaunchedRound(
+    view: async (caller, roundId) => {
+      let viewerIsUndelayedObserver = false;
+      const view = await app.database.readLaunchedRound(
         roundId,
         caller,
-        (round, account) => canReadRound(caller, round, account),
+        (round, account) => {
+          viewerIsUndelayedObserver = canObserveUndelayed(
+            caller,
+            round,
+            account,
+          );
+          return canReadRound(caller, round, account);
+        },
         roundWaitingOn,
-      ),
+      );
+      return { ...view, viewerIsUndelayedObserver };
+    },
     transcript: (caller, roundId) =>
       app.database.readRoundTranscript({
         caller,

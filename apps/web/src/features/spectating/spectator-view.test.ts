@@ -23,6 +23,7 @@ const host = 'h'.repeat(24);
 const hosted = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: true,
+  viewerIsUndelayedObserver: true,
 });
 
 describe('spectatorAudienceOf', () => {
@@ -32,14 +33,24 @@ describe('spectatorAudienceOf', () => {
         'a seatless host of a live Round, the same host once it ended or was abandoned, a seated host, and a member who does not host (ISSUE-673)',
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
-        spectatorAudienceOf(hosted(ran(1)), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'scheduled' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'completed' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'abandoned' }), host),
-        spectatorAudienceOf(hosted(ran(1)), aff.actorId),
-        spectatorAudienceOf({ ...ran(1), viewerIsHost: false }, host),
+        spectatorAudienceOf(hosted(ran(1))),
+        spectatorAudienceOf(hosted({ ...view, status: 'scheduled' })),
+        spectatorAudienceOf(hosted({ ...view, status: 'completed' })),
+        spectatorAudienceOf(hosted({ ...view, status: 'abandoned' })),
+        spectatorAudienceOf({
+          ...hosted(ran(1)),
+          viewerIsUndelayedObserver: false,
+        }),
+        spectatorAudienceOf(ran(1)),
       ],
-      expected: ['host', 'host', null, null, null, null],
+      expected: [
+        'undelayed-observer',
+        'undelayed-observer',
+        null,
+        null,
+        null,
+        null,
+      ],
     });
   });
 });
@@ -205,15 +216,15 @@ describe('watchingRoomOf', () => {
       actual: [
         watchingRoomOf({
           judgeRound: judging,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          audience: spectatorAudienceOf(hosted(judging)),
         }).kind,
         watchingRoomOf({
           judgeRound: { ...judging, status: 'completed' },
-          audience: 'host',
+          audience: 'undelayed-observer',
         }).kind,
         watchingRoomOf({
           judgeRound: null,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          audience: spectatorAudienceOf(hosted(judging)),
         }).kind,
         watchingRoomOf({ judgeRound: null, audience: null }).kind,
       ],

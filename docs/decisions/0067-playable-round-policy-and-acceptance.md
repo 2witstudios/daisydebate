@@ -50,6 +50,8 @@ including late historically eligible clips and bot publication prefixes.
 
 ## Live timing and separate access boundaries
 
+Superseded for spectators by [ADR 0099](0099-spectator-release-authority.md): only seats and the host hold `round.read`.
+
 Resolve DEC-179 and RRD-11: checkpoint, segment history, phase and clock in
 `GET /api/rounds/:id` are **live, undelayed timing** for callers already entitled
 to `round.read`. This changes no admission, private-Round readership, participation,

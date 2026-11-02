@@ -12,11 +12,11 @@ import {
 } from '../round-runtime/round-reading';
 
 /**
- * Why a viewer watches a Round they hold no seat in. Today only its seatless
- * host does; public and invited spectators join this union when spectating
- * opens to them, and everything below already renders for any of them.
+ * Why a viewer watches the live room of a Round they hold no seat in. Only an
+ * undelayed observer does; the public audience watches the delayed Broadcast
+ * and never reaches this view.
  */
-export type SpectatorAudience = 'host';
+export type SpectatorAudience = 'undelayed-observer';
 
 export type SpectatorActivity =
   'speaking' | 'listening' | 'asking' | 'answering' | 'preparing' | 'waiting';
@@ -61,16 +61,11 @@ export type SpectatorView = {
   readonly judge: 'ai' | 'human' | null;
 };
 
-/** The audience a viewer watches as; null when they debate, or the Round is over or not theirs to watch. */
-export function spectatorAudienceOf(
-  view: RoundView,
-  actorId: string,
-): SpectatorAudience | null {
-  if (!isLiveRound(view) || !view.viewerIsHost) return null;
-  const seated = view.participants
-    .filter(isSeat)
-    .some((p) => p.actorId === actorId);
-  return seated ? null : 'host';
+/** The audience a viewer watches as; null without the capability, or once the Round is over. */
+export function spectatorAudienceOf(view: RoundView): SpectatorAudience | null {
+  return isLiveRound(view) && view.viewerIsUndelayedObserver === true
+    ? 'undelayed-observer'
+    : null;
 }
 
 function stageOf(view: RoundView, position: RoundPosition): SpectatorStage {
