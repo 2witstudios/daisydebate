@@ -25,7 +25,7 @@ export function startRoundMediaRecovery(input: {
     running.add(tick);
     return tick;
   };
-  const timer = input.every(500, () => {
+  const timer = input.every(2_500, () => {
     void run();
   });
   const started = run();
