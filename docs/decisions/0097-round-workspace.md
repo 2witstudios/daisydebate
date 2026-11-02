@@ -3,8 +3,8 @@
 Status: accepted (owner, 2026-11-02; design
 [Round room canvas](https://claude.ai/artifact/9s5Eczbd2BTt3RCSyWXzgx)).
 Amends [ADR 0054](0054-debate-room-workspace.md) §1, §3, §5 and §8 and
-[ADR 0058](0058-one-round-model.md) §9. Overturns DEC-108, DEC-159, DEC-160,
-DEC-173, DEC-175 and DEC-177.
+[ADR 0058](0058-one-round-model.md) §9. Overturns DEC-108, DEC-155, DEC-159, DEC-160,
+DEC-173, DEC-175, DEC-176 (its marks) and DEC-177.
 
 ## Decision
 
