@@ -78,7 +78,9 @@ membership. Every terminal state frees its members:
   with no accepted command (or running pre-round prep) for that long, by
   database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
-  Round forfeits it, which ends the Round.
+  Round forfeits it, which ends the Round, until the last speech ends. After
+  that the debate is over: leaving forfeits nothing, the engine refuses a
+  forfeit, and the Round waits for its ballot.
 - **The debate ends**: the last speech ends, or the Round completes, is
   forfeited or is abandoned. Judges ballot from their Round seats.
 
@@ -149,7 +151,7 @@ A Round reaches one terminal state, and only once:
   opponent forfeits. Both missing abandons. A bot worker's loss abandons and
   never forfeits (ADR 0067). Media, capture or speech-to-text failure is
   never evidence of absence.
-- **Forfeit by command.** A debater can forfeit.
+- **Forfeit by command.** A debater can forfeit until the last speech ends.
 - **Abandoned before start.** A Round still scheduled past its start horizon
   (default 15 minutes after Launch) is abandoned (DEC-214).
 

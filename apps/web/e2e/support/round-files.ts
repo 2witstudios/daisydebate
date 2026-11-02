@@ -147,6 +147,12 @@ export const test = base.extend<{
 async function forfeitAsHost(request: APIRequestContext, roundId: string) {
   const view = await readBallotRound(request, roundId);
   if (view.status !== 'scheduled' && view.status !== 'active') return;
+  // A debate already over holds no slot, and the engine refuses its forfeit.
+  if (
+    view.segments.filter((s) => s.endedAt !== null).length ===
+    view.rules.segments.length
+  )
+    return;
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.role === 'affirmative' && p.slot === 0)!;
