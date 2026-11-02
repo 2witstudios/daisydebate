@@ -1,4 +1,6 @@
 export { formatStanding } from './format-standing';
+export { decideBroadcast, REVOCATION_LEAD_MS } from './broadcast-lifecycle';
+export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
 export {
   delayAlert,
   factReleased,
