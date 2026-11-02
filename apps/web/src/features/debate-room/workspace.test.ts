@@ -1,17 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FolderId, WorkspaceDocument } from './documents/documents';
+import type { WorkspaceDocument } from './documents/documents';
 import {
   activateTab,
-  buildTree,
+  driveDocuments,
   closeTab,
   openTab,
-  roundKindOf,
-  drawerTabs,
-  visibleAgents,
-  visibleChannels,
-  visibleClub,
-  type Agent,
-  type Channel,
+  loadWorkspaceDocuments,
+  phonePanels,
+  sidebarTabs,
   type TabsState,
 } from './workspace';
 
@@ -19,14 +15,11 @@ setupRitewayBun();
 
 const document = (
   id: string,
-  folder: FolderId,
   createdAt: string,
   title = id,
 ): WorkspaceDocument => ({
   id,
   title,
-  folder,
-  templateId: 'blank',
   html: '<p></p>',
   createdAt,
   updatedAt: createdAt,
@@ -35,37 +28,18 @@ const document = (
 const early = '2026-10-05T12:00:00.000Z';
 const late = '2026-10-05T12:30:00.000Z';
 const docs = [
-  document('b', 'round', early, 'Beta'),
-  document('c', 'round', late, 'Alpha'),
-  document('a', 'round', early, 'Alpha'),
-  document('l', 'library', early),
-  document('k', 'club', early),
+  document('b', early, 'Beta'),
+  document('c', late, 'Alpha'),
+  document('a', early, 'Alpha'),
 ];
 
-describe('buildTree', () => {
-  test('folders and order', () => {
-    const tree = buildTree(docs, 'Westside Debate');
+describe('driveDocuments', () => {
+  test('order', () => {
     assert({
-      given: 'a club member',
-      should: 'list round, library and club folders with their titles',
-      actual: tree.map((n) => [n.folder.id, n.folder.title, n.folder.shared]),
-      expected: [
-        ['round', 'This round', false],
-        ['library', 'My library', false],
-        ['club', 'Westside Debate', true],
-      ],
-    });
-    assert({
-      given: 'round documents',
+      given: 'documents in a drive',
       should: 'sort by createdAt then title',
-      actual: tree[0]?.documents.map((d) => d.id),
+      actual: driveDocuments(docs).map((d) => d.id),
       expected: ['a', 'b', 'c'],
-    });
-    assert({
-      given: 'no club',
-      should: 'omit the club folder',
-      actual: buildTree(docs, null).map((n) => n.folder.id),
-      expected: ['round', 'library'],
     });
   });
 });
@@ -137,54 +111,50 @@ describe('tabs', () => {
   });
 });
 
-describe('rated rounds', () => {
-  const channels: readonly Channel[] = [
-    { id: 'r', title: 'Round', scope: 'round' },
-    { id: 'c', title: 'Club', scope: 'club' },
-  ];
-  const agents: readonly Agent[] = [
-    { id: 'g', title: 'Drill partner', scope: 'club' },
-  ];
-
-  test('drawer visibility', () => {
+describe('the sidebars', () => {
+  test('every Round offers the same tabs', () => {
     assert({
-      given: 'a rated round',
-      should:
-        'offer files, chat and room, round channels only, no agents and no club folder',
-      actual: [
-        drawerTabs('rated'),
-        visibleChannels(channels, 'rated').map((c) => c.id),
-        visibleAgents(agents, 'rated'),
-        visibleClub('Riverside', 'rated'),
-      ],
-      expected: [['files', 'chat', 'room'], ['r'], [], null],
-    });
-    assert({
-      given: 'an unrated round',
-      should: 'offer every tab with every channel, agent and the club folder',
-      actual: [
-        drawerTabs('unrated'),
-        visibleChannels(channels, 'unrated').map((c) => c.id),
-        visibleAgents(agents, 'unrated').map((a) => a.id),
-        visibleClub('Riverside', 'unrated'),
-      ],
+      given: 'the Round sidebar and a phone’s panels',
+      should: 'list Transcript, Channels and AI chat, with no Round type input',
+      actual: [sidebarTabs, phonePanels],
       expected: [
-        ['files', 'chat', 'ai', 'room'],
-        ['r', 'c'],
-        ['g'],
-        'Riverside',
+        ['transcript', 'channels', 'ai'],
+        ['doc', 'transcript', 'channels', 'ai', 'files', 'room'],
       ],
     });
   });
 });
 
-describe('roundKindOf', () => {
-  test('the room decides the round', () => {
+describe('loadWorkspaceDocuments', () => {
+  const empty: {
+    readonly tabs: TabsState;
+    readonly documents: readonly WorkspaceDocument[];
+  } = { tabs: { open: [], active: null }, documents: [] };
+
+  test('nothing open', () => {
     assert({
-      given: 'a ranked and a casual round',
-      should: 'make only the ranked round rated',
-      actual: [roundKindOf('ranked'), roundKindOf('casual')],
-      expected: ['rated', 'unrated'],
+      given: 'a load with nothing open',
+      should: 'open the document edited last',
+      actual: loadWorkspaceDocuments(empty, docs).tabs,
+      expected: { open: ['c'], active: 'c' },
+    });
+    assert({
+      given: 'no documents at all',
+      should: 'open nothing, so the empty state offers a new document',
+      actual: loadWorkspaceDocuments(empty, []).tabs,
+      expected: { open: [], active: null },
+    });
+  });
+
+  test('a tab already open', () => {
+    assert({
+      given: 'an open tab that still exists',
+      should: 'keep it',
+      actual: loadWorkspaceDocuments(
+        { tabs: { open: ['a'], active: 'a' }, documents: docs },
+        docs,
+      ).tabs,
+      expected: { open: ['a'], active: 'a' },
     });
   });
 });

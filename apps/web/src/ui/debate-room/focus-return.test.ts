@@ -17,11 +17,11 @@ describe('focusReturnTarget', () => {
     const toggle = node('toggle', false);
     const tab = node('tab', true);
     assert({
-      given: 'focus inside the drawer it hid, the toggle hidden on a phone',
+      given: 'focus inside the sidebar it hid, the toggle hidden on a phone',
       should: 'return focus to the first target still drawn',
       actual: focusReturnTarget(
         active('file'),
-        [node('drawer', false, ['file'])],
+        [node('sidebar', false, ['file'])],
         [toggle, null, tab],
       )?.name,
       expected: 'tab',
@@ -30,11 +30,11 @@ describe('focusReturnTarget', () => {
 
   test('a region still shown', () => {
     assert({
-      given: 'focus inside a drawer that is still drawn',
+      given: 'focus inside a sidebar that is still drawn',
       should: 'leave focus where it is',
       actual: focusReturnTarget(
         active('file'),
-        [node('drawer', true, ['file'])],
+        [node('sidebar', true, ['file'])],
         [node('toggle', true)],
       ),
       expected: null,
@@ -43,11 +43,11 @@ describe('focusReturnTarget', () => {
 
   test('focus outside every region', () => {
     assert({
-      given: 'focus on the toggle itself when the drawer hides',
+      given: 'focus on the toggle itself when the sidebar hides',
       should: 'leave focus where it is',
       actual: focusReturnTarget(
         active('toggle'),
-        [node('drawer', false, ['file']), null],
+        [node('sidebar', false, ['file']), null],
         [node('toggle', true)],
       ),
       expected: null,
@@ -60,7 +60,7 @@ describe('focusReturnTarget', () => {
       should: 'return no target',
       actual: focusReturnTarget(
         active('file'),
-        [node('drawer', false, ['file'])],
+        [node('sidebar', false, ['file'])],
         [node('toggle', false)],
       ),
       expected: null,

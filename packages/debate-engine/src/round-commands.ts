@@ -164,8 +164,19 @@ const startSpeech = (c: CommandContext): void => {
   c.openRowAt(c.now);
 };
 
-/** Forfeiting closes the round with the other side's outcome. */
+/** Whether every segment has closed: the debate is over and only its result is left. */
+export const debateIsOver = (c: CommandContext): boolean =>
+  c.closedCount() === c.rules.segments.length;
+
+/**
+ * Forfeiting closes the round with the other side's outcome. Once the debate
+ * is over the Round waits for its ballot, so leaving has nothing left to forfeit
+ * and must not pre-empt the judges (ADR 0070). The runtime advances the clock
+ * first, so a segment that ran out with no tick persisted counts as closed.
+ */
 const forfeit = (c: CommandContext): void => {
+  if (debateIsOver(c))
+    refuse('CONFLICT', 'The debate is over; there is nothing to forfeit');
   const side = c.sideOf(c.actorId);
   if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
   if (c.on.lifecycle().status === 'scheduled') {
@@ -192,8 +203,7 @@ export function closePlayedRound(c: CommandContext): void {
 /** Completion follows the final segment's spent time, and carries an outcome. */
 const complete = (c: CommandContext, outcome: RatedOutcome): void => {
   const open = c.on.openRow();
-  const finalClosed =
-    open === undefined && c.closedCount() === c.rules.segments.length;
+  const finalClosed = open === undefined && debateIsOver(c);
   if (
     !finalClosed &&
     (open === undefined ||
@@ -209,7 +219,10 @@ const complete = (c: CommandContext, outcome: RatedOutcome): void => {
   completeWith(c, outcome);
 };
 
-const completeWith = (c: CommandContext, outcome: RatedOutcome): void => {
+export const completeWith = (
+  c: CommandContext,
+  outcome: RatedOutcome,
+): void => {
   c.on.setLifecycle({
     status: 'completed',
     outcome,

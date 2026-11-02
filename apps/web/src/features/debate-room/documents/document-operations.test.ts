@@ -19,15 +19,13 @@ describe('listDocuments', () => {
       roundId: 'debate-1',
     });
     assert({
-      given: 'one stored round document',
+      given: 'one stored document',
       should: 'return it as a workspace document with its revision',
       actual: listed,
       expected: [
         {
           id: 'doc-1',
-          title: 'Flow',
-          folder: 'round',
-          templateId: 'flow',
+          title: 'Notes',
           html: '<p>a</p>',
           createdAt: NOW,
           updatedAt: NOW,
@@ -55,49 +53,28 @@ describe('listDocuments', () => {
 });
 
 describe('createDocument', () => {
-  test('a round flow is built for the person’s side and stored normalized', async () => {
-    const { operations, documents } = operationsOver([stored()]);
+  test('a new document is plain, untitled and stored normalized', async () => {
+    const { operations, documents } = operationsOver([
+      stored({ title: 'Untitled' }),
+    ]);
     const created = await operations.createDocument(me, {
       roundId: 'debate-1',
-      folder: 'round',
-      templateId: 'flow',
     });
     assert({
-      given: 'a stored "Flow" and a request for another flow',
-      should: 'title it "Flow 2" and mark the negative speeches as yours',
+      given: 'a stored "Untitled" and a request for a new document',
+      should: 'title it "Untitled 2", with nothing pre-filled',
       actual: {
         title: created.title,
         revision: created.revision,
-        folder: documents.get('doc-new')?.folder,
-        scoped: documents.get('doc-new') !== undefined,
-        yours: created.html.includes('NC · Neg · You'),
+        text: created.html.replace(/<[^>]+>|\s/g, ''),
         stored: documents.get('doc-new')?.html === created.html,
-        lines: created.html.includes('\n'),
       },
       expected: {
-        title: 'Flow 2',
+        title: 'Untitled 2',
         revision: 1,
-        folder: 'scratch',
-        scoped: true,
-        yours: true,
+        text: '',
         stored: true,
-        lines: true,
       },
-    });
-  });
-
-  test('a library document has no debate and its own titles', async () => {
-    const { operations, documents } = operationsOver([stored()]);
-    const created = await operations.createDocument(me, {
-      roundId: 'debate-1',
-      folder: 'library',
-      templateId: 'flow',
-    });
-    assert({
-      given: 'a round "Flow" and a new library flow',
-      should: 'store it without a debate, titled "Flow"',
-      actual: [created.folder, created.title, documents.get('doc-new')?.folder],
-      expected: ['library', 'Flow', 'library'],
     });
   });
 
@@ -109,8 +86,6 @@ describe('createDocument', () => {
       actual: () =>
         operations.createDocument(stranger, {
           roundId: 'debate-1',
-          folder: 'library',
-          templateId: 'blank',
         }),
       code: 'NOT_FOUND',
     });

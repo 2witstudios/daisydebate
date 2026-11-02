@@ -1,23 +1,20 @@
-/* The debater's round room (ADR 0054). The video height is
-   person-adjustable, so it lives in custom properties the room sets through
-   the CSSOM (never a style attribute, which the nonce CSP refuses); these
-   utilities read them with the defaults the room starts from. */
+/* The debater's round room (ADR 0097). The tile height follows the phase, so
+   it lives in a custom property the room sets through the CSSOM (never a style
+   attribute, which the nonce CSP refuses). */
 
 @theme {
   /* The round room's fixed metrics: a touch target, the round bar, the
-     controls row, the drawer, the layout menu and the leave confirm. */
+     Files sidebar and the leave confirm. */
   --spacing-room-target: 44px;
   --spacing-round-bar: 56px;
-  --spacing-round-controls: 72px;
-  --spacing-round-drawer: 300px;
-  --spacing-room-menu: 160px;
+  --spacing-round-files: 260px;
+  --spacing-room-details: 288px;
   --spacing-room-dialog: 320px;
-  /* The video band: initials discs by tile size, the bot persona card, and
-     a phone's two small tiles. */
+  /* The video tiles: initials discs by tile size and a phone's two small
+     tiles. */
   --spacing-room-disc: 112px;
   --spacing-room-disc-md: 80px;
   --spacing-room-disc-sm: 56px;
-  --spacing-room-persona: 340px;
   --spacing-room-phone-tile: 100px;
   /* The spectator view: the speaker's stage, the other debater's inset
      tile and the live column (transcript and chat). */
@@ -27,13 +24,101 @@
   --aspect-video: 16 / 9;
 }
 
-@utility room-video-band {
-  height: var(--room-video, 300px);
-  box-sizing: content-box;
+@utility round-sidebar {
+  width: clamp(260px, 26vw, 340px);
 
-  /* A phone shows both debaters small above the document. */
-  @media (width < 641px) {
-    height: auto;
+  @media (width < 901px) {
+    width: 100%;
+  }
+}
+
+/* Inside the Round's top section the live tiles sit in one row, sized by the
+   phase and capped so a short or narrow window keeps its workspace. The judge
+   room keeps MediaStage's own full-width grid. */
+@utility room-stage {
+  & [data-room-media='grid'] {
+    display: flex;
+    background: transparent;
+    padding: 0;
+    gap: 12px;
+  }
+
+  & [data-room-media='tile'] {
+    flex: none;
+    width: min(
+      calc(var(--room-tile-height, 200px) * 16 / 9),
+      24vw,
+      calc(30dvh * 16 / 9)
+    );
+  }
+
+  /* A long status wraps inside the tiles' width, never widening the section. */
+  & [data-room-media='status'] {
+    contain: inline-size;
+    background: transparent;
+    padding: 4px 0 0;
+  }
+
+  @media (width < 1101px) {
+    & [data-room-media='tile'] {
+      width: min(
+        calc(var(--room-tile-height, 200px) * 16 / 9),
+        20vw,
+        calc(30dvh * 16 / 9)
+      );
+    }
+  }
+
+  @media (width < 901px) {
+    & [data-room-media='grid'] {
+      display: grid;
+      gap: 8px;
+    }
+
+    & [data-room-media='tile'] {
+      width: auto;
+      height: var(--spacing-room-phone-tile);
+      aspect-ratio: auto;
+    }
+  }
+}
+
+/* The clock stays centred when there is room. When there is not, the sides
+   shrink to their longest word so a long action wraps instead of overlapping. */
+@utility room-controls {
+  display: grid;
+  align-items: center;
+  column-gap: 16px;
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
+
+  @media (width < 901px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The frame fits the window while the workspace keeps a usable height. A window
+   too short for that scrolls as a whole, so the phone's tabs stay reachable. */
+@utility room-frame {
+  height: 100dvh;
+  overflow-y: auto;
+
+  & > [data-room-workspace] {
+    flex: 1 0 18rem;
+  }
+}
+
+/* Before script a phone's tabs cannot switch, so its panels stack and the
+   workspace scrolls: each keeps a readable height. */
+@utility room-stacked {
+  @media (width < 901px) {
+    flex-direction: column;
+    overflow-y: auto;
+
+    /* Important: Tailwind's utilities on each panel come later in the sheet. */
+    & > * {
+      flex: none !important;
+      min-height: 24rem !important;
+    }
   }
 }
 
@@ -50,7 +135,7 @@
 }
 
 @utility room-workspace {
-  min-height: var(--room-workspace, 516px);
+  min-height: 516px;
 }
 
 /* Tiptap runs with injectCSS off (its style tag carries no nonce); these are
@@ -104,7 +189,7 @@ img.ProseMirror-separator {
   display: block;
 }
 
-/* The round document: type, lists, checklists and debate marks. */
+/* The round document: type, lists and checklists. */
 .room-doc {
   font-size: var(--text-md);
   line-height: var(--leading-normal);
@@ -182,40 +267,6 @@ img.ProseMirror-separator {
   accent-color: var(--hue-teal);
 }
 
-.room-doc [data-debate-mark] {
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-weight: var(--font-weight-semibold);
-}
-
-.room-doc [data-debate-mark='aff'] {
-  background: var(--hue-sky-soft);
-  color: var(--hue-sky);
-}
-
-.room-doc [data-debate-mark='neg'] {
-  background: var(--hue-clay-soft);
-  color: var(--hue-clay);
-}
-
-.room-doc [data-debate-mark='extend'] {
-  background: var(--hue-teal-soft);
-  color: var(--hue-teal);
-}
-
-.room-doc [data-debate-mark='dropped'] {
-  background: var(--live-soft);
-  color: var(--text);
-  text-decoration: line-through;
-  text-decoration-color: var(--live);
-  text-decoration-thickness: 2px;
-}
-
-.room-doc [data-debate-mark='new'] {
-  background: var(--gold-soft);
-  color: var(--gold);
-}
-
 /* The viewer's text size (A− / A+), never saved with the document. */
 [data-doc-size='sm'] .room-doc {
   font-size: var(--text-sm);
@@ -276,8 +327,8 @@ img.ProseMirror-separator {
   break-before: column;
 }
 
-/* A light page inside a dark room, or the reverse: the page carries its own
-   scheme so light-dark() tokens resolve for it alone. */
+/* A page follows the viewer's theme unless they choose otherwise: then it
+   carries its own scheme so light-dark() tokens resolve for it alone. */
 [data-room-page='light'] {
   color-scheme: light;
 }

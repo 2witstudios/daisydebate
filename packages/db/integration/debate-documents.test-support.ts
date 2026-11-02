@@ -80,15 +80,9 @@ export const withOwner = async (
     }
   });
 
-export const document = (
-  ownerActorId: string,
-  folder: 'library' | 'scratch',
-  title: string,
-) => ({
+export const document = (ownerActorId: string, title: string) => ({
   id: createId(),
   ownerActorId,
-  folder,
-  templateId: 'flow',
   title,
-  html: '<h1>Flow</h1>',
+  html: '<p>Notes</p>',
 });
