@@ -1,3 +1,7 @@
+import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
+import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
+import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
+import { testEditCompletionWindow } from './support/messaging-completion-window';
 import {
   editNativeMessage,
   messageInHistory,
@@ -22,6 +26,10 @@ import {
 } from './support/messaging-journey';
 
 testMessageControlFocus();
+testMessagingNavigationOverlap();
+testEditCompletionWindow();
+testMessagingHistoryCompletion();
+testMessagingUnknownCommit();
 testProfileMessageEntry();
 
 test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({
