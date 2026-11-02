@@ -89,7 +89,7 @@ export function usePersonOverlay(
       {hovered && !opened ? (
         <div
           ref={anchorAt(hover?.top ?? 0)}
-          className="person-anchor pointer-events-none absolute right-full z-20 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-compact:hidden"
+          className="pointer-events-none absolute person-anchor right-full z-20 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-compact:hidden"
         >
           <MemberCardBody member={hovered} />
         </div>

@@ -354,7 +354,7 @@ export function PersonMenu({
         role="dialog"
         aria-label={`@${username}`}
         ref={anchorAt(top)}
-        className="person-anchor absolute right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
+        className="absolute person-anchor right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
       >
         <MemberCardBody member={member} />
         <hr className="border-border" />
