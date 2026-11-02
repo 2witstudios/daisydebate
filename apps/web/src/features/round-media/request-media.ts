@@ -35,15 +35,13 @@ export function createMediaRequest(input: {
             cache: 'no-store',
           },
         );
-      } catch (error) {
-        if (parent.aborted) throw error;
+      } catch {
         throw transientMediaFailure();
       }
       if (!response.ok) throw mediaFailure(response.status);
       try {
         return (await response.json()) as unknown;
-      } catch (error) {
-        if (parent.aborted) throw error;
+      } catch {
         throw transientMediaFailure();
       }
     };

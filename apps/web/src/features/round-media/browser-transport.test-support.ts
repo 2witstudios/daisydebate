@@ -35,6 +35,8 @@ export function stubSdk(
     readonly unpublishGate?: Promise<void>;
     /** The first publish rejects; later ones follow `settles`. */
     readonly failFirstPublish?: boolean;
+    /** The first unpublish rejects. */
+    readonly failFirstUnpublish?: boolean;
   } = {},
 ) {
   const captures: unknown[] = [];
@@ -42,6 +44,7 @@ export function stubSdk(
   const published: Captured[] = [];
   const gates = [...(options.captureGates ?? [])];
   let failPublish = options.failFirstPublish ?? false;
+  let failUnpublish = options.failFirstUnpublish ?? false;
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const localParticipant = {
     trackPublications: new Map(),
@@ -58,6 +61,10 @@ export function stubSdk(
     },
     unpublishTrack: async (track: Captured) => {
       await options.unpublishGate;
+      if (failUnpublish) {
+        failUnpublish = false;
+        throw new Error('Unpublish refused');
+      }
       published.splice(published.indexOf(track), 1);
     },
   };

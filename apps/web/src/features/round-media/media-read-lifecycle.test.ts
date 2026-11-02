@@ -1,17 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createMediaController,
-  type BrowserMediaTransport,
-} from './media-controller';
+import { createMediaController } from './media-controller';
 import { admission, snapshot, roundId } from './media-controller.test-support';
+import { transportStub } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
-const transport = (): BrowserMediaTransport => ({
-  connect: async () => undefined,
-  apply: async () => undefined,
-  stopTracks: () => undefined,
-  disconnect: async () => undefined,
-});
 
 test('repeated wakes share one flight and exactly one followup', async () => {
   const held = Promise.withResolvers<unknown>();
@@ -23,7 +15,7 @@ test('repeated wakes share one flight and exactly one followup', async () => {
       admit: async () => admission,
       reconcile: async () => (++reads === 2 ? held.promise : snapshot),
     },
-    transport,
+    transport: () => transportStub(),
     changed: () => undefined,
   });
   await controller.join();
@@ -67,7 +59,7 @@ test('connection replacement fences old rejection and cleanup', async () => {
       const index = stopped.length;
       stopped.push(0);
       return {
-        ...transport(),
+        ...transportStub(),
         stopTracks: () => {
           stopped[index]!++;
         },
@@ -121,7 +113,7 @@ test('accepted views during admission and first read use current intent without 
       },
     },
     transport: () => ({
-      ...transport(),
+      ...transportStub(),
       connect: async () => {
         connects++;
       },
@@ -172,7 +164,7 @@ test('an old already-started SDK rejection cannot fail its successor', async () 
       },
     },
     transport: () => ({
-      ...transport(),
+      ...transportStub(),
       apply: async () => {
         if (++applies === 2) await applying.promise;
       },
@@ -217,7 +209,7 @@ test('release callbacks cannot revive a synchronously disposed replacement', asy
       reconcile: async () => snapshot,
     },
     transport: () => ({
-      ...transport(),
+      ...transportStub(),
       stopTracks: () => {
         if (disposeOnRelease) controller.stop();
       },

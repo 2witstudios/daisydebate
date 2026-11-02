@@ -107,6 +107,8 @@ export function createBrowserMediaTransport(
       );
   };
   const emit = () => {
+    // A released room must not overwrite the list its successor now owns.
+    if (stopped) return;
     const snapshot: MediaTrack[] = [];
     for (const participant of [
       room.localParticipant,
@@ -152,8 +154,8 @@ export function createBrowserMediaTransport(
     .on(RoomEvent.ParticipantConnected, events.invalidated)
     .on(RoomEvent.ParticipantDisconnected, events.invalidated)
     .on(RoomEvent.ParticipantPermissionsChanged, (_previous, participant) => {
-      // A failed publish rejects the queue; the reconcile this invalidation
-      // requests then reports it through apply.
+      // A failed pass ends here; the reconcile this invalidation requests runs
+      // its own pass and reports a lasting failure through apply.
       if (participant === room.localParticipant) void settle().catch(() => {});
       events.invalidated();
     });
@@ -228,7 +230,13 @@ export function createBrowserMediaTransport(
     tracks.delete(source);
     const keep = source === 'microphone' && desired.length > 0 && !warm;
     if (!keep) track.stop();
-    await room.localParticipant.unpublishTrack(track, !keep);
+    try {
+      await room.localParticipant.unpublishTrack(track, !keep);
+    } catch (error) {
+      // Nothing holds this track now, so a kept microphone must not stay open.
+      track.stop();
+      throw error;
+    }
     if (!keep) return;
     if (stopped) track.stop();
     else warm = track;

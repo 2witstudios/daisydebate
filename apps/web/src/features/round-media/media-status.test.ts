@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { mediaStatus, mediaWhile, retryMissingDevices } from './media-status';
+import {
+  mediaStatus,
+  mediaWhile,
+  retryMissingDevices,
+  showConnection,
+} from './media-status';
 
 setupRitewayBun();
 
@@ -82,5 +87,30 @@ test('a released connection shows no last-known microphone state', () => {
       (connection) => mediaWhile(connection, 'open'),
     ),
     expected: ['open', null, null, null],
+  });
+});
+
+test('a controller teardown clears the stage state it shows', () => {
+  let connection = 'live';
+  let media: string | null = 'open';
+  const changed = showConnection<string>({
+    connection: (state) => {
+      connection = state;
+    },
+    media: (update) => {
+      media = update(media);
+    },
+  });
+  changed('live');
+  const live = [connection, media];
+  changed('unavailable');
+  assert({
+    given: 'the controller going live, then releasing as unavailable',
+    should: 'keep the microphone state while live and clear it on teardown',
+    actual: [live, [connection, media]],
+    expected: [
+      ['live', 'open'],
+      ['unavailable', null],
+    ],
   });
 });

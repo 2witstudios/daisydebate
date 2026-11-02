@@ -1,9 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { followRoundView } from './follow-round-view';
+import { createRoundViewFollower } from './follow-round-view';
 import { createMediaController } from './media-controller';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { settle } from './browser-transport.test-support';
 import { admission, roundId, snapshot } from './media-controller.test-support';
+import { transportStub } from './media-controller.test-support';
 import { ran } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
 
@@ -24,29 +25,27 @@ const mounted = async () => {
         return (await held.reply) ?? snapshot;
       },
     },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async () => undefined,
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
+    transport: () => transportStub(),
     changed: () => undefined,
   });
   await controller.join();
   const fires: (() => void)[] = [];
   const delays: number[] = [];
-  const follow = (next: typeof view, nowMs: number) =>
-    followRoundView({
-      view: next,
-      nowMs,
-      reconcile: (event) => void controller.reconcile(event),
-      refresh: () => state.refreshes++,
-      schedule: (fire, delayMs) => {
-        fires.push(fire);
-        delays.push(delayMs);
-        return () => undefined;
-      },
-    });
+  let nowMs = 0;
+  const follower = createRoundViewFollower({
+    now: () => nowMs,
+    reconcile: (event) => void controller.reconcile(event),
+    refresh: () => state.refreshes++,
+    schedule: (fire, delayMs) => {
+      fires.push(fire);
+      delays.push(delayMs);
+      return () => undefined;
+    },
+  });
+  const follow = (next: typeof view, at: number) => {
+    nowMs = at;
+    return follower(next);
+  };
   return { state, held, controller, fires, delays, follow };
 };
 
@@ -132,6 +131,46 @@ test('a newer view from the caller supersedes the read it finds held', async () 
     should: 'abort that read and read fresh once',
     actual: [heldSignal?.aborted, media.state.reads - before],
     expected: [true, 1],
+  });
+  media.controller.stop();
+});
+
+test('a same-version view arriving after the deadline still supersedes a held read', async () => {
+  const media = await mounted();
+  media.follow(view, deadlineMs - 5_000);
+  await settle();
+  media.held.reply = new Promise(() => undefined);
+  void media.controller.reconcile({ kind: 'wake' });
+  await settle();
+  const heldSignal = media.state.signals.at(-1);
+  const before = media.state.reads;
+  media.held.reply = null;
+  media.follow({ ...view }, deadlineMs + 1);
+  await settle();
+  assert({
+    given: 'a poll landing after the deadline, before the old timer ran',
+    should:
+      'offer the boundary so the held read is replaced, not queued behind',
+    actual: [heldSignal?.aborted, media.state.reads - before],
+    expected: [true, 1],
+  });
+  media.controller.stop();
+});
+
+test('an overdue deadline refreshes once however many views repeat it', async () => {
+  const media = await mounted();
+  for (let i = 1; i <= 4; i++) {
+    media.follow({ ...view }, deadlineMs + i);
+    await settle();
+  }
+  for (const fire of media.fires) fire();
+  await settle();
+  const reads = media.state.reads;
+  assert({
+    given: 'the same overdue deadline across repeated same-version views',
+    should: 'schedule one refresh, so no refresh and read loop forms',
+    actual: [media.delays, media.state.refreshes, reads > 0],
+    expected: [[0], 1, true],
   });
   media.controller.stop();
 });

@@ -1,21 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createMediaController,
-  type BrowserMediaTransport,
-} from './media-controller';
+import { createMediaController } from './media-controller';
 import { admission, snapshot, roundId } from './media-controller.test-support';
+import { transportStub } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
-const transport = (
-  overrides: Partial<BrowserMediaTransport> = {},
-): BrowserMediaTransport => ({
-  connect: async () => undefined,
-  apply: async () => undefined,
-  stopTracks: () => undefined,
-  disconnect: async () => undefined,
-  ...overrides,
-});
 const version = (value: number) =>
   ({ kind: 'view', roundViewVersion: value }) as const;
 
@@ -37,7 +26,7 @@ test('a stale ended, mismatched or malformed reply cannot end or fail its succes
         reconcile: async () => (++reads === 2 ? held.promise : snapshot),
       },
       transport: () =>
-        transport({
+        transportStub({
           stopTracks: () => {
             stops++;
           },
@@ -82,7 +71,7 @@ test('an old apply finishing after its successor failed releases what it publish
       },
     },
     transport: () =>
-      transport({
+      transportStub({
         apply: async () => {
           if (++applies === 2) await applying.promise;
         },
@@ -130,7 +119,7 @@ test('events emitted synchronously from an abort still leave one fresh read', as
         return held.promise;
       },
     },
-    transport: () => transport(),
+    transport: () => transportStub(),
     changed: () => undefined,
   });
   await controller.join();
@@ -163,7 +152,7 @@ test('a newer view emitted from a receipt rereads before announcing live', async
         return snapshot;
       },
     },
-    transport: () => transport(),
+    transport: () => transportStub(),
     changed: (state) => states.push(state),
     received: () => {
       receipts.push(reads);
@@ -200,7 +189,7 @@ test('events after failure stay inert until reconnect, which uses the current in
         return snapshot;
       },
     },
-    transport: () => transport(),
+    transport: () => transportStub(),
     changed: () => undefined,
   });
   await controller.join();
@@ -241,7 +230,7 @@ test('stop during connect releases when the connect later settles either way', a
         },
       },
       transport: () =>
-        transport({
+        transportStub({
           connect: () => connecting.promise,
           stopTracks: () => {
             stops++;
@@ -268,5 +257,76 @@ test('stop during connect releases when the connect later settles either way', a
       [1, 2, 0, 'ended', 2],
       [1, 2, 0, 'ended', 2],
     ],
+  });
+});
+
+test('each read removes its listener from the connection signal', async () => {
+  const connection: { signal?: AbortSignal; listeners: number } = {
+    listeners: 0,
+  };
+  const controller = createMediaController({
+    roundId,
+    initialRoundViewVersion: 3,
+    api: {
+      admit: async (_id, signal) => {
+        connection.signal = signal;
+        const add = signal.addEventListener.bind(signal);
+        const remove = signal.removeEventListener.bind(signal);
+        signal.addEventListener = ((...args: Parameters<typeof add>) => {
+          connection.listeners++;
+          add(...args);
+        }) as typeof signal.addEventListener;
+        signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
+          connection.listeners--;
+          remove(...args);
+        }) as typeof signal.removeEventListener;
+        return admission;
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: () => transportStub(),
+    changed: () => undefined,
+  });
+  await controller.join();
+  await settle();
+  const baseline = connection.listeners;
+  for (let read = 0; read < 5; read++)
+    await controller.reconcile({ kind: 'wake' });
+  await settle();
+  assert({
+    given: 'five more completed reads on one connection',
+    should: 'add no lasting listener to its signal',
+    actual: connection.listeners - baseline,
+    expected: 0,
+  });
+  controller.stop();
+});
+
+test('a transport factory that stops the join is released without connecting', async () => {
+  let connects = 0;
+  let stops = 0;
+  const controller = createMediaController({
+    roundId,
+    initialRoundViewVersion: 3,
+    api: { admit: async () => admission, reconcile: async () => snapshot },
+    transport: () => {
+      controller.stop();
+      return transportStub({
+        connect: async () => {
+          connects++;
+        },
+        stopTracks: () => {
+          stops++;
+        },
+      });
+    },
+    changed: () => undefined,
+  });
+  await controller.join();
+  assert({
+    given: 'caller code stopping the controller from its transport factory',
+    should: 'release the new transport, never connect it, and stay ended',
+    actual: [connects, stops, controller.state()],
+    expected: [0, 1, 'ended'],
   });
 });

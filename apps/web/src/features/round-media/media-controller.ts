@@ -204,7 +204,7 @@ export function createMediaController(input: {
   const drain = async (owner: Connection) => {
     // Yield first so `owner.loop` is reserved before effects can emit an intent.
     await Promise.resolve();
-    while (owner.queued && active(owner) && owner.connected) {
+    while (owner.queued && active(owner)) {
       owner.queued = false;
       const ticket: ReadTicket = {
         generation: intent.generation,
@@ -245,6 +245,7 @@ export function createMediaController(input: {
       loop: null,
       applying: Promise.resolve(),
     };
+    // `input.transport()` is caller code and may stop or replace this join.
     if (stale(generation)) {
       release(owner.transport);
       return;
@@ -302,10 +303,7 @@ export function createMediaController(input: {
     const owner = connection;
     if (decision.action === 'supersede') owner?.read?.abort.abort();
     if (!owner || !active(owner)) return Promise.resolve();
-    if (!owner.connected) {
-      owner.queued = true;
-      return Promise.resolve();
-    }
+    if (!owner.connected) return Promise.resolve();
     return read(owner);
   };
   return {

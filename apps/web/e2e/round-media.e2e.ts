@@ -317,6 +317,11 @@ test('a media read held across a real Round transition is superseded without tou
             (node as HTMLVideoElement).srcObject as MediaStream
           ).getVideoTracks()[0]!,
       );
+    const opponentPage = await openPage(opponent!.context, 'held read peer');
+    await opponentPage.goto(`/rounds/${round.id}/room`);
+    await expect(
+      opponentPage.getByRole('status').filter({ hasText: /^Connected$/ }),
+    ).toBeVisible(MEDIA_POLL);
     // Hold the next actual authorized reply. An SDK invalidation asks for it.
     const fetched = Promise.withResolvers<unknown>();
     const release = Promise.withResolvers<void>();
@@ -332,8 +337,8 @@ test('a media read held across a real Round transition is superseded without tou
       await route.fulfill({ response }).catch(() => undefined);
       delivered.resolve();
     });
-    const opponentPage = await openPage(opponent!.context, 'held read peer');
-    await opponentPage.goto(`/rounds/${round.id}/room`);
+    // The peer leaving is the SDK invalidation that asks for the held read.
+    void opponentPage.reload().catch(() => undefined);
     const old = roundMediaStateSchema.parse(await fetched.promise);
     expect(old.grants.publish).toContain('microphone');
     await page.evaluate(() => {

@@ -3,34 +3,41 @@ import type { MediaReadEvent } from './media-read-intent';
 import { nextMediaRefreshAt } from './refresh-deadline';
 
 /**
- * What one accepted Round projection asks of media. Returns the cancel of its
- * deadline. A refresh at the same version still asks for one coalesced read,
- * because an early boundary read is corrected by the read after it. A deadline
- * already due is covered by the read this view starts, so it refreshes only.
+ * What accepted Round projections ask of media, for one mount. Each view also
+ * asks for one coalesced read, so a same-version refresh corrects a boundary
+ * read that reached the server too early. A due deadline is always offered,
+ * because `decideMediaRead` keeps only the first offer; sent beside a newer view
+ * it costs one read, since neither event has started one yet. Each deadline
+ * refreshes the view once; the view's own backstop poll paces any retry.
  */
-export function followRoundView(input: {
-  readonly view: RoundView;
-  readonly nowMs: number;
+export function createRoundViewFollower(input: {
+  readonly now: () => number;
   readonly reconcile: (event: MediaReadEvent) => void;
   readonly refresh: () => void;
   readonly schedule: (fire: () => void, delayMs: number) => () => void;
-}): () => void {
-  const { view, reconcile } = input;
-  reconcile({ kind: 'view', roundViewVersion: view.version });
-  reconcile({ kind: 'wake' });
-  const deadlineMs = nextMediaRefreshAt(view);
-  if (deadlineMs === null) return () => undefined;
-  const delayMs = deadlineMs - input.nowMs;
-  return input.schedule(
-    () => {
-      input.refresh();
-      if (delayMs > 0)
-        reconcile({
-          kind: 'boundary',
-          roundViewVersion: view.version,
-          deadlineMs,
-        });
-    },
-    Math.max(0, delayMs),
-  );
+}) {
+  let refreshedDeadlineMs: number | null = null;
+  return (view: RoundView): (() => void) => {
+    const { reconcile, refresh, schedule } = input;
+    reconcile({ kind: 'view', roundViewVersion: view.version });
+    reconcile({ kind: 'wake' });
+    const deadlineMs = nextMediaRefreshAt(view);
+    if (deadlineMs === null) return () => undefined;
+    const boundary = {
+      kind: 'boundary',
+      roundViewVersion: view.version,
+      deadlineMs,
+    } as const;
+    const delayMs = deadlineMs - input.now();
+    if (delayMs > 0)
+      return schedule(() => {
+        refreshedDeadlineMs = deadlineMs;
+        refresh();
+        reconcile(boundary);
+      }, delayMs);
+    reconcile(boundary);
+    if (refreshedDeadlineMs === deadlineMs) return () => undefined;
+    refreshedDeadlineMs = deadlineMs;
+    return schedule(refresh, 0);
+  };
 }

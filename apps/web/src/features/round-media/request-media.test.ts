@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaRequest } from './request-media';
 import { isTransientMediaFailure } from './media-controller';
+import { trackedSignal } from './media-controller.test-support';
 
 setupRitewayBun();
 
@@ -191,4 +192,39 @@ test('the adapter runs on supported browsers without Promise.withResolvers', asy
   } finally {
     Promise.withResolvers = native;
   }
+});
+
+test('success, failure and cancellation all release the parent listener', async () => {
+  const results = [];
+  for (const fetch of [
+    async () => Response.json({}),
+    async () => new Response('{}', { status: 500 }),
+  ]) {
+    const parent = trackedSignal();
+    const timer = deadline();
+    const request = createMediaRequest({
+      fetch,
+      scheduleDeadline: timer.schedule,
+    });
+    await request('round', 'reconcile', parent.signal).catch(() => undefined);
+    results.push(parent.listening());
+  }
+  const parent = trackedSignal();
+  const timer = deadline();
+  const request = createMediaRequest({
+    fetch: () => new Promise<Response>(() => undefined),
+    scheduleDeadline: timer.schedule,
+  });
+  const pending = request('round', 'reconcile', parent.signal).catch(
+    () => undefined,
+  );
+  parent.abort();
+  await pending;
+  results.push(parent.listening());
+  assert({
+    given: 'a request that succeeds, is refused or is cancelled by its parent',
+    should: 'leave no listener on the parent signal',
+    actual: results,
+    expected: [0, 0, 0],
+  });
 });

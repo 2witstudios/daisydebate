@@ -14,13 +14,24 @@ const messages: Record<MediaConnectionState, string> = {
   ended: 'The call has ended.',
 };
 
-/** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
 /** Only a live connection may keep showing the last server media state. */
 export const mediaWhile = <Media>(
   connection: MediaConnectionState,
   media: Media | null,
 ) => (connection === 'live' ? media : null);
 
+/** What the Round shows when its controller changes connection state. */
+export const showConnection =
+  <Media>(view: {
+    readonly connection: (state: MediaConnectionState) => void;
+    readonly media: (update: (current: Media | null) => Media | null) => void;
+  }) =>
+  (state: MediaConnectionState) => {
+    view.connection(state);
+    view.media((current) => mediaWhile(state, current));
+  };
+
+/** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
 export function mediaStatus(
   connection: MediaConnectionState,
   missing: readonly Source[],

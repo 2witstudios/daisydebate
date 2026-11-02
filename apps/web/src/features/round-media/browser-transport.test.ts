@@ -289,3 +289,40 @@ test('only the first stop empties the shared track list', () => {
     expected: [0],
   });
 });
+
+test('a failed unpublish of a kept microphone stops it instead of orphaning it', async () => {
+  const stub = stubSdk({ settles: true, failFirstUnpublish: true });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  await settle();
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  const microphones = stub.captured.filter(
+    (track) => track.source === 'microphone',
+  );
+  assert({
+    given: 'the floor closing and the unpublish of the kept microphone failing',
+    should: 'report it and leave no microphone capturing',
+    actual: [failure, microphones.some((track) => !track.ended)],
+    expected: ['Unpublish refused', false],
+  });
+});
+
+test('a released room cannot overwrite the shared track list', () => {
+  const stub = stubSdk();
+  const emitted: number[] = [];
+  const { transport } = createBrowserMediaTransport(
+    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
+    stub.sdk,
+  );
+  transport.stopTracks();
+  stub.fire(RoomEvent.LocalTrackPublished);
+  stub.fire(RoomEvent.TrackUnsubscribed);
+  assert({
+    given: 'late SDK events from a stopped transport',
+    should: 'emit nothing after the final empty list',
+    actual: emitted,
+    expected: [0],
+  });
+});

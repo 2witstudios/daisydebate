@@ -3,6 +3,7 @@ import { createMediaController, mediaFailure } from './media-controller';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 import { roundId, snapshot, admission } from './media-controller.test-support';
+import { transportStub } from './media-controller.test-support';
 
 test('new authority supersedes ignored-abort pending read without releasing healthy media', async () => {
   const old = Promise.withResolvers<unknown>();
@@ -150,12 +151,7 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
       },
     },
     retry: { delaysMs: [1], wait: () => pause.promise },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async () => undefined,
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
+    transport: () => transportStub(),
     changed: () => undefined,
   });
   await controller.join();
@@ -204,12 +200,7 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
     roundId,
     initialRoundViewVersion: 3,
     api: { admit: async () => admission, reconcile: async () => snapshot },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async () => undefined,
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
+    transport: () => transportStub(),
     changed: () => undefined,
     received: () => controller.stop(),
   });

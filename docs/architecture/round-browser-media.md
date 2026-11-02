@@ -78,6 +78,8 @@ each attempt. Expiry is a transient failure, handled by the controller's existin
 retry and no second retry owner.
 Exhausted retries on a live connection release it as `unavailable`, about 43.5 s
 after a total stall; recovery from that state belongs to the recovery owner.
+The deadline bounds HTTP only. An SDK apply that never settles still holds later
+applies, as it always has; nothing here cancels or times out SDK work.
 
 ### Admission fairness
 

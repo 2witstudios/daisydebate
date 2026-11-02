@@ -1,21 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createMediaController,
-  type BrowserMediaTransport,
-} from './media-controller';
+import { createMediaController } from './media-controller';
 import { admission, snapshot, roundId } from './media-controller.test-support';
+import { transportStub } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
-const transport = (
-  overrides: Partial<BrowserMediaTransport> = {},
-): BrowserMediaTransport => ({
-  connect: async () => undefined,
-  apply: async () => undefined,
-  stopTracks: () => undefined,
-  disconnect: async () => undefined,
-  ...overrides,
-});
 const version = (value: number) =>
   ({ kind: 'view', roundViewVersion: value }) as const;
 
@@ -38,7 +27,7 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
           reconcile: async () => (++reads === 2 ? held.promise : snapshot),
         },
         transport: () =>
-          transport({
+          transportStub({
             stopTracks: () => {
               stops++;
             },
@@ -86,7 +75,7 @@ test('a queued fresh reply superseded while waiting for the old apply never star
       },
     },
     transport: () =>
-      transport({
+      transportStub({
         apply: async (state) => {
           applied.push(state.grants.publish.join('+'));
           if (applied.length === 2) await applying.promise;
@@ -145,7 +134,7 @@ test('a receipt superseded in any microtask gap after apply is never announced',
         },
       },
       transport: () =>
-        transport({
+        transportStub({
           apply: async () => {
             if (++applies === 2) await applying.promise;
           },

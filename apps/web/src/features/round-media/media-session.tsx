@@ -2,7 +2,7 @@
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
-import { followRoundView } from './follow-round-view';
+import { createRoundViewFollower } from './follow-round-view';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -16,7 +16,11 @@ import {
 } from './media-controller';
 import { createMediaRequest } from './request-media';
 import { MediaStage } from './media-stage';
-import { mediaStatus, mediaWhile, retryMissingDevices } from './media-status';
+import {
+  mediaStatus,
+  retryMissingDevices,
+  showConnection,
+} from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
@@ -70,6 +74,18 @@ function RoundMediaSession({
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
+  /** Once per mount: it remembers which deadline has already refreshed. */
+  const [follow] = useState(() =>
+    createRoundViewFollower({
+      now: () => Date.parse(systemClock.now()),
+      reconcile: (event) => void controller.current?.reconcile(event),
+      refresh: () => refresh.current(),
+      schedule: (fire, delayMs) => {
+        const timer = window.setTimeout(fire, delayMs);
+        return () => window.clearTimeout(timer);
+      },
+    }),
+  );
   useEffect(() => {
     const mounted = createMediaController({
       roundId: view.id,
@@ -78,10 +94,7 @@ function RoundMediaSession({
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
       },
-      changed: (state) => {
-        setConnection(state);
-        setMedia((current) => mediaWhile(state, current));
-      },
+      changed: showConnection({ connection: setConnection, media: setMedia }),
       received: setMedia,
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
@@ -123,17 +136,8 @@ function RoundMediaSession({
       return;
     }
     acceptedVersion.current = view.version;
-    return followRoundView({
-      view,
-      nowMs: Date.parse(systemClock.now()),
-      reconcile: (event) => void controller.current?.reconcile(event),
-      refresh: () => refresh.current(),
-      schedule: (fire, delayMs) => {
-        const timer = window.setTimeout(fire, delayMs);
-        return () => window.clearTimeout(timer);
-      },
-    });
-  }, [view]);
+    return follow(view);
+  }, [view, follow]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
