@@ -60,7 +60,11 @@ export function DocumentEditor({
   // goes into the open editor without echoing back as a local update.
   useEffect(() => {
     if (!editor || sameDocumentHtml(editor.getHTML(), document.html)) return;
+    const { from, to } = editor.state.selection;
+    const focused = editor.isFocused;
     editor.commands.setContent(document.html, { emitUpdate: false });
+    // Someone in the editor keeps their place, clamped to the new text.
+    if (focused) editor.commands.setTextSelection({ from, to });
   }, [editor, document.html]);
 
   return (

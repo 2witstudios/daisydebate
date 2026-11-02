@@ -67,28 +67,38 @@ test('a mount publishes only on proof', () => {
   assert({
     given: 'each server identity, with and without a sign-out or closure',
     should:
-      'publish a known identity and a proven ending, and never an anonymous or unavailable guess',
+      'publish a known identity and a proven ending, honour closure on any mount, and never guess',
     actual: [
       run('member', {}),
       run(null, {}),
       run(null, { signedOut: true }),
       run(null, { closed: true }),
-      run(undefined, { signedOut: true, closed: true }),
+      run('member', { closed: true }),
+      run(undefined, { closed: true }),
+      run(undefined, { signedOut: true }),
       run(undefined, {}),
     ],
-    expected: [['member'], [], [null], [null], [], []],
+    expected: [
+      ['member'],
+      [],
+      [null],
+      [null],
+      [null, 'member'],
+      [null],
+      [],
+      [],
+    ],
   });
 });
 
-test('an unavailable mount consumes a sign-out mark but keeps closure proof', () => {
-  const h = harness({ signedOut: true, closed: true });
+test('an unavailable mount leaves the sign-out mark for the next known mount', () => {
+  const h = harness({ signedOut: true });
   watchNotesIdentity(undefined, h.resources)();
   assert({
-    given: 'identity unavailable when both signals are present',
-    should:
-      'consume the mark so it cannot purge later, and leave the short-lived proof for a known mount',
-    actual: [h.log.intentTaken, h.log.closedTaken, h.published],
-    expected: [1, 0, []],
+    given: 'a sign-out landing while identity is unavailable',
+    should: 'publish nothing and leave the mark, so it can still purge later',
+    actual: [h.log.intentTaken, h.published],
+    expected: [0, []],
   });
 });
 
@@ -122,21 +132,31 @@ test('an unavailable mount with no copies never reads the session', async () => 
   });
 });
 
-test('a null answer fences once and stops the reads', async () => {
+test('a null answer fences and later checks still ask', async () => {
   const h = harness();
-  const stop = watchNotesIdentity(undefined, h.resources);
+  const answers: unknown[] = [null, null, { user: { id: 'member' } }];
+  const stop = watchNotesIdentity(undefined, {
+    ...h.resources,
+    fetchSession: async () => {
+      h.log.reads += 1;
+      return { ok: true, json: async () => answers.shift() };
+    },
+  });
   h.events.dispatchEvent(new Event('focus'));
-  await settled();
-  h.events.dispatchEvent(new Event('focus'));
-  h.visibility.dispatchEvent(new Event('visibilitychange'));
   await settled();
   const copy = h.storage.getItem(DRAFT);
+  h.events.dispatchEvent(new Event(NOTES_IDENTITY_CHECK_EVENT));
+  await settled();
+  const fences = h.log.fences;
+  h.events.dispatchEvent(new Event('focus'));
+  await settled();
   stop();
   assert({
-    given: 'an unavailable mount whose session read answers signed out',
-    should: 'fence, keep the copy, publish nothing and read only once',
-    actual: [h.log.reads, h.log.fences, copy, h.published],
-    expected: [1, 1, 'private', []],
+    given: 'an unavailable mount signed out twice, then signed in again',
+    should:
+      'fence each time because a fence can refuse, keep the copy, then follow the session',
+    actual: [fences, copy, h.published],
+    expected: [2, 'private', ['member']],
   });
 });
 

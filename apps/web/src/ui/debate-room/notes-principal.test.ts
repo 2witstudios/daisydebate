@@ -165,3 +165,23 @@ test('publishing warns only when a removal really failed', async () => {
     expected: [true, true, false, 'event'],
   });
 });
+
+test('the closure cookie is taken once and a denied cookie is no proof', async () => {
+  const { takeNotesErasedCookie } = await import('./notes-principal');
+  const jar = { cookie: 'theme=dark; daisy-notes-erased=1' };
+  const first = takeNotesErasedCookie(jar);
+  const cleared = jar.cookie;
+  const none = takeNotesErasedCookie({ cookie: 'theme=dark' });
+  const denied = takeNotesErasedCookie({
+    get cookie(): string {
+      throw new DOMException('denied', 'SecurityError');
+    },
+    set cookie(_value: string) {},
+  });
+  assert({
+    given: 'a cookie jar with the proof, without it, and a sandboxed document',
+    should: 'take it once by clearing it, and never throw',
+    actual: [first, cleared.includes('Max-Age=0'), none, denied],
+    expected: [true, true, false, false],
+  });
+});

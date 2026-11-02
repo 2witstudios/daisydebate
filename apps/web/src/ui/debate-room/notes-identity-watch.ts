@@ -44,14 +44,13 @@ export function watchNotesIdentity(
     }
     publish(next);
   };
-  // Consumed on every mount, so a refused sign-out can never purge later.
-  const signedOut = resources.takeSignOutIntent();
+  // Only the server issues this, so it holds on any mount, whatever identity
+  // that mount was rendered with.
+  if (resources.takeAccountClosedProof()) publish(null);
+  // An unavailable mount leaves the sign-out mark for the next known one.
   if (
     principalId !== undefined &&
-    rootMountAction(
-      principalId,
-      signedOut || resources.takeAccountClosedProof(),
-    ) === 'publish'
+    rootMountAction(principalId, resources.takeSignOutIntent()) === 'publish'
   )
     syncPrincipal(principalId);
   const read = async () => {
@@ -73,10 +72,9 @@ export function watchNotesIdentity(
         syncPrincipal(next);
         return;
       }
-      // Expiry is not a sign-out, so this only fences. Nothing is left to
-      // observe, as on an anonymous mount.
+      // Expiry is not a sign-out, so this only fences. A fence can refuse while
+      // text is unstored, so later checks ask again, as a known mount does.
       events.dispatchEvent(new Event(NOTES_FENCE_EVENT));
-      if (observed === undefined) observed = null;
     } catch {
       // Offline or cancelled transport never establishes identity loss.
     } finally {

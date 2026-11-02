@@ -320,10 +320,16 @@ export function createDocumentSync({
     publish();
     idle(id);
   };
-  const conflict = async (id: string, revision: number) => {
+  const conflict = async (id: string, sent: NoteCopy, revision: number) => {
     // A failed list establishes nothing, so it goes to the retry or refusal path.
     const doc = (await api.list(roundId)).find((one) => one.id === id);
     if (isClosed()) return;
+    // The server already holds exactly this text, so nothing conflicts: an exit
+    // save landed after the page's look, however late.
+    if (doc && sameDocumentHtml(doc.html, sent.html)) {
+      saved(id, sent, doc.revision);
+      return;
+    }
     const own =
       doc?.revision === revision
         ? ownUnansweredCommit(unanswered.get(id) ?? [], revision, (html) =>
@@ -334,7 +340,15 @@ export function createDocumentSync({
       saved(id, own, revision);
       return;
     }
-    if (doc) serverCopies.set(id, doc.html);
+    if (doc) {
+      serverCopies.set(id, doc.html);
+      const previous = read(id, wallClock());
+      const settled = settleNoteRecord(previous.record, (html) =>
+        sameDocumentHtml(html, doc.html),
+      );
+      if (settled !== previous.record)
+        write(id, previous, settled, wallClock());
+    }
     latestRevisions.set(id, doc?.revision ?? revision);
     conflicted.add(id);
     publish();
@@ -388,7 +402,7 @@ export function createDocumentSync({
         keepalive ? { ...body, keepalive: true } : body,
       );
       if (result.status === 'saved') saved(id, sent, result.revision);
-      else await conflict(id, result.revision);
+      else await conflict(id, sent, result.revision);
       acknowledged = true;
     } catch (error) {
       failed(id, sent, error);

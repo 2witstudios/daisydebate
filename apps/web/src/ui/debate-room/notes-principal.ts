@@ -1,4 +1,8 @@
 import {
+  NOTES_ERASED_COOKIE,
+  notesErasedCookie,
+} from '../../features/account/data-rights/notices-keys';
+import {
   isPrincipalDraftKey,
   noteDraftKeys,
   type DraftStorage,
@@ -94,9 +98,21 @@ export function hasPrincipalDrafts(
 /** What the root does on a server-rendered mount. Only proof of a change purges. */
 export const rootMountAction = (
   principalId: string | null,
-  accountEnded: boolean,
+  signOutIntent: boolean,
 ): 'publish' | 'keep' =>
-  principalId !== null || accountEnded ? 'publish' : 'keep';
+  principalId !== null || signOutIntent ? 'publish' : 'keep';
+
+/** The server's word that this browser asked to close its account. A denied cookie is no word. */
+export function takeNotesErasedCookie(document: { cookie: string }): boolean {
+  try {
+    if (!document.cookie.split('; ').includes(`${NOTES_ERASED_COOKIE}=1`))
+      return false;
+    document.cookie = notesErasedCookie('', 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const isSignOutPath = (pathname: string) =>
   pathname === '/auth/sign-out';

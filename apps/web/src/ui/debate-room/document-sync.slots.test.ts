@@ -657,6 +657,38 @@ test('a pending copy another tab moved aside survives this tab leaving', async (
   });
 });
 
+test('a save refused because the server already holds that text is no conflict', async () => {
+  const f = await lateCommitFixture();
+  f.commit();
+  f.sync.restoreRecovered('a', f.sync.recoveryOffers()[0]!.copy.generation);
+  await f.sync.flush();
+  assert({
+    given: 'Restore inside the recheck window, after the same text landed',
+    should: 'settle as saved, clear the copy and report no conflict',
+    actual: [
+      f.events.includes('conflict'),
+      f.storage.getItem(key),
+      f.sync.recoveryOffers(),
+    ],
+    expected: [false, null, []],
+  });
+});
+
+test('a real conflict drops an offer the server already holds and keeps the typing', async () => {
+  const f = await lateCommitFixture();
+  f.sync.change('a', '<p>TYPED ON OLD TEXT</p>');
+  f.commit();
+  await f.sync.flush();
+  const record = JSON.parse(f.storage.getItem(key) ?? '{}');
+  assert({
+    given:
+      'typing on older text when the offered copy has landed on the server',
+    should: 'report the conflict, drop the settled offer, keep the typing',
+    actual: [f.events.at(-1), record.recovery, record.active?.html],
+    expected: ['conflict', undefined, '<p>TYPED ON OLD TEXT</p>'],
+  });
+});
+
 test('a pending edit keeps its text when a late commit lands', async () => {
   const f = await lateCommitFixture();
   const shown: string[] = [];

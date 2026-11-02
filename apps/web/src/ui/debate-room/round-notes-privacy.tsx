@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { systemClock } from '@daisy/clock';
-import { NOTES_ERASED_COOKIE } from '../../features/account/data-rights/notices-keys';
 import { pruneExpiredNoteDrafts } from './note-draft-storage';
 import { watchNotesIdentity } from './notes-identity-watch';
 import {
   NOTES_SIGN_OUT_INTENT_KEY,
   isSignOutPath,
   publishNotesPrincipal,
+  takeNotesErasedCookie,
 } from './notes-principal';
 
 const browserStorage = (read: () => Storage) => {
@@ -39,16 +39,6 @@ const takeSignOutIntent = () => {
   } catch {
     return false;
   }
-};
-
-/** The server's proof that this browser's account was closed, not just attempted. */
-const takeAccountClosedProof = () => {
-  const present = document.cookie
-    .split('; ')
-    .includes(`${NOTES_ERASED_COOKIE}=1`);
-  if (present)
-    document.cookie = `${NOTES_ERASED_COOKIE}=; Path=/; Max-Age=0; Secure`;
-  return present;
 };
 
 const markSignOutIntent = (event: Event) => {
@@ -97,7 +87,7 @@ export function RoundNotesPrivacy({
             signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
           }),
         takeSignOutIntent,
-        takeAccountClosedProof,
+        takeAccountClosedProof: () => takeNotesErasedCookie(document),
         publish: (next) =>
           setCleanupFailed(
             !publishNotesPrincipal(next, window, () => window.localStorage),

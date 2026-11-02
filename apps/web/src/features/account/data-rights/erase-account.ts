@@ -13,7 +13,7 @@ import {
 import {
   ACCOUNT_CLOSED_QUERY,
   ERASE_ACCOUNT_QUERY,
-  NOTES_ERASED_COOKIE,
+  notesErasedCookie,
 } from './notices-keys';
 import { dataRightsPolicy } from './request-policy';
 
@@ -25,6 +25,23 @@ const seeOther = (location: string) =>
     status: 303,
     headers: { location, 'cache-control': 'no-store' },
   });
+
+/** Readable by the next page's script, which erases this browser's note copies. */
+const erasingNoteCopies = (response: Response) => {
+  response.headers.append('set-cookie', notesErasedCookie('1', 60));
+  return response;
+};
+
+/** Zero trust: the checkbox is the request, and only its one value asks. */
+const readConfirmation = async (
+  request: Request,
+): Promise<'confirmed' | 'unconfirmed' | 'not-a-form'> => {
+  const body = await readBoundedBody(request, MAX_ERASE_FORM_BYTES);
+  if (body === null) return 'not-a-form';
+  return new URLSearchParams(body.toString('utf8')).get('confirm') === 'on'
+    ? 'confirmed'
+    : 'unconfirmed';
+};
 
 /** The erase form's refusals, one fixed sentence each on the settings page. */
 export type EraseAccountNotice = 'confirm' | 'rate-limited' | 'refused';
@@ -73,12 +90,9 @@ export function createEraseAccountHandler({
         `privacy:erase:${account.principal.userId}`,
         dataRightsPolicy.erase,
       );
-      const body = await readBoundedBody(request, MAX_ERASE_FORM_BYTES);
-      // Zero trust: the checkbox is the request, and only its one value asks;
-      // anything larger than an erase form is not one.
-      if (body === null) return back('refused');
-      if (new URLSearchParams(body.toString('utf8')).get('confirm') !== 'on')
-        return back('confirm');
+      const confirmation = await readConfirmation(request);
+      if (confirmation === 'not-a-form') return back('refused');
+      if (confirmation === 'unconfirmed') return back('confirm');
       await eraseSubject(
         {
           userId: account.principal.userId,
@@ -91,17 +105,19 @@ export function createEraseAccountHandler({
         { operation: 'privacy.erase' },
         'Account erasure completed',
       );
-      const closed = seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`);
-      // Readable by the next page's script, which erases this browser's private
-      // note copies. It proves completion, and it names no person.
-      closed.headers.append(
-        'set-cookie',
-        `${NOTES_ERASED_COOKIE}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`,
-      );
-      return closed;
+      return erasingNoteCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
     } catch (error) {
-      if (isAppError(error) && error.code === 'AUTHENTICATION')
-        return seeOther('/sign-in');
+      if (isAppError(error) && error.code === 'AUTHENTICATION') {
+        // Same origin held, so this browser asked to close the account and has
+        // no session left: a double submit or a lost answer after the closure
+        // committed, or an expired session. It cannot tell which, and it asked
+        // for its private data to go, so its note copies go in every case.
+        const confirmed =
+          (await readConfirmation(request).catch(() => null)) === 'confirmed';
+        return confirmed
+          ? erasingNoteCopies(seeOther('/sign-in'))
+          : seeOther('/sign-in');
+      }
       const code = isAppError(error) ? error.code : 'INTERNAL';
       logger.log(
         'privacy.erase.failed',

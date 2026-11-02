@@ -6,5 +6,10 @@
 export const EXPORT_DATA_QUERY = 'privacyExport';
 export const ERASE_ACCOUNT_QUERY = 'privacyErase';
 export const ACCOUNT_CLOSED_QUERY = 'closed';
-/** Set only on a completed closure, so private note copies are erased on proof. */
+/**
+ * Set only when this browser confirmed closing its account, so its private note
+ * copies are erased on the server's word. Holds no identity, and script reads it.
+ */
 export const NOTES_ERASED_COOKIE = 'daisy-notes-erased';
+export const notesErasedCookie = (value: string, maxAgeSeconds: number) =>
+  `${NOTES_ERASED_COOKIE}=${value}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax; Secure`;

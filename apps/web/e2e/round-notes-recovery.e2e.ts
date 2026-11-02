@@ -444,6 +444,10 @@ test('an exit save landing after the next page listed moves the editor, with no 
     'Landed after the list',
   );
   const { revision } = await serverDocument(page, roundId, documentId);
+  // Someone already in the editor keeps their place when the text moves.
+  const editor = page.getByRole('textbox', { name: 'Flow', exact: true });
+  await editor.click();
+  await page.keyboard.press('Home');
   const landed = await page.request.post(`${documentsPath}save`, {
     headers: { origin },
     data: {
@@ -454,19 +458,17 @@ test('an exit save landing after the next page listed moves the editor, with no 
   });
   expect(landed.status()).toBe(200);
   await page.clock.runFor(3_000);
-  await expect(
-    page.getByRole('textbox', { name: 'Flow', exact: true }),
-  ).toContainText('Landed after the list');
+  await expect(editor).toContainText('Landed after the list');
   await expect(
     page.getByRole('button', { name: 'Restore Flow', exact: true }),
   ).toHaveCount(0);
   await expect.poll(() => rawDraftFor(page, documentId)).toBeNull();
   await page.clock.resume();
-  await edit(page, 'Typed after the landing');
+  await page.keyboard.type('First: ');
   await expect
     .poll(async () => serverDocument(page, roundId, documentId))
     .toMatchObject({
-      html: expect.stringContaining('Typed after the landing'),
+      html: expect.stringContaining('First: Landed after the list'),
       revision: revision + 2,
     });
   await expect(page.getByText('A newer save of this file')).toHaveCount(0);
