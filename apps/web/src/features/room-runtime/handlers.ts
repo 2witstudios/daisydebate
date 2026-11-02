@@ -9,7 +9,9 @@ import {
   roomListQuerySchema,
   roomRefusalSchema,
 } from '@daisy/protocol';
+import { serverClockHeaders } from '../round-runtime/server-clock-header';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import type { Clock } from '@daisy/clock';
 import {
   refusalResponse,
   handleOperation,
@@ -26,6 +28,8 @@ type Dependencies = {
   readonly logger: Logger;
   /** ADR 0037: where a 5xx from these handlers' raw errors goes, scrubbed. */
   readonly reporter: ErrorReporter;
+  /** The authorized server instant round reads stamp for client calibration. */
+  readonly clock: Clock;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly getActorByUserId: (
@@ -202,7 +206,10 @@ export function createRoomHandlers(dependencies: Dependencies) {
             caller,
             parseValidated(idSchema, roundId),
           ),
-        doorbell,
+        {
+          ...doorbell,
+          ...serverClockHeaders(dependencies.clock),
+        },
       ),
     roundRef: (request: Request, roomId: string) =>
       run(request, 'read', false, async (caller) => {

@@ -31,7 +31,7 @@ export const systemScheduler: Scheduler = {
  * an exemption (the repo bans `Math.random`, not `crypto.getRandomValues`),
  * and costs nothing here since jitter is not on any hot path.
  */
-function secureRandom(): number {
+export function secureRandom(): number {
   const buffer = new Uint32Array(1);
   crypto.getRandomValues(buffer);
   return buffer[0]! / 2 ** 32;

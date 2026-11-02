@@ -30,8 +30,14 @@ test('a live room whose Round completed points to its result', () => {
     <LiveJudgeRoom
       renderedAtMs={0}
       view={ended}
-      read={async () => ({ kind: 'found', round: ended })}
+      read={async () => ({
+        kind: 'found',
+        round: ended,
+        serverNowMs: null,
+        socketUrl: null,
+      })}
       socketUrl={null}
+      renderedAtMs={0}
     />,
   );
   assert({

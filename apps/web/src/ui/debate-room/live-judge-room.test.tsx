@@ -17,8 +17,14 @@ test('an assigned judge watches debaters without competitive controls or attenda
     <LiveJudgeRoom
       renderedAtMs={0}
       view={assignedView}
-      read={async () => ({ kind: 'found', round: assignedView })}
+      read={async () => ({
+        kind: 'found',
+        round: assignedView,
+        serverNowMs: null,
+        socketUrl: null,
+      })}
       socketUrl={null}
+      renderedAtMs={0}
     />,
   );
   assert({

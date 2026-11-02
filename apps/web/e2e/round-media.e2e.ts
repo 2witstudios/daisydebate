@@ -2,7 +2,10 @@ import {
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
 } from '@daisy/protocol';
+import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
+import { launchLiveKit } from './support/launch-livekit';
+import { serverOffsetMs } from './support/round-timing-response';
 import { origin } from './support/accounts';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
@@ -411,3 +414,175 @@ test('a media read held across a real Round transition is superseded without tou
     await closeSettledLaunchContexts(accounts);
   }
 });
+
+// With every browser read held short of the server, only its recovery tick can
+// move the floor.
+for (const [name, tickOnly] of [
+  ['with the peer reading', false],
+  ['on the recovery tick alone', true],
+] as const)
+  test(`a deadline right after a supersession still moves the floor at LiveKit inside 2 s, ${name}`, async ({
+    browser,
+  }) => {
+    // Short enough that the read the new view starts is young at the deadline.
+    const COUNTDOWN_MS = 1_000;
+    const PERMISSION_BAR_MS = 2_000;
+    const accounts = await createRoomLaunchAccounts(browser, 2);
+    try {
+      const round = await createHumanBallotRound(
+        accounts.members,
+        0,
+        COUNTDOWN_MS,
+      );
+      const [speaker, opponent] = accounts.members;
+      for (const member of [speaker!, opponent!])
+        await member.context.grantPermissions(['camera', 'microphone'], {
+          origin,
+        });
+      const now = () => performance.timeOrigin + performance.now();
+      const mediaPath = `/api/rounds/${round.id}/media`;
+      const page = await openPage(speaker!.context, 'burst speaker');
+      await page.goto(`/rounds/${round.id}/room`);
+      await expect(
+        page.getByRole('status').filter({ hasText: /^Connected$/ }),
+      ).toBeVisible(MEDIA_POLL);
+      await expect
+        .poll(async () => {
+          const view = await readBallotRound(
+            speaker!.context.request,
+            round.id,
+          );
+          return view.segments.some(
+            (segment) => segment.type === 'speech' && segment.endedAt === null,
+          );
+        }, MEDIA_POLL)
+        .toBe(true);
+
+      // This debater's next two reads are held: the first is superseded by the
+      // new view, and the second is the young read the boundary lets finish.
+      const release = Promise.withResolvers<void>();
+      const reads: { startedAt: number; endedAt: number | null }[] = [];
+      await page.route(`**${mediaPath}/reconcile`, async (route) => {
+        reads.push({ startedAt: now(), endedAt: null });
+        if (reads.length > 2 && !tickOnly) return route.fallback();
+        if (!tickOnly) await route.fetch();
+        await release.promise;
+        await route.abort().catch(() => undefined);
+      });
+      let settledReads = 0;
+      page.on('requestfailed', (request) => {
+        if (new URL(request.url()).pathname === `${mediaPath}/reconcile`) {
+          const read = reads[settledReads++];
+          if (read && read.endedAt === null) read.endedAt = now();
+        }
+      });
+
+      // The peer joining is the SDK invalidation that asks for the first held read.
+      const opponentPage = await openPage(opponent!.context, 'burst peer');
+      const opponentReads: number[] = [];
+      opponentPage.on('request', (request) => {
+        if (new URL(request.url()).pathname === `${mediaPath}/reconcile`)
+          opponentReads.push(now());
+      });
+      const admission = opponentPage.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `${mediaPath}/session` &&
+          response.ok(),
+      );
+      await opponentPage.goto(`/rounds/${round.id}/room`);
+      const { identity, token } = roundMediaAdmissionSchema.parse(
+        await (await admission).json(),
+      );
+      const roomName = (
+        JSON.parse(
+          Buffer.from(token.split('.')[1]!, 'base64url').toString(),
+        ) as {
+          video: { room: string };
+        }
+      ).video.room;
+      await expect(
+        opponentPage.getByRole('status').filter({ hasText: /^Connected$/ }),
+      ).toBeVisible(MEDIA_POLL);
+      await expect.poll(() => reads.length, MEDIA_POLL).toBeGreaterThan(0);
+
+      if (tickOnly)
+        await opponentPage.route(`**${mediaPath}/reconcile`, async (route) => {
+          await release.promise;
+          await route.abort().catch(() => undefined);
+        });
+      const liveKit = createMediaService({ config: launchLiveKit });
+      const opponentGrants = async () =>
+        (await liveKit.publicationPermissions(roomName)).find(
+          (peer) => peer.identity === identity,
+        )?.grants.publish ?? [];
+      expect(await opponentGrants()).not.toContain('microphone');
+
+      const view = await readBallotRound(speaker!.context.request, round.id);
+      const seat = view.participants.find(
+        (participant) =>
+          participant.role === 'affirmative' && 'id' in participant,
+      );
+      if (!seat || !('id' in seat))
+        throw new Error('Actual debater seat missing');
+      const offset = await serverOffsetMs(
+        async () =>
+          Number(
+            (
+              await speaker!.context.request.get(`/api/rounds/${round.id}`)
+            ).headers()['x-server-now-ms'],
+          ),
+        now,
+      );
+      const yielded = await ballotRoundCommand(speaker!.context.request, view, {
+        type: 'yield',
+        participantId: seat.id,
+      });
+      const endedAt = yielded.segments
+        .filter((segment) => segment.endedAt !== null)
+        .at(-1)?.endedAt;
+      if (!endedAt) throw new Error('Actual speech end missing');
+      // The yield's reply stamps the server: read the deadline on this clock.
+      const deadline = Date.parse(endedAt) + COUNTDOWN_MS - offset;
+
+      await expect
+        .poll(opponentGrants, { timeout: 15_000, intervals: [50] })
+        .toContain('microphone');
+      const grantedAt = now();
+      await expect.poll(() => reads.length, MEDIA_POLL).toBeGreaterThan(2);
+      const [superseded, young, fresh] = reads;
+      release.resolve();
+
+      // The forced shape: the first read went at the view, and the second started
+      // before the deadline and was let finish, not aborted at once or left to its
+      // 10 s request deadline. The next speech's own view may be what lets it finish
+      // instead of the boundary, by the same path; either way the wait is this one.
+      expect(superseded!.endedAt).not.toBeNull();
+      expect(young!.startedAt).toBeLessThan(deadline);
+      expect(fresh!.startedAt).toBeGreaterThan(deadline);
+      expect(fresh!.startedAt - young!.startedAt).toBeGreaterThan(1_900);
+      expect(fresh!.startedAt - young!.startedAt).toBeLessThan(2_500);
+      await test.info().attach('boundary-after-supersession', {
+        body: JSON.stringify({
+          tickOnly,
+          countdownMs: COUNTDOWN_MS,
+          youngReadAgeAtDeadlineMs: deadline - young!.startedAt,
+          freshReadAfterDeadlineMs: fresh!.startedAt - deadline,
+          deadlineToPermissionMs: grantedAt - deadline,
+          // Whose read could have moved the floor: reads that reached the server
+          // after the deadline and before the permission. Empty means the tick.
+          forwardedReadsBeforePermissionMs: (tickOnly
+            ? []
+            : [...opponentReads, fresh!.startedAt]
+          )
+            .filter((at) => at > deadline && at < grantedAt)
+            .map((at) => at - deadline),
+        }),
+        contentType: 'application/json',
+      });
+      // A grant this early would be the old floor, or a deadline read wrongly.
+      expect(grantedAt - deadline).toBeGreaterThan(-250);
+      expect(grantedAt - deadline).toBeLessThan(PERMISSION_BAR_MS);
+    } finally {
+      await closeSettledLaunchContexts(accounts);
+    }
+  });
