@@ -87,10 +87,6 @@ export function createClockReadWitness(expected: {
 const passThrough: StepRoute = (route) => route.fallback();
 
 /**
- * One long-lived route whose behavior the journey swaps. `pass` returns to
- * pass-through once in-flight steps finish.
- */
-/**
  * How far the server's clock is from this process's. A stamp may be taken anywhere
  * in its round trip, so the shortest of a few bounds the error best.
  */
@@ -113,6 +109,10 @@ export async function serverOffsetMs(
   return best.offsetMs;
 }
 
+/**
+ * One long-lived route whose behavior the journey swaps. `pass` returns to
+ * pass-through once in-flight steps finish.
+ */
 export async function routeStepped(
   page: Pick<Page, 'route'>,
   url: string,

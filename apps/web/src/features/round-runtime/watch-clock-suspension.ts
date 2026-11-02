@@ -15,7 +15,7 @@ export function watchClockSuspension(options: {
   readonly wallNowMs: () => number;
   readonly onResume: () => void;
 }) {
-  const { scheduler, wallNowMs } = options;
+  const { scheduler, wallNowMs, onResume } = options;
   let lastWall = wallNowMs();
   let lastMonotonic = scheduler.now();
   let timer: unknown = null;
@@ -26,7 +26,7 @@ export function watchClockSuspension(options: {
       Math.abs(wall - lastWall - (monotonic - lastMonotonic)) >
       SUSPENDED_AFTER_MS
     )
-      options.onResume();
+      onResume();
     lastWall = wall;
     lastMonotonic = monotonic;
     timer = scheduler.setTimeout(check, CHECK_EVERY_MS);

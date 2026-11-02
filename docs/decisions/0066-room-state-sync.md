@@ -168,7 +168,7 @@ Next dispatches those one at a time, so an unrelated stuck action would hold
 calibration and queueing would inflate the measured RTT. A read past the 2000 ms envelope is abandoned and reports no
 evidence, so a read that never settles cannot end sampling. Failed samples retry
 from two seconds, doubling to thirty with half-range jitter; current evidence
-resamples every thirty. A hidden tab samples once on mount and then only when a suspension shows its clock stands behind, because a media boundary still counts on it there. Visibility returns and
+resamples every thirty. A hidden tab samples once on mount and then only when a suspension shows its clock stands behind, retrying until a read is accepted, because a media boundary still counts on it there. Visibility returns and
 realtime reconnects request a sample at once, and wakes during a read coalesce
 into one followup after two seconds. `pageshow`, `online` and a jump between wall
 and monotonic time also wake it, because `performance.now` may not advance through

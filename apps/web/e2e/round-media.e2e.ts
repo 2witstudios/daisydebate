@@ -415,7 +415,8 @@ test('a media read held across a real Round transition is superseded without tou
   }
 });
 
-// With no browser able to read, only the server's recovery tick can move the floor.
+// With every browser read held short of the server, only its recovery tick can
+// move the floor.
 for (const [name, tickOnly] of [
   ['with the peer reading', false],
   ['on the recovery tick alone', true],
@@ -464,7 +465,7 @@ for (const [name, tickOnly] of [
       await page.route(`**${mediaPath}/reconcile`, async (route) => {
         reads.push({ startedAt: now(), endedAt: null });
         if (reads.length > 2 && !tickOnly) return route.fallback();
-        await route.fetch();
+        if (!tickOnly) await route.fetch();
         await release.promise;
         await route.abort().catch(() => undefined);
       });
@@ -551,12 +552,15 @@ for (const [name, tickOnly] of [
       const [superseded, young, fresh] = reads;
       release.resolve();
 
-      // The forced shape: the first read went at the view, the second started
-      // before the deadline, and the boundary let it finish rather than abort it.
+      // The forced shape: the first read went at the view, and the second started
+      // before the deadline and was let finish, not aborted at once or left to its
+      // 10 s request deadline. The next speech's own view may be what lets it finish
+      // instead of the boundary, by the same path; either way the wait is this one.
       expect(superseded!.endedAt).not.toBeNull();
       expect(young!.startedAt).toBeLessThan(deadline);
       expect(fresh!.startedAt).toBeGreaterThan(deadline);
       expect(fresh!.startedAt - young!.startedAt).toBeGreaterThan(1_900);
+      expect(fresh!.startedAt - young!.startedAt).toBeLessThan(2_500);
       await test.info().attach('boundary-after-supersession', {
         body: JSON.stringify({
           candidate: process.env.GIT_COMMIT ?? null,
@@ -565,14 +569,19 @@ for (const [name, tickOnly] of [
           youngReadAgeAtDeadlineMs: deadline - young!.startedAt,
           freshReadAfterDeadlineMs: fresh!.startedAt - deadline,
           deadlineToPermissionMs: grantedAt - deadline,
-          // Whose read could have moved the floor: reads started after the
-          // deadline and before the permission. Empty means the recovery tick.
-          opponentReadsBeforePermissionMs: opponentReads
+          // Whose read could have moved the floor: reads that reached the server
+          // after the deadline and before the permission. Empty means the tick.
+          forwardedReadsBeforePermissionMs: (tickOnly
+            ? []
+            : [...opponentReads, fresh!.startedAt]
+          )
             .filter((at) => at > deadline && at < grantedAt)
             .map((at) => at - deadline),
         }),
         contentType: 'application/json',
       });
+      // A grant this early would be the old floor, or a deadline read wrongly.
+      expect(grantedAt - deadline).toBeGreaterThan(-250);
       expect(grantedAt - deadline).toBeLessThan(PERMISSION_BAR_MS);
     } finally {
       await closeSettledLaunchContexts(accounts);

@@ -4,6 +4,7 @@ import { scheduleMediaDeadline } from '../round-media/schedule-deadline';
 import { createRoundTime } from './round-time';
 import { roundTimeNotice } from './round-time-notice';
 import { sampleRoundTime } from './sample-round-time';
+import { runRoundClock } from './run-round-clock';
 import { watchClockSuspension } from './watch-clock-suspension';
 import { timingFixture } from './sample-round-time.test-support';
 setupRitewayBun();
@@ -347,6 +348,91 @@ test('a suspension reads even while hidden, so a boundary does not stay behind',
     expected: 1,
   });
   sampler.stop();
+});
+
+test('a suspension owes a read until one is accepted, even hidden', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>(10_000);
+  const sampler = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.answer(found(10_000));
+  await edges.flush();
+  edges.hide();
+  sampler.resumed();
+  edges.answer(new Error('network down after waking'));
+  await edges.flush();
+  const afterFailure = edges.reads();
+  edges.advance(edges.timers()[0]!);
+  const retried = edges.reads() - afterFailure;
+  // A reply at the true time: a stale stamp here would be refused as a rollback.
+  edges.answer(found(roundTime.nowMs()));
+  await edges.flush();
+  const paid = edges.reads();
+  edges.advance(60_000);
+  sampler.wake();
+  assert({
+    given: 'the read after a sleep failing, then the retry accepted',
+    should: 'retry while hidden, then stop reading once the debt is paid',
+    actual: [retried, edges.reads() - paid],
+    expected: [1, 0],
+  });
+  sampler.stop();
+});
+
+test('a read in flight when a suspension lands does not pay its debt', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>(10_000);
+  const sampler = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.hide();
+  sampler.resumed();
+  const during = edges.reads();
+  edges.answer(found(10_000));
+  await edges.flush();
+  edges.advance(edges.timers()[0]!);
+  assert({
+    given: 'a suspension reported while the mount read is still out',
+    should: 'read again after it, even hidden',
+    actual: edges.reads() - during,
+    expected: 1,
+  });
+  sampler.stop();
+});
+
+test('a slept clock reads through the composed wiring, while other wakes wait', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>(10_000);
+  let wall = 1_000_000;
+  const events = new EventTarget();
+  const clock = runRoundClock({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+    wallNowMs: () => wall,
+    events: events as unknown as Window,
+  });
+  edges.answer(found(10_000));
+  await edges.flush();
+  edges.hide();
+  const before = edges.reads();
+  events.dispatchEvent(new Event('online'));
+  const ordinary = edges.reads() - before;
+  wall += 600_000 + 5000;
+  edges.advance(5000);
+  const slept = edges.reads() - before;
+  clock.stop();
+  assert({
+    given: 'a hidden tab hearing online, then the watcher seeing a sleep',
+    should: 'ignore the first and read on the second',
+    actual: [ordinary, slept],
+    expected: [0, 1],
+  });
 });
 
 test('a slow reply whose interval overlaps the anchor cannot move the display', () => {

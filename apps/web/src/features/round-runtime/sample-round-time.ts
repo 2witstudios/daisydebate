@@ -17,8 +17,9 @@ const abandoned = (signal: AbortSignal) =>
  * One serial chain of clock reads per mounted Round. A read past the sample
  * envelope is abandoned, so a read that never settles cannot end sampling.
  * Wakes during a read coalesce into one followup; a hidden tab waits for its
- * visibility return, unless a suspension left its clock behind, since a boundary
- * still counts on that clock while the tab is hidden.
+ * visibility return. A suspension is the exception: it left the clock behind, and
+ * a boundary still counts on that clock while hidden, so it owes a read until one
+ * is accepted.
  */
 export function sampleRoundTime(options: {
   readonly read: (signal: AbortSignal) => Promise<{ readonly kind: string }>;
@@ -32,6 +33,8 @@ export function sampleRoundTime(options: {
   let pending = false;
   let followup = false;
   let failures = 0;
+  let readOwed = false;
+  const mayRead = () => visibility.isVisible() || readOwed;
   let timer: unknown = null;
   const clear = () => {
     if (timer !== null) scheduler.clearTimeout(timer);
@@ -40,12 +43,13 @@ export function sampleRoundTime(options: {
   const arm = (delayMs: number) => {
     timer = scheduler.setTimeout(() => {
       timer = null;
-      if (visibility.isVisible()) void resample();
+      if (mayRead()) void resample();
       else arm(RESAMPLE_EVERY_MS);
     }, delayMs);
   };
   const nextDelayMs = () => {
     failures = roundTime.status().kind === 'current' ? 0 : failures + 1;
+    if (failures === 0 && !followup) readOwed = false;
     if (followup) return SEED_RETRY_MS;
     return failures === 0
       ? RESAMPLE_EVERY_MS
@@ -80,9 +84,12 @@ export function sampleRoundTime(options: {
   void resample();
   return {
     wake: () => {
-      if (visibility.isVisible()) void resample();
+      if (mayRead()) void resample();
     },
-    resumed: () => void resample(),
+    resumed: () => {
+      readOwed = true;
+      void resample();
+    },
     stop: () => {
       lifetime.abort();
       clear();

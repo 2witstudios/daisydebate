@@ -6,8 +6,7 @@ import {
   createMeasuredRead,
   createRoundTime,
 } from '../../features/round-runtime/round-time';
-import { sampleRoundTime } from '../../features/round-runtime/sample-round-time';
-import { watchClockSuspension } from '../../features/round-runtime/watch-clock-suspension';
+import { runRoundClock } from '../../features/round-runtime/run-round-clock';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import {
   secureRandom,
@@ -32,7 +31,7 @@ export function useRoundTime(options: {
   const wake = useRef(noWake);
   const wakeClock = useCallback(() => wake.current(), []);
   useEffect(() => {
-    const sampler = sampleRoundTime({
+    const clock = runRoundClock({
       read: createMeasuredRead({
         read: (signal) =>
           readRoundClock((url, init) => fetch(url, init), clockUrl, signal),
@@ -42,21 +41,13 @@ export function useRoundTime(options: {
       scheduler: systemScheduler,
       visibility: browserSyncEdges(null).visibility,
       random: secureRandom,
-    });
-    wake.current = sampler.wake;
-    const stopWatching = watchClockSuspension({
-      scheduler: systemScheduler,
       wallNowMs: () => Date.parse(systemClock.now()),
-      onResume: sampler.resumed,
+      events: window,
     });
-    window.addEventListener('pageshow', sampler.wake);
-    window.addEventListener('online', sampler.wake);
+    wake.current = clock.wake;
     return () => {
       wake.current = noWake;
-      stopWatching();
-      window.removeEventListener('pageshow', sampler.wake);
-      window.removeEventListener('online', sampler.wake);
-      sampler.stop();
+      clock.stop();
     };
   }, [clockUrl, roundTime]);
   return { roundTime, wakeClock };
