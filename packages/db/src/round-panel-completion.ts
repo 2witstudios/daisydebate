@@ -10,6 +10,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
+import type { JudgingTerminalReason } from '@daisy/protocol';
 import { endOpenJudgingJobs, judgingJobCanRule } from './round-judging-end';
 import { requireCurrentWeb } from './round-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
@@ -55,8 +56,8 @@ type Request = LockedRoundTickInput & {
   readonly instanceId: string;
   readonly commandId: string;
   readonly freezeRevision: number;
-  /** Once per AI job this completion found out of budget. */
-  readonly judgingEnded?: (reason: 'generation_deadline') => void;
+  /** Once per AI job this completion ended without a ballot. */
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
   readonly buildCompletion: (facts: CompletionFacts) => {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
@@ -248,10 +249,9 @@ export function roundPanelCompletionOperations(run: BoundedTransaction) {
     async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
       requirePanelRequest(input);
       const { receipt, ended } = await run((tx) => complete(tx, input));
-      // After commit: an AI judge that ran out of budget is reported even when
-      // no judging worker was running to see it.
-      for (const { reason } of ended)
-        if (reason === 'generation_deadline') input.judgingEnded?.(reason);
+      // After commit, and even with no judging worker running. A job still open
+      // here could not rule: out of budget, or a held ballot that never submitted.
+      for (const { reason } of ended) if (reason) input.judgingEnded?.(reason);
       return receipt;
     },
   };

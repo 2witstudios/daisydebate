@@ -18,11 +18,22 @@ export function startRoundCompetitiveMaintenance(input: {
   readonly reporter?: ErrorReporter;
 }) {
   const { app, instanceId } = input;
+  const reportEnded = workerFailures(app, input.reporter)(
+    'round.judging.failed',
+    'round.judging',
+    'Judging ended without a ballot',
+  );
+  const judgingEnded = (reason: string) =>
+    reportEnded(
+      createAppError('INFRASTRUCTURE', `Judging ended: ${reason}`),
+      'complete',
+    );
   const attendance = createAttendanceFeature({
     checkIns: app.database,
     evaluate: app.database.evaluateRoundAttendance,
     nextId: () => app.ids.next(),
     instanceId,
+    judgingEnded,
   });
   return startRoundMaintenance({
     ...createRoundMaintenanceOperations({
@@ -30,15 +41,7 @@ export function startRoundCompetitiveMaintenance(input: {
       instanceId,
       ids: app.ids,
       evaluate: attendance.evaluate,
-      judgingEnded: (reason) =>
-        workerFailures(app, input.reporter)(
-          'round.judging.failed',
-          'round.judging',
-          'Judging ended without a ballot',
-        )(
-          createAppError('INFRASTRUCTURE', `Judging ended: ${reason}`),
-          'complete',
-        ),
+      judgingEnded,
       ratingFailed: (_roundId, error) =>
         workerFailures(app, input.reporter)(
           'round.maintenance.failed',

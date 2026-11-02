@@ -11,7 +11,6 @@ Round is rewritten.
 
 | `cause`               | Meaning                                   |
 | --------------------- | ----------------------------------------- |
-| `not_configured`      | The secret is absent                      |
 | `round_missing`       | The synthetic Round no longer exists      |
 | `round_not_active`    | The synthetic Round has ended             |
 | `segment_missing`     | The configured segment is not in it       |

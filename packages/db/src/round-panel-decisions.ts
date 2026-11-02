@@ -9,7 +9,7 @@ import {
 import type { hydrateRoundRows } from './round-hydration';
 import type { roundCommands } from './schema/round-commands';
 
-/** The identity of one internal zero-judge completion request. */
+/** The identity of one internal panel completion request. */
 export type PanelRequest = {
   readonly instanceId: string;
   readonly commandId: string;
@@ -68,7 +68,7 @@ function requireReceiptCommand(
     throw receiptConflict();
 }
 
-/** A stored completion replays only if it is this service's exact zero-judge receipt. */
+/** A stored completion replays only if it is this service's exact panel receipt. */
 export function validatePanelReceipt(
   row: CommandRow,
   input: PanelRequest,

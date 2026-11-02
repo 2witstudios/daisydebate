@@ -181,18 +181,18 @@ test('an on-time speaker leaves the window open: a later receipt is taken, not r
     }
   }));
 
-test('a long-outage evaluation stays inside its transaction budget, and the cutoff needs no history', () =>
+test('a long-outage evaluation at the read cap stays inside its transaction budget', () =>
   withAttendanceRound(async (input) => {
     const { f, attendance, roundId } = input;
     const { opponent } = await seatsOf(input);
     await ageOpening(input);
     await stamp(input, opponent, 1000);
-    // About the worst a Round can read: its length plus the 60 minute cutoff, at one a second.
-    const samples = 7_200;
+    // Past the read cap, so this is the most one evaluation can ever read.
+    const samples = 11_000;
     await f.sql.begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(59003)`;
       await tx`insert into availability_samples(at,healthy,cause)
-        select clock_timestamp()-interval '2 hours'+n*interval '1 second',false,'public_probe_failed'
+        select clock_timestamp()-interval '4 hours'+n*interval '1 second',false,'public_probe_failed'
         from generate_series(1,${samples}::int) n`;
     });
     try {
@@ -217,7 +217,7 @@ test('a long-outage evaluation stays inside its transaction budget, and the cuto
         expected: 'abandoned',
       });
     } finally {
-      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours' and cause='public_probe_failed'`;
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '5 hours' and cause='public_probe_failed'`;
       await cleanUp(input);
     }
   }));

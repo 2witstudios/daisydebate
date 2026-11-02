@@ -386,3 +386,60 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
     });
   });
 });
+
+test('a fresh attendance decision also gives a held ballot its chance', async () => {
+  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
+    const claim = await jobs.claim(target);
+    await jobs.beginModelCall(claim.scope, claim.token);
+    await jobs.saveResult(
+      claim.scope,
+      claim.token,
+      syntheticPendingBallot,
+      usage,
+    );
+    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    const canRule = async () => {
+      const [row] = await drizzle({ client: fixture.sql }).execute(
+        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
+      );
+      return (row as { can: boolean }).can;
+    };
+    const before = await canRule();
+    const segmentId = createId();
+    await fixture.insert('round_segments', {
+      id: segmentId,
+      round_id: roundId,
+      sequence: 0,
+      type: 'speech',
+      rules_segment_key: 'first',
+      started_at: new Date(),
+      duration_ms: 60_000,
+    });
+    const commandId = createId();
+    await fixture.insert('round_commands', {
+      command_id: commandId,
+      round_id: roundId,
+      service_id: `round-attendance:${createId()}`,
+      type: 'adjudicate',
+      payload_digest: 'a'.repeat(64),
+      result: {},
+      resulting_version: 1,
+      applied_at: new Date(),
+    });
+    await fixture.insert('round_attendance_adjudications', {
+      round_id: roundId,
+      segment_id: segmentId,
+      command_id: commandId,
+      decision: 'none',
+      effective_deadline: new Date(),
+      settled_horizon: new Date(),
+    });
+    assert({
+      given: 'a held ballot past the cutoff, then a new attendance decision',
+      should: 'count as able to rule for the grace after that decision',
+      actual: [before, await canRule()],
+      expected: [false, true],
+    });
+  });
+});

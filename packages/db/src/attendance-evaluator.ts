@@ -37,7 +37,10 @@ async function readResolutionCutoff(
   return (row as { cutoff: string | null } | undefined)?.cutoff ?? null;
 }
 
-/** The read is bounded, so an old window can still be decided, and overruns nothing. */
+/**
+ * The read is capped, so an old window can still be decided on what it proves.
+ * The cap was measured inside the transaction slice on local PostgreSQL only.
+ */
 async function withEvidence(
   tx: AttendanceTransactionContext,
   facts: AttendanceReceiptFacts,
@@ -83,6 +86,8 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
     readonly roundId: string;
     readonly commandId: string;
     readonly instanceId: string;
+    /** An AI job this decision found out of budget, with no worker to report it. */
+    readonly judgingEnded?: (reason: string) => void;
     /** Decided first, with no history read: the common case stays cheap. */
     readonly resolveOnReceipts: (
       facts: AttendanceReceiptFacts,
@@ -97,7 +102,8 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       )
     )
       throw createAppError('VALIDATION');
-    return transaction(async (tx) => {
+    let ended: Awaited<ReturnType<typeof endOpenJudgingJobs>> = [];
+    const outcome = await transaction(async (tx) => {
       await requireCurrentWeb(tx, input.instanceId);
       const { current, round, seats } = await fenceAttendance(
         tx,
@@ -186,9 +192,13 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           resultingVersion,
           commandId: input.commandId,
         });
-      if (resolution.projection) await endOpenJudgingJobs(tx, round.id);
+      if (resolution.projection) ended = await endOpenJudgingJobs(tx, round.id);
       await requireCurrentWeb(tx, input.instanceId);
       return resolution;
     });
+    // After commit. A job a forfeit cut off is normal; one past its budget is not.
+    for (const { reason } of ended)
+      if (reason === 'generation_deadline') input.judgingEnded?.(reason);
+    return outcome;
   };
 }

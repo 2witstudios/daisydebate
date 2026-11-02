@@ -437,3 +437,33 @@ test('ISSUE-893: backend loss while sampling also recovers, repeatedly, and clos
     await control.close({ timeout: 0 });
   }
 });
+
+test('a history past the read cap comes back as its true earliest prefix, not a sample of it', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const opening = new Date(Date.now() - 4 * 3_600_000).toISOString();
+    await f.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select ${opening}::timestamptz+n*interval '1 second',true,null from generate_series(1,10805) n`;
+    });
+    try {
+      const ops = availabilityOperations(f.sql, f.sql);
+      const read = await ops.readAvailabilitySamples(opening);
+      const [first] =
+        await f.sql`select to_char(min(at) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at from availability_samples where at>${opening}::timestamptz`;
+      assert({
+        given: 'more samples since the opening than one read may return',
+        should:
+          'return the cap from the earliest on, in order, with no gaps cut out',
+        actual: {
+          count: read.length,
+          first: read[0]?.at === first.at,
+          ordered: read.every((s, i) => i === 0 || read[i - 1]!.at < s.at),
+        },
+        expected: { count: 10_800, first: true, ordered: true },
+      });
+    } finally {
+      await f.sql`delete from availability_samples where at>${opening}::timestamptz`;
+    }
+  });
+});

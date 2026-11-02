@@ -153,6 +153,7 @@ export function createAttendanceFeature(deps: {
   readonly evaluate: AttendanceEvaluator;
   readonly nextId: () => string;
   readonly instanceId: string;
+  readonly judgingEnded?: (reason: string) => void;
 }) {
   const readState = async (principal: AttendancePrincipal, roundId: string) => {
     const facts = await deps.checkIns.readRoundAttendanceTargets({
@@ -234,6 +235,7 @@ export function createAttendanceFeature(deps: {
         roundId,
         commandId: deps.nextId(),
         instanceId: deps.instanceId,
+        ...(deps.judgingEnded ? { judgingEnded: deps.judgingEnded } : {}),
         resolveOnReceipts: resolveOnTimeReceipt,
         resolve: (facts) => resolveAttendanceWindow(facts, deps.nextId),
       }),

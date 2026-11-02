@@ -28,6 +28,8 @@ export type DryRunFacts = {
   readonly frozenAt: string | null;
   readonly ballotDeadlineAt: string | null;
   readonly pendingWriters: number;
+  /** The last attendance decision or uncertain writer resolving; 0 for neither. */
+  readonly lastSettledAtMs: number;
   readonly rules: Pick<RoundRules, 'segments'>;
   readonly seats: readonly Seat[];
   readonly segments: readonly {
@@ -60,6 +62,8 @@ export type DryRunFacts = {
 
 /** The calls one job may buy; the job itself enforces this. */
 const MAX_CALLS = 2;
+/** `judgingJobCanRule`'s grace for a worker to submit a held ballot. */
+const HELD_BALLOT_GRACE_MS = 10 * 60_000;
 
 /** Each non-final speech through the real window and on-time decisions. */
 function windowsOf(facts: DryRunFacts) {
@@ -132,11 +136,14 @@ export function predictRoundCompletion(facts: DryRunFacts) {
     const cutoffMs =
       Date.parse(facts.finalEndedAt) +
       attendanceTimingPolicy.resolutionCutoffMs;
+    // What history can prove is not predicted here: this reads no samples.
     return done({
-      result: 'needs_settled_availability',
+      result: 'depends_on_availability_history',
       unproven: unproven.map((w) => w.key),
-      withoutItAbandonsNoWinnerAt: new Date(cutoffMs).toISOString(),
-      abandonsOnNextPass: facts.nowMs >= cutoffMs,
+      ifHistoryCannotDecide: {
+        result: 'abandoned_no_winner',
+        at: new Date(Math.max(cutoffMs, facts.nowMs)).toISOString(),
+      },
     });
   }
   if (!facts.completeness)
@@ -150,7 +157,12 @@ export function predictRoundCompletion(facts: DryRunFacts) {
       : Date.parse(facts.frozenAt ?? '') + AI_JUDGING_BUDGET_MS;
     return (
       facts.nowMs < budgetEndsMs ||
-      (job.holdsBallot && facts.nowMs < endsAtCutoffMs)
+      (job.holdsBallot &&
+        facts.nowMs <
+          Math.max(
+            endsAtCutoffMs,
+            facts.lastSettledAtMs + HELD_BALLOT_GRACE_MS,
+          ))
     );
   });
   const decision = decidePanelCompletion({
@@ -212,7 +224,11 @@ export async function readDryRunFacts(
     const [round] = await tx`select r.status,r.ladder_id,r.rules_snapshot,
       r.final_segment_ended_at,r.ballot_deadline_at,z.completeness,z.frozen_at,
       clock_timestamp() as now,
-      (select count(*)::int from round_check_in_attempts a where a.round_id=r.id and a.state='pending') as pending
+      (select count(*)::int from round_check_in_attempts a where a.round_id=r.id and a.state='pending') as pending,
+      greatest(
+        (select max(c.applied_at) from round_attendance_adjudications d join round_commands c on c.command_id=d.command_id and c.round_id=d.round_id where d.round_id=r.id),
+        (select max(a.resolved_at) from round_check_in_attempts a where a.round_id=r.id)
+      ) as settled
       from rounds r left join round_transcript_freezes z on z.round_id=r.id
       where r.id=${roundId}`;
     if (!round) return null;
@@ -239,6 +255,7 @@ export async function readDryRunFacts(
       frozenAt: iso(round.frozen_at),
       ballotDeadlineAt: iso(round.ballot_deadline_at),
       pendingWriters: round.pending,
+      lastSettledAtMs: round.settled ? (round.settled as Date).getTime() : 0,
       rules: round.rules_snapshot,
       seats,
       segments: segments.map(

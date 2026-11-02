@@ -1,3 +1,4 @@
+import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { buildRoundTopic } from '@daisy/protocol';
@@ -12,6 +13,7 @@ import {
   assembleJudgedRoom,
   everyoneReady,
   fixtureBallot,
+  freezeBotJudge,
   frozenBotJudgeRound,
   playOut,
 } from './round-judging.test-support';
@@ -268,5 +270,90 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
       await f.sql`delete from rounds where id=${roundId}`;
       await f.sql`delete from seasons where id=${seasonId}`;
     }
+  }, judgingOptions);
+});
+
+test('the freeze gives the room a new version and a ring, so the window reaches it at once', async () => {
+  await withRoomRuntime(async (f) => {
+    let room = await assembleJudgedRoom(f, 1);
+    room = (
+      await f.command(f.outsider, room, {
+        type: 'claim-seat',
+        role: 'judge',
+        slot: 0,
+      })
+    ).view;
+    room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
+    const { roundId } = await startRuntimeRound(f, room);
+    await playOut(f, roundId, true);
+    const before = (await f.store.getRound(roundId))!.version;
+    await finalizeAsWeb(f, roundId);
+    const after = (await f.store.getRound(roundId))!.version;
+    const rings =
+      await f.sql`select payload->>'entityVersion' as version from outbox where topic=${buildRoundTopic(roundId)} and payload->>'kind'='round.phase-changed' order by seq desc limit 1`;
+    const view = await f.store.readLaunchedRound(
+      roundId,
+      f.host,
+      () => true,
+      roundWaitingOn,
+    );
+    assert({
+      given: 'a played Round with a human judge, frozen',
+      should: 'bump the version once, ring it, and show the human window',
+      actual: {
+        bumped: after - before >= 1,
+        ring: Number(rings[0]?.version),
+        state: view.waitingOn?.state,
+      },
+      expected: { bumped: true, ring: after, state: 'human_window' },
+    });
+    await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
+    await f.sql`delete from rounds where id=${roundId}`;
+  }, judgingOptions);
+});
+
+test('a held ballot past the cutoff still decides the Round once attendance settles', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId, target } = await freezeBotJudge(f);
+    const claim = await f.store.claimRoundJudgingJob(target);
+    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+    await f.store.saveRoundJudgingResult(
+      claim.scope,
+      claim.token,
+      fixtureBallot(
+        'A validated answer held while attendance waited.',
+        'negative',
+      ),
+      { inputTokens: 1, outputTokens: 1 },
+    );
+    await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 hour' where round_id=${roundId}`;
+    await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    await seedSettledAttendanceLedger(f, roundId);
+    let calls = 0;
+    await createRoundJudgingOperations({
+      store: f.store,
+      nextId: createId,
+      voice: () => {
+        calls += 1;
+        throw Error('A held ballot never calls the provider');
+      },
+      withProvider: async () => {
+        throw Error('A held ballot takes no provider slot');
+      },
+    }).executeClaim(claim, new AbortController().signal);
+    const done = (await f.store.getRound(roundId))!;
+    const [job] =
+      await f.sql`select status from round_judging_jobs where round_id=${roundId}`;
+    assert({
+      given:
+        'a valid ballot past both budget and cutoff, attendance now settled',
+      should: 'submit it with no new call, and let it decide the Round',
+      actual: { calls, job: job.status, done: [done.status, done.outcome] },
+      expected: {
+        calls: 0,
+        job: 'succeeded',
+        done: ['completed', 'negative'],
+      },
+    });
   }, judgingOptions);
 });

@@ -28,7 +28,7 @@ export function startRoundAvailability(input: {
     probeResources: () =>
       configuration
         ? app.database.publicProbeResourceProblems(configuration)
-        : Promise.resolve(['not_configured']),
+        : Promise.resolve([]),
     probeInvalid: (problem) =>
       app.logger.log(
         'availability.probe_invalid',

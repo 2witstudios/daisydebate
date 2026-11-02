@@ -508,27 +508,29 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
   await service.stop();
 });
 
-test('a Round that leaves discovery leaves no pacing state to report', async () => {
-  const held: { rounds: number }[] = [];
+test('a Round that leaves discovery is forgotten: back again, it waits for nothing', async () => {
+  const reads: string[] = [];
   let ids = ['gone', 'kept'];
-  const { service, pulse, advance } = driven({
+  const { service, pulse } = driven({
     discover: async () => page(ids),
-    evaluate: async () => ({ decision: 'held' }),
-    held: (measure) => held.push(measure),
+    evaluate: async (id) => {
+      reads.push(id);
+      return null;
+    },
   });
   await service.ready;
   await flush();
   ids = ['kept'];
   await pulse();
   await flush();
-  advance(60_000);
+  ids = ['gone', 'kept'];
   await pulse();
   await flush();
   assert({
-    given: 'one of two held Rounds completing and leaving discovery',
-    should: 'measure only the one still held',
-    actual: held.at(-1)?.rounds,
-    expected: 1,
+    given: 'a Round with a null evaluation leaving discovery, then returning',
+    should: 'have no retry wait left: its pacing state went with it',
+    actual: reads.filter((id) => id === 'gone').length,
+    expected: 2,
   });
   await service.stop();
 });

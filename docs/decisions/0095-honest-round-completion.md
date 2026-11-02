@@ -28,15 +28,20 @@ exempt, and a missing bot receipt stays worker loss.
 **Unknown health forfeits nobody, and it ends (DEC-276, DEC-278).** A window
 settled evidence cannot resolve waits until a persisted cutoff, 60 minutes after
 the actual final speech end. It then ends the Round through the existing
-abandoned path, with no winner. A receipt after the base window never takes the
+abandoned path, with no winner. Past the cutoff a window is still decided on what
+its history proves, so a provable absence still forfeits; only what evidence
+cannot decide ends this way. A receipt after the base window never takes the
 positive path: it counts only if settled evidence later proves an extension. A
 pending check-in writer holds the cutoff, because age alone proves nothing, and
 that hold is projected and measured.
 
 **Each deadline has one owner (DEC-275).** The human ballot deadline is how long
 a human judge may rule, and an AI-only panel has none. The AI judging budget is 5
-minutes from the freeze, on the job, and bounds provider work only: a validated
-pending ballot may still submit after it. The attendance cutoff is an
+minutes from the freeze, on the job, and bounds provider work only. A validated
+pending ballot may still submit after it. That hold ends at the latest of the
+attendance cutoff and 10 minutes after the last attendance decision or uncertain
+writer resolving, so a ballot gets its chance once attendance settles, and one
+that can never submit stops holding the Round. The attendance cutoff is an
 infrastructure bound. None of them borrows another's meaning.
 
 **Panel completion is total (DEC-277).** A Round waits only on a judge who can
@@ -46,14 +51,18 @@ outcome writes no rating. `judging-failed` is a receipt ruling, not a Round
 status. Refund treatment for a paid AI failure stays open with the owner, and
 nothing here adds refund behavior.
 
-**The server owns the state.** The Round read names what a played Round is
-waiting on. Only a human window shows a clock, counted to the persisted deadline.
+**The server owns the state.** The engine decides what a played Round is waiting
+on, and the Round read carries it. Only a human window shows a clock, counted to the persisted deadline.
 
 ## Consequences
 
 - An outage can no longer strand a Round whose debaters showed up.
 - A Round with a missing on-time receipt during a long outage ends with no
-  winner. That is the honest result, and it can cost a real win.
+  winner, and a human ballot already cast is dropped. That is the honest result,
+  and it can cost a real win.
+- One evaluation reads at most 10,800 samples, a true settled prefix. An overrun of
+  its transaction would delay that Round's end by backoff. The cap was measured
+  inside the slice on local PostgreSQL only.
 - The deferred database guard on winnerless completion now fences only the human
   window. An AI seat's bound is enforced by the panel decision and its job.
 - Rounds still active when this deploys resolve through these same paths on their
