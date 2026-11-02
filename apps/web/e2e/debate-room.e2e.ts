@@ -166,7 +166,10 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
     page.getByRole('textbox', { name: 'Ask Assistant' }),
   ).toBeDisabled();
   await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
-  await page.getByText('Room', { exact: true }).click();
+  await page
+    .getByRole('complementary', { name: 'Your files' })
+    .getByText('Room', { exact: true })
+    .click();
   await expect(
     page
       .getByRole('complementary', { name: 'Your files' })

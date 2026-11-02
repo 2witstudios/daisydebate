@@ -619,7 +619,8 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   roundFiles,
 }) => {
   await roundFiles.finishRound();
-  const { page, documentId } = roundFiles;
+  const { page, roundId, documentId } = roundFiles;
+  await openNotes(page, roundId);
   await page.clock.install();
   let loggedOut = false,
     lateSends = 0;
@@ -653,7 +654,8 @@ test('observed session revocation fences editing and hides the notes, keeping th
   roundFiles,
 }) => {
   await roundFiles.finishRound();
-  const { page, documentId } = roundFiles;
+  const { page, roundId, documentId } = roundFiles;
+  await openNotes(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Pending notes before revocation');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
