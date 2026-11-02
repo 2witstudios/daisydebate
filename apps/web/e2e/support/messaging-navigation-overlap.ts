@@ -146,19 +146,20 @@ export async function beginHeldSend(
 }
 
 /**
- * React keeps a transition begun during an async action in that action's lane, and
- * the lane waits on the router's navigation: neither answer alone can commit.
+ * A transition begun during an async action joins that action's React lane, which
+ * cannot commit until the action settles (requestTransitionLane, entangleAsyncAction):
+ * a delivered navigation response alone changes nothing on screen.
  */
-export async function expectEntangledUntilBothAnswer(
+export async function expectNavigationHeldByPendingSend(
   page: Page,
-  channelId: string,
+  origin: string,
 ) {
   await paintedFrames(page);
   await expect(page.getByLabel('Your message')).toBeDisabled();
   await expect(
     page.getByRole('button', { name: 'Sending…', exact: true }),
   ).toBeDisabled();
-  expect(new URL(page.url()).pathname).toBe(`/messages/${channelId}`);
+  expect(page.url()).toBe(origin);
 }
 
 type HeldConversation = {
@@ -221,13 +222,15 @@ export function testMessagingNavigationOverlap() {
           // Neither response has reached Next; origin really remains mounted.
           await expect(page.getByLabel('Your message')).toBeDisabled();
           expect(new URL(page.url()).pathname).toBe(`/messages/${channelId}`);
-          await (first === 'send'
-            ? held.releaseSend()
-            : held.releaseNavigation());
-          await expectEntangledUntilBothAnswer(page, channelId);
-          await (first === 'send'
-            ? held.releaseNavigation()
-            : held.releaseSend());
+          if (first === 'send') {
+            await held.releaseSend();
+            await held.releaseNavigation();
+          } else {
+            const origin = page.url();
+            await held.releaseNavigation();
+            await expectNavigationHeldByPendingSend(page, origin);
+            await held.releaseSend();
+          }
           await expect(page.getByLabel('Revise your message')).toBeVisible();
           await expect(page).toHaveURL(editorDestination);
           const editor = page.getByLabel('Revise your message');

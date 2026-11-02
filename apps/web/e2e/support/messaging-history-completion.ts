@@ -13,7 +13,7 @@ import {
 } from './messaging-completion';
 import {
   holdConversationResponses,
-  expectEntangledUntilBothAnswer,
+  expectNavigationHeldByPendingSend,
   beginHeldSend,
 } from './messaging-navigation-overlap';
 import { effectsRan } from './hydration';
@@ -81,15 +81,17 @@ export function testMessagingHistoryCompletion() {
         await earlier.click();
         await expect.poll(() => held!.state.navigationReady).toBe(true);
         await expect(page.getByLabel('Your message')).toBeDisabled();
-        await (first === 'send'
-          ? held.releaseSend()
-          : held.releaseNavigation());
-        await expectEntangledUntilBothAnswer(page, journey.channelId);
-        // The unresolved original command still owns its request ID.
-        expect(await composerRequestId(page)).toBe(oldId);
-        await (first === 'send'
-          ? held.releaseNavigation()
-          : held.releaseSend());
+        if (first === 'send') {
+          await held.releaseSend();
+          await held.releaseNavigation();
+        } else {
+          const origin = page.url();
+          await held.releaseNavigation();
+          await expectNavigationHeldByPendingSend(page, origin);
+          // The unresolved original command still owns its request ID.
+          expect(await composerRequestId(page)).toBe(oldId);
+          await held.releaseSend();
+        }
         // The member's page, not the superseded send's ?sent destination.
         await expect(page).toHaveURL(destination);
         const send = page.getByRole('button', {
@@ -98,6 +100,7 @@ export function testMessagingHistoryCompletion() {
         });
         await expect(send).toBeEnabled();
         await expect(page).toHaveURL(destination);
+        expect(held.state.sentDestinations).toBe(0);
         await expect(page.getByLabel('Your message')).toHaveValue('');
         const freshId = await composerRequestId(page);
         expect(freshId).not.toBe(oldId);

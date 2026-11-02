@@ -109,11 +109,12 @@ and ready composer before Edit. Separate held-action/held-editor response
 proofs exercise overlapping intent through the real Next router; mounted
 command controls alone do not establish a real router winner.
 
-A navigation started during the pending send shares that action’s React lane,
-so the send answer and the route commit together once both responses arrive;
-neither alone reaches the screen. When the composer survives that commit, as it
-does on a same-conversation page, the ownership decision is what keeps the
-member on their chosen page instead of the send’s `?sent` destination.
+A navigation started during the pending send joins that action's React lane, so
+it cannot commit until the send settles. Leaving the conversation unmounts the
+composer in that same commit, so its answer issues nothing. A same-conversation
+page keeps the composer mounted: without the ownership decision the send's
+`?sent` replacement overwrites the member's chosen page, which is the real-router
+regression the held Earlier-messages proofs fail on.
 
 Recorded exceptions:
 
