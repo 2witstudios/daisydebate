@@ -1,6 +1,6 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import type { RoundUnjudgedReceipt } from '@daisy/protocol';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
@@ -10,6 +10,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
+import { endOpenJudgingJobs } from './round-judging-end';
 import { requireCurrentWeb } from './round-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
@@ -157,31 +158,6 @@ async function readCompletionFacts(
   };
 }
 
-/** A judging job still open when its Round completes is a known failure. */
-async function failOpenJudgingJobs(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
-  await tx
-    .update(roundJudgingJobs)
-    .set({
-      status: 'failed',
-      terminalReason: 'round_ended',
-      retryAt: null,
-      leaseTokenDigest: null,
-      leaseExpiresAt: null,
-      pendingBallot: null,
-      pendingBallotAgentRunId: null,
-      pendingBallotEpoch: null,
-      pendingBallotReceivedAt: null,
-    })
-    .where(
-      and(
-        eq(roundJudgingJobs.roundId, roundId),
-        inArray(roundJudgingJobs.status, ['queued', 'leased']),
-      ),
-    );
-}
 async function complete(tx: BoundedTransactionContext, input: Request) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = unjudgedDigest(input);
@@ -260,7 +236,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     resultingVersion: receipt.resultingVersion,
     commandId: input.commandId,
   });
-  await failOpenJudgingJobs(tx, input.roundId);
+  await endOpenJudgingJobs(tx, input.roundId);
   await requireCurrentWeb(tx, input.instanceId);
   return receipt;
 }

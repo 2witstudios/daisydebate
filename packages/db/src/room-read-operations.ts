@@ -51,7 +51,7 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
-export /** Facts only, read once for the Round's room; the engine decides what they mean. */
+/** Facts only, read once for the Round's room; the engine decides what they mean. */
 async function readJudgingStatus(
   tx: Pick<BunSQLDatabase, 'execute'>,
   row: typeof rounds.$inferSelect,
@@ -101,7 +101,7 @@ async function readJudgingStatus(
     jobs: facts!.jobs,
   });
 }
-async function launchedRoundRows(
+export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
 ): Promise<LaunchedRound> {

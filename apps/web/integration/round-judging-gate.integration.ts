@@ -29,7 +29,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
       const { roundId } = await frozenBotJudgeRound(f, false);
       const [window] =
         await f.sql`select (select count(*)::int from round_judging_jobs where round_id=${roundId}) jobs,
-          r.ballot_deadline_at = z.frozen_at as closed
+          r.ballot_deadline_at is null as closed
           from rounds r join round_transcript_freezes z on z.round_id=r.id where r.id=${roundId}`;
       await seedSettledAttendanceLedger(f, roundId);
       await finalizeByMaintenance(f, roundId);
@@ -44,7 +44,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         given:
           'a Round judged only by an AI judge whose transcript froze incomplete',
         should:
-          'queue no AI judging, close the ruling window at the freeze and complete with no outcome, a transcript-incomplete receipt the Round view carries, no provider run and no rating',
+          'queue no AI judging, open no human window and complete with no outcome, a transcript-incomplete receipt the Round view carries, no provider run and no rating',
         actual: {
           window,
           done: [done.status, done.outcome],

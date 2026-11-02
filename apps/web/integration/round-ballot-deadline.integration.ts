@@ -214,12 +214,13 @@ test('when no judge rules by the deadline the Round completes without a winner',
   });
 });
 
-test('an AI judging job no provider ever served by the deadline is a known failure and spends no allowance (DEC-186)', async () => {
+test('an AI judging job no provider ever served by its budget is a known failure and spends no allowance (DEC-186)', async () => {
   await withRoomRuntime(
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
       await seedSettledAttendanceLedger(f, roundId);
-      await passBallotDeadline(f.sql, roundId);
+      // An AI seat is bounded by its own budget (DEC-275), not the human window.
+      await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
       await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
         await f.sql`select status,lease_token_digest from round_judging_jobs where round_id=${roundId}`;

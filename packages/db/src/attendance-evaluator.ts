@@ -1,4 +1,5 @@
 import { requireCurrentWeb } from './round-service-authority';
+import { endOpenJudgingJobs } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -186,6 +187,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           resultingVersion,
           commandId: input.commandId,
         });
+      if (resolution.projection) await endOpenJudgingJobs(tx, round.id);
       await requireCurrentWeb(tx, input.instanceId);
       return resolution;
     });
