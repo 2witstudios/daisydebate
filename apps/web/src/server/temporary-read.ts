@@ -5,12 +5,12 @@ export type UnavailableRead = {
 };
 
 /**
- * A 503 is the route's retryable INFRASTRUCTURE, which a capacity refusal
- * becomes (ADR 0088 §4), and the route has already logged and reported it. Any
- * other failure, or an answer this build cannot read, is not known to pass.
+ * Asking again helps only when the route says so: a capacity refusal's 503
+ * carries `Retry-After` (work that never ran, ADR 0088 §4) and a rate limit's
+ * window passes. A 503 without it may never pass, so it stays a plain failure.
  */
-export const unavailableRead = (response?: Response): UnavailableRead =>
-  response?.status === 503
+export const unavailableRead = (response: Response): UnavailableRead =>
+  response.status === 429 || response.headers.has('retry-after')
     ? { kind: 'unavailable', temporary: true }
     : { kind: 'unavailable' };
 

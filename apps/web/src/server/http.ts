@@ -142,13 +142,21 @@ export async function handleOperation(
           }
         return Response.json(mapped.body, {
           status: mapped.status,
-          headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
+          headers: {
+            'x-request-id': id,
+            'Cache-Control': 'no-store',
+            ...retryAdvice(mapped.status, error),
+          },
         });
       }
     },
     extractTraceContext(request.headers),
   );
 }
+/** Only a refusal's 503 is known to pass: the work never ran (ADR 0088). */
+const retryAdvice = (status: number, error: unknown) =>
+  status === 503 && isCapacityRefusal(error) ? { 'Retry-After': '1' } : {};
+
 /**
  * A bounded transaction's recovery state and inner error code, as a log
  * code (`recovery_pending.INVARIANT`): which refusal a 503 replaced, never

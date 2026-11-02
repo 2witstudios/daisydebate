@@ -10,7 +10,7 @@ ink, brand graphics and contrast pairs) has its own guide:
 
 The Round keeps running on the server, so its room must not wait on anyone
 pressing Try again. When the Round read answers temporarily (`temporary-read.ts`:
-the route's 503, which a capacity refusal becomes), the room page renders an
+a capacity refusal's 503, which carries `Retry-After`, or a rate limit), the room page renders an
 honest status page that holds a plain `meta refresh` of 2 to 4 s, so pages
 refused together do not return together, the same with and without JavaScript.
 It shows no Round state, because none was read, and each refresh applies the
