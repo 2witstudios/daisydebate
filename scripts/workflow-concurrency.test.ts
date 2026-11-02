@@ -22,61 +22,62 @@ const evaluate = (
       );
 
 describe('CI workflow concurrency', () => {
-  for (const name of ['ci', 'e2e']) {
-    test(`${name} preserves every accepted candidate while superseding PR runs`, async () => {
-      const workflow = Bun.YAML.parse(
-        await Bun.file(`.github/workflows/${name}.yml`).text(),
-      ) as {
-        name: string;
-        concurrency: { group: string; 'cancel-in-progress': string | boolean };
+  test('ci preserves every accepted candidate while superseding PR runs', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/ci.yml').text(),
+    ) as {
+      name: string;
+      concurrency: { group: string; 'cancel-in-progress': string | boolean };
+    };
+    const { group, 'cancel-in-progress': cancel } = workflow.concurrency;
+    const outcomes = [
+      'push',
+      'merge_group',
+      'workflow_dispatch',
+      'pull_request',
+    ].map((event) => {
+      const first = context(event, 101, workflow.name);
+      const next = context(event, 102, workflow.name);
+      return {
+        event,
+        sharesGroup: evaluate(group, first) === evaluate(group, next),
+        cancels: evaluate(cancel, next),
       };
-      const { group, 'cancel-in-progress': cancel } = workflow.concurrency;
-      const outcomes = [
-        'push',
-        'merge_group',
-        'workflow_dispatch',
-        'pull_request',
-      ].map((event) => {
-        const first = context(event, 101, workflow.name);
-        const next = context(event, 102, workflow.name);
-        return {
-          event,
-          sharesGroup: evaluate(group, first) === evaluate(group, next),
-          cancels: evaluate(cancel, next),
-        };
-      });
-      assert({
-        given: 'two main, queue, manual and same-PR runs',
-        should:
-          'isolate accepted candidates and only cancel superseded PR work',
-        actual: outcomes,
-        expected: [
-          { event: 'push', sharesGroup: false, cancels: 'false' },
-          { event: 'merge_group', sharesGroup: false, cancels: 'false' },
-          { event: 'workflow_dispatch', sharesGroup: false, cancels: 'false' },
-          { event: 'pull_request', sharesGroup: true, cancels: 'true' },
-        ],
-      });
-      const otherPr = {
-        ...context('pull_request', 103, workflow.name),
-        event: { pull_request: { number: 43 } },
-      };
-      assert({
-        given: 'another PR running in the same workflow',
-        should: 'preserve its independent concurrency group',
-        actual:
-          evaluate(group, context('pull_request', 101, workflow.name)) ===
-          evaluate(group, otherPr),
-        expected: false,
-      });
-      assert({
-        given: 'CI and Browser E2E triggered by the same PR',
-        should: 'keep their concurrency groups separate',
-        actual:
-          evaluate(group, context('pull_request', 101, 'CI')) ===
-          evaluate(group, context('pull_request', 101, 'Browser E2E')),
-        expected: false,
-      });
     });
-  }
+    assert({
+      given: 'two main, queue, manual and same-PR runs',
+      should: 'isolate accepted candidates and only cancel superseded PR work',
+      actual: outcomes,
+      expected: [
+        { event: 'push', sharesGroup: false, cancels: 'false' },
+        { event: 'merge_group', sharesGroup: false, cancels: 'false' },
+        { event: 'workflow_dispatch', sharesGroup: false, cancels: 'false' },
+        { event: 'pull_request', sharesGroup: true, cancels: 'true' },
+      ],
+    });
+    const otherPr = {
+      ...context('pull_request', 103, workflow.name),
+      event: { pull_request: { number: 43 } },
+    };
+    assert({
+      given: 'another PR running in the same workflow',
+      should: 'preserve its independent concurrency group',
+      actual:
+        evaluate(group, context('pull_request', 101, workflow.name)) ===
+        evaluate(group, otherPr),
+      expected: false,
+    });
+  });
+
+  test('e2e has no concurrency group, so no run cancels another', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/e2e.yml').text(),
+    ) as { concurrency?: unknown };
+    assert({
+      given: 'the browser workflow',
+      should: 'let every run finish independently',
+      actual: workflow.concurrency,
+      expected: undefined,
+    });
+  });
 });

@@ -48,6 +48,7 @@ export function MediaStage({
 }) {
   return (
     <div
+      data-room-media="grid"
       className="grid min-w-0 grid-cols-2 gap-2 bg-surface-sunken p-3"
       aria-label="Round participants"
     >
@@ -66,6 +67,7 @@ export function MediaStage({
           return (
             <figure
               key={seat.id}
+              data-room-media="tile"
               className="relative m-0 flex aspect-video min-w-0 items-center justify-center overflow-hidden rounded-xl bg-surface-stage text-stage-ink"
             >
               {camera && seat.kind === 'human' ? (

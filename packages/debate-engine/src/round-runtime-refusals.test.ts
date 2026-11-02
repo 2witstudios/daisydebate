@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  completedSchedule,
   oneOnOneCast,
   oneOnOneSeats,
   runtimeWorld as runtime,
@@ -30,6 +31,63 @@ describe('round runtime command refusals and seat order', () => {
         outcome: null,
         checkpoint: world.checkpoint(),
       },
+    });
+  });
+
+  test('a forfeit is refused once the debate is over, and the Round keeps awaiting its ballot', async () => {
+    const forfeitAt = (world: ReturnType<typeof runtime>, ms: number) =>
+      world.execute({
+        command: { type: 'forfeit' },
+        actorId: person,
+        now: at(ms),
+      });
+    const { world: ticked, totalMs } = completedSchedule(rules);
+    const before = ticked.position(at(totalMs + 1_000));
+    await assertRejects({
+      given: 'a debater forfeiting after a tick closed the final speech',
+      should: 'refuse with a conflict',
+      actual: () => forfeitAt(ticked, totalMs + 1_000),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused forfeit',
+      should: 'leave the Round active and awaiting its ballot',
+      actual: ticked.position(at(totalMs + 1_000)),
+      expected: before,
+    });
+
+    const started = () => {
+      const world = runtime();
+      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.tick(at(totalMs - 1));
+      return world;
+    };
+    const unticked = started();
+    const unsettled = unticked.checkpoint();
+    await assertRejects({
+      given:
+        'a stale form posting after the final speech ran out with no tick persisted',
+      should: 'refuse with a conflict',
+      actual: () => forfeitAt(unticked, totalMs),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused stale form',
+      should: 'keep nothing from the clock advance it ran on',
+      actual: unticked.checkpoint(),
+      expected: unsettled,
+    });
+    assert({
+      given: 'the same Round ticked after the refusal',
+      should: 'still rule the release, so the refusal consumed no transition',
+      actual: unticked.tick(at(totalMs)).releasesRoomMembers,
+      expected: true,
+    });
+    assert({
+      given: 'a debater forfeiting in the last moment of the final speech',
+      should: 'still forfeit, because the debate is not over',
+      actual: forfeitAt(started(), totalMs - 1).round?.status,
+      expected: 'completed',
     });
   });
 

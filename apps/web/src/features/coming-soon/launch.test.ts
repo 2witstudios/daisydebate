@@ -21,9 +21,9 @@ describe('launch config', () => {
   test('opens only the destinations with real screens', () => {
     assert({
       given: 'the launch config for the three-ladder beta',
-      should: 'open rated play, Lobby, Judge and the real leaderboard',
+      should: 'open Play, Judge, Seasons, the real leaderboard and Train',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['ranked', 'lobby', 'judge', 'leaderboard', 'train'],
+      expected: ['lobby', 'judge', 'seasons', 'leaderboard', 'train'],
     });
   });
 });
@@ -33,8 +33,8 @@ describe('destinationHref', () => {
     assert({
       given: 'a destination that is not launched',
       should: 'link to the explainer',
-      actual: destinationHref('ranked', { config: allSoon }),
-      expected: explainerHref('ranked'),
+      actual: destinationHref('watch', { config: allSoon }),
+      expected: explainerHref('watch'),
     });
   });
 
@@ -52,16 +52,30 @@ describe('destinationHref', () => {
 
   test('a deep link follows its destination', () => {
     assert({
-      given: 'a page inside ranked, launched and not',
+      given: 'a page inside tournaments, launched and not',
       should: 'reach the page once launched and the explainer until then',
       actual: [
-        destinationHref('ranked', { path: '/ranked/host', config: allSoon }),
-        destinationHref('ranked', {
-          path: '/ranked/host',
-          config: { ...allSoon, ranked: true },
+        destinationHref('tournaments', {
+          path: '/tournaments/mine',
+          config: allSoon,
+        }),
+        destinationHref('tournaments', {
+          path: '/tournaments/mine',
+          config: { ...allSoon, tournaments: true },
         }),
       ],
-      expected: ['/coming-soon/ranked', '/ranked/host'],
+      expected: ['/coming-soon/tournaments', '/tournaments/mine'],
+    });
+  });
+
+  test('Seasons lives under the leaderboard', () => {
+    assert({
+      given: 'the seasons destination, launched',
+      should: 'link to the seasons page under the leaderboard',
+      actual: destinationHref('seasons', {
+        config: { ...allSoon, seasons: true },
+      }),
+      expected: '/leaderboard/seasons',
     });
   });
 });
