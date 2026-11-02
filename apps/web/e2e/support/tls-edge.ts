@@ -68,6 +68,8 @@ export function createSelfSignedTlsEdge({
           headers,
           body: request.body,
           redirect: 'manual',
+          // A client that leaves also leaves the app, as behind a real ingress.
+          signal: request.signal,
           // @ts-expect-error Bun: stream a request body through the proxy.
           duplex: 'half',
         },

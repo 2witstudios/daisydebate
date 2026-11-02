@@ -39,6 +39,28 @@ const MEDIA_DEFERRED = 'media-deferred';
 const mediaDeferred = () => createAppError('INFRASTRUCTURE', MEDIA_DEFERRED);
 export const isMediaDeferred = (error: unknown) =>
   isAppError(error) && error.message === MEDIA_DEFERRED;
+type ServePoll = {
+  /** The highest version any waiting read needs served. */
+  target: number;
+  waiters: number;
+  done: Promise<void>;
+};
+/** Settles with `work`, or at once with `failure()` when its reader leaves. */
+const cancelOnAbort = async (
+  signal: AbortSignal,
+  work: Promise<void>,
+  failure: () => Error,
+) => {
+  if (signal.aborted) throw failure();
+  const left = Promise.withResolvers<never>();
+  const leave = () => left.reject(failure());
+  signal.addEventListener('abort', leave, { once: true });
+  try {
+    await Promise.race([work, left.promise]);
+  } finally {
+    signal.removeEventListener('abort', leave);
+  }
+};
 type AdmissionLimit = {
   readonly untilMs: number;
   /** The client's request: an abandoned admission stops waiting. */
@@ -61,6 +83,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     return state;
   };
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
+  const polls = new Map<string, ServePoll>();
   const acquire = async (sessionId: string, limit?: AdmissionLimit) => {
     const owner = input.nextId();
     await input.priority(sessionId, 'enter', owner);
@@ -80,25 +103,55 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       await input.priority(sessionId, 'leave', owner);
     }
   };
+  const pollServed = async (sessionId: string, poll: ServePoll) => {
+    try {
+      for (;;) {
+        if (poll.waiters === 0) return;
+        const progress = await input.store.mediaReconcileProgress(sessionId);
+        if (progress.servedVersion >= poll.target) return;
+        if (await input.priority(sessionId, 'waiting')) {
+          await input.wait();
+          continue;
+        }
+        const claim = await input.store.claimMediaReconcile({
+          sessionId,
+          owner: input.nextId(),
+        });
+        if (claim.kind === 'claimed') await run(claim);
+        else await input.wait();
+      }
+    } finally {
+      // In the same step as the exit, so no later read can join a finished loop.
+      polls.delete(sessionId);
+    }
+  };
+  /** One polling loop per session here, however many reads are waiting on it. */
   const serve = async (
     sessionId: string,
     version: number,
     signal?: AbortSignal,
   ) => {
-    for (;;) {
-      if (signal?.aborted) throw mediaDeferred();
-      const progress = await input.store.mediaReconcileProgress(sessionId);
-      if (progress.servedVersion >= version) return;
-      if (await input.priority(sessionId, 'waiting')) {
-        await input.wait();
-        continue;
-      }
-      const claim = await input.store.claimMediaReconcile({
-        sessionId,
-        owner: input.nextId(),
-      });
-      if (claim.kind === 'claimed') await run(claim);
-      else await input.wait();
+    if (signal?.aborted) throw mediaDeferred();
+    const existing = polls.get(sessionId);
+    const poll: ServePoll = existing ?? {
+      target: version,
+      waiters: 0,
+      done: Promise.resolve(),
+    };
+    poll.target = Math.max(poll.target, version);
+    poll.waiters++;
+    if (!existing) {
+      polls.set(sessionId, poll);
+      poll.done = pollServed(sessionId, poll);
+      // Every waiter may have left by the time this loop fails.
+      poll.done.catch(() => undefined);
+    }
+    try {
+      await (signal
+        ? cancelOnAbort(signal, poll.done, mediaDeferred)
+        : poll.done);
+    } finally {
+      poll.waiters--;
     }
   };
   const read = async (

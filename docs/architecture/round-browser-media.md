@@ -96,7 +96,8 @@ A browser admission waits for the session's lease for at most 8 seconds, below t
 client's 10-second request deadline, and stops as soon as its request is aborted.
 Either answers the retryable 503. The bound covers the wait only: a pass won late can
 outlast the client's deadline, and a pass that has already started is not cancelled.
-A browser read also stops serving when its request is aborted, and a read that
+Concurrent reads of a session share one polling loop in each process, so waiting
+reads do not each load the competitive lane. A browser read also stops serving when its request is aborted, and a read that
 crosses a vendor write in flight answers the same 503 rather than a refusal. These
 expected deferrals log `round.media.request_deferred` and reach no error tracker.
 

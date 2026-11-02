@@ -375,3 +375,115 @@ test('an abandoned read stops serving', async () => {
     expected: [true, 0],
   });
 });
+
+test('concurrent reads of one session share one polling loop', async () => {
+  const world = createMediaWorld();
+  const actor = world.seats[0].actorId;
+  const operations0 = createRoundMediaOperations(world.input);
+  await operations0.session(world.roundId, actor);
+  let open = false;
+  let polls = 0;
+  const gate = Promise.withResolvers<void>();
+  const progress = world.input.store.mediaReconcileProgress;
+  world.input.store.mediaReconcileProgress = (async (sessionId: string) => {
+    polls++;
+    const answer = await progress(sessionId);
+    return open ? answer : { ...answer, servedVersion: -1 };
+  }) as typeof progress;
+  const claim = world.input.store.claimMediaReconcile;
+  world.input.store.claimMediaReconcile = (async (
+    ...args: Parameters<typeof claim>
+  ) =>
+    open
+      ? claim(...args)
+      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    wait: () => gate.promise,
+  });
+  const reads = Array.from({ length: 5 }, () =>
+    operations.reconcile(world.roundId, actor),
+  );
+  for (let turn = 0; turn < 5; turn++)
+    await new Promise((done) => setImmediate(done));
+  const pollsBeforeNextTick = polls;
+  open = true;
+  gate.resolve();
+  const settled = await Promise.allSettled(reads);
+  assert({
+    given: 'five reads of one session, all held at the same polling wait',
+    should: 'have polled once between them, and answer them all',
+    actual: [
+      pollsBeforeNextTick,
+      settled.every((read) => read.status === 'fulfilled'),
+    ],
+    expected: [1, true],
+  });
+});
+
+test('a read that leaves stops waiting while the others keep being served', async () => {
+  const world = createMediaWorld();
+  const actor = world.seats[0].actorId;
+  let open = false;
+  const progress = world.input.store.mediaReconcileProgress;
+  world.input.store.mediaReconcileProgress = (async (sessionId: string) => {
+    const answer = await progress(sessionId);
+    return open ? answer : { ...answer, servedVersion: -1 };
+  }) as typeof progress;
+  const claim = world.input.store.claimMediaReconcile;
+  world.input.store.claimMediaReconcile = (async (
+    ...args: Parameters<typeof claim>
+  ) =>
+    open
+      ? claim(...args)
+      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+  const tick = Promise.withResolvers<void>();
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    wait: async () => {
+      tick.resolve();
+      await new Promise(setImmediate);
+    },
+  });
+  const leaving = new AbortController();
+  const stays = operations.reconcile(world.roundId, actor);
+  const leaves = operations
+    .reconcile(world.roundId, actor, leaving.signal)
+    .catch((error: unknown) => error);
+  await tick.promise;
+  leaving.abort();
+  const failure = await leaves;
+  open = true;
+  await stays;
+  assert({
+    given: 'two reads waiting on one session, one of which is abandoned',
+    should: 'release the abandoned one at once and still serve the other',
+    actual: isMediaDeferred(failure),
+    expected: true,
+  });
+});
+
+test('a read arriving as a poll finishes still waits for its own version', async () => {
+  const world = createMediaWorld();
+  const actor = world.seats[0].actorId;
+  const operations = createRoundMediaOperations(world.input);
+  await operations.session(world.roundId, actor);
+  const first = operations.reconcile(world.roundId, actor);
+  const reads = [first];
+  // Join on every microtask while the first read's loop is finishing.
+  for (let tick = 0; tick < 40; tick++) {
+    await Promise.resolve();
+    reads.push(operations.reconcile(world.roundId, actor));
+  }
+  await Promise.all(reads);
+  const { served } = world.state();
+  const requested = await world.input.store.requestMediaReconcile({
+    roundId: world.roundId,
+  });
+  assert({
+    given: 'reads joining at every step of a finishing poll',
+    should: 'leave every requested version before the last one served',
+    actual: served >= requested.version - 1,
+    expected: true,
+  });
+});
