@@ -18,9 +18,25 @@ export type CapacityRefusalDetail = {
 };
 
 const CAPACITY_UNAVAILABLE = 'Database capacity unavailable';
-const refusals = new WeakMap<Error, CapacityRefusalDetail>();
-/** Errors whose capacity refusal the database boundary already logged. */
-const reportedRefusals = new WeakSet<Error>();
+type RefusalRegistry = {
+  readonly refusals: WeakMap<Error, CapacityRefusalDetail>;
+  /** Errors whose capacity refusal the database boundary already logged. */
+  readonly reportedRefusals: WeakSet<Error>;
+};
+const REGISTRY = Symbol.for('daisy.db.capacity-refusals');
+const host = globalThis as typeof globalThis & {
+  [REGISTRY]?: RefusalRegistry;
+};
+/**
+ * One registry per process, not per module copy: Next can bundle a page apart
+ * from the process app, so the copy that reads a refusal may not be the one
+ * that minted it (ISSUE-927). A symbol-keyed slot keeps the identity check; a
+ * message or a property on the error itself would be forgeable by any wrapper.
+ */
+const { refusals, reportedRefusals } = (host[REGISTRY] ??= {
+  refusals: new WeakMap(),
+  reportedRefusals: new WeakSet(),
+});
 /**
  * The member of `error`'s chain (itself or one of at most 16 native Error
  * causes) that `marked` recognises. Only own data-property causes are

@@ -90,3 +90,24 @@ test('a refusal carries the lane and reason that refused it', () => {
     expected: [{ lane: 'social', reason: 'expired' }, undefined],
   });
 });
+
+test('a refusal is recognised by every bundled copy of this module', async () => {
+  // Next bundles a page apart from the process app, so one process can hold
+  // two instances of this module; the query string makes Bun load a second.
+  const copy = await import(`./capacity-refusal.ts?second-bundle`);
+  const refused = refuseCapacity({ lane: 'control', reason: 'expired' });
+  const theirs = copy.refuseCapacity({ lane: 'social', reason: 'saturated' });
+  markCapacityRefusalReported(theirs);
+  assert({
+    given: 'a refusal minted by one copy and read by the other, both ways',
+    should: 'recognise it, its detail and its reported mark',
+    actual: [
+      copy !== (await import('./capacity-refusal')),
+      copy.isCapacityRefusal(new Error('wrapper', { cause: refused })),
+      isCapacityRefusal(theirs),
+      copy.capacityRefusalDetail(refused)?.lane,
+      copy.isReportedCapacityRefusal(theirs),
+    ],
+    expected: [true, true, true, 'control', true],
+  });
+});
