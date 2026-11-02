@@ -17,7 +17,7 @@ const cameraOnly = {
  */
 export async function compose(
   mode: 'headers' | 'body',
-  retryDelaysMs: number[] = [],
+  retryDelaysMs: readonly number[] = [],
 ) {
   const timer = createTimerQueue((now, delay) => now + delay);
   const headers = Promise.withResolvers<Response>();
