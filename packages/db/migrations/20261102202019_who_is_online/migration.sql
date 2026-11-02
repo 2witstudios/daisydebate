@@ -56,6 +56,7 @@ DROP TABLE "friend_challenges";--> statement-breakpoint
 ALTER TABLE "presence_settings" ADD COLUMN "status" text;--> statement-breakpoint
 -- Hiding was the only choice; it becomes appearing offline (ADR 0097).
 UPDATE "presence_settings" SET "status" = CASE WHEN "hidden" THEN 'offline' ELSE 'online' END;--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "presence_settings" ALTER COLUMN "status" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "presence_settings" DROP COLUMN "hidden";--> statement-breakpoint
 CREATE INDEX "challenges_challenged_idx" ON "challenges" ("challenged_actor_id");--> statement-breakpoint
