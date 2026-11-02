@@ -9,6 +9,7 @@ import {
   type OperatorFact,
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
+import { betaAccessCommandAction } from '@daisy/protocol';
 import { operatorLimits } from '@daisy/protocol/operator';
 import type { OperatorClient } from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
@@ -255,7 +256,7 @@ async function reconcileOne(
   viewerId: string,
 ): Promise<Reconciled> {
   const read = await deps.client.readCommand(viewerId, command.commandId);
-  if (read.kind === 'ok')
+  if (read.kind === 'ok' && read.value.action === betaAccessCommandAction)
     return settledBy(
       await recordOutcome(deps, command, 'command.reconciled', {
         outcome: read.value.result.outcome,
@@ -263,6 +264,7 @@ async function reconcileOne(
         settled: true,
       }),
     );
+  if (read.kind === 'ok') return { kind: 'open' };
   if (read.kind === 'unknown') return { kind: 'unreachable' };
   return read.code === 'NOT_FOUND'
     ? resendOrAbandon(deps, command)

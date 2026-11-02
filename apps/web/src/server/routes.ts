@@ -10,6 +10,7 @@ import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeChallengeRoutes } from '../features/challenges/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
 import { composeReportRoutes } from '../features/reports/composition';
+import { composeRatingVisibilityRoutes } from '../features/ratings/visibility-routes';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
@@ -85,6 +86,7 @@ export function createRoutes(app: App) {
     friends: composeFriendRoutes(app),
     challenges: composeChallengeRoutes(app),
     reports: composeReportRoutes(app),
+    ratingVisibility: composeRatingVisibilityRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     rounds: {

@@ -6,32 +6,21 @@ import { FriendButtonForm } from './friend-forms';
 type Action = FormAction<FriendFormState>;
 
 /**
- * What a member can do toward someone else from their profile (ADR 0072):
- * add them, answer or withdraw a request, or challenge a friend. Native
- * forms, so each works before any script.
+ * What a member can do about a friendship from a profile (ADR 0072): add them,
+ * answer or withdraw a request. Native forms, so each works before any script.
  */
 export function ProfileFriendActions({
   username,
   relation,
   friendAction,
-  challengeAction,
 }: {
   readonly username: string;
   readonly relation: FriendRelation;
   readonly friendAction: Action;
-  readonly challengeAction: Action;
 }) {
   switch (relation) {
     case 'friends':
-      return (
-        <FriendButtonForm
-          action={challengeAction}
-          username={username}
-          intent="challenge"
-          label="Challenge"
-          variant="primary"
-        />
-      );
+      return null;
     case 'incoming':
       return (
         <FriendButtonForm

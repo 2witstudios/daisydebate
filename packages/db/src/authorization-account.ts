@@ -65,6 +65,6 @@ export function authorizationAccountFact(row: AuthorizationAccountRow | null) {
     revision: row.revision,
     beta,
     ageBand,
-    restricted: row.restricted === true,
+    ...(row.restricted === true ? { restricted: true } : {}),
   };
 }

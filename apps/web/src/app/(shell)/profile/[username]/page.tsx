@@ -13,7 +13,13 @@ import {
 } from '../../../../lib/request-session';
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
 import { relationTo } from '../../../../ui/friends/friends';
-import { challengeAction, friendAction } from '../../friends/actions';
+import { friendAction } from '../../friends/actions';
+import {
+  blockAction,
+  reportAction,
+  sendChallengeAction,
+} from '../../online/actions';
+import { ProfilePersonActions } from '../../../../ui/online/profile-person-actions';
 import { readFriends } from '../../friends/read-friends';
 import { MessageUserButton } from '../../../../ui/messaging/message-user-button';
 import { createConversationAction } from '../../messages/new/actions';
@@ -56,7 +62,7 @@ export default async function ProfileRoute({
 }
 
 /**
- * A member's Add friend or Challenge, and Message, toward someone else;
+ * A member's Add friend, Message, Challenge, Report and Block, toward someone else;
  * nothing for a visitor. Message goes through the ordinary DM request, so a
  * friendship never bypasses DM admission.
  */
@@ -70,13 +76,20 @@ async function friendActionsFor(username: string) {
           username={username}
           relation={relationTo(list, username)}
           friendAction={friendAction}
-          challengeAction={challengeAction}
         />
       ) : null}
       <MessageUserButton
         username={username}
         requestId={systemId.next()}
         action={createConversationAction.bind(null, 'dm')}
+      />
+      <ProfilePersonActions
+        username={username}
+        actions={{
+          sendChallenge: sendChallengeAction,
+          report: reportAction,
+          block: blockAction,
+        }}
       />
     </>
   );

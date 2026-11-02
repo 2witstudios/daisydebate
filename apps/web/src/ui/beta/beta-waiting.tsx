@@ -11,9 +11,10 @@ export type BetaWaitingProps = {
   readonly username: string;
   /**
    * `pending` waits for approval; `revoked` access was paused;
-   * `age-required` has no durable age record yet (the beta is 16+).
+   * `age-required` has no durable age record yet (the beta is 16+);
+   * `restricted` is under a suspension or ban (ADR 0097).
    */
-  readonly reason: 'pending' | 'revoked' | 'age-required';
+  readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
   /** The age step, which returns here once answered. */
   readonly ageHref: string;
   /** Back from a sign-out that did not happen (ISSUE-691). */
@@ -134,6 +135,24 @@ export function BetaWaiting({
   signOutFailed = false,
 }: BetaWaitingProps) {
   const paused = reason === 'revoked';
+  if (reason === 'restricted')
+    return (
+      <OnboardingFrame step={null} titleId="beta-waiting-title">
+        <div className="flex flex-col gap-4">
+          <h1
+            id="beta-waiting-title"
+            className="font-display text-3xl font-semibold text-ink"
+          >
+            Your account is restricted, @{username}
+          </h1>
+          <p className="text-md text-ink-muted">
+            A moderator restricted this account after a report. You can sign out
+            or manage your data in account settings.
+          </p>
+        </div>
+        <Actions failed={signOutFailed}>{null}</Actions>
+      </OnboardingFrame>
+    );
   if (reason === 'age-required')
     return (
       <OnboardingFrame step={null} titleId="beta-waiting-title">

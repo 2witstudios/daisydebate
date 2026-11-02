@@ -3,7 +3,7 @@ import { ActiveRoomBar } from '../../active-room/active-room-bar';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { cn } from '../../cn';
 import type { ShellAccount, ShellRatings } from './account';
-import type { RailPreference } from './rail-preference';
+import type { OnlineRailPreference, RailPreference } from './rail-preference';
 import { Rail } from './components/rail/rail';
 import { TabBar } from './components/tab-bar/tab-bar';
 
@@ -20,6 +20,20 @@ export type AppShellProps = {
   readonly ratings: Promise<ShellRatings> | null;
   /** The server action the rail's toggle form posts to flip that choice. */
   readonly toggleRail: () => Promise<void>;
+  /** The member's own status control, already wired to its action. */
+  readonly statusControl?: ReactNode;
+  /** The online rail and its provider's other parts; absent for a visitor. */
+  readonly online?: {
+    readonly preference: OnlineRailPreference;
+    readonly rail: ReactNode;
+    readonly wrap: (shell: ReactNode) => ReactNode;
+  } | null;
+};
+
+const onlineColumn: Readonly<Record<OnlineRailPreference, string>> = {
+  open: 'grid-shell-online-open',
+  mini: 'grid-shell-online-mini',
+  auto: 'grid-shell-online-auto',
 };
 
 /**
@@ -39,12 +53,15 @@ export function AppShell({
   rail,
   ratings,
   toggleRail,
+  statusControl,
+  online,
 }: AppShellProps) {
-  return (
+  const shell = (
     <div
       className={cn(
         'grid min-h-screen grid-shell items-start bg-background',
         rail === 'extended' && 'grid-shell-extended',
+        online && onlineColumn[online.preference],
       )}
     >
       <Rail
@@ -52,6 +69,7 @@ export function AppShell({
         rail={rail}
         ratings={ratings}
         toggleRail={toggleRail}
+        statusControl={statusControl}
       />
       <main className="min-w-0 area-main">
         {account.state === 'member' ? (
@@ -59,7 +77,9 @@ export function AppShell({
         ) : null}
         {children}
       </main>
-      <TabBar account={account} />
+      {online?.rail}
+      <TabBar account={account} statusControl={statusControl} />
     </div>
   );
+  return online ? online.wrap(shell) : shell;
 }

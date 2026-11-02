@@ -24,6 +24,13 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
+/** A command that owes nothing further reads back its stored result alone. */
+const storedOnly = async (
+  _database: Pick<Database, 'execute'>,
+  _commandId: string,
+  result: unknown,
+) => ({ result }) as Omit<OperatorCommandState, 'action'>;
+
 /** Each operator command action's owner completes its own readback. */
 const commandStateReaders = new Map<
   string,
@@ -34,9 +41,9 @@ const commandStateReaders = new Map<
   ) => Promise<Omit<OperatorCommandState, 'action'>>
 >([
   [betaAccessCommandAction, readBetaAccessCommandState],
-  [reportResolveCommandAction, async (_db, _id, result) => ({ result })],
-  [moderationLiftCommandAction, async (_db, _id, result) => ({ result })],
-] as never);
+  [reportResolveCommandAction, storedOnly],
+  [moderationLiftCommandAction, storedOnly],
+]);
 
 const instant = z
   .union([z.date(), z.string()])

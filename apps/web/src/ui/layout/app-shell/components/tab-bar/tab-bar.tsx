@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '../../../../cn';
 import { Icon, type IconName } from '../../../../components/icon/icon';
 import { itemActive } from '../../../../components/nav-item/nav-item';
 import { useFriendsOnline } from '../../../../friends/use-friends-online';
+import { SelfAvatar } from '../../../../online/status-form';
 import type { ShellAccount } from '../../account';
 import {
   friendsLabel,
@@ -78,7 +80,14 @@ const moreLinksFor = (
  * every other destination. More is a native disclosure, so it opens before
  * any script; it closes on arriving at another page.
  */
-export function TabBar({ account }: { readonly account: ShellAccount }) {
+export function TabBar({
+  account,
+  statusControl,
+}: {
+  readonly account: ShellAccount;
+  /** The member's own status, at the top of More. */
+  readonly statusControl?: ReactNode;
+}) {
   const pathname = usePathname();
   const online = useFriendsOnline(account.state === 'member') ?? 0;
   const moreLinks = moreLinksFor(account, online);
@@ -111,9 +120,17 @@ export function TabBar({ account }: { readonly account: ShellAccount }) {
           <Icon name={moreDestination.icon} size={20} />
           {moreDestination.label}
         </summary>
+        <div className="fixed inset-x-0 more-sheet flex flex-col overflow-y-auto border-t border-border bg-surface-raised shadow-3">
+          {account.state === 'member' ? (
+            <p className="flex items-center gap-2 px-4 pt-3 text-sm font-semibold text-ink">
+              <SelfAvatar username={account.username} />
+              {account.username}
+            </p>
+          ) : null}
+          {statusControl}
         <ul
           aria-label="More"
-          className="fixed inset-x-0 more-sheet flex list-none flex-col overflow-y-auto border-t border-border bg-surface-raised p-2 shadow-3"
+          className="flex list-none flex-col p-2"
         >
           {moreLinks.map((link) => (
             <li key={link.href}>
@@ -129,6 +146,7 @@ export function TabBar({ account }: { readonly account: ShellAccount }) {
             </li>
           ))}
         </ul>
+        </div>
       </details>
     </nav>
   );

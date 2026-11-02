@@ -36,6 +36,7 @@ const savedText: Readonly<Record<Section, string>> = {
 const nav = [
   ['profile', 'Profile'],
   ['notifications', 'Notifications'],
+  ['ratings', 'Your card'],
   ['privacy', 'Privacy and data'],
   ['appearance', 'Appearance'],
   ['security', 'Security'],
@@ -61,6 +62,8 @@ function Section({
 }
 
 export type SettingsPageProps = {
+  /** Which ratings the member's card shows, when it could be read. */
+  readonly ratingCard?: ReactNode;
   readonly username: string | null;
   readonly preferences: Preferences;
   readonly saved: Section | null;
@@ -97,6 +100,7 @@ export function SettingsPage({
   analytics,
   dataRightsNotices,
   onboarding,
+  ratingCard,
 }: SettingsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -169,6 +173,11 @@ export function SettingsPage({
             </p>
             <DataRights notices={dataRightsNotices} />
           </Section>
+          {ratingCard ? (
+            <Section id="ratings" title="Your card">
+              {ratingCard}
+            </Section>
+          ) : null}
           <Section id="appearance" title="Appearance">
             <ThemeSwitcher />
           </Section>

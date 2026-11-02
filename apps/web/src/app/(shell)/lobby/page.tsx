@@ -7,6 +7,10 @@ import { requireAccess } from '../../../lib/access';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
+import { requestIdentity } from '../../../lib/request-session';
+import { LobbyViews, OnlineCount } from '../../../ui/online/lobby-views';
+import { OnlinePanel } from '../../../ui/online/online-rail';
+import { personActions } from '../online/online-shell';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
@@ -23,7 +27,8 @@ export default async function LobbyPage({
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
-  return (
+  const identity = await requestIdentity();
+  const rooms = (
     <Lobby
       query={query.data}
       rooms={listing.rooms}
@@ -32,5 +37,16 @@ export default async function LobbyPage({
       activeRoom={activeRoom}
       now={now}
     />
+  );
+  // A phone has no rail: the Lobby's switch holds the online list instead.
+  return identity.state === 'member' ? (
+    <LobbyViews
+      view={(await searchParams).view === 'rooms' ? 'rooms' : 'online'}
+      rooms={rooms}
+      online={<OnlinePanel actions={personActions} />}
+      onlineCount={<OnlineCount />}
+    />
+  ) : (
+    rooms
   );
 }

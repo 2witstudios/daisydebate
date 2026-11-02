@@ -52,6 +52,14 @@ export function retentionTargets({
   readonly provisionalLinks: ProvisionalLinkPurposes;
   readonly database: {
     readonly purgeExpiredVerifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredChallenges: (batch: {
+      readonly now: string;
+      readonly limit: number;
+    }) => Promise<number>;
+    readonly purgeClosedReports: (batch: {
+      readonly now: string;
+      readonly limit: number;
+    }) => Promise<number>;
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
@@ -228,6 +236,20 @@ export function retentionTargets({
      * never delete. Redis is expendable, so a failure here only leaves
      * stale members for the next run. 1000 is the adapter's per-call cap.
      */
+    /** Offers past their time; the list already ignores them (ADR 0097). */
+    {
+      name: 'retention.challenges',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: (batch) => database.purgeExpiredChallenges(batch),
+    },
+    /** Closed reports past their proposed evidence retention (DEC-298). */
+    {
+      name: 'retention.reports',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: (batch) => database.purgeClosedReports(batch),
+    },
     {
       name: 'retention.presence_online',
       batchSize: 1000,

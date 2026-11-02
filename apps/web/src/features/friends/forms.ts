@@ -15,8 +15,6 @@ export type FriendIntent = (typeof friendIntents)[number];
 export type FriendFormState = {
   readonly username: string;
   readonly notice?: string;
-  /** Where a hydrated page goes next; a native post got a 303 instead. */
-  readonly next?: string;
 };
 
 /** Which route each intent posts to, and the body it sends. */

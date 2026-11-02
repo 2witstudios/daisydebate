@@ -18,9 +18,9 @@ type Visibility = {
 export type CardRatingRow = {
   readonly actorId: string;
   readonly ladder: RatingLadder;
-  readonly rating: number | null;
-  readonly deviation: number | null;
-  readonly volatility: number | null;
+  readonly rating: number;
+  readonly deviation: number;
+  readonly volatility: number;
   readonly lastRatedAt: string | null;
 };
 
