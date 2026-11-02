@@ -109,7 +109,7 @@ test('the first subscription acknowledgment closes the server-seed gap', async (
 });
 
 test('an older seed offered after newer text never regresses the transcript', () => {
-  const { edges, driver } = connectedTranscript();
+  const { driver } = connectedTranscript();
   driver.accepted(transcript(9));
   driver.accepted(transcript(4));
   assert({

@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { type Page } from '@playwright/test';
 import { createHumanBallotRound } from './support/human-ballot-round';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 
 const seed = (roundId: string, from: number, count: number) =>
   promisify(execFile)(
@@ -35,7 +35,7 @@ test('committed transcript survives reads failing and returning, and clears on r
   try {
     const round = await createHumanBallotRound(members, 0);
     await seed(round.id, 0, 120);
-    const page = await members[0]!.context.newPage();
+    const page = await openPage(members[0]!.context, 'transcript recovery');
     await page.goto(`/rounds/${round.id}/room`);
     const transcript = transcriptOf(page);
     await transcript.getByText('Show the transcript', { exact: true }).click();

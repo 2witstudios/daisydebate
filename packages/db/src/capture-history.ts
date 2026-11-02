@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type {
   CaptureTx,
-  CaptureIdentity,
   CaptureStream,
   CoverageTolerance,
 } from './media-capture-context';

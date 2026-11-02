@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { systemClock } from '@daisy/clock';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { consumeCaptureClips } from './capture-consumer';
@@ -13,6 +14,7 @@ const ids = {
 const seat = 'p'.repeat(24);
 const identity = 'i'.repeat(24);
 const segmentId = 'g'.repeat(24);
+const nowMs = () => Date.parse(systemClock.now());
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /**
@@ -28,7 +30,7 @@ function webApp(startedAtMs: number) {
       web.expired = false;
       return Response.json({
         epoch: 4,
-        expiresAt: new Date(Date.now() + 15000).toISOString(),
+        expiresAt: new Date(nowMs() + 15000).toISOString(),
       });
     }
     if (web.expired && op !== 'release')
@@ -40,14 +42,14 @@ function webApp(startedAtMs: number) {
         identity: 'c'.repeat(24),
         url: 'wss://media.invalid',
         token: 'token',
-        expiresAt: new Date(Date.now() + 60000).toISOString(),
+        expiresAt: new Date(nowMs() + 60000).toISOString(),
       });
     if (op === 'read')
       return Response.json({
         roundId: ids.roundId,
         sessionId: ids.sessionId,
         version: 1,
-        serverNow: new Date().toISOString(),
+        serverNow: systemClock.now(),
         status: 'active',
         transcriptAdmissionCutoff: null,
         participants: [{ roundParticipantId: seat, kind: 'human', identity }],
@@ -95,17 +97,17 @@ async function outageRun(input: {
   readonly pendingBytes: number;
   readonly script: (app: ReturnType<typeof webApp>) => Promise<void>;
 }) {
-  const app = webApp(Date.now() - 1000);
+  const app = webApp(nowMs() - 1000);
   const stop = new AbortController();
   const client = createMediaWorkerClient({
     scope: ids,
     url: 'http://127.0.0.1/',
     authentication: createMediaWorkerAuthentication({
       secret: Buffer.alloc(32, 6).toString('base64url'),
-      now: Date.now,
+      now: nowMs,
     }),
     fetch: app.fetch,
-    nowMs: Date.now,
+    nowMs,
     deadlineSignal: () => AbortSignal.timeout(3000),
     unavailableRetryMs: [0],
   });
@@ -117,16 +119,16 @@ async function outageRun(input: {
       voice: { transcribe: async () => ({ text: 'words' }) } as never,
       sttModel: 'stt',
       pendingBytes: input.pendingBytes,
-      nowMs: Date.now,
+      nowMs,
       // Long pauses shrink so renewal comes round inside a short test.
       waitUntilMs: async (due, signal) => {
-        const wait = Math.min(Math.max(1, due - Date.now()), 40);
+        const wait = Math.min(Math.max(1, due - nowMs()), 40);
         if (!signal.aborted) await sleep(wait);
       },
       subscribe: (async (setup: { onFrame: (frame: never) => void }) => {
         let sequence = 0;
         const beat = () => {
-          const now = Date.now();
+          const now = nowMs();
           setup.onFrame({
             identity,
             trackId: 'track',

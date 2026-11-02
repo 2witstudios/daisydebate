@@ -412,10 +412,42 @@ stream seal and freeze transactionally append a `round.transcript-changed`
 doorbell to the existing Round topic. It contains only the Round id and the
 transcript revision. The viewer refetches the protected read on that doorbell
 and reconnect/visibility recovery; clients without a connected socket use a
-30-second fallback. Refused reads remove the displayed text. Native page reloads
+30-second fallback. Refused reads remove the displayed text; any other failed
+read keeps it and shows Reconnecting beside the evidence state, never instead
+of it. The browser reads this route rather than a server action, because a
+build's action ids do not survive a web deploy (ISSUE-904). One sync driver
+holds a Round's transcript for the life of the page, and a later server
+render's seed is adopted only if it is not older. Native page reloads
 use the identical read and the shared transcript disclosure works without
 JavaScript. Capturing requires an explicit open, unfrozen stream; partial
 closure and incomplete freeze never wait for a client deadline to show Partial.
+
+Each partial stream's read carries its `gaps`: required speech with no
+observation, as offsets into the speech, derived on each read from
+`transcript_observations` and the same coverage edges that decide a complete
+seal. A gap is never stored and never implies what was said.
+
+## Capture through a control-plane outage
+
+[ADR 0094](../decisions/0094-capture-through-control-plane-outages.md). A web
+outage is not a capture failure. While LiveKit stays connected the worker keeps
+hearing; frames wait in staging, in memory only, and history reads, renewals,
+appends and observations retry until the server answers. A definite refusal
+still stops capture at once. An expired lease refuses every write. It answers
+`503 lease-expired` rather than a final refusal, because its worker may renew
+and reinstate the same epoch if the row is untouched; a takeover or rotation
+moves the row, and the old worker is then refused as stale for good.
+
+Frames the memory bound drops are reported on seal as `framesLost`, which is
+never complete, and they leave a hole in the observations. A frame's position
+comes from its native sequence, so contiguity comes from frames actually held,
+never from the lease. `capture-memory.ts` divides one total pending-audio bound
+across `MEDIA_WORKER_MAX_SESSIONS`. An outage that spans a speech boundary loses
+the next speech's opening, since that segment is unknown until the server
+answers, and it records a gap. A stopping session releases its lease so a
+successor need not wait out its expiry. A takeover seals at the stored count,
+partial, so a finished speech stops reading as Capturing. Nothing here recovers
+sound no worker heard, and pending audio never reaches disk.
 
 ## Revoked media room rotation
 

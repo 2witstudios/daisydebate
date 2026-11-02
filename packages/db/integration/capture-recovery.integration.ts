@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { historicalCapture } from './media-capture.test-support';
