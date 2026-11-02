@@ -1,7 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaController } from './media-controller';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import { transportStub } from './media-controller.test-support';
+import {
+  admission,
+  readController,
+  roundId,
+  snapshot,
+  transportStub,
+} from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -18,20 +23,15 @@ test('a stale ended, mismatched or malformed reply cannot end or fail its succes
     const held = Promise.withResolvers<unknown>();
     let reads = 0;
     let stops = 0;
-    const controller = createMediaController({
-      roundId,
-      initialRoundViewVersion: 3,
-      api: {
-        admit: async () => admission,
-        reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-      },
+    const controller = readController({
+      admit: async () => admission,
+      reconcile: async () => (++reads === 2 ? held.promise : snapshot),
       transport: () =>
         transportStub({
           stopTracks: () => {
             stops++;
           },
         }),
-      changed: () => undefined,
     });
     await controller.join();
     const pending = controller.reconcile({ kind: 'wake' });
@@ -60,15 +60,11 @@ test('an old apply finishing after its successor failed releases what it publish
   let reads = 0;
   let applies = 0;
   let stops = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        if (++reads === 3) throw new Error('Definite refusal');
-        return snapshot;
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => {
+      if (++reads === 3) throw new Error('Definite refusal');
+      return snapshot;
     },
     transport: () =>
       transportStub({
@@ -79,7 +75,6 @@ test('an old apply finishing after its successor failed releases what it publish
           stops++;
         },
       }),
-    changed: () => undefined,
   });
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
@@ -104,23 +99,17 @@ test('events emitted synchronously from an abort still leave one fresh read', as
   let reads = 0;
   const seen: AbortSignal[] = [];
   const held = Promise.withResolvers<unknown>();
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async (_id, signal) => {
-        seen.push(signal);
-        if (++reads !== 2) return snapshot;
-        signal.addEventListener('abort', () => {
-          void controller.reconcile(version(5));
-          void controller.reconcile({ kind: 'wake' });
-        });
-        return held.promise;
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async (_id, signal) => {
+      seen.push(signal);
+      if (++reads !== 2) return snapshot;
+      signal.addEventListener('abort', () => {
+        void controller.reconcile(version(5));
+        void controller.reconcile({ kind: 'wake' });
+      });
+      return held.promise;
     },
-    transport: () => transportStub(),
-    changed: () => undefined,
   });
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
@@ -142,17 +131,12 @@ test('a newer view emitted from a receipt rereads before announcing live', async
   const states: string[] = [];
   const receipts: number[] = [];
   let reads = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        reads++;
-        return snapshot;
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => {
+      reads++;
+      return snapshot;
     },
-    transport: () => transportStub(),
     changed: (state) => states.push(state),
     received: () => {
       receipts.push(reads);
@@ -176,21 +160,15 @@ test('a newer view emitted from a receipt rereads before announcing live', async
 test('events after failure stay inert until reconnect, which uses the current intent', async () => {
   let reads = 0;
   let admits = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => {
-        admits++;
-        return admission;
-      },
-      reconcile: async () => {
-        if (++reads === 1) throw new Error('Definite refusal');
-        return snapshot;
-      },
+  const controller = readController({
+    admit: async () => {
+      admits++;
+      return admission;
     },
-    transport: () => transportStub(),
-    changed: () => undefined,
+    reconcile: async () => {
+      if (++reads === 1) throw new Error('Definite refusal');
+      return snapshot;
+    },
   });
   await controller.join();
   await controller.reconcile({ kind: 'wake' });
@@ -219,15 +197,11 @@ test('stop during connect releases when the connect later settles either way', a
     let reads = 0;
     let stops = 0;
     const states: string[] = [];
-    const controller = createMediaController({
-      roundId,
-      initialRoundViewVersion: 3,
-      api: {
-        admit: async () => admission,
-        reconcile: async () => {
-          reads++;
-          return snapshot;
-        },
+    const controller = readController({
+      admit: async () => admission,
+      reconcile: async () => {
+        reads++;
+        return snapshot;
       },
       transport: () =>
         transportStub({
@@ -264,28 +238,22 @@ test('each read removes its listener from the connection signal', async () => {
   const connection: { signal?: AbortSignal; listeners: number } = {
     listeners: 0,
   };
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async (_id, signal) => {
-        connection.signal = signal;
-        const add = signal.addEventListener.bind(signal);
-        const remove = signal.removeEventListener.bind(signal);
-        signal.addEventListener = ((...args: Parameters<typeof add>) => {
-          connection.listeners++;
-          add(...args);
-        }) as typeof signal.addEventListener;
-        signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
-          connection.listeners--;
-          remove(...args);
-        }) as typeof signal.removeEventListener;
-        return admission;
-      },
-      reconcile: async () => snapshot,
+  const controller = readController({
+    admit: async (_id, signal) => {
+      connection.signal = signal;
+      const add = signal.addEventListener.bind(signal);
+      const remove = signal.removeEventListener.bind(signal);
+      signal.addEventListener = ((...args: Parameters<typeof add>) => {
+        connection.listeners++;
+        add(...args);
+      }) as typeof signal.addEventListener;
+      signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
+        connection.listeners--;
+        remove(...args);
+      }) as typeof signal.removeEventListener;
+      return admission;
     },
-    transport: () => transportStub(),
-    changed: () => undefined,
+    reconcile: async () => snapshot,
   });
   await controller.join();
   await settle();

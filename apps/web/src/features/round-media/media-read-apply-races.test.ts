@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import { transportStub } from './media-controller.test-support';
+import {
+  admission,
+  readController,
+  roundId,
+  snapshot,
+  transportStub,
+} from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -19,20 +23,15 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
       const held = Promise.withResolvers<unknown>();
       let reads = 0;
       let stops = 0;
-      const controller = createMediaController({
-        roundId,
-        initialRoundViewVersion: 3,
-        api: {
-          admit: async () => admission,
-          reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-        },
+      const controller = readController({
+        admit: async () => admission,
+        reconcile: async () => (++reads === 2 ? held.promise : snapshot),
         transport: () =>
           transportStub({
             stopTracks: () => {
               stops++;
             },
           }),
-        changed: () => undefined,
       });
       await controller.join();
       const pending = controller.reconcile({ kind: 'wake' });
@@ -63,16 +62,12 @@ test('a queued fresh reply superseded while waiting for the old apply never star
   let reads = 0;
   const applied: string[] = [];
   const receipts: string[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        const publish = reads === 0 ? [] : replies[reads - 1];
-        reads++;
-        return { ...snapshot, grants: { ...snapshot.grants, publish } };
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => {
+      const publish = reads === 0 ? [] : replies[reads - 1];
+      reads++;
+      return { ...snapshot, grants: { ...snapshot.grants, publish } };
     },
     transport: () =>
       transportStub({
@@ -81,7 +76,6 @@ test('a queued fresh reply superseded while waiting for the old apply never star
           if (applied.length === 2) await applying.promise;
         },
       }),
-    changed: () => undefined,
     received: (state) => receipts.push(state.grants.publish.join('+')),
   });
   await controller.join();
@@ -117,21 +111,17 @@ test('a receipt superseded in any microtask gap after apply is never announced',
     const receipts: string[] = [];
     let applies = 0;
     let reads = 0;
-    const controller = createMediaController({
-      roundId,
-      initialRoundViewVersion: 3,
-      api: {
-        admit: async () => admission,
-        reconcile: async () => {
-          reads++;
-          return {
-            ...snapshot,
-            grants: {
-              ...snapshot.grants,
-              publish: reads === 2 ? ['microphone'] : ['camera'],
-            },
-          };
-        },
+    const controller = readController({
+      admit: async () => admission,
+      reconcile: async () => {
+        reads++;
+        return {
+          ...snapshot,
+          grants: {
+            ...snapshot.grants,
+            publish: reads === 2 ? ['microphone'] : ['camera'],
+          },
+        };
       },
       transport: () =>
         transportStub({
@@ -139,7 +129,6 @@ test('a receipt superseded in any microtask gap after apply is never announced',
             if (++applies === 2) await applying.promise;
           },
         }),
-      changed: () => undefined,
       received: (state) => receipts.push(state.grants.publish.join('+')),
     });
     await controller.join();

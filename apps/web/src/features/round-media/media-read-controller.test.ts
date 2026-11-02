@@ -1,9 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaController, mediaFailure } from './media-controller';
+import {
+  admission,
+  readController,
+  roundId,
+  snapshot,
+  transportStub,
+} from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
-import { roundId, snapshot, admission } from './media-controller.test-support';
-import { transportStub } from './media-controller.test-support';
 
 test('new authority supersedes ignored-abort pending read without releasing healthy media', async () => {
   const old = Promise.withResolvers<unknown>();
@@ -13,24 +18,20 @@ test('new authority supersedes ignored-abort pending read without releasing heal
   let signal: AbortSignal | undefined;
   const applied: string[] = [],
     received: string[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => {
-        admits++;
-        return admission;
-      },
-      reconcile: async (_id, current) => {
-        if (++reads === 2) {
-          signal = current;
-          return old.promise;
-        }
-        return {
-          ...snapshot,
-          grants: { ...snapshot.grants, publish: ['camera'] },
-        };
-      },
+  const controller = readController({
+    admit: async () => {
+      admits++;
+      return admission;
+    },
+    reconcile: async (_id, current) => {
+      if (++reads === 2) {
+        signal = current;
+        return old.promise;
+      }
+      return {
+        ...snapshot,
+        grants: { ...snapshot.grants, publish: ['camera'] },
+      };
     },
     transport: () => ({
       connect: async () => undefined,
@@ -42,7 +43,6 @@ test('new authority supersedes ignored-abort pending read without releasing heal
       },
       disconnect: async () => undefined,
     }),
-    changed: () => undefined,
     received: (value) => received.push(value.grants.publish.join(',')),
   });
   await controller.join();
@@ -83,21 +83,17 @@ test('already-started SDK work serializes fresh application without blocking a f
   let reads = 0;
   const applications: string[] = [],
     receipts: string[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        reads++;
-        return {
-          ...snapshot,
-          grants: {
-            ...snapshot.grants,
-            publish: reads < 3 ? ['camera', 'microphone'] : ['camera'],
-          },
-        };
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => {
+      reads++;
+      return {
+        ...snapshot,
+        grants: {
+          ...snapshot.grants,
+          publish: reads < 3 ? ['camera', 'microphone'] : ['camera'],
+        },
+      };
     },
     transport: () => ({
       connect: async () => undefined,
@@ -108,7 +104,6 @@ test('already-started SDK work serializes fresh application without blocking a f
       stopTracks: () => undefined,
       disconnect: async () => undefined,
     }),
-    changed: () => undefined,
     received: (value) => receipts.push(value.grants.publish.join(',')),
   });
   await controller.join();
@@ -139,20 +134,14 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
   const pause = Promise.withResolvers<void>();
   let reads = 0;
   const signals: AbortSignal[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async (_id, signal) => {
-        signals.push(signal);
-        if (++reads === 2) throw mediaFailure(503);
-        return snapshot;
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async (_id, signal) => {
+      signals.push(signal);
+      if (++reads === 2) throw mediaFailure(503);
+      return snapshot;
     },
     retry: { delaysMs: [1], wait: () => pause.promise },
-    transport: () => transportStub(),
-    changed: () => undefined,
   });
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });

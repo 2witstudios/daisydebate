@@ -1,22 +1,19 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import { transportStub } from './media-controller.test-support';
+import {
+  admission,
+  readController,
+  snapshot,
+  transportStub,
+} from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
 test('repeated wakes share one flight and exactly one followup', async () => {
   const held = Promise.withResolvers<unknown>();
   let reads = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-    },
-    transport: () => transportStub(),
-    changed: () => undefined,
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => (++reads === 2 ? held.promise : snapshot),
   });
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
@@ -45,16 +42,12 @@ test('connection replacement fences old rejection and cleanup', async () => {
   let reads = 0,
     admits = 0;
   const stopped: number[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => {
-        admits++;
-        return admission;
-      },
-      reconcile: async () => (++reads === 2 ? held.promise : snapshot),
+  const controller = readController({
+    admit: async () => {
+      admits++;
+      return admission;
     },
+    reconcile: async () => (++reads === 2 ? held.promise : snapshot),
     transport: () => {
       const index = stopped.length;
       stopped.push(0);
@@ -65,7 +58,6 @@ test('connection replacement fences old rejection and cleanup', async () => {
         },
       };
     },
-    changed: () => undefined,
   });
   await controller.join();
   const pending = controller.reconcile({ kind: 'wake' });
@@ -93,24 +85,20 @@ test('accepted views during admission and first read use current intent without 
     reads = 0;
   let signal: AbortSignal | undefined;
   const receipts: string[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => {
-        admits++;
-        return mint.promise;
-      },
-      reconcile: async (_id, current) => {
-        if (++reads === 1) {
-          signal = current;
-          return held.promise;
-        }
-        return {
-          ...snapshot,
-          grants: { ...snapshot.grants, publish: ['camera'] },
-        };
-      },
+  const controller = readController({
+    admit: async () => {
+      admits++;
+      return mint.promise;
+    },
+    reconcile: async (_id, current) => {
+      if (++reads === 1) {
+        signal = current;
+        return held.promise;
+      }
+      return {
+        ...snapshot,
+        grants: { ...snapshot.grants, publish: ['camera'] },
+      };
     },
     transport: () => ({
       ...transportStub(),
@@ -119,7 +107,6 @@ test('accepted views during admission and first read use current intent without 
       },
     }),
     received: (value) => receipts.push(value.grants.publish.join(',')),
-    changed: () => undefined,
   });
   const joining = controller.join();
   void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
@@ -153,15 +140,11 @@ test('an old already-started SDK rejection cannot fail its successor', async () 
     applies = 0,
     stopped = 0;
   const receipts: number[] = [];
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        reads++;
-        return snapshot;
-      },
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => {
+      reads++;
+      return snapshot;
     },
     transport: () => ({
       ...transportStub(),
@@ -173,7 +156,6 @@ test('an old already-started SDK rejection cannot fail its successor', async () 
       },
     }),
     received: () => receipts.push(applies),
-    changed: () => undefined,
   });
   await controller.join();
   receipts.length = 0;
@@ -198,23 +180,18 @@ test('an old already-started SDK rejection cannot fail its successor', async () 
 test('release callbacks cannot revive a synchronously disposed replacement', async () => {
   let disposeOnRelease = false,
     admits = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: {
-      admit: async () => {
-        admits++;
-        return admission;
-      },
-      reconcile: async () => snapshot,
+  const controller = readController({
+    admit: async () => {
+      admits++;
+      return admission;
     },
+    reconcile: async () => snapshot,
     transport: () => ({
       ...transportStub(),
       stopTracks: () => {
         if (disposeOnRelease) controller.stop();
       },
     }),
-    changed: () => undefined,
   });
   await controller.join();
   disposeOnRelease = true;

@@ -1,5 +1,8 @@
 import type { RoundMediaAdmission } from '@daisy/protocol';
-import type { BrowserMediaTransport } from './media-controller';
+import {
+  createMediaController,
+  type BrowserMediaTransport,
+} from './media-controller';
 
 export const roundId = 'r'.repeat(24);
 export const admission: RoundMediaAdmission = {
@@ -58,4 +61,23 @@ export const trackedSignal = () => {
     abort: () => controller.abort(),
     listening: () => listeners,
   };
+};
+
+type ControllerInput = Parameters<typeof createMediaController>[0];
+
+/** A controller at Round view 3 that admits at once; tests supply what differs. */
+export const readController = (
+  input: Pick<ControllerInput['api'], 'reconcile'> &
+    Partial<Pick<ControllerInput['api'], 'admit'>> &
+    Partial<Omit<ControllerInput, 'api' | 'roundId'>>,
+) => {
+  const { reconcile, admit, ...rest } = input;
+  return createMediaController({
+    roundId,
+    initialRoundViewVersion: 3,
+    transport: () => transportStub(),
+    changed: () => undefined,
+    ...rest,
+    api: { admit: admit ?? (async () => admission), reconcile },
+  });
 };
