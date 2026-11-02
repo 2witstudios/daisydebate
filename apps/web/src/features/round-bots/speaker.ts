@@ -44,6 +44,8 @@ export function createBotSpeaker(input: {
     readonly scope: BotPublicationScope;
     readonly token: string;
     readonly segmentType: 'speech' | 'cross_ex';
+    /** The scheduled seat asks first; every other cross-examination seat waits. */
+    readonly opensExchange: boolean;
   };
   readonly generate: (
     scope: BotPublicationScope,
@@ -78,7 +80,7 @@ export function createBotSpeaker(input: {
   /** `stage` names the work that failed: generate, synthesize or publish. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
-  const { scope, token, segmentType } = input.claim;
+  const { scope, token, segmentType, opensExchange } = input.claim;
   const crossEx = segmentType === 'cross_ex';
   let running: { abort: AbortController; done: Promise<void> } | null = null,
     playing = false,
@@ -86,8 +88,8 @@ export function createBotSpeaker(input: {
     /** The speech is over: delivered, or refused for good. */
     finished = false,
     attempts = 0,
-    /** Cross-examination opens once, then answers each ended peer turn once. */
-    owed = true,
+    /** The asker opens once; every seat then answers each ended peer turn once. */
+    owed = !crossEx || opensExchange,
     /** A new peer turn makes a held cross-examination answer stale. */
     stale = false;
   let stage = 'generate';

@@ -57,9 +57,8 @@ export function templateDefinition({
       preRoundPrep: { durationMs: { min: 0, max: 60 * minute } },
       resolutionDraw: null,
       interaction: {
-        crossExModes: ['ordered', 'free'],
         interruptions: {
-          modes: ['disabled', 'cross_ex_only', 'enabled'],
+          modes: ['disabled', 'enabled'],
           minRemainingMs: { min: 0, max: 5 * minute },
         },
         yield: {
@@ -71,18 +70,14 @@ export function templateDefinition({
   };
 }
 
-/** A template's settings: its league prep and questioning, Daisy's usual floor rules. */
-export function templateSettings(
-  prepMinutesPerSide: number,
-  crossExMode: 'ordered' | 'free',
-): FormatSettings {
+/** A template's settings: its league prep, Daisy's usual floor rules. */
+export function templateSettings(prepMinutesPerSide: number): FormatSettings {
   return {
     ...oneOnOneSettings,
     inRoundPrep: {
       enabled: true,
       budgetMsPerSide: prepMinutesPerSide * minute,
     },
-    crossExamination: { crossExMode },
   };
 }
 

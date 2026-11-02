@@ -97,9 +97,8 @@ const oneOnOneRevision1: FormatDefinition = {
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     resolutionDraw: null,
     interaction: {
-      crossExModes: ['ordered', 'free'],
       interruptions: {
-        modes: ['disabled', 'cross_ex_only', 'enabled'],
+        modes: ['disabled', 'enabled'],
         minRemainingMs: { min: 0, max: 300_000 },
       },
       yield: {
@@ -158,7 +157,6 @@ export const foundationDefinition: FormatDefinition = {
     preRoundPrep: null,
     resolutionDraw: null,
     interaction: {
-      crossExModes: ['ordered'],
       interruptions: null,
       yield: null,
     },
@@ -171,7 +169,6 @@ export const foundationSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
   interruptions: null,
   yielding: null,
 };
@@ -209,8 +206,7 @@ export const oneOnOneSettings: FormatSettings = {
     countdownMs: 10_000,
     segmentDurationOverrides: {},
   },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -220,8 +216,7 @@ export const oneOnOneRankedSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
   yielding: { allowed: true, returnsTime: true },
 };
 

@@ -62,7 +62,6 @@ const settingRows = (round: RoundReceiptView) => {
       : null,
     prepPerSideMs: round.rules.inRoundPrep?.budgetMsPerSide ?? null,
     countdownMs: round.rules.countdownMs,
-    crossExMode: interaction.crossExMode,
     interruptions: interaction.interruptions && {
       mode: interaction.interruptions.allowed,
       minRemainingMs: interaction.interruptions.minRemainingMs,

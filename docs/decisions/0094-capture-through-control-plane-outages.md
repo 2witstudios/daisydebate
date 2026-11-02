@@ -25,9 +25,12 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
 3. A stream seals complete only if the sealing process lost no frames it held.
    Contiguity comes from frames actually held, never from the lease.
 4. A planned worker replacement costs start-up time, not start-up plus expiry: a
-   stopping session releases its lease. A bounded rail hold on worker deploys
-   during active capture, counting only fresh leases and never blocking forever,
-   ships separately behind human sign-off (CCAP-10).
+   stopping session releases its lease. The staging rail holds the worker deploy
+   while an active Round's session has a fresh lease, for at most 45 minutes,
+   then deploys anyway and the gap is recorded honestly. A check that fails three
+   times running, or the step failing, never stops the deploy. Web deploys first,
+   so web and an older worker can overlap for that long: a capture contract
+   change must tolerate that (CCAP-10).
 5. A partial stream reports its gaps from durable evidence on each read.
 6. The live transcript reads its HTTP route, not a server action. The reply
    declares a contract version and the browser parses only the fields it renders,

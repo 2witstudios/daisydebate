@@ -50,7 +50,7 @@ type ListenGrant = {
  * deletes the vendor room, drops it. A refused or failed rejoin backs off
  * rather than guessing from the error that the claim is over: the claim's
  * own lifecycle closes the listener. Media grants decide who may publish,
- * so only a seat holding the floor is heard at all.
+ * so only a seat allowed to speak is heard at all.
  */
 export function createBotListening(
   input: {

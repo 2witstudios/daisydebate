@@ -35,16 +35,19 @@ const speeches = [
 describe('floorStates', () => {
   test('who holds the floor', () => {
     assert({
-      given: 'cross-ex, the opponent’s speech, your own speech and judging',
+      given:
+        'cross-ex from each side, the opponent’s speech, your own speech and judging',
       should: 'label each tile with its part in the phase',
       actual: [
-        floorStates('cross-ex'),
-        floorStates('opponent-speaking'),
-        floorStates('own-speech'),
-        floorStates('judging'),
+        floorStates('cross-ex', true),
+        floorStates('cross-ex', false),
+        floorStates('opponent-speaking', false),
+        floorStates('own-speech', true),
+        floorStates('judging', false),
       ],
       expected: [
         { self: 'Asking', opponent: 'Answering' },
+        { self: 'Answering', opponent: 'Asking' },
         { self: '', opponent: 'Speaking' },
         { self: 'Speaking', opponent: '' },
         { self: '', opponent: '' },

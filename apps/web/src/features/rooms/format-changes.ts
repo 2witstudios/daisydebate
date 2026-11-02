@@ -1,9 +1,5 @@
 import type { FormatChange } from '@daisy/protocol';
-import {
-  crossExModeLabel,
-  interruptionLabel,
-  strikeSummary,
-} from '../debate-room/vocabulary';
+import { interruptionLabel, strikeSummary } from '../debate-room/vocabulary';
 import { clockDuration } from './duration-input';
 
 const roleLabel = {
@@ -50,8 +46,6 @@ const lines: Lines = {
     `Prep per side ${clockOrOff(c.fromMs)} → ${clockOrOff(c.toMs)}`,
   'pre-round-prep': (c) =>
     `Prep before the round ${clockOrOff(c.fromMs)} → ${clockOrOff(c.toMs)}`,
-  'cross-ex-mode': (c) =>
-    `Cross-examination: ${crossExModeLabel[c.from]} → ${crossExModeLabel[c.to]}`,
   interruptions: (c) =>
     `Interruptions: ${interruptions(c.from)} → ${interruptions(c.to)}`,
   yield: (c) => `Ending a speech early: ${onOff(c.from)} → ${onOff(c.to)}`,

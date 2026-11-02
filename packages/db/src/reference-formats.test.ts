@@ -35,29 +35,73 @@ const migratedDefinitions = (sql: string) => {
   );
   const before = (backfill: number, at: number | undefined) =>
     backfill >= 0 && (at ?? 0) < backfill;
+  // ADR 0096: every row seeded before it drops the cross-examination settings.
+  const crossExBackfill = sql.indexOf('-- ADR 0096 backfill');
   const definitions = new Map<string, unknown>();
   for (const match of sql.matchAll(
     /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
   )) {
     const [, formatId, version, raw] = match;
     const definition = JSON.parse(raw!) as FormatDefinition;
+    const drawn = before(definitionBackfill, match.index)
+      ? {
+          ...definition,
+          configurable: { ...definition.configurable, resolutionDraw: null },
+        }
+      : definition;
     definitions.set(
       `${formatId}@${version}`,
-      before(definitionBackfill, match.index)
-        ? {
-            ...definition,
-            configurable: { ...definition.configurable, resolutionDraw: null },
-          }
-        : definition,
+      before(crossExBackfill, match.index)
+        ? withoutCrossExDefinition(drawn)
+        : drawn,
     );
   }
-  return { definitions, presetBackfill, before };
+  return { definitions, presetBackfill, crossExBackfill, before };
+};
+
+const withoutCrossExDefinition = (definition: FormatDefinition) => {
+  const interaction = definition.configurable.interaction as Record<
+    string,
+    unknown
+  > & { interruptions: { modes: string[] } | null };
+  const rest = Object.fromEntries(
+    Object.entries(interaction).filter(([key]) => key !== 'crossExModes'),
+  );
+  return {
+    ...definition,
+    configurable: {
+      ...definition.configurable,
+      interaction: {
+        ...rest,
+        interruptions: interaction.interruptions && {
+          ...interaction.interruptions,
+          modes: interaction.interruptions.modes.filter(
+            (mode) => mode !== 'cross_ex_only',
+          ),
+        },
+      },
+    },
+  } as FormatDefinition;
+};
+
+const withoutCrossExSettings = (config: Record<string, unknown>) => {
+  const rest = Object.fromEntries(
+    Object.entries(config).filter(([key]) => key !== 'crossExamination'),
+  );
+  const interruptions = rest.interruptions as {
+    mode: string;
+    minRemainingMs: number;
+  } | null;
+  return interruptions?.mode === 'cross_ex_only'
+    ? { ...rest, interruptions: { ...interruptions, mode: 'disabled' } }
+    : rest;
 };
 
 /** Every reference row the committed migrations write, parsed in folder order. */
 const migrated = async () => {
   const sql = await committedMigrationSql();
-  const { definitions, presetBackfill, before } = migratedDefinitions(sql);
+  const { definitions, presetBackfill, crossExBackfill, before } =
+    migratedDefinitions(sql);
   const formats = new Map<string, { name: string; currentVersion: number }>();
   for (const [, id, name, version] of sql.matchAll(
     /'([a-z0-9-]+)', '([^']+)', (\d+), statement_timestamp\(\)/g,
@@ -83,14 +127,17 @@ const migrated = async () => {
   )) {
     const [, formatId, length, version, formatVersion, config] = match;
     const parsed = JSON.parse(config ?? '') as Record<string, unknown>;
+    const drawn = before(presetBackfill, match.index)
+      ? { ...parsed, resolutionDraw: { enabled: false } }
+      : parsed;
     approved.push({
       formatId: formatId!,
       length,
       version: Number(version),
       formatVersion: Number(formatVersion),
-      config: before(presetBackfill, match.index)
-        ? { ...parsed, resolutionDraw: { enabled: false } }
-        : parsed,
+      config: before(crossExBackfill, match.index)
+        ? withoutCrossExSettings(drawn)
+        : drawn,
     });
   }
   const quickDeleted = sql.includes(

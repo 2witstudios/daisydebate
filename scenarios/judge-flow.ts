@@ -12,9 +12,8 @@ const at = (
 
 /**
  * A judged one-on-one (seats: 1 affirmative, 2 negative, 3 judge) is played
- * through its seven segments by the debaters' own commands: yields, an
- * interruption of the first cross-examination (the interrupter's yield hands
- * the floor back, DEC-203) and negative prep before the constructive. A ballot before the final segment ends is refused without
+ * through its seven segments by the debaters' own commands: yields and
+ * negative prep before the constructive. A ballot before the final segment ends is refused without
  * changing the Round; the judge's ballot afterwards decides the outcome
  * through the engine's ruling, which completes the Round.
  */
@@ -46,8 +45,11 @@ const scenario: DebateScenario = {
     { type: 'tick', atMs: 10_000 }, // AC opens
     ...at(60_000, 'yield', 1), // AC ends early
     { type: 'tick', atMs: 70_000 }, // CX1 opens, the negative asking
-    ...at(80_000, 'interrupt', 1), // the affirmative takes the floor
-    ...at(90_000, 'yield', 1), // and hands the floor back (DEC-203)
+    {
+      type: 'expect-rejection',
+      operation: { type: 'command', command: { type: 'interrupt' }, actor: 1 },
+      invariantId: 'round.interrupt.requires-policy',
+    },
     ...at(92_000, 'yield', 2), // the questioner ends CX1
     ...at(95_000, 'start_prep', 2), // the negative preps for NC
     ...at(125_000, 'start_speech', 2), // NC opens out of prep

@@ -1,6 +1,7 @@
 # 0058: one Round model
 
-Status: accepted (owner request, 2026-10-06). Supersedes parts of
+Status: accepted (owner request, 2026-10-06). `crossExModes[]` is retired by
+[ADR 0096](0096-cross-examination-open-microphones.md). Supersedes parts of
 [ADR 0029](0029-competitive-schema-foundation.md),
 [ADR 0054](0054-debate-room-workspace.md) and
 [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md).

@@ -84,14 +84,14 @@ The **Foundation** template has two speeches and no judge. It finishes
 
 ## Three people: a judged Round
 
-Use the **One-on-one** template. It has seven turns, cross-examination,
-interruption and yielding, plus one judge seat.
+Use the **One-on-one** template. It has seven turns, cross-examination and
+yielding, plus one judge seat.
 
 - A third person takes **Judge 1**. The judge does no device check, but must be
   Ready.
 - The speaker holding the floor can end a speech early (**End speech**, then
-  **Confirm end speech**). A debater can interrupt the other side's
-  cross-examination (**Interrupt**), and use prep before their own speech (**Use
+  **Confirm end speech**). Both debaters' microphones stay open through
+  cross-examination, and a debater can use prep before their own speech (**Use
   prep**, then **Start …**).
 - About two minutes after the last speech, the judge's ballot opens from the
   Judge page. Submitting it shows **Result · … won** to everyone.

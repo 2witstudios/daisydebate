@@ -21,7 +21,6 @@ function allowedFields(view: RoomView) {
     'expectedVersion',
     'commandId',
     ...durationFields('countdown'),
-    'crossExMode',
     ...view.definition.segments.flatMap((segment) =>
       durationFields(`segment.${segment.key}`),
     ),
@@ -59,7 +58,6 @@ function configFields(view: RoomView, form: FormData) {
         ]),
       ),
     },
-    crossExamination: { crossExMode: form.get('crossExMode') },
     interruptions: capability.interaction.interruptions
       ? {
           mode: form.get('interruptionsMode'),

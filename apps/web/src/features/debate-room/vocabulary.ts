@@ -29,15 +29,10 @@ export function startSpeechLabel(name: string): string {
   return `Start ${name.charAt(0).toLocaleLowerCase()}${name.slice(1)}`;
 }
 
-export const crossExModeLabel: Readonly<
-  Record<Interaction['crossExamination']['crossExMode'], string>
-> = { ordered: 'Questioner leads', free: 'Open floor' };
-
 export const interruptionLabel: Readonly<
   Record<NonNullable<Interaction['interruptions']>['mode'], string>
 > = {
   disabled: 'Off',
-  cross_ex_only: 'Only during cross-examination',
   enabled: 'During any speech',
   open: 'Open microphones (POI)',
 };
@@ -140,7 +135,6 @@ export function ruleRows(rules: {
   readonly preRoundPrepMs: number | null;
   readonly prepPerSideMs: number | null;
   readonly countdownMs: number;
-  readonly crossExMode: Interaction['crossExamination']['crossExMode'];
   readonly interruptions: {
     readonly mode: Mode;
     readonly minRemainingMs: number;
@@ -165,7 +159,6 @@ export function ruleRows(rules: {
         : `${clockDuration(rules.prepPerSideMs)} per side`,
     ],
     ['Countdown before each speech', clockDuration(rules.countdownMs)],
-    ['Cross-examination', crossExModeLabel[rules.crossExMode]],
     ['Interruptions', interruptionLabel[interruptions?.mode ?? 'disabled']],
     ...(interruptions && interruptions.mode !== 'disabled'
       ? [

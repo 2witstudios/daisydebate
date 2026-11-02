@@ -37,7 +37,7 @@ test('the summary reads in words and never shows the raw format id', () => {
         '5:21',
         '14:47 per side',
         '0:00.444',
-        'Open floor',
+        'Interruptions',
         'Ending a speech early',
       ].every((value) => html.includes(value)),
       html.includes('test-unequal-template'),

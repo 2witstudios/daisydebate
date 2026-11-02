@@ -73,12 +73,6 @@ function PhaseActions({
         End speech
       </button>
     );
-  if (round.phase === 'cross-ex')
-    return (
-      <button type="button" disabled className={cn(quiet, grow)}>
-        Interrupt
-      </button>
-    );
   return null;
 }
 

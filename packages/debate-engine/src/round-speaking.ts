@@ -10,7 +10,10 @@ import type { ClockChange } from './round-clock';
 export const hasOpenQuestioning = (rules: RoundRules): boolean =>
   rules.interaction.interruptions?.allowed === 'open';
 
-/** Speaking eligibility is distinct from command/floor control in free CX. */
+/** Everyone speaks in cross-examination and under open questioning; no one takes the floor. */
+const sharesSpeaking = (rules: RoundRules, sequence: number): boolean =>
+  hasOpenQuestioning(rules) || rules.segments[sequence]?.type === 'cross_ex';
+
 export const speakingParticipants = (
   rules: RoundRules,
   seats: readonly RoundParticipantSeat[],
@@ -19,10 +22,7 @@ export const speakingParticipants = (
 ): readonly string[] => {
   const segment = rules.segments[sequence];
   if (!segment) return [];
-  if (
-    hasOpenQuestioning(rules) ||
-    (segment.type === 'cross_ex' && rules.interaction.crossExMode === 'free')
-  )
+  if (sharesSpeaking(rules, sequence))
     return seats
       .filter((p) => p.role === 'affirmative' || p.role === 'negative')
       .map((p) => p.id);
@@ -67,14 +67,7 @@ export function speakingChangesOf(input: {
         },
   );
   const floor = input.floorChange;
-  if (
-    floor &&
-    !(
-      hasOpenQuestioning(input.rules) ||
-      (input.rules.segments[floor.sequence]?.type === 'cross_ex' &&
-        input.rules.interaction.crossExMode === 'free')
-    )
-  ) {
+  if (floor && !sharesSpeaking(input.rules, floor.sequence)) {
     const segmentId = input.segmentIds.get(floor.sequence)!;
     result.push(
       { kind: 'close', segmentId, at: floor.at },

@@ -79,61 +79,69 @@ describe('round runtime lifecycle', () => {
       });
     });
 
-    test('interrupts move the floor under the resolved policy, and nowhere else', () => {
-      const world = runtime();
+    test('interrupts move the floor during a speech under the resolved policy', () => {
+      const world = runtime({
+        rules: {
+          ...rules,
+          interaction: {
+            ...rules.interaction,
+            interruptions: { allowed: 'enabled', minRemainingMs: 30_000 },
+          },
+        },
+      });
       world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-      world.tick(at(330_000)); // CX1 live, negative asking
+      world.tick(at(20_000)); // AC live, affirmative speaking
       const interrupted = world.execute({
         command: { type: 'interrupt' },
-        actorId: person,
-        now: at(330_000),
+        actorId: opponent,
+        now: at(20_000),
       });
       assert({
-        given: "the affirmative interrupting the negative's cross-examination",
+        given: "the negative interrupting the affirmative's speech",
         should: 'record the floor with its grant instant',
         actual: interrupted.round?.checkpoint.floor,
         expected: {
-          holder_participant_id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
-          granted_at: at(330_000),
+          holder_participant_id: 'q5x2v8t0r4p6n2b8c1z7k3m9',
+          granted_at: at(20_000),
         },
       });
       const returned = world.execute({
         command: { type: 'yield' },
-        actorId: person,
-        now: at(340_000),
+        actorId: opponent,
+        now: at(30_000),
       });
       assert({
         given: 'the interrupter yielding the floor they took (DEC-203)',
         should:
-          "hand the floor back to the questioner and keep the questioner's segment and clock running",
+          "hand the floor back to the speaker and keep the speaker's segment and clock running",
         actual: {
           closes: returned.segmentCloses,
           floor: returned.round?.checkpoint.floor,
           speaking: returned.speakingChanges?.at(-1),
-          live: world.position(at(340_000)).openSegment?.key,
+          live: world.position(at(30_000)).openSegment?.key,
         },
         expected: {
           closes: [],
           floor: null,
           speaking: {
             kind: 'open',
-            segmentId: 'segment-2',
-            at: at(340_000),
-            participantIds: ['q5x2v8t0r4p6n2b8c1z7k3m9'],
+            segmentId: 'segment-1',
+            at: at(30_000),
+            participantIds: ['m3w8k1z5c9b2n7p4r6t0v2x4'],
           },
-          live: 'CX1',
+          live: 'AC',
         },
       });
       const yielded = world.execute({
         command: { type: 'yield' },
-        actorId: opponent,
-        now: at(350_000),
+        actorId: person,
+        now: at(40_000),
       });
       assert({
-        given: 'the questioner, the scheduled speaker, yielding',
-        should: 'end the cross-examination early',
+        given: 'the scheduled speaker yielding',
+        should: 'end the speech early',
         actual: yielded.segmentCloses[0]?.id,
-        expected: 'segment-2',
+        expected: 'segment-1',
       });
     });
 
@@ -142,7 +150,7 @@ describe('round runtime lifecycle', () => {
       world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
       world.tick(at(10_000));
       await assertRejects({
-        given: 'an interrupt during a speech under a cross_ex_only policy',
+        given: 'an interrupt during a speech with interruptions off',
         should: 'refuse with the interrupt-policy invariant',
         actual: () =>
           world.execute({

@@ -51,10 +51,6 @@ export const unboundedFormatDefinitions: ReadonlyArray<
 > = [
   ['more than 64 segments', formatWithSegments(65)],
   [
-    'duplicate cross-ex modes',
-    withInteraction({ crossExModes: ['ordered', 'ordered'] }),
-  ],
-  [
     'duplicate interruption modes',
     withInteraction({
       interruptions: {

@@ -45,6 +45,7 @@ function messagesFor(
       name: rule.key,
       label: rule.label,
       type: segment.type,
+      side: rule.side,
       durationMs,
     },
     transcript: context.utterances.flatMap((line) => {

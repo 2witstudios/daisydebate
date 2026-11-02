@@ -22,8 +22,7 @@ describe('room config', () => {
       countdownMs: 10_000,
       segmentDurationOverrides: { NC: 360_000 },
     },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+    interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
     yielding: { allowed: true, returnsTime: true },
   };
 
@@ -62,13 +61,13 @@ describe('room config', () => {
 
   test('rejects a non-member of a permitted set', () => {
     assert({
-      given: 'a cross-examination mode the definition never permitted',
+      given: 'the retired cross-examination-only interruption policy',
       should: 'reject it at the boundary',
       actual: parseOutcome(roomConfigSchema, {
         ...config,
-        crossExamination: { crossExMode: 'chaotic' },
+        interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
       }),
-      expected: { issues: ['crossExamination.crossExMode'] },
+      expected: { issues: ['interruptions.mode'] },
     });
   });
 });
@@ -98,7 +97,6 @@ describe('round rules', () => {
     inRoundPrep: null,
     countdownMs: 0,
     interaction: {
-      crossExMode: 'free',
       yield: null,
       interruptions: null,
     },

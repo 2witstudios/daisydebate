@@ -2,8 +2,26 @@ import type { RoundView } from '@daisy/protocol';
 import type { NativeAttendanceState } from './operations';
 import { RoundAttendanceForm } from './native-form';
 
-/** Render only the fresh read's own facts; no client or GET produces attendance. */
+/**
+ * The check-in path for a page without JavaScript; `useRoundAttendance` checks
+ * in otherwise. Render only the fresh read's own facts; no client or GET
+ * produces attendance.
+ */
 export function RoundNativeAttendance({
+  view,
+  state,
+}: {
+  readonly view: RoundView;
+  readonly state: NativeAttendanceState | null;
+}) {
+  return (
+    <noscript>
+      <NativeAttendanceSection view={view} state={state} />
+    </noscript>
+  );
+}
+
+function NativeAttendanceSection({
   view,
   state,
 }: {

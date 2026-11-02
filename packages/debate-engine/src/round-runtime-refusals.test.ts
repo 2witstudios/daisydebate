@@ -69,10 +69,18 @@ describe('round runtime command refusals and seat order', () => {
         }),
       code: 'CONFLICT',
     });
-    // CX1 is live at 325_000: cross-examination, 115_000 remaining.
-    const world = runtime();
+    // AC is live at 20_000 under a policy that permits interrupting it.
+    const world = runtime({
+      rules: {
+        ...rules,
+        interaction: {
+          ...rules.interaction,
+          interruptions: { allowed: 'enabled', minRemainingMs: 0 },
+        },
+      },
+    });
     world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    world.tick(at(320_000));
+    world.tick(at(20_000));
     await assertRejects({
       given: 'an interrupt from no seat at all',
       should: 'refuse with a conflict',
@@ -80,7 +88,7 @@ describe('round runtime command refusals and seat order', () => {
         world.execute({
           command: { type: 'interrupt' },
           actorId: null,
-          now: at(325_000),
+          now: at(20_000),
         }),
       code: 'CONFLICT',
     });
@@ -91,7 +99,7 @@ describe('round runtime command refusals and seat order', () => {
         world.execute({
           command: { type: 'interrupt' },
           actorId: oneOnOneSeats[2].actorId,
-          now: at(325_000),
+          now: at(20_000),
         }),
       code: 'CONFLICT',
     });
