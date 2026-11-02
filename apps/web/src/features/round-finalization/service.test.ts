@@ -508,6 +508,36 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
   await service.stop();
 });
 
+test('a Round in its opening has no attendance yet, so a failing tick keeps its backoff', async () => {
+  const stages: string[] = [];
+  let ticks = 0;
+  const { service, pulse, advance } = driven({
+    discover: async () => page(['opening']),
+    tick: async () => {
+      ticks++;
+      throw new Error('tick fault');
+    },
+    evaluate: async () => {
+      throw createAppError('CONFLICT', 'attendance-terminal');
+    },
+    failed: (_error, stage) => stages.push(stage),
+  });
+  await service.ready;
+  await flush();
+  await pulse();
+  await flush();
+  advance(1_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'a failing tick on a Round whose attendance refuses it as not active',
+    should: 'not retry or report the tick again inside its wait',
+    actual: { ticks, stages },
+    expected: { ticks: 1, stages: ['tick'] },
+  });
+  await service.stop();
+});
+
 test('a Round that leaves discovery is forgotten: back again, it waits for nothing', async () => {
   const reads: string[] = [];
   let ids = ['gone', 'kept'];

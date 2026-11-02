@@ -115,12 +115,17 @@ function createEvaluationPacing(input: MaintenancePorts) {
       failures.delete(key);
     },
     backOff,
+    forgetEvaluation(roundId: string) {
+      retryAt.delete(roundId);
+      failures.delete(roundId);
+      heldSince.delete(roundId);
+    },
     forget(roundId: string) {
-      for (const key of [roundId, `tick:${roundId}`, `finalize:${roundId}`]) {
+      for (const key of [`tick:${roundId}`, `finalize:${roundId}`]) {
         retryAt.delete(key);
         failures.delete(key);
       }
-      heldSince.delete(roundId);
+      this.forgetEvaluation(roundId);
     },
   };
 }
@@ -157,8 +162,10 @@ async function maintainRound(
     }
   };
   if (!(await stage('tick', () => input.tick(roundId)))) return;
+  // Attendance also refuses a Round still in its opening, so this keeps any tick
+  // backoff; discovery's sweep forgets it once the Round has truly finished.
   if ((await pacing.evaluate(roundId)) === 'ended') {
-    pacing.forget(roundId);
+    pacing.forgetEvaluation(roundId);
     return;
   }
   await stage('finalize', () => input.finalize(roundId));
