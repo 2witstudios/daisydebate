@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { coverageAuthority } from './capture-history';
-import type { CaptureRule } from './capture-decisions-port';
+import type { CaptureRule } from '@daisy/protocol';
 import type { CaptureTx } from './media-capture-context';
 
 setupRitewayBun();

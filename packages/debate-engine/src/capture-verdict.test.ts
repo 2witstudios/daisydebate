@@ -1,11 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createCaptureRule,
-  decideStreamCapture,
-  type CaptureInterval,
-  type CoverageEdges,
-  type StreamCoverage,
-} from './capture-verdict';
+import { createCaptureRule, decideStreamCapture } from './capture-verdict';
+import type {
+  CaptureInterval,
+  CoverageEdges,
+  StreamCoverage,
+} from '@daisy/protocol';
 
 setupRitewayBun();
 const rule = createCaptureRule({ joinMs: 0, relayMs: 0 });

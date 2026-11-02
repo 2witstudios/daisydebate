@@ -310,9 +310,9 @@ test('a clip with too little voice has no audio to send', () => {
     expected: [['silent', 10, 60000, null]],
   });
   assert({
-    given: 'a burst of 190 ms in silence, below the voiced line',
+    given: 'a click of 90 ms in silence, below the voiced line',
     should: 'cut no audible clip',
-    actual: kinds((i) => i >= 19, 100).map(([kind]) => kind),
+    actual: kinds((i) => i >= 9, 100).map(([kind]) => kind),
     expected: ['silent', 'silent'],
   });
   assert({
@@ -322,9 +322,9 @@ test('a clip with too little voice has no audio to send', () => {
     expected: ['audible'],
   });
   assert({
-    given: 'exactly 200 ms of voice',
+    given: 'exactly 100 ms of voice',
     should: 'be audible',
-    actual: kinds((i) => i >= 20, 60).map(([kind]) => kind),
+    actual: kinds((i) => i >= 10, 60).map(([kind]) => kind),
     expected: ['audible'],
   });
 });
@@ -345,6 +345,24 @@ test('long silence before speech is not sent with the speech', () => {
     should: 'stay one clip',
     actual: kinds((i) => i < 30, 130),
     expected: [['audible', 10, 1300, 41644]],
+  });
+});
+
+test('a word split by a missing frame keeps its larger piece', () => {
+  const pieces = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 37 }, (_, i) => i)
+      .filter((i) => i !== 19)
+      .map((i) => frame(10 + i * 10)),
+    final: true,
+  }).clips.map((c) => c.kind);
+  assert({
+    given: 'a 370 ms word with one frame missing from its middle',
+    should: 'send both pieces, each at least half the word',
+    actual: pieces,
+    expected: ['audible', 'audible'],
   });
 });
 
@@ -384,7 +402,7 @@ test('the tail of long speech cut at the bound is never recorded as silence', ()
   });
   assert({
     given: 'the same audio in 250 ms batches',
-    should: 'decide the same, carrying that this clip continues speech',
+    should: 'decide the same',
     actual: inPieces(25),
     expected,
   });

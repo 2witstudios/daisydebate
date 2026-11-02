@@ -410,9 +410,14 @@ export {
 export {
   capturePartialReasons,
   capturePartialReasonSchema,
+  type CaptureFacts,
   type CaptureGap,
+  type CaptureInterval,
   type CapturePartialReason,
+  type CaptureRule,
   type CaptureVerdict,
+  type CoverageEdges,
+  type StreamCoverage,
 } from './capture-verdict';
 export {
   acknowledgedReply,

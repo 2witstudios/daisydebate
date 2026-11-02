@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import type { CaptureTx, CaptureStream } from './media-capture-context';
-import type { CaptureInterval, CaptureRule } from './capture-decisions-port';
+import type { CaptureInterval, CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';

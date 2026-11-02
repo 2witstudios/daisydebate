@@ -117,6 +117,16 @@ test('a reply outside the capture contract is never sent', async () => {
   });
 });
 
+test('an inherited object name is refused like any unknown operation', async () => {
+  const response = await fixture().handlers.handle(signed('constructor', '{}'));
+  assert({
+    given: 'a signed call to an operation name every object inherits',
+    should: 'be refused rather than fail on it',
+    actual: response.status,
+    expected: 403,
+  });
+});
+
 test('a signed token request is validated against its strict scope', async () => {
   const f = fixture();
   const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };

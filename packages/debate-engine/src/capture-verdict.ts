@@ -1,34 +1,16 @@
 import {
   CAPTURE_COVERAGE_TOLERANCE,
+  type CaptureFacts,
   type CaptureGap,
+  type CaptureInterval,
   type CapturePartialReason,
+  type CaptureRule,
   type CaptureVerdict,
+  type CoverageEdges,
+  type StreamCoverage,
 } from '@daisy/protocol';
 
-export type CaptureInterval = {
-  readonly start: number;
-  readonly end: number | null;
-};
-/** How far an authority window's capture may start late and end early. */
-export type CoverageEdges = {
-  /** Its first stretch, before speech began: the speaker has not yet heard the grant (DEC-218). */
-  readonly openMs: number;
-  /** Its last stretch, after speech ended: a yield reaches the server late (DEC-220). */
-  readonly closeMs: number;
-  /**
-   * The last stretch before the authority's terminal close, for a bot's
-   * credited windows only (DEC-212, ISSUE-806): the speaker cannot see the
-   * cutoff, so its last windows may open after its final frame. A human's
-   * grants have none, so a microphone that dies before a final grant still
-   * seals partial.
-   */
-  readonly terminalCloseMs?: number;
-};
 type Range = CaptureGap;
-export type StreamCoverage = {
-  readonly authority: readonly CaptureInterval[];
-  readonly tolerance: CoverageEdges;
-};
 
 const validRange = (range: CaptureInterval): range is Range =>
   Number.isFinite(range.start) &&
@@ -164,24 +146,6 @@ function gapsOf(
   );
 }
 
-type CaptureFacts = {
-  readonly interrupted?: boolean;
-  /** The sealing process held frames it then had to drop. */
-  readonly framesLost?: boolean;
-  readonly epoch: number;
-  readonly observations: readonly {
-    readonly start: number;
-    readonly end: number;
-    readonly epoch: number;
-  }[];
-  readonly chunks:
-    { readonly count: number; readonly otherEpochChunks: number } | undefined;
-  readonly storedChunks: number;
-  readonly expectedChunks: number;
-  /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
-  readonly grantUnused?: boolean;
-} & StreamCoverage;
-
 const nothingOwed = (facts: CaptureFacts) =>
   facts.grantUnused === true &&
   !facts.interrupted &&
@@ -220,12 +184,12 @@ const evidenceReasons = (facts: CaptureFacts): CapturePartialReason[] => [
  * old PCM. State, gaps and reasons all come from this one decision.
  */
 export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
+  if (nothingOwed(facts)) return { state: 'complete', gaps: [] };
   const { problem, gaps } = traverseCoverage({
     authority: facts.authority,
     tolerance: facts.tolerance,
     observed: facts.observations,
   });
-  if (nothingOwed(facts)) return { state: 'complete', gaps: [] };
   const [first, ...rest] = [
     ...evidenceReasons(facts),
     ...(problem ? [problem] : []),
@@ -239,38 +203,26 @@ export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
 export function createCaptureRule(tolerance: {
   readonly joinMs: number;
   readonly relayMs: number;
-}) {
+}): CaptureRule {
   return {
     decideStreamCapture,
-    /** Where a closed stream's required speech has no capture. */
-    gaps: (coverage: StreamCoverage, observed: readonly CaptureInterval[]) =>
+    gaps: (coverage, observed) =>
       traverseCoverage({ ...coverage, observed }).gaps,
-    /**
-     * What a seat's stream must cover and how far its edges may move (DEC-218,
-     * DEC-220): a human's speaking grants; a bot's credited publication windows.
-     * Silence outside a bot's windows is not speech.
-     */
-    coverage(
-      kind: 'human' | 'bot',
-      grants: readonly CaptureInterval[],
-      botWindows: readonly Range[],
-    ): StreamCoverage {
-      if (kind !== 'bot')
-        return {
-          authority: grants,
-          tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
-        };
-      return {
-        authority: botWindows,
-        tolerance: {
-          openMs: tolerance.relayMs,
-          closeMs: tolerance.relayMs,
-          // Only credited windows end at a cutoff the speaker cannot see (ISSUE-806).
-          terminalCloseMs: tolerance.relayMs,
-        },
-      };
-    },
+    coverage: (kind, grants, botWindows) =>
+      kind === 'bot'
+        ? {
+            authority: botWindows,
+            tolerance: {
+              openMs: tolerance.relayMs,
+              closeMs: tolerance.relayMs,
+              // Only credited windows end at a cutoff the speaker cannot see (ISSUE-806).
+              terminalCloseMs: tolerance.relayMs,
+            },
+          }
+        : {
+            authority: grants,
+            tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
+          },
   };
 }
-export type CaptureRule = ReturnType<typeof createCaptureRule>;
 export const captureRule = createCaptureRule(CAPTURE_COVERAGE_TOLERANCE);

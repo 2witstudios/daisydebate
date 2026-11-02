@@ -1,5 +1,5 @@
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from './capture-decisions-port';
+import type { CaptureRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,

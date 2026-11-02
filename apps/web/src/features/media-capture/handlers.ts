@@ -111,8 +111,9 @@ export function createMediaCaptureHandlers(input: {
               observe: [capture.observeCapturedStream, captureMutationReply],
               seal: [capture.sealCapturedStream, sealReply],
             } as const;
+            if (!Object.hasOwn(operations, String(operation)))
+              throw createAppError('AUTHORIZATION');
             const route = operations[operation as keyof typeof operations];
-            if (!route) throw createAppError('AUTHORIZATION');
             const [dispatch, reply] = route;
             return Response.json(
               reply.parse((await dispatch(payload as never)) ?? null),

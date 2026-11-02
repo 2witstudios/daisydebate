@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { CaptureRule } from './capture-decisions-port';
+import type { CaptureRule } from '@daisy/protocol';
 import { readTranscriptSnapshot } from './round-protected-reads';
 import { fakeSql } from './scripted-bun-wire';
 

@@ -25,6 +25,8 @@ type Admitted = {
   readonly segment: Segment;
   /** The one granting interval, by identity: history is reread per batch. */
   readonly grant: string;
+  /** Measured once: every later decision reads this, not the PCM. */
+  readonly quiet: boolean;
 };
 /**
  * One stream's admitted frames not yet cut into a clip, carried by the caller
@@ -34,8 +36,6 @@ type Admitted = {
 export type ClipCarry = {
   readonly frames: readonly Admitted[];
   readonly lastNominal: number;
-  /** These frames follow speech cut only by the sixty-second bound. */
-  readonly continuesSpeech: boolean;
 };
 type Input = {
   readonly roundId: string;
@@ -96,6 +96,10 @@ function validate(input: Input) {
   )
     throw invalid();
 }
+/** Low energy: an observed PCM RMS at most 64 signed sample units. */
+const lowEnergy = (pcm: Int16Array) =>
+  Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
+  64;
 function admit(input: Input, frame: Frame): Admitted | null {
   if (frame.afterMs > input.serverNowMs) return null;
   const matches = input.intervals.flatMap((grant) => {
@@ -121,7 +125,7 @@ function admit(input: Input, frame: Frame): Admitted | null {
       grant.roundParticipantId,
       grant.startedAtMs,
     ]);
-    return [{ frame, segment, grant: key }];
+    return [{ frame, segment, grant: key, quiet: lowEnergy(frame.pcm) }];
   });
   // Ambiguous history never chooses an arbitrary granting segment.
   return matches.length === 1 ? matches[0]! : null;
@@ -152,25 +156,19 @@ function wav(frames: readonly Admitted[]) {
     }
   return bytes;
 }
-/** Low energy: an observed PCM RMS at most 64 signed sample units. */
-const lowEnergy = (pcm: Int16Array) =>
-  Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
-  64;
 /**
- * Voice under this long in a clip is treated as a click or a breath and is never
- * sent, because a speech-to-text model can invent words from such audio. Short
- * enough to keep a one-word answer, which measures about 360 ms.
+ * Voice under this long in a clip is treated as a click and is never sent,
+ * because a speech-to-text model can invent words from such audio. Any cut can
+ * split a word, and one split in two keeps a piece of at least half its length, so
+ * this is half the shortest word kept whole: a one-word answer measures about
+ * 360 ms.
  */
-const MIN_VOICED_MS = 200;
+const MIN_VOICED_MS = 100;
 const voicedMs = (frames: readonly Admitted[]) =>
-  frames.filter(({ frame }) => !lowEnergy(frame.pcm)).length * 10;
+  frames.filter(({ quiet }) => !quiet).length * 10;
 /** One cut window: silent has no audio, so only audible can be transcribed. */
 export type CutClip = ReturnType<typeof clip>;
-function clip(
-  input: Input,
-  frames: readonly Admitted[],
-  continuesSpeech: boolean,
-) {
+function clip(input: Input, frames: readonly Admitted[]) {
   const first = frames[0]!;
   const startOffsetMs = first.frame.nominalStartMs - first.segment.startedAtMs;
   const window = {
@@ -199,11 +197,9 @@ function clip(
       .digest('hex'),
   };
   // A silent clip has no audio, so it cannot reach speech-to-text.
-  const voiced = voicedMs(frames);
-  // The bound can leave the last words of long speech short of the line.
-  return voiced >= MIN_VOICED_MS || (continuesSpeech && voiced > 0)
-    ? { ...window, kind: 'audible' as const, wav: wav(frames) }
-    : { ...window, kind: 'silent' as const };
+  return voicedMs(frames) < MIN_VOICED_MS
+    ? { ...window, kind: 'silent' as const }
+    : { ...window, kind: 'audible' as const, wav: wav(frames) };
 }
 /**
  * A pause ends a clip: this long of low-energy frames after speech, or this
@@ -216,17 +212,14 @@ const PRE_ROLL_FRAMES = PAUSE_FRAMES;
 /** Low-energy frames ending `frames`, and whether any frame before them is speech. */
 function trailingQuiet(frames: readonly Admitted[]) {
   let quiet = 0;
-  while (
-    quiet < frames.length &&
-    lowEnergy(frames[frames.length - 1 - quiet]!.frame.pcm)
-  )
+  while (quiet < frames.length && frames[frames.length - 1 - quiet]!.quiet)
     quiet++;
   return { quiet, heard: quiet < frames.length };
 }
 function cutAt(frames: readonly Admitted[]) {
   let latest = MAX_CLIP_FRAMES;
   for (let index = 5499; index < MAX_CLIP_FRAMES; index++)
-    if (lowEnergy(frames[index]!.frame.pcm)) latest = index + 1;
+    if (frames[index]!.quiet) latest = index + 1;
   return latest;
 }
 
@@ -237,19 +230,12 @@ const continues = (previous: Admitted, current: Admitted) =>
   current.frame.nominalStartMs === previous.frame.nominalStartMs + 10;
 
 /** One stream's open clip: accumulates admitted frames and cuts at a pause or the bound. */
-function openClip(input: Input, carry: ClipCarry | null | undefined) {
+function openClip(input: Input, carried: readonly Admitted[]) {
   const clips: CutClip[] = [];
-  let pending = [...(carry?.frames ?? [])];
-  let continuesSpeech = carry?.continuesSpeech ?? false;
+  let pending = [...carried];
   let { quiet, heard } = trailingQuiet(pending);
-  const cut = (frames: readonly Admitted[]) => {
-    const next = clip(input, frames, continuesSpeech);
-    clips.push(next);
-    continuesSpeech = false;
-    return next;
-  };
   const flush = () => {
-    if (pending.length) cut(pending);
+    if (pending.length) clips.push(clip(input, pending));
     pending = [];
     quiet = 0;
     heard = false;
@@ -257,11 +243,11 @@ function openClip(input: Input, carry: ClipCarry | null | undefined) {
   const push = (current: Admitted) => {
     const previous = pending.at(-1);
     if (previous && !continues(previous, current)) flush();
-    const voiced = !lowEnergy(current.frame.pcm);
+    const voiced = !current.quiet;
     // Silence before speech is its own clip: it never rides along to the model.
     if (voiced && !heard && pending.length > PRE_ROLL_FRAMES) {
       const at = pending.length - PRE_ROLL_FRAMES;
-      cut(pending.slice(0, at));
+      clips.push(clip(input, pending.slice(0, at)));
       pending = pending.slice(at);
     }
     pending.push(current);
@@ -271,18 +257,12 @@ function openClip(input: Input, carry: ClipCarry | null | undefined) {
     if (heard && quiet >= PAUSE_FRAMES) flush();
     else if (pending.length === MAX_CLIP_FRAMES) {
       const at = cutAt(pending);
-      continuesSpeech = cut(pending.slice(0, at)).kind === 'audible';
+      clips.push(clip(input, pending.slice(0, at)));
       pending = pending.slice(at);
       ({ quiet, heard } = trailingQuiet(pending));
     }
   };
-  return {
-    clips,
-    push,
-    flush,
-    pending: () => pending,
-    continuesSpeech: () => continuesSpeech,
-  };
+  return { clips, push, flush, pending: () => pending };
 }
 
 /**
@@ -292,7 +272,7 @@ function openClip(input: Input, carry: ClipCarry | null | undefined) {
  */
 export function cutCaptureClips(input: Input) {
   validate(input);
-  const open = openClip(input, input.carry);
+  const open = openClip(input, input.carry?.frames ?? []);
   let droppedFrames = 0;
   let lastNominal = input.carry?.lastNominal ?? -Infinity;
   for (const frame of input.frames) {
@@ -309,12 +289,6 @@ export function cutCaptureClips(input: Input) {
   return {
     clips: open.clips,
     droppedFrames,
-    carry: input.final
-      ? null
-      : {
-          frames: open.pending(),
-          lastNominal,
-          continuesSpeech: open.continuesSpeech(),
-        },
+    carry: input.final ? null : { frames: open.pending(), lastNominal },
   };
 }
