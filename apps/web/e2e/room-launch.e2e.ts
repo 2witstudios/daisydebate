@@ -417,15 +417,18 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
       exact: true,
     });
     await expect(checkControl).toBeVisible();
-    const withdrawals: string[] = [];
-    uncheckedTab.on('request', (request) => {
-      if (
-        request.method() === 'POST' &&
-        request.headers()['next-action'] &&
-        request.postData()?.includes('unready')
-      )
-        withdrawals.push(request.url());
-    });
+    const consentSent = (page: typeof readyTab) => {
+      const sent: string[] = [];
+      page.on('request', (request) => {
+        const value = /\r?\n\r?\n(ready|unready)\r?\n/.exec(
+          (request.headers()['next-action'] && request.postData()) || '',
+        )?.[1];
+        if (value) sent.push(value);
+      });
+      return sent;
+    };
+    const fromChecked = consentSent(readyTab);
+    const fromUnchecked = consentSent(uncheckedTab);
 
     await readyUp(readyTab);
     // The mounted tab reads the Ready through its own Room sync and keeps it.
@@ -439,9 +442,18 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
     await uncheckedTab.reload();
     await expect(checkControl).toBeVisible();
     await expect(standingReady).toBeVisible();
+    // The new mount's Room sync effects have run by the next frame.
+    await uncheckedTab.evaluate(
+      () =>
+        new Promise((settled) =>
+          requestAnimationFrame(() => setTimeout(settled)),
+        ),
+    );
 
     const after = await reread(readyTab.request, roomId);
-    expect(withdrawals).toEqual([]);
+    // The checked tab's own Ready shows the detector reads these commands.
+    expect(fromChecked).toEqual(['ready']);
+    expect(fromUnchecked).toEqual([]);
     expect(after.readiness.readyActorIds).toEqual([ownActorId]);
     expect(seated(after, ownActorId)).toEqual(standing);
   } finally {

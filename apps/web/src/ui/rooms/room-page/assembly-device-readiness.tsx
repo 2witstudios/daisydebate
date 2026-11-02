@@ -198,7 +198,6 @@ export function AssemblyDeviceReadiness(props: Props) {
       rememberCheckedDevices(roomId, snapshot);
       void consent.devices(snapshot.devicesPassed);
     });
-    void consent.devices(devices.readSnapshot().devicesPassed);
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (!cancelled) setResources({ devices, consent });

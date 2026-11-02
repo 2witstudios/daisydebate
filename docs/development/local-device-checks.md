@@ -56,7 +56,7 @@ deduplicated CAP unready. Failure/offline remains unconfirmed until authoritativ
 acknowledgement or reread; retry/conflict recovery must not restore stale consent.
 Only the loss of a pass this tab held withdraws. A tab that never passed, such as
 a second tab or a reload, leaves a standing Ready in place and fences only its
-own Start, and a Ready made elsewhere after a withdrawal stands. That tab has no
+own Start, and a Ready made elsewhere after an acknowledged withdrawal stands. That tab has no
 pass to lose, so a check that fails there, or a withdrawal that failed offline
 before a reload, leaves the Ready standing until media notices. A Ready whose
 answer was lost is read back before a lost pass decides there is nothing to

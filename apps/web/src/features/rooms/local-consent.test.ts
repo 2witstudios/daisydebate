@@ -90,11 +90,11 @@ test('a Ready made elsewhere survives a mounted Room that has not checked its de
   });
 });
 
-test('a Room mounted over a standing Ready leaves it in place', async () => {
+test('a check that starts or fails with no pass held leaves a standing Ready', async () => {
   const h = harness(consentView(true, 2));
   await h.controller.devices(false);
   assert({
-    given: 'a reload or new tab whose first device snapshot has no pass',
+    given: 'a reload or new tab whose device snapshot reports no pass',
     should: 'keep the Ready and send no withdrawal',
     actual: [h.sent, h.controller.readSnapshot().pending],
     expected: [[], false],
