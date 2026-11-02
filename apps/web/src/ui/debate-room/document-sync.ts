@@ -467,7 +467,7 @@ export function createDocumentSync({
     if (reason === 'purge') drafts.purge();
     for (const listener of listeners) listener();
   };
-  const reconcileLateCommits = async () => {
+  const reconcileLateCommits = async (offeredAtLoad: ReadonlySet<string>) => {
     if (isClosed()) return;
     const documents = await api.list(roundId).catch(() => null);
     if (isClosed() || documents === null) return;
@@ -478,12 +478,15 @@ export function createDocumentSync({
       const settled = settleNoteRecord(previous.record, (html) =>
         sameDocumentHtml(html, doc.html),
       );
-      if (settled === previous.record) continue;
-      write(doc.id, previous, settled, now);
-      // This owner's own text committed late and nothing is pending, so the
-      // editor adopts it. The revision and the visible text only move together:
-      // moving the revision alone would let the next edit overwrite the commit.
-      if (doc.revision > (revisions.get(doc.id) ?? -1)) {
+      if (settled !== previous.record) write(doc.id, previous, settled, now);
+      // The offered text committed late, or an acknowledgement already cleared
+      // it, and nothing here is pending, so the editor adopts the server's text.
+      // The revision and the visible text only move together: moving the revision
+      // alone would let the next edit overwrite the commit.
+      const committed =
+        settled !== previous.record ||
+        (offeredAtLoad.has(doc.id) && noteCopies(settled).length === 0);
+      if (committed && doc.revision > (revisions.get(doc.id) ?? -1)) {
         remember([doc]);
         for (const listener of serverTextListeners) listener(doc.id, doc.html);
       }
@@ -511,11 +514,13 @@ export function createDocumentSync({
       publish();
       // A previous page's exit save can commit after this list; check once.
       timers.clear(recheckHandle);
-      if (offers.length > 0)
+      if (offers.length > 0) {
+        const offeredAtLoad = new Set(offers.map((one) => one.documentId));
         recheckHandle = timers.set(
-          () => void reconcileLateCommits(),
+          () => void reconcileLateCommits(offeredAtLoad),
           LATE_COMMIT_RECHECK_MS,
         );
+      }
       return documents;
     },
     create: async (folder, templateId) => {

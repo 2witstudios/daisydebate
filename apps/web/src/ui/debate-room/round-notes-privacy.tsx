@@ -98,7 +98,10 @@ export function RoundNotesPrivacy({
           }),
         takeSignOutIntent,
         takeAccountClosedProof,
-        publish: (next) => setCleanupFailed(!publishNotesPrincipal(next)),
+        publish: (next) =>
+          setCleanupFailed(
+            !publishNotesPrincipal(next, window, () => window.localStorage),
+          ),
       }),
     [principalId],
   );

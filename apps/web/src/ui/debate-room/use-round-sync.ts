@@ -65,7 +65,7 @@ export const browserNoteResources = (): DocumentSyncResources => ({
 });
 
 const CONFLICT_NOTICE =
-  'This file changed in another tab. Reload before editing it again.';
+  'A newer save of this file arrived. Reload before editing it again.';
 
 /** One saving event's effect on the room's save status. */
 export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {

@@ -29,13 +29,17 @@ export function retainPrincipalDrafts(
 }
 
 /** Notify active owners before erasing, so late callbacks cannot recreate private copies. */
-export function publishNotesPrincipal(principalId: string | null) {
-  window.dispatchEvent(
+export function publishNotesPrincipal(
+  principalId: string | null,
+  events: EventTarget,
+  browserStorage: () => DraftStorage,
+) {
+  events.dispatchEvent(
     new CustomEvent(NOTES_PRINCIPAL_EVENT, { detail: principalId }),
   );
-  let storage: Storage;
+  let storage: DraftStorage;
   try {
-    storage = window.localStorage;
+    storage = browserStorage();
   } catch {
     // Denied storage holds nothing this browser can reach or erase.
     return true;

@@ -469,7 +469,40 @@ test('an exit save landing after the next page listed moves the editor, with no 
       html: expect.stringContaining('Typed after the landing'),
       revision: revision + 2,
     });
-  await expect(page.getByText('changed in another tab')).toHaveCount(0);
+  await expect(page.getByText('A newer save of this file')).toHaveCount(0);
+});
+
+test('typing while a late commit lands keeps the text and the caret, and overwrites nothing', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+  await page.clock.pauseAt('2026-11-01T18:01:00Z');
+  const recovery = await offeredAfterReload(
+    page,
+    documentId,
+    'Landed under the typing',
+  );
+  const { revision } = await serverDocument(page, roundId, documentId);
+  const editor = page.getByRole('textbox', { name: 'Flow', exact: true });
+  await editor.click();
+  await page.keyboard.type('Typing live');
+  const landed = await page.request.post(`${documentsPath}save`, {
+    headers: { origin },
+    data: {
+      id: documentId,
+      html: recovery.html,
+      expectedRevision: revision,
+    },
+  });
+  expect(landed.status()).toBe(200);
+  await page.clock.runFor(3_000);
+  await page.keyboard.type(' still here');
+  await expect(editor).toContainText('Typing live still here');
+  await expect(page.getByText('A newer save of this file')).toBeVisible();
+  const server = await serverDocument(page, roundId, documentId);
+  expect(server.revision).toBe(revision + 1);
+  expect(server.html).toContain('Landed under the typing');
 });
 
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
@@ -696,7 +729,7 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
   expect(elsewhere.status()).toBe(200);
   const conflict = page
     .getByRole('alert')
-    .filter({ hasText: 'This file changed in another tab.' });
+    .filter({ hasText: 'A newer save of this file arrived.' });
   await edit(page, 'Typed into the conflict');
   await expect(conflict).toBeVisible();
   await edit(page, 'Typed again into the conflict');
@@ -907,7 +940,7 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
   await expect(
     other
       .getByRole('alert')
-      .filter({ hasText: 'This file changed in another tab.' }),
+      .filter({ hasText: 'A newer save of this file arrived.' }),
   ).toBeVisible();
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     'Accepted first-tab text',

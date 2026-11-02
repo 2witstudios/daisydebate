@@ -157,11 +157,17 @@ export function editNoteRecord(
   active: NoteCopy,
   activeOffered: boolean,
 ): NoteTransition {
+  // Another tab can move this same copy aside. It returns to active rather than
+  // filling both slots, because a record holding one generation twice is corrupt.
+  const recovery =
+    record.recovery?.generation === active.generation
+      ? undefined
+      : record.recovery;
   if (record.active && activeOffered) {
-    if (record.recovery) return { status: 'occupied', record };
+    if (recovery) return { status: 'occupied', record };
     return proposed(record, { active, recovery: record.active });
   }
-  return proposed(record, slots(active, record.recovery));
+  return proposed(record, slots(active, recovery));
 }
 
 /**

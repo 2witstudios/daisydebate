@@ -546,8 +546,8 @@ const lateCommitFixture = async () => {
     sent,
     events,
     lists: () => lists,
-    commit: () => {
-      server = { ...server, html: '<p>EXIT</p>', revision: 4 };
+    commit: (html = '<p>EXIT</p>', revision = 4) => {
+      server = { ...server, html, revision };
     },
   };
 };
@@ -576,6 +576,84 @@ test('a late exit commit moves the editor and revision together, so it cannot be
       false,
       [{ html: '<p>EXIT plus typing</p>', expectedRevision: 4 }],
     ],
+  });
+});
+
+test('a late commit whose copy an acknowledgement already cleared still moves the editor', async () => {
+  const f = await lateCommitFixture();
+  const shown: string[] = [];
+  f.sync.subscribeServerText((_id, html) => shown.push(html));
+  f.storage.removeItem(key);
+  f.commit();
+  f.clock.fire();
+  await settled();
+  f.sync.change('a', '<p>EXIT plus typing</p>');
+  await f.sync.flush();
+  assert({
+    given:
+      'the outgoing owner acknowledged and cleared the copy before the recheck',
+    should: 'still show the server text and base the next edit on it',
+    actual: [shown, f.events.includes('conflict'), f.sent],
+    expected: [
+      ['<p>EXIT</p>'],
+      false,
+      [{ html: '<p>EXIT plus typing</p>', expectedRevision: 4 }],
+    ],
+  });
+});
+
+test('a recheck moves nothing while a different copy is offered or the list is older', async () => {
+  const different = await lateCommitFixture();
+  const shownDifferent: string[] = [];
+  different.sync.subscribeServerText((_id, html) => shownDifferent.push(html));
+  different.commit('<p>ELSEWHERE</p>');
+  different.clock.fire();
+  await settled();
+  const older = await lateCommitFixture();
+  const shownOlder: string[] = [];
+  older.sync.subscribeServerText((_id, html) => shownOlder.push(html));
+  older.storage.removeItem(key);
+  older.commit('<p>OLDER</p>', 2);
+  older.clock.fire();
+  await settled();
+  older.sync.change('a', '<p>NEXT</p>');
+  await older.sync.flush();
+  assert({
+    given: 'a server copy unlike the offer, and a list older than this page',
+    should: 'keep the offer and show nothing, and never move the revision back',
+    actual: [
+      shownDifferent,
+      different.sync.recoveryOffers().length,
+      shownOlder,
+      older.sent.map((one) => one.expectedRevision),
+    ],
+    expected: [[], 1, [], [3]],
+  });
+});
+
+test('a pending copy another tab moved aside survives this tab leaving', async () => {
+  const f = fixture();
+  f.storage.removeItem(key);
+  const refused = documentApi(
+    async () => {
+      throw Object.assign(new Error('refused'), { status: 403 });
+    },
+    () => [f.server()],
+  );
+  const sync = f.owner({ api: refused });
+  await sync.load();
+  sync.change('a', '<p>ONLY COPY</p>');
+  await sync.flush();
+  await f.owner({ api: refused }).load();
+  await sync.flushKeepalive();
+  const third = f.owner({ api: refused });
+  await third.load();
+  assert({
+    given:
+      'a refused edit moved to recovery by a second tab, then this tab exits',
+    should: 'store it once, so the next page still offers the text',
+    actual: third.recoveryOffers().map((offer) => offer.copy.html),
+    expected: ['<p>ONLY COPY</p>'],
   });
 });
 

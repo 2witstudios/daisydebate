@@ -126,3 +126,42 @@ test('the session is read only with an identity to lose and copies at stake', as
     expected: [false, false, false, true, true, false, true, false, true],
   });
 });
+
+test('publishing warns only when a removal really failed', async () => {
+  const { NOTES_PRINCIPAL_EVENT, publishNotesPrincipal } =
+    await import('./notes-principal');
+  const draft = 'daisy:round-notes:draft:old:r:d';
+  const seen: string[] = [];
+  const events = new EventTarget();
+  const stored = (changes: Partial<ReturnType<typeof memoryStorage>> = {}) => {
+    const storage = memoryStorage();
+    storage.setItem(draft, 'private');
+    return new Proxy(storage, {
+      get: (target, name) => {
+        if (name === 'removeItem') seen.push('removal');
+        if (name in changes) return Reflect.get(changes, name);
+        const value = Reflect.get(target, name);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  };
+  events.addEventListener(NOTES_PRINCIPAL_EVENT, () => seen.push('event'));
+  const refuse = () => {
+    throw new Error('denied');
+  };
+  const denied = publishNotesPrincipal(null, events, refuse);
+  const markerFailed = publishNotesPrincipal(null, events, () =>
+    stored({ setItem: refuse }),
+  );
+  seen.length = 0;
+  const removalFailed = publishNotesPrincipal(null, events, () =>
+    stored({ removeItem: refuse }),
+  );
+  assert({
+    given: 'a denied getter, a failed marker write and a failed removal',
+    should:
+      'report cleanup failure only for the removal, after notifying live owners first',
+    actual: [denied, markerFailed, removalFailed, seen[0]],
+    expected: [true, true, false, 'event'],
+  });
+});
