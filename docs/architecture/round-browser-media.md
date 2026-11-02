@@ -54,6 +54,28 @@ Browser deadlines request fresh server views and reconciliation; they never
 open microphones. Local device checks, live tracks and speaking indicators do
 not establish capture completeness, transcript credit or peer audibility.
 
+The connection and the wanted read have separate lifetimes. Admission, the SDK
+connection and its tracks end only on reconnect, failure or terminal exit. The
+read follows named inputs: the mount's first accepted Round view version, then
+`view`, `boundary` and `wake` events to `reconcile`. A newer view, or a boundary
+at the current version with a new deadline, supersedes the read in flight:
+`decideMediaRead` advances the intent, the old ticket is invalid before its own
+abort signal fires, and one fresh read starts on the same connection. Malformed,
+equal, older and duplicate events change nothing, and wakes coalesce into one
+followup. These inputs only request a read; the server's reply still decides
+every grant.
+
+An obsolete reply or rejection cannot apply, announce, fail the connection or
+clear its successor. Aborting releases the client's wait; it does not prove the
+server or the SDK stopped working. An SDK apply already started may finish, so
+the fresh apply waits for it and only the current ticket announces, and a queued
+reply superseded while waiting never starts. Events during admission or connect
+are recorded and the first read uses them, without another admission.
+
+`createMediaRequest` owns the one 10-second deadline over headers and body for
+each attempt. Expiry is a transient failure, handled by the controller's existing
+retry and no second retry owner.
+
 ### Admission fairness
 
 Media admissions announce an expendable waiter hint through the existing Redis
