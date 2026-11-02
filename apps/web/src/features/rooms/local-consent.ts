@@ -152,12 +152,19 @@ export function createLocalConsent({
     },
     updateView(next: RoomView) {
       if (disposed || !adopt(next)) return;
-      if (!snapshot.devicesPassed && effective()) void intent(false);
+      // An unacknowledged device-loss withdrawal retries. A Ready this tab
+      // has no such claim on, made in another tab, is not its to withdraw.
+      if (desired === false && !snapshot.devicesPassed && effective())
+        void intent(false);
     },
     devices(passed: boolean) {
       if (disposed) return Promise.resolve();
+      // Only a pass this tab held can be lost. A tab that never passed (a new
+      // tab, a reload) knows nothing against a standing Ready: it fences its own
+      // Start and leaves the consent alone.
+      const lost = snapshot.devicesPassed && !passed;
       publish({ devicesPassed: passed });
-      return !passed && (effective() || desired === true || snapshot.pending)
+      return lost && (effective() || desired === true || snapshot.pending)
         ? intent(false)
         : Promise.resolve();
     },

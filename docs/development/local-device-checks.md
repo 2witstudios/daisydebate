@@ -54,6 +54,9 @@ ROOM consumes the real snapshot and separately tracks `unreadyPending`. On a
 reasoned device invalidation, it blocks Ready/Launch and submits current-version,
 deduplicated CAP unready. Failure/offline remains unconfirmed until authoritative
 acknowledgement or reread; retry/conflict recovery must not restore stale consent.
+Only the loss of a pass this tab held withdraws. A tab that never passed, such as
+a second tab or a reload, leaves a standing Ready in place and fences only its
+own Start, and a Ready made elsewhere after a withdrawal stands.
 Neither local passed checks nor a resolved local promise establish server Ready.
 SSR/no JavaScript supplies no passed checks; judges have their native no-JS path
 and bot eligibility is server-owned.

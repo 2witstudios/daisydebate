@@ -78,8 +78,45 @@ test('human Ready refuses unchecked devices before any command', async () => {
   });
 });
 
+test('a Ready made elsewhere survives a mounted Room that has not checked its devices', async () => {
+  const h = harness();
+  await h.controller.devices(false);
+  h.controller.updateView(consentView(true, 2));
+  assert({
+    given: 'a tab with unchecked devices that reads a Ready made elsewhere',
+    should: 'keep the Ready and send no withdrawal',
+    actual: [h.sent, h.controller.readSnapshot().pending],
+    expected: [[], false],
+  });
+});
+
+test('a Room mounted over a standing Ready leaves it in place', async () => {
+  const h = harness(consentView(true, 2));
+  await h.controller.devices(false);
+  assert({
+    given: 'a reload or new tab whose first device snapshot has no pass',
+    should: 'keep the Ready and send no withdrawal',
+    actual: [h.sent, h.controller.readSnapshot().pending],
+    expected: [[], false],
+  });
+});
+
+test('a Ready made elsewhere after this tab withdrew on device loss stands', async () => {
+  const h = harness(consentView(true, 2));
+  await h.controller.devices(true);
+  await h.controller.devices(false);
+  h.controller.updateView(consentView(true, 4));
+  assert({
+    given: 'an acknowledged withdrawal, then a newer Ready from another tab',
+    should: 'send only the one withdrawal',
+    actual: h.sent.map((command) => command.type),
+    expected: ['unready'],
+  });
+});
+
 test('device invalidation fences Launch synchronously and withdraws current consent', async () => {
   const h = harness(consentView(true, 7));
+  await h.controller.devices(true);
   const work = h.controller.devices(false);
   const blocked = h.controller.readSnapshot().pending;
   await work;
@@ -103,6 +140,7 @@ test('device invalidation fences Launch synchronously and withdraws current cons
 test('unacknowledged Unready stays blocked until authoritative recovery', async () => {
   const h = harness(consentView(true));
   h.fail();
+  await h.controller.devices(true);
   await h.controller.devices(false);
   const pending = h.controller.readSnapshot().pending;
   h.recover();
@@ -201,6 +239,7 @@ test('withdrawal recovery refuses a substituted room and remains locally blocked
       return { kind: 'unavailable' };
     },
   });
+  await c.devices(true);
   await c.devices(false);
   await c.retry();
   assert({
