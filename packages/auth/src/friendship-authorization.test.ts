@@ -179,3 +179,48 @@ test('a member reads and updates only their own presence setting', () => {
     expected: false,
   });
 });
+
+test('each social concept authorizes on its own resource, never Friends', () => {
+  const account = {
+    userId: 'a',
+    actorId: 'a',
+    member: true,
+    erased: false,
+    revision: 1,
+    beta: { state: 'approved', revision: 1 },
+    ageBand: 'adult',
+    restricted: false,
+  } as const;
+  const allowed = (
+    capability:
+      | 'social.challenge.list'
+      | 'social.online.list'
+      | 'social.rating_visibility.read'
+      | 'social.moderation_notice.read',
+    kind:
+      | 'friend_collection'
+      | 'challenge_collection'
+      | 'online_roster'
+      | 'rating_visibility'
+      | 'moderation_notice',
+  ) =>
+    authorize({
+      principal: { kind: 'user', userId: 'a', actorId: 'a' },
+      capability,
+      resource: { kind, actorId: 'a' },
+      context: { account },
+    }).allow;
+  assert({
+    given: 'each capability, on its own resource and on the friend list',
+    should: 'allow only its own',
+    actual: [
+      allowed('social.challenge.list', 'challenge_collection'),
+      allowed('social.online.list', 'online_roster'),
+      allowed('social.rating_visibility.read', 'rating_visibility'),
+      allowed('social.moderation_notice.read', 'moderation_notice'),
+      allowed('social.challenge.list', 'friend_collection'),
+      allowed('social.moderation_notice.read', 'friend_collection'),
+    ],
+    expected: [true, true, true, true, false, false],
+  });
+});

@@ -235,9 +235,29 @@ export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
   readonly actorId: string;
 };
-/** A member's own friend list and challenges (ADR 0072), never another's. */
+/** A member's own friend list (ADR 0072), never another's. */
 type FriendCollectionAuthorizationFact = {
   readonly kind: 'friend_collection';
+  readonly actorId: string;
+};
+/** A member's own challenges (ADR 0098), never another's. */
+type ChallengeCollectionAuthorizationFact = {
+  readonly kind: 'challenge_collection';
+  readonly actorId: string;
+};
+/** The online list as this member may read it (ADR 0098). */
+type OnlineRosterAuthorizationFact = {
+  readonly kind: 'online_roster';
+  readonly actorId: string;
+};
+/** A member's own rating visibility choice (ADR 0098). */
+type RatingVisibilityAuthorizationFact = {
+  readonly kind: 'rating_visibility';
+  readonly actorId: string;
+};
+/** A member's own moderation notices (ADR 0098). */
+type ModerationNoticeAuthorizationFact = {
+  readonly kind: 'moderation_notice';
   readonly actorId: string;
 };
 /** A member's own presence visibility setting (ADR 0072). */
@@ -264,6 +284,10 @@ export type AuthorizationInput = {
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
     | FriendCollectionAuthorizationFact
+    | ChallengeCollectionAuthorizationFact
+    | OnlineRosterAuthorizationFact
+    | RatingVisibilityAuthorizationFact
+    | ModerationNoticeAuthorizationFact
     | PresenceSettingAuthorizationFact
     | MemberHistoryAuthorizationFact
     | PendingFileAuthorizationFact
