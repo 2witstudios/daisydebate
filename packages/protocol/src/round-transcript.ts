@@ -94,7 +94,6 @@ export const liveTranscriptReadSchema = z.looseObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
       state: z.enum(['open', 'complete', 'partial']),
-      partialReasons: z.array(capturePartialReasonSchema),
       gaps: z.array(
         z.looseObject({
           fromOffsetMs: z.int().nonnegative(),
