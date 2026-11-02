@@ -10,6 +10,7 @@ test('due vendor deletion jobs are delivered with per-attempt backoff (ISSUE-833
   const calls: unknown[] = [];
   const { logger } = createEventRecorder();
   const worker = startPrivacyJobs({
+    owed: async () => 0,
     due: async ({ now, limit }) => {
       calls.push({ due: { now, limit } });
       return [

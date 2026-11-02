@@ -11,7 +11,7 @@ const statusOf = async (error: unknown) =>
     await handleOperation(
       silentLogger,
       new Request('http://localhost/x'),
-      'op',
+      'health.readiness',
       async () => {
         throw error;
       },
