@@ -78,6 +78,30 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
       expected: [1, 1, 1, 1, 2, 1],
     });
   });
+  test('holds in integration suites, and for mints in scripts', async () => {
+    const at = async (filePath: string, code: string) => {
+      const [result] = await repositoryEslint().lintText(code, { filePath });
+      return result!.messages.filter(({ message }) =>
+        /error\.(reason)|createRefusal/.test(message),
+      ).length;
+    };
+    const read = "export const a = (error: Error) => error.message === 'x';";
+    const mint =
+      "export const a = createAppError('CONFLICT', 'round-decided');";
+    assert({
+      given: 'a message read and a refusal word mint on overridden paths',
+      should:
+        'report both in integration suites, and only the mint in a script',
+      actual: [
+        await at('packages/db/integration/refusal-probe.integration.ts', read),
+        await at('apps/web/integration/refusal-probe.integration.ts', mint),
+        await at('apps/admin/integration/refusal-probe.integration.ts', read),
+        await at('scripts/refusal-probe.ts', mint),
+        await at('scripts/refusal-probe.ts', read),
+      ],
+      expected: [1, 1, 1, 1, 0],
+    });
+  });
   test('leaves a reason, plain internal text and a vendor error alone', async () => {
     assert({
       given:
