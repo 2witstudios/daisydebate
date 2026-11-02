@@ -74,23 +74,6 @@ export function createMediaWorkerDatabase(input: {
         sessionId: row.session_id,
       }));
     },
-    /**
-     * Active Rounds' sessions some worker is capturing right now, as a deploy
-     * hold reads them. Only a fresh lease counts: a stuck or orphaned session
-     * stops renewing, so it can never hold a deploy.
-     */
-    async countLiveCaptures() {
-      const [row]: { live: number }[] = await client`
-        select count(*)::integer as live
-        from media_worker_leases l
-        join media_sessions s on s.id = l.session_id
-        join rounds r on r.id = s.round_id
-        where l.expires_at > clock_timestamp()
-          and s.ended_at is null and s.unsafe_at is null
-          and s.deletion_requested_at is null
-          and r.status = 'active'`;
-      return row?.live ?? 0;
-    },
     /** Startup refuses any login broader than `daisy_media_worker`. */
     async privilegeProblems() {
       const [facts]: Partial<
