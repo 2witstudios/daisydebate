@@ -88,7 +88,7 @@ for (const [scenario, expected] of Object.entries(scenarios)) {
       const child = Bun.spawn(
         [
           'bun',
-          `${import.meta.dir}/../../../scripts/messaging-navigation-realm.ts`,
+          `${import.meta.dir}/../../../scripts/messaging-navigation-realm.test-support.ts`,
           scenario,
         ],
         { stdout: 'pipe', stderr: 'pipe', timeout: realmLimitMs },
