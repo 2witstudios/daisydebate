@@ -74,9 +74,14 @@ describe('findDestination', () => {
     assert({
       given: 'unknown, inherited and oddly cased segments',
       should: 'return null',
-      actual: ['unknown', 'ranked', 'Lobby', '', 'constructor', '__proto__'].map(
-        findDestination,
-      ),
+      actual: [
+        'unknown',
+        'ranked',
+        'Lobby',
+        '',
+        'constructor',
+        '__proto__',
+      ].map(findDestination),
       expected: [null, null, null, null, null, null],
     });
   });
