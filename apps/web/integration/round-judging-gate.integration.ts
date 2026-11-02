@@ -16,7 +16,7 @@ import {
   finalizeByMaintenance,
 } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
@@ -96,7 +96,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await playOut(f, roundId, false);
     const frozen = await finalizeAsWeb(f, roundId);
     await seedSettledAttendanceLedger(f, roundId);

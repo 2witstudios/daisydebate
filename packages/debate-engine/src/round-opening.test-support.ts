@@ -21,7 +21,7 @@ export const SALT = '02'.repeat(32);
 export const SENTINEL = 'SENTINEL-RESOLUTION';
 const hostList = [1, 2, 3, 4, 5].map((n) => `${SENTINEL}-${n}`);
 
-export const drawConfig = {
+const drawConfig = {
   enabled: true as const,
   drawSize: 5,
   strikeWindowMs: 60_000,

@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
@@ -13,7 +13,10 @@ requireTestServices(process.env);
 test('shared human commands run the engine with atomic refusals and recover lost responses', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const { roundId, operations, principal } = await startRuntimeRound(f, room);
+    const { roundId, operations, principal } = await launchRuntimeRound(
+      f,
+      room,
+    );
     const round = await f.store.getRound(roundId);
     assert({
       given: 'a Room with nothing to run first, at Start round',
@@ -77,7 +80,7 @@ for (const revoke of ['lease', 'run'] as const)
         (p) => p.kind === 'bot' && p.seatRole === 'debater',
       )!;
       room = await f.seatBotOpponent(room, bot.actorId);
-      const { roundId, operations, principal } = await startRuntimeRound(
+      const { roundId, operations, principal } = await launchRuntimeRound(
         f,
         room,
       );

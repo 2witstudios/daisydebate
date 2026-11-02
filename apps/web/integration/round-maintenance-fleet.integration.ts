@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';
-import { startRuntimeRound } from './round-runtime.test-support';
+import { launchRuntimeRound } from './round-runtime.test-support';
 import {
   maintenanceAvailability,
   maintenanceTestTimers as timers,
@@ -19,7 +19,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
   withAttendanceRound(async ({ f, attendance, roundId, segmentId }) => {
     // Each Round its own cast: one user holds one active Room (ADR 0070).
     for (let i = 0; i < 4; i += 1)
-      await startRuntimeRound(f, await f.assemble({}, await f.freshCast()));
+      await launchRuntimeRound(f, await f.assemble({}, await f.freshCast()));
     const instanceId = createId();
     const failures: unknown[] = [],
       stamps: string[] = [];

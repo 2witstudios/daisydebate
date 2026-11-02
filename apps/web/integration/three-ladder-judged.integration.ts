@@ -7,7 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ratingLadders } from '@daisy/protocol';
 import {
   withRoomRuntime,
-  startRuntimeRound,
+  launchRuntimeRound,
 } from './round-runtime.test-support';
 import {
   fixtureBallot,
@@ -42,7 +42,7 @@ for (const ladder of ratingLadders)
                 s.activateBetaSeason({ id: seasonId }),
               );
               const room = await readyRatedRoom(f, ladder, judgeKind);
-              ({ roundId } = await startRuntimeRound(f, room));
+              ({ roundId } = await launchRuntimeRound(f, room));
               await runRatedOpening(f, roundId);
               await playOut(f, roundId, true);
               const frozen = await finalizeAsWeb(f, roundId);

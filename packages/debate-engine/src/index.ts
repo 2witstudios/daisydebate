@@ -31,16 +31,6 @@ export {
   readRoundOpening,
   strikeInOpening,
 } from './round-opening-runtime';
-export {
-  openingStep,
-  projectOpening,
-  settleOpening,
-  strikeOpening,
-  type OpeningSeat,
-  type OpeningStep,
-  type RoundOpening,
-  type StrikeRefusal,
-} from './round-opening';
 export { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
 export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';

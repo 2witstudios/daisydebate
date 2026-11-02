@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -13,7 +13,7 @@ requireTestServices(process.env);
 test('a revoked participant never blocks the opponent finishing the Round (ADR 0075)', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const { roundId, operations } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
     // The operator revokes the host mid-Round, as the signed command commits it.
     await f.sql.begin(async (tx) => {
       await tx`update account_beta_access set state='revoked', revision=revision+1, decided_at=now() where user_id=${f.host.userId}`;

@@ -200,7 +200,6 @@ export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
     revealedAt: timestamp.nullable(),
   }),
 ]);
-export type ResolutionDrawView = z.infer<typeof resolutionDrawViewSchema>;
 
 /** The bank filters a draw read: its revision and v1's fixed policy. */
 const bankSourceSchema = z.strictObject({

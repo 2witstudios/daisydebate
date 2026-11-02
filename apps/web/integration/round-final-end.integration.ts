@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -9,7 +9,7 @@ requireTestServices(process.env);
 
 test('internal shared tick persists actual final end and immutable admission cutoff without a browser command', async () => {
   await withRoomRuntime(async (f) => {
-    const { roundId, operations } = await startRuntimeRound(
+    const { roundId, operations } = await launchRuntimeRound(
       f,
       await f.assemble(),
     );

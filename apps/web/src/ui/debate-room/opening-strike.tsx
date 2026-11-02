@@ -53,7 +53,7 @@ function Countdown({
 }
 
 /** Strike progress for everyone who may not see the drawn texts. */
-export function OpeningProgress({
+function OpeningProgress({
   draw,
   view,
 }: {

@@ -51,7 +51,7 @@ export const complete = (room: RoomAssemblyState) =>
  * Why the seated cast can't go on yet, or null: every seat eligible, Ready
  * readable and every human Ready. The draw and Launch both wait on it.
  */
-export const castGate = (
+const castGate = (
   room: RoomAssemblyState,
   consent: RoomConsent,
 ): RoomRefusal | null => {

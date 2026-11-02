@@ -9,7 +9,7 @@ import {
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -20,7 +20,7 @@ test(
   async () =>
     withRoomRuntime(async (f) => {
       const choice = await f.foundation();
-      const { roundId } = await startRuntimeRound(
+      const { roundId } = await launchRuntimeRound(
         f,
         await f.assemble({
           selection: {

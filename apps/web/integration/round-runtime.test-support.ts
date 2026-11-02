@@ -20,6 +20,4 @@ export async function launchRuntimeRound(
   };
 }
 
-/** A launched Round with nothing to run first: it is active at Start round. */
-export const startRuntimeRound = launchRuntimeRound;
 export { withRoomRuntime } from './room-runtime.test-support';

@@ -16,7 +16,7 @@ import {
   passBallotDeadline,
 } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -29,7 +29,7 @@ const ruling = (winner: Ballot['winner']) =>
 /** A frozen casual Round with two seated human judges and settled attendance. */
 async function frozenTwoJudgeRound(f: Fixture) {
   const { room, judges } = await readyTwoHumanJudgeRoom(f);
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   const initial = (await f.store.getRound(roundId))!;
   const elapsedMs = initial.rules.segments.reduce(
     (total, segment) => total + segment.durationMs + initial.rules.countdownMs,

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundView } from '@daisy/protocol';
-import { OpeningStatus, OpeningStrike } from './opening-strike';
+import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
 
 setupRitewayBun();
 
@@ -156,6 +156,70 @@ describe('OpeningStatus', () => {
         prep.includes('1:00'),
       ],
       expected: [true, false, true],
+    });
+  });
+});
+
+describe('OpeningChosen', () => {
+  const revealed = {
+    ...debaterDraw,
+    strikes: [
+      {
+        ordinal: 0,
+        side: 'negative',
+        kind: 'debater',
+        position: 0,
+        byViewer: false,
+      },
+      {
+        ordinal: 1,
+        side: 'affirmative',
+        kind: 'timeout',
+        position: 1,
+        byViewer: false,
+      },
+    ],
+    turn: null,
+    revealedAt: dueAt,
+  } as const;
+
+  test('debaters read how the resolution was chosen, with each strike in order', () => {
+    const html = renderToStaticMarkup(
+      <OpeningChosen view={view} draw={revealed} actorId="aff" />,
+    );
+    assert({
+      given: 'a revealed draw read by a debater',
+      should: 'list both struck lines, then the one debated',
+      actual: [
+        html.includes('How it was chosen'),
+        html.indexOf(`${SENTINEL} 0`) < html.indexOf(`${SENTINEL} 1`),
+        html.indexOf(`${SENTINEL} 1`) < html.indexOf(`${SENTINEL} 2`),
+        html.includes('Debated'),
+      ],
+      expected: [true, true, true, true],
+    });
+  });
+
+  test('nothing renders before the reveal, or for anyone else', () => {
+    const progress = {
+      visibility: 'progress',
+      drawSize: 3,
+      strikes: [],
+      turn: null,
+      revealedAt: dueAt,
+    } as const;
+    assert({
+      given: 'an unrevealed draw, and a revealed one read as progress',
+      should: 'render nothing',
+      actual: [
+        renderToStaticMarkup(
+          <OpeningChosen view={view} draw={debaterDraw} actorId="aff" />,
+        ),
+        renderToStaticMarkup(
+          <OpeningChosen view={view} draw={progress} actorId="aff" />,
+        ),
+      ],
+      expected: ['', ''],
     });
   });
 });

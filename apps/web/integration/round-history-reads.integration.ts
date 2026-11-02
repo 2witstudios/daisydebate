@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import {
@@ -35,7 +35,10 @@ test('accepted engine commands persist speaking grants and historical closure wi
         },
       },
     });
-    const { roundId, operations, principal } = await startRuntimeRound(f, room);
+    const { roundId, operations, principal } = await launchRuntimeRound(
+      f,
+      room,
+    );
 
     // Seed the durable elapsed anchor; command authority still samples the real post-lock DB instant.
     await f.sql`update rounds set started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
@@ -163,7 +166,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId, operations } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
 
     const raw = (await f.store.getRound(roundId))!;
     const seat = raw.participants.find((p) => p.actorId === f.guest.actorId)!;

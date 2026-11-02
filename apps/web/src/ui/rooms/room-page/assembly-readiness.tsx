@@ -40,7 +40,7 @@ function startFence(
 }
 
 /** One native versioned room command; CAP validates every value again. */
-export function CommandForm({
+function CommandForm({
   type,
   version,
   commandId,
