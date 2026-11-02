@@ -90,31 +90,40 @@ test('media boundary refuses identity claims, foreign origins, anonymous callers
   });
 });
 
+/** A same-origin member who passes every check before the operation. */
+const admittedMember = {
+  origin: () => origin,
+  identify: async () =>
+    ({
+      state: 'member',
+      principal: { userId: id, actorId: id },
+    }) as never,
+  getActorByUserId: async () => ({ id }) as never,
+  limiter: () =>
+    ({
+      consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
+    }) as never,
+  active: () => true,
+};
+
 test('a deferred media request answers 503 without alerting anyone', async () => {
   const events: string[] = [];
   let reports = 0;
   const handlers = createRoundMediaHandlers({
     logger: {
       ...silentLogger,
-      log: (event: string) => void events.push(event),
-    } as typeof silentLogger,
+      child: (bound: { requestId?: string }) => ({
+        ...silentLogger,
+        log: (event: string) =>
+          void events.push(bound.requestId ? event : 'without its request'),
+      }),
+    } as unknown as typeof silentLogger,
     reporter: {
       capture: () => {
         reports++;
       },
     },
-    origin: () => origin,
-    identify: async () =>
-      ({
-        state: 'member',
-        principal: { userId: id, actorId: id },
-      }) as never,
-    getActorByUserId: async () => ({ id }) as never,
-    limiter: () =>
-      ({
-        consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
-      }) as never,
-    active: () => true,
+    ...admittedMember,
     operations: () =>
       ({
         session: async () => {
@@ -148,15 +157,7 @@ test('session and reconcile receive the client request signal', async () => {
   const handlers = createRoundMediaHandlers({
     logger: silentLogger,
     reporter: noopErrorReporter,
-    origin: () => origin,
-    identify: async () =>
-      ({ state: 'member', principal: { userId: id, actorId: id } }) as never,
-    getActorByUserId: async () => ({ id }) as never,
-    limiter: () =>
-      ({
-        consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
-      }) as never,
-    active: () => true,
+    ...admittedMember,
     operations: () =>
       ({
         session: async (

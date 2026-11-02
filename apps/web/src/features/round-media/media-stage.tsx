@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
+import type { MediaAnswer } from './answer-watch';
 import type { MediaTrack } from './browser-transport';
 import type { MediaConnectionState } from './media-controller';
 import { seatMicrophoneCaption } from './media-status';
@@ -36,14 +37,13 @@ export function MediaStage({
   view,
   connection,
   media,
-  microphoneConfirmed,
+  answer,
   tracks,
 }: {
   readonly view: RoundView;
   readonly connection: MediaConnectionState;
   readonly media: RoundMediaState | null;
-  /** False from a supersession until the next answer is applied. */
-  readonly microphoneConfirmed: boolean;
+  readonly answer: MediaAnswer;
   readonly tracks: readonly MediaTrack[];
 }) {
   return (
@@ -85,7 +85,7 @@ export function MediaStage({
                   {seatMicrophoneCaption({
                     connection,
                     peer,
-                    confirmed: microphoneConfirmed,
+                    answer,
                     speaking: mediaTracks.some((track) => track.speaking),
                   })}
                 </span>

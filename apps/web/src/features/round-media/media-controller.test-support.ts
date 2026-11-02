@@ -1,4 +1,5 @@
 import type { RoundMediaAdmission } from '@daisy/protocol';
+import { settle } from './browser-transport.test-support';
 import {
   createMediaController,
   type BrowserMediaTransport,
@@ -85,3 +86,36 @@ export const readController = (
 /** A newer accepted Round view, as the caller reports it. */
 export const viewAt = (value: number) =>
   ({ kind: 'view', roundViewVersion: value }) as const;
+
+/** Joins, forgets the join's receipts, and starts one wake that is now in flight. */
+export const wakeAfterJoin = async (
+  controller: ReturnType<typeof readController>,
+  receipts: unknown[],
+) => {
+  await controller.join();
+  receipts.length = 0;
+  const pending = controller.reconcile({ kind: 'wake' });
+  await settle();
+  // In an object: an async function returning it directly would wait for it.
+  return { pending };
+};
+
+/** A live controller whose second read, a wake, is held until the test answers. */
+export const heldSecondRead = async () => {
+  const held = Promise.withResolvers<unknown>();
+  let reads = 0;
+  let stops = 0;
+  const controller = readController({
+    admit: async () => admission,
+    reconcile: async () => (++reads === 2 ? held.promise : snapshot),
+    transport: () => transportStub({ stopTracks: () => void stops++ }),
+  });
+  const { pending } = await wakeAfterJoin(controller, []);
+  return {
+    held,
+    controller,
+    pending,
+    reads: () => reads,
+    stops: () => stops,
+  };
+};

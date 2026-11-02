@@ -16,6 +16,25 @@ const admitted = async () => {
   await operations.session(world.roundId, world.seats[0].actorId);
   return { world, operations, affirmative: world.seats[0] };
 };
+/** Reads stay unserved and no pass can claim until the test opens the loop. */
+const closeTheLoop = (world: ReturnType<typeof createMediaWorld>) => {
+  let open = false;
+  let polls = 0;
+  const progress = world.input.store.mediaReconcileProgress;
+  world.input.store.mediaReconcileProgress = (async (sessionId: string) => {
+    polls++;
+    const answer = await progress(sessionId);
+    return open ? answer : { ...answer, servedVersion: -1 };
+  }) as typeof progress;
+  const claim = world.input.store.claimMediaReconcile;
+  world.input.store.claimMediaReconcile = (async (
+    ...args: Parameters<typeof claim>
+  ) =>
+    open
+      ? claim(...args)
+      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+  return { open: () => void (open = true), polls: () => polls };
+};
 const conversation = {
   publish: ['camera', 'microphone'] as ('camera' | 'microphone')[],
   subscribe: true,
@@ -381,22 +400,8 @@ test('concurrent reads of one session share one polling loop', async () => {
   const actor = world.seats[0].actorId;
   const operations0 = createRoundMediaOperations(world.input);
   await operations0.session(world.roundId, actor);
-  let open = false;
-  let polls = 0;
   const gate = Promise.withResolvers<void>();
-  const progress = world.input.store.mediaReconcileProgress;
-  world.input.store.mediaReconcileProgress = (async (sessionId: string) => {
-    polls++;
-    const answer = await progress(sessionId);
-    return open ? answer : { ...answer, servedVersion: -1 };
-  }) as typeof progress;
-  const claim = world.input.store.claimMediaReconcile;
-  world.input.store.claimMediaReconcile = (async (
-    ...args: Parameters<typeof claim>
-  ) =>
-    open
-      ? claim(...args)
-      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+  const closed = closeTheLoop(world);
   const operations = createRoundMediaOperations({
     ...world.input,
     wait: () => gate.promise,
@@ -406,8 +411,8 @@ test('concurrent reads of one session share one polling loop', async () => {
   );
   for (let turn = 0; turn < 5; turn++)
     await new Promise((done) => setImmediate(done));
-  const pollsBeforeNextTick = polls;
-  open = true;
+  const pollsBeforeNextTick = closed.polls();
+  closed.open();
   gate.resolve();
   const settled = await Promise.allSettled(reads);
   assert({
@@ -424,19 +429,7 @@ test('concurrent reads of one session share one polling loop', async () => {
 test('a read that leaves stops waiting while the others keep being served', async () => {
   const world = createMediaWorld();
   const actor = world.seats[0].actorId;
-  let open = false;
-  const progress = world.input.store.mediaReconcileProgress;
-  world.input.store.mediaReconcileProgress = (async (sessionId: string) => {
-    const answer = await progress(sessionId);
-    return open ? answer : { ...answer, servedVersion: -1 };
-  }) as typeof progress;
-  const claim = world.input.store.claimMediaReconcile;
-  world.input.store.claimMediaReconcile = (async (
-    ...args: Parameters<typeof claim>
-  ) =>
-    open
-      ? claim(...args)
-      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+  const closed = closeTheLoop(world);
   const tick = Promise.withResolvers<void>();
   const operations = createRoundMediaOperations({
     ...world.input,
@@ -453,7 +446,7 @@ test('a read that leaves stops waiting while the others keep being served', asyn
   await tick.promise;
   leaving.abort();
   const failure = await leaves;
-  open = true;
+  closed.open();
   await stays;
   assert({
     given: 'two reads waiting on one session, one of which is abandoned',
@@ -504,6 +497,129 @@ test('a read after every earlier read left still gets its own pass', async () =>
       served,
     ],
     expected: [true, 2, newest.version - 1],
+  });
+});
+
+test('a read whose version is served does not wait for later reads', async () => {
+  const { world, affirmative } = await admitted();
+  const passes: ReturnType<typeof Promise.withResolvers<void>>[] = [];
+  const started = [
+    Promise.withResolvers<void>(),
+    Promise.withResolvers<void>(),
+  ];
+  const { media } = world.input;
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    media: {
+      ...media,
+      publicationPermissions: async (room: string) => {
+        const pass = Promise.withResolvers<void>();
+        started[passes.length]?.resolve();
+        passes.push(pass);
+        await pass.promise;
+        return media.publicationPermissions(room);
+      },
+    },
+  });
+  let earlierAnswered = false;
+  const earlier = operations
+    .reconcile(world.roundId, affirmative.actorId)
+    .then(() => {
+      earlierAnswered = true;
+    });
+  await started[0]!.promise;
+  const later = operations.reconcile(world.roundId, affirmative.actorId);
+  await new Promise(setImmediate);
+  passes[0]!.resolve();
+  await started[1]!.promise;
+  await earlier;
+  const answeredDuringLaterPass = earlierAnswered;
+  passes[1]!.resolve();
+  await later;
+  assert({
+    given: 'an earlier read served while a later read still needs a pass',
+    should: 'answer the earlier read during the later pass',
+    actual: answeredDuringLaterPass,
+    expected: true,
+  });
+});
+
+test('a later pass failing does not fail a read already served', async () => {
+  const { world, affirmative } = await admitted();
+  const first = Promise.withResolvers<void>();
+  const inFirst = Promise.withResolvers<void>();
+  let calls = 0;
+  const { media } = world.input;
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    media: {
+      ...media,
+      publicationPermissions: async (room: string) => {
+        if (++calls === 1) {
+          inFirst.resolve();
+          await first.promise;
+          return media.publicationPermissions(room);
+        }
+        throw new Error('vendor down');
+      },
+    },
+  });
+  const earlier = operations.reconcile(world.roundId, affirmative.actorId);
+  await inFirst.promise;
+  const later = operations
+    .reconcile(world.roundId, affirmative.actorId)
+    .catch((error: unknown) => error);
+  await new Promise(setImmediate);
+  first.resolve();
+  const answer = await earlier;
+  assert({
+    given:
+      'a read served by a pass, and the next pass failing for a later read',
+    should: 'answer the served read and fail only the later one',
+    actual: [answer.state, (await later) instanceof Error],
+    expected: ['ready', true],
+  });
+});
+
+test('a vendor write beginning after the check still cannot refuse the read', async () => {
+  const world = createMediaWorld();
+  const operations = createRoundMediaOperations(world.input);
+  const actor = world.seats[0].actorId;
+  await operations.session(world.roundId, actor);
+  const read = world.input.store.readMediaSession;
+  let callerReads = 0;
+  world.input.store.readMediaSession = (async (
+    ...args: Parameters<typeof read>
+  ) => {
+    const state = await read(...args);
+    if (args[0].actorId !== actor) return state;
+    callerReads++;
+    return state && { ...state, unresolved: callerReads > 1 };
+  }) as typeof read;
+  const answer = await operations.reconcile(world.roundId, actor);
+  assert({
+    given: 'a write that a later read of the session would see as unsettled',
+    should: 'answer from the snapshot the check used, reading it once',
+    actual: [answer.state, callerReads],
+    expected: ['ready', 1],
+  });
+});
+
+test('a failed vendor read keeps its cause for the error tracker', async () => {
+  const world = createMediaWorld();
+  const cause = new Error('vendor down');
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    media: { ...world.input.media, exists: () => Promise.reject(cause) },
+  });
+  const failure = await operations
+    .read(world.roundId, world.seats[0].actorId)
+    .catch((error: Error) => error);
+  assert({
+    given: 'a vendor call failing during a read',
+    should: 'answer INFRASTRUCTURE with the original error as its cause',
+    actual: (failure as Error).cause,
+    expected: cause,
   });
 });
 

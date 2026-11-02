@@ -4,6 +4,7 @@ import {
   readController,
   snapshot,
   transportStub,
+  wakeAfterJoin,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
@@ -157,10 +158,7 @@ test('an old already-started SDK rejection cannot fail its successor', async () 
     }),
     received: () => receipts.push(applies),
   });
-  await controller.join();
-  receipts.length = 0;
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
+  const { pending } = await wakeAfterJoin(controller, receipts);
   void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
   await settle();
   applying.reject(new Error('Obsolete SDK failure'));

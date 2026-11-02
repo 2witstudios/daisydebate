@@ -6,8 +6,9 @@ import {
   viewAt,
 } from './media-controller.test-support';
 import type { MediaConnectionState } from './media-controller';
+import { createAnswerWatch, type MediaAnswer } from './answer-watch';
 import { mediaFailure, transientMediaFailure } from './media-failure';
-import { seatMicrophoneCaption } from './media-status';
+import { seatMicrophoneCaption, shownConnection } from './media-status';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -90,58 +91,165 @@ test('reads that keep being superseded still show out of date at the budget', as
   controller.stop();
 });
 
-test('a seat checking its microphone cannot stick when no answer comes', async () => {
-  let nowMs = 0;
-  let reads = 0;
-  let answer = false;
+/** A controller beside the session's answer watch, on a budget the test fires. */
+const watchedCaption = (input: Parameters<typeof readController>[0]) => {
   let connection: MediaConnectionState = 'connecting';
-  let confirmed = true;
-  const caption = () =>
-    seatMicrophoneCaption({
-      connection,
-      peer: { microphone: false },
-      confirmed,
-      speaking: false,
-    });
-  const controller = readController({
-    readBudget: { now: () => nowMs, ms: 40_000 },
-    reconcile: async () => {
-      if (++reads === 1 || answer) return snapshot;
-      throw transientMediaFailure();
+  let answer: MediaAnswer = 'current';
+  const budget: (() => void)[] = [];
+  const watch = createAnswerWatch({
+    budgetMs: 40_000,
+    at: (_ms, fire) => {
+      budget.push(fire);
+      return () => undefined;
     },
+    changed: (next) => {
+      answer = next;
+    },
+  });
+  const controller = readController({
+    ...input,
     changed: (state) => {
       connection = state;
     },
-    superseded: () => {
-      confirmed = false;
-    },
-    received: () => {
-      confirmed = true;
+    superseded: watch.superseded,
+    received: watch.received,
+  });
+  return {
+    controller,
+    budgetPasses: () => budget.at(-1)?.(),
+    caption: () =>
+      seatMicrophoneCaption({
+        connection,
+        peer: { microphone: false },
+        answer,
+        speaking: false,
+      }),
+    bar: () => shownConnection(connection, answer),
+  };
+};
+
+test('a seat checking its microphone cannot stick when no answer comes', async () => {
+  let reads = 0;
+  let answering = false;
+  const seat = watchedCaption({
+    reconcile: async () => {
+      if (++reads === 1 || answering) return snapshot;
+      throw transientMediaFailure();
     },
   });
-  await controller.join();
-  const answered = caption();
-  await controller.reconcile(viewAt(4));
-  const unanswered = caption();
-  nowMs += 40_000;
-  answer = true;
-  await controller.reconcile(viewAt(5));
-  const recovered = caption();
+  await seat.controller.join();
+  const answered = seat.caption();
+  await seat.controller.reconcile(viewAt(4));
+  const unanswered = seat.caption();
+  answering = true;
+  await seat.controller.reconcile(viewAt(5));
   assert({
     given: 'a read superseded with no answer, then an answer',
     should:
       'stop claiming a state, say out of date rather than checking for ever, and name the state again on the answer',
-    actual: [answered, unanswered, recovered],
+    actual: [answered, unanswered, seat.caption()],
     expected: [
       'Microphone closed',
       'Microphone status out of date',
       'Microphone closed',
     ],
   });
+  seat.controller.stop();
+});
+
+test('a seat cannot stay on checking while an apply never settles', async () => {
+  let applies = 0;
+  const seat = watchedCaption({
+    reconcile: async () => snapshot,
+    transport: () =>
+      transportStub({
+        apply: () =>
+          ++applies === 1 ? Promise.resolve() : new Promise(() => undefined),
+      }),
+  });
+  await seat.controller.join();
+  void seat.controller.reconcile(viewAt(4));
+  await settle();
+  const whileChecking = [seat.caption(), seat.bar()];
+  seat.budgetPasses();
+  assert({
+    given: 'a newer view whose answer arrives but whose apply never settles',
+    should: 'check first, then show out of date at the budget',
+    actual: [whileChecking, seat.caption(), seat.bar()],
+    expected: [
+      ['Checking microphone…', 'live'],
+      'Microphone status out of date',
+      'out-of-date',
+    ],
+  });
+  seat.controller.stop();
+});
+
+test('a read let finish spends no attempt after its retry pause', async () => {
+  let nowMs = 0;
+  let reads = 0;
+  const pause = Promise.withResolvers<void>();
+  const inPause = Promise.withResolvers<void>();
+  const controller = readController({
+    readBudget: { now: () => nowMs, ms: 40_000 },
+    retry: {
+      delaysMs: [500],
+      wait: () => {
+        inPause.resolve();
+        return pause.promise;
+      },
+    },
+    reconcile: async () => {
+      reads++;
+      if (reads === 1 || reads >= 4) return snapshot;
+      if (reads === 3) throw transientMediaFailure();
+      return new Promise(() => undefined);
+    },
+  });
+  await controller.join();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  void controller.reconcile(viewAt(5));
+  await inPause.promise;
+  const whilePaused = reads;
+  nowMs += 100;
+  void controller.reconcile(viewAt(6));
+  pause.resolve();
+  await settle();
+  assert({
+    given: 'a read in its retry pause, superseded young in a burst',
+    should: 'skip its next attempt and go straight to the newest read',
+    actual: [whilePaused, reads, controller.state()],
+    expected: [3, 4, 'live'],
+  });
   controller.stop();
 });
 
-test('a local device failure is not overwritten by later reads', async () => {
+test('a first read that cannot pass by itself is labelled definite', async () => {
+  const failures: unknown[] = [];
+  let reads = 0;
+  const controller = readController({
+    reconcile: async () => {
+      reads++;
+      throw reads === 1 ? new Error('Malformed') : transientMediaFailure();
+    },
+    changed: (_state, failure) => {
+      if (failure) failures.push(failure);
+    },
+  });
+  await controller.join();
+  await controller.reconnect();
+  assert({
+    given: 'a malformed first answer, then a transient one, before going live',
+    should: 'label each as admission would',
+    actual: failures,
+    expected: ['definite', 'transient'],
+  });
+  controller.stop();
+});
+
+/** A joined controller whose second read fails transiently. */
+const secondReadFails = async () => {
   const seen: string[] = [];
   let reads = 0;
   const controller = readController({
@@ -153,6 +261,11 @@ test('a local device failure is not overwritten by later reads', async () => {
     changed: (state) => seen.push(state),
   });
   await controller.join();
+  return { controller, seen, reads: () => reads };
+};
+
+test('a local device failure is not overwritten by later reads', async () => {
+  const { controller, seen, reads } = await secondReadFails();
   controller.deviceFailed();
   seen.length = 0;
   await controller.reconcile({ kind: 'wake' });
@@ -161,7 +274,7 @@ test('a local device failure is not overwritten by later reads', async () => {
     given:
       'a device failure the Round shows, then a stalled and an answered read',
     should: 'emit no state that would hide its Retry',
-    actual: [seen, reads],
+    actual: [seen, reads()],
     expected: [[], 3],
   });
   controller.stop();

@@ -88,6 +88,8 @@ export function createBrowserMediaTransport(
   /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
   let warm: LocalTrack | null = null;
   let microphoneMuted = events.microphoneMuted ?? false;
+  /** A publication this connection could not remove; only a rebuild clears it. */
+  let lastingFailure: { readonly error: unknown } | null = null;
   // Unrestricted sources (canPublish with none listed) are never what the
   // server sets, so they read as unknown rather than as every source.
   const permitted = (): readonly Source[] | null => {
@@ -234,6 +236,8 @@ export function createBrowserMediaTransport(
     } catch (error) {
       // Nothing holds this track now, so a kept microphone must not stay open.
       track.stop();
+      // The publication remains, so every later apply reports it.
+      lastingFailure = { error };
       throw error;
     }
     if (!keep) return;
@@ -281,9 +285,10 @@ export function createBrowserMediaTransport(
       });
     return work;
   };
-  const apply = (state: RoundMediaState) => {
+  const apply = async (state: RoundMediaState) => {
     granted = state.grants.publish;
-    return settle();
+    await settle();
+    if (lastingFailure) throw lastingFailure.error;
   };
   const transport: BrowserMediaTransport = {
     connect: async (admission) => {

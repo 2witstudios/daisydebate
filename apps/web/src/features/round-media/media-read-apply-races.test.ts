@@ -5,6 +5,8 @@ import {
   snapshot,
   transportStub,
   viewAt,
+  heldSecondRead,
+  wakeAfterJoin,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
@@ -17,25 +19,15 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
     { ...snapshot, state: 'unavailable' },
   ])
     for (let gap = 0; gap < 12; gap++) {
-      const held = Promise.withResolvers<unknown>();
-      let reads = 0;
-      let stops = 0;
-      const controller = readController({
-        admit: async () => admission,
-        reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-        transport: () => transportStub({ stopTracks: () => void stops++ }),
-      });
-      await controller.join();
-      const pending = controller.reconcile({ kind: 'wake' });
-      await settle();
+      const { held, controller, pending, stops } = await heldSecondRead();
       held.resolve(late);
       for (let tick = 0; tick < gap; tick++) await Promise.resolve();
       // A reply already acted on is not obsolete; only a live connection counts.
-      if (controller.state() === 'live' && stops === 0) {
+      if (controller.state() === 'live' && stops() === 0) {
         void controller.reconcile(viewAt(4));
         await pending;
         await settle();
-        results.add(`${controller.state()}:${stops}`);
+        results.add(`${controller.state()}:${stops()}`);
       }
       controller.stop();
     }
@@ -70,10 +62,7 @@ test('a queued fresh reply superseded while waiting for the old apply never star
       }),
     received: (state) => receipts.push(state.grants.publish.join('+')),
   });
-  await controller.join();
-  receipts.length = 0;
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
+  const { pending } = await wakeAfterJoin(controller, receipts);
   void controller.reconcile(viewAt(4));
   await settle();
   void controller.reconcile(viewAt(5));
@@ -123,10 +112,7 @@ test('a receipt superseded in any microtask gap after apply is never announced',
         }),
       received: (state) => receipts.push(state.grants.publish.join('+')),
     });
-    await controller.join();
-    receipts.length = 0;
-    const pending = controller.reconcile({ kind: 'wake' });
-    await settle();
+    const { pending } = await wakeAfterJoin(controller, receipts);
     applying.resolve();
     for (let tick = 0; tick < gap; tick++) await Promise.resolve();
     const announced = receipts.length > 0;

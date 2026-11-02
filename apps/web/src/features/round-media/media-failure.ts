@@ -1,6 +1,7 @@
 import type { MediaConnectionState } from './media-controller';
 
 /** What a media failure means for the connection. Pure; effects stay in the controller. */
+
 /** The transport's error for a device the Room check passed that is now gone. */
 export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
 

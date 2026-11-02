@@ -151,6 +151,8 @@ export function createMediaController(input: {
           throw error;
         pausing();
         await cancelMediaWork(signal, () => input.retry!.wait(pauseMs, signal));
+        // A read let finish is not aborted, but must not spend another attempt.
+        if (!wanted()) throw error;
       }
     }
     return cancelMediaWork(signal, request);
@@ -220,7 +222,7 @@ export function createMediaController(input: {
   const readUnanswered = (owner: Connection, error: unknown) => {
     if (isMediaRefusal(error)) fail(owner.generation, error);
     else if (owner.wentLive) showOutOfDate(owner);
-    else fail(owner.generation, error, 'transient');
+    else fail(owner.generation, error);
   };
   /** Supersession restarts each read's retries, not the stall it belongs to. */
   const noteReadStarting = (owner: Connection) => {

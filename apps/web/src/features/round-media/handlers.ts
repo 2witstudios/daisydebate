@@ -21,11 +21,10 @@ const emptyBody = z.strictObject({});
 /** Expected backpressure: retryable for the client, and no alert for anyone. */
 const deferred = (
   logger: Pick<Parameters<typeof createRoundHandlers>[0]['logger'], 'log'>,
-  operation: string,
 ) => {
   logger.log(
     'round.media.request_deferred',
-    { operation: `round.media.${operation}`, errorCode: 'INFRASTRUCTURE' },
+    { errorCode: 'INFRASTRUCTURE' },
     'Media request deferred; the client retries',
   );
   return new Response(null, {
@@ -54,7 +53,7 @@ export function createRoundMediaHandlers(
         d.logger,
         request,
         `round.media.${operation}`,
-        async () => {
+        async (_id, logger) => {
           if (!d.active()) throw createAppError('NOT_FOUND');
           if (operation === 'read') requireSameOriginRead(request, d.origin());
           else requireSameOrigin(request, d.origin());
@@ -83,7 +82,7 @@ export function createRoundMediaHandlers(
                 ).catch((error: unknown) => {
                   if (!isMediaDeferred(error) || request.signal.aborted)
                     throw error;
-                  return deferred(d.logger, operation);
+                  return deferred(logger);
                 });
           if (body instanceof Response) return body;
           return Response.json(body, {

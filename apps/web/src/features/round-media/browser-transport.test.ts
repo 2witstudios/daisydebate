@@ -315,6 +315,24 @@ test('a failed unpublish of a kept microphone stops it instead of orphaning it',
   });
 });
 
+test('a failed unpublish in a permission pass still reaches the next apply', async () => {
+  const stub = stubSdk({ settles: true, failFirstUnpublish: true });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  await settle();
+  stub.permit([Track.Source.Camera]);
+  await settle();
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  assert({
+    given: 'an unpublish that failed in a pass nobody was waiting on',
+    should: 'report it from the next apply, so the connection can rebuild',
+    actual: failure,
+    expected: 'Unpublish refused',
+  });
+});
+
 test('a released room cannot overwrite the shared track list', async () => {
   const { stub, emitted, transport } = countingTrackList();
   transport.stopTracks();

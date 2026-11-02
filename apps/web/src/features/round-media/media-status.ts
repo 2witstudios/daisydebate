@@ -1,5 +1,6 @@
 import { forgetCheckedDevices } from '../video/device-selection';
 import type { Source } from './browser-transport';
+import type { MediaAnswer } from './answer-watch';
 import type { MediaConnectionState } from './media-controller';
 
 const messages: Record<MediaConnectionState, string> = {
@@ -37,22 +38,27 @@ export const showConnection =
     view.media((current) => mediaWhile(state, current));
   };
 
+/** A live connection whose last answer went stale says so, as if reads had failed. */
+export const shownConnection = (
+  connection: MediaConnectionState,
+  answer: MediaAnswer,
+): MediaConnectionState =>
+  connection === 'live' && answer === 'stale' ? 'out-of-date' : connection;
+
 /**
  * A grant can move at LiveKit before its reply is applied here, so a seat claims
- * a microphone state only while the last answer is current. Checking cannot
- * stick: once reads stop being answered the connection is out of date, and that
- * is what the seat says until an answer returns.
+ * a microphone state only while the last answer is current.
  */
 export function seatMicrophoneCaption(input: {
   readonly connection: MediaConnectionState;
   readonly peer: { readonly microphone: boolean } | undefined;
-  readonly confirmed: boolean;
+  readonly answer: MediaAnswer;
   readonly speaking: boolean;
 }) {
   if (!input.peer) return 'Microphone unavailable';
-  if (input.connection === 'out-of-date')
+  if (input.connection === 'out-of-date' || input.answer === 'stale')
     return 'Microphone status out of date';
-  if (!input.confirmed) return 'Checking microphone…';
+  if (input.answer === 'checking') return 'Checking microphone…';
   if (!input.peer.microphone) return 'Microphone closed';
   return input.speaking ? 'Speaking' : 'Microphone open';
 }
@@ -66,7 +72,7 @@ export function mediaStatus(
   return {
     message:
       hasLiveTracks(connection) && gone
-        ? `Connected, but your checked ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing. Reconnect ${missing.length > 1 ? 'them' : 'it'}, or retry to use your default.`
+        ? `Connected, but ${connection === 'out-of-date' ? 'camera and sound status may be out of date, and ' : ''}your checked ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing. Reconnect ${missing.length > 1 ? 'them' : 'it'}, or retry to use your default.`
         : messages[connection],
     retry:
       gone ||

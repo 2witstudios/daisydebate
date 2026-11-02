@@ -1,10 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { MediaAnswer } from './answer-watch';
 import type { MediaConnectionState } from './media-controller';
 import {
   mediaStatus,
   mediaWhile,
   retryMissingDevices,
   seatMicrophoneCaption,
+  shownConnection,
   showConnection,
 } from './media-status';
 
@@ -145,25 +147,26 @@ test('a missing checked device stays named while status is out of date', () => {
 test('a seat caption claims a microphone state only from a current answer', () => {
   const caption = (
     peer: { readonly microphone: boolean } | undefined,
-    confirmed: boolean,
+    answer: MediaAnswer,
     speaking = false,
     connection: MediaConnectionState = 'live',
-  ) => seatMicrophoneCaption({ connection, peer, confirmed, speaking });
+  ) => seatMicrophoneCaption({ connection, peer, answer, speaking });
   assert({
     given: 'each answer state for a seat',
     should:
-      'name open, closed or speaking only while the last answer is current, say it is checking otherwise, and say out of date once reads stop being answered',
+      'name open, closed or speaking only while the answer is current, say it is checking while superseded, and say out of date once stale or reads stop being answered',
     actual: [
-      caption(undefined, true),
-      caption(undefined, false),
-      caption({ microphone: false }, true),
-      caption({ microphone: true }, true),
-      caption({ microphone: true }, true, true),
-      caption({ microphone: false }, false),
-      caption({ microphone: true }, false, true),
-      caption({ microphone: true }, false, false, 'out-of-date'),
-      caption({ microphone: false }, true, false, 'out-of-date'),
-      caption(undefined, false, false, 'out-of-date'),
+      caption(undefined, 'current'),
+      caption(undefined, 'stale'),
+      caption({ microphone: false }, 'current'),
+      caption({ microphone: true }, 'current'),
+      caption({ microphone: true }, 'current', true),
+      caption({ microphone: false }, 'checking'),
+      caption({ microphone: true }, 'checking', true),
+      caption({ microphone: true }, 'stale'),
+      caption({ microphone: true }, 'stale', false, 'device-blocked'),
+      caption({ microphone: true }, 'checking', false, 'out-of-date'),
+      caption({ microphone: false }, 'current', false, 'out-of-date'),
     ],
     expected: [
       'Microphone unavailable',
@@ -175,7 +178,33 @@ test('a seat caption claims a microphone state only from a current answer', () =
       'Checking microphone…',
       'Microphone status out of date',
       'Microphone status out of date',
-      'Microphone unavailable',
+      'Microphone status out of date',
+      'Microphone status out of date',
     ],
+  });
+});
+
+test('a live connection with a stale answer shows as out of date', () => {
+  assert({
+    given: 'each connection beside a stale or current answer',
+    should: 'turn only a live one with a stale answer to out of date',
+    actual: [
+      shownConnection('live', 'stale'),
+      shownConnection('live', 'checking'),
+      shownConnection('live', 'current'),
+      shownConnection('device-blocked', 'stale'),
+    ],
+    expected: ['out-of-date', 'live', 'live', 'device-blocked'],
+  });
+});
+
+test('out of date beside a missing device names both', () => {
+  assert({
+    given: 'reads unanswered and the checked camera gone',
+    should: 'keep saying status may be out of date while naming the device',
+    actual: mediaStatus('out-of-date', ['camera']).message.startsWith(
+      'Connected, but camera and sound status may be out of date, and your checked camera is missing.',
+    ),
+    expected: true,
   });
 });

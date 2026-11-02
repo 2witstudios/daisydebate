@@ -7,6 +7,7 @@ import {
   snapshot,
   transportStub,
   viewAt,
+  heldSecondRead,
 } from './media-controller.test-support';
 import { mediaFailure } from './media-failure';
 import { settle } from './browser-transport.test-support';
@@ -19,22 +20,12 @@ test('a stale ended, mismatched or malformed reply cannot end or fail its succes
     { ...snapshot, roundId: 'x'.repeat(24) },
     { nonsense: true },
   ]) {
-    const held = Promise.withResolvers<unknown>();
-    let reads = 0;
-    let stops = 0;
-    const controller = readController({
-      admit: async () => admission,
-      reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-      transport: () => transportStub({ stopTracks: () => void stops++ }),
-    });
-    await controller.join();
-    const pending = controller.reconcile({ kind: 'wake' });
-    await settle();
+    const { held, controller, pending, reads, stops } = await heldSecondRead();
     await controller.reconcile(viewAt(4));
     held.resolve(late);
     await pending;
     await settle();
-    results.push([controller.state(), reads, stops]);
+    results.push([controller.state(), reads(), stops()]);
     controller.stop();
   }
   assert({

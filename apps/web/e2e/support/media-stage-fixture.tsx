@@ -31,7 +31,7 @@ Object.assign(window, {
             view={view}
             media={media}
             connection="live"
-            microphoneConfirmed
+            answer="current"
             tracks={[
               {
                 identity: 'peer',

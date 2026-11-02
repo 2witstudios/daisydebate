@@ -8,6 +8,7 @@ import {
   snapshot,
   transportStub,
   viewAt,
+  wakeAfterJoin,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
@@ -108,10 +109,7 @@ test('already-started SDK work serializes fresh application without blocking a f
     }),
     received: (value) => receipts.push(value.grants.publish.join(',')),
   });
-  await controller.join();
-  receipts.length = 0;
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
+  const { pending } = await wakeAfterJoin(controller, receipts);
   void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
   await settle();
   const held = [reads, applications.length, receipts.length];

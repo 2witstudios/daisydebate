@@ -2,6 +2,7 @@
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
+import { createAnswerWatch, type MediaAnswer } from './answer-watch';
 import { createRoundViewFollower } from './follow-round-view';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
@@ -25,6 +26,7 @@ import {
   mediaStatus,
   retryMissingDevices,
   showConnection,
+  shownConnection,
 } from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
@@ -64,7 +66,7 @@ function RoundMediaSession({
   const [connection, setConnection] =
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
-  const [microphoneConfirmed, setMicrophoneConfirmed] = useState(true);
+  const [answer, setAnswer] = useState<MediaAnswer>('current');
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
   /** Checked devices found gone; the transport keeps running (ISSUE-573). */
   const [missing, setMissing] = useState<readonly Source[]>([]);
@@ -83,6 +85,14 @@ function RoundMediaSession({
     null,
   );
   useEffect(() => {
+    const answerWatch = createAnswerWatch({
+      budgetMs: MEDIA_READ_BUDGET_MS,
+      at: (ms, fire) => {
+        const timer = setTimeout(fire, ms);
+        return () => clearTimeout(timer);
+      },
+      changed: setAnswer,
+    });
     const mounted = createMediaController({
       roundId: view.id,
       initialRoundViewVersion: acceptedVersion.current,
@@ -93,9 +103,9 @@ function RoundMediaSession({
       changed: showConnection({ connection: setConnection, media: setMedia }),
       received: (state) => {
         setMedia(state);
-        setMicrophoneConfirmed(true);
+        answerWatch.received();
       },
-      superseded: () => setMicrophoneConfirmed(false),
+      superseded: answerWatch.superseded,
       retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
       readBudget: {
         now: () => Date.parse(systemClock.now()),
@@ -127,6 +137,7 @@ function RoundMediaSession({
     controller.current = mounted;
     void mounted.join();
     return () => {
+      answerWatch.stop();
       mounted.stop();
       controller.current = null;
       sound.current = null;
@@ -154,14 +165,15 @@ function RoundMediaSession({
     });
     return follower.current(view);
   }, [view]);
-  const status = mediaStatus(connection, missing);
+  const shown = shownConnection(connection, answer);
+  const status = mediaStatus(shown, missing);
   return (
     <section aria-label="Live camera and sound">
       <MediaStage
-        connection={connection}
+        connection={shown}
         view={view}
         media={media}
-        microphoneConfirmed={microphoneConfirmed}
+        answer={answer}
         tracks={tracks}
       />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">

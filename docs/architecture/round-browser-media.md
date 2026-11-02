@@ -85,9 +85,11 @@ page has seen the version and asked.
 
 While a reply is not current the Round does not claim a microphone state: from a
 supersession until the next answer applies, a seat says it is checking. That cannot
-stick: once reads stop being answered the connection is `out-of-date`, and the seat
-says so until an answer returns. Last-known grants stay for layout, so video does
-not disappear. The bar's "Connected" describes the connection, not a grant.
+stick. When reads stop being answered the connection is `out-of-date`, and an answer
+that never applies, for any reason including an SDK apply that never settles, turns
+stale at the read budget. Either way the seat and the bar say so until an answer
+returns. Last-known grants stay for layout, so video does not disappear. The bar's
+"Connected" describes the connection, not a grant.
 
 Measured on the CI runner, one native three-browser journey per row:
 
@@ -98,7 +100,8 @@ Measured on the CI runner, one native three-browser journey per row:
 | no                       | off          | 1252 ms at most, before the journey failed | 18.6 s at most, on that failing run | 7        |
 
 So the bars are: permission under 2 seconds, burst included; reply about 2.5 to 2.8
-seconds after the last event on that runner, where a read alone takes up to about 1.7 seconds.
+seconds after the last event on that runner, where a read alone takes up to about
+1.7 seconds.
 Inside a burst the wait is the burst's own length, not a stall. It reached 10 seconds
 on the runner because the scripted burst itself ran about 8.7 seconds, and the seat
 says it is checking throughout. The scripted journey clicks faster than a debate, but
@@ -141,7 +144,8 @@ client's 10-second request deadline, and stops as soon as its request is aborted
 Either answers the retryable 503. The bound covers the wait only: a pass won late can
 outlast the client's deadline, and a pass that has already started is not cancelled.
 Concurrent reads of a session share one polling loop in each process, so waiting
-reads do not each load the competitive lane. A browser read also stops serving when its request is aborted, and a read that
+reads do not each load the competitive lane. A browser read also stops serving when
+its request is aborted, and a read that
 crosses a vendor write in flight answers the same 503 rather than a refusal. These
 expected deferrals log `round.media.request_deferred` and reach no error tracker.
 

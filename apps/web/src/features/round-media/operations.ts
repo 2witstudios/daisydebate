@@ -39,11 +39,10 @@ const MEDIA_DEFERRED = 'media-deferred';
 const mediaDeferred = () => createAppError('INFRASTRUCTURE', MEDIA_DEFERRED);
 export const isMediaDeferred = (error: unknown) =>
   isAppError(error) && error.message === MEDIA_DEFERRED;
-type ServePoll = {
-  /** The highest version any waiting read needs served. */
-  target: number;
-  waiters: number;
-  done: Promise<void>;
+/** One read waiting until a pass has served its own version. */
+type ServeWaiter = {
+  readonly version: number;
+  readonly served: ReturnType<typeof Promise.withResolvers<void>>;
 };
 /** Settles with `work`, or at once with `failure()` when its reader leaves. */
 const cancelOnAbort = async (
@@ -83,7 +82,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     return state;
   };
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
-  const polls = new Map<string, ServePoll>();
+  /** The reads each session's one polling loop is still serving. */
+  const polls = new Map<string, Set<ServeWaiter>>();
   const acquire = async (sessionId: string, limit?: AdmissionLimit) => {
     const owner = input.nextId();
     await input.priority(sessionId, 'enter', owner);
@@ -103,12 +103,18 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       await input.priority(sessionId, 'leave', owner);
     }
   };
-  const pollServed = async (sessionId: string, poll: ServePoll) => {
+  const pollServed = async (sessionId: string, waiters: Set<ServeWaiter>) => {
     try {
       for (;;) {
-        if (poll.waiters === 0) return;
-        const progress = await input.store.mediaReconcileProgress(sessionId);
-        if (progress.servedVersion >= poll.target) return;
+        if (waiters.size === 0) return;
+        const { servedVersion } =
+          await input.store.mediaReconcileProgress(sessionId);
+        for (const waiter of waiters)
+          if (servedVersion >= waiter.version) {
+            waiters.delete(waiter);
+            waiter.served.resolve();
+          }
+        if (waiters.size === 0) return;
         if (await input.priority(sessionId, 'waiting')) {
           await input.wait();
           continue;
@@ -120,6 +126,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         if (claim.kind === 'claimed') await run(claim);
         else await input.wait();
       }
+    } catch (error) {
+      for (const waiter of waiters) waiter.served.reject(error);
     } finally {
       // In the same step as the exit, so no later read can join a finished loop.
       polls.delete(sessionId);
@@ -132,42 +140,39 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     signal?: AbortSignal,
   ) => {
     if (signal?.aborted) throw mediaDeferred();
-    const existing = polls.get(sessionId);
-    const poll: ServePoll = existing ?? {
-      target: version,
-      waiters: 0,
-      done: Promise.resolve(),
+    const waiter: ServeWaiter = {
+      version,
+      served: Promise.withResolvers<void>(),
     };
-    poll.target = Math.max(poll.target, version);
-    poll.waiters++;
+    const existing = polls.get(sessionId);
+    const waiters = existing ?? new Set<ServeWaiter>();
+    waiters.add(waiter);
     if (!existing) {
-      polls.set(sessionId, poll);
-      poll.done = pollServed(sessionId, poll);
-      // Every waiter may have left by the time this loop fails.
-      poll.done.catch(() => undefined);
+      polls.set(sessionId, waiters);
+      void pollServed(sessionId, waiters);
     }
     try {
       await (signal
-        ? cancelOnAbort(signal, poll.done, mediaDeferred)
-        : poll.done);
+        ? cancelOnAbort(signal, waiter.served.promise, mediaDeferred)
+        : waiter.served.promise);
     } finally {
-      poll.waiters--;
+      waiters.delete(waiter);
     }
   };
-  const read = async (
-    roundId: string,
-    actorId?: string,
+  const answer = async (
+    state: Awaited<ReturnType<typeof snapshot>>,
   ): Promise<RoundMediaState> => {
-    const state = await snapshot(roundId, actorId);
     const exists =
       !mediaEnded(state) &&
       (await input
         .deadline(input.media.exists(state.session.roomName))
-        .catch(() => {
-          throw createAppError('INFRASTRUCTURE');
+        .catch((error: unknown) => {
+          throw createAppError('INFRASTRUCTURE', undefined, error);
         }));
     return projectMedia(state, exists, input.nextId);
   };
+  const read = async (roundId: string, actorId?: string) =>
+    answer(await snapshot(roundId, actorId));
   const reconcile = async (
     roundId: string,
     actorId?: string,
@@ -187,7 +192,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       !admissionRevoked(state)
     )
       throw mediaDeferred();
-    return read(roundId, actorId);
+    // The same snapshot, so a write beginning after this check cannot refuse.
+    return answer(state);
   };
   /**
    * `listen` (ISSUE-764) signs the bot seat's own listen-only identity: a
