@@ -93,8 +93,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/notifications/page'),
     '(shell)/friends/page.tsx': () => import('../../app/(shell)/friends/page'),
     '(shell)/judge/page.tsx': () => import('../../app/(shell)/judge/page'),
-    '(shell)/judge/ballot/[debateId]/page.tsx': () =>
-      import('../../app/(shell)/judge/ballot/[debateId]/page'),
+    '(shell)/judge/ballot/[roundId]/page.tsx': () =>
+      import('../../app/(shell)/judge/ballot/[roundId]/page'),
     '(shell)/judge/rating/page.tsx': () =>
       import('../../app/(shell)/judge/rating/page'),
     '(shell)/judge/resources/page.tsx': () =>
@@ -134,8 +134,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/ranked/host/page'),
     '(shell)/recordings/page.tsx': () =>
       import('../../app/(shell)/recordings/page'),
-    '(shell)/recordings/[debateId]/page.tsx': () =>
-      import('../../app/(shell)/recordings/[debateId]/page'),
+    '(shell)/recordings/[roundId]/page.tsx': () =>
+      import('../../app/(shell)/recordings/[roundId]/page'),
     '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
     '(shell)/prep/cards/new/page.tsx': () =>
       import('../../app/(shell)/prep/cards/new/page'),
@@ -166,8 +166,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/settings/security/page'),
     '(shell)/page.tsx': () => import('../../app/(shell)/page'),
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
-    '(shell)/watch/[debateId]/page.tsx': () =>
-      import('../../app/(shell)/watch/[debateId]/page'),
+    '(shell)/watch/[roundId]/page.tsx': () =>
+      import('../../app/(shell)/watch/[roundId]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
@@ -199,7 +199,7 @@ const guardRequestsOf = async (file: string) => {
   guardCalls.length = 0;
   try {
     await page({
-      params: Promise.resolve({ username: 'someone', id: 'x', debateId: 'x' }),
+      params: Promise.resolve({ username: 'someone', id: 'x', roundId: 'x' }),
       searchParams,
     });
   } catch (error) {
@@ -278,7 +278,7 @@ describe('guarded pages', () => {
     const publicRoutes = [
       '/',
       '/watch',
-      '/watch/[debateId]',
+      '/watch/[roundId]',
       '/leaderboard',
       '/tournaments',
     ];

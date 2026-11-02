@@ -157,7 +157,7 @@ const appRoutes = [
   '/friends',
   '/help',
   '/judge',
-  '/judge/ballot/[debateId]',
+  '/judge/ballot/[roundId]',
   '/judge/rating',
   '/judge/resources',
   '/judge/waiting',
@@ -209,7 +209,7 @@ const appRoutes = [
   '/ranked',
   '/ranked/host',
   '/recordings',
-  '/recordings/[debateId]',
+  '/recordings/[roundId]',
   '/rooms/[id]',
   '/rooms/[id]/rematch',
   '/rounds/[id]',
@@ -243,7 +243,7 @@ const appRoutes = [
   '/train/rules',
   '/train/welcome',
   '/watch',
-  '/watch/[debateId]',
+  '/watch/[roundId]',
 ];
 
 /** Patterns a call site names literally. */

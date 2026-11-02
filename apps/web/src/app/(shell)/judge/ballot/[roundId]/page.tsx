@@ -11,12 +11,12 @@ export default async function BallotRoute({
   params,
   searchParams,
 }: {
-  params: Promise<{ debateId: string }>;
+  params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  const { debateId } = await params;
-  await requireAccess(`/judge/ballot/${debateId}`, searchParams);
-  const result = await readPersistedBallot(debateId);
+  const { roundId } = await params;
+  await requireAccess(`/judge/ballot/${roundId}`, searchParams);
+  const result = await readPersistedBallot(roundId);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (!result.view.own) notFound();
@@ -24,7 +24,7 @@ export default async function BallotRoute({
     <BallotPage
       view={result.view}
       commandId={systemId.next()}
-      action={submitBallotAction.bind(null, debateId)}
+      action={submitBallotAction.bind(null, roundId)}
       renderedAtMs={Date.parse(systemClock.now())}
     />
   );
