@@ -326,6 +326,8 @@ export function createDocumentSync({
     const reservation = keepalive ? budget.reserve(body) : null;
     if (keepalive && reservation === null) {
       persist(id, sent);
+      // Teardown cancels this timer; a page that survives pagehide resumes it.
+      schedule(id, delayMs);
       return;
     }
     let acknowledged = false;

@@ -2,6 +2,7 @@ import {
   loadNoteSync,
   noteHtml as hugeHtml,
   manualNoteResources,
+  manualTimers,
   stored,
 } from './document-sync.test-support';
 
@@ -43,6 +44,36 @@ describe('document sync keepalive budget', () => {
       should: 'send the whole document, exactly once',
       actual: [sentHtml, sentHtml.length],
       expected: [[expectedHtml], 1],
+    });
+  });
+
+  test('resumes an over-budget exit edit when the page survives its pagehide', async () => {
+    const sentHtml: { html: string; keepalive: boolean }[] = [];
+    const clock = manualTimers();
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.budget.test:2', {
+        timers: clock.timers,
+      }),
+      api: apiWith(async ({ html, keepalive, expectedRevision }) => {
+        sentHtml.push({ html, keepalive: keepalive === true });
+        return { status: 'saved', revision: expectedRevision + 1 };
+      }),
+      roundId: 'r',
+      principalId: 'p1',
+      onConflict: () => {},
+    });
+
+    const expectedHtml = hugeHtml(70 * 1024);
+    sync.change('a', expectedHtml);
+    await sync.flushKeepalive();
+    const atExit = sentHtml.length;
+    // A page restored from the back/forward cache resumes its frozen timers.
+    clock.fire();
+    assert({
+      given: 'an edit over the exit budget on a page that keeps running',
+      should: 'send nothing at exit, then save it through an ordinary request',
+      actual: [atExit, sentHtml],
+      expected: [0, [{ html: expectedHtml, keepalive: false }]],
     });
   });
 });
