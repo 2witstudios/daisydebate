@@ -273,3 +273,67 @@ test('realtime role has the service lease write exception and no competitive or 
     await client.close();
   }
 });
+
+const SAMPLER_LOCK = 59003;
+/** Terminates only the exact backend holding the sampler's election lock. */
+async function terminateElectedSampler(control: SQL) {
+  const [held] = await control`select a.pid,a.backend_start::text as started
+    from pg_locks l join pg_stat_activity a on a.pid=l.pid
+    where l.locktype='advisory' and l.classid=0 and l.objid=${SAMPLER_LOCK}
+      and l.objsubid=1 and l.granted and a.datname=current_database() and a.usename=current_user`;
+  if (!held) throw new Error('No elected sampler backend to terminate');
+  await control`select pg_terminate_backend(pid,1000) from pg_stat_activity
+    where pid=${held.pid} and backend_start::text=${held.started}
+      and datname=current_database() and usename=current_user`;
+}
+const outcomeOf = (work: Promise<boolean>) =>
+  work.catch((error: { code?: string }) => error.code ?? 'unknown');
+
+test('ISSUE-893: the same sampler recovers election after its exact backend is lost, without manufacturing evidence', async () => {
+  const dedicated = new SQL(databaseUrl, { max: 2 });
+  const control = new SQL(databaseUrl, { max: 1 });
+  const ops = availabilityOperations(control, dedicated);
+  const sampler = ops.availabilitySampler();
+  const rival = ops.availabilitySampler();
+  try {
+    const initial = await sampler.elect();
+    const rivalWhileHeld = await rival.elect();
+    const [before] =
+      await control`select count(*)::int as n from availability_samples`;
+    await terminateElectedSampler(control);
+    // The first call may fail on the dead handle; it must not be permanent.
+    const first = await outcomeOf(sampler.elect());
+    const second = await outcomeOf(sampler.elect());
+    const [after] =
+      await control`select count(*)::int as n from availability_samples`;
+    assert({
+      given: 'a sampler whose elected backend was terminated',
+      should: 'recover election with no process restart and write no sample',
+      actual: {
+        initial,
+        rivalWhileHeld,
+        first: first === true || first === 'INFRASTRUCTURE',
+        second,
+        samplesAdded: after.n - before.n,
+      },
+      expected: {
+        initial: true,
+        rivalWhileHeld: false,
+        first: true,
+        second: true,
+        samplesAdded: 0,
+      },
+    });
+    assert({
+      given: 'the recovered sampler holding election',
+      should: 'keep a competing sampler out',
+      actual: await rival.elect(),
+      expected: false,
+    });
+  } finally {
+    await sampler.close();
+    await rival.close();
+    await dedicated.close({ timeout: 0 });
+    await control.close({ timeout: 0 });
+  }
+});

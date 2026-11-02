@@ -28,6 +28,17 @@ export function createAvailabilitySampler(client: SQL) {
   let session: ReservedSQL | null = null;
   let running = false;
   let stopped = false;
+  /**
+   * A failed session may be dead, and a kept handle would fail every later
+   * call (ISSUE-893). Retire it; ending its backend frees the election lock,
+   * and the next call reserves and elects on a new one. Health stays unknown:
+   * nothing here writes a sample.
+   */
+  const retireSession = () => {
+    const failed = session;
+    session = null;
+    void failed?.close({ timeout: 0 }).catch(() => undefined);
+  };
   const electSession = async () => {
     session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
     const [election] =
@@ -45,6 +56,7 @@ export function createAvailabilitySampler(client: SQL) {
       try {
         return await electSession();
       } catch (error) {
+        retireSession();
         throw createAppError(
           'INFRASTRUCTURE',
           'Availability election unavailable',
@@ -89,6 +101,7 @@ export function createAvailabilitySampler(client: SQL) {
             }
           : null;
       } catch (error) {
+        retireSession();
         throw createAppError(
           'INFRASTRUCTURE',
           'Availability sampling unavailable',
