@@ -40,14 +40,5 @@ ends with no winner.
 
 ## Rounds left active by an outage
 
-Deploying ADR 0095 resolves them on the next maintenance pass, through the
-ordinary paths. Merging to main deploys staging, so this comes before the merge.
-Run the dry run and get human sign-off first:
-
-```sh
-DATABASE_URL=<target> bun apps/web/scripts/round-completion-dry-run.ts <roundId>...
-```
-
-It reads metadata inside a READ ONLY transaction, so PostgreSQL refuses any write,
-and prints no text. It treats every scheduled speaker as still eligible to attend. Never fabricate a receipt, a horizon or a ballot, and never reopen an
+The next maintenance pass resolves them through the ordinary paths. Never fabricate a receipt, a horizon or a ballot, and never reopen an
 expired window.
