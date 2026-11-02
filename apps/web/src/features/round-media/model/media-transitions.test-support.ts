@@ -1334,5 +1334,51 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
   },
+  'stuck publish, nothing published, reception live': {
+    'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
+    'tab-changed unknown': 'waiting(checking) | cancel:all, release-connection',
+    'page-left': 'ended | cancel:all, release-connection',
+    'frozen-page-restored':
+      'live(stale-wake) cam:publishing mic:failed read:none next:wanted apply:running | refresh-view',
+    'round-ended': 'ended | cancel:all, release-connection, forget-mute',
+    'mute-restored':
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
+    'read-requested wake':
+      'live(stale-wake) cam:publishing mic:failed read:none next:wanted apply:running',
+    'read-requested view':
+      'live(stale-wake) cam:publishing mic:failed read:none next:starting apply:running | schedule:read-budget, defer-read-start',
+    'read-requested boundary':
+      'live(stale-wake) cam:publishing mic:failed read:none next:starting apply:running | schedule:read-budget, defer-read-start',
+    'timer-fired capture-patience':
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running | schedule:read-budget',
+    'timer-fired recovery':
+      'live(stale-wake) cam:publishing(stuck) mic:failed read:none next:none apply:running | schedule:recovery',
+    'browser-nudged':
+      'live(stale-wake) cam:publishing(stuck) mic:failed read:none next:none apply:running | schedule:recovery',
+    'retry-pressed':
+      'admitting(again) | refresh-view, cancel:all, release-connection, cancel:recovery, admit',
+    'mute-requested':
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running muting | set-mute',
+    'enable-sound-pressed':
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running | start-audio',
+    'forget-failed':
+      'live(stale-wake) cam:missing mic:failed read:none next:none apply:running',
+    dropped:
+      'released(transient) | refresh-view, cancel:all, release-connection, schedule:recovery',
+    replaced:
+      'released(replaced) | cancel:all, release-connection, refresh-view',
+    'room-changed':
+      'live(stale-wake) cam:publishing mic:failed read:none next:wanted apply:running | refresh-view',
+    'permission-changed':
+      'live(stale-wake) cam:publishing mic:failed read:none next:wanted apply:running | refresh-view',
+    observed:
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
+    'published camera':
+      'live(current) cam:published mic:failed read:none next:none apply:none | cancel:capture-patience, cancel:read-budget, cancel:recovery',
+    'publish-failed camera failure':
+      'live(current) cam:failed mic:failed read:none next:none apply:none | release-track:camera, cancel:capture-patience, cancel:read-budget, cancel:recovery',
+    'playback-changed':
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
+  },
   ended: {},
 };
