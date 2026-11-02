@@ -1,6 +1,6 @@
 import { speakingChangesOf } from './round-speaking';
 import { roundHoldsMembers } from './room-membership';
-import { applyUnjudgedCompletion } from './round-unjudged';
+import { applyPanelCompletion } from './round-panel-completion';
 import { abandonUnstartedRound } from './round-start-horizon';
 import type { RoundRuntime } from './round-runtime-api';
 import { applyRoundAdjudication } from './round-adjudication';
@@ -311,9 +311,9 @@ export function createRoundRuntime(input: {
       store = scratch;
       return project(into);
     },
-    completeUnjudged: (completion) =>
+    completePanel: (completion) =>
       onScratch(completion.now, (c) =>
-        applyUnjudgedCompletion(c, completion, input.participants),
+        applyPanelCompletion(c, completion, input.participants),
       ),
     abandonUnstarted: (now) => onScratch(now, abandonUnstartedRound),
     tick(now): RoundProjection {

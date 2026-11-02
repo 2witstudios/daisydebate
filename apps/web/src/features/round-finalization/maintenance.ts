@@ -1,17 +1,21 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { AttendanceResolution } from '@daisy/db/attendance';
+import type {
+  AttendanceHold,
+  AttendanceResolution,
+} from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
-  decideUnjudgedCompletion,
+  decidePanelCompletion,
   freezeJudgingPlan,
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createRatingSweep } from '../ratings/sweep';
+import { AI_JUDGING_BUDGET_MS } from '../round-judging/budget';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
-/** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
+/** Human judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
 /** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
 export const ROUND_START_HORIZON_MS = 15 * 60_000;
@@ -22,12 +26,16 @@ type JudgingPlanner = Parameters<
 export const judgingPlan =
   (ballotDeadlineMs: number): JudgingPlanner =>
   (facts) =>
-    freezeJudgingPlan({ ...facts, ballotDeadlineMs });
+    freezeJudgingPlan({
+      ...facts,
+      ballotDeadlineMs,
+      aiJudgingBudgetMs: AI_JUDGING_BUDGET_MS,
+    });
 type CompletionBuilder = Parameters<
-  Database['completeUnjudgedRound']
+  Database['completePanelRound']
 >[0]['buildCompletion'];
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
-export const unjudgedCompletion =
+export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
   ({
     round,
@@ -36,10 +44,14 @@ export const unjudgedCompletion =
     ballotDeadlineAt,
     completeness,
     humanJudgeSeatIds,
+    runningAiSeatIds,
+    failedAiSeatIds,
   }) => {
-    const decision = decideUnjudgedCompletion({
+    const decision = decidePanelCompletion({
       completeness,
       humanJudgeSeatIds,
+      runningAiSeatIds,
+      failedAiSeatIds,
       judgeSeatIds: round.participants
         .filter((seat) => seat.role === 'judge')
         .map((seat) => seat.id),
@@ -49,7 +61,7 @@ export const unjudgedCompletion =
       nowMs: Date.parse(now),
     });
     if (decision.kind === 'pending')
-      throw createAppError('CONFLICT', 'unjudged-ineligible');
+      throw createAppError('CONFLICT', 'panel-ineligible');
     return {
       ruling: decision.ruling,
       noRuling: decision.noRuling,
@@ -61,13 +73,14 @@ export const unjudgedCompletion =
         ...round,
         round,
         nextSegmentId: nextId,
-      }).completeUnjudged({
-        competitionType: round.competitionType,
+      }).completePanel({
         now,
         ballots,
         ballotDeadlineAt,
         completeness,
         humanJudgeSeatIds,
+        runningAiSeatIds,
+        failedAiSeatIds,
       }),
     };
   };
@@ -80,12 +93,16 @@ export function createRoundMaintenanceOperations(input: {
     | 'finalizeDueRoundTranscript'
     | 'readUnratedRatingRounds'
     | 'rateRound'
-    | 'completeUnjudgedRound'
+    | 'completePanelRound'
   >;
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
+  /** An AI judge's job ended at completion, with no worker there to report it. */
+  readonly judgingEnded?: (reason: string) => void;
   readonly ids: IdGenerator;
-  readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
+  readonly evaluate: (
+    roundId: string,
+  ) => Promise<AttendanceResolution | AttendanceHold | null>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
@@ -111,26 +128,31 @@ export function createRoundMaintenanceOperations(input: {
     onFailure: input.ratingFailed,
   });
   let ratingAfterId: string | undefined;
+  let discoveryAfterId: string | undefined;
   return {
+    /** One bounded page per pulse; the cursor carries a long list across pulses. */
     async discover() {
-      const ids: string[] = [];
-      let afterId: string | undefined;
-      for (;;) {
-        const page = await input.store.readRoundMaintenanceCandidates({
-          instanceId: input.instanceId,
-          limit: 64,
-          startHorizonMs: input.startHorizonMs,
-          ...(afterId ? { afterId } : {}),
-        });
-        ids.push(...page.roundIds.filter((id) => id !== input.probeRoundId));
-        if (page.exhausted) return ids;
-        if (!page.afterId || page.afterId === afterId)
-          throw createAppError(
-            'INVARIANT',
-            'Maintenance discovery did not advance',
-          );
-        afterId = page.afterId;
-      }
+      const page = await input.store.readRoundMaintenanceCandidates({
+        instanceId: input.instanceId,
+        limit: 64,
+        startHorizonMs: input.startHorizonMs,
+        ...(discoveryAfterId ? { afterId: discoveryAfterId } : {}),
+      });
+      if (
+        !page.exhausted &&
+        (!page.afterId || page.afterId === discoveryAfterId)
+      )
+        throw createAppError(
+          'INVARIANT',
+          'Maintenance discovery did not advance',
+        );
+      discoveryAfterId = page.exhausted
+        ? undefined
+        : (page.afterId ?? undefined);
+      return {
+        roundIds: page.roundIds.filter((id) => id !== input.probeRoundId),
+        cycleComplete: page.exhausted,
+      };
     },
     tick: (roundId: string) =>
       input.store.tickDueRound({
@@ -148,20 +170,21 @@ export function createRoundMaintenanceOperations(input: {
       });
       if (result.status !== 'frozen') return result;
       try {
-        await input.store.completeUnjudgedRound({
+        await input.store.completePanelRound({
           instanceId: input.instanceId,
           roundId,
           commandId: input.ids.next(),
           freezeRevision: result.freeze.revision,
           buildProjection,
-          buildCompletion: unjudgedCompletion(() => input.ids.next()),
+          buildCompletion: panelCompletion(() => input.ids.next()),
+          ...(input.judgingEnded ? { judgingEnded: input.judgingEnded } : {}),
         });
       } catch (error) {
         if (
           !isAppError(error) ||
           error.code !== 'CONFLICT' ||
           ![
-            'unjudged-ineligible',
+            'panel-ineligible',
             'attendance-unsettled',
             'attendance-terminal',
           ].includes(error.message)

@@ -13,7 +13,7 @@ export type RoundReceiptView = Pick<
   | 'topic'
   | 'participants'
   | 'outcome'
-  | 'unjudgedRuling'
+  | 'panelRuling'
 > & {
   readonly resolutionAudit?: RoundView['resolutionAudit'];
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
@@ -37,11 +37,13 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
 const resultText = (round: RoundReceiptView) =>
   round.outcome
     ? resultLabel[round.outcome]
-    : round.unjudgedRuling === 'transcript-incomplete'
+    : round.panelRuling === 'transcript-incomplete'
       ? 'Transcript incomplete'
-      : round.participants.some((seat) => seat.role === 'judge')
-        ? 'Judges did not rule'
-        : 'Unjudged';
+      : round.panelRuling === 'judging-failed'
+        ? 'AI judge could not rule'
+        : round.participants.some((seat) => seat.role === 'judge')
+          ? 'Judges did not rule'
+          : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',

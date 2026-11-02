@@ -119,6 +119,16 @@ test('discovery under the worker role finds sessions needing a capture worker', 
         unsafe,
         abandoned,
       ]);
+      const withoutFinished = await worker.discoverCaptureSessions(1, [
+        ...found.map((s) => s.sessionId).filter((id) => id !== expiredId),
+      ]);
+      assert({
+        given:
+          'every open session excluded but one, and a limit of one (ISSUE-818)',
+        should: 'spend the limit on the session not excluded',
+        actual: withoutFinished.map((s) => s.sessionId),
+        expected: [expiredId],
+      });
       assert({
         given:
           'unleased, live-leased, expired, ended, unsafe and abandoned sessions',

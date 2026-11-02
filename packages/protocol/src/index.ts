@@ -83,6 +83,19 @@ export type {
   RuntimeCheckpoint,
 } from './round';
 export {
+  judgingAttemptCategories,
+  judgingAttemptDiagnosticSchema,
+  judgingBallotFields,
+  judgingFinishes,
+  judgingRecordedIssueLimit,
+  judgingTerminalReasons,
+  type JudgingAttemptCategory,
+  type JudgingAttemptDiagnostic,
+  type JudgingFinish,
+  type JudgingIssueCode,
+  type JudgingTerminalReason,
+} from './round-judging-attempt';
+export {
   ballotSchema,
   ballotDefaultScore,
   ballotLimits,
@@ -213,6 +226,9 @@ export type {
 export {
   isNamedSeat,
   roundViewSchema,
+  roundWaitingOnSchema,
+  type RoundWaitingFacts,
+  type RoundWaitingOn,
   type LaunchedRound,
   type RoundSeat,
   type RoundView,
@@ -317,10 +333,10 @@ export type {
   RoundAnalysisView,
 } from './round-analysis';
 export {
-  roundUnjudgedReceiptSchema,
-  type RoundUnjudgedReceipt,
-  type RoundUnjudgedCompletion,
-} from './round-unjudged';
+  roundPanelReceiptSchema,
+  type RoundPanelReceipt,
+  type RoundPanelCompletion,
+} from './round-panel-completion';
 
 export {
   matchHistoryQuerySchema,

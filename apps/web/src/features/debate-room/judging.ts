@@ -1,4 +1,4 @@
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType, RoundWaitingOn } from '@daisy/protocol';
 
 /**
  * The ballots a round is judged by. One ballot decides it: the human
@@ -32,17 +32,45 @@ const decides = (competition: CompetitionType) =>
   competition === 'ranked' ? 'decides the rating' : 'decides the result';
 
 /**
- * What each ballot is doing while the window is open. The deciding ballot
- * is always being written here: the round completes, and the room hands
- * off to the receipt, the moment it lands (DEC-80).
+ * The deciding ballot's line for what the server says the Round is waiting on.
+ * AI job states never describe a human judge's ballot.
+ */
+const decidingStatus = (
+  judge: JudgingBallots['judge'],
+  state: RoundWaitingOn['state'] | null,
+  competition: CompetitionType,
+): string => {
+  const writing = `Writing · ${decides(competition)}`;
+  switch (state) {
+    case 'awaiting_attendance':
+      return 'Waiting on attendance';
+    case 'held_by_writer':
+      return 'Waiting on a check-in';
+    case 'closing_transcript':
+      return 'Closing the transcript';
+    case 'settling':
+      return 'Settling the result';
+    case 'ai_failed':
+      return judge === 'ai' ? 'Could not rule' : 'Settling the result';
+    case 'ai_processing':
+      return judge === 'ai' ? writing : 'Settling the result';
+    default:
+      return writing;
+  }
+};
+
+/**
+ * What each ballot is doing. The round completes, and the room hands off to
+ * the receipt, the moment the deciding ballot lands (DEC-80).
  */
 export function ballotLines(
   ballots: JudgingBallots,
   competition: CompetitionType,
+  state: RoundWaitingOn['state'] | null = null,
 ): readonly BallotLine[] {
   const deciding: BallotLine = {
     title: ballots.judge === 'ai' ? 'AI judge’s ballot' : 'Judge’s ballot',
-    status: `Writing · ${decides(competition)}`,
+    status: decidingStatus(ballots.judge, state, competition),
     ready: false,
   };
   if (ballots.judge === 'ai' || ballots.ai === null) return [deciding];
@@ -57,16 +85,18 @@ export function ballotLines(
   ];
 }
 
-/** The judging window: 30 minutes from the last speech's close (ADR 0053). */
-export const JUDGING_WINDOW_MS = 30 * 60_000;
-
-/** The main clock while the ballots are written. */
+/**
+ * The main clock while the ballots are written: only a human judge's window,
+ * counted to the deadline the server persisted. An AI judge has no such window.
+ */
 export function judgingClockOf(
-  finalCloseMs: number,
+  status: RoundWaitingOn | null,
   nowMs: number,
-): { readonly label: string; readonly remainingMs: number } {
+): { readonly label: string; readonly remainingMs: number } | null {
+  if (status?.state !== 'human_window' || status.deadlineAt === null)
+    return null;
   return {
     label: 'Judging window',
-    remainingMs: Math.max(0, finalCloseMs + JUDGING_WINDOW_MS - nowMs),
+    remainingMs: Math.max(0, Date.parse(status.deadlineAt) - nowMs),
   };
 }

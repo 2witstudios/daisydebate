@@ -1,11 +1,12 @@
 'use client';
 import type { RoundView } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatCountdown } from '../../../lib/clock-display';
 import {
   attendanceSettlesAtMs,
   ballotOpensInMs,
+  countdownMount,
   countdownNowMs,
 } from '../../../features/round-ballots/settling';
 
@@ -33,9 +34,11 @@ export function useBallotOpensIn(
   const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
   const opensInMs = open ? ballotOpensInMs(round, now) : null;
   const waiting = opensInMs !== null;
+  const mount = useRef<ReturnType<typeof countdownMount> | null>(null);
   useEffect(() => {
     if (!waiting) return;
-    const mounted = deviceInstant();
+    mount.current = countdownMount(mount.current, renderedAtMs, deviceInstant);
+    const { mounted } = mount.current;
     const tick = window.setInterval(
       () =>
         setElapsed({

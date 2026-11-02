@@ -96,7 +96,13 @@ const harness = (
             .join('\n')
             .includes('Analyse the affirmative debater in slot 1'),
         ]);
-        return { text: answer, promptTokens: 120, completionTokens: 40 };
+        return {
+          text: answer,
+          finish: 'stop' as const,
+          refused: false,
+          promptTokens: 120,
+          completionTokens: 40,
+        };
       },
     }),
     withProvider: (_signal, work) => work(),

@@ -3,12 +3,26 @@ import { assertTransactionStatement } from './transaction-statement';
 
 type CheckLifetime = () => void;
 
+const ignoreOutcome = () => undefined;
+
+/**
+ * Own a native query's terminal outcome from construction (ISSUE-889). Closing
+ * a reservation rejects every query it created, including one a lifetime check
+ * refused before anything consumed it. The native then and catch overrides
+ * would start lazy SQL, so this attaches through Promise.prototype.then, which
+ * observes without executing. A consumer still sees the rejection itself.
+ */
+function observeOutcome<T>(query: SQL.Query<T>): void {
+  void Promise.prototype.then.call(query, ignoreOutcome, ignoreOutcome);
+}
+
 /** Fence lazy native execution as well as construction and query modifiers. */
 function lifetimeQuery<T>(
   query: SQL.Query<T>,
   check: CheckLifetime,
   refuse: (message: string) => never,
 ): SQL.Query<T> {
+  observeOutcome(query);
   const guarded = new Proxy(query, {
     get(target, property) {
       const member = Reflect.get(target, property, target);

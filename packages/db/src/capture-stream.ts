@@ -8,6 +8,7 @@ import { captureObservationSchema, captureSealSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
+  botGrantUnused,
   coverageAuthority,
   transcriptRevision,
 } from './capture-history';
@@ -137,7 +138,11 @@ export async function sealCapturedStream(
         eq(transcriptObservations.roundParticipantId, input.roundParticipantId),
       ),
     );
+  const [{ unused } = { unused: false }] = (await tx.execute(
+    sql`select ${botGrantUnused(input.roundId, input.segmentId, input.roundParticipantId)} as unused`,
+  )) as unknown as { unused: boolean }[];
   const state = sealState({
+    grantUnused: unused,
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
     framesLost: input.framesLost,
     epoch: input.epoch,
