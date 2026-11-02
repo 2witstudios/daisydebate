@@ -22,7 +22,10 @@ export type AcceptOfferPorts = {
   readonly openRoom: (
     form: FormData,
     beforeMoveOn: (roomId: string) => Promise<string | undefined>,
-  ) => Promise<{ readonly next?: string; readonly error?: string }>;
+  ) => Promise<{
+    readonly next?: string | undefined;
+    readonly error?: string | undefined;
+  }>;
   /** Names the room on the challenge, which rings the challenger. */
   readonly nameRoom: (roomId: string) => Promise<{
     readonly ok: boolean;

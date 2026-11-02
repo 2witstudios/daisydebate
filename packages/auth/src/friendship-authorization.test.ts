@@ -181,16 +181,7 @@ test('a member reads and updates only their own presence setting', () => {
 });
 
 test('each social concept authorizes on its own resource, never Friends', () => {
-  const account = {
-    userId: 'a',
-    actorId: 'a',
-    member: true,
-    erased: false,
-    revision: 1,
-    beta: { state: 'approved', revision: 1 },
-    ageBand: 'adult',
-    restricted: false,
-  } as const;
+  const { account } = adultAccount('a');
   const allowed = (
     capability:
       | 'social.challenge.list'

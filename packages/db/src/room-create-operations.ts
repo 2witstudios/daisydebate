@@ -5,8 +5,8 @@ import type {
   RoomMutationOutcome,
   FormatDefinition,
   FormatSelectionFacts,
-  ROOM_SEAT_HOLD_MS,
 } from '@daisy/protocol';
+import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,

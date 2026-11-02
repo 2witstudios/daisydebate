@@ -226,10 +226,6 @@ export const reportOperations = ({
         }),
       ),
     ),
-  liftModeration: (input: ModerationLiftInput) =>
-    instrumented(eventSink, 'liftModeration', () =>
-      database.transaction((tx) => liftModeration(tx, input)),
-    ),
   /** Closed reports past their evidence retention (DEC-298, COMP-4). */
   purgeClosedReports: (input: {
     readonly now: string;

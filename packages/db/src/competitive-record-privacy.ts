@@ -34,7 +34,9 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         from rooms where host_actor_id = ${subject.actorId} order by id`),
     ),
     room_seat_holds: await rows(
-      sql`select room_id, until from room_seat_holds where actor_id = ${subject.actorId} order by room_id`,
+      tx.execute(
+        sql`select room_id, until from room_seat_holds where actor_id = ${subject.actorId} order by room_id`,
+      ),
     ),
     room_participants: await rows(
       tx.execute(sql`select id, room_id, actor_id, role, slot
