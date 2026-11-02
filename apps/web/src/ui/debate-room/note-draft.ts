@@ -220,6 +220,24 @@ export function acknowledgeNoteRecord(
   return { status: 'unchanged', record };
 }
 
+/** A copy matching the server's text has nothing left to recover, whichever save committed it. */
+export const settleNoteRecord = (
+  record: NoteRecord,
+  matchesServer: (html: string) => boolean,
+): NoteRecord => {
+  const active =
+      record.active && !matchesServer(record.active.html)
+        ? record.active
+        : undefined,
+    recovery =
+      record.recovery && !matchesServer(record.recovery.html)
+        ? record.recovery
+        : undefined;
+  return active === record.active && recovery === record.recovery
+    ? record
+    : slots(active, recovery);
+};
+
 /** A prior owner's paused edit becomes an explicit offer; no invisible save queue. */
 export const offerNoteRecord = (record: NoteRecord): NoteRecord =>
   record.active && !record.recovery ? { recovery: record.active } : record;

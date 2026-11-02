@@ -326,3 +326,48 @@ test('an offer compares against the server copy, never unsaved editor text', asy
     expected: ['<p>SERVER</p>', '<p>SERVER</p>', '<p>NEW</p>', true],
   });
 });
+
+test('a copy identical to the server text is not offered as recoverable', async () => {
+  const f = fixture();
+  const sameAsServer = newNoteCopy({
+    html: '<p>SERVER</p>',
+    generation: 'EXIT',
+    baseRevision: 2,
+    now: 100,
+  });
+  f.storage.setItem(key, JSON.stringify({ active: sameAsServer }));
+  const sync = f.owner();
+  await sync.load();
+  assert({
+    given: 'an exit save that committed although its page never saw the answer',
+    should:
+      'clear the durable copy and offer nothing, since nothing is at risk',
+    actual: [f.storage.getItem(key), sync.recoveryOffers()],
+    expected: [null, []],
+  });
+});
+
+test('load keeps only the copy that differs from the server text', async () => {
+  const f = fixture();
+  const sameAsServer = newNoteCopy({
+    html: '<p>SERVER</p>',
+    generation: 'EXIT',
+    baseRevision: 2,
+    now: 100,
+  });
+  f.storage.setItem(
+    key,
+    JSON.stringify({ active: sameAsServer, recovery: f.recovery }),
+  );
+  const sync = f.owner();
+  await sync.load();
+  assert({
+    given: 'a matching active copy beside a different recovery copy',
+    should: 'keep the different copy byte for byte and still offer it',
+    actual: [
+      JSON.parse(f.storage.getItem(key)!),
+      sync.recoveryOffers().map((offer) => offer.copy),
+    ],
+    expected: [{ recovery: f.recovery }, [f.recovery]],
+  });
+});

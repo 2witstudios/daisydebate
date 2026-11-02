@@ -15,6 +15,7 @@ import {
   NOTE_RECORD_MAX_COUNT,
   offerNoteRecord,
   restoreNoteRecord,
+  settleNoteRecord,
   type NoteCopy,
   type NoteRecord,
   type NoteTransition,
@@ -422,7 +423,11 @@ export function createDocumentSync({
         const previous = read(doc.id, now);
         const offered = pending.has(doc.id)
           ? previous.record
-          : offerNoteRecord(previous.record);
+          : offerNoteRecord(
+              settleNoteRecord(previous.record, (html) =>
+                sameDocumentHtml(html, doc.html),
+              ),
+            );
         if (offered !== previous.record) write(doc.id, previous, offered, now);
       }
       publish();
