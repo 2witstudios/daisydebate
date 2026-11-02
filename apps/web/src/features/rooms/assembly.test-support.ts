@@ -56,7 +56,6 @@ export const unequalTemplate = {
         expiresAtSegment: null,
       },
       interaction: {
-        crossExModes: ['free'],
         interruptions: {
           modes: ['disabled'],
           minRemainingMs: { min: 0, max: 10000 },
@@ -76,7 +75,6 @@ export const unequalTemplate = {
         countdownMs: 444,
         segmentDurationOverrides: { N3: 98765 },
       },
-      crossExamination: { crossExMode: 'free' },
       interruptions: { mode: 'disabled', minRemainingMs: 1234 },
       yielding: { allowed: false, returnsTime: true },
     },

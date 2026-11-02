@@ -31,6 +31,12 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
       actual: [claim.segmentType, [...claim.peerParticipantIds].sort()],
       expected: [seats.kind, seats.peers],
     });
+    assert({
+      given: 'a claim by the seat the segment schedules',
+      should: 'open the exchange',
+      actual: claim.opensExchange,
+      expected: true,
+    });
     await operations.verifyBotPublication(claim.scope, claim.token);
     await operations.renewWorker(claim.scope, claim.token);
     for (const [scope, token] of [

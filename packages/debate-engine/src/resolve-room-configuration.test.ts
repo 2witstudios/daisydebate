@@ -101,7 +101,6 @@ describe('resolveRoomConfiguration', () => {
         inRoundPrep: null,
         preRoundPrep: null,
         interaction: {
-          crossExModes: ['ordered'],
           interruptions: null,
           yield: null,
         },
@@ -167,7 +166,7 @@ describe('resolveRoomConfiguration', () => {
             interaction: {
               ...oneOnOneDefinition.configurable.interaction,
               interruptions: {
-                modes: ['disabled', 'cross_ex_only'],
+                modes: ['disabled'],
                 minRemainingMs: { min: 0, max: 300_000 },
               },
             },
@@ -274,7 +273,6 @@ test('null controls cannot omit declared interaction choices', () => {
       configurable: {
         ...oneOnOneDefinition.configurable,
         interaction: {
-          crossExModes: ['ordered'],
           interruptions: {
             modes: restricted ? ['enabled'] : ['disabled'],
             minRemainingMs: { min: 0, max: 1000 },

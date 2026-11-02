@@ -103,23 +103,33 @@ test('start-speech refuses exactly at prep expiry without consuming IDs or prep'
 });
 
 test('an interrupter yield returns the floor without closing the segment or crediting prep (DEC-203)', () => {
-  const { runtime } = clockWorld({
-    ...emptyCheckpoint,
-    prep_consumed_ms: { affirmative: 100_000, negative: 150_000 },
-  });
-  runtime.tick(roundAt(330_000));
+  const rules = oneOnOneRules();
+  const { runtime } = clockWorld(
+    {
+      ...emptyCheckpoint,
+      prep_consumed_ms: { affirmative: 100_000, negative: 150_000 },
+    },
+    {
+      ...rules,
+      interaction: {
+        ...rules.interaction,
+        interruptions: { allowed: 'enabled', minRemainingMs: 0 },
+      },
+    },
+  );
+  runtime.tick(roundAt(20_000));
   runtime.execute({
     command: { type: 'interrupt' },
-    actorId: oneOnOneSeats[0].actorId,
-    now: roundAt(330_000),
+    actorId: oneOnOneSeats[1].actorId,
+    now: roundAt(20_000),
   });
   const yielded = runtime.execute({
     command: { type: 'yield' },
-    actorId: oneOnOneSeats[0].actorId,
-    now: roundAt(340_000),
+    actorId: oneOnOneSeats[1].actorId,
+    now: roundAt(30_000),
   });
   assert({
-    given: 'affirmative yields the floor it took in negative CX',
+    given: 'negative yields the floor it took in affirmative CX',
     should:
       'clear the floor, leave both prep budgets untouched and close nothing',
     actual: [

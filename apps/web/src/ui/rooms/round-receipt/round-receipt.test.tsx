@@ -16,7 +16,6 @@ const scheduled: RoundReceiptView = {
     countdownMs: 2000,
     inRoundPrep: null,
     interaction: {
-      crossExMode: 'free',
       yield: null,
       interruptions: null,
     },
@@ -70,7 +69,7 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       html.includes('&lt;Frozen topic&gt;'),
       html.includes('Not started'),
       html.includes('0:45'),
-      html.includes('Open floor'),
+      !html.includes('Open floor'),
       html.includes('Affirmative 2'),
       html.includes('2:05'),
       html.includes('1:30'),

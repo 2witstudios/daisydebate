@@ -111,7 +111,9 @@ maintenance sweeps the scheduled Round; maintenance then abandons it.
 From then on, the runtime moves through the rules' segments and prep under the
 database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to
-the scheduled speaker, whose segment continues (DEC-203). Humans, bots and
+the scheduled speaker, whose segment continues (DEC-203). Cross-examination
+keeps every seated debater's microphone open for the whole segment and has no
+interruptions (ADR 0096); its questioner may still end it early. Humans, bots and
 services all act through the one shared command operation; people reach it
 through the Round command route.
 
@@ -125,8 +127,7 @@ second view. Everyone else gets the Round's public page.
 
 Unranked Custom rules can use points of information (POI): both sides have
 permission to speak and begin with their local microphones muted, with a
-simple mute/unmute control. This is distinct from cross-examination floor
-control. Raised-hand requests and acceptance are roadmap work (ISSUE-871).
+simple mute/unmute control. Raised-hand requests and acceptance are roadmap work (ISSUE-871).
 
 Media is a scoped LiveKit session. The capture worker turns the published
 audio of every debater, human or bot, into the transcript; bot speech enters

@@ -197,17 +197,11 @@ function resolveYieldRule(
   };
 }
 
-/** Resolves the interaction rules: CX mode, yield and interruptions. */
+/** Resolves the interaction rules: yield and interruptions. */
 function resolveInteraction(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction> {
-  const { interaction } = definition.configurable;
-  if (!interaction.crossExModes.includes(config.crossExamination.crossExMode))
-    return stepRefused(
-      'invalid-choice',
-      `Cross-examination mode ${config.crossExamination.crossExMode} is not permitted`,
-    );
   const interruptions = resolveInterruptions(definition, config);
   if (!interruptions.ok) return interruptions;
   const yieldRule = resolveYieldRule(definition, config);
@@ -215,7 +209,6 @@ function resolveInteraction(
   return {
     ok: true,
     value: {
-      crossExMode: config.crossExamination.crossExMode,
       yield: yieldRule.value,
       interruptions: interruptions.value,
     },

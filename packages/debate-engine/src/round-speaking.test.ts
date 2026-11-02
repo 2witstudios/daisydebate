@@ -7,13 +7,12 @@ import {
 } from './runtime.test-support';
 import { speakingParticipants } from './round-speaking';
 setupRitewayBun();
-const { at, person, opponent, rules } = oneOnOneCast();
+const { at, person, rules } = oneOnOneCast();
 test('Custom POI permits both sides to speak without transferring the scheduled floor', () => {
   const poi = {
     ...rules,
     interaction: {
       ...rules.interaction,
-      crossExMode: 'free' as const,
       interruptions: { allowed: 'open' as const, minRemainingMs: 0 },
     },
   };
@@ -31,13 +30,17 @@ test('Custom POI permits both sides to speak without transferring the scheduled 
     ),
   });
 });
-test('free CX commits both sides while ordered CX transfers exclusive speaking authority', async () => {
-  for (const mode of ['ordered', 'free'] as const) {
+test('cross-examination keeps both microphones open and refuses every interruption', async () => {
+  const modes = [
+    null,
+    { allowed: 'disabled' as const, minRemainingMs: 0 },
+    { allowed: 'enabled' as const, minRemainingMs: 0 },
+    { allowed: 'open' as const, minRemainingMs: 0 },
+  ];
+  for (const interruptions of modes) {
+    const policy = interruptions?.allowed ?? 'no';
     const world = runtimeWorld({
-      rules: {
-        ...rules,
-        interaction: { ...rules.interaction, crossExMode: mode },
-      },
+      rules: { ...rules, interaction: { ...rules.interaction, interruptions } },
     });
     world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
     const opened = world.tick(at(330_000));
@@ -46,40 +49,42 @@ test('free CX commits both sides while ordered CX transfers exclusive speaking a
       (s) => s.kind === 'open' && s.segmentId === cx.id,
     );
     assert({
-      given: `${mode} CX opened by the shared clock`,
-      should: 'grant its resolved speaking participants',
-      actual: grant?.kind === 'open' ? grant.participantIds.length : 0,
-      expected: mode === 'free' ? 2 : 1,
+      given: `cross-examination opened by the clock under ${policy} interruption policy`,
+      should: 'grant both debaters and not the judge',
+      actual: grant?.kind === 'open' ? grant.participantIds : [],
+      expected: oneOnOneSeats
+        .filter((seat) => seat.role !== 'judge')
+        .map((seat) => seat.id),
     });
-    const interrupt = world.execute({
-      command: { type: 'interrupt' },
-      actorId: person,
-      now: at(331_000),
-    });
-    assert({
-      given: `accepted interruption during ${mode} CX`,
-      should:
-        'transfer ordered authority while free eligibility stays unchanged',
-      actual: interrupt.speakingChanges?.map((c) => c.kind),
-      expected: mode === 'free' ? [] : ['close', 'open'],
-    });
-    const before = world.position(at(332_000));
+    const before = world.position(at(331_000));
     await assertRejects({
-      given: 'the other speaker attempts yield after floor transfer',
-      should: 'refuse even if free speech eligible',
+      given: `an interrupt during cross-examination under ${policy} interruption policy`,
+      should: 'refuse with the interrupt-policy invariant',
+      actual: () =>
+        world.execute({
+          command: { type: 'interrupt' },
+          actorId: person,
+          now: at(331_000),
+        }),
+      code: 'INVARIANT',
+      invariantId: 'round.interrupt.requires-policy',
+    });
+    await assertRejects({
+      given: 'the respondent ending the questioner’s cross-examination',
+      should: 'refuse: speaking is not the floor',
       actual: () =>
         world.execute({
           command: { type: 'yield' },
-          actorId: opponent,
-          now: at(332_000),
+          actorId: person,
+          now: at(331_000),
         }),
       code: 'INVARIANT',
       invariantId: 'round.yield.requires-floor',
     });
     assert({
-      given: 'refused yield',
+      given: 'refused commands',
       should: 'preserve engine position',
-      actual: world.position(at(332_000)),
+      actual: world.position(at(331_000)),
       expected: before,
     });
   }

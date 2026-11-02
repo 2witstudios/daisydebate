@@ -127,6 +127,13 @@ export function createBotPublicationOperations(input: {
           token,
           leaseExpiresAt: value.leaseExpiresAt.toISOString(),
           segmentType: segment.type,
+          /** In cross-examination the scheduled seat asks first. */
+          opensExchange: round.rules.segments.some(
+            (rule) =>
+              rule.key === segment.rulesSegmentKey &&
+              rule.side === seat.role &&
+              rule.slot === seat.slot,
+          ),
           /** Activity peers only; grants no authority over another seat. */
           peerParticipantIds: round.participants
             .filter((row) => row.role !== 'judge' && row.id !== seat.id)

@@ -49,7 +49,12 @@ test('a deferred turn resumes at its refused step without buying or speaking any
   const stages: string[] = [];
   let ids = 0;
   const speaker = createBotSpeaker({
-    claim: { scope, token: 'memory-only', segmentType: 'speech' },
+    claim: {
+      scope,
+      token: 'memory-only',
+      segmentType: 'speech',
+      opensExchange: false,
+    },
     generate: async () => {
       calls.language++;
       return {

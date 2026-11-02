@@ -6,7 +6,6 @@ export const plainFormatSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
   speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
   interruptions: null,
   yielding: null,
 };
@@ -26,8 +25,7 @@ export const oneOnOneSettingsFixture: FormatSettings = {
     countdownMs: 10_000,
     segmentDurationOverrides: {},
   },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -114,9 +112,8 @@ export const oneOnOneFormatFixture: FormatDefinition = {
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     resolutionDraw: null,
     interaction: {
-      crossExModes: ['ordered', 'free'],
       interruptions: {
-        modes: ['disabled', 'cross_ex_only', 'enabled'],
+        modes: ['disabled', 'enabled'],
         minRemainingMs: { min: 0, max: 300_000 },
       },
       yield: {
@@ -272,7 +269,7 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   })),
   inRoundPrep: null,
   countdownMs: 0,
-  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
+  interaction: { yield: null, interruptions: null },
 });
 
 /** Draw bounds a draw-capable format fixture declares (FMT-7). */
