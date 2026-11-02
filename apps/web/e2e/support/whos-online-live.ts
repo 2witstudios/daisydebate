@@ -4,7 +4,7 @@ import { origin, resetRateLimits, signUpMember } from './accounts';
 
 /**
  * The connected outcome (ADR 0098): two members on different pages see each
- * other online, live, one challenges the other, ranked, and they land in the
+ * other online, live, one challenges the other, and they land in the
  * same room. Then what must stop it: Busy, and a block.
  */
 /** The rail, opened: a 1280px window starts it collapsed, and the choice sticks. */
@@ -58,6 +58,8 @@ export function testWhoIsOnline() {
       // Right-click opens the one menu.
       await rail.getByText(`@${b}`).first().click({ button: 'right' });
       await rail.getByRole('menuitem', { name: 'Challenge' }).click();
+      // The e2e slot has no active season, so a ranked room would be refused.
+      await rail.getByRole('button', { name: 'Casual' }).click();
       await rail.getByRole('button', { name: 'Send challenge' }).click();
       await expect(rail.getByText('Challenge sent').first()).toBeVisible();
 
@@ -66,7 +68,7 @@ export function testWhoIsOnline() {
         .getByRole('region', { name: `Challenge from @${a}` })
         .first();
       await expect(card).toBeVisible({ timeout: 30_000 });
-      await expect(card).toContainText('Freestyle · Ranked');
+      await expect(card).toContainText('Freestyle · Casual');
       await card.getByRole('button', { name: 'Accept' }).click();
 
       await expect(challenged).toHaveURL(/\/rooms\/[a-z0-9]{24}$/, {

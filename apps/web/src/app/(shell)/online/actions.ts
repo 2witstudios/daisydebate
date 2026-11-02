@@ -183,9 +183,13 @@ export async function acceptChallengeAction(
       },
       moveOn,
     );
-    return created.next === undefined
-      ? { notice: created.error ?? challengeRefusal('accept', 500) }
-      : { next: created.next };
+    if (created.next !== undefined) return { next: created.next };
+    return {
+      notice:
+        offer.mode === 'ranked'
+          ? challengeRefusal('accept-ranked', 500)
+          : (created.error ?? challengeRefusal('accept', 500)),
+    };
   } catch (error) {
     // moveOn's redirect for a native post is not a failure.
     if (isRedirect(error)) throw error;
