@@ -85,21 +85,11 @@ export const segmentTypes = ['speech', 'cross_ex'] as const;
 const segmentTypeSchema = z.enum(segmentTypes);
 export type SegmentType = (typeof segmentTypes)[number];
 
-/** How a cross-examination segment's floor may move. */
-const crossExModes = ['ordered', 'free'] as const;
-export const crossExModeSchema = z.enum(crossExModes);
-
 /**
- * Whether another participant may take the floor mid-segment, and where.
- * A three-state policy, not a boolean: "interruptions on" and "interruptions
- * during cross-examination only" are different debates (ADR 0058).
+ * What another debater may do during a speech (ADR 0096). Cross-examination
+ * never has interruptions: both sides speak for all of it.
  */
-const interruptionModes = [
-  'disabled',
-  'cross_ex_only',
-  'enabled',
-  'open',
-] as const;
+const interruptionModes = ['disabled', 'enabled', 'open'] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
 /** An inclusive millisecond range a room's chosen value must land inside. */
@@ -168,7 +158,6 @@ const formatDefinitionShape = z.strictObject({
       })
       .nullable(),
     interaction: z.strictObject({
-      crossExModes: optionSet(crossExModeSchema, crossExModes.length),
       interruptions: z
         .strictObject({
           modes: optionSet(interruptionModeSchema, interruptionModes.length),
@@ -311,7 +300,6 @@ export const roundRulesSchema = z
       .nullable(),
     countdownMs: z.int().min(0),
     interaction: z.strictObject({
-      crossExMode: crossExModeSchema,
       /** The speaker voluntarily ends their own control. */
       yield: z
         .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })

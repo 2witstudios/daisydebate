@@ -24,7 +24,6 @@ const rules = {
   inRoundPrep: null,
   countdownMs: 0,
   interaction: {
-    crossExMode: 'ordered' as const,
     yield: null,
     interruptions: null,
   },
@@ -65,7 +64,6 @@ export const state = (): RoomAssemblyState => ({
         },
       },
       interaction: {
-        crossExModes: ['ordered'],
         interruptions: null,
         yield: null,
       },

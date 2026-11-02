@@ -55,13 +55,8 @@ describe('formatChangeLine', () => {
           changed: ['NC'],
         }),
         formatChangeLine({
-          kind: 'cross-ex-mode',
-          from: 'ordered',
-          to: 'free',
-        }),
-        formatChangeLine({
           kind: 'interruptions',
-          from: { allowed: 'cross_ex_only', minRemainingMs: 30_000 },
+          from: { allowed: 'enabled', minRemainingMs: 30_000 },
           to: { allowed: 'disabled', minRemainingMs: 0 },
         }),
         formatChangeLine({
@@ -96,8 +91,7 @@ describe('formatChangeLine', () => {
         'Judges 1 → 3',
         'Aff debaters 1 → 2',
         'Speeches added 3AR · removed 2AR · changed NC',
-        'Cross-examination: Questioner leads → Open floor',
-        'Interruptions: Only during cross-examination → Off',
+        'Interruptions: During any speech → Off',
         'Ending a speech early: on → off',
         'Resolution strike: 5 from Daisy’s Policy, Value and Fact resolutions · Negative strikes first · 1:00 per strike → off',
         'Resolution strike: off → 3 from the host’s list · Affirmative strikes first · 1:30 per strike',

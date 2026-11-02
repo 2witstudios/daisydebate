@@ -31,12 +31,12 @@ describe('DebateRoom controls', () => {
     assert({
       given: 'prep, the debater’s own speech and cross-examination',
       should:
-        'show Start, End speech and Interrupt, each disabled, and a disabled chat box',
+        'show disabled Start and End speech, no Interrupt, and a disabled chat box',
       actual: [
         !prep.includes('Save the rest'),
         disabled(prep, 'Start (<!-- -->)?negative rebuttal'),
         disabled(speech, 'End speech'),
-        disabled(cx, 'Interrupt'),
+        !cx.includes('Interrupt'),
         /<input[^>]*aria-label="Message # round"[^>]*disabled=""/.test(chat),
         /aria-label="Send"[^>]*disabled=""/.test(chat),
       ],

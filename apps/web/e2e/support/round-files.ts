@@ -61,8 +61,9 @@ export const test = base.extend<{
                 speechTiming: {
                   ...prepared.config.speechTiming,
                   countdownMs: 30000,
+                  segmentDurationOverrides: { CX1: 30000 },
                 },
-                interruptions: { mode: 'cross_ex_only', minRemainingMs: 0 },
+                interruptions: { mode: 'enabled', minRemainingMs: 0 },
                 yielding: { allowed: true, returnsTime: true },
               },
             },

@@ -24,10 +24,9 @@ describe('formatStandingSchema', () => {
             { kind: 'in-round-prep', fromMs: 480_000, toMs: null },
             { kind: 'seats', role: 'judge', from: 1, to: 3 },
             { kind: 'segments', added: ['X'], removed: [], changed: [] },
-            { kind: 'cross-ex-mode', from: 'ordered', to: 'free' },
             {
               kind: 'interruptions',
-              from: { allowed: 'cross_ex_only', minRemainingMs: 30_000 },
+              from: { allowed: 'enabled', minRemainingMs: 30_000 },
               to: null,
             },
             {

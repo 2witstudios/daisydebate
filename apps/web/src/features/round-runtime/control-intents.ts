@@ -82,7 +82,7 @@ function openIntents(
       ),
     );
   if (
-    open.type === 'cross_ex' ||
+    open.type !== 'cross_ex' &&
     view.rules.interaction.interruptions?.allowed === 'enabled'
   )
     result.push(

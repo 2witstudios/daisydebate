@@ -52,7 +52,6 @@ export const launchCustomSelection = {
       resolutionDraw: null,
       inRoundPrep: null,
       interaction: {
-        crossExModes: ['ordered'],
         interruptions: null,
         yield: null,
       },

@@ -108,29 +108,25 @@ describe('catalogFormats', () => {
     assert({
       given: 'the team policy templates',
       should:
-        'carry 2v2 seats, ordered questioning and each league’s prep (NSDA 8, NDT 10, NCFCA 5 not before cross-ex)',
+        'carry 2v2 seats and each league’s prep (NSDA 8, NDT 10, NCFCA 5 not before cross-ex)',
       actual: ['nsda-policy', 'college-policy', 'ncfca-tp'].map((id) => ({
         seats: format(id).definition.seats,
-        mode: format(id).preset.crossExamination.crossExMode,
         prepMs: prepMs(id),
         before: format(id).definition.configurable.inRoundPrep?.spendableBefore,
       })),
       expected: [
         {
           seats: { affirmative: 2, negative: 2, judge: 1 },
-          mode: 'ordered',
           prepMs: 480_000,
           before: ['speech', 'cross_ex'],
         },
         {
           seats: { affirmative: 2, negative: 2, judge: 1 },
-          mode: 'ordered',
           prepMs: 600_000,
           before: ['speech', 'cross_ex'],
         },
         {
           seats: { affirmative: 2, negative: 2, judge: 1 },
-          mode: 'ordered',
           prepMs: 300_000,
           before: ['speech'],
         },
@@ -147,11 +143,9 @@ describe('catalogFormats', () => {
   test('Public Forum and Big Questions', () => {
     assert({
       given: 'Public Forum',
-      should:
-        'run 4-4-3-4-4-3-3-3-3-2-2 with open crossfire and 3 min of prep a team',
+      should: 'run 4-4-3-4-4-3-3-3-3-2-2 and 3 min of prep a team',
       actual: {
         schedule: schedule('nsda-pf'),
-        mode: format('nsda-pf').preset.crossExamination.crossExMode,
         prep: format('nsda-pf').preset.inRoundPrep,
       },
       expected: {
@@ -168,7 +162,6 @@ describe('catalogFormats', () => {
           'AFF A1 2',
           'NFF N1 2',
         ],
-        mode: 'free',
         prep: { enabled: true, budgetMsPerSide: 180_000 },
       },
     });
@@ -180,12 +173,10 @@ describe('catalogFormats', () => {
         questions: format('nsda-bq')
           .definition.segments.filter((s) => s.type === 'cross_ex')
           .map((s) => s.defaultDurationMs),
-        mode: format('nsda-bq').preset.crossExamination.crossExMode,
       },
       expected: {
         seats: { affirmative: 1, negative: 1, judge: 1 },
         questions: [180_000, 180_000],
-        mode: 'free',
       },
     });
   });

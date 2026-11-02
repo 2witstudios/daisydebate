@@ -43,7 +43,6 @@ const form = (view: RoomView, draw: Record<string, string>) => {
   fields.set('duration.countdown', '0:00.444');
   fields.set('duration.segment.N3', '1:38.765');
   fields.set('duration.segment.A1', '1:00');
-  fields.set('crossExMode', 'free');
   fields.set('interruptionsMode', 'disabled');
   fields.set('duration.minRemaining', '0:01.234');
   fields.set('yield', 'off');

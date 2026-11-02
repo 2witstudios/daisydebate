@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { FormatDefinition } from './format';
 import type { FormatSettings } from './format-settings';
-import { crossExModeSchema, interruptionModeSchema } from './format';
+import { interruptionModeSchema } from './format';
 import { debateRoleSchema } from './primitives';
 import { frozenResolutionDrawSchema } from './resolution-draw';
 
@@ -53,11 +53,6 @@ const formatChangeSchema = z.discriminatedUnion('kind', [
     kind: z.literal('pre-round-prep'),
     fromMs: msSchema.nullable(),
     toMs: msSchema.nullable(),
-  }),
-  z.strictObject({
-    kind: z.literal('cross-ex-mode'),
-    from: crossExModeSchema,
-    to: crossExModeSchema,
   }),
   z.strictObject({
     kind: z.literal('interruptions'),

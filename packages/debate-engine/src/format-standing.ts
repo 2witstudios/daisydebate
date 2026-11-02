@@ -119,11 +119,6 @@ function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
       toMs: preRoundMs(to.plan),
     },
     {
-      kind: 'cross-ex-mode',
-      from: from.rules.interaction.crossExMode,
-      to: to.rules.interaction.crossExMode,
-    },
-    {
       kind: 'interruptions',
       from: from.rules.interaction.interruptions,
       to: to.rules.interaction.interruptions,

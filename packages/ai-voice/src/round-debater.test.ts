@@ -48,7 +48,7 @@ test('shared Round prompt preserves each seat and incomplete captured evidence',
       messages[1]?.content.includes('negative seat 1'),
       messages[1]?.content.includes('incomplete'),
       messages[1]?.content.includes('negative seat 2'),
-      messages[1]?.content.includes('free cross-examination'),
+      messages[1]?.content.includes('This is cross-examination'),
     ],
     expected: [2, true, true, true, true, true, true],
   });

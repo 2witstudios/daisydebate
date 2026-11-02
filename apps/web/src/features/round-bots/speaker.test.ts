@@ -76,7 +76,7 @@ test('cross-examination answers each peer turn once and cancels the active phras
   speaker.wake();
   await settle();
   assert({
-    given: 'a free cross-examination claim',
+    given: 'a cross-examination claim',
     should: 'open the exchange once and report playback',
     actual: [log.length, speaker.playing()],
     expected: [3, true],

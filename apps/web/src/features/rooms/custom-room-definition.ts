@@ -29,9 +29,8 @@ export function customRoomDefinition(
         sources: ['bank'],
       },
       interaction: {
-        crossExModes: ['ordered', 'free'],
         interruptions: {
-          modes: ['disabled', 'cross_ex_only', 'enabled', 'open'],
+          modes: ['disabled', 'enabled', 'open'],
           minRemainingMs: { min: 0, max: 300_000 },
         },
         yield: {

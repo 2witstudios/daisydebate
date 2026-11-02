@@ -28,9 +28,8 @@ const requireYield = (c: CommandContext) => {
 
 /**
  * Only the floor holder yields (DEC-203). An interrupter hands the floor back
- * to the segment's scheduled seat, whose segment and clock continue; in
- * cross-examination that is the questioner. Only the scheduled speaker's
- * yield closes the segment, and unused time comes back.
+ * to the segment's scheduled seat, whose segment and clock continue. Only the
+ * scheduled speaker's yield closes the segment, and unused time comes back.
  */
 export const yieldFloor = (c: CommandContext): void => {
   const { open, seat, returnsTime } = requireYield(c);
@@ -62,10 +61,10 @@ const requireInterruptWindow = (c: CommandContext) => {
       debateInvariantIds.interruptRequiresPolicy,
       'The resolved rules forbid interruptions here',
     );
-  if (policy.allowed === 'cross_ex_only' && open.type !== 'cross_ex')
+  if (open.type === 'cross_ex')
     invariant(
       debateInvariantIds.interruptRequiresPolicy,
-      'Interruptions are confined to cross-examination',
+      'Nobody interrupts cross-examination: every debater already speaks',
     );
   const remaining = open.startedAtMs + open.durationMs - c.now;
   if (remaining < policy.minRemainingMs)

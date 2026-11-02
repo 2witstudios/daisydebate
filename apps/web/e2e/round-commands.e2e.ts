@@ -15,6 +15,8 @@ test('native Start affirmative constructive and enhanced round controls retain c
   roundFiles,
   browser,
 }) => {
+  // The clock plays a 30s cross-examination and countdown before the speech.
+  test.setTimeout(240_000);
   const { page, roundId } = roundFiles;
   const native = await browser.newContext({
     baseURL: origin,
@@ -88,11 +90,12 @@ test('native Start affirmative constructive and enhanced round controls retain c
     ).toBeVisible();
     expect((await read()).version).toBe(beforeRefusal.version);
     await stalePage.close();
-    // The page enables Interrupt from the clock once the break is over, but
-    // the cross-ex opens canonically on a maintenance tick that advances the
-    // version: a page rendered before it posts a stale expected version and
-    // is refused, as the stale page above is. Render it after the opening,
-    // and post it only once its form carries the canonical version.
+    // Cross-examination has no Interrupt whatever the policy. The negative's
+    // speech that follows does, under this Round's enabled policy. It opens on
+    // a maintenance tick that advances the version: a page rendered before it
+    // posts a stale expected version and is refused, as the stale page above
+    // is. Render it after the opening, and post it only once its form carries
+    // the canonical version.
     const interrupt = formPage.getByRole('button', {
       name: 'Interrupt',
       exact: true,
@@ -100,9 +103,18 @@ test('native Start affirmative constructive and enhanced round controls retain c
     await expect(async () => {
       const opened = await read();
       const crossEx = opened.segments.find(
-        (segment) => segment.type === 'cross_ex',
+        (segment) => segment.rulesSegmentKey === 'CX1',
       );
       expect(crossEx?.startedAt).toEqual(expect.any(String));
+      await formPage.reload();
+      await expect(interrupt).toHaveCount(0);
+    }).toPass({ timeout: 45000 });
+    await expect(async () => {
+      const opened = await read();
+      const speech = opened.segments.find(
+        (segment) => segment.rulesSegmentKey === 'NC',
+      );
+      expect(speech?.startedAt).toEqual(expect.any(String));
       await formPage.reload();
       await expect(interrupt).toBeEnabled();
       await expect(
@@ -110,7 +122,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
           .locator('form', { has: interrupt })
           .locator('input[name="expectedVersion"]'),
       ).toHaveValue(String(opened.version));
-    }).toPass({ timeout: 45000 });
+    }).toPass({ timeout: 120000 });
     await interrupt.click();
     const interrupted = await read();
     const human = interrupted.participants
