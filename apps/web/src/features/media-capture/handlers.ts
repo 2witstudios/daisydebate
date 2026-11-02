@@ -85,6 +85,7 @@ export function createMediaCaptureHandlers(input: {
             const capture = input.capture();
             const operations = {
               lease: capture.claimMediaWorkerLease,
+              release: capture.releaseMediaWorkerLease,
               read: capture.readMediaCaptureState,
               append: capture.appendCapturedTranscript,
               observe: capture.observeCapturedStream,

@@ -84,6 +84,7 @@ async function close(
     nowMs: () => now,
     waitUntilMs,
     take: () => queue.shift(),
+    lost: () => undefined,
     straddles: () => [],
     dropped: (n) => {
       dropped += n;

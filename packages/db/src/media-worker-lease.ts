@@ -90,10 +90,13 @@ export const captureLeaseRefusals: LeaseRefusals = {
 
 /**
  * Capture's lease claim rule on a session, as a pure decision: another
- * worker's live lease refuses as held; a
- * renewal must match this worker's live epoch, so it cannot turn an expired
- * or rotated lease into a new initial claim; a first claim takes epoch 1, a
- * live lease keeps its epoch and an expired one moves it on.
+ * worker's live lease refuses as held; a renewal must name this worker's
+ * current epoch, so it cannot become a new initial claim. A renewal after
+ * expiry reinstates that same epoch: the row is read under its lock, and any
+ * takeover or rotation has already moved it, so an unchanged row proves no
+ * other authority existed. No write was admitted while it was expired. A
+ * first claim takes epoch 1, a live lease keeps its epoch and a fresh claim on
+ * an expired one moves it on.
  */
 export function mediaWorkerLeaseEpoch(
   current:
@@ -113,15 +116,14 @@ export function mediaWorkerLeaseEpoch(
   const live = current !== undefined && current.expiresAt > now;
   if (live && current.workerId !== request.workerId)
     throw createAppError('CONFLICT', refusals.held);
-  if (
-    request.expectedEpoch !== undefined &&
-    !(
-      live &&
-      current.workerId === request.workerId &&
-      current.epoch === request.expectedEpoch
+  if (request.expectedEpoch !== undefined) {
+    if (
+      current?.workerId !== request.workerId ||
+      current.epoch !== request.expectedEpoch
     )
-  )
-    throw createAppError('CONFLICT', refusals.stale);
+      throw createAppError('CONFLICT', refusals.stale);
+    return current.epoch;
+  }
   if (!current) return 1;
   return live ? current.epoch : nextEpoch(current.epoch, refusals.exhausted);
 }

@@ -134,6 +134,7 @@ export async function sealCapturedStream(
     );
   const state = sealState({
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
+    framesLost: input.framesLost,
     epoch: input.epoch,
     observations,
     chunks,

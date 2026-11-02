@@ -150,6 +150,8 @@ export function sealAction(
  */
 export function sealState(input: {
   readonly interrupted?: boolean;
+  /** The sealing process held frames it then had to drop. */
+  readonly framesLost?: boolean;
   readonly epoch: number;
   readonly observations: readonly {
     readonly start: Date;
@@ -169,6 +171,7 @@ export function sealState(input: {
   }));
   const complete =
     !input.interrupted &&
+    !input.framesLost &&
     input.chunks?.otherEpochChunks === 0 &&
     input.observations.every((row) => row.epoch === input.epoch) &&
     input.storedChunks === input.chunks.count &&

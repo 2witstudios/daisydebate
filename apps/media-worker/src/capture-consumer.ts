@@ -1,5 +1,6 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { cutCaptureClips } from '@daisy/media/clips';
+import { isTransientControlFailure } from '@daisy/media/worker';
 import {
   contained,
   observedWindow,
@@ -23,6 +24,8 @@ export async function consumeCaptureClips(input: {
   /** Edge-straddling frames seen on a track (capture-staging). */
   readonly straddles: (trackId: string) => readonly FrameWindow[];
   readonly dropped: (n: number) => void;
+  /** A clip within its grant was heard, then lost before it could be committed. */
+  readonly lost: (clip: QueuedClip) => void;
   readonly transcribed: () => void;
   readonly committed: (clip: QueuedClip) => void;
   /** The clip left the pipeline: transcribed and observed, or dropped. */
@@ -104,6 +107,7 @@ async function consumeClip(
   input.signal.throwIfAborted();
   if (!result) {
     input.dropped(clip.durationMs / 10);
+    input.lost(clip);
     return;
   }
   input.transcribed();
@@ -114,16 +118,18 @@ async function consumeClip(
     clip,
     input.straddles(clip.trackId),
   );
-  await input.client.observe(
-    {
-      epoch: input.epoch,
-      segmentId: clip.segmentId,
-      roundParticipantId: clip.roundParticipantId,
-      trackId: clip.trackId,
-      observedFrom: new Date(window.fromMs).toISOString(),
-      observedUntil: new Date(window.untilMs).toISOString(),
-    },
-    input.signal,
+  await untilAnswered(input, () =>
+    input.client.observe(
+      {
+        epoch: input.epoch,
+        segmentId: clip.segmentId,
+        roundParticipantId: clip.roundParticipantId,
+        trackId: clip.trackId,
+        observedFrom: new Date(window.fromMs).toISOString(),
+        observedUntil: new Date(window.untilMs).toISOString(),
+      },
+      input.signal,
+    ),
   );
 }
 
@@ -157,10 +163,31 @@ function clipObservation(
   });
 }
 
+/** How soon a write the control plane could not answer is sent again. */
+const WRITE_RETRY_MS = 250;
+/** A write stays pending in memory until the server answers or the session stops. */
+async function untilAnswered<T>(
+  input: Pick<
+    Parameters<typeof consumeCaptureClips>[0],
+    'signal' | 'nowMs' | 'waitUntilMs'
+  >,
+  write: () => Promise<T>,
+): Promise<T> {
+  for (;;) {
+    try {
+      return await write();
+    } catch (error) {
+      input.signal.throwIfAborted();
+      if (!isTransientControlFailure(error)) throw error;
+      await input.waitUntilMs(input.nowMs() + WRITE_RETRY_MS, input.signal);
+    }
+  }
+}
+
 async function appendClip(
   input: Pick<
     Parameters<typeof consumeCaptureClips>[0],
-    'client' | 'epoch' | 'signal' | 'committed'
+    'client' | 'epoch' | 'signal' | 'committed' | 'nowMs' | 'waitUntilMs'
   >,
   clip: QueuedClip,
   text: string,
@@ -177,11 +204,6 @@ async function appendClip(
     text,
   };
   // Retry preserves the exact captured result and durable dedupe identity.
-  try {
-    await input.client.append(payload, input.signal);
-  } catch {
-    input.signal.throwIfAborted();
-    await input.client.append(payload, input.signal);
-  }
+  await untilAnswered(input, () => input.client.append(payload, input.signal));
   input.committed(clip);
 }

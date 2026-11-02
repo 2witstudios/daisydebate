@@ -15,6 +15,7 @@ export async function sealCaptureStreams(
     segmentId: string;
     roundParticipantId: string;
     count: number;
+    framesLost: boolean;
   }>,
   signal: AbortSignal,
   finished: (stream: { segmentId: string; roundParticipantId: string }) => void,
@@ -28,6 +29,7 @@ export async function sealCaptureStreams(
           segmentId: stream.segmentId,
           roundParticipantId: stream.roundParticipantId,
           expectedChunkCount: stream.count,
+          framesLost: stream.framesLost,
         },
         signal,
       );
