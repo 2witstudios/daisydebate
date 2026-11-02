@@ -76,7 +76,10 @@ export const rounds = pgTable(
       onDelete: 'restrict',
     }),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
-    resolution: text('resolution').notNull(),
+    /** Null until a draw's reveal; stays null if the Round ended before it. */
+    resolution: text('resolution'),
+    /** Pre-round prep's full length, or null when the Round has none. */
+    preRoundPrepMs: integer('pre_round_prep_ms'),
     publishedResolutionId: text('published_resolution_id').references(
       () => publishedResolutions.id,
       { onDelete: 'restrict' },
@@ -122,8 +125,8 @@ export const rounds = pgTable(
     version: versionColumn(),
   },
   (table) => {
-    const scheduled = sql`${table.status} = 'scheduled' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
-    const active = sql`${table.status} = 'active' and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
+    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
+    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
     /** No outcome: a zero-judge casual Round, or judges past their ballot deadline (DEC-201). */
     const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null`;
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
@@ -146,7 +149,7 @@ export const rounds = pgTable(
       index('rounds_discovery_live_room_idx')
         .on(sql`${table.roomId} collate "C"`)
         .where(
-          sql`${table.status} in ('scheduled', 'active') and ${table.roomId} is not null`,
+          sql`${table.status} in ('opening', 'active') and ${table.roomId} is not null`,
         ),
       unique('rounds_room_unique').on(table.roomId),
       index('rounds_created_by_actor_idx').on(table.createdByActorId),
@@ -181,6 +184,10 @@ export const rounds = pgTable(
         notBefore(table.completedAt, table.startedAt),
       ),
       check(
+        'rounds_pre_round_prep_positive',
+        sql`${table.preRoundPrepMs} is null or ${table.preRoundPrepMs} > 0`,
+      ),
+      check(
         'rounds_status_check',
         oneOf(table.status, roundStatusSchema.options),
       ),
@@ -202,7 +209,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_lifecycle_check',
-        sql`(${scheduled}) or (${active}) or (${completed}) or (${abandoned})`,
+        sql`(${opening}) or (${active}) or (${completed}) or (${abandoned})`,
       ),
       check(
         'rounds_rated_ladder_check',

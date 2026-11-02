@@ -39,11 +39,9 @@ import { publishedResolutions } from './published-resolutions';
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
  * whole configuration surface, the versions it pinned at resolution, the
- * already-resolved rules the startRound freeze copies, and its own
- * pre-round prep anchor — a running clock with no row behind it, the same
- * reason a Round holds `active_prep`. Persisting it does not make it
- * competitive state: no Round reads a Room, no rating depends on one, and
- * nothing in a Round's history would change if Rooms were deleted.
+ * already-resolved rules the startRound freeze copies. It is not competitive
+ * state: no Round reads a Room, no rating depends on one, and nothing in a
+ * Round's history would change if Rooms were deleted.
  */
 export const rooms = pgTable(
   'rooms',
@@ -87,10 +85,6 @@ export const rooms = pgTable(
     ).notNull(),
     /** RoundRules, resolved and frozen here. */
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
-    /** The pre-round prep clock anchor. */
-    prepStartedAt: timestampColumn('prep_started_at'),
-    /** Survives a crash mid-prep. */
-    prepRemainingMs: integer('prep_remaining_ms'),
     status: text('status').$type<(typeof roomStatuses)[number]>().notNull(),
     /**
      * The last accepted participant command: the durable idle anchor

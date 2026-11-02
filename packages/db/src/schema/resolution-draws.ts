@@ -12,7 +12,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { jsonbColumn, jsonbIsObject, oneOf, timestampColumn } from './columns';
 import { actors } from './actors';
-import { rooms } from './rooms';
 import { rounds } from './rounds';
 import {
   drawPrivateInputsSchema,
@@ -83,63 +82,49 @@ export const resolutionBankEntries = pgTable(
 );
 
 /**
- * A Room's one draw (assembly state, written only by the Room writer).
- * `source_kind` and `draw_size` are denormalized so children can key on
- * them; the row is never updated.
+ * A Round's one draw, written with the Round at Start round. `source_kind`
+ * and `draw_size` are denormalized so children can key on them; the row is
+ * never updated. The seed, texts and private inputs live in their own tables
+ * below.
  */
-export const roomResolutionDraws = pgTable(
-  'room_resolution_draws',
+export const roundResolutionDraws = pgTable(
+  'round_resolution_draws',
   {
     id: text('id').primaryKey(),
-    roomId: text('room_id')
+    roundId: text('round_id')
       .notNull()
       .unique()
-      .references(() => rooms.id, { onDelete: 'cascade' }),
+      .references(() => rounds.id, { onDelete: 'cascade' }),
     sourceKind: text('source_kind').$type<'bank' | 'host'>().notNull(),
     drawSize: integer('draw_size').notNull(),
     manifest: jsonbColumn('manifest', resolutionDrawManifestSchema).notNull(),
     manifestDigest: text('manifest_digest').notNull(),
     commitment: text('commitment').notNull(),
-    /** Secret: never delivered. 32 bytes, lowercase hex. */
-    seed: text('seed').notNull(),
     startedAt: timestampColumn('started_at').notNull(),
   },
   (table) => [
-    unique('room_resolution_draws_kind_unique').on(table.id, table.sourceKind),
-    unique('room_resolution_draws_size_unique').on(table.id, table.drawSize),
+    unique('round_resolution_draws_kind_unique').on(table.id, table.sourceKind),
+    unique('round_resolution_draws_size_unique').on(table.id, table.drawSize),
     check(
-      'room_resolution_draws_source_kind_check',
+      'round_resolution_draws_source_kind_check',
       oneOf(table.sourceKind, ['bank', 'host']),
     ),
     check(
-      'room_resolution_draws_manifest_match',
+      'round_resolution_draws_manifest_match',
       sql`${table.manifest}->'source'->>'kind' = ${table.sourceKind} and (${table.manifest}->>'drawSize')::int = ${table.drawSize}`,
     ),
     check(
-      'room_resolution_draws_size_check',
+      'round_resolution_draws_size_check',
       sql`${table.drawSize} between 2 and 20`,
     ),
-    check('room_resolution_draws_seed_hex', hex64(table.seed)),
-    check('room_resolution_draws_digest_hex', hex64(table.manifestDigest)),
-    check('room_resolution_draws_commitment_hex', hex64(table.commitment)),
-    jsonbIsObject('room_resolution_draws', table.manifest),
+    check('round_resolution_draws_digest_hex', hex64(table.manifestDigest)),
+    check('round_resolution_draws_commitment_hex', hex64(table.commitment)),
+    jsonbIsObject('round_resolution_draws', table.manifest),
   ],
 );
 
-/** The draw's private inputs, durable before Launch; erasable. */
-export const roomResolutionDrawInputs = pgTable(
-  'room_resolution_draw_inputs',
-  {
-    drawId: text('draw_id')
-      .primaryKey()
-      .references(() => roomResolutionDraws.id, { onDelete: 'cascade' }),
-    inputs: jsonbColumn('inputs', drawPrivateInputsSchema).notNull(),
-  },
-  (table) => [jsonbIsObject('room_resolution_draw_inputs', table.inputs)],
-);
-
-export const roomResolutionDrawItems = pgTable(
-  'room_resolution_draw_items',
+export const roundResolutionDrawItems = pgTable(
+  'round_resolution_draw_items',
   {
     drawId: text('draw_id').notNull(),
     position: integer('position').notNull(),
@@ -150,48 +135,47 @@ export const roomResolutionDrawItems = pgTable(
       () => resolutionBankEntries.id,
       { onDelete: 'restrict' },
     ),
-    text: text('text').notNull(),
     category: text('category').$type<(typeof resolutionCategories)[number]>(),
   },
   (table) => [
     primaryKey({ columns: [table.drawId, table.position] }),
     foreignKey({
-      name: 'room_resolution_draw_items_kind_fk',
+      name: 'round_resolution_draw_items_kind_fk',
       columns: [table.drawId, table.sourceKind],
-      foreignColumns: [roomResolutionDraws.id, roomResolutionDraws.sourceKind],
+      foreignColumns: [roundResolutionDraws.id, roundResolutionDraws.sourceKind],
     }).onDelete('cascade'),
     foreignKey({
-      name: 'room_resolution_draw_items_size_fk',
+      name: 'round_resolution_draw_items_size_fk',
       columns: [table.drawId, table.drawSize],
-      foreignColumns: [roomResolutionDraws.id, roomResolutionDraws.drawSize],
+      foreignColumns: [roundResolutionDraws.id, roundResolutionDraws.drawSize],
     }).onDelete('cascade'),
-    index('room_resolution_draw_items_kind_idx').on(
+    index('round_resolution_draw_items_kind_idx').on(
       table.drawId,
       table.sourceKind,
     ),
-    index('room_resolution_draw_items_size_idx').on(
+    index('round_resolution_draw_items_size_idx').on(
       table.drawId,
       table.drawSize,
     ),
-    index('room_resolution_draw_items_bank_entry_idx').on(table.bankEntryId),
+    index('round_resolution_draw_items_bank_entry_idx').on(table.bankEntryId),
     check(
-      'room_resolution_draw_items_bank_entry_check',
+      'round_resolution_draw_items_bank_entry_check',
       sql`(${table.sourceKind} = 'bank') = (${table.bankEntryId} is not null)`,
     ),
     check(
-      'room_resolution_draw_items_position_check',
+      'round_resolution_draw_items_position_check',
       sql`${table.position} >= 0 and ${table.position} < ${table.drawSize}`,
     ),
     // Null-safe: a host line has no category; a bank item names one of three.
     check(
-      'room_resolution_draw_items_category_check',
+      'round_resolution_draw_items_category_check',
       sql`${table.category} is null or ${oneOf(table.category, resolutionCategories)}`,
     ),
   ],
 );
 
-export const roomResolutionStrikes = pgTable(
-  'room_resolution_strikes',
+export const roundResolutionStrikes = pgTable(
+  'round_resolution_strikes',
   {
     drawId: text('draw_id').notNull(),
     ordinal: integer('ordinal').notNull(),
@@ -207,39 +191,39 @@ export const roomResolutionStrikes = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.drawId, table.ordinal] }),
-    unique('room_resolution_strikes_position_unique').on(
+    unique('round_resolution_strikes_position_unique').on(
       table.drawId,
       table.position,
     ),
     foreignKey({
-      name: 'room_resolution_strikes_item_fk',
+      name: 'round_resolution_strikes_item_fk',
       columns: [table.drawId, table.position],
       foreignColumns: [
-        roomResolutionDrawItems.drawId,
-        roomResolutionDrawItems.position,
+        roundResolutionDrawItems.drawId,
+        roundResolutionDrawItems.position,
       ],
     }).onDelete('cascade'),
     foreignKey({
-      name: 'room_resolution_strikes_size_fk',
+      name: 'round_resolution_strikes_size_fk',
       columns: [table.drawId, table.drawSize],
-      foreignColumns: [roomResolutionDraws.id, roomResolutionDraws.drawSize],
+      foreignColumns: [roundResolutionDraws.id, roundResolutionDraws.drawSize],
     }).onDelete('cascade'),
-    index('room_resolution_strikes_size_idx').on(table.drawId, table.drawSize),
-    index('room_resolution_strikes_actor_idx').on(table.actorId),
+    index('round_resolution_strikes_size_idx').on(table.drawId, table.drawSize),
+    index('round_resolution_strikes_actor_idx').on(table.actorId),
     check(
-      'room_resolution_strikes_ordinal_check',
+      'round_resolution_strikes_ordinal_check',
       sql`${table.ordinal} >= 0 and ${table.ordinal} < ${table.drawSize} - 1`,
     ),
     check(
-      'room_resolution_strikes_side_check',
+      'round_resolution_strikes_side_check',
       oneOf(table.side, ['affirmative', 'negative']),
     ),
     check(
-      'room_resolution_strikes_kind_check',
+      'round_resolution_strikes_kind_check',
       oneOf(table.kind, ['debater', 'timeout', 'automatic']),
     ),
     check(
-      'room_resolution_strikes_debater_check',
+      'round_resolution_strikes_debater_check',
       sql`(${table.kind} = 'debater') = (${table.actorId} is not null and ${table.commandId} is not null)`,
     ),
   ],
@@ -257,7 +241,7 @@ export const roundDrawSeeds = pgTable(
   (table) => [check('round_draw_seeds_seed_hex', hex64(table.seed))],
 );
 
-/** The drawn texts frozen at Launch; never updated, deleted only by erasure. */
+/** The drawn texts, written at Start round; fixed once written. */
 export const roundResolutionDrawTexts = pgTable(
   'round_resolution_draw_texts',
   {
@@ -270,7 +254,7 @@ export const roundResolutionDrawTexts = pgTable(
   (table) => [primaryKey({ columns: [table.roundId, table.position] })],
 );
 
-/** The draw's private inputs frozen at Launch; never updated, deleted only by erasure. */
+/** The draw's private inputs, written at Start round; fixed once written. */
 export const roundDrawPrivateInputs = pgTable(
   'round_draw_private_inputs',
   {

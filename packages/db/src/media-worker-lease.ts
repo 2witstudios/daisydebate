@@ -50,7 +50,7 @@ export async function verifyMediaWorkerLease(
   if (
     !session ||
     !round ||
-    !['scheduled', 'active'].includes(round.status) ||
+    !['opening', 'active'].includes(round.status) ||
     session.endedAt
   )
     throw createAppError('CONFLICT', 'Capture session has ended');

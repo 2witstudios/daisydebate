@@ -1,3 +1,5 @@
+import { loadRoundDraw } from './room-draw-persistence';
+import { transactionNow } from './room-command-facts';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
 import type { roomCommandTransaction } from './room-command-transaction';
 import {
@@ -78,7 +80,19 @@ export async function launchedRoundRows(
       };
     }),
   );
+  const draw = row.status === 'opening' ? await loadRoundDraw(tx, roundId) : null;
   const round: LaunchedRound = {
+    opening:
+      row.status === 'opening'
+        ? {
+            state: {
+              startedAt: row.createdAt.toISOString(),
+              draw: draw?.state ?? null,
+              prepMs: row.preRoundPrepMs,
+            },
+            seed: draw?.seed ?? null,
+          }
+        : null,
     id: row.id,
     roomId: row.roomId,
     version: row.version,
@@ -124,13 +138,31 @@ export const roomReadOperations = ({
     roundId: string,
     caller: Caller,
     authorize: (round: LaunchedRound, account: Account) => boolean,
+    /** The engine's reading of an opening for this viewer, at the database clock. */
+    readOpening: (
+      opening: NonNullable<LaunchedRound['opening']>,
+      seats: LaunchedRound['participants'],
+      viewerActorId: string,
+      now: string,
+    ) => {
+      readonly view: NonNullable<RoundView['opening']>;
+      readonly topic: string | null;
+    },
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
         const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
-        return roundViewFor(round, caller.actorId);
+        const view = roundViewFor(round, caller.actorId);
+        if (!round.opening) return view;
+        const { view: opening, topic } = readOpening(
+          round.opening,
+          round.participants,
+          caller.actorId,
+          await transactionNow(tx),
+        );
+        return { ...view, opening, topic: topic ?? view.topic };
       }),
     );
   },
@@ -207,10 +239,7 @@ export const roomReadOperations = ({
     roomId: string,
     caller: Caller,
     authorize: AuthorizeRoom,
-  ): Promise<{
-    readonly state: RoomAssemblyState;
-    readonly drawSeed: string | null;
-  }> {
+  ): Promise<{ readonly state: RoomAssemblyState }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);

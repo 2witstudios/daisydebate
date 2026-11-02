@@ -30,7 +30,8 @@ type HistorySeat = {
 export type HistoryRow = {
   readonly roundId: string;
   readonly completedAt: string;
-  readonly resolution: string;
+  /** Null when the Round ended before its reveal. */
+  readonly resolution: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly outcome: RatedOutcome | null;
   readonly role: 'affirmative' | 'negative';
@@ -42,7 +43,8 @@ export type HistoryRow = {
 export type ListedRound = {
   readonly roundId: string;
   readonly completedAt: Date | null;
-  readonly resolution: string;
+  /** Null when the Round ended before its reveal. */
+  readonly resolution: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private' | null;
   readonly outcome: RatedOutcome | null;
   readonly role: string;

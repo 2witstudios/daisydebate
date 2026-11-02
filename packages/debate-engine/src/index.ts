@@ -25,6 +25,12 @@ export { activeRoomMembers, projectActiveRoom } from './room-membership';
 export { closeRoom } from './room-consent-transitions';
 export { maintainRoom } from './room-expiry';
 export {
+  advanceOpening,
+  forfeitInOpening,
+  inPreRoundPrep,
+  strikeInOpening,
+} from './round-opening-runtime';
+export {
   openingStep,
   projectOpening,
   settleOpening,

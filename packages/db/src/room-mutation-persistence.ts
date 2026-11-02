@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { RoomMutationOutcome } from '@daisy/protocol';
 import { freezeRoomConfig } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import { freezeRoomDraw, persistRoomDraw } from './room-draw-persistence';
+import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
 import { friendChallenges } from './schema/friends';
@@ -35,8 +35,6 @@ const roomRow = (
   executionPlan: next.executionPlan,
   rulesSnapshot: next.rules,
   status: next.status,
-  prepStartedAt: next.prepStartedAt ? new Date(next.prepStartedAt) : null,
-  prepRemainingMs: next.prepRemainingMs,
   ...(acceptedCommand ? { lastCommandAt: new Date(now) } : {}),
   updatedAt: new Date(now),
 });
@@ -48,7 +46,6 @@ export const persistRoomMutation = async (
   now: string,
   /** True for an accepted participant command: it moves the idle anchor. */
   acceptedCommand: boolean,
-  storedStrikes: number,
 ) => {
   const next = mutation.state;
   if (mutation.publishDefinition)
@@ -83,21 +80,21 @@ export const persistRoomMutation = async (
       })),
     );
   await holdActiveRoomMembers(tx, next.id, mutation.members);
-  await persistRoomDraw(
-    tx,
-    next.id,
-    next.resolutionDraw,
-    storedStrikes,
-    mutation.drawSecrets,
-  );
   let roundRef = next.roundRef;
   if (mutation.freeze) {
-    if (next.topic === null) throw createAppError('INVARIANT');
+    const plan = next.executionPlan;
+    const prepMs = plan.preRoundPrep.enabled
+      ? plan.preRoundPrep.durationMs
+      : null;
+    // With nothing to run first, the Round starts at this click.
+    const opens = plan.resolutionDraw.enabled || prepMs !== null;
+    if (!opens && next.topic === null) throw createAppError('INVARIANT');
     await tx.insert(rounds).values({
       id: roundId,
       roomId: next.id,
       createdByActorId: next.hostActorId,
       resolution: next.topic,
+      preRoundPrepMs: prepMs,
       publishedResolutionId: next.publishedResolutionId,
       competitionType: next.competitionType,
       formatId: next.formatId,
@@ -106,7 +103,10 @@ export const persistRoomMutation = async (
       roomConfigSnapshot: freezeRoomConfig(next.config),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
-      status: 'scheduled',
+      status: opens ? 'opening' : 'active',
+      ...(opens
+        ? {}
+        : { currentStage: 'countdown' as const, startedAt: new Date(now) }),
       ladderId: roundLadder(next.competitionType, next.formatId),
       createdAt: new Date(now),
       updatedAt: new Date(now),
@@ -120,19 +120,9 @@ export const persistRoomMutation = async (
         slot: p.slot,
       })),
     );
-    if (next.resolutionDraw)
-      await tx
-        .update(rounds)
-        .set({
-          resolutionEvidence: await freezeRoomDraw(
-            tx,
-            roundId,
-            next.resolutionDraw,
-          ),
-        })
-        .where(eq(rounds.id, roundId));
+    if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
     await appendRoundPhaseChanged(tx, roundId, 1);
-    roundRef = { id: roundId, status: 'scheduled' };
+    roundRef = { id: roundId, status: opens ? 'opening' : 'active' };
   }
   return roundRef;
 };

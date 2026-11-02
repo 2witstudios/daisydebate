@@ -47,13 +47,14 @@ export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,
 ): RoundView {
-  const { hostActorId, ...view } = round;
+  const { hostActorId, opening: _opening, ...view } = round;
   const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
   const ownPeople =
     knowsJudges ||
     round.participants.some((seat) => seat.actorId === viewerActorId);
   return {
     ...view,
+    opening: null,
     resolutionAudit: auditFor(round.resolutionAudit, ownPeople),
     viewerIsHost: knowsJudges,
     participants: round.participants.map((seat) =>

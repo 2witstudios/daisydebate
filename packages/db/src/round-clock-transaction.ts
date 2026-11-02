@@ -29,7 +29,7 @@ export async function executeLockedRoundTick(
   if (!round) throw createAppError('NOT_FOUND');
   const now = await sampleRoundExecutionTime(tx);
   let changed = false;
-  if (round.status === 'active') {
+  if (round.status === 'active' || round.status === 'opening') {
     const projection = input.buildProjection({ round, now });
     changed = await writeProjectionWithPhaseSignal(
       tx,

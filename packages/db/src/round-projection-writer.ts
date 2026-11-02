@@ -7,6 +7,11 @@ import type { RoundProjection } from '@daisy/protocol';
 import { runtimeCheckpointSchema, buildRoundTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
+import {
+  appendRoundStrikes,
+  revealEvidence,
+  storedStrikeCount,
+} from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
@@ -38,9 +43,11 @@ export async function appendRoundPhaseChanged(
 const projectionChanged = (
   current: LockedRound,
   projection: RoundProjection,
+  addedStrikes: number,
 ): boolean => {
   const projected = projection.round;
   if (
+    addedStrikes > 0 ||
     projection.segmentInserts.length > 0 ||
     projection.segmentCloses.length > 0
   )
@@ -79,7 +86,17 @@ export async function writeProjectionWithPhaseSignal(
   projection: RoundProjection,
   now: string,
 ): Promise<boolean> {
-  const changed = projectionChanged(current, projection);
+  const draw = projection.openingDraw;
+  const stored = draw ? await storedStrikeCount(tx, draw.id) : 0;
+  const addedStrikes = draw ? await appendRoundStrikes(tx, draw, stored) : 0;
+  if (addedStrikes > 0 && draw && draw.strikes.length >= draw.manifest.drawSize - 1) {
+    const { survivorText, ...evidence } = revealEvidence(draw);
+    await tx
+      .update(rounds)
+      .set({ resolution: survivorText, resolutionEvidence: evidence })
+      .where(eq(rounds.id, roundId));
+  }
+  const changed = projectionChanged(current, projection, addedStrikes);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
   if (endsRound(current, projection))
@@ -217,11 +234,10 @@ async function writeProjection(
         : {
             status: lifecycle.status,
             currentStage: lifecycle.currentStage,
-            startedAt: lifecycleInstant(
-              rounds.startedAt,
-              lifecycle.startedAt,
-              now,
-            ),
+            // An opening ends at its own due instant, never the processing time.
+            startedAt: projection.opensAt
+              ? new Date(projection.opensAt)
+              : lifecycleInstant(rounds.startedAt, lifecycle.startedAt, now),
             completedAt: lifecycleInstant(
               rounds.completedAt,
               lifecycle.completedAt,

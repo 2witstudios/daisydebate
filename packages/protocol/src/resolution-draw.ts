@@ -284,6 +284,19 @@ export type ResolutionDrawState = {
   readonly strikes: readonly ResolutionStrike[];
 };
 
+/**
+ * A Round's opening as stored (ADR 0098). Only the draw's strikes change;
+ * every other fact derives from these three, so a command, a read and a sweep
+ * cannot disagree about where it stands.
+ */
+export type RoundOpening = {
+  /** The Start round instant. */
+  readonly startedAt: string;
+  readonly draw: ResolutionDrawState | null;
+  /** Pre-round prep's full length, or null when the Round has none. */
+  readonly prepMs: number | null;
+};
+
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The canonical source a draw read: the bank's filters, or the host's list. */

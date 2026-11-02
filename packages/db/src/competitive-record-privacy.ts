@@ -37,10 +37,10 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
       tx.execute(sql`select id, room_id, actor_id, role, slot
         from room_participants where actor_id = ${subject.actorId} order by id`),
     ),
-    room_resolution_strikes: await rows(
+    round_resolution_strikes: await rows(
       tx.execute(sql`select draw_id, ordinal, position, draw_size, side,
           kind, actor_id, command_id, ${iso('struck_at', 'struck_at')}
-        from room_resolution_strikes
+        from round_resolution_strikes
         where actor_id = ${subject.actorId} order by draw_id, ordinal`),
     ),
     round_participants: await rows(
