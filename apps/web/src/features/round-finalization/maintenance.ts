@@ -12,12 +12,11 @@ import {
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createRatingSweep } from '../ratings/sweep';
+import { AI_JUDGING_BUDGET_MS } from '../round-judging/budget';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
 /** Human judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
-/** An AI judging job may buy provider work for 5 minutes after the freeze (DEC-275). */
-export const AI_JUDGING_BUDGET_MS = 5 * 60_000;
 /** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
 export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type JudgingPlanner = Parameters<

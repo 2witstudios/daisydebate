@@ -59,7 +59,7 @@ test('ISSUE-532: the real wiring passes the configured probe Round to maintenanc
   });
 });
 
-test('a judging job an attendance decision ended reaches the failure report', async () => {
+async function reportedBy(database: Record<string, unknown>) {
   const logged: unknown[] = [];
   const service = startRoundCompetitiveMaintenance({
     app: {
@@ -73,14 +73,10 @@ test('a judging job an attendance decision ended reaches the failure report', as
           exhausted: true,
         }),
         tickDueRound: async () => {},
-        evaluateRoundAttendance: async (input: {
-          readonly judgingEnded?: (reason: string) => void;
-        }) => {
-          input.judgingEnded?.('round_ended');
-          return null;
-        },
+        evaluateRoundAttendance: async () => null,
         finalizeDueRoundTranscript: async () => ({ status: 'pending' }),
         readUnratedRatingRounds: async () => [],
+        ...database,
       },
     } as never,
     instanceId: id('i'),
@@ -89,10 +85,34 @@ test('a judging job an attendance decision ended reaches the failure report', as
   await service.ready;
   for (let turn = 0; turn < 4; turn++) await new Promise(setImmediate);
   await service.stop();
+  return JSON.stringify(logged).includes('round.judging.failed');
+}
+type Reports = { readonly judgingEnded?: (reason: string) => void };
+
+test('a judging job maintenance ended reaches the failure report, by either path', async () => {
   assert({
     given: 'the evaluator reporting a job it ended',
     should: 'log the judging failure event',
-    actual: JSON.stringify(logged).includes('round.judging.failed'),
+    actual: await reportedBy({
+      evaluateRoundAttendance: async (input: Reports) => {
+        input.judgingEnded?.('ballot_hold_ended');
+        return null;
+      },
+    }),
+    expected: true,
+  });
+  assert({
+    given: 'completion reporting a job it ended',
+    should: 'log the judging failure event',
+    actual: await reportedBy({
+      finalizeDueRoundTranscript: async () => ({
+        status: 'frozen',
+        freeze: { revision: 1 },
+      }),
+      completePanelRound: async (input: Reports) => {
+        input.judgingEnded?.('ballot_hold_ended');
+      },
+    }),
     expected: true,
   });
 });

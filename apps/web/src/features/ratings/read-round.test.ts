@@ -67,8 +67,8 @@ test('a historical Round badge uses its posting rather than later established st
   });
 });
 
-test('a rated result on an incomplete transcript is not pending: it never posts', async () => {
-  const read = (transcriptCompleteness: 'complete' | 'incomplete') =>
+test('a decided Round is pending exactly when the rating writer would still rate it', async () => {
+  const read = (awaits: boolean) =>
     readRoundRatings(
       {
         listLadderSeasons: async () => [
@@ -83,6 +83,7 @@ test('a rated result on an incomplete transcript is not pending: it never posts'
         ],
         readRatingBlindings: async () => [],
         readStandings: async () => ({ ratings: [], changes: [] }),
+        readRoundAwaitsRating: async () => awaits,
       } as never,
       {
         round: {
@@ -90,19 +91,15 @@ test('a rated result on an incomplete transcript is not pending: it never posts'
           ladderId: 'freestyle',
           status: 'completed',
           outcome: 'affirmative',
-          transcriptCompleteness,
         },
         now: at,
         viewerActorId: null,
       },
     );
   assert({
-    given: 'a decided Round with no postings yet, on each kind of transcript',
-    should: 'wait for a rating only where one can come',
-    actual: [
-      (await read('complete'))?.pending,
-      (await read('incomplete'))?.pending,
-    ],
+    given: 'a decided Round with no postings yet',
+    should: "answer with the writer's predicate",
+    actual: [(await read(true))?.pending, (await read(false))?.pending],
     expected: [true, false],
   });
 });

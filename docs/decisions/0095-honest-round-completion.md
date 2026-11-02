@@ -41,7 +41,7 @@ minutes from the freeze, on the job, and bounds provider work only. A validated
 pending ballot may still submit after it. That hold ends at the latest of the
 attendance cutoff and 10 minutes after the last attendance decision or uncertain
 writer resolving, so a ballot gets its chance once attendance settles, and one
-that can never submit stops holding the Round. The attendance cutoff is an
+that can never submit stops holding the Round. Its job then ends `ballot_hold_ended`, which is reported; a forfeit cutting a job off is `round_ended`, which is normal and is not. The attendance cutoff is an
 infrastructure bound. None of them borrows another's meaning.
 
 **Panel completion is total (DEC-277).** A Round waits only on a judge who can

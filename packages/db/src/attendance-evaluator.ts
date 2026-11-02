@@ -195,17 +195,20 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
             commandId: input.commandId,
           });
         if (resolution.projection)
-          ended = await endOpenJudgingJobs(tx, round.id);
+          ended = await endOpenJudgingJobs(
+            tx,
+            round.id,
+            resolution.decision === 'abandoned'
+              ? 'ballot_hold_ended'
+              : 'round_ended',
+          );
         await requireCurrentWeb(tx, input.instanceId);
         return resolution;
       },
     );
-    // After commit. A job a forfeit cut off is normal. One past its budget is not,
-    // and at the abandoned path a job, and any ballot it held, ends with no winner.
-    const abandoned = outcome?.decision === 'abandoned';
+    // After commit. A job the Round's end cut off is normal; anything else is not.
     for (const { reason } of ended)
-      if (reason && (abandoned || reason === 'generation_deadline'))
-        input.judgingEnded?.(reason);
+      if (reason && reason !== 'round_ended') input.judgingEnded?.(reason);
     return outcome;
   };
 }

@@ -58,6 +58,7 @@ export type JudgingAttemptCategory = (typeof judgingAttemptCategories)[number];
 /** Why a judging job ended without a ballot. */
 export const judgingTerminalReasons = [
   'attempts_exhausted',
+  'ballot_hold_ended',
   'generation_deadline',
   'provider_refused',
   'round_ended',

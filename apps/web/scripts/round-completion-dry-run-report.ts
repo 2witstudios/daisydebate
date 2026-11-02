@@ -6,7 +6,7 @@ import { attendanceTimingPolicy, type RoundRules } from '@daisy/protocol';
 import type { SQL } from 'bun';
 import { attendanceReceiptTime } from '../src/features/attendance/receipt-time';
 import { attendanceWindowFor } from '../src/features/attendance/windows';
-import { AI_JUDGING_BUDGET_MS } from '../src/features/round-finalization/maintenance';
+import { AI_JUDGING_BUDGET_MS } from '../src/features/round-judging/budget';
 
 type Seat = {
   readonly id: string;
@@ -69,8 +69,6 @@ type DryRunPrediction = {
 
 /** The calls one job may buy; the job itself enforces this. */
 const MAX_CALLS = 2;
-/** `judgingJobCanRule`'s grace for a worker to submit a held ballot. */
-const HELD_BALLOT_GRACE_MS = 10 * 60_000;
 
 /** Each non-final speech through the real window and on-time decisions. */
 function windowsOf(facts: DryRunFacts) {
@@ -193,7 +191,10 @@ export function predictRoundCompletion(facts: DryRunFacts) {
       (facts.nowMs < budgetEndsMs(facts, job) ||
         (job.holdsBallot &&
           facts.nowMs <
-            Math.max(cutoffMs(facts), settledAtMs + HELD_BALLOT_GRACE_MS))),
+            Math.max(
+              cutoffMs(facts),
+              settledAtMs + attendanceTimingPolicy.heldBallotGraceMs,
+            ))),
   );
   const decision = decidePanelCompletion({
     completeness: facts.completeness,

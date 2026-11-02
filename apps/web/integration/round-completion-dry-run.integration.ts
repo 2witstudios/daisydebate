@@ -50,8 +50,8 @@ async function creditEverySpeaker(f: Fixture, roundId: string) {
 }
 
 /** The incident's shape: every debater on time, a failed AI job, no adjudication. */
-async function incidentRound(f: Fixture, captured = true) {
-  const { roundId } = await frozenBotJudgeRound(f, captured);
+async function incidentRound(f: Fixture) {
+  const { roundId } = await frozenBotJudgeRound(f, true);
   await f.sql`update round_judging_jobs set status='failed' where round_id=${roundId}`;
   await creditEverySpeaker(f, roundId);
   return roundId;
@@ -154,9 +154,10 @@ test('the dry run predicts what the real maintenance path then does, and cannot 
   }, judging);
 });
 
-test('an incomplete freeze with a failed AI job: prediction and real path agree', async () => {
+test('an incomplete freeze, with no AI job: prediction and real path agree', async () => {
   await withRoomRuntime(async (f) => {
-    const roundId = await incidentRound(f, false);
+    const { roundId } = await frozenBotJudgeRound(f, false);
+    await creditEverySpeaker(f, roundId);
     const { prediction } = await predict(f, roundId);
     assert({
       given: "the second incident Round's shape",

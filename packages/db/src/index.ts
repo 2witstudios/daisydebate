@@ -32,7 +32,10 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import { readUnratedRatingRounds } from './rating-discovery';
+import {
+  readRoundAwaitsRating,
+  readUnratedRatingRounds,
+} from './rating-discovery';
 import { deliverObservationPurges } from './observation-purge-jobs';
 import { duePrivacyJobs } from './privacy/vendor-jobs';
 import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
@@ -187,6 +190,8 @@ export function createDatabase({
     readUnratedRatingRounds: (
       input: Parameters<typeof readUnratedRatingRounds>[1],
     ) => readUnratedRatingRounds(database, input),
+    readRoundAwaitsRating: (roundId: string) =>
+      readRoundAwaitsRating(database, roundId),
     ...databaseHealthOperations({
       database: control,
       dedicated,

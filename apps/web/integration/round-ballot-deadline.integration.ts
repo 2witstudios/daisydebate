@@ -282,6 +282,7 @@ for (const [captured, postings] of [
         await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
         const done = (await f.store.getRound(roundId))!;
         const [receipt] = await completions(f, roundId);
+        const awaited = await f.store.readRoundAwaitsRating(roundId);
         await recoverRatedResults(f);
         await recoverRatedResults(f);
         const ledger =
@@ -293,12 +294,16 @@ for (const [captured, postings] of [
           actual: {
             done: [done.status, done.outcome],
             ruling: receipt?.result.ruling,
+            awaited,
             postings: ledger.length,
+            awaitsAfter: await f.store.readRoundAwaitsRating(roundId),
           },
           expected: {
             done: ['completed', 'negative'],
             ruling: 'partial',
+            awaited: captured,
             postings,
+            awaitsAfter: false,
           },
         });
       } finally {
@@ -414,8 +419,8 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
       should: 'end the job, end the Round with no winner, and report it once',
       actual: { job, reported, done: [done.status, done.outcome] },
       expected: {
-        job: { status: 'failed', terminal_reason: 'round_ended' },
-        reported: ['round_ended'],
+        job: { status: 'failed', terminal_reason: 'ballot_hold_ended' },
+        reported: ['ballot_hold_ended'],
         done: ['completed', null],
       },
     });
@@ -423,7 +428,7 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
 });
 
 for (const { holds, reason } of [
-  { holds: true, reason: 'round_ended' },
+  { holds: true, reason: 'ballot_hold_ended' },
   { holds: false, reason: 'generation_deadline' },
 ])
   test(`the abandoned path reports a job it ends ${holds ? 'holding a ballot' : 'past its budget'}`, async () => {
@@ -457,5 +462,111 @@ for (const { holds, reason } of [
         },
         expected: { status: 'abandoned', reason, reported: [reason] },
       });
+    }, judgingOptions);
+  });
+
+/** A first speaker settled evidence proves absent: their opponent attended, service healthy. */
+async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
+  const round = (await f.store.getRound(roundId))!;
+  const segment = round.segments.find((s) => s.type === 'speech')!;
+  const rule = round.rules.segments.find(
+    (s) => s.key === segment.rulesSegmentKey,
+  )!;
+  if (rule.type !== 'speech') throw Error('Expected a speech');
+  const opponent = round.participants.find(
+    (p) => p.role !== rule.side && p.role !== 'judge',
+  )!;
+  const commandId = createId();
+  await f.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
+    values(${commandId},${roundId},${opponent.actorId},'check_in',${'a'.repeat(64)},${{}},1,statement_timestamp())`;
+  await f.sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at)
+    select ${commandId},${roundId},id,${opponent.id},started_at+interval '1 second' from round_segments where id=${segment.id}`;
+  await f.sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(59003)`;
+    await tx`insert into availability_samples(at,healthy,cause)
+      select s.started_at+n*interval '1 second',true,null
+      from round_segments s, generate_series(-3,47) n where s.id=${segment.id}`;
+  });
+}
+
+test('a forfeit on an incomplete freeze still has a rating coming', async () => {
+  await withRoomRuntime(async (f) => {
+    const { room } = await readyTwoHumanJudgeRoom(f);
+    const { roundId } = await startRuntimeRound(f, room);
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await playOut(f, roundId, false);
+    if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')
+      throw Error('Expected actual finalizer freeze');
+    await proveFirstSpeakerAbsent(f, roundId);
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const attendance = createAttendanceFeature({
+      checkIns: f.store,
+      evaluate: f.store.evaluateRoundAttendance,
+      nextId: createId,
+      instanceId,
+    });
+    try {
+      const decided = await attendance.evaluate(roundId);
+      assert({
+        given: 'a provable absence deciding a ranked Round frozen incomplete',
+        should: 'answer that the writer would still rate it',
+        actual: {
+          decision: decided?.decision,
+          awaits: await f.store.readRoundAwaitsRating(roundId),
+        },
+        expected: { decision: 'forfeit', awaits: true },
+      });
+    } finally {
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours'`;
+      await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
+      await f.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});
+
+for (const { pastBudget, reason, reported } of [
+  { pastBudget: false, reason: 'round_ended', reported: [] },
+  {
+    pastBudget: true,
+    reason: 'generation_deadline',
+    reported: ['generation_deadline'],
+  },
+])
+  test(`a forfeit cutting off a job ${pastBudget ? 'past' : 'inside'} its budget reports ${reported.length ? 'the budget' : 'nothing'}`, async () => {
+    await withRoomRuntime(async (f) => {
+      const { roundId } = await freezeBotJudge(f);
+      if (pastBudget)
+        await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+      await proveFirstSpeakerAbsent(f, roundId);
+      const ended: string[] = [];
+      const instanceId = createId();
+      await f.store.renewServiceInstance({ instanceId, role: 'web' });
+      const attendance = createAttendanceFeature({
+        checkIns: f.store,
+        evaluate: f.store.evaluateRoundAttendance,
+        nextId: createId,
+        instanceId,
+        judgingEnded: (why) => ended.push(why),
+      });
+      try {
+        const decided = await attendance.evaluate(roundId);
+        const [job] =
+          await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
+        assert({
+          given: 'a provable absence with an open judging job',
+          should: 'report only an ending that is not the forfeit itself',
+          actual: {
+            decision: decided?.decision,
+            reason: job.terminal_reason,
+            ended,
+          },
+          expected: { decision: 'forfeit', reason, ended: reported },
+        });
+      } finally {
+        await f.sql`delete from service_instances where instance_id=${instanceId}`;
+        await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours'`;
+      }
     }, judgingOptions);
   });

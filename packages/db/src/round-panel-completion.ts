@@ -239,7 +239,11 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     resultingVersion: receipt.resultingVersion,
     commandId: input.commandId,
   });
-  const ended = await endOpenJudgingJobs(tx, input.roundId);
+  const ended = await endOpenJudgingJobs(
+    tx,
+    input.roundId,
+    'ballot_hold_ended',
+  );
   await requireCurrentWeb(tx, input.instanceId);
   return { receipt, ended };
 }
