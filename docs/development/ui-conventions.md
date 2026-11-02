@@ -114,7 +114,10 @@ it cannot commit until the send settles. Leaving the conversation unmounts the
 composer in that same commit, so its answer issues nothing. A same-conversation
 page keeps the composer mounted: without the ownership decision the send's
 `?sent` replacement overwrites the member's chosen page, which is the real-router
-regression the held Earlier-messages proofs fail on.
+regression the held Earlier-messages proofs fail on. The held Edit tests are outcome
+proofs and stay green without that decision; the mounted
+`actual composer completion ownership: edit` control covers the Edit link's
+registration, with a recording router that keeps the composer mounted.
 
 Recorded exceptions:
 

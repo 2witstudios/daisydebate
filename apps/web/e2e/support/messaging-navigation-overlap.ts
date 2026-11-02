@@ -194,7 +194,10 @@ export async function withHeldConversation(
 
 export function testMessagingNavigationOverlap() {
   for (const first of ['send', 'edit'] as const) {
-    test(`newer DM Edit intent survives held send completion with ${first} response first`, async ({
+    // Outcome proof only: leaving the conversation unmounts the composer in the commit
+    // carrying its answer, so this stays green without the completion guard. The held
+    // Earlier messages proofs and the mounted controls are what prove the guard.
+    test(`Edit outcome proof, green without the completion guard: newer intent survives held send with ${first} response first`, async ({
       browser,
     }) => {
       await withHeldConversation(
