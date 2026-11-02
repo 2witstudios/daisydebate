@@ -381,3 +381,59 @@ test('ISSUE-886: the probe check names each missing synthetic resource, without 
     }
   });
 });
+
+test('ISSUE-893: backend loss while sampling also recovers, repeatedly, and close disposes cleanly', async () => {
+  const dedicated = new SQL(databaseUrl, { max: 2 });
+  const control = new SQL(databaseUrl, { max: 1 });
+  const sampler = availabilityOperations(
+    control,
+    dedicated,
+  ).availabilitySampler();
+  const written: string[] = [];
+  const sample = () =>
+    sampler.sample({ publicProbeHealthy: false }).then(
+      (row) => {
+        if (!row) return 'none';
+        written.push(row.at);
+        return 'sampled';
+      },
+      (error: { code?: string }) => error.code ?? 'unknown',
+    );
+  try {
+    const outcomes: string[] = [];
+    for (let round = 0; round < 2; round++) {
+      await sampler.elect();
+      await terminateElectedSampler(control);
+      // The dead handle fails, or a race already sees it closed; never permanently.
+      await sample();
+      outcomes.push(await sample());
+    }
+    assert({
+      given: 'the elected backend lost during sampling, twice over',
+      should: 'sample again each time on a new session',
+      actual: outcomes,
+      expected: ['sampled', 'sampled'],
+    });
+    await sampler.close();
+    assert({
+      given: 'a closed sampler',
+      should: 'refuse further work rather than reopen a session',
+      actual: await sampler.elect(),
+      expected: false,
+    });
+    const [held] =
+      await control`select count(*)::int as n from pg_locks where locktype='advisory' and classid=0 and objid=${SAMPLER_LOCK} and objsubid=1 and granted and pid in (select pid from pg_stat_activity where datname=current_database())`;
+    assert({
+      given: 'that close',
+      should: 'leave no election held',
+      actual: held.n,
+      expected: 0,
+    });
+  } finally {
+    await sampler.close().catch(() => undefined);
+    for (const at of written)
+      await control`delete from availability_samples where at=${at}::timestamptz`;
+    await dedicated.close({ timeout: 0 });
+    await control.close({ timeout: 0 });
+  }
+});
