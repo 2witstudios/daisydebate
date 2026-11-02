@@ -57,6 +57,8 @@ function createEvaluationPacing(input: MaintenancePorts) {
   const retryAt = new Map<string, number>();
   const failures = new Map<string, number>();
   const heldSince = new Map<string, number>();
+  /** Attendance refuses these as not active: finished, or still in an opening. */
+  const refused = new Set<string>();
   let lastHeldReport = Number.NEGATIVE_INFINITY;
   const reportHeld = () => {
     const at = now();
@@ -88,14 +90,21 @@ function createEvaluationPacing(input: MaintenancePorts) {
   return {
     async evaluate(roundId: string): Promise<Evaluation> {
       if (now() < (retryAt.get(roundId) ?? Number.NEGATIVE_INFINITY))
-        return 'continue';
+        return refused.has(roundId) ? 'ended' : 'continue';
       try {
         const resolution = await input.evaluate(roundId);
+        refused.delete(roundId);
         failures.delete(roundId);
         noteHold(roundId, resolution);
         return evaluationOf(resolution);
       } catch (error) {
-        if (terminalRace(error)) return 'ended';
+        if (terminalRace(error)) {
+          // An opening ends on its own, so ask again after the wait. Discovery's
+          // sweep forgets a truly finished Round.
+          refused.add(roundId);
+          retryAt.set(roundId, now() + EVALUATION_RETRY_MS);
+          return 'ended';
+        }
         backOff(roundId);
         input.failed(error, 'evaluate');
         return 'continue';
@@ -115,17 +124,13 @@ function createEvaluationPacing(input: MaintenancePorts) {
       failures.delete(key);
     },
     backOff,
-    forgetEvaluation(roundId: string) {
-      retryAt.delete(roundId);
-      failures.delete(roundId);
-      heldSince.delete(roundId);
-    },
     forget(roundId: string) {
-      for (const key of [`tick:${roundId}`, `finalize:${roundId}`]) {
+      for (const key of [roundId, `tick:${roundId}`, `finalize:${roundId}`]) {
         retryAt.delete(key);
         failures.delete(key);
       }
-      this.forgetEvaluation(roundId);
+      heldSince.delete(roundId);
+      refused.delete(roundId);
     },
   };
 }
@@ -162,12 +167,9 @@ async function maintainRound(
     }
   };
   if (!(await stage('tick', () => input.tick(roundId)))) return;
-  // Attendance also refuses a Round still in its opening, so this keeps any tick
-  // backoff; discovery's sweep forgets it once the Round has truly finished.
-  if ((await pacing.evaluate(roundId)) === 'ended') {
-    pacing.forgetEvaluation(roundId);
-    return;
-  }
+  // An ended Round keeps its pacing state for discovery's sweep to forget: one
+  // attendance refused may still be in its opening, with a tick backing off.
+  if ((await pacing.evaluate(roundId)) === 'ended') return;
   await stage('finalize', () => input.finalize(roundId));
 }
 

@@ -508,9 +508,10 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
   await service.stop();
 });
 
-test('a Round in its opening has no attendance yet, so a failing tick keeps its backoff', async () => {
+test('a Round in its opening has no attendance yet: its tick keeps its backoff and attendance is asked again only after its wait', async () => {
   const stages: string[] = [];
-  let ticks = 0;
+  let ticks = 0,
+    evaluations = 0;
   const { service, pulse, advance } = driven({
     discover: async () => page(['opening']),
     tick: async () => {
@@ -518,6 +519,7 @@ test('a Round in its opening has no attendance yet, so a failing tick keeps its 
       throw new Error('tick fault');
     },
     evaluate: async () => {
+      evaluations++;
       throw createAppError('CONFLICT', 'attendance-terminal');
     },
     failed: (_error, stage) => stages.push(stage),
@@ -532,9 +534,18 @@ test('a Round in its opening has no attendance yet, so a failing tick keeps its 
   assert({
     given:
       'a failing tick on a Round whose attendance refuses it as not active',
-    should: 'not retry or report the tick again inside its wait',
-    actual: { ticks, stages },
-    expected: { ticks: 1, stages: ['tick'] },
+    should: 'not retry or report the tick, or ask attendance, inside the wait',
+    actual: { ticks, evaluations, stages },
+    expected: { ticks: 1, evaluations: 1, stages: ['tick'] },
+  });
+  advance(4_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'the attendance wait over',
+    should: 'ask attendance again, since the opening may have ended',
+    actual: evaluations,
+    expected: 2,
   });
   await service.stop();
 });
