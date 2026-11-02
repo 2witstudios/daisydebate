@@ -1,12 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
-import { completeDraw, survivorOf } from './resolution-draw';
 import {
   openingStep,
   settleOpening,
   type RoundOpening,
 } from './round-opening';
-import { begin, seedBytes } from './room-pre-round.test-support';
+import { begin } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -127,31 +126,6 @@ describe('settleOpening', () => {
       should: 'settle to the same strikes',
       actual: settleOpening(once.opening, null, now).opening.draw!.strikes,
       expected: once.opening.draw!.strikes,
-    });
-  });
-});
-
-describe('completeDraw', () => {
-  test('a forfeit before the reveal still produces a resolution', () => {
-    const draw = humanDraw();
-    const at = after(1_000);
-    const done = completeDraw(draw, seedBytes, at);
-    assert({
-      given: 'a draw with no strikes and a terminal command',
-      should: 'strike automatically at that instant until one survives',
-      actual: [
-        done.strikes.length,
-        done.strikes.every((s) => s.kind === 'automatic' && s.at === at),
-        survivorOf(done)?.at,
-      ],
-      expected: [draw.manifest.drawSize - 1, true, at],
-    });
-    assert({
-      given: 'the same draw, seed and instant',
-      should: 'choose the same survivor',
-      actual: survivorOf(done)?.item.position,
-      expected: survivorOf(completeDraw(draw, seedBytes, at))
-        ?.item.position,
     });
   });
 });

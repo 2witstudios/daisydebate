@@ -162,32 +162,6 @@ export function settleDraw(
 }
 
 /**
- * Finishes an unrevealed draw at one instant, for a Round ending before its
- * reveal: the seed strikes every remaining turn, so a terminal Round always
- * has a resolution.
- */
-export function completeDraw(
-  draw: ResolutionDrawState,
-  seed: Uint8Array,
-  at: string,
-): ResolutionDrawState {
-  let next = draw;
-  for (let turn = turnOf(next); turn; turn = turnOf(next)) {
-    const strike: ResolutionStrike = {
-      ordinal: turn.ordinal,
-      position: automaticChoice(seed, turn.ordinal, standingPositions(next)),
-      side: turn.side,
-      kind: 'automatic',
-      actorId: null,
-      commandId: null,
-      at,
-    };
-    next = { ...next, strikes: [...next.strikes, strike] };
-  }
-  return next;
-}
-
-/**
  * The reveal handoff: the survivor becomes the Room's topic, and enabled
  * prep starts at the reveal instant. Idempotent.
  */
