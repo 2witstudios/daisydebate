@@ -6,7 +6,7 @@
  * displayed clock against the server's segment rows.
  */
 import { origin } from './support/accounts';
-import { isRoundClockResponse } from './support/round-timing-response';
+import { createResumedClockWitness } from './support/round-timing-response';
 import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -139,6 +139,8 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     // The first calibrated read must remove this six-second hydration lag.
     const roomUrl = host.url();
     const mediaAt: number[] = [];
+    let documentEpoch = 0;
+    host.on('domcontentloaded', () => documentEpoch++);
     host.on('request', (request) => {
       if (
         request.method() === 'POST' &&
@@ -220,25 +222,34 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
 
     // Freeze the browser renderer, let the real server advance, then resume.
     // Visibility return must obtain fresh evidence, not merely retick the seed.
+    expect(clockActionId).not.toBe('');
+    const resumed = createResumedClockWitness({
+      actionId: clockActionId,
+      frame: host.mainFrame(),
+      documentEpoch: () => documentEpoch,
+      now: elapsedMs,
+    });
+    await host.route(roomUrl, (route) => resumed.handle(route));
     const session = await host.context().newCDPSession(host);
     const before = await serverNow(accounts, roundId!);
     await session.send('Page.setWebLifecycleState', { state: 'frozen' });
     await expect
       .poll(async () => (await serverNow(accounts, roundId!)) - before)
       .toBeGreaterThan(3000);
-    expect(clockActionId).not.toBe('');
-    const resumedRead = host.waitForResponse((response) =>
-      isRoundClockResponse(response, clockActionId),
-    );
+    resumed.arm();
     await session.send('Page.setWebLifecycleState', { state: 'active' });
     await host.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     );
+    await expect.poll(() => resumed.read(), { timeout: 15000 }).not.toBeNull();
+    const resumedRead = resumed.read()!;
+    expect(resumedRead.status).toBe(200);
+    expect(resumedRead.serverNowMs).toBeGreaterThan(before + 3000);
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
-    expect((await resumedRead).status()).toBe(200);
+    await host.unrouteAll({ behavior: 'wait' });
     await session.detach();
     await expect(mediaStatus).toBeVisible({ timeout: 15000 });
 
