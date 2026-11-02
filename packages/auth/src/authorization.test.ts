@@ -113,8 +113,10 @@ test('persisted Round reads use their own canonical authority', () => {
     participants: [],
   };
   assert({
-    given: 'private Round, creator, seated, public and erased current accounts',
-    should: 'allow only eligible current members without borrowing Room facts',
+    given:
+      'private Round, creator, seated, public non-participant and erased current accounts',
+    should:
+      'allow only seats and the host: public visibility grants no live read',
     actual: [
       authorize({ ...input, capability: 'round.read', resource }).allow,
       authorize({
@@ -142,6 +144,55 @@ test('persisted Round reads use their own canonical authority', () => {
         context: { account: { ...input.context.account!, erased: true } },
       }).allow,
     ],
-    expected: [false, true, true, true, false],
+    expected: [false, true, true, false, false],
+  });
+});
+
+test('live Round reads and the undelayed observer', () => {
+  const round = {
+    kind: 'round' as const,
+    roundId: 'round',
+    createdByActorId: 'host',
+    visibility: 'public' as const,
+    status: 'active',
+    revision: 1,
+    participants: [] as { actorId: string; role: string; slot: number }[],
+  };
+  const allow = (
+    capability: 'round.read' | 'round.observe.undelayed',
+    resource: typeof round,
+  ) => authorize({ ...input, capability, resource }).allow;
+  const asHost = { ...round, createdByActorId: 'a' };
+  const seated = [{ actorId: 'a', role: 'affirmative', slot: 0 }];
+  assert({
+    given: 'a member with no seat on a public or an unlisted Round',
+    should: 'grant no live read and no undelayed observation',
+    actual: [
+      allow('round.read', round),
+      allow('round.read', { ...round, visibility: 'unlisted' as never }),
+      allow('round.observe.undelayed', round),
+    ],
+    expected: [false, false, false],
+  });
+  assert({
+    given: 'a seatless host, on a public and on a private Round',
+    should: 'hold undelayed observation on every Round',
+    actual: [
+      allow('round.observe.undelayed', asHost),
+      allow('round.observe.undelayed', {
+        ...asHost,
+        visibility: 'private' as never,
+      }),
+    ],
+    expected: [true, true],
+  });
+  assert({
+    given: 'a host who also holds a seat',
+    should: 'read through the seat and gain no observer capability',
+    actual: [
+      allow('round.read', { ...asHost, participants: seated }),
+      allow('round.observe.undelayed', { ...asHost, participants: seated }),
+    ],
+    expected: [true, false],
   });
 });

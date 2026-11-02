@@ -135,15 +135,20 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
     const roundJson = async (viewer: typeof f.host) =>
       JSON.stringify(await f.operations.roundView(viewer, roundId));
     assert({
-      given: 'the scheduled Round read by its debater and by a spectator',
+      given: 'the scheduled Round read by its debater',
       should:
         'carry the debated resolution once and no other drawn line, and no audit envelope',
       actual: [
         (await roundJson(f.host)).split(SENTINEL).length - 1,
-        (await roundJson(f.outsider)).split(SENTINEL).length - 1,
-        (await f.operations.roundView(f.outsider, roundId)).resolutionAudit,
+        (await f.operations.roundView(f.host, roundId)).resolutionAudit,
       ],
-      expected: [1, 1, null],
+      expected: [1, null],
+    });
+    await assertRejects({
+      given: 'the scheduled public Round read by a non-participant',
+      should: 'give them no live read at all (ISSUE-728, WATCH-6)',
+      actual: () => f.operations.roundView(f.outsider, roundId),
+      code: 'NOT_FOUND',
     });
 
     const refused = await Promise.allSettled([

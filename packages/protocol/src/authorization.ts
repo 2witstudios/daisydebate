@@ -16,6 +16,7 @@ const authorizationCapabilities = [
   'foundation.create',
   'foundation.read',
   'round.read',
+  'round.observe.undelayed',
   'round.transcript.read',
   'round.analysis.read',
   'round.analysis.generate',
