@@ -28,6 +28,8 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
    stopping session releases its lease. The staging rail deploys the worker
    without waiting, and a speech under way records its gap honestly (owner,
    DEC-304: staging has no users and the fastest deploy is the best deploy).
+   Web deploys first, so web and an older worker overlap during a deploy: a
+   capture contract change must tolerate that.
 5. A partial stream reports its gaps from durable evidence on each read.
 6. The live transcript reads its HTTP route, not a server action. The reply
    declares a contract version and the browser parses only the fields it renders,

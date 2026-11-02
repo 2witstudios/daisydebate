@@ -61,10 +61,10 @@ widths. Measured on `origin/main`:
 - UI pull requests outside the core no longer touch baselines; one inside
   it runs `gh workflow run rebaseline-visuals.yml -f target=<pr>` instead
   of a local Linux browser server and an artifact download.
-- A push made with the workflow token leaves the pull request's new CI run
+- A push made with the workflow token leaves the pull request's new runs
   waiting for approval (GitHub's rule against recursive runs). The workflow's
-  last job approves that run at the commit it pushed. It holds only
-  `actions: write` and runs nothing from the branch, so no write token sits
+  last job approves the runs held at that commit. It holds `actions: write` and
+  `pull-requests: read` and runs nothing from the branch, so no write token sits
   beside branch code and no human has to click.
 - The bot commit moves the pull request head; rebaseline before reviewers
   start, so their comments refer to the head that merges.

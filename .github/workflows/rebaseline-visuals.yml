@@ -6,7 +6,7 @@ name: Rebaseline visuals
 # --update-snapshots on the E2E job's runner image under a read-only token,
 # `commit` runs no branch code: it copies the rendered PNGs into the
 # baselines folder and pushes only that folder's changes, and `start-checks`
-# checks out nothing and approves the CI run GitHub holds for that push.
+# checks out nothing and approves the runs GitHub holds for that push.
 on:
   workflow_dispatch:
     inputs:
@@ -254,47 +254,68 @@ jobs:
 
   # GitHub holds pull_request runs from a workflow token's push for approval
   # by someone with write access, and this job's token has that access.
+  # It also runs when nothing was committed: an earlier dispatch this one
+  # cancelled may have pushed the head and never approved its runs.
   start-checks:
     name: Start CI on the rebaselined head
     needs: [resolve, commit]
-    if: needs.commit.outputs.sha != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write
       pull-requests: read
     steps:
-      # Only CI at the commit this workflow just pushed, which differs from
-      # the rendered head by baseline PNGs alone. GitHub's head_sha, branch and
-      # status filters all omitted a held CI run (run 41538127991), so read
-      # CI's recent runs unfiltered and match the commit here.
-      - name: Approve the held CI run at the pushed commit
+      # Only runs at this commit, which is the head this workflow rendered or
+      # that plus baseline PNGs alone. GitHub's head_sha, branch and status
+      # filters all omitted a held CI run (run 41538127991), so read recent runs
+      # unfiltered and match the commit here. A failed API call is one more try.
+      - name: Approve the held runs at the head
         id: approve
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ needs.commit.outputs.sha }}
+          SHA: ${{ needs.commit.outputs.sha || needs.resolve.outputs.sha }}
           BRANCH: ${{ needs.resolve.outputs.branch }}
         run: |
-          set -eu
-          # By branch: a commit's own pull request link can lag its push, and
-          # reading that as no pull request would leave CI held in silence.
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH" | jq length)" = 0 ]; then
-            echo "::notice::$BRANCH has no open pull request, so no CI runs for it"
-            exit 0
-          fi
+          set -euo pipefail
+          queued=false
           attempt=0
           while [ "$attempt" -lt 24 ]; do
             attempt=$((attempt + 1))
-            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" |
-              jq --arg sha "$SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request")]')
-            for id in $(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id'); do
-              gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null
-              echo "Approved run $id"
-            done
-            if printf '%s' "$runs" | jq -e 'length > 0' > /dev/null; then
+            if [ "$attempt" -gt 1 ]; then sleep 10; fi
+            # By branch: a commit's own pull request link can lag its push, and
+            # reading that as no pull request would leave CI held in silence.
+            if ! open=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH" | jq length); then
+              continue
+            fi
+            if [ "$open" = 0 ]; then
+              echo "::notice::$BRANCH has no open pull request, so no CI runs for it"
               exit 0
             fi
-            sleep 10
+            if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" |
+              jq --arg sha "$SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request")]'); then
+              continue
+            fi
+            all_approved=true
+            for id in $(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id'); do
+              if gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null; then
+                echo "Approved run $id"
+              else
+                all_approved=false
+              fi
+            done
+            ci=$(printf '%s' "$runs" | jq -r '[.[] | select(.name == "CI")] | first | if . == null then "absent" elif .conclusion == "action_required" then "held" else .status end')
+            # A queued run may yet turn out held, so only keep watching it.
+            queued=false
+            case "$ci" in
+              absent) ;;
+              held) if [ "$all_approved" = true ]; then exit 0; fi ;;
+              queued) queued=true ;;
+              *) exit 0 ;;
+            esac
           done
-          echo "::error::No CI run appeared at $SHA"
+          if [ "$queued" = true ]; then
+            echo "::notice::CI is queued at $SHA and was never held"
+            exit 0
+          fi
+          echo "::error::CI did not start at $SHA"
           exit 1

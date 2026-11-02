@@ -139,117 +139,161 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
 });
 
 /**
- * Runs the approval step against stub `gh` and `sleep` commands: `pulls` is the
- * commit's pull request listing, `runs` the workflow run listing. Returns the
- * exit status and each run the step asked GitHub to approve.
+ * Runs one workflow step's script with stub commands first on its PATH, over a
+ * scratch folder that `setup` fills and `read` reads back.
  */
-const runApprove = (pulls: unknown[], runs: unknown[]) => {
-  const step = workflow.jobs['start-checks']!.steps.find(
-    ({ id }) => id === 'approve',
-  )!;
-  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-approve-'));
+const runStep = <T>(
+  step: Step,
+  setup: (dir: string) => {
+    stubs: Record<string, string>;
+    env: Record<string, string>;
+  },
+  read: (dir: string) => T,
+) => {
+  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-step-'));
   try {
-    const calls = join(dir, 'calls');
-    writeFileSync(calls, '');
-    const gh = join(dir, 'gh');
-    writeFileSync(
-      gh,
-      `#!/bin/sh
-echo "$*" >> '${calls}'
-case "$*" in
-  *"/pulls?state=open&head=owner:pu/lobby") echo '${JSON.stringify(pulls)}' ;;
-  *"/actions/workflows/ci.yml/runs?"*) echo '${JSON.stringify({ workflow_runs: runs })}' ;;
-esac
-`,
-    );
-    chmodSync(gh, 0o755);
-    const sleep = join(dir, 'sleep');
-    writeFileSync(sleep, '#!/bin/sh\n');
-    chmodSync(sleep, 0o755);
+    const { stubs, env } = setup(dir);
+    for (const [name, script] of Object.entries(stubs)) {
+      writeFileSync(join(dir, name), `#!/bin/sh\n${script}\n`);
+      chmodSync(join(dir, name), 0o755);
+    }
     const run = Bun.spawnSync(['bash', '-c', step.run!], {
       env: {
         PATH: `${dir}:${process.env.PATH}`,
         GITHUB_REPOSITORY: 'owner/daisy',
-        GITHUB_REPOSITORY_OWNER: 'owner',
-        SHA: 'a'.repeat(40),
-        BRANCH: 'pu/lobby',
+        ...env,
       },
     });
-    return {
-      ok: run.exitCode === 0,
-      approved: readFileSync(calls, 'utf8')
-        .split('\n')
-        .filter((call) => call.startsWith('api --method POST'))
-        .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
-    };
+    return { ok: run.exitCode === 0, ...read(dir) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 };
 
-const ciRun = (
+/**
+ * Runs the approval step against a stub `gh` answering `pulls` and `runs`.
+ * `failOnce` fails the first call of that kind, as a transient API error does.
+ * Returns the exit status and each run the step asked GitHub to approve.
+ */
+const runApprove = (
+  pulls: unknown[],
+  runs: unknown[],
+  failOnce?: 'pulls' | 'runs' | 'approve',
+) => {
+  const step = workflow.jobs['start-checks']!.steps.find(
+    ({ id }) => id === 'approve',
+  )!;
+  return runStep(
+    step,
+    (dir) => {
+      const fail = (kind: string) =>
+        failOnce === kind
+          ? `[ -e '${dir}/failed' ] || { touch '${dir}/failed'; exit 1; }; `
+          : '';
+      writeFileSync(join(dir, 'calls'), '');
+      return {
+        stubs: {
+          gh: `echo "$*" >> '${dir}/calls'
+case "$*" in
+  *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}echo '${JSON.stringify(pulls)}' ;;
+  *"/actions/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
+  *"/approve") ${fail('approve')}: ;;
+esac`,
+          sleep: ':',
+        },
+        env: {
+          GITHUB_REPOSITORY_OWNER: 'owner',
+          SHA: 'a'.repeat(40),
+          BRANCH: 'pu/lobby',
+        },
+      };
+    },
+    (dir) => ({
+      approved: readFileSync(join(dir, 'calls'), 'utf8')
+        .split('\n')
+        .filter((call) => call.startsWith('api --method POST'))
+        .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
+    }),
+  );
+};
+
+const prRun = (
   id: number,
+  name: string,
+  status: string,
   conclusion: string | null,
   head_sha = 'a'.repeat(40),
-) => ({
-  id,
-  conclusion,
-  head_sha,
-  event: 'pull_request',
-});
+) => ({ id, name, status, conclusion, head_sha, event: 'pull_request' });
+const held = (id: number, name: string, head_sha?: string) =>
+  prRun(id, name, 'completed', 'action_required', head_sha);
 
 describe('Rebaseline visuals start-checks', () => {
   test('the job that holds actions: write', () => {
     const job = workflow.jobs['start-checks']!;
     assert({
       given: 'the start-checks job',
-      should: 'check out nothing and run only after a push',
+      should:
+        'check out nothing and run after commit even when nothing was pushed',
       actual: {
         needs: job.needs,
         condition: (job as Job & { if?: string }).if,
         uses: job.steps.flatMap((step) => (step.uses ? [step.uses] : [])),
+        head: job.steps[0]?.env?.SHA,
       },
       expected: {
         needs: ['resolve', 'commit'],
-        condition: "needs.commit.outputs.sha != ''",
+        condition: undefined,
         uses: [],
+        head: '${{ needs.commit.outputs.sha || needs.resolve.outputs.sha }}',
       },
     });
   });
 
-  test('a CI run held for approval', () => {
+  test('every run held at the head', () => {
     assert({
-      given: 'CI held at the pushed commit',
-      should: 'approve it and finish',
-      actual: runApprove([{ number: 1 }], [ciRun(11, 'action_required')]),
-      expected: { ok: true, approved: ['11'] },
+      given: 'CI and Browser E2E both held at the head',
+      should: 'approve both and finish',
+      actual: runApprove(
+        [{ number: 1 }],
+        [held(11, 'CI'), held(12, 'Browser E2E')],
+      ),
+      expected: { ok: true, approved: ['11', '12'] },
     });
   });
 
-  test('a CI run already started', () => {
+  test('a CI run already running', () => {
     assert({
-      given: 'CI already running at the pushed commit',
+      given: 'CI running at the head, as after a person pushed it',
       should: 'finish without approving anything',
-      actual: runApprove([{ number: 1 }], [ciRun(11, null)]),
+      actual: runApprove(
+        [{ number: 1 }],
+        [prRun(11, 'CI', 'in_progress', null)],
+      ),
       expected: { ok: true, approved: [] },
     });
   });
 
-  test('a held CI run at another commit', () => {
+  test('a CI run still queued', () => {
+    assert({
+      given: 'CI queued at the head for the whole wait and never held',
+      should: 'keep watching, then finish without approving anything',
+      actual: runApprove([{ number: 1 }], [prRun(11, 'CI', 'queued', null)]),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('a held run at another commit', () => {
     assert({
       given: 'CI held only at some other pull request head',
       should: 'never approve that run, and fail when its own never appears',
-      actual: runApprove(
-        [{ number: 1 }],
-        [ciRun(11, 'action_required', 'b'.repeat(40))],
-      ),
+      actual: runApprove([{ number: 1 }], [held(11, 'CI', 'b'.repeat(40))]),
       expected: { ok: false, approved: [] },
     });
   });
 
   test('a branch with no pull request', () => {
     assert({
-      given: 'a pushed commit on a branch with no open pull request',
+      given: 'a head on a branch with no open pull request',
       should: 'finish without approving anything',
       actual: runApprove([], []),
       expected: { ok: true, approved: [] },
@@ -264,35 +308,43 @@ describe('Rebaseline visuals start-checks', () => {
       expected: false,
     });
   });
+
+  test('transient API failures', () => {
+    const runs = [held(11, 'CI')];
+    assert({
+      given: 'one failed pull request lookup, run listing or approval',
+      should: 'retry and approve the held run',
+      actual: [
+        runApprove([{ number: 1 }], runs, 'pulls'),
+        runApprove([{ number: 1 }], runs, 'runs'),
+        runApprove([{ number: 1 }], runs, 'approve'),
+      ],
+      expected: [
+        { ok: true, approved: ['11'] },
+        { ok: true, approved: ['11'] },
+        { ok: true, approved: ['11', '11'] },
+      ],
+    });
+  });
 });
 
 /** Runs the resolve step's script against a stub `gh` answering `reply`. */
-const runResolve = (target: string, reply: string) => {
-  const step = workflow.jobs.resolve!.steps.find(({ id }) => id === 'target')!;
-  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-resolve-'));
-  try {
-    const gh = join(dir, 'gh');
-    writeFileSync(gh, `#!/bin/sh\ncat <<'JSON'\n${reply}\nJSON\n`);
-    chmodSync(gh, 0o755);
-    const output = join(dir, 'output');
-    writeFileSync(output, '');
-    const run = Bun.spawnSync(['bash', '-c', step.run!], {
-      env: {
-        PATH: `${dir}:${process.env.PATH}`,
-        GITHUB_REPOSITORY: 'owner/daisy',
-        GITHUB_OUTPUT: output,
-        TARGET: target,
-        DEFAULT_BRANCH: 'main',
-      },
-    });
-    return {
-      ok: run.exitCode === 0,
-      output: readFileSync(output, 'utf8'),
-    };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
+const runResolve = (target: string, reply: string) =>
+  runStep(
+    workflow.jobs.resolve!.steps.find(({ id }) => id === 'target')!,
+    (dir) => {
+      writeFileSync(join(dir, 'output'), '');
+      return {
+        stubs: { gh: `cat <<'JSON'\n${reply}\nJSON` },
+        env: {
+          GITHUB_OUTPUT: join(dir, 'output'),
+          TARGET: target,
+          DEFAULT_BRANCH: 'main',
+        },
+      };
+    },
+    (dir) => ({ output: readFileSync(join(dir, 'output'), 'utf8') }),
+  );
 
 const sha = 'a'.repeat(40);
 const pull = (repo: string, ref: string, state = 'open') =>
