@@ -430,6 +430,48 @@ test('a real exit save with no failure double commits once and leaves no false r
   );
 });
 
+test('an exit save landing after the next page listed moves the editor, with no conflict', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  // The paused clock holds the recheck, so this commit lands after the page's
+  // list and before its second look, which a real exit save cannot be made to do.
+  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+  await page.clock.pauseAt('2026-11-01T18:01:00Z');
+  const recovery = await offeredAfterReload(
+    page,
+    documentId,
+    'Landed after the list',
+  );
+  const { revision } = await serverDocument(page, roundId, documentId);
+  const landed = await page.request.post(`${documentsPath}save`, {
+    headers: { origin },
+    data: {
+      id: documentId,
+      html: recovery.html,
+      expectedRevision: revision,
+    },
+  });
+  expect(landed.status()).toBe(200);
+  await page.clock.runFor(3_000);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('Landed after the list');
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toHaveCount(0);
+  await expect.poll(() => rawDraftFor(page, documentId)).toBeNull();
+  await page.clock.resume();
+  await edit(page, 'Typed after the landing');
+  await expect
+    .poll(async () => serverDocument(page, roundId, documentId))
+    .toMatchObject({
+      html: expect.stringContaining('Typed after the landing'),
+      revision: revision + 2,
+    });
+  await expect(page.getByText('changed in another tab')).toHaveCount(0);
+});
+
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
   roundFiles,
 }) => {

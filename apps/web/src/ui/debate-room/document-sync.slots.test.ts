@@ -796,6 +796,35 @@ test('a restored copy another tab moved aside does not survive the next edit sav
   });
 });
 
+test('a save whose copy could not be stored leaves no older copy behind', async () => {
+  const f = fixture();
+  f.storage.removeItem(key);
+  let refusing = false;
+  const storage = new Proxy(f.storage, {
+    get: (target, name) => {
+      if (name === 'setItem' && refusing)
+        return () => {
+          throw new DOMException('full', 'QuotaExceededError');
+        };
+      const value = Reflect.get(target, name);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const sync = f.owner({ storage });
+  await sync.load();
+  sync.change('a', '<p>STORED</p>');
+  refusing = true;
+  sync.change('a', '<p>UNSTORED</p>');
+  refusing = false;
+  await sync.flush();
+  assert({
+    given: 'an older edit in storage, then a newer edit storage refused',
+    should: 'save the newer edit and never offer the older one afterwards',
+    actual: [f.server().html, f.storage.getItem(key), sync.recoveryOffers()],
+    expected: ['<p>UNSTORED</p>', null, []],
+  });
+});
+
 test('a new offer does not overwrite a conflict notice', async () => {
   const f = fixture();
   const events: string[] = [];
