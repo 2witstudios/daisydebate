@@ -1,4 +1,4 @@
-import type { BroadcastReleasePolicy } from './broadcast-release';
+import type { BroadcastReleasePolicy } from '@daisy/protocol';
 
 /** Revocation must land at least this far ahead of a private phase (BCAST-1). */
 export const REVOCATION_LEAD_MS = 500;

@@ -8,7 +8,7 @@ export {
   resolveReleasePolicy,
   segmentDue,
 } from './broadcast-release';
-export type { BroadcastReleasePolicy, HeldSegment } from './broadcast-release';
+export type { HeldSegment } from './broadcast-release';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
