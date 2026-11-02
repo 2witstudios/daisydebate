@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6e61f6a1-1b82-436a-9b86-045ebff93218",
+  "id": "a4d953ec-a6b8-495f-8613-fb193c5f0ff0",
   "prevIds": [
-    "6fa213e4-5b45-4f54-98d9-2b91d9a6d40f"
+    "5b0549b8-5f76-463c-b090-443891f56135"
   ],
   "ddl": [
     {
@@ -507,6 +507,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_finalizations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_judging_attempts",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7523,9 +7529,22 @@
       "table": "round_attendance_adjudications"
     },
     {
-      "type": "timestamp with time zone",
+      "type": "text",
       "typeSchema": null,
       "notNull": true,
+      "dimensions": 0,
+      "default": "'settled_availability'",
+      "generated": null,
+      "identity": null,
+      "name": "evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -7538,12 +7557,25 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "settled_horizon",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "receipt_participant_id",
       "entityType": "columns",
       "schema": "public",
       "table": "round_attendance_adjudications"
@@ -8154,6 +8186,123 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "agent_run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "judge_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "job_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "category",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "diagnostic",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "round_id",
       "entityType": "columns",
       "schema": "public",
@@ -8311,6 +8460,58 @@
       "generated": null,
       "identity": null,
       "name": "pending_ballot_received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "clock_timestamp() + interval '5 minutes'",
+      "generated": null,
+      "identity": null,
+      "name": "generation_deadline_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "retry_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "terminal_reason",
       "entityType": "columns",
       "schema": "public",
       "table": "round_judging_jobs"
@@ -8987,6 +9188,19 @@
       "generated": null,
       "identity": null,
       "name": "ballot_deadline_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "attendance_resolution_cutoff_at",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -12908,6 +13122,41 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "receipt_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_receipt_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "command_id",
           "isExpression": false,
           "asc": true,
@@ -13638,6 +13887,62 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_finalizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_attempts_job_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "agent_run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_attempts_run_judge_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_attempts"
     },
     {
       "nameExplicit": true,
@@ -17122,6 +17427,27 @@
     {
       "nameExplicit": true,
       "columns": [
+        "round_id",
+        "segment_id",
+        "receipt_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_check_ins",
+      "columnsTo": [
+        "round_id",
+        "segment_id",
+        "participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_attendance_adjudications_receipt_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "command_id",
         "round_id"
       ],
@@ -17524,6 +17850,44 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_finalizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_judging_jobs",
+      "columnsTo": [
+        "round_id",
+        "judge_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_judging_attempts_job_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "agent_run_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "agent_runs",
+      "columnsTo": [
+        "id",
+        "round_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_judging_attempts_run_judge_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_attempts"
     },
     {
       "nameExplicit": true,
@@ -18909,6 +19273,16 @@
       "name": "round_finalizations_pkey",
       "schema": "public",
       "table": "round_finalizations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "agent_run_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_judging_attempts_pkey",
+      "schema": "public",
+      "table": "round_judging_attempts",
       "entityType": "pks"
     },
     {
@@ -20655,6 +21029,13 @@
       "table": "round_analyses"
     },
     {
+      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'infrastructure_unresolved' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
+      "name": "round_attendance_adjudications_evidence_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
       "value": "\"decision\" in ('attended', 'none', 'forfeit', 'abandoned')",
       "name": "round_attendance_adjudications_decision_check",
       "entityType": "checks",
@@ -20774,8 +21155,29 @@
       "table": "round_finalizations"
     },
     {
+      "value": "jsonb_typeof(\"diagnostic\") = 'object'",
+      "name": "round_judging_attempts_diagnostic_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "value": "\"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
+      "name": "round_judging_attempts_category_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
       "value": "jsonb_typeof(\"pending_ballot\") = 'object'",
       "name": "round_judging_jobs_pending_ballot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
+      "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_judging_jobs"
@@ -20998,7 +21400,7 @@
       "table": "rounds"
     },
     {
-      "value": "(\"status\" = 'scheduled' and \"current_stage\" is null and \"outcome\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"current_stage\" is not null and \"outcome\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and (\"outcome\" is not null or (\"competition_type\" = 'casual' and \"ladder_id\" is null)) and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"outcome\" is null and \"completed_at\" is not null)",
+      "value": "(\"status\" = 'scheduled' and \"current_stage\" is null and \"outcome\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"current_stage\" is not null and \"outcome\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"outcome\" is null and \"completed_at\" is not null)",
       "name": "rounds_lifecycle_check",
       "entityType": "checks",
       "schema": "public",
