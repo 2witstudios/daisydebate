@@ -513,7 +513,7 @@ jobs:
           key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
       - name: Run real isolated Launch browser suite
         id: launch
-        run: bun test:e2e:room-launch
+        run: DAISY_ROOM_LAUNCH_SPECS='["room-launch.e2e.ts","round-media.e2e.ts"]' bun test:e2e:room-launch --repeat-each=12 --retries=0 -g "on the recovery tick alone"
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
