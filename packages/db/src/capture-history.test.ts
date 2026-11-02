@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createCaptureRule } from '@daisy/debate-engine';
 import { coverageAuthority } from './capture-history';
 import type { CaptureTx } from './media-capture-context';
 
@@ -12,7 +13,7 @@ const stream = {
   roundParticipantId: 'p'.repeat(24),
 };
 const grants = [{ start: 1000, end: 6000 }];
-const tolerance = { joinMs: 4000, relayMs: 1000 };
+const tolerance = createCaptureRule({ joinMs: 4000, relayMs: 1000 });
 /** Answers each select with the next canned rows, in query order. */
 const reading = (...answers: readonly unknown[][]) => {
   const queue = [...answers];

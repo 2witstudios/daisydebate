@@ -407,3 +407,10 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
+export {
+  capturePartialReasons,
+  capturePartialReasonSchema,
+  type CaptureGap,
+  type CapturePartialReason,
+  type CaptureVerdict,
+} from './capture-verdict';

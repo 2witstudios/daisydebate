@@ -1,8 +1,7 @@
-import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { captureGaps } from './capture-coverage';
-import { coverageRule, grantWindows } from './capture-history';
+import { grantWindows } from './capture-history';
+import type { CaptureRule } from './capture-rule';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
@@ -33,6 +32,7 @@ export async function closedStreamGaps(
   tx: Reader,
   roundId: string,
   streams: readonly Stream[],
+  rule: CaptureRule,
 ) {
   const found = new Map<
     string,
@@ -105,7 +105,7 @@ export async function closedStreamGaps(
     const kind = seats.find(
       (seat) => seat.id === stream.roundParticipantId,
     )?.kind;
-    const rule = coverageRule(
+    const coverage = rule.coverage(
       kind === 'bot' ? 'bot' : 'human',
       grantWindows(grantsOf.get(streamKey(stream)) ?? [], segment).map(
         (grant) => ({
@@ -113,21 +113,25 @@ export async function closedStreamGaps(
           end: grant.end ?? speakingEndMs,
         }),
       ),
-      windowsOf.get(streamKey(stream)) ?? [],
-      CAPTURE_COVERAGE_TOLERANCE,
+      (windowsOf.get(streamKey(stream)) ?? []).map((row) => ({
+        start: row.start.getTime(),
+        end: row.end.getTime(),
+      })),
     );
     found.set(
       streamKey(stream),
-      captureGaps({
-        ...rule,
-        observed: (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
-          start: row.start.getTime(),
-          end: row.end.getTime(),
+      rule
+        .gaps(
+          coverage,
+          (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
+            start: row.start.getTime(),
+            end: row.end.getTime(),
+          })),
+        )
+        .map((gap) => ({
+          fromOffsetMs: Math.max(0, gap.start - startMs),
+          untilOffsetMs: Math.max(0, gap.end - startMs),
         })),
-      }).map((gap) => ({
-        fromOffsetMs: Math.max(0, gap.start - startMs),
-        untilOffsetMs: Math.max(0, gap.end - startMs),
-      })),
     );
   }
   return found;

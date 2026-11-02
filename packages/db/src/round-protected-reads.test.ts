@@ -1,3 +1,4 @@
+import { captureRule } from '@daisy/debate-engine';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readTranscriptSnapshot } from './round-protected-reads';
@@ -9,7 +10,7 @@ test('the transcript snapshot reads its revision before any transcript rows', as
   const { client, queries } = fakeSql([[], [], [], [], [], []]);
   const database = drizzle({ client });
   const snapshot = await database.transaction((tx) =>
-    readTranscriptSnapshot(tx, 'r'.repeat(24)),
+    readTranscriptSnapshot(tx, 'r'.repeat(24), captureRule),
   );
   const order = queries
     .map(({ query }) =>

@@ -13,6 +13,7 @@ import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { transcriptRevision } from './capture-history';
 import { closedStreamGaps, streamKey } from './capture-gaps';
+import type { CaptureRule } from './capture-rule';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundViewFor } from './round-view-projection';
 
@@ -28,6 +29,7 @@ export const roundProtectedReads = ({
     readonly caller: Caller;
     /** Transcript-specific audience decision on fresh locked facts. */
     readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly captureRule: CaptureRule;
   }) {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -36,7 +38,7 @@ export const roundProtectedReads = ({
       return roundTranscriptReadSchema.parse({
         contractVersion: TRANSCRIPT_CONTRACT_VERSION,
         round: roundViewFor(round, input.caller.actorId),
-        ...(await readTranscriptSnapshot(tx, input.roundId)),
+        ...(await readTranscriptSnapshot(tx, input.roundId, input.captureRule)),
       });
     });
   },
@@ -47,7 +49,11 @@ export const roundProtectedReads = ({
  * committed during these reads can only make the rows newer than the
  * revision, so its doorbell still refetches (never a stale "Capturing").
  */
-export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
+export async function readTranscriptSnapshot(
+  tx: Reader,
+  roundId: string,
+  captureRule: CaptureRule,
+) {
   const counter = await transcriptRevision(tx, roundId);
   const freeze = await readTranscriptFreeze(tx, roundId);
   const streams = await tx
@@ -55,6 +61,7 @@ export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
       segmentId: transcriptSegments.segmentId,
       roundParticipantId: transcriptSegments.roundParticipantId,
       state: transcriptSegments.state,
+      partialReasons: transcriptSegments.partialReasons,
     })
     .from(transcriptSegments)
     .where(eq(transcriptSegments.roundId, roundId));
@@ -65,6 +72,7 @@ export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
       (stream) =>
         stream.state === 'partial' || (freeze && stream.state === 'open'),
     ),
+    captureRule,
   );
   return {
     revision: counter + (freeze ? 1 : 0),
