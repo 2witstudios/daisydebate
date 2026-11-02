@@ -44,3 +44,22 @@ export function scheduleMediaDeadline(options: {
     unsubscribe();
   };
 }
+
+/** What this mount means by "now" and "at this deadline": the sampled Round clock,
+ * due only once its lower bound has passed, so a read cannot beat the boundary. */
+export function roundTimeMediaClock(options: {
+  readonly roundTime: RoundTime;
+  readonly scheduler: Scheduler;
+}) {
+  const { roundTime, scheduler } = options;
+  return {
+    now: () => roundTime.nowMs() - (roundTime.status().uncertaintyMs ?? 0),
+    at: (deadlineMs: number, fire: () => void) =>
+      scheduleMediaDeadline({
+        deadlineMs,
+        roundTime,
+        scheduler,
+        refresh: fire,
+      }),
+  };
+}

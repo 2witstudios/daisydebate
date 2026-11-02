@@ -1,8 +1,10 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
-import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
 import { createRoundViewFollower } from './follow-round-view';
+import { roundTimeMediaClock } from './schedule-deadline';
+import { systemScheduler } from '../realtime/browser-adapters';
+import type { RoundTime } from '../round-runtime/round-time';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -52,9 +54,11 @@ const requestMedia = createMediaRequest({
 function RoundMediaSession({
   view,
   onRefresh,
+  roundTime,
 }: {
   readonly view: RoundView;
   readonly onRefresh: () => void;
+  readonly roundTime: RoundTime;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
   const [microphoneMuted, setMicrophoneMuted] = useState(poi);
@@ -146,19 +150,12 @@ function RoundMediaSession({
     }
     acceptedVersion.current = view.version;
     follower.current ??= createRoundViewFollower({
-      clock: {
-        now: () => Date.parse(systemClock.now()),
-        at: (deadlineMs, fire) => {
-          const delayMs = deadlineMs - Date.parse(systemClock.now());
-          const timer = window.setTimeout(fire, Math.max(0, delayMs));
-          return () => window.clearTimeout(timer);
-        },
-      },
+      clock: roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
       reconcile: (event) => void controller.current?.reconcile(event),
       refresh: () => refresh.current(),
     });
     return follower.current(view);
-  }, [view]);
+  }, [view, roundTime]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
@@ -238,9 +235,14 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void) =>
+export const roundMediaSlot = (onRefresh: () => void, roundTime: RoundTime) =>
   function RoundMediaSlot(view: RoundView) {
     return (
-      <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+      <RoundMediaSession
+        key={view.id}
+        view={view}
+        onRefresh={onRefresh}
+        roundTime={roundTime}
+      />
     );
   };
