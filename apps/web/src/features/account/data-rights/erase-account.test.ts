@@ -145,7 +145,10 @@ test('a confirmed request with no session left still clears the note copies', as
   const handler = createEraseAccountHandler({
     logger: silentLogger,
     origin: () => origin,
-    identify: async () => ({ state: 'anonymous' }),
+    identify: async () => ({
+      state: 'anonymous',
+      principal: { kind: 'anonymous' },
+    }),
     limiter: allowedLimiter,
     clock: fixedClock(now),
     eraseSubject: async () => {

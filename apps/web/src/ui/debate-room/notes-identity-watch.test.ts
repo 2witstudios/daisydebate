@@ -30,6 +30,7 @@ const harness = ({
   const storage = memoryStorage();
   if (drafts) storage.setItem(DRAFT, 'private');
   const published: (string | null)[] = [];
+  let mark = signedOut;
   const log = { reads: 0, fences: 0, closedTaken: 0, intentTaken: 0 };
   events.addEventListener(NOTES_FENCE_EVENT, () => {
     log.fences += 1;
@@ -44,7 +45,9 @@ const harness = ({
     },
     takeSignOutIntent: () => {
       log.intentTaken += 1;
-      return signedOut;
+      const taken = mark;
+      mark = false;
+      return taken;
     },
     takeAccountClosedProof: () => {
       log.closedTaken += 1;
@@ -78,27 +81,64 @@ test('a mount publishes only on proof', () => {
       run(undefined, { signedOut: true }),
       run(undefined, {}),
     ],
-    expected: [
-      ['member'],
-      [],
-      [null],
-      [null],
-      [null, 'member'],
-      [null],
-      [],
-      [],
-    ],
+    expected: [['member'], [], [null], [null], [null], [null], [], []],
   });
 });
 
-test('an unavailable mount leaves the sign-out mark for the next known mount', () => {
-  const h = harness({ signedOut: true });
-  watchNotesIdentity(undefined, h.resources)();
+test('an unavailable mount settles a sign-out mark on the first session answer', async () => {
+  const signedOut = harness({ signedOut: true });
+  const stopSignedOut = watchNotesIdentity(undefined, signedOut.resources);
+  const atMount = [...signedOut.published];
+  await settled();
+  stopSignedOut();
+  const refused = harness({
+    signedOut: true,
+    session: { user: { id: 'member' } },
+  });
+  const stopRefused = watchNotesIdentity(undefined, refused.resources);
+  await settled();
+  stopRefused();
+  const expiredLater = harness({ signedOut: false });
+  const stopExpired = watchNotesIdentity(undefined, expiredLater.resources);
+  await settled();
+  stopExpired();
   assert({
-    given: 'a sign-out landing while identity is unavailable',
-    should: 'publish nothing and leave the mark, so it can still purge later',
-    actual: [h.log.intentTaken, h.published],
-    expected: [0, []],
+    given:
+      'a sign-out landing unavailable, a refused sign-out with a live session, and no mark',
+    should:
+      'publish nothing until the answer, then purge only on a signed-out answer with the mark, and otherwise only fence',
+    actual: [
+      atMount,
+      signedOut.published,
+      signedOut.log.fences,
+      refused.published,
+      refused.log.fences,
+      expiredLater.published,
+      expiredLater.log.fences,
+    ],
+    expected: [[], [null], 0, ['member'], 0, [], 1],
+  });
+});
+
+test('a mark a live session refused cannot purge a later expiry', async () => {
+  const h = harness({ signedOut: true });
+  const answers: unknown[] = [{ user: { id: 'member' } }, null];
+  const stop = watchNotesIdentity(undefined, {
+    ...h.resources,
+    fetchSession: async () => ({
+      ok: true,
+      json: async () => answers.shift(),
+    }),
+  });
+  await settled();
+  h.events.dispatchEvent(new Event(NOTES_IDENTITY_CHECK_EVENT));
+  await settled();
+  stop();
+  assert({
+    given: 'a refused sign-out, then the same session expiring',
+    should: 'keep the copies and only fence',
+    actual: [h.published, h.log.fences],
+    expected: [['member'], 1],
   });
 });
 
@@ -142,7 +182,6 @@ test('a null answer fences and later checks still ask', async () => {
       return { ok: true, json: async () => answers.shift() };
     },
   });
-  h.events.dispatchEvent(new Event('focus'));
   await settled();
   const copy = h.storage.getItem(DRAFT);
   h.events.dispatchEvent(new Event(NOTES_IDENTITY_CHECK_EVENT));

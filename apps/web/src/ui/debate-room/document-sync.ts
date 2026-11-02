@@ -179,6 +179,9 @@ export function createDocumentSync({
     ownedDurable.get(id) === generation;
   const activeOffered = (id: string, record: NoteRecord) =>
     record.active !== undefined && !owned(id, record.active.generation);
+  /** A copy matching the server's text is finished. */
+  const settledBy = (record: NoteRecord, doc: StoredDocument) =>
+    settleNoteRecord(record, (html) => sameDocumentHtml(html, doc.html));
   const remember = (documents: readonly StoredDocument[]) => {
     for (const doc of documents) {
       revisions.set(doc.id, doc.revision);
@@ -343,9 +346,7 @@ export function createDocumentSync({
     if (doc) {
       serverCopies.set(id, doc.html);
       const previous = read(id, wallClock());
-      const settled = settleNoteRecord(previous.record, (html) =>
-        sameDocumentHtml(html, doc.html),
-      );
+      const settled = settledBy(previous.record, doc);
       if (settled !== previous.record)
         write(id, previous, settled, wallClock());
     }
@@ -489,9 +490,7 @@ export function createDocumentSync({
     for (const doc of documents) {
       if (pending.has(doc.id) || conflicted.has(doc.id)) continue;
       const previous = read(doc.id, now);
-      const settled = settleNoteRecord(previous.record, (html) =>
-        sameDocumentHtml(html, doc.html),
-      );
+      const settled = settledBy(previous.record, doc);
       if (settled !== previous.record) write(doc.id, previous, settled, now);
       // The offered text committed late, or an acknowledgement already cleared
       // it, and nothing here is pending, so the editor adopts the server's text.
@@ -518,11 +517,7 @@ export function createDocumentSync({
         const previous = read(doc.id, now);
         const offered = pending.has(doc.id)
           ? previous.record
-          : offerNoteRecord(
-              settleNoteRecord(previous.record, (html) =>
-                sameDocumentHtml(html, doc.html),
-              ),
-            );
+          : offerNoteRecord(settledBy(previous.record, doc));
         if (offered !== previous.record) write(doc.id, previous, offered, now);
       }
       publish();

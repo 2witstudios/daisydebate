@@ -25,8 +25,9 @@ export type NotesIdentityResources = {
 
 /**
  * Follows this browser's identity for the root's lifetime. An unavailable
- * server identity is not evidence of logout, so that mount publishes nothing,
- * yet still listens for changes from other tabs. Returns the way to stop.
+ * server identity is not evidence of logout, so without closure proof that mount
+ * publishes nothing, yet still listens for changes from other tabs and settles a
+ * sign-out mark on its first session answer. Returns the way to stop.
  */
 export function watchNotesIdentity(
   principalId: string | null | undefined,
@@ -44,12 +45,12 @@ export function watchNotesIdentity(
     }
     publish(next);
   };
+  const unavailable = principalId === undefined;
   // Only the server issues this, so it holds on any mount, whatever identity
-  // that mount was rendered with.
+  // that mount was rendered with, and nothing publishes over it.
   if (resources.takeAccountClosedProof()) publish(null);
-  // An unavailable mount leaves the sign-out mark for the next known one.
-  if (
-    principalId !== undefined &&
+  else if (
+    !unavailable &&
     rootMountAction(principalId, resources.takeSignOutIntent()) === 'publish'
   )
     syncPrincipal(principalId);
@@ -69,7 +70,13 @@ export function watchNotesIdentity(
       )
         return;
       if (next !== null) {
+        // A live session means any sign-out mark was refused.
+        if (unavailable) resources.takeSignOutIntent();
         syncPrincipal(next);
+        return;
+      }
+      if (unavailable && resources.takeSignOutIntent()) {
+        syncPrincipal(null);
         return;
       }
       // Expiry is not a sign-out, so this only fences. A fence can refuse while
@@ -101,6 +108,7 @@ export function watchNotesIdentity(
   events.addEventListener(NOTES_IDENTITY_CHECK_EVENT, read);
   events.addEventListener('storage', otherTab);
   visibility.addEventListener('visibilitychange', visible);
+  if (unavailable) void check();
   return () => {
     live = false;
     pending?.abort();

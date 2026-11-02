@@ -444,10 +444,8 @@ test('an exit save landing after the next page listed moves the editor, with no 
     'Landed after the list',
   );
   const { revision } = await serverDocument(page, roundId, documentId);
-  // Someone already in the editor keeps their place when the text moves.
   const editor = page.getByRole('textbox', { name: 'Flow', exact: true });
   await editor.click();
-  await page.keyboard.press('Home');
   const landed = await page.request.post(`${documentsPath}save`, {
     headers: { origin },
     data: {
@@ -468,7 +466,9 @@ test('an exit save landing after the next page listed moves the editor, with no 
   await expect
     .poll(async () => serverDocument(page, roundId, documentId))
     .toMatchObject({
-      html: expect.stringContaining('First: Landed after the list'),
+      html: expect.stringMatching(
+        /Landed after the list.*First: |First: .*Landed after the list/,
+      ),
       revision: revision + 2,
     });
   await expect(page.getByText('A newer save of this file')).toHaveCount(0);

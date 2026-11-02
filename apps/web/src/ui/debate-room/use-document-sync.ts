@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type Dispatch } from 'react';
+import { flushSync } from 'react-dom';
 import type { DocumentSync } from './document-sync';
 import { systemClock } from '@daisy/clock';
 import { isNoteDraftKey } from './note-draft-storage';
@@ -34,8 +35,12 @@ export function useDocumentSync(
       setProblem(closedFilesNotice(sync.closedBy()));
     });
     const adopted = sync.subscribeServerText((id, html) => {
+      // In this same task as the revision moving, so no keystroke can land on
+      // the old text with the new revision.
       if (live)
-        dispatch({ type: 'doc/update', id, html, now: systemClock.now() });
+        flushSync(() =>
+          dispatch({ type: 'doc/update', id, html, now: systemClock.now() }),
+        );
     });
     const refresh = (event: StorageEvent) => {
       if (event.key === null || isNoteDraftKey(event.key))

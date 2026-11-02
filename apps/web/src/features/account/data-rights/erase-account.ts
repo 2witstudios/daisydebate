@@ -81,7 +81,16 @@ export function createEraseAccountHandler({
       seeOther(`/settings?${ERASE_ACCOUNT_QUERY}=${notice}`);
     try {
       requireSameOrigin(request, origin());
-      const account = requireSignedIn(await identify(request));
+      const identity = await identify(request);
+      // Same origin held, so this browser asked to close the account and has no
+      // session left: a double submit or a lost answer after the closure
+      // committed, or an expired session. It cannot tell which, and it asked for
+      // its private data to go, so its note copies go in every case.
+      if (identity.state === 'anonymous')
+        return (await readConfirmation(request)) === 'confirmed'
+          ? erasingNoteCopies(seeOther('/sign-in'))
+          : seeOther('/sign-in');
+      const account = requireSignedIn(identity);
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
       if (account.principal.actorId === null)
         throw createAppError('AUTHORIZATION');
@@ -107,17 +116,8 @@ export function createEraseAccountHandler({
       );
       return erasingNoteCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
     } catch (error) {
-      if (isAppError(error) && error.code === 'AUTHENTICATION') {
-        // Same origin held, so this browser asked to close the account and has
-        // no session left: a double submit or a lost answer after the closure
-        // committed, or an expired session. It cannot tell which, and it asked
-        // for its private data to go, so its note copies go in every case.
-        const confirmed =
-          (await readConfirmation(request).catch(() => null)) === 'confirmed';
-        return confirmed
-          ? erasingNoteCopies(seeOther('/sign-in'))
-          : seeOther('/sign-in');
-      }
+      if (isAppError(error) && error.code === 'AUTHENTICATION')
+        return seeOther('/sign-in');
       const code = isAppError(error) ? error.code : 'INTERNAL';
       logger.log(
         'privacy.erase.failed',
