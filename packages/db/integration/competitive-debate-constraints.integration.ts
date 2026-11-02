@@ -210,8 +210,8 @@ describe('round participants (DATA-2.2)', () => {
       const secondSlot = !(await rejected(() =>
         fixture.participant(roundId, 'affirmative', 1),
       ));
-      const spectator = await rejected(() =>
-        fixture.participant(roundId, 'spectator', 0),
+      const unknownRole = await rejected(() =>
+        fixture.participant(roundId, 'not-a-role', 0),
       );
       const negativeSlot = await rejected(() =>
         fixture.participant(roundId, 'negative', -1),
@@ -238,7 +238,7 @@ describe('round participants (DATA-2.2)', () => {
           seatTaken,
           actorTwice,
           secondSlot,
-          spectator,
+          unknownRole,
           negativeSlot,
           unknownActor,
           unknownRound,
@@ -247,7 +247,7 @@ describe('round participants (DATA-2.2)', () => {
           seatTaken: true,
           actorTwice: true,
           secondSlot: true,
-          spectator: true,
+          unknownRole: true,
           negativeSlot: true,
           unknownActor: true,
           unknownRound: true,
