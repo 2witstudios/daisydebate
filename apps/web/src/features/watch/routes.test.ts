@@ -6,7 +6,7 @@ setupRitewayBun();
 describe('watch routes', () => {
   test('live and replay hrefs', () => {
     assert({
-      given: 'a debate id with and without a query',
+      given: 'a Round id with and without a query',
       should: 'put live under /watch and replay under /recordings',
       actual: [
         liveHref('top'),
@@ -34,7 +34,7 @@ describe('watch routes', () => {
 
   test('signing in returns to the live view', () => {
     assert({
-      given: 'a debate id',
+      given: 'a Round id',
       should: 'sign in with that live view as the next destination',
       actual: signInToWatchHref('top'),
       expected: '/sign-in?next=%2Fwatch%2Ftop',

@@ -183,7 +183,7 @@ function LiveColumn({ view }: SpectateProps) {
 }
 
 /**
- * The spectator view of a debate, live or just ended: the speaker large with
+ * The spectator view of a Round, live or just ended: the speaker large with
  * the other debater inset, the phase timeline and the seats, beside the
  * transcript and chat. Everything here is sample state except the running
  * clock; chat and reactions are inert.

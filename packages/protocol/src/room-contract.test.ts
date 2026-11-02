@@ -246,7 +246,7 @@ describe('Room command boundary', () => {
         base,
         { ...base, actorId: 'fake' },
         { ...base, slot: -1 },
-        { ...base, role: 'spectator' },
+        { ...base, role: 'not-a-role' },
       ].map((value) => roomCommandSchema.safeParse(value).success),
       expected: [true, false, false, false],
     });

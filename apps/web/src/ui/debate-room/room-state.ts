@@ -25,7 +25,6 @@ import {
   closeTab,
   drawerTabs,
   openTab,
-  roundKindOf,
   type DrawerTab,
   type TabsState,
 } from '../../features/debate-room/workspace';
@@ -211,13 +210,13 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
   'doc/add': (s, a) => appendWorkspaceDocument(s, a.document),
   'drawer/tab': (s, a, r) =>
-    drawerTabs(roundKindOf(r.competition)).includes(a.tab)
+    drawerTabs(r.competition).includes(a.tab)
       ? { ...s, drawer: a.tab, drawerOpen: true }
       : s,
   'drawer/toggle': (s) => ({ ...s, drawerOpen: !s.drawerOpen }),
   'drawer/phone': (s, a, r) => {
     if (a.tab === null) return { ...s, phoneDrawer: false };
-    return drawerTabs(roundKindOf(r.competition)).includes(a.tab)
+    return drawerTabs(r.competition).includes(a.tab)
       ? { ...s, drawer: a.tab, phoneDrawer: true }
       : s;
   },

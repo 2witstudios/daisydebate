@@ -7,7 +7,7 @@ import { StatusLine } from '../../components/status-line/status-line';
 import { cn } from '../../cn';
 import { LiveClock } from '../live-clock/live-clock';
 
-export type FeaturedDebateProps = {
+export type FeaturedRoundProps = {
   readonly card: LiveCard;
   readonly delaySeconds: number;
 };
@@ -30,11 +30,11 @@ function Seat({ seat }: { seat: LiveCard['aff'] }) {
 }
 
 /**
- * The featured live debate: the highest-rated ranked debate live now, picked
+ * The featured live Round: the highest-rated ranked Round live now, picked
  * by rating alone. It leads the page on a wash of the ranked hue (clay,
  * ADR 0051) instead of a flat green slab.
  */
-export function FeaturedDebate({ card, delaySeconds }: FeaturedDebateProps) {
+export function FeaturedRound({ card, delaySeconds }: FeaturedRoundProps) {
   return (
     <section
       aria-label="Featured live debate"

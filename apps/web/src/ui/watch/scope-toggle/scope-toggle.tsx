@@ -15,7 +15,7 @@ const options = [
   { value: 'mine', label: 'My debates' },
 ] as const;
 
-/** Public archive / My debates as real radios, so the form carries the choice. */
+/** Public archive / My Rounds as real radios, so the form carries the choice. */
 export function ScopeToggle({ value, className }: ScopeToggleProps) {
   return (
     <fieldset className={cn(modeTrackClass, className)}>

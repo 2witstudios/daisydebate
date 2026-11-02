@@ -1,7 +1,7 @@
-/** One speech inside a debate: a turn of the rules' timetable (ADR 0049). */
+/** One speech inside a Round: a turn of the rules' timetable (ADR 0049). */
 export type Turn = {
   readonly phaseIndex: number;
-  /** Seconds from the start of the debate. */
+  /** Seconds from the start of the Round. */
   readonly startSeconds: number;
   readonly text: string;
 };

@@ -1,5 +1,5 @@
-import type { WatchDebate } from '../../features/watch/debate';
-import { ended, published, seat } from './watch-debate-builders';
+import type { WatchRound } from '../../features/watch/round';
+import { ended, published, seat } from './watch-round-builders';
 
 const you = seat('you', 1412);
 const g = seat('debater-g', 1655);
@@ -8,8 +8,8 @@ const c = seat('debater-c', 1710);
 const d = seat('debater-d', 1690);
 const kept = 'Kept until [date]';
 
-/** Sample debates that have ended: results, pending ballots and recordings. */
-export const sampleEndedDebates: readonly WatchDebate[] = [
+/** Sample Rounds that have ended: results, pending ballots and recordings. */
+export const sampleEndedRounds: readonly WatchRound[] = [
   ended(
     {
       id: 'semifinal-rehearsal',

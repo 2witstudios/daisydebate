@@ -45,7 +45,7 @@ export function PrivacyPage() {
         ))}
       </div>
       <p className="text-sm text-ink-muted">
-        Room visibility does not turn off rating. Eligible rated outcomes still
+        Room visibility does not turn off rating. Eligible ranked outcomes still
         affect public standings. Private and unlisted Room content follows its
         own audience rules.
       </p>

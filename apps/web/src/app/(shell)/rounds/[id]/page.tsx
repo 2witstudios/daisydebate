@@ -1,7 +1,7 @@
 import { roundDocumentPrincipal } from '../../../../features/debate-room/documents/document-principal';
 import { requestRoundRatings } from '../../../../lib/request-session';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
-import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
+import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';

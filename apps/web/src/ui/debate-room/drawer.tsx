@@ -11,7 +11,6 @@ import { totalUnread, unreadByChannel } from '../../features/debate-room/chat';
 import {
   buildTree,
   drawerTabs,
-  roundKindOf,
   visibleAgents,
   visibleChannels,
   visibleClub,
@@ -44,10 +43,7 @@ export const tabNames: Readonly<Record<DrawerTab, string>> = {
 
 /** Unread chat across the channels this round shows. */
 export function chatUnread(round: RoundSnapshot, state: RoomState): number {
-  const channels = visibleChannels(
-    round.channels,
-    roundKindOf(round.competition),
-  );
+  const channels = visibleChannels(round.channels, round.competition);
   return totalUnread(
     unreadByChannel(state.messages, channels, state.readMarkers, round.self.id),
   );
@@ -123,10 +119,10 @@ function DrawerTabs({
 
 function DrawerPanel(props: PanelProps) {
   const { round, state, dispatch } = props;
-  const kind = roundKindOf(round.competition);
+  const { competition } = round;
   const tree = useMemo(
-    () => buildTree(state.documents, visibleClub(round.clubName, kind)),
-    [state.documents, round.clubName, kind],
+    () => buildTree(state.documents, visibleClub(round.clubName, competition)),
+    [state.documents, round.clubName, competition],
   );
   switch (state.drawer) {
     case 'files':
@@ -142,12 +138,15 @@ function DrawerPanel(props: PanelProps) {
       return (
         <ChatPanel
           {...props}
-          channels={visibleChannels(round.channels, kind)}
+          channels={visibleChannels(round.channels, competition)}
         />
       );
     case 'ai':
       return (
-        <AgentPanel {...props} agents={visibleAgents(round.agents, kind)} />
+        <AgentPanel
+          {...props}
+          agents={visibleAgents(round.agents, competition)}
+        />
       );
     case 'room':
       return <DrawerRoom round={round} />;
@@ -155,7 +154,7 @@ function DrawerPanel(props: PanelProps) {
 }
 
 /**
- * The one closable drawer: Files, Chat, AI and Room. A rated round drops
+ * The one closable drawer: Files, Chat, AI and Room. A ranked round drops
  * the AI tab, the agents and every club channel.
  */
 export function RoundDrawer({
@@ -177,7 +176,7 @@ export function RoundDrawer({
       )}
     >
       <DrawerTabs
-        tabs={drawerTabs(roundKindOf(round.competition))}
+        tabs={drawerTabs(round.competition)}
         state={state}
         dispatch={dispatch}
         unread={chatUnread(round, state)}

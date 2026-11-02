@@ -29,7 +29,7 @@ describe('PrivacyPage', () => {
     assert({
       given: 'the live leaderboard privacy disclosure',
       should:
-        'describe public rated records without a fake opt-out, profile fields or sample rating',
+        'describe public ranked records without a fake opt-out, profile fields or sample rating',
       actual: [
         html.includes('Your privacy settings'),
         html.includes('Change in settings'),

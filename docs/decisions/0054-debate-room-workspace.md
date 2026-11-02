@@ -89,7 +89,7 @@ document. Daisy builds this itself rather than embedding another product.
    page setting, `<div data-page="landscape" data-columns="N">` (N from 2
    to 6), that lays it out in columns; without one it is portrait. Text
    size (A−/A+) is the viewer's own and never stored.
-8. **Fair play.** In a rated (ranked) round the drawer has Files, Chat
+8. **Fair play.** In a ranked round the drawer has Files, Chat
    and Room only, Chat holds the round's own channel; the AI tab, club
    channels and agents are hidden
    (`features/debate-room/workspace.ts`). Recorded as DEC-108,

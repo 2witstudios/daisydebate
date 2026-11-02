@@ -208,7 +208,7 @@ runs `bun packages/db/scripts/rating-preflight.ts` from the reviewed checkout
 with `DATABASE_URL` supplied by the existing environment's credential channel.
 It opens a read-only transaction, reports counts and every incoming/outgoing
 constraint of the affected competitive aggregates, and refuses any existing
-standings, postings, rated Room/preset or rated Round/ladder reference. No rows,
+standings, postings, ranked Room/preset or ranked Round/ladder reference. No rows,
 identifiers or credentials are printed. Human production preflight occurs
 **before migration**, independently of the later RATE-H.1 activation gate.
 A nonzero count requires a concrete disposition decision; never relabel,

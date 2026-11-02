@@ -5,7 +5,7 @@ import { users } from '../mock/users';
 
 type LiveDebateRow = {
   readonly topic: string;
-  readonly viewers: number;
+  readonly spectators: number;
   readonly challenger: string;
   readonly challengerRating: number;
   readonly defender: string;
@@ -36,7 +36,7 @@ export const createInitialState = (): UiState => ({
   collections: {
     liveDebates: debates.map((debate) => ({
       topic: debate.topic,
-      viewers: debate.viewers,
+      spectators: debate.spectators,
       challenger: debate.challenger,
       challengerRating:
         users.find((user) => user.name === debate.challenger)?.rating ?? 0,

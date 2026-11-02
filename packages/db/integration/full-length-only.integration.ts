@@ -84,13 +84,13 @@ test(
         status: 'active',
         current_stage: 'live',
       });
-      const ratedQuickRound = await round({
+      const rankedQuickRound = await round({
         ...ranked('quick'),
         status: 'completed',
         outcome: 'negative',
         completed_at: ended,
       });
-      const ratedFullRound = await round({
+      const rankedFullRound = await round({
         ...ranked('full'),
         status: 'completed',
         outcome: 'affirmative',
@@ -98,8 +98,8 @@ test(
       });
       const seasonId = await season(f, 'closed', started);
       for (const [roundId, ladder] of [
-        [ratedQuickRound, 'quick'],
-        [ratedFullRound, 'ranked'],
+        [rankedQuickRound, 'quick'],
+        [rankedFullRound, 'ranked'],
       ] as const)
         for (const actorId of [aff, neg]) {
           await f.participant(
@@ -146,7 +146,7 @@ test(
                outcome, completed_at is not null as ended,
                rules_snapshot = ${validRules}::jsonb as rules_kept
           from rounds
-         where id in ${f.sql([casualQuickRound, liveQuickRound, ratedQuickRound, ratedFullRound])}`;
+         where id in ${f.sql([casualQuickRound, liveQuickRound, rankedQuickRound, rankedFullRound])}`;
       const ladders = await f.sql`
         select 'change' as kind, ladder from rating_changes where season_id = ${seasonId}
         union all
@@ -170,8 +170,8 @@ test(
           rankedFullRoom: byId([...rooms], rankedFullRoom),
           casualQuickRound: byId([...rounds], casualQuickRound),
           liveQuickRound: byId([...rounds], liveQuickRound),
-          ratedQuickRound: byId([...rounds], ratedQuickRound),
-          ratedFullRound: byId([...rounds], ratedFullRound),
+          rankedQuickRound: byId([...rounds], rankedQuickRound),
+          rankedFullRound: byId([...rounds], rankedFullRound),
           ladders: [...ladders],
           presets: [...presets],
         },
@@ -217,8 +217,8 @@ test(
             ended: true,
             rules_kept: true,
           },
-          ratedQuickRound: {
-            id: ratedQuickRound,
+          rankedQuickRound: {
+            id: rankedQuickRound,
             status: 'completed',
             competition_type: 'casual',
             preset_version: null,
@@ -227,8 +227,8 @@ test(
             ended: true,
             rules_kept: true,
           },
-          ratedFullRound: {
-            id: ratedFullRound,
+          rankedFullRound: {
+            id: rankedFullRound,
             status: 'completed',
             competition_type: 'ranked',
             preset_version: 2,

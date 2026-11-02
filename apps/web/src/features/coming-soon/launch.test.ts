@@ -21,7 +21,7 @@ describe('launch config', () => {
   test('opens only the destinations with real screens', () => {
     assert({
       given: 'the launch config for the three-ladder beta',
-      should: 'open rated play, Lobby, Judge and the real leaderboard',
+      should: 'open ranked play, Lobby, Judge and the real leaderboard',
       actual: destinationSlugs.filter((slug) => launched[slug]),
       expected: ['ranked', 'lobby', 'judge', 'leaderboard', 'train'],
     });

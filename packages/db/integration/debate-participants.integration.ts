@@ -64,7 +64,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: second,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'spectator',
+        role: 'not-a-role',
         slot: 0,
       },
       'id',

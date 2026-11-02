@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './debate-source';
+import { watchViewer } from './round-source';
 import { listRecordings } from './list-recordings';
 import {
   defaultRecordingsQuery,
@@ -12,7 +12,7 @@ const member = watchViewer(true);
 const ids = (query: RecordingsQuery) =>
   listRecordings(query, member).rows.map((row) => row.id);
 
-describe('listRecordings over the sample debates', () => {
+describe('listRecordings over the sample Rounds', () => {
   test('the public archive, newest first', () => {
     assert({
       given: 'no filters',
@@ -29,7 +29,7 @@ describe('listRecordings over the sample debates', () => {
     });
   });
 
-  test('my debates add unlisted and private ones', () => {
+  test('my Rounds add unlisted and private ones', () => {
     assert({
       given: 'the my-debates scope',
       should: 'list every recording the viewer played, whatever its visibility',

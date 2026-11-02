@@ -2,8 +2,8 @@ import {
   debaterOn,
   type Side,
   type SpeechPhase,
-  type WatchDebate,
-} from './debate';
+  type WatchRound,
+} from './round';
 import { durationLabel, sideLabel } from './labels';
 import type { ReplayQuery, ReplaySpeed } from './replay-query';
 import { replayQueryHref } from './replay-query';
@@ -93,7 +93,7 @@ const clampPosition = (query: ReplayQuery, total: number): number =>
 
 type Ctx = {
   readonly id: string;
-  readonly debate: WatchDebate;
+  readonly round: WatchRound;
   readonly query: ReplayQuery;
   readonly table: ReplayTimetable;
   readonly position: number;
@@ -104,7 +104,7 @@ type Ctx = {
 };
 
 export function replayContext(
-  debate: WatchDebate,
+  round: WatchRound,
   query: ReplayQuery,
   table: ReplayTimetable,
 ): Ctx {
@@ -112,8 +112,8 @@ export function replayContext(
   const position = clampPosition(query, total);
   const phaseStarts = starts(table.phases);
   return {
-    id: debate.id,
-    debate,
+    id: round.id,
+    round,
     query,
     table,
     position,
@@ -155,10 +155,10 @@ function navFor(ctx: Ctx): ReplayPlayer['nav'] {
 }
 
 export function buildPlayer(ctx: Ctx): ReplayPlayer {
-  const { table, debate, query, position, total, turnIndex, phaseIndex } = ctx;
+  const { table, round, query, position, total, turnIndex, phaseIndex } = ctx;
   const turn = table.turns[turnIndex];
   const side = sideOf(ctx, turn?.phaseIndex ?? phaseIndex);
-  const speaker = `@${debaterOn(debate, side).handle}`;
+  const speaker = `@${debaterOn(round, side).handle}`;
   return {
     turnNumber: turnIndex + 1,
     turnCount: table.turns.length,
@@ -199,7 +199,7 @@ export function buildTranscript(ctx: Ctx): ReplayTranscript {
   const rows = ctx.table.turns
     .map((turn, index) => {
       const phase = ctx.table.phases[turn.phaseIndex];
-      const handle = debaterOn(ctx.debate, phase?.side ?? 'aff').handle;
+      const handle = debaterOn(ctx.round, phase?.side ?? 'aff').handle;
       return {
         stamp: durationLabel(turn.startSeconds),
         speaker: `@${handle}`,

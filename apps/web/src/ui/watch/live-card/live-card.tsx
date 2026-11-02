@@ -26,7 +26,7 @@ function Seat({ side, seat }: { side: string; seat: LiveCardModel['aff'] }) {
 }
 
 /**
- * One public live debate: its mode as a coloured chip (clay ranked, sky
+ * One public live Round: its mode as a coloured chip (clay ranked, sky
  * casual), who is speaking, how far along, one Watch link. Standard rules are
  * the default and go unsaid; the delay is stated once for the whole page.
  */

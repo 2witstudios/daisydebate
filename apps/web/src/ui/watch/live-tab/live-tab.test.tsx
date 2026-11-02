@@ -17,7 +17,7 @@ describe('LiveTab', () => {
   test('the default list', () => {
     const html = render();
     assert({
-      given: 'the sample live debates',
+      given: 'the sample live Rounds',
       should: 'show the filters, the feature and 7 cards',
       actual: [
         html.includes('role="search"'),
@@ -68,7 +68,7 @@ describe('LiveTab', () => {
     };
     const html = render(defaultLiveQuery, empty);
     assert({
-      given: 'no live debates at all',
+      given: 'no live Rounds at all',
       should: 'explain, offer a working notify, the archive and the lobby',
       actual: [
         html.includes('Nothing live right now'),

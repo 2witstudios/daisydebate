@@ -1,6 +1,6 @@
 import type { Turn as SampleTurn } from '../../features/watch/schedule';
 import type { Followed, WatchedItem } from '../../features/watch/social';
-import type { SpeechPhase, WatchViewer } from '../../features/watch/debate';
+import type { SpeechPhase, WatchViewer } from '../../features/watch/round';
 
 /** The signed-in viewer's sample identity. */
 export const sampleViewer: WatchViewer = {
@@ -37,7 +37,7 @@ const sampleTurnTexts: readonly string[] = [
   'Vote Neg. The resolution fails under [standard], and they did not answer [argument].',
 ];
 
-/** Two sample turns per phase; every debate reads the same placeholder text. */
+/** Two sample turns per phase; every Round reads the same placeholder text. */
 export const sampleTurns: readonly SampleTurn[] = sampleTurnTexts.map(
   (text, index) => ({
     phaseIndex: Math.floor(index / 2),
@@ -54,7 +54,7 @@ export const sampleDensity: readonly number[] = Array.from(
 
 export const sampleResolution = 'Resolved: [resolution].';
 export const sampleSeason = '3';
-/** The delay spectators watch behind the debate, in seconds (a sample). */
+/** The delay spectators watch behind the Round, in seconds (a sample). */
 export const sampleDelaySeconds = 30;
 /** Sample spectator chat, reactions and their house rules. */
 export const sampleReactions = [
@@ -97,10 +97,10 @@ export const sampleFollowing: readonly Followed[] = [
   {
     handle: 'debater-g',
     live: { id: 'quarterfinal-practice', title: 'Quarterfinal practice' },
-    lastDebate: null,
+    lastRound: null,
   },
-  { handle: 'debater-q', live: null, lastDebate: 'Last debate 2 days ago' },
-  { handle: 'debater-t', live: null, lastDebate: 'Last debate 6 days ago' },
+  { handle: 'debater-q', live: null, lastRound: 'Last debate 2 days ago' },
+  { handle: 'debater-t', live: null, lastRound: 'Last debate 6 days ago' },
 ];
 export const sampleHistory: readonly WatchedItem[] = [
   {

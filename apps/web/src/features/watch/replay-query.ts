@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import type { Visibility } from './debate';
+import type { Visibility } from './round';
 import { MAX_SEARCH_LENGTH } from './live-query';
 import { replayHref } from './routes';
 
@@ -78,7 +78,7 @@ const encoders: {
   vis: (value) => value,
 };
 
-/** The replay URL for a debate and query, with only non-default values. */
+/** The replay URL for a Round and query, with only non-default values. */
 export function replayQueryHref(id: string, query: ReplayQuery): string {
   const params = new URLSearchParams();
   for (const key of Object.keys(defaultReplayQuery) as (keyof ReplayQuery)[]) {

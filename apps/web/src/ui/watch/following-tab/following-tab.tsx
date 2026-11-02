@@ -49,7 +49,7 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
                   <span className="text-sm text-ink-muted">
                     {person.live
                       ? `Live now in ${person.live.title}`
-                      : person.lastDebate}
+                      : person.lastRound}
                   </span>
                 </div>
                 <ActionLink

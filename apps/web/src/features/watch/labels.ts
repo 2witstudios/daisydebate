@@ -1,17 +1,11 @@
-import type {
-  Ballots,
-  DebateMode,
-  Side,
-  Visibility,
-  WatchDebate,
-} from './debate';
+import type { Ballots, RoundMode, Side, Visibility, WatchRound } from './round';
 
-export const modeLabel = (mode: DebateMode): string =>
+export const modeLabel = (mode: RoundMode): string =>
   mode === 'ranked' ? 'Ranked' : 'Casual';
 
 /** Ranked always runs the standard rules; only casual may customize. */
-export const rulesLabel = (debate: Pick<WatchDebate, 'customRules'>): string =>
-  debate.customRules ? 'Custom rules' : 'Standard rules';
+export const rulesLabel = (round: Pick<WatchRound, 'customRules'>): string =>
+  round.customRules ? 'Custom rules' : 'Standard rules';
 
 export const sideLabel = (side: Side): string =>
   side === 'aff' ? 'Aff' : 'Neg';

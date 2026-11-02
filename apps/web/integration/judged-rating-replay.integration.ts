@@ -18,10 +18,10 @@ import {
 } from './judged-rating.test-support';
 import {
   cachedAiJudgingRuntime,
-  frozenRatedRound,
+  frozenRankedRound,
   judgeWithCachedAi,
-  recoverRatedResults,
-} from './rated-room.test-support';
+  recoverRankedResults,
+} from './ranked-room.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
 import type { Ballot } from '@daisy/protocol';
 
@@ -34,7 +34,7 @@ for (const judgeKind of ['human', 'ai'] as const)
     test(`${judgeKind} ballot for ${outcome}: two web instances post the engine's result once and replay moves nothing`, async () => {
       await withRoomRuntime(async (f) => {
         await inSeason(f, async () => {
-          const { roundId, freezeRevision } = await frozenRatedRound(
+          const { roundId, freezeRevision } = await frozenRankedRound(
             f,
             'policy',
             judgeKind,
@@ -134,7 +134,7 @@ for (const judgeKind of ['human', 'ai'] as const)
               });
             }
             await Promise.all(instances.map((i) => i.rateUnrated()));
-            await recoverRatedResults(f);
+            await recoverRankedResults(f);
             assert({
               given: `a replayed ${judgeKind} ballot and further sweeps after posting`,
               should: 'leave the ledger and both projections untouched',
@@ -155,7 +155,7 @@ for (const judgeKind of ['human', 'ai'] as const)
 test('a posting that fails after its ledger insert leaves nothing and the next sweep posts once', async () => {
   await withRoomRuntime(async (f) => {
     await inSeason(f, async () => {
-      const { roundId, freezeRevision } = await frozenRatedRound(
+      const { roundId, freezeRevision } = await frozenRankedRound(
         f,
         'policy',
         'human',
@@ -204,7 +204,7 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
         },
         expected: { rows: 0, versions: [], awaits: true },
       });
-      await recoverRatedResults(f);
+      await recoverRankedResults(f);
       const ledger = await readLedger(f, roundId);
       assert({
         given: 'the next sweeps after the failure',

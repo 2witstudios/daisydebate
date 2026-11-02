@@ -1,4 +1,4 @@
-import type { WatchDebate } from './debate';
+import type { WatchRound } from './round';
 import { isListedLive } from './live-list';
 
 /** The numbers on the hub's tabs: what is live and what the archive holds. */
@@ -7,13 +7,13 @@ export type HubCounts = {
   readonly recordings: number;
 };
 
-/** Counts public live debates and public, replayable recordings. */
-export const hubCounts = (debates: readonly WatchDebate[]): HubCounts => ({
-  live: debates.filter(isListedLive).length,
-  recordings: debates.filter(
-    (debate) =>
-      debate.visibility === 'public' &&
-      debate.state.status === 'ended' &&
-      debate.state.recording.availability === 'ready',
+/** Counts public live Rounds and public, replayable recordings. */
+export const hubCounts = (rounds: readonly WatchRound[]): HubCounts => ({
+  live: rounds.filter(isListedLive).length,
+  recordings: rounds.filter(
+    (round) =>
+      round.visibility === 'public' &&
+      round.state.status === 'ended' &&
+      round.state.recording.availability === 'ready',
   ).length,
 });

@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 
-import { readyRatedRoom } from './rated-room.test-support';
+import { readyRankedRoom } from './ranked-room.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
 const { databaseUrl } = requireTestServices(process.env);
@@ -150,7 +150,7 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
     );
     try {
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
-      const room = await readyRatedRoom(f, 'value', 'ai');
+      const room = await readyRankedRoom(f, 'value', 'ai');
       assert({
         given: 'a ranked Room whose host holds no entitlement grant',
         should: 'seat the AI judge and tell the host it is free',

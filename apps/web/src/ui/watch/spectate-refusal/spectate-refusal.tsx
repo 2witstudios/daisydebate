@@ -12,7 +12,7 @@ const backToLive = (label: string) => (
 );
 
 /**
- * Every way opening a live debate can end without a view: signed out, not
+ * Every way opening a live Round can end without a view: signed out, not
  * available, seated or judging, removed by the host, full, not started yet.
  */
 export function SpectateRefusal({ screen }: SpectateRefusalProps) {
@@ -65,7 +65,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
           title="You cannot spectate this debate"
           actions={
             <>
-              <ActionLink href={screen.yourDebateHref} variant="primary">
+              <ActionLink href={screen.yourRoundHref} variant="primary">
                 Go to your debate
               </ActionLink>
               {backToLive('Back to live debates')}

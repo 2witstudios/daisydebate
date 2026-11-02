@@ -1,5 +1,5 @@
 import { withSeasons } from '@daisy/db/seasons';
-import { recoverRatedResults } from './rated-room.test-support';
+import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { buildRoundTopic, type Ballot } from '@daisy/protocol';
@@ -259,7 +259,7 @@ for (const [captured, postings] of [
   [true, 2],
   [false, 0],
 ] as const)
-  test(`on a rated Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts ${postings} ratings (DEC-277)`, async () => {
+  test(`on a ranked Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts ${postings} ratings (DEC-277)`, async () => {
     await withRoomRuntime(async (f) => {
       const seasonId = createId();
       const { room, judges } = await readyTwoHumanJudgeRoom(f);
@@ -283,8 +283,8 @@ for (const [captured, postings] of [
         const done = (await f.store.getRound(roundId))!;
         const [receipt] = await completions(f, roundId);
         const awaited = await f.store.readRoundAwaitsRating(roundId);
-        await recoverRatedResults(f);
-        await recoverRatedResults(f);
+        await recoverRankedResults(f);
+        await recoverRankedResults(f);
         const ledger =
           await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
         assert({

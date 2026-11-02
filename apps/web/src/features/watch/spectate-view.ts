@@ -2,8 +2,8 @@ import {
   debaterOn,
   type Side,
   type SpeechPhase,
-  type WatchDebate,
-} from './debate';
+  type WatchRound,
+} from './round';
 import {
   clockLabel,
   durationLabel,
@@ -26,7 +26,7 @@ type SeatView = {
   readonly initials: string;
   readonly rating: number;
   readonly standing: string;
-  /** What they are doing now; null once the debate has ended. */
+  /** What they are doing now; null once the Round has ended. */
   readonly activity: 'Speaking' | 'Listening' | null;
 };
 
@@ -46,7 +46,7 @@ type SpeechRow = {
   readonly speakingNow: boolean;
 };
 
-/** The status strip above the seats when the debate is over. */
+/** The status strip above the seats when the Round is over. */
 type Banner =
   | {
       readonly kind: 'pending';
@@ -79,7 +79,7 @@ export type SpectateView = {
     readonly mode: string;
     readonly rules: string;
     readonly visibility: string;
-    /** Null once ended: nobody is watching a finished debate. */
+    /** Null once ended: nobody is watching a finished Round. */
     readonly watching: number | null;
   };
   readonly subtitle: string;
@@ -92,7 +92,7 @@ export type SpectateView = {
   readonly speeches: readonly SpeechRow[];
   readonly banner: Banner | null;
   readonly social: SpectatorSocial & {
-    /** Chat and reactions close when the debate ends. */
+    /** Chat and reactions close when the Round ends. */
     readonly open: boolean;
   };
   /** The audience's connection; the realtime layer owns the real value. */
@@ -107,7 +107,7 @@ export type SpectateView = {
 };
 
 type Input = {
-  readonly debate: WatchDebate;
+  readonly round: WatchRound;
   readonly query: SpectateQuery;
   readonly phases: readonly SpeechPhase[];
   readonly turns: readonly Turn[];
@@ -131,11 +131,11 @@ const partial = (text: string): string =>
   `${text.split(' ').slice(0, 8).join(' ')}…`;
 
 function seatView(
-  debate: WatchDebate,
+  round: WatchRound,
   side: Side,
   speaking: Side | null,
 ): SeatView {
-  const debater = debaterOn(debate, side);
+  const debater = debaterOn(round, side);
   return {
     side,
     label: sideLabel(side),
@@ -148,10 +148,10 @@ function seatView(
   };
 }
 
-function bannerFor(debate: WatchDebate): Banner | null {
-  if (debate.state.status !== 'ended') return null;
-  const { ballots } = debate.state;
-  const href = replayHref(debate.id);
+function bannerFor(round: WatchRound): Banner | null {
+  if (round.state.status !== 'ended') return null;
+  const { ballots } = round.state;
+  const href = replayHref(round.id);
   if (ballots.state === 'pending')
     return {
       kind: 'pending',
@@ -163,12 +163,12 @@ function bannerFor(debate: WatchDebate): Banner | null {
     const change = ballots[side];
     return change === null
       ? []
-      : [`@${debaterOn(debate, side).handle} ${change.from} to ${change.to}`];
+      : [`@${debaterOn(round, side).handle} ${change.from} to ${change.to}`];
   });
   return {
     kind: 'result',
     headline: `${sideLabel(ballots.winner)} wins, ${ballots.judgesFor} to ${ballots.judgesAgainst}`,
-    detail: `${ratings.length > 0 ? `${ratings.join(', ')}. ` : 'Casual debates are not rated. '}Judge reasons are in the recording.`,
+    detail: `${ratings.length > 0 ? `${ratings.join(', ')}. ` : 'Casual debates are not ranked. '}Judge reasons are in the recording.`,
     replayHref: href,
   };
 }
@@ -179,8 +179,8 @@ type Ctx = Input & {
   readonly phaseIndex: number;
 };
 
-function clockFor({ debate, phases, context, live, phaseIndex }: Ctx): Clock {
-  const { state } = debate;
+function clockFor({ round, phases, context, live, phaseIndex }: Ctx): Clock {
+  const { state } = round;
   const phase = phases[phaseIndex];
   if (state.status !== 'live' || !phase)
     return { kind: 'final', totalLabel: clockLabel(totalSeconds(phases)) };
@@ -188,7 +188,7 @@ function clockFor({ debate, phases, context, live, phaseIndex }: Ctx): Clock {
     kind: 'running',
     phaseName: phase.name,
     secondsLeft: state.speechSecondsLeft,
-    speaker: `@${debaterOn(debate, phase.side).handle}`,
+    speaker: `@${debaterOn(round, phase.side).handle}`,
     delaySeconds: live ? context.delaySeconds : 0,
   };
 }
@@ -204,20 +204,20 @@ const stepState = (
       ? 'current'
       : 'upcoming';
 
-function captionFor({ debate, phases, live, phaseIndex }: Ctx): string {
+function captionFor({ round, phases, live, phaseIndex }: Ctx): string {
   const next = phases[phaseIndex + 1];
   if (live)
     return next
       ? `Next: ${next.name}, ${sideLabel(next.side)} · ${durationLabel(next.seconds)}`
       : 'Last speech in progress';
-  return debate.state.status === 'ended' &&
-    debate.state.ballots.state === 'pending'
+  return round.state.status === 'ended' &&
+    round.state.ballots.state === 'pending'
     ? 'Ballots are being collected'
     : 'Debate complete';
 }
 
 function speechRows(ctx: Ctx): readonly SpeechRow[] {
-  const { debate, phases, turns, live, turnIndex } = ctx;
+  const { round, phases, turns, live, turnIndex } = ctx;
   const spoken = live ? spokenTurns(turns, turnIndex) : turns;
   return spoken.map((turn, index) => {
     const phase = phases[turn.phaseIndex];
@@ -225,7 +225,7 @@ function speechRows(ctx: Ctx): readonly SpeechRow[] {
     const speakingNow = live && index === turnIndex;
     return {
       stamp: durationLabel(turn.startSeconds),
-      handle: `@${debaterOn(debate, side).handle}`,
+      handle: `@${debaterOn(round, side).handle}`,
       seat: `${sideLabel(side)}, ${phase?.abbreviation ?? ''}`,
       text: speakingNow ? partial(turn.text) : turn.text,
       speakingNow,
@@ -242,31 +242,31 @@ function reportTargetOf({ query, social }: Input): string | null {
 }
 
 /**
- * The live view of a debate a viewer may watch, live or just ended. Pure: the
- * caller hands in the debate, its timetable and the audience's chat.
+ * The live view of a Round a viewer may watch, live or just ended. Pure: the
+ * caller hands in the Round, its timetable and the audience's chat.
  */
 export function buildSpectateView(input: Input): SpectateView {
-  const { debate, query, phases, turns, social, context } = input;
-  const { state } = debate;
+  const { round, query, phases, turns, social, context } = input;
+  const { state } = round;
   const live = state.status === 'live';
   const turnIndex = live ? state.turnIndex : turns.length - 1;
   const phaseIndex = turns[turnIndex]?.phaseIndex ?? 0;
   const ctx: Ctx = { ...input, live, turnIndex, phaseIndex };
   const speaking = live ? (phases[phaseIndex]?.side ?? null) : null;
   return {
-    id: debate.id,
-    title: debate.title,
+    id: round.id,
+    title: round.title,
     live,
     badges: {
-      mode: modeLabel(debate.mode),
-      rules: rulesLabel(debate),
-      visibility: visibilityLabel(debate.visibility),
+      mode: modeLabel(round.mode),
+      rules: rulesLabel(round),
+      visibility: visibilityLabel(round.visibility),
       watching: state.status === 'live' ? state.watching : null,
     },
-    subtitle: `${context.resolution} ${rulesLabel(debate)}, season ${context.season}.`,
+    subtitle: `${context.resolution} ${rulesLabel(round)}, season ${context.season}.`,
     seats: {
-      aff: seatView(debate, 'aff', speaking),
-      neg: seatView(debate, 'neg', speaking),
+      aff: seatView(round, 'aff', speaking),
+      neg: seatView(round, 'neg', speaking),
     },
     clock: clockFor(ctx),
     timeline: {
@@ -278,7 +278,7 @@ export function buildSpectateView(input: Input): SpectateView {
       caption: captionFor(ctx),
     },
     speeches: speechRows(ctx),
-    banner: bannerFor(debate),
+    banner: bannerFor(round),
     social: { ...social, open: live },
     connection: input.connection ?? 'connected',
     query,

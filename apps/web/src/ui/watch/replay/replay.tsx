@@ -28,7 +28,7 @@ const panes: readonly { id: ReplayPane; label: string }[] = [
 ];
 
 /**
- * The replay of a recorded debate: player, timeline and transcript beside the
+ * The replay of a recorded Round: player, timeline and transcript beside the
  * result, the sharing and visibility manager, and the details. Position,
  * search, pane and the open manager all live in the URL.
  */

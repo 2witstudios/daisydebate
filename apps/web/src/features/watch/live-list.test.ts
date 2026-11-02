@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { WatchDebate } from './debate';
+import type { WatchRound } from './round';
 import { defaultLiveQuery } from './live-query';
-import { buildLiveListing, featuredDebate, isListedLive } from './live-list';
+import { buildLiveListing, featuredRound, isListedLive } from './live-list';
 
 setupRitewayBun();
 
@@ -10,9 +10,9 @@ const seat = (handle: string, rating: number) =>
 
 const live = (
   id: string,
-  over: Partial<WatchDebate> = {},
+  over: Partial<WatchRound> = {},
   watching = 10,
-): WatchDebate => ({
+): WatchRound => ({
   id,
   title: id,
   mode: 'ranked',
@@ -27,12 +27,12 @@ const live = (
   ...over,
 });
 
-const ids = (list: readonly WatchDebate[]) => list.map((d) => d.id);
+const ids = (list: readonly WatchRound[]) => list.map((d) => d.id);
 
 describe('live listing', () => {
-  test('only public live debates are listed', () => {
+  test('only public live Rounds are listed', () => {
     assert({
-      given: 'public, unlisted, private and ended debates',
+      given: 'public, unlisted, private and ended Rounds',
       should: 'list the public live one only',
       actual: [
         isListedLive(live('a')),
@@ -48,8 +48,8 @@ describe('live listing', () => {
     });
   });
 
-  test('the featured debate is the highest-rated ranked one', () => {
-    const debates = [
+  test('the featured Round is the highest-rated ranked one', () => {
+    const rounds = [
       live('low', { aff: seat('l1', 1400), neg: seat('l2', 1400) }),
       live('top', { aff: seat('t1', 1700), neg: seat('t2', 1600) }),
       live('casual', {
@@ -59,32 +59,32 @@ describe('live listing', () => {
       }),
     ];
     assert({
-      given: 'a casual debate with higher ratings than any ranked one',
-      should: 'feature the best ranked debate, by rating alone',
-      actual: featuredDebate(debates)?.id,
+      given: 'a casual Round with higher ratings than any ranked one',
+      should: 'feature the best ranked Round, by rating alone',
+      actual: featuredRound(rounds)?.id,
       expected: 'top',
     });
     assert({
-      given: 'no ranked debate live',
+      given: 'no ranked Round live',
       should: 'feature nothing',
-      actual: featuredDebate([debates[2] as WatchDebate]),
+      actual: featuredRound([rounds[2] as WatchRound]),
       expected: null,
     });
   });
 
   test('the feature leaves the rows and sorting applies to them', () => {
-    const debates = [
+    const rounds = [
       live('top', { aff: seat('t1', 1700), neg: seat('t2', 1700) }, 5),
       live('busy', {}, 50),
       live('quiet', { aff: seat('q1', 1650), neg: seat('q2', 1650) }, 2),
     ];
-    const watched = buildLiveListing(debates, defaultLiveQuery);
-    const rated = buildLiveListing(debates, {
+    const watched = buildLiveListing(rounds, defaultLiveQuery);
+    const rated = buildLiveListing(rounds, {
       ...defaultLiveQuery,
       sort: 'rated',
     });
     assert({
-      given: 'three live debates',
+      given: 'three live Rounds',
       should: 'feature one and order the rest by the sort',
       actual: [
         watched.featured?.id,
@@ -97,16 +97,16 @@ describe('live listing', () => {
   });
 
   test('mode and search filter the feature and the rows', () => {
-    const debates = [
+    const rounds = [
       live('top', { aff: seat('t1', 1700), neg: seat('t2', 1700) }),
       live('friendly', { mode: 'casual', title: 'Friendly spar' }),
     ];
-    const casual = buildLiveListing(debates, {
+    const casual = buildLiveListing(rounds, {
       ...defaultLiveQuery,
       mode: 'casual',
     });
-    const search = buildLiveListing(debates, { ...defaultLiveQuery, q: 'T2' });
-    const none = buildLiveListing(debates, { ...defaultLiveQuery, q: 'zzz' });
+    const search = buildLiveListing(rounds, { ...defaultLiveQuery, q: 'T2' });
+    const none = buildLiveListing(rounds, { ...defaultLiveQuery, q: 'zzz' });
     assert({
       given: 'a casual filter, a handle search and a search matching nothing',
       should: 'filter feature and rows together, keeping the total',

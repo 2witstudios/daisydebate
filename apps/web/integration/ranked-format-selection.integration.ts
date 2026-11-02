@@ -7,7 +7,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-test('only canonical rated formats are creatable and generic One-on-one refuses', async () => {
+test('only canonical ranked formats are creatable and generic One-on-one refuses', async () => {
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     try {
@@ -17,7 +17,7 @@ test('only canonical rated formats are creatable and generic One-on-one refuses'
       const [current] =
         await f.sql`select f.current_version as "formatVersion", p.version as "presetVersion" from formats f join format_presets p on p.format_id=f.id and p.format_version=f.current_version and p.superseded_at is null where f.id='one-on-one'`;
       await assertRejects({
-        given: 'an active season and the retired generic rated format',
+        given: 'an active season and the retired generic ranked format',
         should: 'refuse generic ranked construction',
         actual: () =>
           f.create({
@@ -39,7 +39,7 @@ test('only canonical rated formats are creatable and generic One-on-one refuses'
       ).view;
       assert({
         given: 'the current canonical Value preset after generic refusal',
-        should: 'create one rated Room without a generic compatibility pool',
+        should: 'create one ranked Room without a generic compatibility pool',
         actual: [
           view.competitionType,
           view.formatId,

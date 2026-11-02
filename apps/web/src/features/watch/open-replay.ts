@@ -1,10 +1,10 @@
-import type { WatchDebate, WatchViewer } from './debate';
+import type { WatchRound, WatchViewer } from './round';
 import {
-  debateContext,
-  debateSchedule,
-  findDebate,
+  roundContext,
+  roundSchedule,
+  findRound,
   replayDensity,
-} from './debate-source';
+} from './round-source';
 import { buildReplayView, type ReplayView } from './replay-build';
 import { decideReplay } from './replay-decision';
 import type { ReplayQuery } from './replay-query';
@@ -16,16 +16,16 @@ export type ReplayScreen =
   | { readonly kind: 'expired' }
   | { readonly kind: 'watch'; readonly view: ReplayView };
 
-type Ended = WatchDebate & {
-  readonly state: Extract<WatchDebate['state'], { status: 'ended' }>;
+type Ended = WatchRound & {
+  readonly state: Extract<WatchRound['state'], { status: 'ended' }>;
 };
 
-const isEnded = (debate: WatchDebate | null): debate is Ended =>
-  debate !== null && debate.state.status === 'ended';
+const isEnded = (round: WatchRound | null): round is Ended =>
+  round !== null && round.state.status === 'ended';
 
 /**
  * The replay route's one flow driver: the recording id and the viewer decide
- * the screen. Today it reads the sample debates; the backend read of a
+ * the screen. Today it reads the sample Rounds; the backend read of a
  * recording and its transcript replace `findDebate` and `debateSchedule`.
  */
 export function openReplay(
@@ -33,20 +33,20 @@ export function openReplay(
   viewer: WatchViewer,
   query: ReplayQuery,
 ): ReplayScreen {
-  const debate = findDebate(id);
-  const decision = decideReplay(debate, viewer);
-  if (decision !== 'watch' || !isEnded(debate)) {
+  const round = findRound(id);
+  const decision = decideReplay(round, viewer);
+  if (decision !== 'watch' || !isEnded(round)) {
     return { kind: decision === 'watch' ? 'unavailable' : decision };
   }
   return {
     kind: 'watch',
     view: buildReplayView({
-      debate,
+      round,
       viewer,
       query,
-      table: debateSchedule(debate),
-      density: replayDensity(debate),
-      context: debateContext(debate),
+      table: roundSchedule(round),
+      density: replayDensity(round),
+      context: roundContext(round),
     }),
   };
 }

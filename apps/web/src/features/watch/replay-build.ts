@@ -1,4 +1,4 @@
-import type { WatchDebate, WatchViewer } from './debate';
+import type { WatchRound, WatchViewer } from './round';
 import {
   durationLabel,
   modeLabel,
@@ -47,8 +47,8 @@ export type ReplayView = {
 };
 
 type Input = {
-  readonly debate: WatchDebate & {
-    readonly state: Extract<WatchDebate['state'], { status: 'ended' }>;
+  readonly round: WatchRound & {
+    readonly state: Extract<WatchRound['state'], { status: 'ended' }>;
   };
   readonly viewer: WatchViewer;
   readonly query: ReplayQuery;
@@ -59,25 +59,25 @@ type Input = {
 
 /** The replay of a recording a viewer may open. Pure. */
 export function buildReplayView(input: Input): ReplayView {
-  const { debate, viewer, query, table, context } = input;
-  const ctx = replayContext(debate, query, table);
-  const { recording, ballots } = debate.state;
+  const { round, viewer, query, table, context } = input;
+  const ctx = replayContext(round, query, table);
+  const { recording, ballots } = round.state;
   return {
-    id: debate.id,
-    title: debate.title,
+    id: round.id,
+    title: round.title,
     badges: {
-      mode: modeLabel(debate.mode),
-      rules: rulesLabel(debate),
-      visibility: visibilityLabel(debate.visibility),
+      mode: modeLabel(round.mode),
+      rules: rulesLabel(round),
+      visibility: visibilityLabel(round.visibility),
     },
-    subtitle: `@${debate.aff.handle} vs @${debate.neg.handle} · ${dayLabel(recording.endedAt)} · ${durationLabel(ctx.total)} · ${context.resolution}`,
+    subtitle: `@${round.aff.handle} vs @${round.neg.handle} · ${dayLabel(recording.endedAt)} · ${durationLabel(ctx.total)} · ${context.resolution}`,
     query,
     player: buildPlayer(ctx),
     timeline: buildTimeline(ctx),
     density: input.density,
     transcript: buildTranscript(ctx),
-    result: buildResult(debate, ballots, context.season),
-    share: buildShare(debate, viewer, query),
-    details: buildDetails(debate, context.season, ctx.total, recording.endedAt),
+    result: buildResult(round, ballots, context.season),
+    share: buildShare(round, viewer, query),
+    details: buildDetails(round, context.season, ctx.total, recording.endedAt),
   };
 }

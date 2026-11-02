@@ -1,4 +1,4 @@
-import { isParticipant, type WatchViewer } from './debate';
+import { isParticipant, type WatchViewer } from './round';
 import {
   dayLabel,
   minutesLabel,
@@ -7,7 +7,7 @@ import {
   rulesLabel,
   visibilityLabel,
 } from './labels';
-import { debaterName, type RecordedDebate } from './recordings-list';
+import { debaterName, type RecordedRound } from './recordings-list';
 import { replayHref } from './routes';
 
 type RowSeat = { readonly name: string; readonly rating: number };
@@ -35,26 +35,26 @@ export type RecordingRow = {
 
 /** The archive row for a recording, as seen by the viewer. */
 export function recordingRowOf(
-  debate: RecordedDebate,
+  round: RecordedRound,
   viewer: WatchViewer,
 ): RecordingRow {
-  const { recording, ballots } = debate.state;
+  const { recording, ballots } = round.state;
   return {
-    id: debate.id,
-    href: replayHref(debate.id),
-    title: debate.title,
-    ranked: debate.mode === 'ranked',
-    mode: modeLabel(debate.mode),
-    rules: rulesLabel(debate),
+    id: round.id,
+    href: replayHref(round.id),
+    title: round.title,
+    ranked: round.mode === 'ranked',
+    mode: modeLabel(round.mode),
+    rules: rulesLabel(round),
     length: minutesLabel(recording.lengthSeconds),
     date: dayLabel(recording.endedAt),
-    aff: { name: debaterName(debate.aff, viewer), rating: debate.aff.rating },
-    neg: { name: debaterName(debate.neg, viewer), rating: debate.neg.rating },
+    aff: { name: debaterName(round.aff, viewer), rating: round.aff.rating },
+    neg: { name: debaterName(round.neg, viewer), rating: round.neg.rating },
     result: resultLabel(ballots),
     pending: ballots.state === 'pending',
-    own: isParticipant(debate, viewer)
+    own: isParticipant(round, viewer)
       ? {
-          visibility: visibilityLabel(debate.visibility),
+          visibility: visibilityLabel(round.visibility),
           keptUntil: recording.keptUntil,
         }
       : null,

@@ -1,13 +1,13 @@
-import type { WatchDebate } from '../../features/watch/debate';
-import { debate, live, seat } from './watch-debate-builders';
-import { sampleEndedDebates } from './watch-ended-debates';
+import type { WatchRound } from '../../features/watch/round';
+import { round, live, seat } from './watch-round-builders';
+import { sampleEndedRounds } from './watch-ended-rounds';
 
 const a = seat('debater-a', 1710);
 const b = seat('debater-b', 1698);
 const you = seat('you', 1412);
 
-/** Sample debates: live and listed, every refusal, and the ended ones. */
-export const sampleDebates: readonly WatchDebate[] = [
+/** Sample Rounds: live and listed, every refusal, and the ended ones. */
+export const sampleRounds: readonly WatchRound[] = [
   live(
     {
       id: 'top-of-the-ladder',
@@ -100,7 +100,7 @@ export const sampleDebates: readonly WatchDebate[] = [
   ),
   live(
     {
-      id: 'your-own-debate',
+      id: 'your-own-round',
       title: 'Your own debate',
       mode: 'casual',
       visibility: 'unlisted',
@@ -135,7 +135,7 @@ export const sampleDebates: readonly WatchDebate[] = [
     2,
     2,
   ),
-  debate(
+  round(
     {
       id: 'starting-soon',
       title: 'Evening ladder match',
@@ -145,5 +145,5 @@ export const sampleDebates: readonly WatchDebate[] = [
     },
     { status: 'upcoming', affReady: true, negReady: false },
   ),
-  ...sampleEndedDebates,
+  ...sampleEndedRounds,
 ];

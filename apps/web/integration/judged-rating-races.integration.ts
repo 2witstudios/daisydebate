@@ -15,9 +15,9 @@ import {
   withWebInstances,
 } from './judged-rating.test-support';
 import {
-  frozenRatedRound,
-  recoverRatedResults,
-} from './rated-room.test-support';
+  frozenRankedRound,
+  recoverRankedResults,
+} from './ranked-room.test-support';
 import { passBallotDeadline } from './round-maintenance.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
 
@@ -27,7 +27,7 @@ setupRitewayBun();
 test('three postings overlapping on the Round lock from separate sessions write one result', async () => {
   await withRoomRuntime(async (f) => {
     await inSeason(f, async () => {
-      const { roundId, freezeRevision } = await frozenRatedRound(
+      const { roundId, freezeRevision } = await frozenRankedRound(
         f,
         'policy',
         'human',
@@ -74,7 +74,7 @@ test('three postings overlapping on the Round lock from separate sessions write 
 test('a posting queued behind the deciding ballot sees the committed finalization, and a sweep before it finds nothing', async () => {
   await withRoomRuntime(async (f) => {
     await inSeason(f, async () => {
-      const { roundId, freezeRevision } = await frozenRatedRound(
+      const { roundId, freezeRevision } = await frozenRankedRound(
         f,
         'policy',
         'human',
@@ -145,9 +145,9 @@ test('two judges ruling together with sweeps running decide once and post once',
       await withClients(2, async (clients) => {
         await Promise.all([
           ...submits.map((submit, i) => submit(clients[i]!)),
-          recoverRatedResults(f),
+          recoverRankedResults(f),
         ]);
-        await recoverRatedResults(f);
+        await recoverRankedResults(f);
         const [counts] = await finalizations(f, roundId);
         assert({
           given: 'both judges ruling at once while recovery scans',

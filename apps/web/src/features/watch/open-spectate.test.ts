@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { openSpectate } from './open-spectate';
 import { defaultSpectateQuery } from './spectate-query';
-import { watchViewer } from './debate-source';
+import { watchViewer } from './round-source';
 
 setupRitewayBun();
 
@@ -9,20 +9,20 @@ const member = watchViewer(true);
 const kind = (id: string, viewer = member) =>
   openSpectate(id, viewer, defaultSpectateQuery).kind;
 
-describe('openSpectate over the sample debates', () => {
-  test('each sample debate reaches its screen', () => {
+describe('openSpectate over the sample Rounds', () => {
+  test('each sample Round reaches its screen', () => {
     assert({
-      given: 'the sample debate ids',
+      given: 'the sample Round ids',
       should: 'reach every refusal and the watch view',
       actual: [
         kind('top-of-the-ladder'),
         kind('semifinal-rehearsal'),
         kind('starting-soon'),
         kind('packed-house'),
-        kind('your-own-debate'),
+        kind('your-own-round'),
         kind('host-restricted'),
         kind('closed-door'),
-        kind('no-such-debate'),
+        kind('no-such-round'),
       ],
       expected: [
         'watch',
@@ -46,7 +46,7 @@ describe('openSpectate over the sample debates', () => {
     );
     const hidden = openSpectate('closed-door', anonymous, defaultSpectateQuery);
     assert({
-      given: 'an anonymous viewer at a public live debate and a private one',
+      given: 'an anonymous viewer at a public live Round and a private one',
       should: 'show a teaser only for the public one, both signing in to it',
       actual: [
         open.kind === 'signed-out' ? open.teaser?.title : 'wrong',

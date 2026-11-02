@@ -56,7 +56,7 @@ const people = [
   },
 ] as const;
 
-const debateId = 'n9o0p1q2r3s4t5u6v7w8x9y0';
+const roundId = 'n9o0p1q2r3s4t5u6v7w8x9y0';
 const resolution =
   'Resolved: AUTH-7.6 needs a representative debate to prove a restore.';
 const createdAt = '2026-01-01T00:00:00.000Z';
@@ -79,7 +79,7 @@ await applyDevSeed({
     version: restoreSeedVersion,
     people: [...people],
     debate: {
-      id: debateId,
+      id: roundId,
       createdBy: people[0].actorId,
       resolution,
       format: 'foundation',
@@ -87,7 +87,7 @@ await applyDevSeed({
       visibility: 'private',
       snapshot: {
         version: 1,
-        id: debateId,
+        id: roundId,
         resolution,
         format: 'foundation',
         rules: {

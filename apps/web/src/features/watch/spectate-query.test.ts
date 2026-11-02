@@ -10,7 +10,7 @@ setupRitewayBun();
 describe('parseSpectateQuery', () => {
   test('defaults and valid values', () => {
     assert({
-      given: 'no parameters, then a pane and a debate report',
+      given: 'no parameters, then a pane and a Round report',
       should: 'default to the transcript with no dialog, then read them',
       actual: [
         parseSpectateQuery({}),

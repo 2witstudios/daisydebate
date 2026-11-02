@@ -10,7 +10,7 @@ import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 
 export const metadata: Metadata = { title: 'Recordings' };
 
-/** The guarded archive of recorded debates, under the Watch hub. */
+/** The guarded archive of recorded Rounds, under the Watch hub. */
 export default async function RecordingsPage({
   searchParams,
 }: {

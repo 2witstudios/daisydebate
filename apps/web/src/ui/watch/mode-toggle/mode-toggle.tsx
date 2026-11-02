@@ -26,7 +26,7 @@ const options = competitionModes.map((value) => ({
 export function ModeToggle({ value, className }: ModeToggleProps) {
   return (
     <fieldset className={cn(modeTrackClass, className)}>
-      <legend className="sr-only">Rated or casual</legend>
+      <legend className="sr-only">Ranked or casual</legend>
       {options.map((option) => (
         <label key={option.value} className={modeOptionClass}>
           <input

@@ -1,12 +1,12 @@
 import type {
   Ballots,
-  DebateMode,
+  RoundMode,
   Debater,
   JudgeBallot,
   Side,
   Visibility,
-  WatchDebate,
-} from '../../features/watch/debate';
+  WatchRound,
+} from '../../features/watch/round';
 
 export const seat = (
   handle: string,
@@ -17,7 +17,7 @@ export const seat = (
 export type Base = {
   readonly id: string;
   readonly title: string;
-  readonly mode: DebateMode;
+  readonly mode: RoundMode;
   readonly customRules?: boolean;
   readonly visibility?: Visibility;
   readonly aff: Debater;
@@ -27,10 +27,7 @@ export type Base = {
   readonly audienceFull?: boolean;
 };
 
-export const debate = (
-  base: Base,
-  state: WatchDebate['state'],
-): WatchDebate => ({
+export const round = (base: Base, state: WatchRound['state']): WatchRound => ({
   customRules: false,
   visibility: 'public',
   judges: ['judge-one', 'judge-two', 'judge-three'],
@@ -45,8 +42,8 @@ export const live = (
   watching: number,
   turnIndex: number,
   speechSecondsLeft = 228,
-): WatchDebate =>
-  debate(base, { status: 'live', turnIndex, speechSecondsLeft, watching });
+): WatchRound =>
+  round(base, { status: 'live', turnIndex, speechSecondsLeft, watching });
 
 const judgeBallot = (winner: Side): JudgeBallot => ({
   winner,
@@ -60,7 +57,7 @@ export const published = (
   winner: Side,
   judgesFor: number,
   judgesAgainst: number,
-  rated: boolean,
+  ranked: boolean,
   aff: Debater,
   neg: Debater,
 ): Ballots => {
@@ -70,7 +67,7 @@ export const published = (
     ...Array.from({ length: judgesAgainst }, () => judgeBallot(loser)),
   ];
   const change = (debater: Debater, won: boolean) =>
-    rated
+    ranked
       ? { from: debater.rating, to: debater.rating + (won ? 9 : -9) }
       : null;
   return {
@@ -91,8 +88,8 @@ export const ended = (
   minutes: number,
   availability: 'ready' | 'processing' | 'expired' = 'ready',
   keptUntil: string | null = null,
-): WatchDebate =>
-  debate(base, {
+): WatchRound =>
+  round(base, {
     status: 'ended',
     ballots,
     recording: {

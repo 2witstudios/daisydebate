@@ -287,7 +287,7 @@ describe('Lobby', () => {
   test('a row carries the listing facts and never the host rating', () => {
     const html = render();
     assert({
-      given: 'an open Room waiting five minutes with a rated host',
+      given: 'an open Room waiting five minutes with a ranked host',
       should: 'show its format, seats and wait, and leave the rating out',
       actual: [
         html.includes('Foundation · 1 of 3 seats · Waiting 5 min'),

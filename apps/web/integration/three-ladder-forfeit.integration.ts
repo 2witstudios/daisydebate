@@ -7,7 +7,10 @@ import {
   withRoomRuntime,
   startRuntimeRound,
 } from './round-runtime.test-support';
-import { readyRatedRoom, recoverRatedResults } from './rated-room.test-support';
+import {
+  readyRankedRoom,
+  recoverRankedResults,
+} from './ranked-room.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -22,7 +25,7 @@ for (const ladder of ratingLadders)
         );
         const started = await startRuntimeRound(
           f,
-          await readyRatedRoom(f, ladder, 'human'),
+          await readyRankedRoom(f, ladder, 'human'),
         );
         roundId = started.roundId;
         const commandId = createId();
@@ -41,7 +44,7 @@ for (const ladder of ratingLadders)
             },
           },
         );
-        await recoverRatedResults(f);
+        await recoverRankedResults(f);
         const [source] =
           await f.sql`select command_id,freeze_revision from round_finalizations where round_id=${roundId}`;
         const ledger =

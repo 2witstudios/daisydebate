@@ -44,7 +44,7 @@ stakes. PostgreSQL owns durable competitive truth; Redis is expendable.
 The Round's frozen `ladder_id` is the sole authority: null means unrated;
 a non-null value identifies its rating pool. `competition_type` is
 constrained context and cannot independently award or refuse a rating.
-Sanctioned configuration constructs eligible rated Rounds through the
+Sanctioned configuration constructs eligible ranked Rounds through the
 existing shared Room/ Round path and pins format provenance. Readers cannot
 infer a pool from a mutable format label, Room state or UI choice.
 
@@ -85,7 +85,7 @@ in the implementation plan.
 
 ## Admission and beta policy (delegated DEC-266)
 
-Rated play is explicit opt-in; casual is the default. Stable catalog IDs
+Ranked play is explicit opt-in; casual is the default. Stable catalog IDs
 `freestyle`, `policy`, `value` map identically to ladder IDs. Admission requires
 the current approved eligible preset, one human on each debating side, and
 exactly one human or existing system AI deciding judge. Custom formats, bot
@@ -146,7 +146,7 @@ main deployment. RATE-H.1 and human production migration preflight precede
 production data actions. Builders never merge or access production.
 
 A full matchmaking queue is separate from this slice; existing queue intent is
-preserved. The existing shared setup is the rated entry path.
+preserved. The existing shared setup is the ranked entry path.
 
 ## Consequences
 

@@ -21,7 +21,7 @@ export type Destination = {
 };
 
 /**
- * Explainer copy for every destination. Rated play shares the normal Room lifecycle.
+ * Explainer copy for every destination. Ranked play shares the normal Room lifecycle.
  */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   ranked: {

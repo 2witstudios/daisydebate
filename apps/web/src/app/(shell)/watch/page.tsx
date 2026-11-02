@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { signInHref } from '../../../features/access/decision';
-import { followingOf } from '../../../features/watch/debate-source';
+import { followingOf } from '../../../features/watch/round-source';
 import { countHub, listLive } from '../../../features/watch/list-live';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
 import { viewerOf } from '../../../features/watch/viewer';

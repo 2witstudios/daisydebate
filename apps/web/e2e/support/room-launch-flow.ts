@@ -77,7 +77,7 @@ export async function submitCreateRoom(
   page: Page,
   title: string,
   formatId = 'value',
-  rated = false,
+  ranked = false,
 ) {
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
@@ -85,7 +85,7 @@ export async function submitCreateRoom(
   const apply = form.getByRole('button', { name: 'Apply format', exact: true });
   if (await apply.count()) await apply.click();
   await form.getByLabel('Room name', { exact: true }).fill(title);
-  if (rated) {
+  if (ranked) {
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
     // A ranked Room is always public, so the form offers no choice (WATCH-5).
     await expect(form.getByLabel('Who can join')).toHaveCount(0);

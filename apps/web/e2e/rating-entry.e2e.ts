@@ -5,7 +5,7 @@ import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
 
-test('native no-JavaScript rated entry preserves canonical ladder setup for all three ladders', async ({
+test('native no-JavaScript ranked entry preserves canonical ladder setup for all three ladders', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -25,7 +25,7 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
     ),
   );
   const context = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(context, 'native rated setup');
+  const page = await openPage(context, 'native ranked setup');
   const capture = async (label: string) => {
     const path = testInfo.outputPath(`${label}.png`);
     await page.screenshot({ path, fullPage: true });
@@ -42,7 +42,7 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
       ).not.toBeChecked();
       const room = await submitCreateRoom(
         page,
-        `Rated ${ladder} ${createId().slice(0, 8)}`,
+        `Ranked ${ladder} ${createId().slice(0, 8)}`,
         ladder,
         true,
       );

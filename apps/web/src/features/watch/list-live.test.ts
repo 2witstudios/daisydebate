@@ -4,13 +4,13 @@ import { listLive } from './list-live';
 
 setupRitewayBun();
 
-describe('listLive over the sample debates', () => {
+describe('listLive over the sample Rounds', () => {
   test('the default listing', () => {
     const listing = listLive(defaultLiveQuery);
     assert({
       given: 'no filters',
       should:
-        'feature the top ranked debate and list the public rest by audience',
+        'feature the top ranked Round and list the public rest by audience',
       actual: [
         listing.featured?.id,
         listing.rows.map((row) => row.id),
@@ -35,7 +35,7 @@ describe('listLive over the sample debates', () => {
   test('a card carries the speech in progress', () => {
     const card = listLive(defaultLiveQuery).featured;
     assert({
-      given: 'the featured debate',
+      given: 'the featured Round',
       should: 'show its phase, speaker, progress and audience',
       actual: [
         card?.phaseName,

@@ -3,16 +3,16 @@ import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   spectatorSocial,
-  findDebate,
-} from '../../../features/watch/debate-source';
+  findRound,
+} from '../../../features/watch/round-source';
 import { defaultSpectateQuery } from '../../../features/watch/spectate-query';
 import { ChatComposer, ChatMessages, Reactions } from './spectator-social';
 
 setupRitewayBun();
 
-const debate = findDebate('top-of-the-ladder');
-if (!debate) throw new Error('sample missing');
-const social = spectatorSocial(debate);
+const round = findRound('top-of-the-ladder');
+if (!round) throw new Error('sample missing');
+const social = spectatorSocial(round);
 
 describe('Reactions', () => {
   test('open: sample buttons with totals', () => {
@@ -36,7 +36,7 @@ describe('Reactions', () => {
       h(Reactions, { reactions: social.reactions, open: false }),
     );
     assert({
-      given: 'an ended debate',
+      given: 'an ended Round',
       should: 'say reactions are closed',
       actual: html.includes('Reactions are closed.'),
       expected: true,
@@ -76,7 +76,7 @@ describe('ChatMessages', () => {
       }),
     );
     assert({
-      given: 'chat after the debate ends',
+      given: 'chat after the Round ends',
       should: 'keep the messages and offer no report links',
       actual: [
         html.includes('The criterion fight is the whole round.'),
@@ -113,7 +113,7 @@ describe('ChatComposer', () => {
       h(ChatComposer, { chatRules: social.chatRules, open: false }),
     );
     assert({
-      given: 'chat after the debate ends',
+      given: 'chat after the Round ends',
       should: 'say it closed and offer no composer',
       actual: [html.includes('Chat closed'), html.includes('chat-draft')],
       expected: [true, false],

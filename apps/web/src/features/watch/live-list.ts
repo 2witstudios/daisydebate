@@ -1,71 +1,69 @@
-import { debateRating, type WatchDebate } from './debate';
+import { roundRating, type WatchRound } from './round';
 import type { LiveQuery } from './live-query';
 
-/** A debate in progress that the hub may list: public and live. */
-export type LiveDebate = WatchDebate & {
-  readonly state: Extract<WatchDebate['state'], { status: 'live' }>;
+/** A Round in progress that the hub may list: public and live. */
+export type LiveRound = WatchRound & {
+  readonly state: Extract<WatchRound['state'], { status: 'live' }>;
 };
 
-/** The hub lists public live debates only; unlisted and private never show. */
-export const isListedLive = (debate: WatchDebate): debate is LiveDebate =>
-  debate.visibility === 'public' && debate.state.status === 'live';
+/** The hub lists public live Rounds only; unlisted and private never show. */
+export const isListedLive = (round: WatchRound): round is LiveRound =>
+  round.visibility === 'public' && round.state.status === 'live';
 
 /**
- * The featured debate: the highest-rated ranked debate live now, picked by
+ * The featured Round: the highest-rated ranked Round live now, picked by
  * rating alone (ties break by the id so the pick is stable).
  */
-export function featuredDebate(
-  debates: readonly WatchDebate[],
-): LiveDebate | null {
-  const ranked = debates
+export function featuredRound(rounds: readonly WatchRound[]): LiveRound | null {
+  const ranked = rounds
     .filter(isListedLive)
-    .filter((debate) => debate.mode === 'ranked');
+    .filter((round) => round.mode === 'ranked');
   const [best] = [...ranked].sort(
-    (x, y) => debateRating(y) - debateRating(x) || x.id.localeCompare(y.id),
+    (x, y) => roundRating(y) - roundRating(x) || x.id.localeCompare(y.id),
   );
   return best ?? null;
 }
 
-/** Whether a debate passes the mode and search filters. */
+/** Whether a Round passes the mode and search filters. */
 export function matchesFilters(
-  debate: WatchDebate,
+  round: WatchRound,
   query: Pick<LiveQuery, 'mode' | 'q'>,
 ): boolean {
-  if (query.mode !== 'any' && query.mode !== debate.mode) return false;
+  if (query.mode !== 'any' && query.mode !== round.mode) return false;
   if (query.q === '') return true;
-  const haystack = [debate.title, debate.aff.handle, debate.neg.handle]
+  const haystack = [round.title, round.aff.handle, round.neg.handle]
     .join(' ')
     .toLowerCase();
   return haystack.includes(query.q.toLowerCase());
 }
 
 const comparators = {
-  watched: (x: LiveDebate, y: LiveDebate) =>
+  watched: (x: LiveRound, y: LiveRound) =>
     y.state.watching - x.state.watching || x.id.localeCompare(y.id),
-  rated: (x: LiveDebate, y: LiveDebate) =>
-    debateRating(y) - debateRating(x) || x.id.localeCompare(y.id),
+  rated: (x: LiveRound, y: LiveRound) =>
+    roundRating(y) - roundRating(x) || x.id.localeCompare(y.id),
 } as const;
 
 export type LiveListing = {
-  /** The featured debate when it passes the filters. */
-  readonly featured: LiveDebate | null;
+  /** The featured Round when it passes the filters. */
+  readonly featured: LiveRound | null;
   /** The remaining matches, in the query's order. */
-  readonly rows: readonly LiveDebate[];
-  /** Every listed live debate before filtering. */
+  readonly rows: readonly LiveRound[];
+  /** Every listed live Round before filtering. */
   readonly total: number;
 };
 
-/** Filters and sorts the listed live debates for one hub query. */
+/** Filters and sorts the listed live Rounds for one hub query. */
 export function buildLiveListing(
-  debates: readonly WatchDebate[],
+  rounds: readonly WatchRound[],
   query: LiveQuery,
 ): LiveListing {
-  const listed = debates.filter(isListedLive);
-  const top = featuredDebate(debates);
+  const listed = rounds.filter(isListedLive);
+  const top = featuredRound(rounds);
   const featured = top !== null && matchesFilters(top, query) ? top : null;
   const rows = listed
-    .filter((debate) => debate.id !== top?.id)
-    .filter((debate) => matchesFilters(debate, query))
+    .filter((round) => round.id !== top?.id)
+    .filter((round) => matchesFilters(round, query))
     .sort(comparators[query.sort]);
   return { featured, rows, total: listed.length };
 }

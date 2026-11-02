@@ -1,6 +1,6 @@
 import type { Identity } from '@daisy/auth';
-import { watchViewer } from './debate-source';
-import type { WatchViewer } from './debate';
+import { watchViewer } from './round-source';
+import type { WatchViewer } from './round';
 
 /**
  * Who is watching, from the request's identity. Any account may spectate

@@ -1,4 +1,4 @@
-/** Spectator reactions and chat, as a live debate's audience sees them. */
+/** Spectator reactions and chat, as a live Round's audience sees them. */
 
 type Reaction = {
   readonly id: string;
@@ -25,9 +25,9 @@ export type SpectatorSocial = {
 /** One person the viewer follows, and what they are doing. */
 export type Followed = {
   readonly handle: string;
-  /** The live debate they are in, or null with how long ago they last played. */
+  /** The live Round they are in, or null with how long ago they last played. */
   readonly live: { readonly id: string; readonly title: string } | null;
-  readonly lastDebate: string | null;
+  readonly lastRound: string | null;
 };
 
 /** One replay or live view the viewer watched. */
