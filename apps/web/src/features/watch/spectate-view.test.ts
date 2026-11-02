@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  debateContext,
-  debateSchedule,
-  findDebate,
+  roundContext,
+  roundSchedule,
+  findRound,
   spectatorSocial,
-} from './debate-source';
+} from './round-source';
 import { defaultSpectateQuery, type SpectateQuery } from './spectate-query';
 import { buildSpectateView } from './spectate-view';
 
@@ -18,26 +18,26 @@ const viewOf = (
     reportSent?: boolean;
   } = {},
 ) => {
-  const debate = findDebate(id);
-  if (!debate) throw new Error(`no sample ${id}`);
-  const { phases, turns } = debateSchedule(debate);
+  const round = findRound(id);
+  if (!round) throw new Error(`no sample ${id}`);
+  const { phases, turns } = roundSchedule(round);
   return buildSpectateView({
-    debate,
+    round,
     query,
     phases,
     turns,
-    social: spectatorSocial(debate),
-    context: debateContext(debate),
+    social: spectatorSocial(round),
+    context: roundContext(round),
     ...extra,
   });
 };
 
-describe('buildSpectateView: a live debate', () => {
+describe('buildSpectateView: a live Round', () => {
   const view = viewOf('top-of-the-ladder');
 
   test('seats, clock and audience', () => {
     assert({
-      given: 'the top-of-the-ladder debate speaking S3',
+      given: 'the top-of-the-ladder Round speaking S3',
       should: 'mark the Aff speaker, run the clock and count the audience',
       actual: [
         view.live,
@@ -70,7 +70,7 @@ describe('buildSpectateView: a live debate', () => {
       actual: [
         view.seats.aff.initials,
         view.seats.neg.initials,
-        viewOf('your-own-debate').seats.aff.initials,
+        viewOf('your-own-round').seats.aff.initials,
         view.delaySeconds,
       ],
       expected: ['DA', 'DB', 'Y', 30],
@@ -103,7 +103,7 @@ describe('buildSpectateView: a live debate', () => {
 
   test('the report dialog subject', () => {
     assert({
-      given: 'a report open on the debate and on a chat message',
+      given: 'a report open on the Round and on a chat message',
       should: 'name what is reported',
       actual: [
         viewOf('top-of-the-ladder', {
@@ -136,11 +136,11 @@ describe('buildSpectateView: a live debate', () => {
   });
 });
 
-describe('buildSpectateView: an ended debate', () => {
+describe('buildSpectateView: an ended Round', () => {
   test('ballots still pending', () => {
     const view = viewOf('evening-round');
     assert({
-      given: 'an ended debate with 2 of 3 ballots in',
+      given: 'an ended Round with 2 of 3 ballots in',
       should: 'show the pending banner, a final clock and closed chat',
       actual: [
         view.live,
@@ -170,7 +170,7 @@ describe('buildSpectateView: an ended debate', () => {
   test('result published', () => {
     const view = viewOf('semifinal-rehearsal');
     assert({
-      given: 'a ranked debate Neg won 2 to 1',
+      given: 'a ranked Round Neg won 2 to 1',
       should: 'announce the result with rating changes',
       actual: [
         view.banner?.kind === 'result' && view.banner.headline,
@@ -188,8 +188,8 @@ describe('buildSpectateView: an ended debate', () => {
   test('a casual result carries no rating change', () => {
     const view = viewOf('open-table');
     assert({
-      given: 'a casual debate',
-      should: 'say casual debates are not ranked',
+      given: 'a casual Round',
+      should: 'say casual Rounds are not ranked',
       actual: view.banner?.kind === 'result' && view.banner.detail,
       expected:
         'Casual debates are not ranked. Judge reasons are in the recording.',

@@ -4,9 +4,9 @@ import {
   type Ballots,
   type Side,
   type Visibility,
-  type WatchDebate,
+  type WatchRound,
   type WatchViewer,
-} from './debate';
+} from './round';
 import {
   dayLabel,
   durationLabel,
@@ -40,14 +40,14 @@ export type ResultPanel =
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
-function ratingLines(debate: WatchDebate, ballots: Published) {
+function ratingLines(round: WatchRound, ballots: Published) {
   return (['aff', 'neg'] as const).flatMap((side: Side) => {
     const change = ballots[side];
     return change === null
       ? []
       : [
           {
-            who: `@${debaterOn(debate, side).handle}, ${sideLabel(side)}`,
+            who: `@${debaterOn(round, side).handle}, ${sideLabel(side)}`,
             range: `${change.from} to ${change.to}`,
             delta: signed(change.to - change.from),
           },
@@ -57,7 +57,7 @@ function ratingLines(debate: WatchDebate, ballots: Published) {
 
 /** The result, or how many ballots are in while it is still pending. */
 export function buildResult(
-  debate: WatchDebate,
+  round: WatchRound,
   ballots: Ballots,
   season: string,
 ): ResultPanel {
@@ -66,8 +66,8 @@ export function buildResult(
   return {
     kind: 'published',
     headline: `${sideLabel(ballots.winner)} wins, ${ballots.judgesFor} to ${ballots.judgesAgainst}`,
-    lines: ratingLines(debate, ballots),
-    note: debate.mode === 'ranked' ? `Ranked · season ${season}` : 'Casual',
+    lines: ratingLines(round, ballots),
+    note: round.mode === 'ranked' ? `Ranked · season ${season}` : 'Casual',
     judges: ballots.judges.map((judge, index) => ({
       title: `Judge ${index + 1}`,
       summary: `${sideLabel(judge.winner)} · Aff ${judge.affPoints}, Neg ${judge.negPoints}`,
@@ -124,24 +124,24 @@ export type SharePanel = {
 
 /** Who can replay, the owner's visibility manager and the link to share. */
 export function buildShare(
-  debate: WatchDebate,
+  round: WatchRound,
   viewer: WatchViewer,
   query: ReplayQuery,
 ): SharePanel {
-  const draft = query.vis ?? debate.visibility;
-  const canManage = isParticipant(debate, viewer);
+  const draft = query.vis ?? round.visibility;
+  const canManage = isParticipant(round, viewer);
   return {
-    visibility: visibilityLabel(debate.visibility),
-    description: DESCRIPTIONS[debate.visibility],
+    visibility: visibilityLabel(round.visibility),
+    description: DESCRIPTIONS[round.visibility],
     canManage,
     manageOpen: canManage && query.manage,
     options: OPTIONS.map((option) => ({
       ...option,
       checked: option.value === draft,
-      locked: debate.mode === 'ranked' && option.value === 'private',
+      locked: round.mode === 'ranked' && option.value === 'private',
     })),
-    unchanged: draft === debate.visibility,
-    linkPath: replayHref(debate.id),
+    unchanged: draft === round.visibility,
+    linkPath: replayHref(round.id),
   };
 }
 
@@ -149,17 +149,17 @@ export type DetailRow = { readonly label: string; readonly value: string };
 
 /** The facts block: mode, rules, season, length, judges and date. */
 export function buildDetails(
-  debate: WatchDebate,
+  round: WatchRound,
   season: string,
   lengthSeconds: number,
   endedAt: string,
 ): readonly DetailRow[] {
   return [
-    { label: 'Mode', value: modeLabel(debate.mode) },
-    { label: 'Rules', value: rulesLabel(debate) },
+    { label: 'Mode', value: modeLabel(round.mode) },
+    { label: 'Rules', value: rulesLabel(round) },
     { label: 'Season', value: season },
     { label: 'Length', value: durationLabel(lengthSeconds) },
-    { label: 'Judges', value: `${debate.judges.length}, assigned by Daisy` },
+    { label: 'Judges', value: `${round.judges.length}, assigned by Daisy` },
     { label: 'Recorded', value: dayLabel(endedAt) },
   ];
 }

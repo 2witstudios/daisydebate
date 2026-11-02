@@ -1,10 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  followingOf,
-  watchViewer,
-} from '../../../features/watch/debate-source';
+import { followingOf, watchViewer } from '../../../features/watch/round-source';
 import { FollowingTab } from './following-tab';
 
 setupRitewayBun();
@@ -19,7 +16,7 @@ describe('FollowingTab', () => {
     );
     assert({
       given: 'a member with follows and history',
-      should: 'link a live follow to its debate and history to replays',
+      should: 'link a live follow to its Round and history to replays',
       actual: [
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),

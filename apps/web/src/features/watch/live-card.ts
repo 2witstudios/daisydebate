@@ -1,5 +1,5 @@
-import { debaterOn, type Debater, type Side, type SpeechPhase } from './debate';
-import type { LiveDebate } from './live-list';
+import { debaterOn, type Debater, type Side, type SpeechPhase } from './round';
+import type { LiveRound } from './live-list';
 import { modeLabel, rulesLabel, sideLabel } from './labels';
 import { liveHref } from './routes';
 import type { Turn } from './schedule';
@@ -12,7 +12,7 @@ type CardSeat = {
   readonly speaking: boolean;
 };
 
-/** One live debate as a hub card shows it. */
+/** One live Round as a hub card shows it. */
 export type LiveCard = {
   readonly id: string;
   readonly href: string;
@@ -37,8 +37,8 @@ export type LiveCard = {
 const standing = (debater: Debater): string =>
   debater.standing === 'established' ? 'est.' : 'prov.';
 
-const seatOf = (debate: LiveDebate, side: Side, speaking: Side): CardSeat => {
-  const debater = debaterOn(debate, side);
+const seatOf = (round: LiveRound, side: Side, speaking: Side): CardSeat => {
+  const debater = debaterOn(round, side);
   return {
     label: sideLabel(side),
     handle: debater.handle,
@@ -48,30 +48,30 @@ const seatOf = (debate: LiveDebate, side: Side, speaking: Side): CardSeat => {
   };
 };
 
-/** The hub card for a live debate, given its timetable. */
+/** The hub card for a live Round, given its timetable. */
 export function liveCardOf(
-  debate: LiveDebate,
+  round: LiveRound,
   phases: readonly SpeechPhase[],
   turns: readonly Turn[],
 ): LiveCard {
-  const turn = turns[debate.state.turnIndex];
+  const turn = turns[round.state.turnIndex];
   const phaseIndex = turn?.phaseIndex ?? 0;
   const phase = phases[phaseIndex];
   const speaking: Side = phase?.side ?? 'aff';
   return {
-    id: debate.id,
-    href: liveHref(debate.id),
-    title: debate.title,
-    ranked: debate.mode === 'ranked',
-    mode: modeLabel(debate.mode),
-    rules: rulesLabel(debate),
-    customRules: debate.customRules,
-    watching: debate.state.watching,
-    aff: seatOf(debate, 'aff', speaking),
-    neg: seatOf(debate, 'neg', speaking),
+    id: round.id,
+    href: liveHref(round.id),
+    title: round.title,
+    ranked: round.mode === 'ranked',
+    mode: modeLabel(round.mode),
+    rules: rulesLabel(round),
+    customRules: round.customRules,
+    watching: round.state.watching,
+    aff: seatOf(round, 'aff', speaking),
+    neg: seatOf(round, 'neg', speaking),
     phaseName: phase?.name ?? '',
-    speaker: debaterOn(debate, speaking).handle,
-    secondsLeft: debate.state.speechSecondsLeft,
+    speaker: debaterOn(round, speaking).handle,
+    secondsLeft: round.state.speechSecondsLeft,
     progress: phases.map((_, index) =>
       index < phaseIndex
         ? 'done'

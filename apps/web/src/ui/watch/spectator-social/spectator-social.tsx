@@ -16,7 +16,7 @@ export type ReactionsProps = {
   readonly open: boolean;
 };
 
-/** Anonymous reaction totals; debaters and judges see them after the debate. */
+/** Anonymous reaction totals; debaters and judges see them after the Round. */
 export function Reactions({ reactions, open }: ReactionsProps) {
   return (
     <section aria-label="Reactions" className="flex flex-col gap-2">

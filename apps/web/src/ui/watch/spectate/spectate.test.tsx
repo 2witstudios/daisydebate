@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/debate-source';
+import { watchViewer } from '../../../features/watch/round-source';
 import { openSpectate } from '../../../features/watch/open-spectate';
 import {
   defaultSpectateQuery,
@@ -27,7 +27,7 @@ describe('Spectate: live', () => {
 
   test('header, notice and clock', () => {
     assert({
-      given: 'a live debate',
+      given: 'a live Round',
       should: 'show the title, the delay, the audience and a static clock',
       actual: [
         html.includes('<h1'),
@@ -111,7 +111,7 @@ describe('Spectate: report dialog', () => {
       }),
     );
     assert({
-      given: 'a report open on the debate',
+      given: 'a report open on the Round',
       should:
         'show the dialog with reasons, a Cancel link and a Send that answers as a sample action',
       actual: [
@@ -179,7 +179,7 @@ describe('Spectate: ended', () => {
     const html = render(view('evening-round'));
     const chat = render(view('evening-round', { pane: 'chat', report: null }));
     assert({
-      given: 'an ended debate waiting on ballots',
+      given: 'an ended Round waiting on ballots',
       should:
         'say so, link to the recording, show both debaters, close reactions and chat',
       actual: [
@@ -200,7 +200,7 @@ describe('Spectate: ended', () => {
   test('result published', () => {
     const html = render(view('semifinal-rehearsal'));
     assert({
-      given: 'an ended debate with its result',
+      given: 'an ended Round with its result',
       should: 'announce the winner and link to the replay',
       actual: [
         html.includes('Neg wins, 2 to 1'),

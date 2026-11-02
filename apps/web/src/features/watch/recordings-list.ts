@@ -1,66 +1,66 @@
 import {
-  debateRating,
+  roundRating,
   isParticipant,
   type Debater,
-  type WatchDebate,
+  type WatchRound,
   type WatchViewer,
-} from './debate';
+} from './round';
 import { matchesFilters } from './live-list';
 import type { RecordingsQuery } from './recordings-query';
 
-/** An ended debate whose recording can be replayed. */
-export type RecordedDebate = WatchDebate & {
-  readonly state: Extract<WatchDebate['state'], { status: 'ended' }>;
+/** An ended Round whose recording can be replayed. */
+export type RecordedRound = WatchRound & {
+  readonly state: Extract<WatchRound['state'], { status: 'ended' }>;
 };
 
-const isReady = (debate: WatchDebate): debate is RecordedDebate =>
-  debate.state.status === 'ended' &&
-  debate.state.recording.availability === 'ready';
+const isReady = (round: WatchRound): round is RecordedRound =>
+  round.state.status === 'ended' &&
+  round.state.recording.availability === 'ready';
 
 /**
  * The archive lists public recordings; the viewer's own scope adds their
  * unlisted and private ones. Anyone else's non-public recording never shows.
  */
 const inScope = (
-  debate: WatchDebate,
+  round: WatchRound,
   query: RecordingsQuery,
   viewer: WatchViewer,
 ): boolean =>
   query.scope === 'mine'
-    ? isParticipant(debate, viewer)
-    : debate.visibility === 'public';
+    ? isParticipant(round, viewer)
+    : round.visibility === 'public';
 
-const byId = (x: RecordedDebate, y: RecordedDebate) => x.id.localeCompare(y.id);
+const byId = (x: RecordedRound, y: RecordedRound) => x.id.localeCompare(y.id);
 
 const comparators = {
-  newest: (x: RecordedDebate, y: RecordedDebate) =>
+  newest: (x: RecordedRound, y: RecordedRound) =>
     y.state.recording.endedAt.localeCompare(x.state.recording.endedAt) ||
     byId(x, y),
-  longest: (x: RecordedDebate, y: RecordedDebate) =>
+  longest: (x: RecordedRound, y: RecordedRound) =>
     y.state.recording.lengthSeconds - x.state.recording.lengthSeconds ||
     byId(x, y),
-  rated: (x: RecordedDebate, y: RecordedDebate) =>
-    debateRating(y) - debateRating(x) || byId(x, y),
+  rated: (x: RecordedRound, y: RecordedRound) =>
+    roundRating(y) - roundRating(x) || byId(x, y),
 } as const;
 
 export type RecordingsListing = {
-  readonly rows: readonly RecordedDebate[];
+  readonly rows: readonly RecordedRound[];
   /** Recordings in the scope before mode and search filters. */
   readonly inScope: number;
 };
 
 /** Scopes, filters and sorts the replayable recordings for one query. */
 export function buildRecordingsListing(
-  debates: readonly WatchDebate[],
+  rounds: readonly WatchRound[],
   query: RecordingsQuery,
   viewer: WatchViewer,
 ): RecordingsListing {
-  const scoped = debates
+  const scoped = rounds
     .filter(isReady)
-    .filter((debate) => inScope(debate, query, viewer));
+    .filter((round) => inScope(round, query, viewer));
   return {
     rows: scoped
-      .filter((debate) => matchesFilters(debate, query))
+      .filter((round) => matchesFilters(round, query))
       .sort(comparators[query.sort]),
     inScope: scoped.length,
   };

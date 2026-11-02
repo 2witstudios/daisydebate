@@ -6,7 +6,7 @@ import { liveHref } from './routes';
 const panes = ['transcript', 'chat'] as const;
 export type SpectatePane = (typeof panes)[number];
 
-/** What the open report dialog is about: the debate or one chat message. */
+/** What the open report dialog is about: the Round or one chat message. */
 type ReportSubject =
   | { readonly kind: 'debate' }
   | { readonly kind: 'message'; readonly id: string };
@@ -50,7 +50,7 @@ export function parseSpectateQuery(params: SearchParams): SpectateQuery {
 const subjectParam = (subject: ReportSubject): string =>
   subject.kind === 'debate' ? 'debate' : `${MESSAGE_PREFIX}${subject.id}`;
 
-/** The live view URL for a debate and query, with only non-default values. */
+/** The live view URL for a Round and query, with only non-default values. */
 export function spectateHref(id: string, query: SpectateQuery): string {
   const params = new URLSearchParams();
   if (query.pane !== defaultSpectateQuery.pane) params.set('pane', query.pane);

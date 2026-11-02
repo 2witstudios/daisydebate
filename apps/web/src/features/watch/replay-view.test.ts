@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './debate-source';
+import { watchViewer } from './round-source';
 import { openReplay } from './open-replay';
 import { defaultReplayQuery, type ReplayQuery } from './replay-query';
 
@@ -156,7 +156,7 @@ describe('the replay result', () => {
   test('a ranked result with rating changes and judges', () => {
     const { result } = viewOf('semifinal-rehearsal');
     assert({
-      given: 'a ranked debate Neg won 2 to 1',
+      given: 'a ranked Round Neg won 2 to 1',
       should: 'show the headline, both rating lines and three numbered judges',
       actual: result.kind === 'published' && [
         result.headline,
@@ -184,7 +184,7 @@ describe('the replay result', () => {
   test('a casual result carries no rating change', () => {
     const { result } = viewOf('open-table');
     assert({
-      given: 'a casual debate',
+      given: 'a casual Round',
       should: 'publish with no rating lines',
       actual: result.kind === 'published' && [result.lines.length, result.note],
       expected: [0, 'Casual'],

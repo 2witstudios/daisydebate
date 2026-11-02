@@ -4,9 +4,9 @@ import { modeBorderClass, progressStepClass } from './live-card-class';
 setupRitewayBun();
 
 describe('live card classes', () => {
-  test('progress steps take the debate hue', () => {
+  test('progress steps take the Round hue', () => {
     assert({
-      given: 'each step state of a ranked and a casual debate',
+      given: 'each step state of a ranked and a casual Round',
       should:
         'fill done, dim the current one and leave upcoming sunken, in clay for ranked and sky for casual',
       actual: [true, false].map((ranked) =>

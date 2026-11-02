@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './debate-source';
+import { watchViewer } from './round-source';
 import { openReplay } from './open-replay';
 import { defaultReplayQuery } from './replay-query';
 

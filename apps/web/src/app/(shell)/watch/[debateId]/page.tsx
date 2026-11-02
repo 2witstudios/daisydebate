@@ -14,17 +14,17 @@ export const metadata: Metadata = { title: 'Live debate' };
  * needs an account, so a visitor with none gets the signed-out refusal here,
  * with a way to sign in and come back.
  */
-export default async function LiveDebatePage({
+export default async function LiveRoundPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ debateId: string }>;
+  params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  const { debateId } = await params;
+  const { roundId } = await params;
   const viewer = viewerOf(await requestIdentity());
   const screen = openSpectate(
-    debateId,
+    roundId,
     viewer,
     parseSpectateQuery(await searchParams),
   );

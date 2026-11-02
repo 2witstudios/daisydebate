@@ -1,5 +1,5 @@
-import type { WatchViewer } from './debate';
-import { listDebates } from './debate-source';
+import type { WatchViewer } from './round';
+import { listRounds } from './round-source';
 import { recordingRowOf, type RecordingRow } from './recording-row';
 import { buildRecordingsListing } from './recordings-list';
 import type { RecordingsQuery } from './recordings-query';
@@ -19,9 +19,9 @@ export function listRecordings(
   query: RecordingsQuery,
   viewer: WatchViewer,
 ): RecordingsHubListing {
-  const listing = buildRecordingsListing(listDebates(), query, viewer);
+  const listing = buildRecordingsListing(listRounds(), query, viewer);
   return {
-    rows: listing.rows.map((debate) => recordingRowOf(debate, viewer)),
+    rows: listing.rows.map((round) => recordingRowOf(round, viewer)),
     inScope: listing.inScope,
   };
 }

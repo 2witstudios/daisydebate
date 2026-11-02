@@ -7,7 +7,7 @@ import {
 import { watchRoutes } from '../../../features/watch/routes';
 import { ActionLink } from '../action-link/action-link';
 import { FilterForm } from '../filter-form/filter-form';
-import { FeaturedDebate } from '../featured-debate/featured-debate';
+import { FeaturedRound } from '../featured-round/featured-round';
 import { InertButton } from '../inert-button/inert-button';
 import { LiveCard } from '../live-card/live-card';
 import { StateCard } from '../state-card/state-card';
@@ -43,7 +43,7 @@ function Filters({ query }: { query: LiveQuery }) {
   );
 }
 
-/** The hub's live section: filters, the featured debate and the live list. */
+/** The hub's live section: filters, the featured Round and the live list. */
 export function LiveTab({ query, listing }: LiveTabProps) {
   if (listing.total === 0)
     return (
@@ -71,7 +71,7 @@ export function LiveTab({ query, listing }: LiveTabProps) {
     <div className="flex flex-col gap-4">
       <Filters query={query} />
       {listing.featured ? (
-        <FeaturedDebate
+        <FeaturedRound
           card={listing.featured}
           delaySeconds={listing.delaySeconds}
         />

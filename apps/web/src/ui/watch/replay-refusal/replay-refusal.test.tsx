@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/debate-source';
+import { watchViewer } from '../../../features/watch/round-source';
 import { openReplay } from '../../../features/watch/open-replay';
 import { defaultReplayQuery } from '../../../features/watch/replay-query';
 import { ReplayRefusal } from './replay-refusal';

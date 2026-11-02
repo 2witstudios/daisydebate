@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { WatchDebate, WatchViewer } from './debate';
+import type { WatchRound, WatchViewer } from './round';
 import { decideSpectate } from './spectate';
 
 setupRitewayBun();
@@ -7,7 +7,7 @@ setupRitewayBun();
 const seat = (handle: string) =>
   ({ handle, rating: 1500, standing: 'established' }) as const;
 
-const debate = (over: Partial<WatchDebate> = {}): WatchDebate => ({
+const round = (over: Partial<WatchRound> = {}): WatchRound => ({
   id: 'd',
   title: 'D',
   mode: 'ranked',
@@ -32,32 +32,32 @@ const nobody: WatchViewer = { signedIn: false };
 describe('decideSpectate', () => {
   test('signed out', () => {
     assert({
-      given: 'an anonymous viewer, for a real debate and for a missing one',
+      given: 'an anonymous viewer, for a real Round and for a missing one',
       should: 'answer signed-out either way, revealing nothing',
-      actual: [decideSpectate(debate(), nobody), decideSpectate(null, nobody)],
+      actual: [decideSpectate(round(), nobody), decideSpectate(null, nobody)],
       expected: ['signed-out', 'signed-out'],
     });
   });
 
-  test('missing and private debates are one answer', () => {
+  test('missing and private Rounds are one answer', () => {
     assert({
-      given: 'a signed-in viewer and a missing or private debate',
+      given: 'a signed-in viewer and a missing or private Round',
       should: 'answer unavailable for both',
       actual: [
         decideSpectate(null, member('x')),
-        decideSpectate(debate({ visibility: 'private' }), member('x')),
+        decideSpectate(round({ visibility: 'private' }), member('x')),
       ],
       expected: ['unavailable', 'unavailable'],
     });
   });
 
-  test('participants do not spectate their own debate', () => {
+  test('participants do not spectate their own Round', () => {
     assert({
-      given: 'a debater and a judge of an unlisted debate',
+      given: 'a debater and a judge of an unlisted Round',
       should: 'answer conflict for both',
       actual: [
-        decideSpectate(debate({ visibility: 'unlisted' }), member('aff')),
-        decideSpectate(debate(), member('judge')),
+        decideSpectate(round({ visibility: 'unlisted' }), member('aff')),
+        decideSpectate(round(), member('judge')),
       ],
       expected: ['conflict', 'conflict'],
     });
@@ -67,26 +67,26 @@ describe('decideSpectate', () => {
     assert({
       given: 'a viewer the host removed',
       should: 'answer revoked',
-      actual: decideSpectate(debate({ removedSpectators: ['x'] }), member('x')),
+      actual: decideSpectate(round({ removedSpectators: ['x'] }), member('x')),
       expected: 'revoked',
     });
   });
 
-  test('upcoming, full and watchable debates', () => {
+  test('upcoming, full and watchable Rounds', () => {
     assert({
-      given: 'an upcoming debate, a full live one, a live one and an ended one',
+      given: 'an upcoming Round, a full live one, a live one and an ended one',
       should: 'answer upcoming, full, watch and watch',
       actual: [
         decideSpectate(
-          debate({
+          round({
             state: { status: 'upcoming', affReady: true, negReady: false },
           }),
           member('x'),
         ),
-        decideSpectate(debate({ audienceFull: true }), member('x')),
-        decideSpectate(debate(), member('x')),
+        decideSpectate(round({ audienceFull: true }), member('x')),
+        decideSpectate(round(), member('x')),
         decideSpectate(
-          debate({
+          round({
             audienceFull: true,
             state: {
               status: 'ended',

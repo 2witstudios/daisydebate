@@ -1,13 +1,13 @@
 /**
- * A debate as Watch shows it (ADR 0049: the debate is the competitive record;
+ * A Round as Watch shows it (ADR 0049: the Round is the competitive record;
  * the room's visibility decides who may open it). This is a read model for the
- * spectator and replay surfaces, not the stored debate: the backend read that
- * serves a debate to a viewer fills it from `debates`, seats, ballots and
+ * spectator and replay surfaces, not the stored Round: the backend read that
+ * serves a Round to a viewer fills it from `Rounds`, seats, ballots and
  * presence.
  */
 
 export type Visibility = 'public' | 'unlisted' | 'private';
-export type DebateMode = 'ranked' | 'casual';
+export type RoundMode = 'ranked' | 'casual';
 export type Side = 'aff' | 'neg';
 
 /** `provisional` ratings are still settling (few ranked Rounds). */
@@ -56,11 +56,11 @@ export type Ballots =
       readonly judges: readonly JudgeBallot[];
     };
 
-/** Whether the recording of an ended debate can be replayed. */
+/** Whether the recording of an ended Round can be replayed. */
 type RecordingAvailability = 'ready' | 'processing' | 'expired';
 
 type Recording = {
-  /** UTC ISO timestamp the debate ended. */
+  /** UTC ISO timestamp the Round ended. */
   readonly endedAt: string;
   readonly lengthSeconds: number;
   readonly availability: RecordingAvailability;
@@ -68,7 +68,7 @@ type Recording = {
   readonly keptUntil: string | null;
 };
 
-type DebateState =
+type RoundState =
   | {
       readonly status: 'upcoming';
       readonly affReady: boolean;
@@ -87,11 +87,11 @@ type DebateState =
       readonly recording: Recording;
     };
 
-export type WatchDebate = {
+export type WatchRound = {
   readonly id: string;
   /** Host-chosen display name. */
   readonly title: string;
-  readonly mode: DebateMode;
+  readonly mode: RoundMode;
   readonly customRules: boolean;
   readonly visibility: Visibility;
   readonly aff: Debater;
@@ -102,7 +102,7 @@ export type WatchDebate = {
   readonly removedSpectators: readonly string[];
   /** True when the spectator limit is reached. */
   readonly audienceFull: boolean;
-  readonly state: DebateState;
+  readonly state: RoundState;
 };
 
 /** The signed-in viewer, or nobody. */
@@ -114,19 +114,17 @@ export type WatchViewer =
       readonly rating: number;
     };
 
-export const debaterOn = (debate: WatchDebate, side: Side): Debater =>
-  side === 'aff' ? debate.aff : debate.neg;
+export const debaterOn = (round: WatchRound, side: Side): Debater =>
+  side === 'aff' ? round.aff : round.neg;
 
-/** The mean of the two debaters' ratings, which ranks a debate. */
-export const debateRating = (debate: WatchDebate): number =>
-  Math.round((debate.aff.rating + debate.neg.rating) / 2);
+/** The mean of the two debaters' ratings, which ranks a Round. */
+export const roundRating = (round: WatchRound): number =>
+  Math.round((round.aff.rating + round.neg.rating) / 2);
 
-/** True when the viewer is seated in or assigned to judge the debate. */
+/** True when the viewer is seated in or assigned to judge the Round. */
 export const isParticipant = (
-  debate: WatchDebate,
+  round: WatchRound,
   viewer: WatchViewer,
 ): boolean =>
   viewer.signedIn &&
-  [debate.aff.handle, debate.neg.handle, ...debate.judges].includes(
-    viewer.handle,
-  );
+  [round.aff.handle, round.neg.handle, ...round.judges].includes(viewer.handle);

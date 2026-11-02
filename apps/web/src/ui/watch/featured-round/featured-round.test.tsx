@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listLive } from '../../../features/watch/list-live';
 import { defaultLiveQuery } from '../../../features/watch/live-query';
-import { FeaturedDebate } from './featured-debate';
+import { FeaturedRound } from './featured-round';
 
 setupRitewayBun();
 
@@ -11,7 +11,7 @@ describe('FeaturedDebate', () => {
   test('the featured card', () => {
     const card = listLive(defaultLiveQuery).featured;
     if (!card) throw new Error('sample missing');
-    const html = renderToString(h(FeaturedDebate, { card, delaySeconds: 30 }));
+    const html = renderToString(h(FeaturedRound, { card, delaySeconds: 30 }));
     assert({
       given: 'the top-of-the-ladder card',
       should: 'mark it featured, both seats, a static clock and one link',

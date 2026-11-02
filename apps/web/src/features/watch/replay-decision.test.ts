@@ -1,11 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { findDebate, watchViewer } from './debate-source';
+import { findRound, watchViewer } from './round-source';
 import { decideReplay } from './replay-decision';
 
 setupRitewayBun();
 
 const decide = (id: string, signedIn = true) =>
-  decideReplay(findDebate(id), watchViewer(signedIn));
+  decideReplay(findRound(id), watchViewer(signedIn));
 
 describe('decideReplay', () => {
   test('each sample recording reaches its state', () => {

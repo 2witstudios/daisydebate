@@ -10,18 +10,18 @@ import { ReplayRefusal } from '../../../../ui/watch/replay-refusal/replay-refusa
 
 export const metadata: Metadata = { title: 'Replay' };
 
-/** The guarded replay of a recorded debate, with its visibility manager. */
+/** The guarded replay of a recorded Round, with its visibility manager. */
 export default async function ReplayPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ debateId: string }>;
+  params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  const { debateId } = await params;
-  const identity = await requireAccess(replayHref(debateId), searchParams);
+  const { roundId } = await params;
+  const identity = await requireAccess(replayHref(roundId), searchParams);
   const screen = openReplay(
-    debateId,
+    roundId,
     viewerOf(identity),
     parseReplayQuery(await searchParams),
   );

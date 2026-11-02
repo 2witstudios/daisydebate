@@ -8,7 +8,7 @@ import { LiveCard } from './live-card';
 setupRitewayBun();
 
 describe('LiveCard', () => {
-  test('a live debate', () => {
+  test('a live Round', () => {
     const card = listLive(defaultLiveQuery).rows.find(
       (row) => row.id === 'finals-rehearsal',
     );

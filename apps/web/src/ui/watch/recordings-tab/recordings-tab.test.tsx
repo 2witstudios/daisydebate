@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/debate-source';
+import { watchViewer } from '../../../features/watch/round-source';
 import {
   listRecordings,
   type RecordingsHubListing,

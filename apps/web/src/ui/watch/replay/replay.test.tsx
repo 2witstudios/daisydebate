@@ -2,7 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { watchViewer } from '../../../features/watch/debate-source';
+import { watchViewer } from '../../../features/watch/round-source';
 import { openReplay } from '../../../features/watch/open-replay';
 import {
   defaultReplayQuery,
