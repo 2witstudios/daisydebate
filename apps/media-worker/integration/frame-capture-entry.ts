@@ -4,9 +4,11 @@ import { runCaptureProcess } from '../src/capture-run';
 
 /**
  * A real capture process with every real part but LiveKit, which steady frames
- * replace, for proofs that take the web app away and signal this process.
+ * of 400 ms speech and 600 ms pauses replace, so clips cut as speech cuts them, for proofs that take the web app away and signal this process.
  * Speech-to-text is the OpenRouter stub; nothing here reaches a provider.
  */
+const voiced = new Int16Array(160).fill(8000);
+const silent = new Int16Array(160);
 const subscribe = (async (setup: {
   readonly onFrame: (frame: never) => void;
 }) => {
@@ -23,7 +25,7 @@ const subscribe = (async (setup: {
         sequence: sequence++,
         beforeMs: afterMs - 1,
         afterMs,
-        pcm: new Int16Array(160),
+        pcm: sequence % 100 < 40 ? voiced : silent,
       } as never);
     }
   };

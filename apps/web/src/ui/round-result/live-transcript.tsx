@@ -1,12 +1,9 @@
 'use client';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { RoundTranscriptRead } from '@daisy/protocol';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
-import {
-  createTranscriptSync,
-  seedTranscript,
-} from '../../features/round-runtime/transcript-sync';
+import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';
 import { useResourceSync } from '../resource-sync/use-resource-sync';
 import { liveTranscriptSections, transcriptState } from './result-view';
 import {
@@ -29,31 +26,19 @@ export function LiveTranscript({
   readonly socketUrl: string | null;
 }) {
   const roundId = seed.round.id;
-  // A replaced driver starts from the newest text held, never an older seed.
-  const held = useRef(seed);
+  const [holder] = useState(() =>
+    createTranscriptHolder(seed, () =>
+      readTranscript(window.fetch.bind(window), roundId),
+    ),
+  );
   const start = useCallback(
-    () =>
-      createTranscriptSync({
-        seed: seedTranscript(held.current),
-        read: () => readTranscript(window.fetch.bind(window), roundId),
-        ...browserSyncEdges(socketUrl),
-      }),
-    [roundId, socketUrl],
+    () => holder.start(browserSyncEdges(socketUrl)),
+    [holder, socketUrl],
   );
-  const [synced, driver] = useResourceSync(
-    () => seedTranscript(held.current),
-    start,
-  );
-  useEffect(() => {
-    held.current = synced.value;
-  }, [synced.value]);
-  useEffect(() => {
-    driver?.accepted(seed);
-  }, [driver, seed]);
+  const [synced, driver] = useResourceSync(holder.seed, start);
+  useEffect(() => holder.offer(seed), [holder, seed]);
   // Whatever rendered this page may be old: durable history decides.
-  useEffect(() => {
-    driver?.signal();
-  }, [driver]);
+  useEffect(() => driver?.signal(), [driver]);
   if (synced.freshness === 'gone') return null;
   return (
     <section

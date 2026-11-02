@@ -11,6 +11,7 @@ import {
   capturePendingBytes,
   CAPTURE_PENDING_TOTAL_BYTES,
 } from './capture-memory';
+import { validateCaptureBatch } from './capture-batch';
 import { createCaptureStaging } from './capture-staging';
 setupRitewayBun();
 
@@ -282,9 +283,9 @@ test('a refused write ends the consumer rather than being retried', async () => 
   });
   assert({
     given: 'the same write',
-    should: 'send it once',
+    should: 'send it once and count that clip as lost',
     actual: events,
-    expected: ['append'],
+    expected: ['append', 'lost'],
   });
 });
 
@@ -340,6 +341,65 @@ test('only frames dropped by the bound count as lost', () => {
   });
 });
 
+test('a backlog past one cut cuts in pieces, as one run', async () => {
+  const startMs = 1000;
+  const frames = Array.from({ length: 30_000 }, (_, index) => {
+    const at = startMs + index * 10;
+    return {
+      seat,
+      segmentId,
+      frame: {
+        pcm: new Int16Array(160).fill(8000),
+        trackId: 'track',
+        nominalStartMs: at,
+        beforeMs: at,
+        afterMs: at + 10,
+      },
+    };
+  });
+  const clips: { durationMs: number; startOffsetMs: number }[] = [];
+  let dropped = 0;
+  await validateCaptureBatch({
+    frames,
+    current: {
+      state: {
+        ...consumerState,
+        serverNow: at(1_000_000),
+        segment: { ...consumerState.segment, durationMs: 1_000_000 },
+      },
+      calibration: {},
+    } as never,
+    client: {} as never,
+    roundId: 'r'.repeat(24),
+    epoch: 4,
+    signal: new AbortController().signal,
+    dropped: (n) => {
+      dropped += n;
+    },
+    straddled: () => undefined,
+    clip: (clip) => clips.push(clip),
+    held: () => undefined,
+    carries: new Map(),
+  });
+  const span = clips.reduce((sum, clip) => sum + clip.durationMs, 0);
+  assert({
+    given: 'five minutes of one seat held through an outage',
+    should: 'refuse nothing, and cut contiguous clips up to its carry',
+    actual: [
+      dropped,
+      clips[0]!.startOffsetMs,
+      span,
+      clips.every(
+        (clip, index) =>
+          index === 0 ||
+          clip.startOffsetMs ===
+            clips[index - 1]!.startOffsetMs + clips[index - 1]!.durationMs,
+      ),
+    ],
+    expected: [0, 1000, 300_000 - span === 0 ? 300_000 : span, true],
+  });
+});
+
 test('pending audio stays within the worker total however many sessions run', () => {
   const total = (sessions: number) => {
     const pending = capturePendingBytes(sessions);
@@ -359,5 +419,11 @@ test('pending audio stays within the worker total however many sessions run', ()
     should: 'hold two minutes for two seats',
     actual: captureMemoryBudget(capturePendingBytes(8)).maxStagedFrames,
     expected: 24_000,
+  });
+  assert({
+    given: 'the same budget',
+    should: 'let the queue take everything staged at once',
+    actual: captureMemoryBudget(capturePendingBytes(8)).maxQueueMs >= 240_000,
+    expected: true,
   });
 });

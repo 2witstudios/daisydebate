@@ -6,6 +6,7 @@ import { completed } from './result.test-support';
 import {
   liveTranscriptSections,
   sectionItems,
+  transcriptSections,
   transcriptState,
 } from './result-view';
 import { TranscriptContent } from './transcript-content';
@@ -121,5 +122,44 @@ test('a gap sits where the capture stopped and shows the seat it belongs to', ()
       html.includes('3:54') &&
       html.includes('4:11'),
     expected: true,
+  });
+});
+
+test('a completed transcript says where a speech was partial, even a speech with no lines', () => {
+  const played = completed.round.segments[0]!;
+  const last = completed.round.segments.at(-1)!;
+  const seat = completed.transcript!.utterances[0]!.roundParticipantId;
+  const sections = transcriptSections({
+    ...completed,
+    transcript: {
+      completeness: 'incomplete',
+      utterances: completed.transcript!.utterances.filter(
+        (line) => line.segmentId !== last.id,
+      ),
+      gaps: [
+        {
+          segmentId: played.id,
+          roundParticipantId: seat,
+          fromOffsetMs: 1000,
+          untilOffsetMs: 2000,
+        },
+        {
+          segmentId: last.id,
+          roundParticipantId: seat,
+          fromOffsetMs: 0,
+          untilOffsetMs: 5000,
+        },
+      ],
+    },
+  });
+  assert({
+    given: 'gaps on a speech with lines and on one with none',
+    should: 'show both, in played order',
+    actual: [
+      sections.at(0)?.gaps?.length,
+      sections.at(-1)?.key,
+      sections.at(-1)?.gaps?.length,
+    ],
+    expected: [1, `${last.sequence}`, 1],
   });
 });

@@ -42,8 +42,7 @@ export function createCaptureStaging(input: {
   const bound = () => {
     const excess = pending.length - input.maxFrames;
     if (excess <= 0) return;
-    pending.slice(0, excess).forEach(input.lost);
-    pending = pending.slice(excess);
+    pending.splice(0, excess).forEach(input.lost);
     input.dropped(excess);
   };
   const candidate = (raw: Raw): StagedFrame | null => {
@@ -126,6 +125,7 @@ export function createCaptureStaging(input: {
     },
     clear() {
       input.dropped(pending.length);
+      pending.forEach(input.lost);
       pending = [];
       clocks.clear();
       edges.clear();

@@ -5,6 +5,7 @@ const FRAME_BYTES = 320;
 /** Two minutes for two seats speaking at once: the agreed control-plane outage. */
 const OUTAGE_FRAMES = 24_000;
 const QUEUE_BYTES = 20 * 1024 * 1024;
+const QUEUE_MS = 120_000;
 const STAGED_SHARE = 0.3;
 
 /**
@@ -22,6 +23,9 @@ export function captureMemoryBudget(pendingBytes: number) {
   return {
     maxStagedFrames: staged,
     maxQueueBytes: Math.min(QUEUE_BYTES, pendingBytes - staged * FRAME_BYTES),
+    // A recovering batch cuts everything staged at once, before the consumer
+    // can run, so the queue must hold all of it on top of its ordinary backlog.
+    maxQueueMs: staged * 10 + QUEUE_MS,
   };
 }
 export const capturePendingBytes = (maxSessions: number) =>

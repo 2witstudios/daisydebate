@@ -31,6 +31,7 @@ export const completed: RoundBallotRead = {
   ],
   transcript: {
     completeness: 'incomplete',
+    gaps: [],
     utterances: [
       {
         id: 'u1',

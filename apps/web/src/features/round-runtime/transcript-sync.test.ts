@@ -7,7 +7,11 @@ import {
 import { driverEdges } from '../resource-sync/driver.test-support';
 import type { ResourceRead } from '../resource-sync/driver';
 import { round } from '../room-runtime/operations.test-support';
-import { createTranscriptSync, seedTranscript } from './transcript-sync';
+import {
+  createTranscriptHolder,
+  createTranscriptSync,
+  seedTranscript,
+} from './transcript-sync';
 setupRitewayBun();
 const transcript = (revision: number): RoundTranscriptRead => ({
   round,
@@ -148,4 +152,51 @@ test('transient unavailability keeps committed text and real refusal clears it',
     expected: ['stale', 5, 'current', 6, 'gone'],
   });
   driver.dispose();
+});
+
+const holding = () => {
+  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const holder = createTranscriptHolder(transcript(5), edges.read);
+  const { read: _read, ...driverOnly } = edges;
+  return { edges, holder, driverOnly };
+};
+test('a replaced driver starts from the newest text held, not the first seed', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const first = holder.start(driverOnly);
+  first.signal();
+  edges.answer({ kind: 'found', value: transcript(9) });
+  await edges.flush();
+  first.dispose();
+  const second = holder.start(driverOnly);
+  holder.offer(transcript(4));
+  assert({
+    given: 'revision 9 read, the driver replaced, then a revision 4 render',
+    should: 'keep revision 9 across both',
+    actual: second.readSnapshot().value.revision,
+    expected: 9,
+  });
+  second.dispose();
+});
+
+test('a render arriving after a refusal never shows protected text again', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const first = holder.start(driverOnly);
+  first.signal();
+  edges.answer({ kind: 'missing' });
+  await edges.flush();
+  holder.offer(transcript(7));
+  const during = first.readSnapshot();
+  first.dispose();
+  const second = holder.start(driverOnly);
+  assert({
+    given: 'a refused read, a later render, then a replaced driver',
+    should: 'stay gone at every step',
+    actual: [
+      during.freshness,
+      during.value.revision,
+      second.readSnapshot().freshness,
+    ],
+    expected: ['gone', 5, 'gone'],
+  });
+  second.dispose();
 });

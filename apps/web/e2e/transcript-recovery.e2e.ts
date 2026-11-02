@@ -6,7 +6,12 @@ import { createHumanBallotRound } from './support/human-ballot-round';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { expect, openPage, test } from './support/fixtures';
 
-const seed = (roundId: string, from: number, count: number) =>
+const seed = (
+  roundId: string,
+  from: number,
+  count: number,
+  close: 'open' | 'partial' = 'open',
+) =>
   promisify(execFile)(
     'bun',
     [
@@ -14,6 +19,7 @@ const seed = (roundId: string, from: number, count: number) =>
       roundId,
       String(from),
       String(count),
+      close,
     ],
     {
       cwd: resolve(import.meta.dirname, '../../..'),
@@ -73,11 +79,28 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(transcript.getByText('Reconnecting')).toBeHidden();
     await expect(first).toBeVisible();
 
+    // Partial evidence and a lost connection are separate facts, both shown.
+    await seed(round.id, 121, 1, 'partial');
+    await lookAgain(page);
+    const status = transcript.getByRole('status');
+    await expect(status.getByText('Partial', { exact: true })).toBeVisible();
+    await page.route(routeOf(round.id), (route) =>
+      route.fulfill({ status: 503, body: 'unavailable' }),
+    );
+    await lookAgain(page);
+    await expect(status.getByText('Reconnecting')).toBeVisible();
+    await expect(status.getByText('Partial', { exact: true })).toBeVisible();
+    await page.unroute(routeOf(round.id));
+
     await page.reload();
     await transcriptOf(page)
       .getByText('Show the transcript', { exact: true })
       .click();
-    await expect(transcriptOf(page).getByRole('listitem')).toHaveCount(121);
+    await expect(
+      transcriptOf(page)
+        .getByRole('listitem')
+        .filter({ hasText: 'Fixture line' }),
+    ).toHaveCount(122);
 
     await page.route(routeOf(round.id), (route) =>
       route.fulfill({ status: 403, body: 'refused' }),

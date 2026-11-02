@@ -17,6 +17,7 @@ if (import.meta.main) {
   const roundId = idSchema.parse(Bun.argv[2]);
   const from = Number(Bun.argv[3]);
   const count = Number(Bun.argv[4]);
+  const closePartial = Bun.argv[5] === 'partial';
   if (![from, count].every(Number.isSafeInteger) || count < 1 || count > 512)
     throw new Error('Explicit bounded transcript fixture required');
   const sql = new SQL(process.env.E2E_DATABASE_URL!, { max: 1 });
@@ -40,6 +41,13 @@ if (import.meta.main) {
         await tx`
           insert into round_transcripts(round_id,revision) values(${roundId},1)
           on conflict (round_id) do update set revision=round_transcripts.revision+1`;
+      }
+      if (closePartial) {
+        await tx`
+          update transcript_segments
+          set state='partial',sealed_at=now(),chunk_count=${from + count},sealed_chunk_count=${from + count}
+          where round_id=${roundId} and segment_id=${line.segment_id} and round_participant_id=${line.participant_id}`;
+        await tx`update round_transcripts set revision=revision+1 where round_id=${roundId}`;
       }
     });
     process.stdout.write('{"ok":true}');

@@ -100,6 +100,7 @@ async function close(
   const carries = openSpeechCarry();
   const sealed = await closeCaptureSession({
     graceful,
+    lost: () => undefined,
     carries,
     roundId,
     enqueue: (clip) => {

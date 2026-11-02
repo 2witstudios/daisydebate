@@ -40,6 +40,10 @@ export async function consumeCaptureClips(input: {
     }
     try {
       await consumeClip(input, clip, failed);
+    } catch (error) {
+      // Heard, and stopped before it committed.
+      input.lost(clip);
+      throw error;
     } finally {
       input.settled(clip);
     }

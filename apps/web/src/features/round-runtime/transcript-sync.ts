@@ -35,3 +35,44 @@ export function createTranscriptSync(
       }),
   });
 }
+
+type TranscriptSyncEdges = Omit<
+  Parameters<typeof createTranscriptSync>[0],
+  'seed' | 'read'
+>;
+/**
+ * Holds one Round's transcript across its sync drivers: a replaced driver
+ * starts from the newest text held, a later server render's seed never replaces
+ * newer text, and a real refusal stays final whatever render arrives after it.
+ */
+export function createTranscriptHolder(
+  seed: RoundTranscriptRead,
+  read: () => Promise<ResourceRead<RoundTranscriptRead>>,
+) {
+  let held = seed;
+  let gone = false;
+  let current: ReturnType<typeof createTranscriptSync> | null = null;
+  return {
+    seed: () => seedTranscript(held),
+    start(edges: TranscriptSyncEdges) {
+      const started = seedTranscript(held);
+      const running = createTranscriptSync({
+        ...edges,
+        read,
+        seed: gone ? { ...started, freshness: 'gone' } : started,
+      });
+      current = running;
+      running.subscribe(() => {
+        const state = running.readSnapshot();
+        held = state.value;
+        gone = state.freshness === 'gone';
+      });
+      return running;
+    },
+    offer(next: RoundTranscriptRead) {
+      if (gone || next.round.id !== held.round.id) return;
+      if (next.revision >= held.revision) held = next;
+      current?.accepted(next);
+    },
+  };
+}

@@ -94,7 +94,29 @@ export function transcriptSections(
 ): readonly TranscriptSection[] {
   const transcript = view.transcript;
   if (!transcript) return [];
-  return sectionsOf(view.round, transcript.utterances);
+  const sections = sectionsOf(view.round, transcript.utterances);
+  const played = view.round.segments.filter((segment) =>
+    transcript.gaps.some((gap) => gap.segmentId === segment.id),
+  );
+  const keys = new Set(sections.map((section) => section.key));
+  return [
+    ...sections,
+    ...played
+      .filter((segment) => !keys.has(`${segment.sequence}`))
+      .map((segment) => emptySection(view.round, segment.sequence)),
+  ]
+    .sort((a, b) => Number(a.key) - Number(b.key))
+    .map((section) => {
+      const segment = view.round.segments.find(
+        (each) => `${each.sequence}` === section.key,
+      );
+      return {
+        ...section,
+        gaps: transcript.gaps
+          .filter((gap) => gap.segmentId === segment?.id)
+          .map((gap) => gapRow(view.round, gap)),
+      };
+    });
 }
 
 /**
@@ -109,6 +131,20 @@ export function transcriptLines(view: RoundTranscriptRead) {
     text: line.text,
   }));
 }
+
+const gapRow = (
+  round: RoundView,
+  gap: {
+    readonly roundParticipantId: string;
+    readonly fromOffsetMs: number;
+    readonly untilOffsetMs: number;
+  },
+): TranscriptGap => ({
+  key: `${gap.roundParticipantId}:${gap.fromOffsetMs}`,
+  speaker: speakerOf(round, gap.roundParticipantId),
+  fromOffsetMs: gap.fromOffsetMs,
+  untilOffsetMs: gap.untilOffsetMs,
+});
 
 const speakerOf = (round: RoundView, participantId: string) =>
   round.participants.filter(isNamedSeat).find((p) => p.id === participantId)
@@ -164,11 +200,12 @@ export function liveTranscriptSections(
       ...(existing ?? emptySection(view.round, segment.sequence)),
       status,
       gaps: streams.flatMap((stream) =>
-        stream.gaps.map((gap) => ({
-          key: `${stream.roundParticipantId}:${gap.fromOffsetMs}`,
-          speaker: speakerOf(view.round, stream.roundParticipantId),
-          ...gap,
-        })),
+        stream.gaps.map((gap) =>
+          gapRow(view.round, {
+            roundParticipantId: stream.roundParticipantId,
+            ...gap,
+          }),
+        ),
       ),
     };
   });

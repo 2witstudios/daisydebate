@@ -25,7 +25,7 @@ function webApp() {
   const startedAt = new Date(nowMs() - 1000).toISOString();
   const log: Entry[] = [];
   type Lease = { workerId: string; epoch: number; expiresAt: number };
-  const state: { lease?: Lease } = {};
+  const state: { lease?: Lease; endedAt: string | null } = { endedAt: null };
   let server: ReturnType<typeof Bun.serve> | undefined;
   let port = 0;
   const claim = (body: Record<string, unknown>) => {
@@ -95,7 +95,7 @@ function webApp() {
           sequence: 0,
           type: 'speech',
           startedAt,
-          endedAt: null,
+          endedAt: state.endedAt,
           durationMs: 3_600_000,
         },
         intervals: [
@@ -103,9 +103,9 @@ function webApp() {
             id: 'n'.repeat(24),
             roundParticipantId: scope.seat,
             startedAt,
-            endedAt: null,
+            endedAt: state.endedAt,
             startedVersion: 1,
-            endedVersion: null,
+            endedVersion: state.endedAt ? 2 : null,
           },
         ],
         nextIntervalId: null,
@@ -131,6 +131,9 @@ function webApp() {
   up();
   return {
     log,
+    endSpeech: () => {
+      state.endedAt = new Date(nowMs()).toISOString();
+    },
     url: () => `http://127.0.0.1:${port}/`,
     up,
     down: () => server!.stop(true),
@@ -202,6 +205,9 @@ test('a real capture process outlives a web outage past its lease and loses noth
       10_000,
     );
     await sleep(1500);
+    // The speech ends, so its stream seals in the session's own loop.
+    app.endSpeech();
+    await until(() => app.log.some((entry) => entry.op === 'seal'), 10_000);
     child.kill('SIGTERM');
     const code = await child.exited;
     const epochs = new Set(app.log.map((entry) => entry.body.epoch));
@@ -216,7 +222,8 @@ test('a real capture process outlives a web outage past its lease and loses noth
         code,
         epochs: epochs.size,
         hole: holeMs(app.log),
-        appended: app.log.some((entry) => entry.op === 'append'),
+        // One clip per second heard: the outage's speech, not a surviving tail.
+        appended: app.log.filter((entry) => entry.op === 'append').length >= 18,
         framesLost: seal?.body.framesLost,
         last: app.log.at(-1)?.op,
       },

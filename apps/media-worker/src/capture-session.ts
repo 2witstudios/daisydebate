@@ -117,9 +117,10 @@ async function captureSession(
     },
   });
   const queue = createClipQueue<QueuedClip>({
-    maxClips: 10,
+    // Speech cuts clips at its pauses: only bytes and duration bound the audio.
+    maxClips: 4096,
     maxBytes: budget.maxQueueBytes,
-    maxDurationMs: 120000,
+    maxDurationMs: budget.maxQueueMs,
   });
   const carries: ClipCarries = new Map();
   const heard = createHeardReporter({ heard: input.client.heard });
@@ -272,6 +273,7 @@ async function captureSession(
           return frames;
         },
         dropped,
+        lost: streams.lost,
         // Fallback for every stream not yet finished.
         seal: (cleanup) =>
           sealCaptureStreams(

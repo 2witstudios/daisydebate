@@ -49,6 +49,8 @@ type Input = {
 };
 /** At most sixty seconds of 10 ms frames per clip. */
 const MAX_CLIP_FRAMES = 6000;
+/** The most frames one cut takes; a longer backlog is cut in pieces. */
+export const MAX_CUT_FRAMES = 12_000;
 const invalid = () =>
   createAppError('VALIDATION', 'Invalid calibrated capture batch');
 const instant = (n: number) =>
@@ -84,7 +86,7 @@ function validate(input: Input) {
     !idSchema.safeParse(input.roundId).success ||
     !idSchema.safeParse(input.roundParticipantId).success ||
     !instant(input.serverNowMs) ||
-    input.frames.length > 12000 ||
+    input.frames.length > MAX_CUT_FRAMES ||
     !input.segments.every(segmentValid) ||
     !input.intervals.every(intervalValid) ||
     !input.frames.every(frameValid) ||

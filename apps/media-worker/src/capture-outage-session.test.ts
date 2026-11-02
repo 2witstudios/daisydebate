@@ -24,7 +24,7 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
  */
 function webApp(startedAtMs: number) {
   const log: { op: string; body: Record<string, unknown> }[] = [];
-  const web = { up: true, expired: false };
+  const web = { up: true, expired: false, endedAt: null as string | null };
   const reply = (op: string, body: Record<string, unknown>) => {
     if (op === 'lease') {
       web.expired = false;
@@ -58,7 +58,7 @@ function webApp(startedAtMs: number) {
           sequence: 0,
           type: 'speech',
           startedAt: new Date(startedAtMs).toISOString(),
-          endedAt: null,
+          endedAt: web.endedAt,
           durationMs: 3_600_000,
         },
         intervals: [
@@ -66,9 +66,9 @@ function webApp(startedAtMs: number) {
             id: 'n'.repeat(24),
             roundParticipantId: seat,
             startedAt: new Date(startedAtMs).toISOString(),
-            endedAt: null,
+            endedAt: web.endedAt,
             startedVersion: 1,
-            endedVersion: null,
+            endedVersion: web.endedAt ? 2 : null,
           },
         ],
         nextIntervalId: null,
@@ -135,7 +135,7 @@ async function outageRun(input: {
             sequence: sequence++,
             beforeMs: now - 1,
             afterMs: now,
-            pcm: new Int16Array(160),
+            pcm: new Int16Array(160).fill(sequence % 100 < 40 ? 8000 : 0),
           } as never);
         };
         frames = setInterval(beat, 10);
@@ -179,11 +179,18 @@ const longestHoleMs = (spans: readonly (readonly [number, number])[]) =>
 test('audio heard during a web outage commits after it, with no hole and the same epoch', async () => {
   const { app, ended, observed } = await outageRun({
     pendingBytes: 32 * 1024 * 1024,
-    script: async ({ web }) => {
+    script: async ({ web, log }) => {
       web.up = false;
       await sleep(700);
       web.expired = true;
       web.up = true;
+      await sleep(600);
+      // The speech ends, so its stream seals in the session's own loop.
+      web.endedAt = systemClock.now();
+      for (let waits = 0; waits < 200; waits++) {
+        if (log.some((entry) => entry.op === 'seal')) break;
+        await sleep(25);
+      }
     },
   });
   const seal = app.log.find((entry) => entry.op === 'seal');

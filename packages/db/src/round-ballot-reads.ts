@@ -1,3 +1,4 @@
+import { streamGaps } from './round-protected-reads';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -26,9 +27,21 @@ async function audienceTranscript(
 ) {
   if (!allowed) return null;
   const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
-  return frozen
-    ? { completeness: frozen.completeness, utterances: frozen.utterances }
-    : null;
+  if (!frozen) return null;
+  const gaps = [];
+  for (const stream of frozen.coverage)
+    if (stream.state === 'partial')
+      for (const gap of await streamGaps(tx, roundId, stream))
+        gaps.push({
+          segmentId: stream.segmentId,
+          roundParticipantId: stream.roundParticipantId,
+          ...gap,
+        });
+  return {
+    completeness: frozen.completeness,
+    utterances: frozen.utterances,
+    gaps,
+  };
 }
 
 export const roundBallotReads = ({

@@ -425,20 +425,24 @@ closure and incomplete freeze never wait for a client deadline to show Partial.
 Each partial stream's read carries its `gaps`: required speech with no
 observation, as offsets into the speech, derived on each read from
 `transcript_observations` and the same coverage edges that decide a complete
-seal. A gap is never stored and never implies what was said.
+seal. The completed Round's transcript read carries the same gaps. A gap is
+never stored and never implies what was said.
 
 ## Capture through a control-plane outage
 
 [ADR 0094](../decisions/0094-capture-through-control-plane-outages.md). A web
 outage is not a capture failure. While LiveKit stays connected the worker keeps
 hearing; frames wait in staging, in memory only, and history reads, renewals,
-appends and observations retry until the server answers. A definite refusal
+appends and observations retry until the server answers. A write still refused
+for now after 120 s is lost and recorded, since a late clip of a closed session
+is refused that way for good and must not hold every later clip. A definite refusal
 still stops capture at once. An expired lease refuses every write. It answers
 `503 lease-expired` rather than a final refusal, because its worker may renew
 and reinstate the same epoch if the row is untouched; a takeover or rotation
 moves the row, and the old worker is then refused as stale for good.
 
-Frames the memory bound drops are reported on seal as `framesLost`, which is
+Frames the memory bound drops, and any frames a stopping process still holds,
+are reported on seal as `framesLost`, which is
 never complete, and they leave a hole in the observations. A frame's position
 comes from its native sequence, so contiguity comes from frames actually held,
 never from the lease. `capture-memory.ts` divides one total pending-audio bound

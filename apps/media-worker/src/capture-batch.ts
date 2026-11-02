@@ -1,5 +1,6 @@
 import {
   CLIP_PAUSE_MS,
+  MAX_CUT_FRAMES,
   cutCaptureClips,
   type ClipCarry,
 } from '@daisy/media/clips';
@@ -111,9 +112,17 @@ export async function validateCaptureBatch(input: {
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))
         input.straddled(frame);
-    const cut = cutStream(input, history.state, first.seat, valid);
-    input.dropped(cut.droppedFrames);
-    for (const clip of cut.clips) input.clip(clip);
+    // Each piece's carry leads the next, so a backlog cuts as one run.
+    for (let at = 0; at === 0 || at < valid.length; at += MAX_CUT_FRAMES) {
+      const cut = cutStream(
+        input,
+        history.state,
+        first.seat,
+        valid.slice(at, at + MAX_CUT_FRAMES),
+      );
+      input.dropped(cut.droppedFrames);
+      for (const clip of cut.clips) input.clip(clip);
+    }
   }
 }
 /** One stream's validated frames cut onto its carry; the uncut rest is carried again. */

@@ -83,7 +83,7 @@ export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
 }
 
 /** A short speech's gaps, as offsets; derived from durable evidence on each read. */
-async function streamGaps(
+export async function streamGaps(
   tx: Reader,
   roundId: string,
   stream: { readonly segmentId: string; readonly roundParticipantId: string },
