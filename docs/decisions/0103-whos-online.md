@@ -1,4 +1,4 @@
-# 0098: Who's online
+# 0103: Who's online
 
 Status: accepted (owner, 2026-11-02; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/fxua745ix0t7e81oohvp8z5u)).
 Supersedes [ADR 0072](0072-friendships-and-presence.md) §7 (who may see presence),
