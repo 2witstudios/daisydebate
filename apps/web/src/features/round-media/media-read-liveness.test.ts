@@ -125,3 +125,30 @@ test('a local device failure is not overwritten by later reads', async () => {
   });
   controller.stop();
 });
+
+test('a device failure while out of date is not overwritten when reads recover', async () => {
+  const seen: string[] = [];
+  let reads = 0;
+  const controller = readController({
+    reconcile: async () => {
+      reads++;
+      if (reads === 2) throw mediaFailure(503);
+      return snapshot;
+    },
+    changed: (state) => seen.push(state),
+  });
+  await controller.join();
+  await controller.reconcile({ kind: 'wake' });
+  const stale = seen.at(-1);
+  controller.deviceFailed();
+  seen.length = 0;
+  await controller.reconcile({ kind: 'wake' });
+  assert({
+    given:
+      'a device failure shown while reads are out of date, then an answered read',
+    should: 'not announce live over the shown failure',
+    actual: [stale, seen],
+    expected: ['out-of-date', []],
+  });
+  controller.stop();
+});
