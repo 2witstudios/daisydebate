@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { debateSides, idSchema } from './primitives';
-import { roundViewSchema } from './round-view';
+import { roundRecordSchema } from './round-view';
 
 /** Shared ordered evidence line; text is returned only by protected reads. */
 const utteranceFields = {
@@ -20,7 +20,7 @@ export const TRANSCRIPT_CONTRACT_VERSION = 1;
 /** The current private transcript audience's snapshot, independent of Round version. */
 export const roundTranscriptReadSchema = z.strictObject({
   contractVersion: z.literal(TRANSCRIPT_CONTRACT_VERSION),
-  round: roundViewSchema,
+  round: roundRecordSchema,
   revision: z.int().nonnegative(),
   freeze: z
     .strictObject({
