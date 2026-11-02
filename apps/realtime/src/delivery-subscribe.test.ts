@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
+import { buildRoundTopic } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
 import { bothLanes } from './delivery.test-support';
@@ -70,7 +71,7 @@ function subscribeRig(reads: unknown) {
     subscribe: () =>
       delivery.registry.subscribe(connection, {
         id: 'first',
-        topic: `round:${roundId}`,
+        topic: buildRoundTopic(roundId),
       }),
   };
 }
