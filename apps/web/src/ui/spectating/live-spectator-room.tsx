@@ -1,5 +1,4 @@
 'use client';
-import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -18,6 +17,7 @@ import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
 import { useSecond } from '../debate-room/use-second';
 import { useRoundTime } from '../debate-room/use-round-time';
+import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 

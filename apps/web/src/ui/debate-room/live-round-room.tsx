@@ -1,6 +1,4 @@
 'use client';
-import { RoundTimeNotice } from './round-time-notice';
-
 import './zod-jitless';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
@@ -26,6 +24,7 @@ import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
 import { useRoundTime } from './use-round-time';
+import { RoundTimeNotice } from './round-time-notice';
 
 /**
  * The mounted round room: the position derived each second from the

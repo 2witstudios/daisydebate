@@ -1,9 +1,9 @@
 'use client';
-import { RoundTimeNotice } from './round-time-notice';
 import './zod-jitless';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { useRoundTime } from './use-round-time';
+import { RoundTimeNotice } from './round-time-notice';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
