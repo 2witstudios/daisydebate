@@ -105,6 +105,11 @@ export const roomCreateSchema = z
       message: 'A draw room has no topic; any other room needs one',
       path: ['resolution'],
     },
+  )
+  .refine(
+    (create) =>
+      create.selection.kind !== 'ranked' || create.visibility === 'public',
+    { message: 'A ranked Room is always public', path: ['visibility'] },
   );
 
 const envelope = { commandId: idSchema, expectedVersion: versionSchema };

@@ -115,6 +115,10 @@ export const rooms = pgTable(
       'rooms_visibility_check',
       oneOf(table.visibility, ['public', 'unlisted', 'private']),
     ),
+    check(
+      'rooms_ranked_public_check',
+      sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,
+    ),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check(
       'rooms_topic_nonempty',

@@ -267,3 +267,37 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
     ],
   });
 });
+
+test('a ranked Room is always public', () => {
+  const room = { ...state(), competitionType: 'ranked' as const };
+  const details = (visibility: 'public' | 'unlisted' | 'private') =>
+    executeRoomCommand(
+      room,
+      'host',
+      {
+        type: 'update-details',
+        commandId: `details-${visibility}`,
+        expectedVersion: room.version,
+        title: 'Renamed',
+        topic: room.topic!,
+        visibility,
+      },
+      consent,
+      edges,
+    );
+  assert({
+    given: 'a ranked Room edited to unlisted or private',
+    should: 'refuse both without changing the source room',
+    actual: [details('unlisted'), details('private')],
+    expected: [
+      { ok: false, refusal: 'illegal-config' },
+      { ok: false, refusal: 'illegal-config' },
+    ],
+  });
+  assert({
+    given: 'a ranked Room edited while it stays public',
+    should: 'accept the edit',
+    actual: details('public').ok,
+    expected: true,
+  });
+});

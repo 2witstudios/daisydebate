@@ -157,3 +157,45 @@ test('creation never substitutes a publication that changed after the form was r
     expected: 'invalid',
   });
 });
+
+test('a ranked submission is always public', () => {
+  const value = {
+    ...unequalTemplate,
+    formatId: 'value',
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const form = new FormData();
+  Object.entries({
+    ...draftFormValues(createRoomDraft(value)),
+    title: 'A ranked room',
+    visibility: 'unlisted',
+    ranked: 'on',
+    valueResolutionId: 'published',
+    intent: 'create',
+  }).forEach(([key, text]) => form.set(key, text));
+  const result = prepareRoomDraft(
+    form,
+    [value],
+    [
+      {
+        id: 'published',
+        kind: 'value',
+        text: 'A published resolution',
+        provenance: 'Test',
+        edition: null,
+        theme: null,
+        publishedAt: '2026-10-29T00:00:00.000Z',
+      },
+    ],
+  );
+  assert({
+    given: 'a ranked submission still carrying an unlisted choice',
+    should: 'submit it as public',
+    actual:
+      result.kind === 'submit'
+        ? [result.form.get('competition'), result.form.get('visibility')]
+        : result,
+    expected: ['ranked', 'public'],
+  });
+});

@@ -252,3 +252,40 @@ describe('Room command boundary', () => {
     });
   });
 });
+
+test('roomCreateSchema holds a ranked Room to public', () => {
+  const create = (visibility: string, kind: 'ranked' | 'catalog') => ({
+    commandId,
+    title: 'A Room',
+    resolution: { kind: 'strike' },
+    visibility,
+    selection:
+      kind === 'ranked'
+        ? {
+            kind,
+            formatId: 'lincoln-douglas',
+            formatVersion: 1,
+            presetVersion: 1,
+          }
+        : {
+            kind,
+            formatId: 'lincoln-douglas',
+            formatVersion: 1,
+            presetVersion: 1,
+            competitionType: 'casual',
+          },
+  });
+  const parsed = (visibility: string, kind: 'ranked' | 'catalog') =>
+    roomCreateSchema.safeParse(create(visibility, kind)).success;
+  assert({
+    given: 'ranked creation at each visibility, and casual creation unlisted',
+    should: 'accept only public for ranked, and leave casual free',
+    actual: [
+      parsed('public', 'ranked'),
+      parsed('unlisted', 'ranked'),
+      parsed('private', 'ranked'),
+      parsed('unlisted', 'catalog'),
+    ],
+    expected: [true, false, false, true],
+  });
+});

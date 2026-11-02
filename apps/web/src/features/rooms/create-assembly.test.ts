@@ -42,7 +42,7 @@ test('create forwards the selected immutable revision and verifies the returned 
             commandId: 'h'.repeat(24),
             title: 'My room',
             resolution: { kind: 'custom', text: 'A real topic' },
-            visibility: 'unlisted',
+            visibility: 'public',
             selection: {
               kind: 'ranked',
               formatId: 'stored-format',

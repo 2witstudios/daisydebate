@@ -142,7 +142,7 @@ export const assemblySnapshot = {
 } satisfies RoomView;
 
 /** A native create submission naming a stored ranked preset. */
-export const rankedCreateForm = (visibility = 'unlisted') => {
+export const rankedCreateForm = (visibility = 'public') => {
   const fields = new FormData();
   fields.set('commandId', 'h'.repeat(24));
   fields.set('title', 'My room');

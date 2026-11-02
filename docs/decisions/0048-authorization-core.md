@@ -44,7 +44,7 @@ named as future work only.
 | Concept         | What it is                                                                                       | Where it lives       |
 | --------------- | ------------------------------------------------------------------------------------------------ | -------------------- |
 | Ranked debate   | `mode = 'ranked'`: a ranked-eligible format under its canonical rules, counted on Daisy's ladder | `debates.mode`       |
-| Unranked debate | `mode = 'casual'`, any format, public, unlisted or private                                       | `debates.mode`       |
+| Unranked debate | `mode = 'casual'`, any format, public, unlisted or private; a ranked debate is only ever public  | `debates.mode`       |
 | Season, rating  | Global: one active season, ratings per `(actor, format, season)` (ADR 0029)                      | `seasons`, `ratings` |
 | League          | Future tenant for tournaments. None exists at launch (section 6)                                 | LEAGUE-OPS           |
 | Capability      | A closed vocabulary of things that can be asked                                                  | `@daisy/protocol`    |
@@ -52,6 +52,9 @@ named as future work only.
 
 The rules of the model:
 
+- **Ranked is public.** A ranked Room is always public, refused otherwise at
+  creation, on edit and by the `rooms_ranked_public_check` constraint (owner
+  decision 2026-11-02, WATCH-5). Anyone unwilling to be public plays casual.
 - **Ranked is Daisy's.** Only ranked debates produce ratings, and ranked
   debates belong to no league and no tenant. Formats, their canonical rules
   and ranked eligibility are Daisy's rows (ADR 0030). No club, league or

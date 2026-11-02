@@ -365,18 +365,34 @@ export function CreateRoomEditor({
           ) : null}
         </section>
         <section className="create-room-section">
-          <label className="create-room-field">
-            <span>Who can join</span>
-            <select
-              name="visibility"
-              className={controlClass}
-              value={values.visibility ?? 'unlisted'}
-              onChange={(event) => metadata('visibility', event.target.value)}
-            >
-              <option value="unlisted">Anyone with the link</option>
-              <option value="public">Listed in the lobby</option>
-            </select>
-          </label>
+          {values.ranked === 'on' && !isCustom ? (
+            <div className="create-room-field">
+              <span>Who can join</span>
+              <input type="hidden" name="visibility" value="public" />
+              <p>
+                Listed in the lobby. Ranked Rounds are always public, broadcast
+                and recorded, so anyone can watch them. Play casual to keep a
+                Round out of public view.
+              </p>
+            </div>
+          ) : (
+            <label className="create-room-field">
+              <span>Who can join</span>
+              <select
+                name="visibility"
+                className={controlClass}
+                value={values.visibility ?? 'unlisted'}
+                onChange={(event) => metadata('visibility', event.target.value)}
+              >
+                <option value="unlisted">Anyone with the link</option>
+                <option value="public">Listed in the lobby</option>
+              </select>
+              <small>
+                Choosing Ranked makes the Room public: ranked Rounds are always
+                public, broadcast and recorded.
+              </small>
+            </label>
+          )}
         </section>
         <div className="create-room-actions">
           <button
