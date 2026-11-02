@@ -835,7 +835,13 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   const { page, roundId, documentId } = roundFiles;
   const second = await createRoundFile(page.request, roundId);
   await page.reload();
-  await expect(page.getByRole('textbox', { name: untitled })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: 'Untitled', exact: true })
+    .click();
+  await expect(
+    page.getByRole('textbox', { name: 'Untitled', exact: true }),
+  ).toBeVisible();
   await page.clock.install({ time: '2026-11-01T18:00:00Z' });
   await page.clock.pauseAt('2026-11-01T18:01:00Z');
   const bodies: string[] = [];
