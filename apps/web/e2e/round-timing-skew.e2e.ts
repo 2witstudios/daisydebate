@@ -261,11 +261,30 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const view = roundViewSchema.parse(await response.json());
     const segment = view.segments[0]!;
     const deadline = Date.parse(segment.startedAt) + segment.durationMs;
+    // Hold every Round read for both debaters across the boundary. Neither
+    // view can change, so only a deadline timer on the shared clock can
+    // reconcile here; the guest's view would otherwise wake the host's
+    // transport and satisfy this assertion without any timer.
+    let releaseReads = () => {};
+    const readsHeld = new Promise<void>((release) => {
+      releaseReads = release;
+    });
+    const holdRoundReads: ActionRoute = async (route) => {
+      if (route.request().headers()['next-action'] === clockActionId)
+        await readsHeld;
+      await route.fallback();
+    };
+    const guestActions = await routeServerActions(guest, roomUrl);
+    guestActions.use(holdRoundReads);
+    actions.use(holdRoundReads);
+    expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
     await expect
       .poll(() => Math.min(...mediaAt.map((at) => Math.abs(at - deadline))), {
         timeout: 70000,
       })
       .toBeLessThan(2000);
+    releaseReads();
+    await Promise.all([actions.pass(), guestActions.pass()]);
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
