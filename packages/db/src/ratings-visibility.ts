@@ -102,7 +102,7 @@ export const ratingVisibilityOperations = ({
       })[];
       const ratings = (await database.execute(sql`
         select r.actor_id as "actorId", r.ladder, r.rating, r.deviation, r.volatility,
-          (select max(c.created_at) from rating_changes c
+          (select max(c.occurred_at) from rating_changes c
             where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id) as "lastRatedAt"
         from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
         where r.actor_id = any(${ids})`)) as unknown as (Omit<

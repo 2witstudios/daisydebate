@@ -15,6 +15,7 @@ import { createReportStore, reportOperations } from '../src/reports/store';
 import { contactReactions } from '../src/contact-composition';
 import { createContactStore } from '../src/contacts/store';
 import { loadAuthorizationAccount } from '../src/authorization';
+import { ratingVisibilityOperations } from '../src/ratings-visibility';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 import {
@@ -151,6 +152,39 @@ test('an active Room is a placement: room while open, round once launched', asyn
   });
   await ctx.cleanup();
   await ctx.client.close();
+});
+
+test('a card reads a page of people, whatever they have played', async () => {
+  const ctx = await open();
+  const cards = ratingVisibilityOperations({ database: ctx.database });
+  try {
+    const none = await cards.readMemberCards([]);
+    const empty = await cards.readMemberCards([ctx.them.actorId]);
+    await cards.writeRatingVisibility(
+      ctx.them,
+      { showPolicy: true, showValue: false, now: ctx.now },
+      unfenced,
+    );
+    const shown = await cards.readMemberCards([ctx.them.actorId]);
+    const own = await cards.readRatingVisibility(ctx.them, unfenced);
+    assert({
+      given: 'nobody, a member with nothing played, then one turning Policy on',
+      should: 'answer empty pages, then their choice',
+      actual: [none, empty, shown.visibility.map((v) => v.showPolicy), own],
+      expected: [
+        { ratings: [], records: [], visibility: [] },
+        { ratings: [], records: [], visibility: [] },
+        [true],
+        { showPolicy: true, showValue: false },
+      ],
+    });
+  } finally {
+    await ctx.client.unsafe('delete from rating_visibility where actor_id = $1', [
+      ctx.them.actorId,
+    ]);
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
 });
 
 test('a challenge is offered, listed both ways, repeated once, and goes on decline', async () => {

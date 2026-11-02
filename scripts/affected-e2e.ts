@@ -121,6 +121,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'realtime-room-delivery.e2e.ts': [...room, ...realtime],
   'messaging-realtime.e2e.ts': [...messaging, ...realtime],
   'friends.e2e.ts': [...messaging, ...realtime, 'apps/web/src/ui/friends/'],
+  'whos-online.e2e.ts': [...messaging, ...realtime, 'apps/web/src/ui/online/'],
 };
 // Realtime profiles remain complete one-file proofs.
 const native = new Set(

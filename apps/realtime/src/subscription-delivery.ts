@@ -197,6 +197,7 @@ export function createSubscriptionDelivery({
     const frame: ServerMessage = {
       v: ENVELOPE_VERSION,
       type: 'online_changed',
+      topic: ONLINE_TOPIC,
     };
     for (const connection of connections) {
       const sub = connection.topics.get(ONLINE_TOPIC);

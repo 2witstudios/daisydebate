@@ -196,6 +196,7 @@ export function OnlineProvider({
   useEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
+    connection.connect();
     const stopRoster = connection.subscribeTopic(ONLINE_TOPIC, (frame) => {
       if (frame.type === 'online_changed' || frame.type === 'subscribed')
         schedule();
@@ -212,6 +213,7 @@ export function OnlineProvider({
     return () => {
       stopRoster();
       stopChallenges?.();
+      connection.dispose();
     };
   }, [actorId, readChallenges, schedule, socketUrl]);
 

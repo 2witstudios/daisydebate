@@ -4,7 +4,7 @@ import {
   cursorSchema,
   realtimeRequestIdSchema,
 } from './realtime';
-import { parseTopic, topicStringSchema } from './topics';
+import { ONLINE_TOPIC, parseTopic, topicStringSchema } from './topics';
 import {
   outboxPayloadSchema,
   isPayloadDeliverableOnTopic,
@@ -59,7 +59,11 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     ),
   }),
   /** The online list may have changed: re-read it (ADR 0097). Names nobody. */
-  z.strictObject({ ...envelope, type: z.literal('online_changed') }),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('online_changed'),
+    topic: z.literal(ONLINE_TOPIC),
+  }),
   eventSchema,
   ...buildObservationServerMessages(envelope, requestId),
 ]);
