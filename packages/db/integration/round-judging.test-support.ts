@@ -62,6 +62,7 @@ export const withJudgingJob = (
           nextToken: () => randomBytes(32).toString('base64url'),
           leaseMs: 30000,
           model: 'anthropic/claude-sonnet-5.5',
+          contractVersion: 'fixture-contract',
           rules: judgingJobRules,
         }),
       });

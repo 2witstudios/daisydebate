@@ -252,6 +252,7 @@ test('an AI judging job no provider ever served by its budget is a known failure
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
         rules: judgingJobRules,
       },
     },
@@ -363,6 +364,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
         rules: judgingJobRules,
       },
     },
@@ -374,6 +376,7 @@ const judgingOptions = {
     leaseMs: 60000,
     model: 'fixture-model',
     nextToken: () => randomBytes(32).toString('base64url'),
+    contractVersion: 'fixture-contract',
     rules: judgingJobRules,
   },
 };

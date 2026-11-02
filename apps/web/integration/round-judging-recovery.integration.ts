@@ -93,6 +93,7 @@ test('cached judging response retries actual shared completion without redispatc
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
         rules: judgingJobRules,
       },
     },

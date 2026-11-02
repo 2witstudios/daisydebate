@@ -84,12 +84,14 @@ export type {
 } from './round';
 export {
   judgingAttemptCategories,
+  judgingAttemptOutcomes,
   judgingAttemptDiagnosticSchema,
   judgingBallotFields,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
   type JudgingAttemptCategory,
+  type JudgingAttemptOutcome,
   type JudgingAttemptDiagnostic,
   type JudgingFinish,
   type JudgingIssueCode,

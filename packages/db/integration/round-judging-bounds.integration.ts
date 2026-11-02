@@ -34,13 +34,16 @@ test('a judging job buys at most two model calls across lease expiries, then end
     for (let i = 0; i < 4; i++) {
       const claim = await jobs.claim(target).catch(() => null);
       if (!claim) break;
-      dispatched.push(await jobs.beginModelCall(claim.scope, claim.token));
+      dispatched.push(
+        (await jobs.beginModelCall(claim.scope, claim.token)).kind ===
+          'dispatched',
+      );
       await expire(fixture, roundId);
     }
     const [job] =
       await fixture.sql`select status,lease_expires_at from round_judging_jobs where round_id=${roundId}`;
     const [paid] =
-      await fixture.sql`select count(*)::int n from agent_runs where kind='judging' and configuration_snapshot->>'providerOutcome' in ('unknown','received') and configuration_snapshot->>'roundId'=${roundId}`;
+      await fixture.sql`select count(*)::int n from round_judging_attempts where round_id=${roundId} and category is distinct from 'provider_refused'`;
     assert({
       given:
         'a judging job whose model call never answers, its lease expiring after each dispatch',
@@ -76,7 +79,7 @@ test('a judging job past its AI budget buys no model call, whatever the human de
       should: 'refuse the model call and end the job with that reason',
       actual: { begun, status: job.status, reason: job.terminal_reason },
       expected: {
-        begun: false,
+        begun: { kind: 'ended', reason: 'generation_deadline' },
         status: 'failed',
         reason: 'generation_deadline',
       },
@@ -89,7 +92,7 @@ test('a judging job past its AI budget buys no model call, whatever the human de
       given: 'a passed human ballot deadline and budget remaining',
       should: 'still allow the AI job to work: the two are separate concepts',
       actual: await jobs.beginModelCall(claim.scope, claim.token),
-      expected: true,
+      expected: { kind: 'dispatched' },
     });
   });
 });
@@ -112,8 +115,6 @@ test('the failed final permitted call ends the job on that call, not on a later 
       first.token,
       {
         diagnostic: rejected,
-        contractVersion: 'judge-contract@1',
-        definite: false,
         final: false,
       },
     );
@@ -128,8 +129,6 @@ test('the failed final permitted call ends the job on that call, not on a later 
       second.token,
       {
         diagnostic: rejected,
-        contractVersion: 'judge-contract@1',
-        definite: false,
         final: false,
       },
     );
@@ -182,7 +181,7 @@ test('the failed final permitted call ends the job on that call, not on a later 
       },
       expected: {
         category: 'schema_rejected',
-        version: 'judge-contract@1',
+        version: 'fixture-contract',
         field: 'reason',
       },
     });
@@ -202,8 +201,6 @@ test('a call the vendor certainly refused buys nothing; an uncertain one still c
           issueCount: 0,
           issues: [],
         },
-        contractVersion: 'judge-contract@1',
-        definite,
         final: false,
       });
     };
@@ -266,7 +263,7 @@ test('the budget fences an active lease: renewal cancels, and a late answer gain
         tokens: run.input_tokens,
       },
       expected: {
-        saved: false,
+        saved: { kind: 'ended', reason: 'generation_deadline' },
         status: 'failed',
         held: false,
         tokens: usage.inputTokens,
@@ -330,14 +327,12 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
         issueCount: 0,
         issues: [],
       },
-      contractVersion: 'judge-contract@1',
-      definite: true,
       final: true,
     });
     const [job] =
       await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
     const [paid] =
-      await fixture.sql`select count(*)::int as n from agent_runs where id=${claim.scope.agentRunId} and configuration_snapshot->>'providerOutcome' in ('unknown','received')`;
+      await fixture.sql`select count(*)::int as n from round_judging_attempts where agent_run_id=${claim.scope.agentRunId} and category is distinct from 'provider_refused'`;
     assert({
       given: 'no endpoint able to serve the request',
       should: 'end now, not retry for the whole budget, and count no paid call',

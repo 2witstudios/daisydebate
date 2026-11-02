@@ -186,6 +186,7 @@ for (const ladder of ratingLadders)
               leaseMs: 60000,
               model: 'fixture-model',
               nextToken: () => randomBytes(32).toString('base64url'),
+              contractVersion: 'fixture-contract',
               rules: judgingJobRules,
             },
           },

@@ -45,7 +45,24 @@ test(
         ...live,
         attendance_resolution_cutoff_at: cutoff,
       });
+      // A deferred trigger on rounds fires for this row: its pending event must not refuse the ALTER.
+      const finished = await f.round({
+        status: 'completed',
+        started_at: new Date('2026-10-31T16:00:00.000Z'),
+        completed_at: new Date('2026-10-31T18:00:00.000Z'),
+        current_stage: null,
+        final_segment_ended_at: new Date(finalEnd),
+        transcript_admission_cutoff: admission,
+      });
       await scratch.migrate((folder) => folder <= check);
+      const [repaired] =
+        await client`select attendance_resolution_cutoff_at is not null as held from rounds where id=${finished}`;
+      assert({
+        given: 'a completed Round with no winner and no cutoff',
+        should: 'repair it in the same deploy without refusal',
+        actual: repaired.held,
+        expected: true,
+      });
       const rows =
         await client`select id,to_char(attendance_resolution_cutoff_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as cutoff from rounds where id in (${missing},${wrong},${stray})`;
       const cutoffOf = (id: string) =>

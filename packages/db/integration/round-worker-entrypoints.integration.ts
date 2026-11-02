@@ -96,6 +96,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
         judging: {
           leaseMs: 30000,
           model: 'fixture-judge',
+          contractVersion: 'fixture-contract',
           rules: judgingJobRules,
           nextToken: () => randomBytes(32).toString('base64url'),
         },
@@ -138,6 +139,8 @@ test('configured root judging aliases share the owned pool and claim actual froz
         inputTokens: 11,
         outputTokens: 5,
       });
+      const [attempt] =
+        await fixture.sql`select answered_at is not null as answered from round_judging_attempts where agent_run_id=${claim.scope.agentRunId}`;
       const [usage] =
         await fixture.sql`select input_tokens,output_tokens,configuration_snapshot from agent_runs where id=${claim.scope.agentRunId}`;
       assert({
@@ -146,9 +149,9 @@ test('configured root judging aliases share the owned pool and claim actual froz
           'settle the exact counters through the bound usage alias and record the received outcome',
         actual: {
           tokens: [usage!.input_tokens, usage!.output_tokens],
-          outcome: usage!.configuration_snapshot.providerOutcome,
+          answered: attempt!.answered,
         },
-        expected: { tokens: [11, 5], outcome: 'received' },
+        expected: { tokens: [11, 5], answered: true },
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
