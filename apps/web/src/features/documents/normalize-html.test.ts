@@ -33,18 +33,19 @@ describe('normalizeDocumentHtml', () => {
     });
   });
 
-  test('debate marks and checklists', () => {
+  test('checklists, and a retired mark', () => {
     const out = html(
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Q <span data-debate-mark="dropped">C3</span></p></li></ul>',
     );
     assert({
-      given: 'a checked task holding a debate mark',
-      should: 'keep the mark kind and the checked state',
+      given: 'a checked task holding a retired debate mark',
+      should: 'drop the mark, keep its text and keep the checked state',
       actual: [
-        out.includes('data-debate-mark="dropped"'),
+        out.includes('data-debate-mark'),
+        out.includes('C3'),
         out.includes('data-checked="true"'),
       ],
-      expected: [true, true],
+      expected: [false, true, true],
     });
   });
 

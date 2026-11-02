@@ -2,7 +2,7 @@ import { origin } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { documentsPath, expect, test } from './support/round-files';
 
-test('the round room: palette, editor and marks', async ({ roundFiles }) => {
+test('the round room: palette and editor', async ({ roundFiles }) => {
   const { page, violations } = roundFiles;
   await page.keyboard.press('ControlOrMeta+k');
   const search = page.getByRole('combobox', { name: 'Search commands' });
@@ -18,10 +18,8 @@ test('the round room: palette, editor and marks', async ({ roundFiles }) => {
   await fresh.locator('p').first().click();
   await page.keyboard.type('dropped C3');
   await fresh.locator('p').first().click({ clickCount: 3 });
-  await page.getByRole('button', { name: 'Dropped', exact: true }).click();
-  await expect(fresh.locator('[data-debate-mark="dropped"]')).toHaveText(
-    'dropped C3',
-  );
+  await page.getByRole('button', { name: 'Bold', exact: true }).click();
+  await expect(fresh.locator('strong')).toHaveText('dropped C3');
   expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],
@@ -188,7 +186,7 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
   await expect(page).toHaveURL(`/rounds/${roundId}`);
 });
 
-test('a landscape page and the debate marks from the keyboard', async ({
+test('a landscape page and formatting from the keyboard', async ({
   roundFiles,
 }) => {
   const { page, violations } = roundFiles;
@@ -206,14 +204,14 @@ test('a landscape page and the debate marks from the keyboard', async ({
   const formatting = page.getByRole('toolbar', { name: 'Formatting' });
   await formatting.getByRole('button', { name: 'Bold' }).focus();
   await page.keyboard.press('End');
-  const marks = formatting.getByRole('group', { name: 'Debate marks' });
-  await expect(marks.getByRole('button', { name: 'New' })).toBeFocused();
-  await page.keyboard.press('ArrowLeft');
-  await expect(marks.getByRole('button', { name: 'Dropped' })).toBeFocused();
-  await page.keyboard.press('ArrowLeft');
+  await expect(
+    formatting.getByRole('button', { name: 'Checklist' }),
+  ).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(formatting.getByRole('button', { name: 'Bold' })).toBeFocused();
   const marked = saved();
   await page.keyboard.press('Enter');
-  await expect(flow.locator('[data-debate-mark="extend"]')).toHaveText('Kenya');
+  await expect(flow.locator('strong')).toHaveText('Kenya');
   await marked;
   const laidOut = saved();
   await page.getByRole('combobox', { name: 'Page' }).selectOption({
@@ -224,7 +222,7 @@ test('a landscape page and the debate marks from the keyboard', async ({
   await page.reload();
   await expect(page.getByRole('combobox', { name: 'Page' })).toHaveValue('3');
   expect(await columns()).toBe('3');
-  await expect(flow.locator('[data-debate-mark="extend"]')).toHaveText('Kenya');
+  await expect(flow.locator('strong')).toHaveText('Kenya');
   expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],
@@ -246,7 +244,8 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
     page.getByRole('button', { name: 'Dark page' }),
     page.getByRole('button', { name: 'Light page' }),
   ];
-  expect(controls.length).toBe(15);
+  await expect(page.locator('[data-room-page]')).toHaveCount(0);
+  expect(controls.length).toBe(10);
   for (const control of controls) {
     const box = await control.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(targetSize);

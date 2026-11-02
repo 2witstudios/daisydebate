@@ -33,7 +33,9 @@ them, so Daisy has no Round concept of files: the `round` folder, the stored
 creator's drive, whichever Round it was created in.
 
 **A document is just a document.** Templates are gone, including
-`template_id`. A new document is titled `Untitled` and starts empty, and a flow
+`template_id`, and so are the debate marks (Aff, Neg, Extend, Dropped, New).
+A stored mark loses its styling and keeps its text the next time the document
+is opened. A page follows the viewer's theme until they choose otherwise. A new document is titled `Untitled` and starts empty, and a flow
 is one a debater chooses to write. With nothing open, the room opens the
 document edited last, or offers New document when there are none.
 

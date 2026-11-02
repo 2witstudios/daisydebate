@@ -89,7 +89,7 @@ describe('reduceRoom agent/edit', () => {
       should:
         'replace the removed line with the added ones in place, record the outcome and open the document',
       actual: {
-        removed: doc?.html.includes('N3 hospital exemption <span'),
+        removed: doc?.html.includes('N3 hospital exemption New'),
         inPlace: doc?.html.includes(
           '<li><p>0:15 N3 hospital exemption, call it out and move on</p></li>' +
             '<li><p>0:15 extra time on N2 weighing</p></li>' +
@@ -235,9 +235,9 @@ describe('reduceRoom page/tone', () => {
     });
     assert({
       given: 'Light chosen for Flow',
-      should: 'make Flow light and leave CX dark',
+      should: 'make Flow light and leave CX following the viewer’s theme',
       actual: [pageToneOf(state, 'doc-flow'), pageToneOf(state, 'doc-cx')],
-      expected: ['light', 'dark'],
+      expected: ['light', null],
     });
   });
 });

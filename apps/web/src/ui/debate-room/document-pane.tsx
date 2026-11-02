@@ -98,7 +98,7 @@ export function DocumentPane({
 }: {
   readonly documents: readonly WorkspaceDocument[];
   readonly tabs: TabsState;
-  readonly pages: Readonly<Record<string, PageTone>>;
+  readonly pages: Readonly<Record<string, PageTone | null>>;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit?: ((id: string, html: string) => void) | undefined;
   readonly leading?: ReactNode;
@@ -123,7 +123,7 @@ export function DocumentPane({
           key={active.id}
           document={active}
           access={active.folder === 'club' ? 'Club' : 'Only you'}
-          page={pages[active.id] ?? 'dark'}
+          page={pages[active.id] ?? null}
           onPage={(tone) =>
             dispatch({ type: 'page/tone', documentId: active.id, tone })
           }

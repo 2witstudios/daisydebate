@@ -6,8 +6,8 @@ Status: accepted (owner request, 2026-10-05; design
 [Daisy Room Redesign](https://claude.ai/artifact/TStKrFHBxGakPERdMwwYey),
 Proposal page): round bar and one drawer, speaker-primary video, voice-only
 bots. Amended 2026-11-02 by [ADR 0097](0097-round-workspace.md), which replaces
-the room's layout, §5's resizable video, §8's fair-play rule and the document
-templates. Extends
+the room's layout, §5's resizable video, §7's debate marks, §8's fair-play rule
+and the document templates. Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
 for two narrow styling cases.
 
@@ -79,13 +79,11 @@ document. Daisy builds this itself rather than embedding another product.
    room's fixed metrics are `--spacing-room-*` and `--spacing-round-*`
    theme tokens there. No style attribute and no
    arbitrary class value is introduced.
-6. **The document page may carry its own scheme.** A debater can keep a
-   dark page in a light app or the reverse. `[data-room-page]` joins
+6. **The document page follows the viewer's theme, and may carry its own
+   scheme.** A debater can choose a dark page in a light app or the reverse. `[data-room-page]` joins
    the selector list in `globals.css` that re-declares the tokens, the same
    mechanism ADR 0045 gave the brand sheet's preview panels.
-7. **Debate marks** (Aff, Neg, Extend, Dropped, New) are one Tiptap mark
-   with a `kind` attribute rendered as `data-debate-mark`, coloured by the
-   area hues and status tokens in `room.css`. A document may open with a
+7. **Page layout.** A document may open with a
    page setting, `<div data-page="landscape" data-columns="N">` (N from 2
    to 6), that lays it out in columns; without one it is portrait. Text
    size (A−/A+) is the viewer's own and never stored.

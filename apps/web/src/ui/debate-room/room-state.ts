@@ -39,8 +39,8 @@ export type RoomState = {
   readonly readMarkers: Readonly<Record<string, string>>;
   readonly edits: Readonly<Record<string, EditOutcome>>;
   readonly paletteOpen: boolean;
-  /** Each document's page tone; a document not listed is dark. */
-  readonly pages: Readonly<Record<string, PageTone>>;
+  /** A viewer's page tone per document; one not listed follows their theme. */
+  readonly pages: Readonly<Record<string, PageTone | null>>;
 };
 
 export type RoomAction =
@@ -93,7 +93,7 @@ export type RoomAction =
   | {
       readonly type: 'page/tone';
       readonly documentId: string;
-      readonly tone: PageTone;
+      readonly tone: PageTone | null;
     };
 
 export function initialRoomState(round: RoundSnapshot): RoomState {
@@ -114,9 +114,11 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
   };
 }
 
-/** The page tone a document is shown on. */
-export const pageToneOf = (state: RoomState, documentId: string): PageTone =>
-  state.pages[documentId] ?? 'dark';
+/** The viewer's page tone for a document; null follows their theme. */
+export const pageToneOf = (
+  state: RoomState,
+  documentId: string,
+): PageTone | null => state.pages[documentId] ?? null;
 
 const withDocument = (
   state: RoomState,

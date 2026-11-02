@@ -4,17 +4,14 @@ import {
   type WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
 
-/** Inline text: plain, bold (`**x**`) or a debate mark (`{dropped:x}`). */
+/** Inline text: plain or bold (`**x**`). */
 const inline = (source: string): string =>
   source
-    .split(/(\*\*.+?\*\*|\{\w+:.+?\})/)
+    .split(/(\*\*.+?\*\*)/)
     .filter((part) => part !== '')
     .map((part) => {
       const bold = /^\*\*(.+)\*\*$/.exec(part);
       if (bold) return `<strong>${escapeHtml(bold[1]!)}</strong>`;
-      const mark = /^\{(\w+):(.+)\}$/.exec(part);
-      if (mark)
-        return `<span data-debate-mark="${mark[1]}">${escapeHtml(mark[2]!)}</span>`;
       return escapeHtml(part);
     })
     .join('');
@@ -62,23 +59,23 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
       heading(2, 'AC · Aff'),
       bullets(
         '**FW** ocean harm outweighs: irreversible, global',
-        '**C1** 8M t/yr into oceans {neg:2015 source}',
+        '**C1** 8M t/yr into oceans 2015 source',
         '**C2** microplastics in drinking water',
         '**C3** bans work: Kenya 2017',
       ),
       heading(2, 'NC · You'),
       bullets(
         '**FW** weigh net emissions',
-        '**C2** {neg:Turn} substitutes shed fibers too',
+        '**C2** Turn substitutes shed fibers too',
         '**N2** substitutes: higher lifecycle emissions',
         '**N3** no medical exemption',
       ),
       heading(2, '1AR · Aff'),
       bullets(
         '**FW** plastic is permanent, emissions aren’t',
-        '**C3** {dropped:no answer}',
-        '**N2** {dropped:no answer}',
-        '**N3** plan exempts hospitals {new:New}',
+        '**C3** no answer',
+        '**N2** no answer',
+        '**N3** plan exempts hospitals New',
       ),
     ),
   ),
@@ -96,7 +93,7 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
         [false, 'Who pays for the transition?'],
       ),
       heading(2, 'Admissions'),
-      bullets('Kenya data is self-reported {extend:use in NR}'),
+      bullets('Kenya data is self-reported use in NR'),
     ),
   ),
   sample(
@@ -107,10 +104,10 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
       heading(1, 'NR · 5:00'),
       bullets(
         '**0:30** overview: two drops decide it',
-        '**1:30** N2 substitutes {extend:Extend} outweighs C1',
-        '**1:15** C3 {dropped:dropped} so the ban has no solvency',
+        '**1:30** N2 substitutes Extend outweighs C1',
+        '**1:15** C3 dropped so the ban has no solvency',
         '**0:45** FW: lifecycle beats permanence',
-        '**0:30** N3 hospital exemption {new:New in 1AR}',
+        '**0:30** N3 hospital exemption New in 1AR',
         '**0:30** voters',
       ),
     ),

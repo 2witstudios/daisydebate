@@ -30,7 +30,7 @@ const marginButton =
  */
 export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
   const [html, setHtml] = useState(view.html);
-  const [tone, setTone] = useState<PageTone>('light');
+  const [tone, setTone] = useState<PageTone | null>(null);
   const [search, setSearch] = useState('');
   const page = useRef<HTMLDivElement>(null);
   const outline = useMemo(

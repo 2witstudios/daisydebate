@@ -139,7 +139,7 @@ img.ProseMirror-separator {
   display: block;
 }
 
-/* The round document: type, lists, checklists and debate marks. */
+/* The round document: type, lists and checklists. */
 .room-doc {
   font-size: var(--text-md);
   line-height: var(--leading-normal);
@@ -217,40 +217,6 @@ img.ProseMirror-separator {
   accent-color: var(--hue-teal);
 }
 
-.room-doc [data-debate-mark] {
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-weight: var(--font-weight-semibold);
-}
-
-.room-doc [data-debate-mark='aff'] {
-  background: var(--hue-sky-soft);
-  color: var(--hue-sky);
-}
-
-.room-doc [data-debate-mark='neg'] {
-  background: var(--hue-clay-soft);
-  color: var(--hue-clay);
-}
-
-.room-doc [data-debate-mark='extend'] {
-  background: var(--hue-teal-soft);
-  color: var(--hue-teal);
-}
-
-.room-doc [data-debate-mark='dropped'] {
-  background: var(--live-soft);
-  color: var(--text);
-  text-decoration: line-through;
-  text-decoration-color: var(--live);
-  text-decoration-thickness: 2px;
-}
-
-.room-doc [data-debate-mark='new'] {
-  background: var(--gold-soft);
-  color: var(--gold);
-}
-
 /* The viewer's text size (A− / A+), never saved with the document. */
 [data-doc-size='sm'] .room-doc {
   font-size: var(--text-sm);
@@ -311,8 +277,8 @@ img.ProseMirror-separator {
   break-before: column;
 }
 
-/* A light page inside a dark room, or the reverse: the page carries its own
-   scheme so light-dark() tokens resolve for it alone. */
+/* A page follows the viewer's theme unless they choose otherwise: then it
+   carries its own scheme so light-dark() tokens resolve for it alone. */
 [data-room-page='light'] {
   color-scheme: light;
 }
