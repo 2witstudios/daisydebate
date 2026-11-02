@@ -58,7 +58,11 @@ needs.
    An `admission` waiter waits 3s, past the 2s session lock bound: its reads
    take the account fence, so one read can hold the lane's one connection for
    a writer's transaction, and queueing behind it must not refuse another
-   participant's first subscribe (ISSUE-914).
+   participant's first subscribe (ISSUE-914). This outlasts one blocked read,
+   not several in a row, so one participant's fences can still stall every
+   subscribe on the process. If `admission.expired` or `budget` shows in
+   `realtime.subscription.unavailable`, the next step is to stop blocked reads
+   holding the one connection, not to raise the wait.
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves
    (`createRealtimeDatabase`). Subscribes and their outbox catch-up read on

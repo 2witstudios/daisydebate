@@ -57,6 +57,9 @@ const COMPETITIVE = lane(10, 16, 1000);
  * session's lock bound. A waiter outlasts that bound (ISSUE-914): queueing
  * behind another participant's fence is not a failure. The queue count sheds a
  * real flood and the authority check's 5s budget bounds the whole subscribe.
+ * This outlasts one blocked read, not several in a row. If `admission.expired`
+ * or `budget` shows in `realtime.subscription.unavailable`, stop blocked reads
+ * holding the one connection rather than raising this wait.
  */
 const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */

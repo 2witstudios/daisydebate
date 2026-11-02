@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { refuseCapacity } from '@daisy/db/testing';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
 import { refuseAllReading } from './authorization.test-support';
@@ -124,5 +125,71 @@ test('real delivery principal validation refuses a canonical read exceeding its 
       'reject as spent budget for the caller to refuse, and clear its timer before that late allow can complete',
     actual: [outcome, cleared],
     expected: ['Authority check budget spent', true],
+  });
+});
+
+test('a subscribe refused by a lane logs the lane and reason', async () => {
+  const logged: unknown[] = [];
+  const sent: unknown[] = [];
+  const resources = {
+    database: bothLanes({
+      readAuthorizationSession: () =>
+        Promise.reject(
+          refuseCapacity({ lane: 'admission', reason: 'expired' }),
+        ),
+    }),
+    clock: { now: () => '2026-10-09T00:00:00.000Z' },
+    logger: {
+      log: (event: string, fields: unknown) => logged.push([event, fields]),
+    },
+  } as unknown as RealtimeApp;
+  const { registry } = createRealtimeDelivery({
+    readingPolicy: refuseAllReading,
+    resources,
+    now: () => 0,
+    publish: () => {},
+    timers: {
+      setInterval: () => ({}) as ReturnType<typeof setInterval>,
+      clearInterval: () => {},
+    },
+  });
+  const connection = registry.add(
+    {
+      bufferedAmount: () => 0,
+      send: (frame) => sent.push(frame),
+      subscribe: () => {},
+      unsubscribe: () => {},
+      close: () => {},
+    },
+    {
+      actorId: 'a'.repeat(24),
+      userId: 'b'.repeat(24),
+      sessionId: 'c'.repeat(24),
+    },
+  );
+  await registry.subscribe(connection, {
+    id: 'first',
+    topic: `round:${'d'.repeat(24)}`,
+  });
+  assert({
+    given: 'a first subscribe whose authority read a lane refuses',
+    should: 'log the code, lane and reason',
+    actual: logged,
+    expected: [
+      [
+        'realtime.subscription.unavailable',
+        {
+          operation: 'realtime.subscription',
+          errorCode: 'INFRASTRUCTURE',
+          cause: 'admission.expired',
+        },
+      ],
+    ],
+  });
+  assert({
+    given: 'the same refusal',
+    should: 'answer the subscriber with the transient code',
+    actual: sent.map((frame) => (frame as { code?: string }).code),
+    expected: ['INFRASTRUCTURE'],
   });
 });
