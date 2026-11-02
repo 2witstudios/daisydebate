@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { audienceTranscript } from '../src/round-ballot-reads';
 import { readTranscriptSnapshot } from '../src/round-protected-reads';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';
@@ -83,6 +84,19 @@ test('a transcript read returns the committed prefix across capture epochs', asy
           [['partial', [{ fromOffsetMs: 300, untilOffsetMs: 700 }]]],
           3,
         ],
+      });
+      await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,${closed.revision},'incomplete')`;
+      const completed = await transaction((tx) =>
+        audienceTranscript(tx, roundId, true),
+      );
+      assert({
+        given: 'that stream frozen',
+        should: 'give the completed read every line and the same gap',
+        actual: [
+          completed?.utterances.length,
+          completed?.gaps.map((gap) => [gap.fromOffsetMs, gap.untilOffsetMs]),
+        ],
+        expected: [3, [[300, 700]]],
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

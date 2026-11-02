@@ -20,7 +20,7 @@ import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 
 /** The frozen transcript an authorized audience reads once the Round completes. */
-async function audienceTranscript(
+export async function audienceTranscript(
   tx: Parameters<typeof readLockedFrozenRoundTranscript>[0],
   roundId: string,
   allowed: boolean,
