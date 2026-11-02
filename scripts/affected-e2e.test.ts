@@ -237,10 +237,10 @@ describe('native affected selection', () => {
     for (const [file, count] of [
       ['apps/web/src/features/theme/theme.ts', 1],
       ['packages/media/src/index.ts', 3],
-      ['apps/web/src/features/round-commands/action.ts', 10],
-      ['packages/auth/src/index.ts', 11],
-      ['apps/web/src/features/rooms/action.ts', 11],
-      ['apps/web/e2e/support/fixture.ts', 11],
+      ['apps/web/src/features/round-commands/action.ts', 11],
+      ['packages/auth/src/index.ts', 12],
+      ['apps/web/src/features/rooms/action.ts', 12],
+      ['apps/web/e2e/support/fixture.ts', 12],
     ] as const) {
       const selected = selectBrowserSpecs(
         [file],
@@ -267,13 +267,13 @@ describe('native affected selection', () => {
     ] as const)
       assert({
         given: `${event}, queue ${enforced}`,
-        should: 'retain all eleven native specs',
+        should: 'retain all twelve native specs',
         actual: selectBrowserSpecs(
           ['apps/web/src/features/theme/theme.ts'],
           event,
           enforced,
         ).nativeSpecs?.length,
-        expected: 11,
+        expected: 12,
       });
   });
 });
@@ -393,7 +393,7 @@ test('shared environment configuration retains full browser coverage', () => {
     given: 'a shared environment configuration change',
     should: 'retain the full Chromium and native lifecycle selection',
     actual: [plan.mode, plan.excluded, plan.nativeSpecs.length],
-    expected: ['full', ['visual.e2e.ts'], 11],
+    expected: ['full', ['visual.e2e.ts'], 12],
   });
 });
 
@@ -416,4 +416,23 @@ test('round-media edits select the dedicated attachment lifecycle proof', () => 
       expected: [true, true, false],
     });
   }
+});
+
+test('recoverable notes use the native launch runner exclusively', () => {
+  const selected = selectBrowserSpecs(
+    ['apps/web/src/ui/debate-room/document-sync.ts'],
+    'pull_request',
+    true,
+  );
+  assert({
+    given:
+      'the notes suite uses the dedicated authenticated roundFiles fixture',
+    should:
+      'select it for launch coverage and exclude it from ordinary browser coverage',
+    actual: {
+      native: selected.nativeSpecs.includes('round-notes-recovery.e2e.ts'),
+      standard: selected.specs.includes('round-notes-recovery.e2e.ts'),
+    },
+    expected: { native: true, standard: false },
+  });
 });

@@ -216,6 +216,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             onNudge={(key) => dispatch({ type: 'layout/nudge', key })}
           />
           <RoomDocument
+            {...(sync ? { sync } : {})}
             round={round}
             state={state}
             dispatch={dispatch}

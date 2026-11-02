@@ -115,6 +115,39 @@ browser, JavaScript-disabled, current-role and final composed service evidence
 must be recorded separately; these additions do not establish whole messaging
 acceptance. Private-group and contextual producer obligations remain open.
 
+### Send completion ownership
+
+A hydrated send's durable result and its right to navigate are separate. One owner
+per conversation (`ui/messaging/conversation-navigation.tsx`, with its pure decision
+in `completion-ownership.ts`) holds the command lifecycle and that permission.
+Dispatch captures an origin, an accepted same-tab choice in the conversation
+supersedes it, and success consumes it before issuing the `?sent` destination. A
+disposed origin cannot affect a successor. Modified and new-tab clicks and prefetch
+do not supersede.
+
+Request identity: pending, unsent, refused and unknown-commit drafts keep their ID.
+A confirmed send, or a form gone before its answer, spends the ID, and the composer
+adopts the next server-rendered one. A spent ID never carries different text. The
+form is keyed only by the count of adopted commands, never by the request ID or the
+URL: React adopts a native POST's answer only into the same key path, and every
+server render issues a new ID. Server rendering keeps the exact server action for
+native POST and 303.
+
+The real router's behaviour decides what this protects. A navigation begun during the
+pending send joins that action's React lane, so nothing commits until the send
+settles. A click after the answer commits and before that transition's passive
+effects run is different: without the decision, the send's replacement beats the
+member's newer choice. A same-conversation page keeps the composer mounted, so there
+the replacement overwrites the chosen page. The Edit commit-boundary and Earlier
+messages browser proofs fail without the decision; the held Edit tests prove the
+outcome only and stay green without it.
+
+**Known limit.** Only navigation from inside the conversation composition supersedes.
+A shell link or browser Back in that same window can still lose to `?sent`, tracked
+on ISSUE-934. A refusal whose form is already gone because the member left is not
+shown and its draft is lost; this is from reading the code and is unconfirmed,
+tracked on ISSUE-949.
+
 ### Scoped search
 
 `GET /api/messaging/channels/:channelId/messages/search` accepts one literal

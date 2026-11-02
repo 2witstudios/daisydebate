@@ -36,6 +36,7 @@ import { useSecond } from './use-second';
 export function LiveRoundRoom({
   view: seed,
   actorId,
+  principalId,
   renderedAtMs,
   leave,
   leaveAction,
@@ -55,6 +56,7 @@ export function LiveRoundRoom({
   readonly mediaSlot?: (view: RoundView) => ReactNode;
   readonly renderedAtMs: number;
   readonly actorId: string;
+  readonly principalId: string;
   readonly leave: LeaveLinks;
   /** Posts the forfeit that leaving a live Round is (ADR 0070). */
   readonly leaveAction: FormAction<RoundFormState>;
@@ -94,7 +96,7 @@ export function LiveRoundRoom({
     () => liveRoundOf(view, actorId, now),
     [view, actorId, now],
   );
-  const { sync, notice, save } = useRoundSync(view.id);
+  const { sync, notice, save } = useRoundSync(view.id, principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
     intent.kind === 'forfeit'
@@ -128,6 +130,7 @@ export function LiveRoundRoom({
         {(actions) =>
           round ? (
             <DebateRoom
+              key={`${view.id}:${principalId}`}
               transcript={transcript}
               media={(mediaSlot ?? defaultMedia)(view)}
               actions={actions}
