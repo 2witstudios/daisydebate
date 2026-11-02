@@ -119,3 +119,46 @@ export const heldSecondRead = async () => {
     stops: () => stops,
   };
 };
+
+/** A read budget whose timer the test advances by hand. */
+export const fakeBudget = (ms = 40_000) => {
+  let nowMs = 0;
+  let due: { readonly atMs: number; readonly fire: () => void } | null = null;
+  return {
+    budget: {
+      now: () => nowMs,
+      ms,
+      at: (after: number, fire: () => void) => {
+        due = { atMs: nowMs + after, fire };
+        return () => {
+          due = null;
+        };
+      },
+    },
+    advance: (by: number) => {
+      nowMs += by;
+      const timer = due;
+      if (timer && nowMs >= timer.atMs) {
+        due = null;
+        timer.fire();
+      }
+    },
+  };
+};
+
+/** A transport whose second apply waits for the test. */
+export const holdingSecondApply =
+  (
+    release: Promise<void>,
+    saw: (state: Parameters<BrowserMediaTransport['apply']>[0]) => void = () =>
+      undefined,
+  ) =>
+  () => {
+    let applies = 0;
+    return transportStub({
+      apply: async (state) => {
+        saw(state);
+        if (++applies === 2) await release;
+      },
+    });
+  };

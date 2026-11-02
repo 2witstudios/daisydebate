@@ -85,10 +85,11 @@ page has seen the version and asked.
 
 While a reply is not current the Round does not claim a microphone state: from a
 supersession until the next answer applies, a seat says it is checking. That cannot
-stick. When reads stop being answered the connection is `out-of-date`, and an answer
-that never applies, for any reason including an SDK apply that never settles, turns
-stale at the read budget. Either way the seat and the bar say so until an answer
-returns. Last-known grants stay for layout, so video does not disappear. The bar's
+stick. The controller alone times "no answer for too long": the read budget runs
+from the first supersession since an answer, and past it the connection is
+`out-of-date`, including when an answer arrives but its SDK apply never settles. A
+local device failure hides that state, so a seat behind one says out of date at
+once. Last-known grants stay for layout, so video does not disappear. The bar's
 "Connected" describes the connection, not a grant.
 
 Measured on the CI runner, one native three-browser journey per row:

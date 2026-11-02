@@ -356,12 +356,18 @@ test('a browser admission stops waiting at its bound or when its client leaves',
   });
 });
 
-test('a read crossing a vendor write in flight defers instead of refusing', async () => {
+/** An admitted seat, and the session read a test can wrap. */
+const admittedReader = async () => {
   const world = createMediaWorld();
   const operations = createRoundMediaOperations(world.input);
   const actor = world.seats[0].actorId;
   await operations.session(world.roundId, actor);
   const read = world.input.store.readMediaSession;
+  return { world, operations, actor, read };
+};
+
+test('a read crossing a vendor write in flight defers instead of refusing', async () => {
+  const { world, operations, actor, read } = await admittedReader();
   world.input.store.readMediaSession = (async (
     ...args: Parameters<typeof read>
   ) => {
@@ -582,11 +588,7 @@ test('a later pass failing does not fail a read already served', async () => {
 });
 
 test('a vendor write beginning after the check still cannot refuse the read', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const actor = world.seats[0].actorId;
-  await operations.session(world.roundId, actor);
-  const read = world.input.store.readMediaSession;
+  const { world, operations, actor, read } = await admittedReader();
   let callerReads = 0;
   world.input.store.readMediaSession = (async (
     ...args: Parameters<typeof read>

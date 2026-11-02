@@ -296,11 +296,17 @@ test('only the first stop empties the shared track list', () => {
   });
 });
 
-test('a failed unpublish of a kept microphone stops it instead of orphaning it', async () => {
+/** A live transport whose next unpublish will be refused. */
+const liveWithFailingUnpublish = async () => {
   const stub = stubSdk({ settles: true, failFirstUnpublish: true });
   const { transport } = createBrowserMediaTransport(events, stub.sdk);
   await transport.apply(publish(['camera', 'microphone']));
   await settle();
+  return { stub, transport };
+};
+
+test('a failed unpublish of a kept microphone stops it instead of orphaning it', async () => {
+  const { stub, transport } = await liveWithFailingUnpublish();
   const failure = await transport
     .apply(publish(['camera']))
     .catch((error: Error) => error.message);
@@ -316,10 +322,7 @@ test('a failed unpublish of a kept microphone stops it instead of orphaning it',
 });
 
 test('a failed unpublish in a permission pass still reaches the next apply', async () => {
-  const stub = stubSdk({ settles: true, failFirstUnpublish: true });
-  const { transport } = createBrowserMediaTransport(events, stub.sdk);
-  await transport.apply(publish(['camera', 'microphone']));
-  await settle();
+  const { stub, transport } = await liveWithFailingUnpublish();
   stub.permit([Track.Source.Camera]);
   await settle();
   const failure = await transport

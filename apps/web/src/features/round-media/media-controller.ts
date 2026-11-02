@@ -51,7 +51,8 @@ type Connection = {
   wentLive: boolean;
   /** A local device failure the Round already shows; reads must not overwrite it. */
   deviceFailed: boolean;
-  unansweredSinceMs: number | null;
+  /** Running from the first supersession since the last answer. */
+  cancelBudget: (() => void) | null;
   supersededSinceAnswer: number;
   queued: boolean;
   read: ReadTicket | null;
@@ -79,7 +80,11 @@ export function createMediaController(input: {
   /** The last answer is no longer current; `received` reports the next one. */
   readonly superseded?: () => void;
   /** How long reads may go unanswered before live tracks show as out of date. */
-  readonly readBudget?: { readonly now: () => number; readonly ms: number };
+  readonly readBudget?: {
+    readonly now: () => number;
+    readonly ms: number;
+    readonly at: (ms: number, fire: () => void) => () => void;
+  };
   readonly retry?: {
     readonly delaysMs: readonly number[];
     readonly wait: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -109,6 +114,11 @@ export function createMediaController(input: {
     target.stopTracks();
     void target.disconnect().catch(() => undefined);
   };
+  /** Ends a connection and whatever it was timing. */
+  const drop = (owner: Connection | null) => {
+    owner?.cancelBudget?.();
+    release(owner?.transport ?? null);
+  };
   const stale = (generation: number) => intent.disposed || generation !== epoch;
   const active = (owner: Connection) =>
     !stale(owner.generation) && connection === owner;
@@ -123,7 +133,7 @@ export function createMediaController(input: {
     abort.abort();
     const previous = connection;
     connection = null;
-    release(previous?.transport ?? null);
+    drop(previous);
     change('ended');
   };
   const fail = (
@@ -134,7 +144,7 @@ export function createMediaController(input: {
     if (stale(generation)) return;
     const previous = connection;
     connection = null;
-    release(previous?.transport ?? null);
+    drop(previous);
     if (!stale(generation)) change(failureState(error), failure);
   };
   const retrying = async (
@@ -208,7 +218,8 @@ export function createMediaController(input: {
     input.received?.(snapshot);
     if (!current(owner, ticket)) return;
     owner.wentLive = true;
-    owner.unansweredSinceMs = null;
+    owner.cancelBudget?.();
+    owner.cancelBudget = null;
     owner.supersededSinceAnswer = 0;
     if (state !== 'live' && !owner.deviceFailed) change('live');
   };
@@ -224,17 +235,17 @@ export function createMediaController(input: {
     else if (owner.wentLive) showOutOfDate(owner);
     else fail(owner.generation, error);
   };
-  /** Supersession restarts each read's retries, not the stall it belongs to. */
-  const noteReadStarting = (owner: Connection) => {
+  /**
+   * The one owner of "no answer for too long". Supersession restarts each read's
+   * retries, not this, and it also covers an answer whose apply never settles.
+   */
+  const startBudget = (owner: Connection) => {
     const budget = input.readBudget;
-    if (!budget) return;
-    owner.unansweredSinceMs ??= budget.now();
-    if (
-      owner.wentLive &&
-      state === 'live' &&
-      budget.now() - owner.unansweredSinceMs >= budget.ms
-    )
-      showOutOfDate(owner);
+    if (!budget || owner.cancelBudget) return;
+    owner.cancelBudget = budget.at(budget.ms, () => {
+      if (active(owner) && owner.wentLive && state === 'live')
+        showOutOfDate(owner);
+    });
   };
   const drain = async (owner: Connection) => {
     // Yield first so `owner.loop` is reserved before effects can emit an intent.
@@ -247,7 +258,6 @@ export function createMediaController(input: {
         startedAtMs: input.readBudget?.now() ?? 0,
       };
       owner.read = ticket;
-      noteReadStarting(owner);
       const cancel = () => ticket.abort.abort();
       owner.signal.addEventListener('abort', cancel, { once: true });
       try {
@@ -279,7 +289,7 @@ export function createMediaController(input: {
       connected: false,
       wentLive: false,
       deviceFailed: false,
-      unansweredSinceMs: null,
+      cancelBudget: null,
       supersededSinceAnswer: 0,
       queued: false,
       read: null,
@@ -326,7 +336,7 @@ export function createMediaController(input: {
     const signal = abort.signal;
     const previous = connection;
     connection = null;
-    release(previous?.transport ?? null);
+    drop(previous);
     if (stale(generation)) return;
     change(reconnect ? 'reconnecting' : 'connecting');
     try {
@@ -357,7 +367,10 @@ export function createMediaController(input: {
     intent = decision.intent;
     const owner = connection;
     if (decision.action === 'supersede') {
-      if (owner) supersedeRead(owner);
+      if (owner) {
+        supersedeRead(owner);
+        startBudget(owner);
+      }
       input.superseded?.();
     }
     if (!owner || !active(owner)) return Promise.resolve();

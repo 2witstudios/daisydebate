@@ -6,6 +6,7 @@ import {
   transportStub,
   viewAt,
   heldSecondRead,
+  holdingSecondApply,
   wakeAfterJoin,
 } from './media-controller.test-support';
 import { settle } from './browser-transport.test-support';
@@ -53,13 +54,9 @@ test('a queued fresh reply superseded while waiting for the old apply never star
       reads++;
       return { ...snapshot, grants: { ...snapshot.grants, publish } };
     },
-    transport: () =>
-      transportStub({
-        apply: async (state) => {
-          applied.push(state.grants.publish.join('+'));
-          if (applied.length === 2) await applying.promise;
-        },
-      }),
+    transport: holdingSecondApply(applying.promise, (state) =>
+      applied.push(state.grants.publish.join('+')),
+    ),
     received: (state) => receipts.push(state.grants.publish.join('+')),
   });
   const { pending } = await wakeAfterJoin(controller, receipts);
@@ -104,12 +101,7 @@ test('a receipt superseded in any microtask gap after apply is never announced',
           },
         };
       },
-      transport: () =>
-        transportStub({
-          apply: async () => {
-            if (++applies === 2) await applying.promise;
-          },
-        }),
+      transport: holdingSecondApply(applying.promise),
       received: (state) => receipts.push(state.grants.publish.join('+')),
     });
     const { pending } = await wakeAfterJoin(controller, receipts);

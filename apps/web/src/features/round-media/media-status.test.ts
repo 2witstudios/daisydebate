@@ -1,12 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { MediaAnswer } from './answer-watch';
 import type { MediaConnectionState } from './media-controller';
 import {
   mediaStatus,
   mediaWhile,
   retryMissingDevices,
   seatMicrophoneCaption,
-  shownConnection,
   showConnection,
 } from './media-status';
 
@@ -147,29 +145,27 @@ test('a missing checked device stays named while status is out of date', () => {
 test('a seat caption claims a microphone state only from a current answer', () => {
   const caption = (
     peer: { readonly microphone: boolean } | undefined,
-    answer: MediaAnswer,
+    confirmed: boolean,
     speaking = false,
     connection: MediaConnectionState = 'live',
-  ) => seatMicrophoneCaption({ connection, peer, answer, speaking });
+  ) => seatMicrophoneCaption({ connection, peer, confirmed, speaking });
   assert({
     given: 'each answer state for a seat',
     should:
-      'name open, closed or speaking only while the answer is current, say it is checking while superseded, and say out of date once stale or reads stop being answered',
+      'name open, closed or speaking only while the answer is current, say it is checking while superseded, and say out of date once overdue or behind a device failure',
     actual: [
-      caption(undefined, 'current'),
-      caption(undefined, 'stale'),
-      caption({ microphone: false }, 'current'),
-      caption({ microphone: true }, 'current'),
-      caption({ microphone: true }, 'current', true),
-      caption({ microphone: false }, 'checking'),
-      caption({ microphone: true }, 'checking', true),
-      caption({ microphone: true }, 'stale'),
-      caption({ microphone: true }, 'stale', false, 'device-blocked'),
-      caption({ microphone: true }, 'checking', false, 'out-of-date'),
-      caption({ microphone: false }, 'current', false, 'out-of-date'),
+      caption(undefined, false),
+      caption({ microphone: false }, true),
+      caption({ microphone: true }, true),
+      caption({ microphone: true }, true, true),
+      caption({ microphone: false }, false),
+      caption({ microphone: true }, false, true),
+      caption({ microphone: true }, false, false, 'out-of-date'),
+      caption({ microphone: false }, true, false, 'out-of-date'),
+      caption({ microphone: true }, false, false, 'device-blocked'),
+      caption({ microphone: true }, true, false, 'device-blocked'),
     ],
     expected: [
-      'Microphone unavailable',
       'Microphone unavailable',
       'Microphone closed',
       'Microphone open',
@@ -179,22 +175,8 @@ test('a seat caption claims a microphone state only from a current answer', () =
       'Microphone status out of date',
       'Microphone status out of date',
       'Microphone status out of date',
-      'Microphone status out of date',
+      'Microphone open',
     ],
-  });
-});
-
-test('a live connection with a stale answer shows as out of date', () => {
-  assert({
-    given: 'each connection beside a stale or current answer',
-    should: 'turn only a live one with a stale answer to out of date',
-    actual: [
-      shownConnection('live', 'stale'),
-      shownConnection('live', 'checking'),
-      shownConnection('live', 'current'),
-      shownConnection('device-blocked', 'stale'),
-    ],
-    expected: ['out-of-date', 'live', 'live', 'device-blocked'],
   });
 });
 

@@ -1,6 +1,5 @@
 import { forgetCheckedDevices } from '../video/device-selection';
 import type { Source } from './browser-transport';
-import type { MediaAnswer } from './answer-watch';
 import type { MediaConnectionState } from './media-controller';
 
 const messages: Record<MediaConnectionState, string> = {
@@ -38,27 +37,25 @@ export const showConnection =
     view.media((current) => mediaWhile(state, current));
   };
 
-/** A live connection whose last answer went stale says so, as if reads had failed. */
-export const shownConnection = (
-  connection: MediaConnectionState,
-  answer: MediaAnswer,
-): MediaConnectionState =>
-  connection === 'live' && answer === 'stale' ? 'out-of-date' : connection;
-
 /**
  * A grant can move at LiveKit before its reply is applied here, so a seat claims
- * a microphone state only while the last answer is current.
+ * a microphone state only while the last answer is current. Checking cannot
+ * stick: an answer overdue past the read budget makes the connection out of date,
+ * and a local device failure hides that state, so it counts the same.
  */
 export function seatMicrophoneCaption(input: {
   readonly connection: MediaConnectionState;
   readonly peer: { readonly microphone: boolean } | undefined;
-  readonly answer: MediaAnswer;
+  readonly confirmed: boolean;
   readonly speaking: boolean;
 }) {
   if (!input.peer) return 'Microphone unavailable';
-  if (input.connection === 'out-of-date' || input.answer === 'stale')
+  if (
+    input.connection === 'out-of-date' ||
+    (input.connection === 'device-blocked' && !input.confirmed)
+  )
     return 'Microphone status out of date';
-  if (input.answer === 'checking') return 'Checking microphone…';
+  if (!input.confirmed) return 'Checking microphone…';
   if (!input.peer.microphone) return 'Microphone closed';
   return input.speaking ? 'Speaking' : 'Microphone open';
 }
