@@ -179,6 +179,7 @@ const runApprove = (
   pulls: unknown[],
   runs: unknown[],
   failOnce?: 'pulls' | 'runs' | 'approve',
+  pushed = true,
 ) => {
   const step = workflow.jobs['start-checks']!.steps.find(
     ({ id }) => id === 'approve',
@@ -196,7 +197,7 @@ const runApprove = (
           gh: `echo "$*" >> '${dir}/calls'
 case "$*" in
   *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}echo '${JSON.stringify(pulls)}' ;;
-  *"/actions/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
+  *"/actions/workflows/ci.yml/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
   *"/approve") ${fail('approve')}: ;;
 esac`,
           sleep: ':',
@@ -205,6 +206,7 @@ esac`,
           GITHUB_REPOSITORY_OWNER: 'owner',
           SHA: 'a'.repeat(40),
           BRANCH: 'pu/lobby',
+          PUSHED: String(pushed),
         },
       };
     },
@@ -219,13 +221,12 @@ esac`,
 
 const prRun = (
   id: number,
-  name: string,
   status: string,
   conclusion: string | null,
   head_sha = 'a'.repeat(40),
-) => ({ id, name, status, conclusion, head_sha, event: 'pull_request' });
-const held = (id: number, name: string, head_sha?: string) =>
-  prRun(id, name, 'completed', 'action_required', head_sha);
+) => ({ id, status, conclusion, head_sha, event: 'pull_request' });
+const held = (id: number, head_sha?: string) =>
+  prRun(id, 'completed', 'action_required', head_sha);
 
 describe('Rebaseline visuals start-checks', () => {
   test('the job that holds actions: write', () => {
@@ -233,31 +234,26 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'the start-checks job',
       should:
-        'check out nothing and run after commit even when nothing was pushed',
+        'check out nothing and run on any resolved target, even when nothing was pushed',
       actual: {
-        needs: job.needs,
         condition: (job as Job & { if?: string }).if,
         uses: job.steps.flatMap((step) => (step.uses ? [step.uses] : [])),
         head: job.steps[0]?.env?.SHA,
       },
       expected: {
-        needs: ['resolve', 'commit'],
-        condition: undefined,
+        condition: "${{ !cancelled() && needs.resolve.result == 'success' }}",
         uses: [],
         head: '${{ needs.commit.outputs.sha || needs.resolve.outputs.sha }}',
       },
     });
   });
 
-  test('every run held at the head', () => {
+  test('a CI run held at the head', () => {
     assert({
-      given: 'CI and Browser E2E both held at the head',
-      should: 'approve both and finish',
-      actual: runApprove(
-        [{ number: 1 }],
-        [held(11, 'CI'), held(12, 'Browser E2E')],
-      ),
-      expected: { ok: true, approved: ['11', '12'] },
+      given: 'CI held at the head',
+      should: 'approve it and finish',
+      actual: runApprove([{ number: 1 }], [held(11)]),
+      expected: { ok: true, approved: ['11'] },
     });
   });
 
@@ -265,20 +261,23 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI running at the head, as after a person pushed it',
       should: 'finish without approving anything',
-      actual: runApprove(
-        [{ number: 1 }],
-        [prRun(11, 'CI', 'in_progress', null)],
-      ),
+      actual: runApprove([{ number: 1 }], [prRun(11, 'in_progress', null)]),
       expected: { ok: true, approved: [] },
     });
   });
 
-  test('a CI run still queued', () => {
+  test('a CI run that has not started', () => {
+    const waiting = (status: string) =>
+      runApprove([{ number: 1 }], [prRun(11, status, null)]);
     assert({
-      given: 'CI queued at the head for the whole wait and never held',
+      given: 'CI queued, requested or pending for the whole wait, never held',
       should: 'keep watching, then finish without approving anything',
-      actual: runApprove([{ number: 1 }], [prRun(11, 'CI', 'queued', null)]),
-      expected: { ok: true, approved: [] },
+      actual: [waiting('queued'), waiting('requested'), waiting('pending')],
+      expected: [
+        { ok: true, approved: [] },
+        { ok: true, approved: [] },
+        { ok: true, approved: [] },
+      ],
     });
   });
 
@@ -286,7 +285,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI held only at some other pull request head',
       should: 'never approve that run, and fail when its own never appears',
-      actual: runApprove([{ number: 1 }], [held(11, 'CI', 'b'.repeat(40))]),
+      actual: runApprove([{ number: 1 }], [held(11, 'b'.repeat(40))]),
       expected: { ok: false, approved: [] },
     });
   });
@@ -300,17 +299,35 @@ describe('Rebaseline visuals start-checks', () => {
     });
   });
 
-  test('a CI run that never appears', () => {
+  test('a pushed head whose CI never appears', () => {
     assert({
-      given: 'a pull request whose CI run never appears',
+      given: 'a pushed head on a pull request with no CI run, as in a conflict',
       should: 'fail rather than report the checks as started',
       actual: runApprove([{ number: 1 }], []).ok,
       expected: false,
     });
   });
 
+  test('an unpushed head past the listing', () => {
+    assert({
+      given: 'nothing committed and no CI run at the head in the recent runs',
+      should: 'finish, since nothing new was pushed for CI to run on',
+      actual: runApprove([{ number: 1 }], [], undefined, false),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('a held run at an unpushed head', () => {
+    assert({
+      given: 'nothing committed and CI held, as after a cancelled dispatch',
+      should: 'approve the stranded run',
+      actual: runApprove([{ number: 1 }], [held(11)], undefined, false),
+      expected: { ok: true, approved: ['11'] },
+    });
+  });
+
   test('transient API failures', () => {
-    const runs = [held(11, 'CI')];
+    const runs = [held(11)];
     assert({
       given: 'one failed pull request lookup, run listing or approval',
       should: 'retry and approve the held run',

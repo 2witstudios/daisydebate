@@ -45,10 +45,6 @@ in the same process, which seals partial by rule although the same process heard
 the audio; and a gapless overlap handover, which needs a standby listener, a
 successor lease, a schema change and a rail change.
 
-CCAP-10 first made the rail hold the worker deploy while a fresh lease existed,
-for at most 45 minutes. The owner removed that hold (DEC-304): it delayed every
-staging deploy to protect speech that staging's zero users are not giving.
-
 ## Consequences
 
 Unexpected crashes and host events remain honest gaps. Pending audio stays in
