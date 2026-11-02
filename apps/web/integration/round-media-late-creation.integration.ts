@@ -25,7 +25,7 @@ for (const terminal of [false, true])
             // The provider effect and actual settlement occur after cleanup's absence read,
             // before the real bounded finalization transaction obtains its locks.
             if (terminal)
-              await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${f.roundId}`;
+              await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${f.roundId}`;
             delayed.release();
             await waitForMediaFact(async () => {
               const [row] =

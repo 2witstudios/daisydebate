@@ -66,7 +66,7 @@ for (const failure of [
           await f.sql`update users set deleted_at=clock_timestamp(),email=null,image=null,name='' where id=(select user_id from actors where id=${judge.actorId})`;
         const proof = await store.prepareMediaAbsenceProof(claim.fence);
         if (failure === 'terminal')
-          await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${roundId}`;
+          await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${roundId}`;
         const absenceProof = proof && {
           ...proof,
           ...(failure === 'owner' ? { owner: createId() } : {}),

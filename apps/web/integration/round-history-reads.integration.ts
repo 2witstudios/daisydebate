@@ -45,7 +45,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
     const envelope = {
       version: 1 as const,
       commandId: createId(),
-      expectedVersion: 2,
+      expectedVersion: 1,
       command: { type: 'yield' as const, participantId: hostSeat.id },
     };
     await operations.command(principal, roundId, envelope);
@@ -77,7 +77,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
       roundId,
       segmentId: speech.segment_id,
       roundParticipantId: hostSeat.id,
-      expectedVersion: 3,
+      expectedVersion: 2,
       before: new Date(speech.started_at).toISOString(),
       after: new Date(new Date(speech.started_at).getTime() + 1).toISOString(),
     };
@@ -109,7 +109,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
         operations.command(principal, roundId, {
           ...envelope,
           commandId: createId(),
-          expectedVersion: 3,
+          expectedVersion: 2,
         }),
       code: 'CONFLICT',
     });
@@ -124,7 +124,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
     const ended = await operations.command(principal, roundId, {
       version: 1,
       commandId: createId(),
-      expectedVersion: 3,
+      expectedVersion: 2,
       command: { type: 'forfeit', participantId: hostSeat.id },
     });
     assert({
@@ -172,7 +172,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       {
         version: 1,
         commandId: createId(),
-        expectedVersion: 2,
+        expectedVersion: 1,
         command: { type: 'forfeit', participantId: seat.id },
       },
     );

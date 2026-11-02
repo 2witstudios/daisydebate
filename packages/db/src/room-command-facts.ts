@@ -197,7 +197,11 @@ const hydrateRoom = async (
   );
   const host = await actorFact(tx, row.hostActorId);
   const [round] = await tx
-    .select({ id: rounds.id, status: rounds.status })
+    .select({
+      id: rounds.id,
+      status: rounds.status,
+      resolution: rounds.resolution,
+    })
     .from(rounds)
     .where(eq(rounds.roomId, row.id));
   return {
@@ -205,7 +209,8 @@ const hydrateRoom = async (
     version: row.version,
     changeVersion: row.changeVersion,
     title: row.title,
-    topic: row.topic,
+    // A draw Room's resolution is its Round's, once revealed.
+    topic: round?.resolution ?? row.topic,
     publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
     hostActorId: row.hostActorId,
@@ -226,7 +231,7 @@ const hydrateRoom = async (
     executionPlan: row.executionPlan,
     rules: row.rulesSnapshot,
     participants,
-    roundRef: round ?? null,
+    roundRef: round ? { id: round.id, status: round.status } : null,
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>

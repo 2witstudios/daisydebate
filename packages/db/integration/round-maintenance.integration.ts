@@ -40,6 +40,8 @@ test('maintenance discovery includes every cast without sessions and requires a 
         code: 'AUTHORIZATION',
       });
       await store.renewServiceInstance({ instanceId, role: 'web' });
+      // Rounds the clock can move include the fixture's own opening Round.
+      await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where status='opening'`;
       const first = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,

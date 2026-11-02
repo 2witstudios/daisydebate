@@ -38,10 +38,10 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
         'the revoked host yielding on their own seat, after the revoke committed',
       should:
         'refuse it inside the fence: participation needs access, whatever the edge saw',
-      actual: () => seated('yield', f.host.actorId, 2),
+      actual: () => seated('yield', f.host.actorId, 1),
       code: 'AUTHORIZATION',
     });
-    const receipt = await seated('forfeit', f.guest.actorId, 2);
+    const receipt = await seated('forfeit', f.guest.actorId, 1);
     const ended = await f.store.getRound(roundId);
     assert({
       given:
@@ -53,7 +53,7 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
         status: ended?.status,
         outcome: ended?.outcome !== null,
       },
-      expected: { version: 3, status: 'completed', outcome: true },
+      expected: { version: 2, status: 'completed', outcome: true },
     });
   });
 });

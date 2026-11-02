@@ -68,7 +68,7 @@ test('committed Round session creates actual vendor room before scoped least-pri
       actual: () => f.mediaOperations.session(f.roundId, f.host.actorId),
     });
     await f.sql`update users set email_verified=true where id=${f.host.userId}`;
-    await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${f.roundId}`;
+    await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${f.roundId}`;
     await f.mediaOperations.recoverActiveSessions();
     const [ended] =
       await f.sql`select ended_at from media_sessions where round_id=${f.roundId}`;

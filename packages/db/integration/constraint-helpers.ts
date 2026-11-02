@@ -205,8 +205,15 @@ export class Fixture {
     return version;
   }
 
+  /** The not-yet-started status of this database: a predecessor still says scheduled. */
+  private async unstartedStatus() {
+    const [column] = await this.sql`select 1 from information_schema.columns
+      where table_name = 'rounds' and column_name = 'pre_round_prep_ms'`;
+    return column ? 'opening' : 'scheduled';
+  }
+
   /**
-   * A scheduled round carrying resolved rules; `overrides` set or null out
+   * An unstarted round carrying resolved rules; `overrides` set or null out
    * the lifecycle, ladder and provenance columns the CHECKs tie together.
    */
   async round(overrides: Row = {}) {
@@ -221,7 +228,7 @@ export class Fixture {
       format_version: 1,
       preset_version: null,
       rules_snapshot: validRules,
-      status: 'opening',
+      status: await this.unstartedStatus(),
       current_stage: null,
       outcome: null,
       ladder_id: null,

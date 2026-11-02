@@ -32,7 +32,7 @@ test('internal shared tick persists actual final end and immutable admission cut
           row.final_segment_ended_at.getTime(),
         version: receipt.resultingVersion,
       },
-      expected: { status: 'active', exact: true, buffer: 120000, version: 3 },
+      expected: { status: 'active', exact: true, buffer: 120000, version: 2 },
     });
     const repeated = await operations.tick(roundId);
     assert({

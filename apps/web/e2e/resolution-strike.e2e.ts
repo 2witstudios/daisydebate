@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   roomCatalogChoiceSchema,
   roomViewSchema,
+  roundViewSchema,
   type RoomView,
 } from '@daisy/protocol';
 import { expect, openPage, test } from './support/fixtures';
@@ -89,7 +90,7 @@ const noScriptPage = async (
   return { context, page: await openPage(context, name) };
 };
 
-const yourTurn = 'Your turn: strike a resolution you don’t want to debate';
+const yourTurn = 'Your strike';
 
 test('debaters strike to one resolution without JavaScript while a spectator never receives a drawn line first', async ({
   browser,
@@ -110,17 +111,9 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     await readyOwnSeat(host, view, { role: 'affirmative', slot: 0 });
     view = await readyOwnSeat(guest, view, { role: 'negative', slot: 0 });
 
-    // The host draws from a native form.
-    const hostNoScript = await noScriptPage(
-      browser,
-      host,
-      'Strike host, no JavaScript',
-    );
-    opened.push(hostNoScript.context);
-    await hostNoScript.page.goto(`/rooms/${view.id}`);
-    await hostNoScript.page
-      .getByRole('button', { name: 'Draw the resolutions', exact: true })
-      .click();
+    // Start round needs the host's device check: it goes through the API.
+    const started = await startAdmittedRound(host, view);
+    const roundPath = `/rounds/${started.id}/room`;
 
     // Both intents came from a page held before the commitment boundary.
     for (const type of ['ready', 'unready']) {
@@ -144,10 +137,11 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     }
     const spectator = await openPage(watcher.context, 'Strike spectator');
     await spectator.goto(`/rooms/${view.id}`);
-    await expect(
-      spectator.getByText('Hidden until the debaters finish striking'),
-    ).toBeVisible();
     expect(await spectator.content()).not.toContain(SENTINEL);
+    const spectated = await watcher.context.request.get(
+      `/api/rounds/${started.id}`,
+    );
+    expect(await spectated.text()).not.toContain(SENTINEL);
 
     // The Negative strikes first; a second tab still holds the same turn's form.
     const negative = await noScriptPage(
@@ -158,7 +152,7 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     opened.push(negative.context);
     const stale = await openPage(negative.context, 'Stale strike form');
     for (const page of [negative.page, stale]) {
-      await page.goto(`/rooms/${view.id}`);
+      await page.goto(roundPath);
       await expect(page.getByRole('heading', { name: yourTurn })).toBeVisible();
     }
     // Without scripts the timer is the server read's own count: within the 15 s window.
@@ -175,15 +169,15 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     await stale.getByRole('button', { name: 'Strike this resolution' }).click();
     await expect(
       stale.getByText(
-        'Someone struck first, or time ran out. Here is the draw now.',
+        'The round changed or that action is no longer legal. Review the current round and try again.',
       ),
     ).toBeVisible();
 
     // The Affirmative lets its window run out; Refresh shows the reveal.
     const revealed = async () =>
-      roomViewSchema.parse(
+      roundViewSchema.parse(
         await (
-          await watcher.context.request.get(`/api/rooms/${view.id}`)
+          await watcher.context.request.get(`/api/rounds/${started.id}`)
         ).json(),
       );
     await expect(async () => {
@@ -201,12 +195,8 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     for (const line of lines.filter((line) => line !== survivor))
       expect(html).not.toContain(line);
 
-    // Launch needs the host's device check: it goes through the API.
-    const ready = roomViewSchema.parse(
-      await (await host.context.request.get(`/api/rooms/${view.id}`)).json(),
-    );
-    const round = await startAdmittedRound(host, ready);
-    expect(round.topic).toBe(survivor);
+    // With no prep to follow, the last strike started the Round.
+    expect((await revealed()).status).toBe('active');
   } finally {
     for (const context of opened) await context.close();
     await accounts.closeContexts();
@@ -248,7 +238,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     expect(created.status()).toBe(201);
     let view = roomViewSchema.parse((await created.json()).view);
     // A 15 s strike window, so the time-out takes 15 s, and 20 s of prep:
-    // prep can't be cut short, only acknowledged once it runs out.
+    // prep always runs in full, so the test waits it out.
     view = await command(host.context.request, view, {
       type: 'update-config',
       config: {
@@ -276,9 +266,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await page.goto(`/rooms/${view.id}`);
     await readyUp(page);
 
-    await page
-      .getByRole('button', { name: 'Draw the resolutions', exact: true })
-      .click();
+    const roundId = await startRoundInBrowser(page);
 
     // The bot side strikes on its own; the page rereads at each due instant.
     const myTurn = page.getByRole('heading', { name: yourTurn });
@@ -292,10 +280,7 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await expect(page.getByText('You struck this')).toBeVisible();
 
     // The second human turn runs out: Daisy strikes, and the last one left is revealed.
-    const read = async () =>
-      roomViewSchema.parse(
-        await (await host.context.request.get(`/api/rooms/${view.id}`)).json(),
-      );
+    const read = () => readBallotRound(host.context.request, roundId);
     await expect(async () => {
       expect((await read()).topic).not.toBeNull();
     }).toPass({ timeout: 60_000 });
@@ -307,21 +292,18 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await expect(
       page.getByText('Daisy struck this for you · time ran out'),
     ).toBeVisible();
-    // Prep started at the reveal and is already counting down.
-    await expect(page.getByText(/^\d+:\d{2} left$/)).toBeVisible();
+    // Prep started at the reveal and is counting down, with its workspace.
+    await expect(page.getByText('Prep', { exact: true }).first()).toBeVisible();
+    expect((await read()).opening?.step.step).toBe('prep');
 
-    // When prep runs out the page rereads and offers its acknowledgment.
-    await page
-      .getByRole('button', { name: 'End prep', exact: true })
-      .click({ timeout: 30_000 });
-    // A reload drops local device checks; committed readiness still permits Launch.
-    await page.reload();
+    // When prep runs out the countdown follows, with no action from anyone.
+    await expect(async () => {
+      expect((await read()).status).toBe('active');
+    }).toPass({ timeout: 40_000 });
     await expect(
-      page.getByRole('button', { name: 'Not ready', exact: true }),
+      page.getByRole('button', { name: 'End prep', exact: true }),
     ).toHaveCount(0);
-    const roundId = await startRoundInBrowser(page);
-    const round = await readBallotRound(host.context.request, roundId);
-    expect(round.topic).toBe(survivor);
+    expect((await read()).topic).toBe(survivor);
   } finally {
     await accounts.closeContexts();
   }

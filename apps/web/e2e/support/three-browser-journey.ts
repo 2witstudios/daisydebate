@@ -147,9 +147,6 @@ export async function playEveryTurn(
   watch: (page: Page, label: string) => void,
 ) {
   const players = { ...debaters };
-  await players.affirmative
-    .getByRole('button', { name: 'Start round', exact: true })
-    .click();
   const { rules } = await readRound(players.affirmative, roundId);
   for (const scheduled of rules.segments) {
     let holder = players[scheduled.side];

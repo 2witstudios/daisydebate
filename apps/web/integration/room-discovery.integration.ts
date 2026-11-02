@@ -63,7 +63,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     const frozenSeat = await list(f.guest);
     await f.sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=statement_timestamp() where id=${roundId}`;
     const completed = await list(f.host);
-    await f.sql`update rounds set status='abandoned',outcome=null where id=${roundId}`;
+    await f.sql`update rounds set status='abandoned',current_stage=null,outcome=null where id=${roundId}`;
     const abandoned = await list(f.host);
     assert({
       given:
@@ -81,7 +81,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         abandoned.rooms.length,
         f.consentReads() - consentReads,
       ],
-      expected: [['opening'], ['active'], 0, 1, 1, 1, 0, 0, 0],
+      expected: [['active'], ['active'], 0, 1, 1, 1, 0, 0, 0],
     });
     assert({
       given: 'the lightweight discovery projection',
@@ -180,7 +180,7 @@ test('selected Round locks recheck frozen visibility and terminal status races',
         else if (change === 'seat')
           await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${cast.guest.actorId}`;
         else
-          await holder`update rounds set status='abandoned',completed_at=statement_timestamp() where id=${view.roundRef!.id}`;
+          await holder`update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=${view.roundRef!.id}`;
         await holder.unsafe('COMMIT');
         assert({
           given: `a frozen Round ${change} transition during selected Round lock wait`,

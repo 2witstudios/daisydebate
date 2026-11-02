@@ -42,7 +42,7 @@ test('the migration backfill holds open and speaking Rooms only, as the engine r
       `update rounds set status='active',current_stage='countdown',started_at=statement_timestamp(),final_segment_ended_at=statement_timestamp(),transcript_admission_cutoff=statement_timestamp()+interval '120 seconds' where id=$1`,
     );
     const abandoned = await launched(
-      `update rounds set status='abandoned',completed_at=statement_timestamp() where id=$1`,
+      `update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=$1`,
     );
     const scheduled = await launched('opening');
     const actors = [

@@ -105,7 +105,7 @@ test('real authenticated Round responses and JSON and server-action form replays
           nativeAcknowledged: native.acknowledged,
         },
         expected: {
-          statuses: [200, 200, 200, 409],
+          statuses: [200, 200, 409],
           versions: [
             own.version + 1,
             own.version + 1,

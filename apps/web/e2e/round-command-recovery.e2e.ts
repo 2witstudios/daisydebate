@@ -8,7 +8,6 @@ for (const command of ['yield', 'forfeit'] as const)
   }) => {
     const { page, roundId } = roundFiles;
     for (const name of [
-      'Start round',
       'Take prep time',
       'Start affirmative constructive',
     ])
@@ -133,7 +132,6 @@ test('native browser retry resubmits the original accepted command after a lost 
     const formPage = await openPage(native, 'native command replay');
     await formPage.goto(`/rounds/${roundId}/room`);
     for (const name of [
-      'Start round',
       'Take prep time',
       'Start affirmative constructive',
       'End speech',

@@ -164,7 +164,9 @@ for (const ladder of ratingLadders)
                   entries: leaderboard?.data.entries.length,
                   pending: display?.pending,
                   deltas: display?.rows.every((r) => r.delta !== null),
-                  resolution: roundView.topic === room.topic,
+                  resolution:
+                    roundView.topic !== null &&
+                    (room.topic === null || roundView.topic === room.topic),
                 },
                 expected: {
                   discovered: true,

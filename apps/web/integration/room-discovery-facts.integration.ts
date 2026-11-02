@@ -65,7 +65,7 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
           formatLabel: 'Custom format',
           seats: [2, seatCount],
           waiting: null,
-          stage: null,
+          stage: 'countdown',
           roundId,
           hostRating: null,
         },

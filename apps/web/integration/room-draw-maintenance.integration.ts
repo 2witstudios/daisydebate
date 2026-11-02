@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { drawRoomOverrides } from './room-draw.test-support';
+import { botAdmissionForTests } from './bot-admission.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 requireTestServices(process.env);
@@ -66,7 +67,7 @@ test('a tick settles only the strikes that are due, with nobody online', async (
         human: [],
       },
     });
-  });
+  }, botAdmissionForTests);
 });
 
 test('a tick starts a Round at the instant its prep ended, however late it runs', async () => {
