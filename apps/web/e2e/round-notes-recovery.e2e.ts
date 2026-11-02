@@ -69,6 +69,7 @@ const offeredAfterReload = async (
   page: Page,
   documentId: string,
   text: string,
+  reload: (page: Page) => Promise<unknown> = reloadLosingExitSave,
 ) => {
   await edit(page, text);
   await expect
@@ -76,7 +77,7 @@ const offeredAfterReload = async (
       (await draftFor(page, documentId))?.active?.html.includes(text),
     )
     .toBe(true);
-  await reloadLosingExitSave(page);
+  await reload(page);
   await expect(
     page.getByRole('button', { name: 'Restore Flow', exact: true }),
   ).toBeVisible();
@@ -397,40 +398,54 @@ test('a real exit save with no failure double commits once and leaves no false r
   );
 });
 
-// Temporary, removed once its output is recorded: which controls stop a real exit save.
-for (const control of ['Network.setBlockedURLs', 'stopped pagehide'] as const)
-  test(`exit save probe: ${control}`, async ({ roundFiles }) => {
-    const { page, roundId, documentId } = roundFiles;
-    const before = await serverDocument(page, roundId, documentId);
-    await page.clock.install({ time: '2026-11-01T18:00:00Z' });
-    await page.clock.pauseAt('2026-11-01T18:01:00Z');
-    await typePendingEdit(page, documentId, `Probe ${control}`);
-    if (control === 'Network.setBlockedURLs') {
-      const cdp = await page.context().newCDPSession(page);
-      await cdp.send('Network.enable');
-      await cdp.send('Network.setBlockedURLs', {
-        urls: [`*${documentsPath}save`],
-      });
-    } else
-      await page.evaluate(() =>
-        window.addEventListener(
-          'pagehide',
-          (event) => event.stopImmediatePropagation(),
-          { capture: true },
-        ),
-      );
-    await page.reload();
-    await expect(
-      page.getByRole('textbox', { name: 'Flow', exact: true }),
-    ).toBeVisible();
-    const after = await serverDocument(page, roundId, documentId);
-    const offered = await page
-      .getByRole('button', { name: 'Restore Flow', exact: true })
-      .count();
-    process.stdout.write(
-      `EXIT_SAVE_PROBE ${JSON.stringify({ control, before: before.revision, after: after.revision, committed: after.html.includes('Probe'), offered })}\n`,
+// Temporary, removed once its output is recorded: what sends with pagehide stopped.
+test('exit save probe: sender with pagehide stopped', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  const before = await serverDocument(page, roundId, documentId);
+  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+  await page.clock.pauseAt('2026-11-01T18:01:00Z');
+  await typePendingEdit(page, documentId, 'Probe sender');
+  await page.evaluate((save) => {
+    const send = window.fetch;
+    let stopped = false;
+    window.addEventListener(
+      'pagehide',
+      (event) => {
+        stopped = true;
+        sessionStorage.setItem('exit-probe:stopped', 'yes');
+        event.stopImmediatePropagation();
+      },
+      { capture: true },
     );
-  });
+    Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) => {
+      if (String(request[0]) === save)
+        sessionStorage.setItem(
+          'exit-probe:send',
+          JSON.stringify({
+            keepalive: request[1]?.keepalive === true,
+            afterStop: stopped,
+            visibility: document.visibilityState,
+            stack: new Error('probe').stack?.split('\n').slice(1, 7),
+          }),
+        );
+      return send(...request);
+    });
+  }, `${documentsPath}save`);
+  await page.reload();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  const after = await serverDocument(page, roundId, documentId);
+  const seen = await page.evaluate(() => ({
+    stopped: sessionStorage.getItem('exit-probe:stopped'),
+    send: sessionStorage.getItem('exit-probe:send'),
+  }));
+  process.stdout.write(
+    `EXIT_SAVE_PROBE ${JSON.stringify({ before: before.revision, after: after.revision, ...seen })}\n`,
+  );
+});
 
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
   roundFiles,
@@ -890,7 +905,7 @@ test('after a lost exit save, denied clipboard permission exposes selectable rec
 });
 
 for (const refusal of ['denied storage', 'combined overflow'] as const)
-  test(`after a lost exit save, ${refusal} preserves the recovery offer and current editor while NEW still saves online`, async ({
+  test(`${refusal === 'denied storage' ? 'after a lost exit save, denied storage' : 'a real exit with an edit over the budget stays unsent and combined overflow'} preserves the recovery offer and current editor while NEW still saves online`, async ({
     roundFiles,
   }) => {
     const { page, documentId, roundId } = roundFiles;
@@ -899,7 +914,19 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
     const next =
       refusal === 'combined overflow' ? 'N'.repeat(140_000) : 'Pending NEW';
     await page.route(`**${documentsPath}save`, (route) => route.abort());
-    const recovery = await offeredAfterReload(page, documentId, rec);
+    // 140 KB is over the 64 KiB exit budget, so no exit save is even attempted.
+    const recovery = await offeredAfterReload(
+      page,
+      documentId,
+      rec,
+      refusal === 'combined overflow'
+        ? (target) => target.reload()
+        : reloadLosingExitSave,
+    );
+    if (refusal === 'combined overflow')
+      expect(
+        (await serverDocument(page, roundId, documentId)).html,
+      ).not.toContain(rec);
     await page.unroute(`**${documentsPath}save`);
     const gate = Promise.withResolvers<void>();
     let arrived = false;
