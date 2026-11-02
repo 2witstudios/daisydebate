@@ -139,7 +139,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
   }
 });
 
-test('native judge Ready and eligible stored bot debaters launch one frozen scheduled Round', async ({
+test('native judge Ready and eligible stored bot debaters start one frozen Round', async ({
   browser,
 }, info) => {
   const accounts = await createRoomLaunchAccounts(browser, 1);
@@ -210,14 +210,14 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
-        judge.getByText('Round · Not started', { exact: true }),
+        judge.getByText('Round · In progress', { exact: true }),
       ).toBeVisible();
       await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
       // The judge holds a seat, so the row leads back into the round room.
       await expect(
         judge.getByRole('link', { name: /^Return to room: / }),
       ).toHaveAttribute('href', `/rounds/${round.id}/room`);
-      await info.attach('scheduled-round-evidence', {
+      await info.attach('started-round-evidence', {
         body: JSON.stringify(proof),
         contentType: 'application/json',
       });
@@ -365,7 +365,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
     await page.goto(`/train?bot=${opponent!.actorId}`);
     await page.getByRole('button', { name: 'Start practice' }).click();
     await expect(page).toHaveURL(new RegExp(`/rounds/${roundId}(?:/room)?$`));
-    await info.attach('train-scheduled-round-evidence', {
+    await info.attach('train-started-round-evidence', {
       body: JSON.stringify({
         candidate: process.env.GIT_COMMIT,
         roomId,
