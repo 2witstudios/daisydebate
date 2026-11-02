@@ -146,7 +146,7 @@ export const test = base.extend<{
  */
 async function forfeitAsHost(request: APIRequestContext, roundId: string) {
   const view = await readBallotRound(request, roundId);
-  if (view.status !== 'scheduled' && view.status !== 'active') return;
+  if (view.status !== 'opening' && view.status !== 'active') return;
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.role === 'affirmative' && p.slot === 0)!;

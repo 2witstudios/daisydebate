@@ -161,7 +161,6 @@ test('an idle Room the engine expires is closed, released and announced', async 
     [],
     [],
     [],
-    [],
     [[1n, '42']],
     [],
   ]);
@@ -176,7 +175,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
         spendsAiRound: false,
         seatsBotDebater: false,
         publishDefinition: false,
-        drawSecrets: null,
+        draw: null,
         members: [],
       },
     }),

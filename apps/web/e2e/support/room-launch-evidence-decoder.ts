@@ -15,7 +15,7 @@ const evidence = z.strictObject({
   }),
   frozen: z.array(
     z.strictObject({
-      status: z.literal('scheduled'),
+      status: z.literal('opening'),
       topic: z.string().min(1),
       config: roomConfigSchema,
       rules: roundRulesSchema,

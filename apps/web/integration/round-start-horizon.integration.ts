@@ -76,7 +76,7 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
             completed: true,
           },
           idempotent: true,
-          fresh: 'scheduled',
+          fresh: 'opening',
           ratings: 0,
           allowance: [19, 20],
         },

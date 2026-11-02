@@ -56,7 +56,7 @@ test('a migration re-application and a resource restart preserve a live session,
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
       INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, status)
-      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'scheduled')
+      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'opening')
     `;
   });
 
@@ -122,8 +122,8 @@ test('a migration re-application and a resource restart preserve a live session,
       identity: before.state,
       userId,
       passkeys: beforePasskeys,
-      ownerBefore: { userId, status: 'scheduled' },
-      ownerAfter: { userId, status: 'scheduled' },
+      ownerBefore: { userId, status: 'opening' },
+      ownerAfter: { userId, status: 'opening' },
     },
   });
   assert({

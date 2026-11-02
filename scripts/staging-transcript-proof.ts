@@ -26,7 +26,7 @@ async function main() {
       throw new Error('Another staging transcript proof is running');
     stage = 'capacity';
     const [capacity] =
-      await sql`select count(*)::int as busy from usage_reservations u join rounds r on r.id=u.round_id where u.refunded_at is null and r.status in ('scheduled','active')`;
+      await sql`select count(*)::int as busy from usage_reservations u join rounds r on r.id=u.round_id where u.refunded_at is null and r.status in ('opening','active')`;
     if (capacity?.busy !== 0)
       throw new Error('Coordinate staging capacity before running proof');
     stage = 'fixture';

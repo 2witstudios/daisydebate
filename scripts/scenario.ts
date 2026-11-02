@@ -54,6 +54,8 @@ export type ScenarioAction =
       /** The acting participant, 1-based in seat order; null acts as the service. */
       readonly actor: number | null;
     }
+  /** The Round's opening has run: it starts now. */
+  | { readonly type: 'start-round' }
   | { readonly type: 'tick'; readonly atMs: number }
   | {
       /** Each judge's submitted ruling; the engine derives the outcome that completes the Round. */
@@ -94,7 +96,7 @@ export const foundationScenarioIds = [
 /** What the round actually did, and what a scenario asserts against. */
 export type ScenarioObservation = {
   readonly id: string;
-  readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
+  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly stage: 'countdown' | 'prep' | 'live' | null;
   readonly outcome: RatedOutcome | null;
   /** The segment keys that opened, in order. */
@@ -152,6 +154,7 @@ type Run = {
     readonly now: string;
   }) => void;
   readonly tick: (now: string) => void;
+  readonly activate: (now: string) => void;
   readonly opened: () => readonly string[];
   readonly nowMs: () => number;
   readonly advanceTo: (atMs: number) => void;
@@ -175,7 +178,7 @@ function startRun(scenario: DebateScenario): Run {
   const runtime = createRoundRuntime({
     round: {
       id,
-      status: 'scheduled',
+      status: 'opening',
       currentStage: null,
       startedAt: null,
       completedAt: null,
@@ -216,6 +219,7 @@ function startRun(scenario: DebateScenario): Run {
     position: (now) => runtime.position(now),
     execute: (input) => collect(runtime.execute(input)),
     tick: (now) => collect(runtime.tick(now)),
+    activate: (now) => collect(runtime.activate({ at: now, now })),
     opened: () => opened,
     nowMs: () => atMs,
     advanceTo: (target) => {
@@ -234,6 +238,10 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
   const apply = (
     action: Exclude<ScenarioAction, { readonly type: 'expect-rejection' }>,
   ) => {
+    if (action.type === 'start-round') {
+      run.activate(new Date(run.nowMs()).toISOString());
+      return;
+    }
     if (action.type === 'tick') {
       run.advanceTo(action.atMs);
       run.tick(new Date(action.atMs).toISOString());

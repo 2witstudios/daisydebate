@@ -25,7 +25,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
       'forfeit while the Round is live, then leave freed: the debate is over and nothing is forfeited (ISSUE-590)',
     actual: [
       leaveIntent(
-        { ...view, status: 'scheduled' },
+        { ...view, status: 'opening' },
         aff.actorId,
         Date.parse(at(0)),
       ),
@@ -37,7 +37,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
       ),
     ],
     expected: [
-      forfeit({ ...view, status: 'scheduled' }),
+      forfeit({ ...view, status: 'opening' }),
       forfeit(speaking),
       { kind: 'freed' },
     ],

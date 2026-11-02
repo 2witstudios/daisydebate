@@ -63,7 +63,7 @@ export const withOwner = async (
       format_id: formatId,
       format_version: 1,
       rules_snapshot: singleSpeechRules,
-      status: 'scheduled',
+      status: 'opening',
     });
     await fixture.insert('round_participants', {
       id: createId(),

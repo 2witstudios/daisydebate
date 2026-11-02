@@ -32,7 +32,7 @@ test('the migration backfill holds open and speaking Rooms only, as the engine r
         f,
         await f.assemble({}, cast),
       );
-      if (state !== 'scheduled') await f.sql.unsafe(state, [roundId]);
+      if (state !== 'opening') await f.sql.unsafe(state, [roundId]);
       return { cast, roundId };
     };
     const speaking = await launched(
@@ -44,7 +44,7 @@ test('the migration backfill holds open and speaking Rooms only, as the engine r
     const abandoned = await launched(
       `update rounds set status='abandoned',completed_at=statement_timestamp() where id=$1`,
     );
-    const scheduled = await launched('scheduled');
+    const scheduled = await launched('opening');
     const actors = [
       open,
       speaking.cast,

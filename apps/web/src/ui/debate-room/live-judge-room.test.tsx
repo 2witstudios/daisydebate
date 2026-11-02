@@ -15,6 +15,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
   };
   const html = renderToStaticMarkup(
     <LiveJudgeRoom
+      renderedAtMs={0}
       view={assignedView}
       read={async () => ({ kind: 'found', round: assignedView })}
       socketUrl={null}

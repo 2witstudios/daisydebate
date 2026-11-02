@@ -81,7 +81,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
         read.startedAt,
         read.participants.length,
       ],
-      expected: ['scheduled', view.config, null, 2],
+      expected: ['opening', view.config, null, 2],
     });
   });
 });

@@ -154,7 +154,7 @@ describe('agent seed', () => {
           'reset lifecycle, checkpoint, open and closed segments and their utterances',
         actual: reset,
         expected: {
-          status: 'scheduled',
+          status: 'opening',
           current_stage: null,
           started_at: null,
           completed_at: null,

@@ -100,7 +100,7 @@ test('Start and Unready serialize on the same durable authority fence', async ()
             await f.snapshot(view.id),
             accepted.view.roundRef?.status ?? null,
           ],
-          expected: [before, winner === 'start' ? 'scheduled' : null],
+          expected: [before, winner === 'start' ? 'opening' : null],
         });
       } finally {
         release();

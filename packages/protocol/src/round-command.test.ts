@@ -5,7 +5,7 @@ const envelope = {
   version: 1,
   commandId: 'c'.repeat(24),
   expectedVersion: 1,
-  command: { type: 'start' },
+  command: { type: 'yield', participantId: 'p'.repeat(24) },
 };
 test('shared Round commands validate their complete trust boundary', () => {
   const cases = [

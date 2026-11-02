@@ -81,7 +81,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         abandoned.rooms.length,
         f.consentReads() - consentReads,
       ],
-      expected: [['scheduled'], ['active'], 0, 1, 1, 1, 0, 0, 0],
+      expected: [['opening'], ['active'], 0, 1, 1, 1, 0, 0, 0],
     });
     assert({
       given: 'the lightweight discovery projection',

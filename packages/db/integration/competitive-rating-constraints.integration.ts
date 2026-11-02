@@ -20,7 +20,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
     name: 'Season',
     starts_at: at,
     ends_at: null,
-    status: 'scheduled',
+    status: 'opening',
     ...overrides,
   });
   /** An actor, a format and a season for rating rows to reference. */

@@ -192,7 +192,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect(receipt.status()).toBe(200);
       const round = roundViewSchema.parse(await receipt.json());
       expect(round).toMatchObject({
-        status: 'scheduled',
+        status: 'opening',
         startedAt: null,
         topic: view.topic,
         config: view.config,
@@ -357,13 +357,13 @@ test('Train carries its chosen bot through the durable Room into one scheduled R
       .click();
     await expect(page).toHaveURL(/\/rounds\/[a-z0-9]{24}(?:\/room)?$/);
     view = await reread(page.request, roomId);
-    expect(view.roundRef).toMatchObject({ status: 'scheduled' });
+    expect(view.roundRef).toMatchObject({ status: 'opening' });
     const roundId = view.roundRef!.id;
     const roundResponse = await page.request.get(`/api/rounds/${roundId}`);
     expect(roundResponse.status()).toBe(200);
     expect(roundViewSchema.parse(await roundResponse.json())).toMatchObject({
       id: roundId,
-      status: 'scheduled',
+      status: 'opening',
       topic: view.topic,
     });
     expect(seated(view, opponent!.actorId)?.role).toBe('negative');

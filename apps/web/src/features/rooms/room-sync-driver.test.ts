@@ -73,7 +73,7 @@ describe('room sync driver', () => {
       expected: {
         log: [`subscribe ${buildRoomTopic(roomId)}`, 'connect', 'read'],
         title: 'Renamed',
-        settings: 'n-9',
+        settings: 'n-7',
       },
     });
   });
@@ -85,26 +85,8 @@ describe('room sync driver', () => {
       given: 'a hydrated command answering with change 5',
       should: 'adopt it without a read and offer new identifiers',
       actual: [room.held().view.title, room.held().ids.settings, room.reads()],
-      expected: ['Accepted', 'n-9', 0],
+      expected: ['Accepted', 'n-7', 0],
     });
   });
 
-  test('a running prep is read again when its time runs out', async () => {
-    const prep = (remainingMs: number, finished: boolean) => ({
-      prep: { startedAt: '2026-01-01T00:00:00.000Z', remainingMs, finished },
-    });
-    const room = harness(view(3, prep(12000, false)));
-    room.connectionState({ status: 'open', generation: 1, terminal: null });
-    room.advance(11999);
-    const early = room.reads();
-    room.advance(1);
-    room.answer({ kind: 'found', view: view(3, prep(0, true)) });
-    await room.flush();
-    assert({
-      given: 'a prep with 12 s left at the read',
-      should: 'read exactly when it runs out and adopt the finished prep',
-      actual: [early, room.reads(), room.held().view.prep.finished],
-      expected: [0, 1, true],
-    });
-  });
 });

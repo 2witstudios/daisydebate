@@ -88,7 +88,7 @@ test('one actual provider failure does not prevent cleanup of another terminal m
           (await f.store.getRound(f.roundId))!.status,
           await f.media.exists(failed!.room_name),
         ],
-        expected: [null, 'scheduled', true],
+        expected: [null, 'opening', true],
       });
     } finally {
       proxy.stop(true);

@@ -134,7 +134,7 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
       expected: [
         [false, true],
         1,
-        'scheduled',
+        'opening',
         view.topic,
         view.config,
         view.rules,

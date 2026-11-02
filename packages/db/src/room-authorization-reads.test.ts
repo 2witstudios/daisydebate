@@ -101,13 +101,13 @@ test('Round authority projection returns only frozen audience and seat facts', a
         roundId,
         caller.actorId,
         'private',
-        'scheduled',
+        'opening',
         4,
         caller.actorId,
         'affirmative',
         0,
       ],
-      [roundId, caller.actorId, 'private', 'scheduled', 4, null, null, null],
+      [roundId, caller.actorId, 'private', 'opening', 4, null, null, null],
     ],
   ]);
 
@@ -124,7 +124,7 @@ test('Round authority projection returns only frozen audience and seat facts', a
         roundId,
         createdByActorId: caller.actorId,
         visibility: 'private',
-        status: 'scheduled',
+        status: 'opening',
         revision: 4,
         participants: [
           { actorId: caller.actorId, role: 'affirmative', slot: 0 },
@@ -149,7 +149,7 @@ test('Round authority projection fails closed when persisted visibility is absen
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const { database } = createTestDatabase([
     [accountRow()],
-    [[roundId, caller.actorId, null, 'scheduled', 1, null, null, null]],
+    [[roundId, caller.actorId, null, 'opening', 1, null, null, null]],
   ]);
 
   const facts = await database.readRoundAuthorizationFacts(roundId, caller);
@@ -178,11 +178,11 @@ test('Round read returns only the stored receipt and current participant identit
         formatVersion: 1,
         presetVersion: null,
         rules: validRules,
-        status: 'scheduled',
-        currentStage: null,
+        status: 'active',
+        currentStage: 'countdown',
         outcome: null,
         ladderId: null,
-        startedAt: null,
+        startedAt: '2026-10-09T00:00:00.000Z',
         completedAt: null,
         checkpoint: null,
         createdAt: '2026-10-09T00:00:00.000Z',
@@ -208,12 +208,16 @@ test('Round read returns only the stored receipt and current participant identit
     (candidate, fact) =>
       fact?.member === true &&
       candidate.hostActorId === caller.actorId &&
-      candidate.status === 'scheduled',
+      candidate.status === 'active',
+    (_opening, _seats, _viewer, now) => ({
+      view: { step: { step: 'complete', at: now }, draw: null, canStrike: false },
+      topic: null,
+    }),
   );
 
   assert({
     given:
-      'a private scheduled Round, one persisted participant, and a current host account',
+      'a private active Round, one persisted participant, and a current host account',
     should: 'return the frozen resolution and cast through the authorized read',
     actual: [
       view.topic,
@@ -226,7 +230,7 @@ test('Round read returns only the stored receipt and current participant identit
     ],
     expected: [
       room.topic,
-      'scheduled',
+      'active',
       [[caller.actorId, 'current-host', 'affirmative']],
     ],
   });

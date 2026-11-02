@@ -7,7 +7,7 @@ setupRitewayBun();
 const scheduled: RoundReceiptView = {
   id: 'round-owned',
   roomId: 'room-owned',
-  status: 'scheduled',
+  status: 'opening',
   outcome: null,
   unjudgedRuling: null,
   topic: '<Frozen topic>',
@@ -67,7 +67,7 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       'show its real receipt, ordered slots and exact durations without implying media or a ballot exists',
     actual: [
       html.includes('&lt;Frozen topic&gt;'),
-      html.includes('Not started'),
+      html.includes('Starting'),
       html.includes('0:45'),
       !html.includes('Open floor'),
       html.includes('Affirmative 2'),

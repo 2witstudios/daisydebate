@@ -157,8 +157,8 @@ test('bot-debater Room freeze reserves once atomically and replay cannot charge 
           await fixture.count('usage_reservations', 'round_id', roundId),
         ],
         expected: [
-          { id: roundId, status: 'scheduled' },
-          { id: roundId, status: 'scheduled' },
+          { id: roundId, status: 'opening' },
+          { id: roundId, status: 'opening' },
           true,
           1,
         ],
@@ -205,7 +205,7 @@ test('an AI judge alone is free: the freeze needs no bot admission and reserves 
         accepted.roundRef,
         await fixture.count('usage_reservations', 'round_id', roundId),
       ],
-      expected: [{ id: roundId, status: 'scheduled' }, 0],
+      expected: [{ id: roundId, status: 'opening' }, 0],
     });
   });
 });
@@ -240,7 +240,7 @@ test('a bot debater that spends no allowance still takes a capacity slot (ISSUE-
           accepted.roundRef,
           await fixture.count('usage_reservations', 'round_id', roundId),
         ],
-        expected: [{ id: roundId, status: 'scheduled' }, 0],
+        expected: [{ id: roundId, status: 'opening' }, 0],
       });
     },
     false,

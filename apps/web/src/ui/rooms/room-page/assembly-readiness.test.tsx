@@ -24,7 +24,6 @@ const base = {
   ],
   readiness: { available: true, version: 7, readyActorIds: [] },
   definition: { seats: { affirmative: 1, negative: 1, judge: 1 } },
-  prep: { startedAt: null, remainingMs: null, finished: false },
   capabilities: { canReady: true, host: true, canStart: false },
   startRefusal: 'not-ready' as const,
 };
@@ -32,7 +31,7 @@ const action = async () => ({ values: {} });
 type Props = Parameters<typeof ReadyControl>[0];
 const controls = (props: Props) => [
   ReadyControl(props),
-  StartControl({ ...props, prep: null }),
+  StartControl(props),
 ];
 const props = {
   view: base,
@@ -226,7 +225,6 @@ describe('native room readiness and Start round controls', () => {
       byText(
         StartControl({
           ...props,
-          prep: null,
           view: {
             ...base,
             participants: [
@@ -265,7 +263,6 @@ describe('native room readiness and Start round controls', () => {
 test('host Start round refuses unavailable admission without changing Ready or command authority', () => {
   const tree = StartControl({
     ...props,
-    prep: null,
     view: {
       ...base,
       botAdmission: { kind: 'unavailable' },

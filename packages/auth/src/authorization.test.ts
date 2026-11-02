@@ -108,7 +108,7 @@ test('persisted Round reads use their own canonical authority', () => {
     roundId: 'round',
     createdByActorId: 'host',
     visibility: 'private' as const,
-    status: 'scheduled',
+    status: 'opening',
     revision: 1,
     participants: [],
   };

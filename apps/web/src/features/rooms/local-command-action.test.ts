@@ -5,23 +5,6 @@ import { createLocalCommandAction } from './local-command-action';
 setupRitewayBun();
 const scenarios = [
   {
-    type: 'start-round',
-    passed: false,
-    pending: false,
-    committed: true,
-    forwarded: ['start-round'],
-    consent: [],
-    error: false,
-  },
-  {
-    type: 'start-pre-round',
-    passed: false,
-    pending: true,
-    forwarded: ['start-pre-round'],
-    consent: [],
-    error: false,
-  },
-  {
     type: 'finish-prep',
     passed: false,
     pending: true,
@@ -85,14 +68,6 @@ for (const scenario of scenarios) {
     const action = createLocalCommandAction(
       {
         readSnapshot: () => ({
-          view: {
-            ...assemblySnapshot,
-            prep: {
-              ...assemblySnapshot.prep,
-              startedAt:
-                'committed' in scenario ? '2026-10-09T00:00:00.000Z' : null,
-            },
-          },
           devicesPassed: scenario.passed,
           pending: scenario.pending,
         }),

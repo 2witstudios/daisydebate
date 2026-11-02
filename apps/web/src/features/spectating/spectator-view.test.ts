@@ -33,7 +33,7 @@ describe('spectatorAudienceOf', () => {
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
         spectatorAudienceOf(hosted(ran(1)), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'scheduled' }), host),
+        spectatorAudienceOf(hosted({ ...view, status: 'opening' }), host),
         spectatorAudienceOf(hosted({ ...view, status: 'completed' }), host),
         spectatorAudienceOf(hosted({ ...view, status: 'abandoned' }), host),
         spectatorAudienceOf(hosted(ran(1)), aff.actorId),

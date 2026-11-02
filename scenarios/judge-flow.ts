@@ -41,7 +41,7 @@ const scenario: DebateScenario = {
     ],
   },
   when: [
-    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'start-round' },
     { type: 'tick', atMs: 10_000 }, // AC opens
     ...at(60_000, 'yield', 1), // AC ends early
     { type: 'tick', atMs: 70_000 }, // CX1 opens, the negative asking

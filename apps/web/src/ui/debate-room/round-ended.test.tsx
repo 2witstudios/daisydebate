@@ -12,7 +12,7 @@ test('which Rounds have ended', () => {
   assert({
     given: 'each Round status',
     should: 'end only completed and abandoned Rounds',
-    actual: ['scheduled', 'active', 'completed', 'abandoned'].map(roundEnded),
+    actual: ['opening', 'active', 'completed', 'abandoned'].map(roundEnded),
     expected: [false, false, true, true],
   });
 });
@@ -28,6 +28,7 @@ test('a live room whose Round completed points to its result', () => {
   };
   const html = renderToStaticMarkup(
     <LiveJudgeRoom
+      renderedAtMs={0}
       view={ended}
       read={async () => ({ kind: 'found', round: ended })}
       socketUrl={null}
