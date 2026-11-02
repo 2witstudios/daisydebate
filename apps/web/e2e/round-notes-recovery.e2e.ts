@@ -44,10 +44,11 @@ const reloadLosingExitSave = async (page: Page) => {
     Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) => {
       const [input, init] = request;
       if (String(input) !== save) return send(...request);
-      if (init?.method !== 'POST' || init.keepalive !== true) {
-        mark('unexpected');
+      if (init?.method !== 'POST') mark('unexpected');
+      // A debounced autosave can legitimately land before the unload; only the
+      // keepalive exit save is lost.
+      if (init?.method !== 'POST' || init.keepalive !== true)
         return send(...request);
-      }
       mark('lost');
       return Promise.reject(new TypeError('Failed to fetch'));
     });
@@ -528,12 +529,15 @@ test('a session ending mid-Round hides the notes with nothing readable, and the 
 }) => {
   await roundFiles.finishRound();
   const { page, roundId, documentId } = roundFiles;
+  await openFlow(page, roundId);
   const cookies = await endSession(page);
   await edit(page, 'Typed as the session ended');
   await expect(
     page.getByRole('textbox', { name: 'Flow', exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText('Sign in again to save')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Sign in' }),
+  ).toBeVisible();
   await expect(page.locator('body')).not.toContainText(
     'Typed as the session ended',
   );
@@ -554,7 +558,8 @@ test('a session ending and then a different account signing in erases the copy w
   roundFiles,
 }) => {
   await roundFiles.finishRound();
-  const { page, documentId, stranger } = roundFiles;
+  const { page, roundId, documentId, stranger } = roundFiles;
+  await openFlow(page, roundId);
   await endSession(page);
   await edit(page, 'Private to the expired account');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
@@ -576,7 +581,8 @@ test('a 403 refused save keeps the editor text and the draft', async ({
   roundFiles,
 }) => {
   await roundFiles.finishRound();
-  const { page, documentId } = roundFiles;
+  const { page, roundId, documentId } = roundFiles;
+  await openFlow(page, roundId);
   await page.route(`**${documentsPath}save`, (route) =>
     route.fulfill({
       status: 403,
@@ -603,6 +609,7 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
 }) => {
   await roundFiles.finishRound();
   const { page, roundId, documentId } = roundFiles;
+  await openFlow(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await offeredAfterReload(page, documentId, 'Offered before the conflict');
   await page.unroute(`**${documentsPath}save`);

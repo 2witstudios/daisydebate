@@ -57,7 +57,7 @@ function RecoveredNote({
         generateJSON(draft.html, documentExtensions),
         documentExtensions,
         { blockSeparator: '\n\n' },
-      );
+      ).trimEnd();
       await navigator.clipboard.writeText(text);
       setManualText(null);
       setCopied('Copied recovered text.');
