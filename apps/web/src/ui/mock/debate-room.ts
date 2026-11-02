@@ -73,7 +73,6 @@ const self: Debater = {
   initials: 'SR',
   side: 'neg',
   rating: 1702,
-  bot: null,
 };
 const opponent: Debater = {
   id: 'u-maya',
@@ -81,7 +80,6 @@ const opponent: Debater = {
   initials: 'MO',
   side: 'aff',
   rating: 1684,
-  bot: null,
 };
 
 const message = (

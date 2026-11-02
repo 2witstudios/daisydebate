@@ -45,7 +45,7 @@ describe('liveRoundOf before the start', () => {
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
         self: room?.self,
-        opponent: [room?.opponent.side, room?.opponent.bot],
+        opponent: room?.opponent.side,
         judge: room?.judge,
         ballots: room?.ballots,
         names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
@@ -58,9 +58,8 @@ describe('liveRoundOf before the start', () => {
           initials: 'SR',
           side: 'aff',
           rating: null,
-          bot: null,
         },
-        opponent: ['neg', { level: null }],
+        opponent: 'neg',
         judge: 'human',
         ballots: { judge: 'human', ai: null },
         names: [

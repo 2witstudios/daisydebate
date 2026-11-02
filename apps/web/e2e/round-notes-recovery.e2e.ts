@@ -23,8 +23,10 @@ const draftFor = async (page: Page, id: string) => {
   const raw = await rawDraftFor(page, id);
   return raw === null ? null : JSON.parse(raw);
 };
+/** A person's documents are numbered across every Round, and one editor shows. */
+const untitled = /^Untitled( \d+)?$/;
 const edit = (page: Page, text: string) =>
-  page.getByRole('textbox', { name: 'Untitled', exact: true }).fill(text);
+  page.getByRole('textbox', { name: untitled }).fill(text);
 /**
  * A failure double for one case only: the exit save never reaches the server.
  * A real unload keepalive gets past a routed abort and offline emulation, so the
@@ -107,7 +109,7 @@ const offeredAfterReload = async (
     .toBe(true);
   await reload(page);
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   const recovery = (await draftFor(page, documentId)).recovery;
   expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
@@ -143,7 +145,7 @@ const secondRoundWithRecovery = async ({
   const { user } = (await identity.json()) as {
     user: { id: string; username: string };
   };
-  await openNotes(page, second.roundId);
+  await openNotes(page, second.roundId, second.title);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   const secondRecovery = await offeredAfterReload(
     page,
@@ -152,11 +154,13 @@ const secondRoundWithRecovery = async ({
   );
   return { second, user, secondRecovery };
 };
-const openNotes = async (page: Page, roundId: string) => {
+const openNotes = async (page: Page, roundId: string, title = 'Untitled') => {
   await page.goto(`${origin}/rounds/${roundId}`);
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: title, exact: true })
+    .click();
+  await expect(page.getByRole('textbox', { name: title })).toBeVisible();
 };
 /** The HTML of every save this page sends for one document. */
 const recordSavedHtml = (page: Page, documentId: string) => {
@@ -179,11 +183,11 @@ const typePendingEdit = async (
 /** The other Round shows only its own offer, never the Round just left. */
 const expectSecondRoundOffer = async (page: Page) => {
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).not.toContainText('First Round pending NEW');
+  await expect(page.getByRole('textbox', { name: untitled })).not.toContainText(
+    'First Round pending NEW',
+  );
   await page.getByText('Compare recovered and server copies').click();
   await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
     'Second Round REC',
@@ -206,21 +210,21 @@ test('offline edit survives page loss and explicitly restores into the live edit
   const reopened = await openPage(context, 'reopen private Round notes');
   await reopened.goto(url);
   const restore = reopened.getByRole('button', {
-    name: 'Restore Untitled',
+    name: /^Restore Untitled( \d+)?$/,
     exact: true,
   });
   await expect(restore).toBeVisible();
   await expect(
-    reopened.getByRole('textbox', { name: 'Untitled', exact: true }),
+    reopened.getByRole('textbox', { name: untitled }),
   ).not.toContainText('Offline recovery text');
   const saved = reopened.waitForResponse(
     (response) =>
       response.url().endsWith(`${documentsPath}save`) && response.ok(),
   );
   await restore.click();
-  await expect(
-    reopened.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('Offline recovery text');
+  await expect(reopened.getByRole('textbox', { name: untitled })).toContainText(
+    'Offline recovery text',
+  );
   await saved;
   expect((await serverDocument(reopened, roundId, documentId)).html).toContain(
     'Offline recovery text',
@@ -310,7 +314,7 @@ test('newer server copy stays intact until an informed Restore, with copy availa
     };
   });
   await page
-    .getByRole('button', { name: 'Copy recovered Untitled', exact: true })
+    .getByRole('button', { name: /^Copy recovered Untitled( \d+)?$/ })
     .click();
   await expect(
     page
@@ -334,9 +338,7 @@ test('newer server copy stays intact until an informed Restore, with copy availa
     (response) =>
       response.url().endsWith(`${documentsPath}save`) && response.ok(),
   );
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   await ack;
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     'Local conflict copy',
@@ -353,13 +355,13 @@ test('after a lost exit save, Discard of a recovery offer preserves newer editor
   await reloadLosingExitSave(page);
   await expect(
     page.getByRole('button', {
-      name: 'Discard recovered Untitled',
+      name: /^Discard recovered Untitled( \d+)?$/,
       exact: true,
     }),
   ).toBeVisible();
   await edit(page, 'Newer typing survives discard');
   await page
-    .getByRole('button', { name: 'Discard recovered Untitled', exact: true })
+    .getByRole('button', { name: /^Discard recovered Untitled( \d+)?$/ })
     .click();
   expect((await draftFor(page, documentId)).active.html).toContain(
     'Newer typing survives discard',
@@ -385,21 +387,19 @@ test('after a lost exit save, Discard removes the recovered copy so neither page
       sends.push(request.postData() ?? '');
   });
   await page
-    .getByRole('button', { name: 'Discard recovered Untitled', exact: true })
+    .getByRole('button', { name: /^Discard recovered Untitled( \d+)?$/ })
     .click();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeHidden();
   expect(await rawDraftFor(page, documentId)).toBeNull();
   await page.evaluate(() =>
     window.dispatchEvent(new PageTransitionEvent('pagehide')),
   );
   await page.reload();
+  await expect(page.getByRole('textbox', { name: untitled })).toBeVisible();
   await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeHidden();
   expect(sends).toEqual([]);
   expect(await serverDocument(page, roundId, documentId)).toEqual(server);
@@ -422,11 +422,11 @@ test('a real exit save with no failure double commits once and leaves no false r
       async () => (await serverDocument(page, roundId, documentId)).revision,
     )
     .toBe(start.revision + 1);
+  await expect(page.getByRole('textbox', { name: untitled })).toContainText(
+    'Committed by the real exit',
+  );
   await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('Committed by the real exit');
-  await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toHaveCount(0);
   await expect(page.getByText('An unsaved draft is available')).toHaveCount(0);
   await expect.poll(() => rawDraftFor(page, documentId)).toBeNull();
@@ -449,7 +449,7 @@ test('an exit save landing after the next page listed moves the editor, with no 
     'Landed after the list',
   );
   const { revision } = await serverDocument(page, roundId, documentId);
-  const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
+  const editor = page.getByRole('textbox', { name: untitled });
   await editor.click();
   const landed = await page.request.post(`${documentsPath}save`, {
     headers: { origin },
@@ -463,7 +463,7 @@ test('an exit save landing after the next page listed moves the editor, with no 
   await page.clock.runFor(3_000);
   await expect(editor).toContainText('Landed after the list');
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toHaveCount(0);
   await expect.poll(() => rawDraftFor(page, documentId)).toBeNull();
   await page.clock.resume();
@@ -481,7 +481,7 @@ test('adopted text keeps the caret in its words and Undo cannot leave it', async
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
-  const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
+  const editor = page.getByRole('textbox', { name: untitled });
   await edit(page, 'Alpha beta');
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
@@ -497,7 +497,7 @@ test('adopted text keeps the caret in its words and Undo cannot leave it', async
     .toContain('Opening line');
   await reloadLosingExitSave(page);
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   const { recovery } = await draftFor(page, documentId);
   const { revision } = await serverDocument(page, roundId, documentId);
@@ -540,7 +540,7 @@ test('typing while a late commit lands keeps the text and the caret, and overwri
     'Landed under the typing',
   );
   const { revision } = await serverDocument(page, roundId, documentId);
-  const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
+  const editor = page.getByRole('textbox', { name: untitled });
   await editor.click();
   await page.keyboard.type('Typing live');
   const landed = await page.request.post(`${documentsPath}save`, {
@@ -582,15 +582,13 @@ test('lost acknowledgement keeps newer typed notes through reload and explicit r
     .toContain('Newer B');
   await page.reload();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     'Acknowledgement lost A',
   );
   await page.unroute(`**${documentsPath}save`);
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
     .toContain('Newer B after lost acknowledgement');
@@ -641,9 +639,7 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   await expect(shell).toHaveURL(/\/sign-in/);
   await expect.poll(() => draftFor(page, documentId)).toBeNull();
   loggedOut = true;
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(
     'Private pending notes before logout',
   );
@@ -667,9 +663,7 @@ test('observed session revocation fences editing and hides the notes, keeping th
   });
   expect(revoked.status()).toBe(200);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(
     'Pending notes before revocation',
   );
@@ -694,9 +688,7 @@ test('a session ending mid-Round hides the notes with nothing readable, and the 
   await openNotes(page, roundId);
   const cookies = await endSession(page);
   await edit(page, 'Typed as the session ended');
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
   await expect(
     page.getByRole('alert').filter({ hasText: 'Sign in' }),
   ).toBeVisible();
@@ -710,9 +702,7 @@ test('a session ending mid-Round hides the notes with nothing readable, and the 
   expect(await draftFor(page, documentId)).not.toBeNull();
   await page.context().addCookies(cookies);
   await page.goto(`${origin}/rounds/${roundId}`);
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
     .toContain('Typed as the session ended');
@@ -727,9 +717,7 @@ test('a session ending and then a different account signing in erases the copy w
   await endSession(page);
   await edit(page, 'Private to the expired account');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
   await page.goto(`${origin}/`);
   expect(await draftFor(page, documentId)).not.toBeNull();
   const { cookies } = await stranger.storageState();
@@ -756,15 +744,15 @@ test('a 403 refused save keeps the editor text and the draft', async ({
   );
   await edit(page, 'Typed while refused');
   await expect(page.getByText('can’t be saved')).toBeVisible();
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('Typed while refused');
+  await expect(page.getByRole('textbox', { name: untitled })).toContainText(
+    'Typed while refused',
+  );
   expect((await draftFor(page, documentId)).active.html).toContain(
     'Typed while refused',
   );
   await page.reload();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
 });
 
@@ -799,18 +787,16 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
   await expect(page.getByLabel('Server copy of Untitled')).toContainText(
     'Saved in another tab',
   );
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
     .toContain('Offered before the conflict');
   await expect(conflict).toBeHidden();
   await page
-    .getByRole('button', { name: 'Discard recovered Untitled', exact: true })
+    .getByRole('button', { name: /^Discard recovered Untitled( \d+)?$/ })
     .click();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeHidden();
   await expect(page.getByText('An unsaved draft is available')).toHaveCount(0);
 });
@@ -838,9 +824,7 @@ test('account switch purges old-principal recovery across tabs without revealing
   await expect(nextAccount.locator('body')).not.toContainText(
     'Private notes from the former account',
   );
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
 });
 
 test('multibyte multi-document exit keeps overflow recoverable after a lost exit save and each choice targets its own file', async ({
@@ -849,9 +833,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   const { page, roundId, documentId } = roundFiles;
   const second = await createRoundFile(page.request, roundId);
   await page.reload();
-  await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('textbox', { name: untitled })).toBeVisible();
   await page.clock.install({ time: '2026-11-01T18:00:00Z' });
   await page.clock.pauseAt('2026-11-01T18:01:00Z');
   const bodies: string[] = [];
@@ -895,7 +877,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
     page.getByRole('button', { name: `Restore ${second.title}`, exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toHaveCount(0);
   await page
     .getByRole('button', { name: `Restore ${second.title}`, exact: true })
@@ -920,20 +902,20 @@ test('after a lost exit save, the Round receipt visibly restores a private draft
   await leaveLosingExitSave(page, () =>
     page.goto(`${origin}/rounds/${roundId}`),
   );
-  const files = page.getByRole('region', { name: 'Your Round files' });
+  const files = page.getByRole('region', { name: 'Your files' });
   await expect(
-    files.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    files.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   await expect(
-    files.getByRole('textbox', { name: 'Untitled', exact: true }),
+    files.getByRole('textbox', { name: untitled }),
   ).not.toContainText('Receipt recovery text');
   await page.unroute(`**${documentsPath}save`);
   await files
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
+    .getByRole('button', { name: /^Restore Untitled( \d+)?$/ })
     .click();
-  await expect(
-    files.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('Receipt recovery text');
+  await expect(files.getByRole('textbox', { name: untitled })).toContainText(
+    'Receipt recovery text',
+  );
   await expect
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
     .toContain('Receipt recovery text');
@@ -989,9 +971,7 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
     'concurrent private-note editor',
   );
   await other.goto(page.url());
-  await expect(
-    other.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toBeVisible();
+  await expect(other.getByRole('textbox', { name: untitled })).toBeVisible();
   const accepted = page.waitForResponse(
     (response) =>
       response.url().endsWith(`${documentsPath}save`) && response.ok(),
@@ -1012,13 +992,13 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
   );
   await other.reload();
   await expect(
-    other.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    other.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
-  await expect(
-    other.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('Accepted first-tab text');
+  await expect(other.getByRole('textbox', { name: untitled })).toContainText(
+    'Accepted first-tab text',
+  );
   await other
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
+    .getByRole('button', { name: /^Restore Untitled( \d+)?$/ })
     .click();
   await expect
     .poll(async () => (await serverDocument(other, roundId, documentId)).html)
@@ -1048,18 +1028,18 @@ for (const reloadBeforeRestore of [false, true])
     expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
     if (reloadBeforeRestore) await page.reload();
     await expect(
-      page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+      page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
     ).toBeVisible();
     expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
     expect((await serverDocument(page, roundId, documentId)).html).toContain(
       'Acknowledged NEW',
     );
     await page
-      .getByRole('button', { name: 'Restore Untitled', exact: true })
+      .getByRole('button', { name: /^Restore Untitled( \d+)?$/ })
       .click();
-    await expect(
-      page.getByRole('textbox', { name: 'Untitled', exact: true }),
-    ).toContainText('Independent REC');
+    await expect(page.getByRole('textbox', { name: untitled })).toContainText(
+      'Independent REC',
+    );
     await expect
       .poll(async () => (await serverDocument(page, roundId, documentId)).html)
       .toContain('Independent REC');
@@ -1077,16 +1057,14 @@ test('after a lost exit save, Restore over pending NEW keeps NEW as an independe
     .toContain('REC for swap');
   await reloadLosingExitSave(page);
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   await edit(page, 'Pending NEW for swap');
   await expect
     .poll(async () => (await draftFor(page, documentId))?.active?.html)
     .toContain('Pending NEW for swap');
   const pending = (await draftFor(page, documentId)).active;
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   expect((await draftFor(page, documentId)).recovery).toEqual(pending);
   await page.unroute(`**${documentsPath}save`);
   await page.evaluate(() =>
@@ -1098,7 +1076,7 @@ test('after a lost exit save, Restore over pending NEW keeps NEW as an independe
   expect((await draftFor(page, documentId)).recovery).toEqual(pending);
   await page.reload();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   await page.getByText('Compare recovered and server copies').click();
   await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
@@ -1117,7 +1095,7 @@ test('after a lost exit save, denied clipboard permission exposes selectable rec
     .toContain('Manual recovery copy');
   await reloadLosingExitSave(page);
   await expect(
-    page.getByRole('button', { name: 'Copy recovered Untitled', exact: true }),
+    page.getByRole('button', { name: /^Copy recovered Untitled( \d+)?$/ }),
   ).toBeVisible();
   const before = (await draftFor(page, documentId)).recovery;
   const session = await page.context().newCDPSession(page);
@@ -1137,14 +1115,13 @@ test('after a lost exit save, denied clipboard permission exposes selectable rec
         browserContextId: targetInfo.browserContextId,
       });
     await page
-      .getByRole('button', { name: 'Copy recovered Untitled', exact: true })
+      .getByRole('button', { name: /^Copy recovered Untitled( \d+)?$/ })
       .click();
     await expect(
       page.getByRole('status').filter({ hasText: 'Copy was unavailable' }),
     ).toBeVisible();
     const manual = page.getByRole('textbox', {
-      name: 'Recovered text to copy from Flow',
-      exact: true,
+      name: /^Recovered text to copy from Untitled( \d+)?$/,
     });
     await expect(manual).toHaveValue('Manual recovery copy');
     await manual.focus();
@@ -1159,7 +1136,7 @@ test('after a lost exit save, denied clipboard permission exposes selectable rec
     ).toBe('Manual recovery copy');
     expect((await draftFor(page, documentId)).recovery).toEqual(before);
     await expect(
-      page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+      page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
     ).toBeVisible();
   } finally {
     await session.detach();
@@ -1219,11 +1196,11 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
       expect(previous.recovery).toEqual(recovery);
       expect(previous.active?.html ?? '').not.toContain(next);
       await page
-        .getByRole('button', { name: 'Restore Untitled', exact: true })
+        .getByRole('button', { name: /^Restore Untitled( \d+)?$/ })
         .click();
-      await expect(
-        page.getByRole('textbox', { name: 'Untitled', exact: true }),
-      ).toContainText(next);
+      await expect(page.getByRole('textbox', { name: untitled })).toContainText(
+        next,
+      );
       expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
       expect(await rawDraftFor(page, documentId)).toBe(beforeRestore);
       await expect(
@@ -1237,7 +1214,7 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
         .toBe(true);
       expect((await draftFor(page, documentId)).recovery).toEqual(recovery);
       await expect(
-        page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+        page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
       ).toBeVisible();
     } finally {
       gate.resolve();
@@ -1298,9 +1275,7 @@ test('after lost exit saves, original copy expiry withdraws only that offer whil
   expect(active.generation).toMatch(/^[a-z0-9]{24}$/);
   expect(active.html).toContain('Later independent NEW');
   expect(active.savedAt).toBeGreaterThan(recovery.savedAt);
-  await page
-    .getByRole('button', { name: 'Restore Untitled', exact: true })
-    .click();
+  await page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).click();
   const swapped = await draftFor(page, documentId);
   await noteRevision('after Restore');
   expect(swapped.recovery).toEqual(active);
@@ -1313,7 +1288,7 @@ test('after lost exit saves, original copy expiry withdraws only that offer whil
   await page.clock.setSystemTime(new Date(recovery.expiresAt));
   await reloadLosingExitSave(page);
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
   expect(await draftFor(page, documentId)).toEqual({ recovery: active });
   await noteRevision('after second reload');
@@ -1328,7 +1303,7 @@ test('after lost exit saves, original copy expiry withdraws only that offer whil
     'Later independent NEW',
   );
   await expect(
-    page.getByRole('region', { name: 'Recovered Flow', exact: true }),
+    page.getByRole('region', { name: /^Recovered Untitled( \d+)?$/ }),
   ).not.toContainText('Original expiring REC');
 });
 
@@ -1424,11 +1399,11 @@ test('end-user navigation: leaving a Round through the account menu saves pendin
   await expect.poll(() => draftFor(page, documentId)).toBeNull();
   await page.goBack();
   await expect(page).toHaveURL(`${origin}/rounds/${roundId}`);
+  await expect(page.getByRole('textbox', { name: untitled })).toContainText(
+    'First Round pending NEW',
+  );
   await expect(
-    page.getByRole('textbox', { name: 'Untitled', exact: true }),
-  ).toContainText('First Round pending NEW');
-  await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeHidden();
   await page.goBack();
   await expect(page).toHaveURL(`${origin}/rounds/${second.roundId}`);

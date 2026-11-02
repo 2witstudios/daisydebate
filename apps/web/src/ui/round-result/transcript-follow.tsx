@@ -1,6 +1,12 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 const NEAR_BOTTOM_PX = 24;
 
@@ -27,6 +33,16 @@ export function TranscriptFollow({
     const node = scroller.current;
     if (node && following) node.scrollTop = node.scrollHeight;
   }, [children, following]);
+  // A hidden panel cannot scroll: returning to it lands on the latest line.
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node || !following) return;
+    const observer = new ResizeObserver(() => {
+      node.scrollTop = node.scrollHeight;
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [following]);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div

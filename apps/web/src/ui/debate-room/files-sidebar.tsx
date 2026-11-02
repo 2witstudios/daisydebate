@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, type Dispatch } from 'react';
+import { flushSync } from 'react-dom';
 import { buildTree } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -32,7 +33,11 @@ export function ShowFiles({
       aria-label="Show files"
       aria-expanded="false"
       aria-controls={FILES_ID}
-      onClick={() => dispatch({ type: 'files/toggle' })}
+      onClick={() => {
+        // This button goes away with the click, so focus moves with it.
+        flushSync(() => dispatch({ type: 'files/toggle' }));
+        document.getElementById(FILES_HIDE_ID)?.focus();
+      }}
       className={cn(headerButton, 'max-compact:hidden')}
     >
       <Icon name="drawer" size={18} />

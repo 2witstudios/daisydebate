@@ -41,7 +41,11 @@ export const createFinishedRoundFile = async (page: Page) => {
   const roundId = await startRoundInBrowser(page);
   try {
     const document = await createRoundFile(page.request, roundId);
-    return { roundId, documentId: document.id as string };
+    return {
+      roundId,
+      documentId: document.id as string,
+      title: document.title as string,
+    };
   } finally {
     await forfeitAsHost(page.request, roundId);
   }

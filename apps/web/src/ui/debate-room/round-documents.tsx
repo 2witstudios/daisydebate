@@ -56,7 +56,7 @@ function RoundWorkspace({
 
   return (
     <section
-      aria-label="Your Round files"
+      aria-label="Your files"
       className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
     >
       <h2 className="text-lg font-bold">Your files</h2>

@@ -120,6 +120,10 @@ export const pageToneOf = (
   documentId: string,
 ): PageTone | null => state.pages[documentId] ?? null;
 
+/** Opening a file from a phone's Files panel shows the file. */
+const fromFiles = (phone: PhonePanel): PhonePanel =>
+  phone === 'files' ? 'doc' : phone;
+
 const withDocument = (
   state: RoomState,
   id: string,
@@ -135,7 +139,11 @@ type Reducer<T extends RoomAction['type']> = (
 ) => RoomState;
 
 const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
-  'tabs/open': (s, a) => ({ ...s, tabs: openTab(s.tabs, a.id) }),
+  'tabs/open': (s, a) => ({
+    ...s,
+    tabs: openTab(s.tabs, a.id),
+    phone: fromFiles(s.phone),
+  }),
   'tabs/activate': (s, a) => ({ ...s, tabs: activateTab(s.tabs, a.id) }),
   'tabs/close': (s, a) => ({ ...s, tabs: closeTab(s.tabs, a.id) }),
   'doc/create': (s, a) => {
@@ -149,6 +157,7 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
       ...s,
       documents: [...s.documents, doc],
       tabs: openTab(s.tabs, doc.id),
+      phone: fromFiles(s.phone),
       paletteOpen: false,
     };
   },
@@ -157,8 +166,15 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'doc/server-text': (s, a) =>
     withDocument(s, a.id, (doc) => adoptServerText(doc, a.html, a.now)),
   'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
-  'doc/add': (s, a) => appendWorkspaceDocument(s, a.document),
-  'sidebar/tab': (s, a) => ({ ...s, sidebar: a.tab }),
+  'doc/add': (s, a) => ({
+    ...appendWorkspaceDocument(s, a.document),
+    phone: fromFiles(s.phone),
+  }),
+  'sidebar/tab': (s, a) => ({
+    ...s,
+    sidebar: a.tab,
+    phone: s.phone === s.sidebar ? a.tab : s.phone,
+  }),
   'files/toggle': (s) => ({ ...s, filesOpen: !s.filesOpen }),
   'phone/panel': (s, a) => ({
     ...s,

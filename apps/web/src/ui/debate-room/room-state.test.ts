@@ -191,6 +191,24 @@ describe('reduceRoom sidebars', () => {
   });
 });
 
+describe('a phone opening a file', () => {
+  test('Files gives way to the document', () => {
+    const files = reduceRoom(initialRoomState(casual), {
+      type: 'phone/panel',
+      panel: 'files',
+    });
+    assert({
+      given: 'a file opened and a file created from the phone’s Files panel',
+      should: 'show the document each time',
+      actual: [
+        reduceRoom(files, { type: 'tabs/open', id: 'doc-flow' }).phone,
+        reduceRoom(files, { type: 'doc/create', id: 'doc-new', now }).phone,
+      ],
+      expected: ['doc', 'doc'],
+    });
+  });
+});
+
 describe('reduceRoom doc/loaded and doc/add', () => {
   const reduce = reduceRoom;
   const flow = casual.documents.find((d) => d.id === 'doc-flow')!;

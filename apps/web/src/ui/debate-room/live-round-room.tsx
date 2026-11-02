@@ -130,12 +130,17 @@ export function LiveRoundRoom({
       action={commandAction}
       onAnswer={onAnswer}
     >
-      {(actions) =>
+      {(actions, feedback) =>
         round ? (
           <DebateRoom
             key={`${view.id}:${principalId}`}
             transcript={transcript}
-            notices={notices}
+            notices={
+              <>
+                {notices}
+                {feedback}
+              </>
+            }
             media={(mediaSlot ?? defaultMedia)(view)}
             actions={actions}
             round={round}
@@ -147,6 +152,7 @@ export function LiveRoundRoom({
         ) : (
           <>
             {notices}
+            {feedback}
             <RoundEndedNotice roundId={view.id} />
           </>
         )

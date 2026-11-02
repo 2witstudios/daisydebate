@@ -16,8 +16,6 @@ export type Debater = {
   readonly side: Side;
   /** Null when the room has no rating to show beside the name. */
   readonly rating: number | null;
-  /** A bot's persona; its level is null when the round does not carry one. */
-  readonly bot: { readonly level: string | null } | null;
 };
 
 /** Someone seated in the round, as the Room tab lists them. */

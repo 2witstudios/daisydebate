@@ -179,10 +179,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
     hydrated && !panels.includes(state.phone) && 'max-compact:hidden';
   const transcribing = props.transcript != null;
   return (
-    <div
-      ref={root}
-      className="flex h-dvh flex-col overflow-hidden bg-background text-ink"
-    >
+    <div ref={root} className="flex room-frame flex-col bg-background text-ink">
       <RoundBar round={round} leave={props.leave ?? noLeave} />
       {props.notices}
       <section
@@ -198,7 +195,10 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         </p>
       ) : null}
       <BallotStatus round={round} />
-      <div className={cn('flex min-h-0 flex-1', !hydrated && 'room-stacked')}>
+      <div
+        data-room-workspace
+        className={cn('flex min-h-0 flex-1', !hydrated && 'room-stacked')}
+      >
         <FilesSidebar
           round={round}
           state={state}

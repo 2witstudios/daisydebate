@@ -13,6 +13,7 @@ export type DebateDocumentStore = Pick<
   | 'getRound'
   | 'createDocument'
   | 'listDocuments'
+  | 'listDocumentTitles'
   | 'saveDocument'
   | 'renameDocument'
 >;
@@ -105,9 +106,9 @@ export function createDebateDocumentOperations({
       input: { readonly roundId: string },
     ): Promise<StoredDocument> {
       await ownRound(principal, input.roundId);
-      const existingTitles = (
-        await store.listDocuments({ ownerActorId: principal.actorId })
-      ).map((document) => document.title);
+      const existingTitles = await store.listDocumentTitles({
+        ownerActorId: principal.actorId,
+      });
       const built = buildDocument({
         id: ids.next(),
         now: clock.now(),

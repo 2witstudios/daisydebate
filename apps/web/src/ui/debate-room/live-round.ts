@@ -43,7 +43,6 @@ const debater = (p: Seat): Debater => ({
   initials: initialsOf(p.label),
   side: sideOf[p.role],
   rating: null,
-  bot: p.kind === 'bot' ? { level: null } : null,
 });
 
 const person = (p: Participant): RoundPerson =>

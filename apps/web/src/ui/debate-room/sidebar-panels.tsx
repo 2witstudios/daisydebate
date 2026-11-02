@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch } from 'react';
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { Clock } from '@daisy/clock';
 import { unreadByChannel } from '../../features/debate-room/chat';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -15,7 +15,6 @@ export type PanelProps = {
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly clock: Clock;
-  readonly ids: IdGenerator;
 };
 
 const pill = (on: boolean, ink: string) =>

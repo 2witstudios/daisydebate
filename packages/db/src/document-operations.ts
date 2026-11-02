@@ -99,6 +99,19 @@ export const documentOperations = ({
     );
   },
 
+  /** Only titles, so naming a new document never reads every body. */
+  async listDocumentTitles(input: {
+    readonly ownerActorId: string;
+  }): Promise<readonly string[]> {
+    return instrumented(eventSink, 'listDocumentTitles', async () => {
+      const rows = await database
+        .select({ title: documents.title })
+        .from(documents)
+        .where(eq(documents.ownerActorId, input.ownerActorId));
+      return rows.map((row) => row.title);
+    });
+  },
+
   async saveDocument(input: {
     readonly id: string;
     readonly ownerActorId: string;

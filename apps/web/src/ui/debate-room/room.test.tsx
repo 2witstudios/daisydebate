@@ -154,7 +154,7 @@ describe('DebateRoom', () => {
     assert({
       given: 'a page-level notice',
       should: 'render it inside the viewport-height frame',
-      actual: html.indexOf('h-dvh') < html.indexOf('the notice'),
+      actual: html.indexOf('room-frame') < html.indexOf('the notice'),
       expected: true,
     });
   });

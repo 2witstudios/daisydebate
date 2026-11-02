@@ -148,7 +148,7 @@ export function RoundControls({ round, actions }: Props) {
   return (
     <nav
       aria-label="Round controls"
-      className="grid min-w-0 flex-1 grid-cols-3 items-center gap-4 max-compact:flex-none max-compact:grid-cols-2"
+      className="room-controls min-w-0 flex-1 max-compact:flex-none"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span

@@ -1,12 +1,7 @@
 'use client';
 
 import type { Dispatch, KeyboardEvent, ReactNode } from 'react';
-import {
-  systemClock,
-  systemId,
-  type Clock,
-  type IdGenerator,
-} from '@daisy/clock';
+import { systemClock, type Clock } from '@daisy/clock';
 import { totalUnread, unreadByChannel } from '../../features/debate-room/chat';
 import {
   sidebarTabs,
@@ -52,7 +47,6 @@ export function RoundSidebar({
   transcript,
   phoneClass,
   clock = systemClock,
-  ids = systemId,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
@@ -61,7 +55,6 @@ export function RoundSidebar({
   /** Hides the sidebar on a phone unless one of its tabs is showing. */
   readonly phoneClass: string | false;
   readonly clock?: Clock;
-  readonly ids?: IdGenerator;
 }) {
   const unread = chatUnread(round, state);
   const unseen = (tab: SidebarTab) =>
@@ -148,7 +141,6 @@ export function RoundSidebar({
           state={state}
           dispatch={dispatch}
           clock={clock}
-          ids={ids}
         />,
       )}
       {panel(
@@ -159,7 +151,6 @@ export function RoundSidebar({
           state={state}
           dispatch={dispatch}
           clock={clock}
-          ids={ids}
         />,
       )}
     </aside>

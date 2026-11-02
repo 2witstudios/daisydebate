@@ -91,6 +91,10 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     },
     listDocuments: async ({ ownerActorId }) =>
       [...documents.values()].filter((d) => d.ownerActorId === ownerActorId),
+    listDocumentTitles: async ({ ownerActorId }) =>
+      [...documents.values()]
+        .filter((d) => d.ownerActorId === ownerActorId)
+        .map((d) => d.title),
     saveDocument: async ({ id, ownerActorId, html, expectedRevision }) => {
       const found = owned(id, ownerActorId);
       if (!found) return { status: 'missing' };
