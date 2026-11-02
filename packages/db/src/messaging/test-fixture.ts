@@ -51,10 +51,10 @@ export async function createMessagingTestFixture(client: SQL) {
       'delete from reports where reporter_actor_id in ($1,$2) or subject_actor_id in ($1,$2)',
       [actorId, otherActorId],
     );
-    await client.unsafe('delete from presence_settings where actor_id in ($1,$2)', [
-      actorId,
-      otherActorId,
-    ]);
+    await client.unsafe(
+      'delete from presence_settings where actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
     await client.unsafe('delete from actors where id in ($1,$2)', [
       actorId,
       otherActorId,

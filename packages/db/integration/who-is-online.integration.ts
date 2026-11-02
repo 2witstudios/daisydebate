@@ -133,9 +133,10 @@ test('an active Room is a placement: room while open, round once launched', asyn
     );
     const placement = async () => (await page(ctx)).rows[0]?.placement;
     const inRoom = await placement();
-    await ctx.client.unsafe("update rooms set status = 'started' where id = $1", [
-      roomId,
-    ]);
+    await ctx.client.unsafe(
+      "update rooms set status = 'started' where id = $1",
+      [roomId],
+    );
     const inRound = await placement();
     await ctx.client.unsafe(
       'delete from room_active_memberships where actor_id = $1',

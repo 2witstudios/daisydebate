@@ -15,6 +15,9 @@ export const presenceSettings = pgTable(
     updatedAt: timestampColumn('updated_at').notNull(),
   },
   (table) => [
-    check('presence_settings_status_check', oneOf(table.status, chosenStatuses)),
+    check(
+      'presence_settings_status_check',
+      oneOf(table.status, chosenStatuses),
+    ),
   ],
 );

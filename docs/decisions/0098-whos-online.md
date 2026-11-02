@@ -4,7 +4,7 @@ Status: accepted (owner, 2026-11-02; [plan](https://pagespace.ai/dashboard/lguvh
 Supersedes [ADR 0072](0072-friendships-and-presence.md) §7 (who may see presence),
 §8 (challenge) and its presence-setting consequence. Builds on
 [ADR 0033](0033-presence-and-adjudication.md), [ADR 0043](0043-no-admin-surface-in-participant-app.md),
-[ADR 0070](0070-one-active-room.md), [ADR 0079](0079-signed-internal-operator-api.md) and
+[ADR 0070](0070-one-active-room-per-user.md), [ADR 0079](0079-signed-internal-operator-api.md) and
 [ADR 0089](0089-shared-resource-observation.md).
 
 ## Context

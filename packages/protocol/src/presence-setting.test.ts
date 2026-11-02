@@ -3,7 +3,8 @@ import { onlineRosterSchema, presenceSettingSchema } from './presence-setting';
 setupRitewayBun();
 
 test('the chosen status command', () => {
-  const parse = (value: unknown) => presenceSettingSchema.safeParse(value).success;
+  const parse = (value: unknown) =>
+    presenceSettingSchema.safeParse(value).success;
   assert({
     given: 'a choice, a derived status, and a choice naming another member',
     should: 'accept only the choice',

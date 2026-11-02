@@ -49,7 +49,10 @@ export default async function ShellLayout({
   const onlineRail = parseOnlineRail(jar.get(ONLINE_RAIL_COOKIE)?.value);
   const online =
     identity.state === 'member'
-      ? await OnlineShell({ preference: onlineRail, activeRoomId: activeRoom?.id ?? null })
+      ? await OnlineShell({
+          preference: onlineRail,
+          activeRoomId: activeRoom?.id ?? null,
+        })
       : null;
   const [chosen, notices] =
     identity.state === 'member'

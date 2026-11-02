@@ -17,8 +17,7 @@ const own =
   (
     principal: AuthorizationPrincipal,
     capability:
-      | 'social.rating_visibility.read'
-      | 'social.rating_visibility.update',
+      'social.rating_visibility.read' | 'social.rating_visibility.update',
   ): OwnCollectionFence<{ readonly actorId: string }> =>
   async ({ scope, account }) =>
     requireAuthorization({

@@ -136,5 +136,4 @@ test('every outcome has its own words', () => {
   });
 });
 
-test('declining a challenge', async () => {
-});
+test('declining a challenge', async () => {});

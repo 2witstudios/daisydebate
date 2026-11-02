@@ -58,30 +58,27 @@ const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
     h(
       AppRouterContext,
       { value: router },
-      h(
-        OnlineProvider,
-        {
-          initialRoster: roster(members),
-          initialChallenges: {
-            version: 1,
-            incoming: [
-              {
-                id: 'c'.repeat(24),
-                username: 'mara',
-                mode: 'ranked',
-                format: 'freestyle',
-                createdAt: '2026-11-02T00:00:00.000Z',
-                expiresAt: '2026-11-02T00:02:00.000Z',
-              },
-            ],
-            outgoing: [],
-            accepted: [],
-          },
-          actorId: null,
-          socketUrl: null,
-          children: children as never,
+      h(OnlineProvider, {
+        initialRoster: roster(members),
+        initialChallenges: {
+          version: 1,
+          incoming: [
+            {
+              id: 'c'.repeat(24),
+              username: 'mara',
+              mode: 'ranked',
+              format: 'freestyle',
+              createdAt: '2026-11-02T00:00:00.000Z',
+              expiresAt: '2026-11-02T00:02:00.000Z',
+            },
+          ],
+          outgoing: [],
+          accepted: [],
         },
-      ),
+        actorId: null,
+        socketUrl: null,
+        children: children as never,
+      }),
     ),
   );
 

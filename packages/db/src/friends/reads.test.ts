@@ -102,4 +102,3 @@ test('a refusing fence reads nothing', async () => {
     code: 'VALIDATION',
   });
 });
-

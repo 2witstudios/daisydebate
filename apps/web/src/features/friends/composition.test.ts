@@ -32,7 +32,8 @@ test('friend changes spend their own budget, then discovery, before any pair', a
     );
     assert({
       given: 'a removal naming an unknown member (the existence probe)',
-      should: 'refuse after its own budget and one discovery spend, reaching no pair',
+      should:
+        'refuse after its own budget and one discovery spend, reaching no pair',
       actual: [removed.status, member.spent, stores],
       expected: [
         404,

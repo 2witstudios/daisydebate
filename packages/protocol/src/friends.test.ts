@@ -67,4 +67,3 @@ test('friend reads', () => {
     expected: false,
   });
 });
-

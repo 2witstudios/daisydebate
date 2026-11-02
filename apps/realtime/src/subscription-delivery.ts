@@ -194,7 +194,10 @@ export function createSubscriptionDelivery({
    * each lease current, and an expired one simply misses this ring.
    */
   function ringOnline() {
-    const frame: ServerMessage = { v: ENVELOPE_VERSION, type: 'online_changed' };
+    const frame: ServerMessage = {
+      v: ENVELOPE_VERSION,
+      type: 'online_changed',
+    };
     for (const connection of connections) {
       const sub = connection.topics.get(ONLINE_TOPIC);
       if (sub?.attached && !sub.initializing)

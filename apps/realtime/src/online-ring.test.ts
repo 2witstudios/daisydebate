@@ -48,7 +48,10 @@ describe('createOnlineRing', () => {
     onlineRing.observe([{ kind: 'messaging.inbox.changed' }]);
     await onlineRing.tick();
     const ignored = rings();
-    onlineRing.observe([{ kind: 'room.changed' }, { kind: 'round.phase-changed' }]);
+    onlineRing.observe([
+      { kind: 'room.changed' },
+      { kind: 'round.phase-changed' },
+    ]);
     await onlineRing.tick();
     assert({
       given: 'an unrelated row, then two status rows in one tick',

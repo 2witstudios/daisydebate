@@ -18,9 +18,7 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const render = (
-  list: Parameters<typeof FriendsPage>[0]['list'],
-) =>
+const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
   renderInStore(
     h(
       AppRouterContext,

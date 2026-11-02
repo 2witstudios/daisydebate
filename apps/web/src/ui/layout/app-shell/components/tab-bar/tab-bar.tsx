@@ -128,24 +128,21 @@ export function TabBar({
             </p>
           ) : null}
           {statusControl}
-        <ul
-          aria-label="More"
-          className="flex list-none flex-col p-2"
-        >
-          {moreLinks.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                aria-current={
-                  itemActive(pathname, link.href) ? 'page' : undefined
-                }
-                className={sheetLinkClass}
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+          <ul aria-label="More" className="flex list-none flex-col p-2">
+            {moreLinks.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={
+                    itemActive(pathname, link.href) ? 'page' : undefined
+                  }
+                  className={sheetLinkClass}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </details>
     </nav>

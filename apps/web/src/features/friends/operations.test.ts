@@ -214,7 +214,9 @@ test('readFriendList', async () => {
     requesterActorId,
     requestedAt: now,
     otherChosen:
-      otherActorId === 'g'.repeat(24) ? ('offline' as const) : ('online' as const),
+      otherActorId === 'g'.repeat(24)
+        ? ('offline' as const)
+        : ('online' as const),
     otherPlacement: null,
   });
   const asked: (readonly string[])[] = [];
@@ -265,4 +267,3 @@ test('readFriendList', async () => {
     expected: 2,
   });
 });
-

@@ -124,4 +124,3 @@ export function friendRelationOf(
   if (pair.state === 'accepted') return 'friends';
   return pair.requesterActorId === viewerActorId ? 'outgoing' : 'incoming';
 }
-

@@ -1,8 +1,4 @@
-import {
-  reportOutcomes,
-  reportReasons,
-  reportSurfaces,
-} from '@daisy/protocol';
+import { reportOutcomes, reportReasons, reportSurfaces } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';

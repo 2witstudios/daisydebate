@@ -1,6 +1,9 @@
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
-import { challengeReadOperations, createChallengeStore } from './challenges/store';
+import {
+  challengeReadOperations,
+  createChallengeStore,
+} from './challenges/store';
 import { friendshipReadOperations } from './friends/reads';
 import { createReportStore, reportOperations } from './reports/store';
 import { rosterOperations } from './presence/roster';

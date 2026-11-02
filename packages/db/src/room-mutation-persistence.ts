@@ -66,9 +66,7 @@ export const persistRoomMutation = async (
   // ISSUE-699: a challenge invites to a room still gathering its players,
   // so it goes the moment the room is no longer open (Rooms' own vocabulary).
   if (!isOpenRoomStatus(next.status))
-    await tx
-      .delete(challenges)
-      .where(eq(challenges.roomId, next.id));
+    await tx.delete(challenges).where(eq(challenges.roomId, next.id));
   await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
   if (next.participants.length)
     await tx.insert(roomParticipants).values(

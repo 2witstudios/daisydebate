@@ -137,4 +137,3 @@ test('the list read answers the member’s own list', async () => {
     ],
   });
 });
-
