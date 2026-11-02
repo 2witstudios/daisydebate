@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
 import type { App } from './app';
@@ -29,6 +30,15 @@ export function startRoundCompetitiveMaintenance(input: {
       instanceId,
       ids: app.ids,
       evaluate: attendance.evaluate,
+      judgingEnded: (reason) =>
+        workerFailures(app, input.reporter)(
+          'round.judging.failed',
+          'round.judging',
+          'Judging ended without a ballot',
+        )(
+          createAppError('INFRASTRUCTURE', `Judging ended: ${reason}`),
+          'complete',
+        ),
       ratingFailed: (_roundId, error) =>
         workerFailures(app, input.reporter)(
           'round.maintenance.failed',
@@ -41,6 +51,7 @@ export function startRoundCompetitiveMaintenance(input: {
         null,
     }),
     timers: input.timers,
+    now: () => performance.now(),
     held: ({ rounds, oldestMs }) =>
       app.logger.log(
         'round.attendance.held',

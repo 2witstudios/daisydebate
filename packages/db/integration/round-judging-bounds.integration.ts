@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import type { JudgingAttemptDiagnostic } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -346,7 +347,7 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
   });
 });
 
-test('a held ballot that can never submit stops holding the Round at the cutoff', async () => {
+test('a held ballot outlives the cutoff until it has had its chance to submit', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const claim = await jobs.claim(target);
     await jobs.beginModelCall(claim.scope, claim.token);
@@ -363,13 +364,25 @@ test('a held ballot that can never submit stops holding the Round at the cutoff'
       );
       return (row as { can: boolean }).can;
     };
-    const before = await canRule();
+    const beforeCutoff = await canRule();
     await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    const pastCutoff = await canRule();
+    const attemptId = createId();
+    await fixture.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,backend_pid,backend_started_at)
+      select ${attemptId},${createId()},${roundId},${'b'.repeat(64)},actor_id,1,'2026-10-22 00:00:00+00' from round_participants where round_id=${roundId} limit 1`;
+    await fixture.sql`update round_check_in_attempts set state='aborted',resolved_at=clock_timestamp() where attempt_id=${attemptId}`;
+    const writerJustResolved = await canRule();
+    await fixture.sql`delete from round_check_in_attempts where attempt_id=${attemptId}`;
     assert({
-      given: 'a validated ballot past its budget, before and after the cutoff',
-      should: 'count as able to rule only until the cutoff',
-      actual: [before, await canRule()],
-      expected: [true, false],
+      given: 'a validated ballot past its budget',
+      should:
+        'wait to the cutoff, stop there, and get a fresh chance when an uncertain writer resolves',
+      actual: { beforeCutoff, pastCutoff, writerJustResolved },
+      expected: {
+        beforeCutoff: true,
+        pastCutoff: false,
+        writerJustResolved: true,
+      },
     });
   });
 });

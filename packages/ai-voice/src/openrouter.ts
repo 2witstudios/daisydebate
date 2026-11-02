@@ -78,6 +78,15 @@ const definiteFailures = new WeakSet<Error>();
 export const isDefiniteProviderFailure = (error: unknown): boolean =>
   error instanceof Error && definiteFailures.has(error);
 const rateLimits = new WeakSet<Error>();
+const unhealable = new WeakSet<Error>();
+/** The vendor refused the request itself, so an identical retry cannot succeed. */
+const requestRefusals: ReadonlySet<number> = new Set([400, 404, 422]);
+/**
+ * A retry of this same request cannot succeed. A key, credit or permission
+ * failure is not one of these: an operator can fix it while the job still waits.
+ */
+export const isUnhealableProviderRefusal = (error: unknown): boolean =>
+  error instanceof Error && unhealable.has(error);
 /**
  * A retry may succeed: every uncertain failure, and a rate limit (429), which
  * is a definite refusal for now. Never another vendor refusal, nor a call
@@ -152,6 +161,7 @@ export function createOpenRouter({
         `OpenRouter ${path} answered ${response.status}`,
       );
       if (response.status === 429) rateLimits.add(failure);
+      if (requestRefusals.has(response.status)) unhealable.add(failure);
       throw vendorRefused(response.status) ? definite(failure) : failure;
     }
     return response;

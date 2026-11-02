@@ -10,7 +10,7 @@ import type { hydrateRoundRows } from './round-hydration';
 import type { roundCommands } from './schema/round-commands';
 
 /** The identity of one internal zero-judge completion request. */
-export type UnjudgedRequest = {
+export type PanelRequest = {
   readonly instanceId: string;
   readonly commandId: string;
   readonly roundId: string;
@@ -28,9 +28,9 @@ export type PanelDurableFacts = {
 
 const ineligible = () => createAppError('CONFLICT', 'panel-ineligible');
 const receiptConflict = () =>
-  createAppError('CONFLICT', 'unjudged-receipt-conflict');
+  createAppError('CONFLICT', 'panel-receipt-conflict');
 
-export function requirePanelRequest(input: UnjudgedRequest): void {
+export function requirePanelRequest(input: PanelRequest): void {
   if (
     ![input.instanceId, input.commandId, input.roundId].every(
       (id) => idSchema.safeParse(id).success,
@@ -42,11 +42,11 @@ export function requirePanelRequest(input: UnjudgedRequest): void {
 }
 
 /** Binds a command row to this Round and frozen revision, never to the caller. */
-export const panelDigest = (input: UnjudgedRequest) =>
+export const panelDigest = (input: PanelRequest) =>
   new CryptoHasher('sha3-256')
     .update(
       JSON.stringify({
-        purpose: 'complete-unjudged',
+        purpose: 'complete-panel',
         roundId: input.roundId,
         freezeRevision: input.freezeRevision,
       }),
@@ -55,7 +55,7 @@ export const panelDigest = (input: UnjudgedRequest) =>
 
 function requireReceiptCommand(
   row: CommandRow,
-  input: UnjudgedRequest,
+  input: PanelRequest,
   digest: string,
 ) {
   if (
@@ -69,9 +69,9 @@ function requireReceiptCommand(
 }
 
 /** A stored completion replays only if it is this service's exact zero-judge receipt. */
-export function validateUnjudgedReceipt(
+export function validatePanelReceipt(
   row: CommandRow,
-  input: UnjudgedRequest,
+  input: PanelRequest,
   digest: string,
 ) {
   requireReceiptCommand(row, input, digest);

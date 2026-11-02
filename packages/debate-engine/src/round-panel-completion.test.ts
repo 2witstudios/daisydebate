@@ -85,7 +85,7 @@ test('zero-judge completion projects an unjudged terminal result in the shared e
   });
 });
 
-test('unjudged completion refuses with its invariant and preserves state', async () => {
+test('panel completion refuses with its invariant and preserves state', async () => {
   const cases = [
     { world: closedWith({ participants: oneOnOneSeats }) },
     { world: closedWith({ rules: oneOnOneRules() }) },

@@ -6,7 +6,7 @@
       "check": "panel-played-round",
       "testReference": {
         "path": "packages/debate-engine/src/round-panel-completion.test.ts",
-        "name": "unjudged completion refuses with its invariant and preserves state"
+        "name": "panel completion refuses with its invariant and preserves state"
       }
     },
     {

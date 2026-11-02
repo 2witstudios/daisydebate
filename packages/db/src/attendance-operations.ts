@@ -132,7 +132,7 @@ export function createAttendanceOperations(deps: {
           tx,
           input.roundId,
         );
-        // Only an undecided window can still take a receipt.
+        // Targets are undecided windows; samples start at the earliest of them.
         const undecided = fenced.round.segments.find(
           (segment) =>
             segment.type === 'speech' &&

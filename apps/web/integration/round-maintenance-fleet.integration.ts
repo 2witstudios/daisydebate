@@ -48,6 +48,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       });
       const { roundIds: discovered } = await operations.discover();
       maintenance = startRoundMaintenance({
+        now: () => performance.now(),
         ...operations,
         timers,
         failed: (error) => failures.push(error),

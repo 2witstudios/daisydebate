@@ -9,6 +9,8 @@ type Sampler = {
 };
 /** How often the elected sampler rechecks that the probe's resources exist. */
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
+/** How soon a failed check tries again. */
+const PROBE_RESOURCE_RETRY_MS = 60_000;
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -23,16 +25,16 @@ export function startAvailabilityService(deps: {
   readonly probe: () => Promise<boolean>;
   /**
    * Whether the configured probe's resources still exist, read at start and
-   * then hourly. Null without a configured probe. Never decides health.
+   * then hourly. Never decides health.
    */
   readonly probeResources?: () => Promise<readonly string[]>;
   readonly probeInvalid?: (problem: string) => void;
   /** Monotonic milliseconds. */
-  readonly nowMs?: () => number;
+  readonly nowMs: () => number;
   readonly timers: WorkerTimers;
   readonly failed: () => void;
 }) {
-  const nowMs = deps.nowMs ?? (() => performance.now());
+  const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
   let checkingResources = false;
   /** Beside the cycle, never in it: pool pressure must not stall the sampler. */
@@ -49,6 +51,9 @@ export function startAvailabilityService(deps: {
       resourcesCheckedAt = nowMs();
       for (const problem of problems) deps.probeInvalid?.(problem);
     } catch {
+      // Not every second, into the pressure that caused it.
+      resourcesCheckedAt =
+        nowMs() - PROBE_RESOURCE_CHECK_MS + PROBE_RESOURCE_RETRY_MS;
       deps.probeInvalid?.('check_failed');
     } finally {
       checkingResources = false;

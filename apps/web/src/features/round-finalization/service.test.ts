@@ -15,6 +15,7 @@ const ports = (): Ports => ({
   finalize: async () => {},
   rateUnrated: async () => {},
   timers: { setInterval: () => 1, clearInterval: () => {} },
+  now: () => 0,
   failed: (error) => {
     throw error;
   },
@@ -45,6 +46,7 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     rateUnrated: async () => {
       calls.push('rating-recovery');
     },
+    now: () => 0,
     timers: {
       setInterval: (_pulse: () => void, ms: number) => {
         interval = ms;
@@ -502,6 +504,31 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
     should: 'not retry or report the tick again',
     actual: { ticks, stages },
     expected: { ticks: 1, stages: ['tick'] },
+  });
+  await service.stop();
+});
+
+test('a Round that leaves discovery leaves no pacing state to report', async () => {
+  const held: { rounds: number }[] = [];
+  let ids = ['gone', 'kept'];
+  const { service, pulse, advance } = driven({
+    discover: async () => page(ids),
+    evaluate: async () => ({ decision: 'held' }),
+    held: (measure) => held.push(measure),
+  });
+  await service.ready;
+  await flush();
+  ids = ['kept'];
+  await pulse();
+  await flush();
+  advance(60_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'one of two held Rounds completing and leaving discovery',
+    should: 'measure only the one still held',
+    actual: held.at(-1)?.rounds,
+    expected: 1,
   });
   await service.stop();
 });

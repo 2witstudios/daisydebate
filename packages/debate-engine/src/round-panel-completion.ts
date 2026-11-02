@@ -93,7 +93,8 @@ export function decidePanelCompletion(
   if (outcome !== null && outcome !== 'draw')
     return { kind: 'complete', ruling: 'partial', outcome, noRuling };
   // A tie can still change while the human window is open: a voided seat may rule again.
-  if (humanWindowOpen) return { kind: 'pending' };
+  if (humanWindowOpen && input.humanJudgeSeatIds.length > 0)
+    return { kind: 'pending' };
   return {
     kind: 'complete',
     ruling: noOutcomeRuling(input),
@@ -159,14 +160,14 @@ export function applyPanelCompletion(
   )
     throw createInvariantError(
       debateInvariantIds.panelPlayedRound,
-      'Unjudged completion requires a closed Round with no judge still able to rule',
+      'Panel completion requires a closed Round with no judge still able to rule',
     );
   c.assertSeatCompleteness();
   const finalEnd = c.on.rows().at(-1)?.endedAtMs;
   if (finalEnd === undefined || finalEnd === null || c.now < finalEnd)
     throw createInvariantError(
       debateInvariantIds.panelPlayedRound,
-      'Unjudged completion follows the actual final end',
+      'Panel completion follows the actual final end',
     );
   c.on.endPrep();
   c.on.setLifecycle({

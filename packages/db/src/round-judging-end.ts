@@ -4,14 +4,23 @@ import { roundJudgingJobs } from './schema/round-judging-jobs';
 
 /**
  * Whether a job can still produce or submit a ballot: it has generation budget,
- * or holds a validated ballot and the attendance cutoff has not passed. Past
- * that a ballot that can never submit stops holding the Round. Reads from
- * round_judging_jobs by name; one rule for the panel decision and the room.
+ * or it holds a validated ballot that has had its chance to submit. A held
+ * ballot waits out attendance, so its bound runs from whichever is latest: the
+ * attendance cutoff, the last attendance decision, or the last uncertain writer
+ * resolving, plus a grace for a worker to submit. Only past that does a ballot
+ * that can never submit stop holding the Round. One rule for the panel and the
+ * room; reads round_judging_jobs by name.
  */
 export const judgingJobCanRule = sql`(round_judging_jobs.status in ('queued','leased') and (
   round_judging_jobs.generation_deadline_at>clock_timestamp()
   or (round_judging_jobs.pending_ballot is not null and coalesce(
-    (select cutoff_round.attendance_resolution_cutoff_at>clock_timestamp() from rounds cutoff_round where cutoff_round.id=round_judging_jobs.round_id),true))))`;
+    (select greatest(
+      cutoff_round.attendance_resolution_cutoff_at,
+      (select max(decided.applied_at) from round_attendance_adjudications decision
+        join round_commands decided on decided.command_id=decision.command_id and decided.round_id=decision.round_id
+        where decision.round_id=cutoff_round.id)+interval '10 minutes',
+      (select max(writer.resolved_at) from round_check_in_attempts writer where writer.round_id=cutoff_round.id)+interval '10 minutes'
+    )>clock_timestamp() from rounds cutoff_round where cutoff_round.id=round_judging_jobs.round_id),true))))`;
 
 /** A judging job still open when its Round ends has ended too, with that reason. */
 export async function endOpenJudgingJobs(
@@ -23,11 +32,12 @@ export async function endOpenJudgingJobs(
     where kind='judging' and ended_at is null and round_participant_id in (
       select judge_participant_id from round_judging_jobs
       where round_id=${roundId} and status in ('queued','leased'))`);
-  await tx
+  return tx
     .update(roundJudgingJobs)
     .set({
       status: 'failed',
-      terminalReason: 'round_ended',
+      // Past its budget with no ballot, the budget ended it, not the Round.
+      terminalReason: sql`case when ${roundJudgingJobs.pendingBallot} is null and ${roundJudgingJobs.generationDeadlineAt}<=clock_timestamp() then 'generation_deadline' else 'round_ended' end`,
       retryAt: null,
       leaseTokenDigest: null,
       leaseExpiresAt: null,
@@ -41,5 +51,6 @@ export async function endOpenJudgingJobs(
         eq(roundJudgingJobs.roundId, roundId),
         inArray(roundJudgingJobs.status, ['queued', 'leased']),
       ),
-    );
+    )
+    .returning({ reason: roundJudgingJobs.terminalReason });
 }

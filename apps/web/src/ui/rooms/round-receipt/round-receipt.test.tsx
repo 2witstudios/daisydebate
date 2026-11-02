@@ -306,3 +306,19 @@ test('a spectator of a host-list draw reads struck lines as the host’s, not as
     expected: [true, false],
   });
 });
+
+test('a Round abandoned at the attendance cutoff blames nobody', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt round={{ ...judged, status: 'abandoned', outcome: null }} />,
+  );
+  assert({
+    given: 'an abandoned judged Round, whose judge may well have ruled',
+    should: 'say it closed, with no result line blaming the judges',
+    actual: [
+      html.includes('Round · Closed'),
+      html.includes('Result ·'),
+      html.includes('Judges did not rule'),
+    ],
+    expected: [true, false, false],
+  });
+});

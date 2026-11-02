@@ -88,7 +88,7 @@ export const roundViewSchema = z.strictObject({
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
-  /** The unjudged finalizer's ruling, from its durable receipt; null for any other completion. */
+  /** The panel completion's ruling, from its durable receipt; null for any other completion. */
   panelRuling: panelRulingSchema.nullable(),
   /** What a played Round is waiting on; null until its speeches end. */
   waitingOn: roundWaitingOnSchema.nullable(),

@@ -221,3 +221,31 @@ test('a long-outage evaluation stays inside its transaction budget, and the cuto
       await cleanUp(input);
     }
   }));
+
+test('past the cutoff a provable absence is still decided, not abandoned', () =>
+  withAttendanceRound(async (input) => {
+    const { f, attendance, roundId, segmentId } = input;
+    const { opponent } = await seatsOf(input);
+    await f.sql`update rounds set started_at=started_at-interval '50 seconds' where id=${roundId}`;
+    await f.sql`update round_segments set started_at=started_at-interval '50 seconds' where id=${segmentId}`;
+    await stamp(input, opponent, 1000);
+    await f.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select s.started_at+n*interval '1 second',true,null
+        from round_segments s, generate_series(-3,47) n where s.id=${segmentId}`;
+    });
+    await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    try {
+      const resolved = await attendance.evaluate(roundId);
+      assert({
+        given: 'healthy history proving the absence, read after the cutoff',
+        should: 'forfeit on the evidence',
+        actual: resolved?.decision,
+        expected: 'forfeit',
+      });
+    } finally {
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours'`;
+      await cleanUp(input);
+    }
+  }));

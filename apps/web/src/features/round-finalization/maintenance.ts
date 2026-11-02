@@ -98,6 +98,8 @@ export function createRoundMaintenanceOperations(input: {
   >;
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
+  /** An AI judge's job ended at completion, with no worker there to report it. */
+  readonly judgingEnded?: (reason: string) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (
     roundId: string,
@@ -176,6 +178,7 @@ export function createRoundMaintenanceOperations(input: {
           freezeRevision: result.freeze.revision,
           buildProjection,
           buildCompletion: panelCompletion(() => input.ids.next()),
+          ...(input.judgingEnded ? { judgingEnded: input.judgingEnded } : {}),
         });
       } catch (error) {
         if (

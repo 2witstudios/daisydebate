@@ -195,6 +195,32 @@ test('a released worker never records a failure for a lease it lost', async () =
   });
 });
 
+test('only a refusal of the request itself is final: a key or credit failure can still be fixed', async () => {
+  const refusedWith = async (status: number) => {
+    const { log, operations } = harness(async () => {
+      const { createOpenRouter } = await import('@daisy/ai-voice');
+      return createOpenRouter({
+        apiKey: 'k',
+        fetch: async () => new Response('', { status }),
+      }).complete({ model: 'm', messages: [], maxTokens: 1 });
+    });
+    await operations.executeClaim(claim, new AbortController().signal);
+    return log.failures[0]?.final;
+  };
+  assert({
+    given: 'statuses 400, 404, 401, 402 and 403',
+    should: 'end the job only on a refusal of the request',
+    actual: [
+      await refusedWith(400),
+      await refusedWith(404),
+      await refusedWith(401),
+      await refusedWith(402),
+      await refusedWith(403),
+    ],
+    expected: [true, true, false, false, false],
+  });
+});
+
 test('a rate limit may retry, and a timeout during the call stays counted as paid', async () => {
   const limited = harness(async () => {
     const { createOpenRouter } = await import('@daisy/ai-voice');

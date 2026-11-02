@@ -8,7 +8,7 @@ import {
   requirePanelTerminal,
   panelDigest,
   panelReceipt,
-  validateUnjudgedReceipt,
+  validatePanelReceipt,
 } from './round-panel-decisions';
 
 setupRitewayBun();
@@ -31,8 +31,8 @@ const receipt = panelReceipt({
   noRuling: [judgeSeat],
 });
 const commandRow = (
-  overrides: Partial<Parameters<typeof validateUnjudgedReceipt>[0]> = {},
-): Parameters<typeof validateUnjudgedReceipt>[0] => ({
+  overrides: Partial<Parameters<typeof validatePanelReceipt>[0]> = {},
+): Parameters<typeof validatePanelReceipt>[0] => ({
   commandId: ids.commandId,
   roundId: ids.roundId,
   actorId: null,
@@ -111,7 +111,7 @@ test('only this service exact zero-judge receipt replays', async () => {
   assert({
     given: 'the stored receipt for this command, Round and revision',
     should: 'return the parsed receipt',
-    actual: validateUnjudgedReceipt(commandRow(), request, digest),
+    actual: validatePanelReceipt(commandRow(), request, digest),
     expected: receipt,
   });
   for (const [label, row] of [
@@ -140,7 +140,7 @@ test('only this service exact zero-judge receipt replays', async () => {
     await assertRejects({
       given: `a stored completion with ${label}`,
       should: 'refuse replay as a receipt conflict',
-      actual: () => validateUnjudgedReceipt(row, request, digest),
+      actual: () => validatePanelReceipt(row, request, digest),
       code: 'CONFLICT',
     });
 });

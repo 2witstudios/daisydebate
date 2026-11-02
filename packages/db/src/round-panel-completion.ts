@@ -30,7 +30,7 @@ import {
   requirePanelTerminal,
   panelDigest,
   panelReceipt,
-  validateUnjudgedReceipt,
+  validatePanelReceipt,
   type PanelDurableFacts,
 } from './round-panel-decisions';
 
@@ -55,6 +55,8 @@ type Request = LockedRoundTickInput & {
   readonly instanceId: string;
   readonly commandId: string;
   readonly freezeRevision: number;
+  /** Once per AI job this completion found out of budget. */
+  readonly judgingEnded?: (reason: 'generation_deadline') => void;
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
   readonly buildCompletion: (facts: CompletionFacts) => {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
@@ -82,7 +84,7 @@ async function replay(
     )
     .limit(1);
   if (!row) return null;
-  const receipt = validateUnjudgedReceipt(row, input, digest);
+  const receipt = validatePanelReceipt(row, input, digest);
   requirePanelTerminal(
     await lockedRoundVersion(tx, input.roundId),
     receipt.outcome,
@@ -165,7 +167,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
   );
   const prior = await replay(tx, input, digest, true);
-  if (prior) return prior;
+  if (prior) return { receipt: prior, ended: [] };
   let facts: Awaited<ReturnType<typeof fenceAttendance>>;
   try {
     facts = await fenceAttendance(tx, input.roundId, input.commandId, null);
@@ -176,7 +178,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       error.message === 'attendance-terminal'
     ) {
       const terminal = await replay(tx, input, digest, false);
-      if (terminal) return terminal;
+      if (terminal) return { receipt: terminal, ended: [] };
     }
     throw error;
   }
@@ -236,16 +238,21 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     resultingVersion: receipt.resultingVersion,
     commandId: input.commandId,
   });
-  await endOpenJudgingJobs(tx, input.roundId);
+  const ended = await endOpenJudgingJobs(tx, input.roundId);
   await requireCurrentWeb(tx, input.instanceId);
-  return receipt;
+  return { receipt, ended };
 }
 
 export function roundPanelCompletionOperations(run: BoundedTransaction) {
   return {
-    completePanelRound(input: Request): Promise<RoundPanelReceipt> {
+    async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
       requirePanelRequest(input);
-      return run((tx) => complete(tx, input));
+      const { receipt, ended } = await run((tx) => complete(tx, input));
+      // After commit: an AI judge that ran out of budget is reported even when
+      // no judging worker was running to see it.
+      for (const { reason } of ended)
+        if (reason === 'generation_deadline') input.judgingEnded?.(reason);
+      return receipt;
     },
   };
 }

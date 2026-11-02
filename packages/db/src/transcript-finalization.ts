@@ -1,3 +1,7 @@
+import {
+  appendRoundPhaseChanged,
+  lockedRoundVersion,
+} from './round-projection-writer';
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
@@ -129,6 +133,14 @@ export async function finalizeLockedRoundTranscript(
     .returning();
   await planFrozenJudging(tx, request, state);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
+  // What the Round waits on changes here, so the room must read it: a new version
+  // and a ring, as with any other change the server records.
+  const { version } = await lockedRoundVersion(tx, request.roundId);
+  await tx
+    .update(rounds)
+    .set({ version: version + 1 })
+    .where(eq(rounds.id, request.roundId));
+  await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },

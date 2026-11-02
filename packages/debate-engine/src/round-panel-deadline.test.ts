@@ -372,6 +372,11 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
       'pending',
     ],
     [
+      'an AI-only Round frozen with an old deadline, its job failed: no human to wait for',
+      { seats: [ai], failed: [ai], deadline: 61_000 },
+      'judging-failed:null',
+    ],
+    [
       'a tied panel with nobody left to rule',
       {
         seats: [ai, other],

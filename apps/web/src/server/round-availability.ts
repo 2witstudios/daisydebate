@@ -18,6 +18,7 @@ export function startRoundAvailability(input: {
     instanceId,
     store: app.database,
     timers: input.timers,
+    nowMs: () => performance.now(),
     probe: createPublicCheckInProbe({
       configuration,
       nextId: () => app.ids.next(),

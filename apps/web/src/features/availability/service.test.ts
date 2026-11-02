@@ -28,6 +28,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       state.probes += 1;
       return state.probeHealthy;
     },
+    nowMs: () => 0,
     timers: {
       setInterval: (callback, ms) => {
         tick = callback;
@@ -175,6 +176,7 @@ test('every process checks the probe resources at start, elected or not', async 
     probe: async () => true,
     probeResources: async () => ['segment_missing'],
     probeInvalid: (problem) => invalid.push(problem),
+    nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
   });
@@ -184,6 +186,57 @@ test('every process checks the probe resources at start, elected or not', async 
     should: 'still name the problem before readiness opens',
     actual: invalid,
     expected: ['segment_missing'],
+  });
+  await service.stop();
+});
+
+test('a failing probe check waits a minute, not a second', async () => {
+  let tick = async () => {};
+  let clock = 0;
+  let reads = 0;
+  const invalid: string[] = [];
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {},
+      availabilitySampler: () => ({
+        elect: async () => true,
+        sample: async () => {},
+        close: async () => {},
+      }),
+    },
+    probe: async () => true,
+    probeResources: async () => {
+      reads += 1;
+      throw new Error('pool saturated');
+    },
+    probeInvalid: (problem) => invalid.push(problem),
+    nowMs: () => clock,
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    failed: () => {},
+  });
+  await service.probeChecked;
+  const pass = async () => {
+    await tick();
+    for (let n = 0; n < 12; n++) await Promise.resolve();
+  };
+  clock = 1_000;
+  await pass();
+  const afterASecond = reads;
+  clock = 61_000;
+  await pass();
+  assert({
+    given: 'a check that fails',
+    should: 'not retry at the next second, and retry after a minute',
+    actual: { afterASecond, afterAMinute: reads, reported: invalid.length },
+    expected: { afterASecond: 1, afterAMinute: 2, reported: 2 },
   });
   await service.stop();
 });

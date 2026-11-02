@@ -1,7 +1,7 @@
 import {
   ballotWireSchema,
   isDefiniteProviderFailure,
-  isTransientProviderFailure,
+  isUnhealableProviderRefusal,
   judgeAnswer,
   judgeContractVersion,
   type OpenRouter,
@@ -109,7 +109,7 @@ export function createRoundJudgingOperations(input: {
             await attemptFailed(
               diagnostic,
               refused,
-              refused && !isTransientProviderFailure(error),
+              isUnhealableProviderRefusal(error),
             );
             concluded = true;
             return;

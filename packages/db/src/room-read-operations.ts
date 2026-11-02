@@ -54,6 +54,11 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
+/** Spares the hottest read this query for the whole of a running debate. */
+const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
+  round.segments.length === round.rules.segments.length &&
+  round.segments.at(-1)?.endedAt !== null;
+
 /** Facts only: the injected engine decision says what they mean. */
 async function readWaitingFacts(
   tx: Pick<BunSQLDatabase, 'execute'>,
@@ -192,7 +197,7 @@ export const roomReadOperations = ({
         const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
         const waitingOn =
-          decideWaitingOn && round.status === 'active'
+          decideWaitingOn && round.status === 'active' && speechesEnded(round)
             ? decideWaitingOn(await readWaitingFacts(tx, round))
             : null;
         return roundViewFor({ ...round, waitingOn }, caller.actorId);

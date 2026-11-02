@@ -1,3 +1,7 @@
+import { createId } from '@paralleldrive/cuid2';
+import { withSeasons } from '@daisy/db/seasons';
+import { buildRoundTopic } from '@daisy/protocol';
+import { recoverRatedResults } from './rated-room.test-support';
 import { roundWaitingOn } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -22,7 +26,7 @@ import {
 import { botAdmissionForTests } from './bot-admission.test-support';
 
 setupRitewayBun();
-requireTestServices(process.env);
+const { databaseUrl } = requireTestServices(process.env);
 
 test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', async () => {
   await withRoomRuntime(
@@ -187,5 +191,82 @@ test('a failed AI judge ends a rated Round honestly: no human countdown, no winn
         held: 0,
       },
     });
+  }, judgingOptions);
+});
+
+test('on a ranked Round, a failed AI judge blocks no human ballot, and the room shows the persisted window', async () => {
+  await withRoomRuntime(async (f) => {
+    const seasonId = createId();
+    const bot = await f.aiJudge();
+    let room = await assembleJudgedRoom(f, 2);
+    room = (
+      await f.command(f.outsider, room, {
+        type: 'claim-seat',
+        role: 'judge',
+        slot: 0,
+      })
+    ).view;
+    room = (
+      await f.command(f.host, room, {
+        type: 'assign-seat',
+        role: 'judge',
+        slot: 1,
+        actorId: bot.actorId,
+      })
+    ).view;
+    room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
+    const { roundId } = await startRuntimeRound(f, room);
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await playOut(f, roundId, true);
+    await finalizeAsWeb(f, roundId);
+    await seedSettledAttendanceLedger(f, roundId);
+    try {
+      await withSeasons(databaseUrl, (s) =>
+        s.activateBetaSeason({ id: seasonId }),
+      );
+      await f.sql`update round_judging_jobs set status='failed',terminal_reason='attempts_exhausted' where round_id=${roundId}`;
+      const seen = () =>
+        f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
+      const waiting = await seen();
+      const [{ deadline }] =
+        await f.sql`select to_char(ballot_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deadline from rounds where id=${roundId}`;
+      await submitHumanBallot(
+        f,
+        roundId,
+        f.outsider.actorId,
+        1,
+        fixtureBallot('The negative answered the decisive clash.', 'negative'),
+      );
+      await finalizeByMaintenance(f, roundId);
+      const done = (await f.store.getRound(roundId))!;
+      const [receipt] =
+        await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
+      await recoverRatedResults(f);
+      const ledger =
+        await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
+      assert({
+        given: 'a ranked mixed panel on a complete freeze whose AI job failed',
+        should:
+          'show the human window to its persisted deadline, complete on the human ballot and rate once',
+        actual: {
+          waitingOn: waiting.waitingOn,
+          done: [done.status, done.outcome],
+          ruling: receipt?.result.ruling,
+          postings: ledger.length,
+        },
+        expected: {
+          waitingOn: { state: 'human_window', deadlineAt: deadline },
+          done: ['completed', 'negative'],
+          ruling: 'partial',
+          postings: 2,
+        },
+      });
+    } finally {
+      await f.sql`delete from rating_changes where round_id=${roundId}`;
+      await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
+      await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
+      await f.sql`delete from rounds where id=${roundId}`;
+      await f.sql`delete from seasons where id=${seasonId}`;
+    }
   }, judgingOptions);
 });

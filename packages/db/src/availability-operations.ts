@@ -147,6 +147,14 @@ const publicProbeProblems = (facts: {
 ];
 
 /**
+ * The most history one read returns: about three hours at one sample a second,
+ * past any Round plus its cutoff, and inside the transaction budget. A longer
+ * history is cut at its end, so the result is a true settled prefix: what it
+ * decides still holds, and what it cannot decide stays undecided.
+ */
+const MAX_ATTENDANCE_SAMPLES = 10_800;
+
+/**
  * The samples a decision about anything opened at or after `from` needs
  * (ISSUE-529): the latest recovery samples before `from`, which fix the
  * outage state it opens into, then every sample since. Fewer earlier
@@ -159,7 +167,7 @@ export const availabilitySamplesFrom = <T>(
 ): T =>
   query`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples
     where at >= coalesce((select at from availability_samples where at < ${from}::timestamptz order by at desc offset ${availabilityRecoveryPolicy.recoverySamples - 1} limit 1),'-infinity'::timestamptz)
-    order by at`;
+    order by at limit ${MAX_ATTENDANCE_SAMPLES}`;
 
 /**
  * Service leases and samples on the control lane; the sampler's election

@@ -309,3 +309,52 @@ for (const [captured, postings] of [
       }
     });
   });
+
+test('an AI job out of budget with no worker running is reported once, with the real reason', async () => {
+  await withRoomRuntime(
+    async (f) => {
+      const { roundId } = await freezeBotJudge(f);
+      await seedSettledAttendanceLedger(f, roundId);
+      await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+      const reported: string[] = [];
+      const instanceId = createId();
+      await f.store.renewServiceInstance({ instanceId, role: 'web' });
+      const maintenance = createRoundMaintenanceOperations({
+        store: f.store,
+        instanceId,
+        ids: { next: createId },
+        ratingFailed: () => {},
+        evaluate: async () => null,
+        startHorizonMs: 60_000,
+        probeRoundId: null,
+        judgingEnded: (reason) => reported.push(reason),
+      });
+      await maintenance.finalize(roundId);
+      await maintenance.finalize(roundId);
+      const [job] =
+        await f.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      assert({
+        given: 'no judging worker ever claiming the job',
+        should: 'record the budget as the reason and report it exactly once',
+        actual: {
+          job,
+          reported,
+          status: (await f.store.getRound(roundId))!.status,
+        },
+        expected: {
+          job: { status: 'failed', terminal_reason: 'generation_deadline' },
+          reported: ['generation_deadline'],
+          status: 'completed',
+        },
+      });
+    },
+    {
+      judging: {
+        leaseMs: 60000,
+        model: 'fixture-model',
+        nextToken: () => randomBytes(32).toString('base64url'),
+      },
+    },
+  );
+});

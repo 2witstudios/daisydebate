@@ -31,7 +31,7 @@ type MaintenancePorts = {
   /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
   readonly failed: (error: unknown, stage: string) => void;
   /** Monotonic milliseconds. */
-  readonly now?: () => number;
+  readonly now: () => number;
   /** Rounds an uncertain check-in writer holds, so none can go silently stuck. */
   readonly held?: (measure: {
     readonly rounds: number;
@@ -53,7 +53,7 @@ const evaluationOf = (
     : 'continue';
 /** Backoff and hold state per Round, so a known-blocked Round costs little and says why. */
 function createEvaluationPacing(input: MaintenancePorts) {
-  const now = input.now ?? (() => performance.now());
+  const { now } = input;
   const retryAt = new Map<string, number>();
   const failures = new Map<string, number>();
   const heldSince = new Map<string, number>();
@@ -101,7 +101,13 @@ function createEvaluationPacing(input: MaintenancePorts) {
         return 'continue';
       }
     },
-    known: () => heldSince.keys(),
+    /** Every Round holding pacing state, so a finished one can be forgotten. */
+    known: () =>
+      new Set(
+        [...retryAt.keys(), ...failures.keys(), ...heldSince.keys()].map(
+          (key) => key.replace(/^(?:tick|finalize):/, ''),
+        ),
+      ),
     due: (key: string) =>
       now() >= (retryAt.get(key) ?? Number.NEGATIVE_INFINITY),
     recovered: (key: string) => {
