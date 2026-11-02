@@ -1,19 +1,18 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
-import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { createMediaWorkerClient } from '@daisy/media/worker';
+import {
+  captureScope as ids,
+  historyAnswer,
+  longestObservationHoleMs,
+  signedCaptureClient,
+  tokenAnswer,
+} from './capture-client.test-support';
 import { consumeCaptureClips } from './capture-consumer';
 import { runCaptureSession } from './capture-session';
 setupRitewayBun();
 
-const ids = {
-  roundId: 'r'.repeat(24),
-  sessionId: 's'.repeat(24),
-  workerId: 'w'.repeat(24),
-};
 const seat = 'p'.repeat(24);
 const identity = 'i'.repeat(24);
-const segmentId = 'g'.repeat(24);
 const nowMs = () => Date.parse(systemClock.now());
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -35,43 +34,13 @@ function webApp(startedAtMs: number) {
     }
     if (web.expired && op !== 'release')
       return Response.json({ refusal: 'lease-expired' }, { status: 503 });
-    if (op === 'token')
-      return Response.json({
-        sessionId: ids.sessionId,
-        roomName: 'o'.repeat(24),
-        identity: 'c'.repeat(24),
-        url: 'wss://media.invalid',
-        token: 'token',
-        expiresAt: new Date(nowMs() + 60000).toISOString(),
-      });
+    if (op === 'token') return tokenAnswer(nowMs());
     if (op === 'read')
-      return Response.json({
-        roundId: ids.roundId,
-        sessionId: ids.sessionId,
-        version: 1,
-        serverNow: systemClock.now(),
-        status: 'active',
-        transcriptAdmissionCutoff: null,
-        participants: [{ roundParticipantId: seat, kind: 'human', identity }],
-        segment: {
-          id: segmentId,
-          sequence: 0,
-          type: 'speech',
-          startedAt: new Date(startedAtMs).toISOString(),
-          endedAt: web.endedAt,
-          durationMs: 3_600_000,
-        },
-        intervals: [
-          {
-            id: 'n'.repeat(24),
-            roundParticipantId: seat,
-            startedAt: new Date(startedAtMs).toISOString(),
-            endedAt: web.endedAt,
-            startedVersion: 1,
-            endedVersion: web.endedAt ? 2 : null,
-          },
-        ],
-        nextIntervalId: null,
+      return historyAnswer({
+        nowMs: nowMs(),
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: web.endedAt,
+        seats: [{ id: seat, identity }],
       });
     if (op === 'append' || op === 'observe') {
       log.push({ op, body });
@@ -99,18 +68,7 @@ async function outageRun(input: {
 }) {
   const app = webApp(nowMs() - 1000);
   const stop = new AbortController();
-  const client = createMediaWorkerClient({
-    scope: ids,
-    url: 'http://127.0.0.1/',
-    authentication: createMediaWorkerAuthentication({
-      secret: Buffer.alloc(32, 6).toString('base64url'),
-      now: nowMs,
-    }),
-    fetch: app.fetch,
-    nowMs,
-    deadlineSignal: () => AbortSignal.timeout(3000),
-    unavailableRetryMs: [0],
-  });
+  const client = signedCaptureClient(app.fetch, nowMs);
   let frames: ReturnType<typeof setInterval> | undefined;
   const running = runCaptureSession(
     {
@@ -155,29 +113,11 @@ async function outageRun(input: {
   stop.abort();
   const ended = await running;
   clearInterval(frames);
-  const observed = app.log
-    .filter((entry) => entry.op === 'observe')
-    .map(
-      (entry) =>
-        [
-          Date.parse(String(entry.body.observedFrom)),
-          Date.parse(String(entry.body.observedUntil)),
-        ] as const,
-    );
-  return { app, ended, observed };
+  return { app, ended };
 }
 
-const longestHoleMs = (spans: readonly (readonly [number, number])[]) =>
-  [...spans]
-    .sort((a, b) => a[0] - b[0])
-    .reduce(
-      (hole, span, index, all) =>
-        index === 0 ? hole : Math.max(hole, span[0] - all[index - 1]![1]),
-      0,
-    );
-
 test('audio heard during a web outage commits after it, with no hole and the same epoch', async () => {
-  const { app, ended, observed } = await outageRun({
+  const { app, ended } = await outageRun({
     pendingBytes: 32 * 1024 * 1024,
     script: async ({ web, log }) => {
       web.up = false;
@@ -203,7 +143,7 @@ test('audio heard during a web outage commits after it, with no hole and the sam
       app.log.some((entry) => entry.op === 'append'),
       new Set(app.log.map((entry) => entry.body.epoch)).size,
       seal?.body.framesLost,
-      longestHoleMs(observed),
+      longestObservationHoleMs(app.log),
       app.log.at(-1)?.op,
     ],
     expected: [false, true, 1, false, 0, 'release'],
@@ -211,7 +151,7 @@ test('audio heard during a web outage commits after it, with no hole and the sam
 });
 
 test('frames the memory bound drops are lost out loud, and leave a real hole', async () => {
-  const { app, observed } = await outageRun({
+  const { app } = await outageRun({
     // Staged share: 30% of 32 KiB, about 300 ms of one seat.
     pendingBytes: 32 * 1024,
     script: async ({ web }) => {
@@ -224,7 +164,7 @@ test('frames the memory bound drops are lost out loud, and leave a real hole', a
   assert({
     given: 'an outage far longer than this session may hold',
     should: 'report the lost frames and leave the hole in its observations',
-    actual: [seal?.body.framesLost, longestHoleMs(observed) > 200],
+    actual: [seal?.body.framesLost, longestObservationHoleMs(app.log) > 200],
     expected: [true, true],
   });
 });
@@ -234,7 +174,6 @@ test('two seats held through almost the whole budget lose nothing', async () => 
   // faster than real time, through the real staging, cutter, queue and consumer.
   let virtual = 1_000_000;
   const clock = () => virtual;
-  const segment = 'g'.repeat(24);
   const seats = [
     { id: 'p'.repeat(24), identity: 'i'.repeat(24) },
     { id: 'q'.repeat(24), identity: 'j'.repeat(24) },
@@ -251,45 +190,13 @@ test('two seats held through almost the whole budget lose nothing', async () => 
         epoch: 4,
         expiresAt: new Date(virtual + 15000).toISOString(),
       });
-    if (op === 'token')
-      return Response.json({
-        sessionId: ids.sessionId,
-        roomName: 'o'.repeat(24),
-        identity: 'c'.repeat(24),
-        url: 'wss://media.invalid',
-        token: 'token',
-        expiresAt: new Date(virtual + 60000).toISOString(),
-      });
+    if (op === 'token') return tokenAnswer(virtual);
     if (op === 'read')
-      return Response.json({
-        roundId: ids.roundId,
-        sessionId: ids.sessionId,
-        version: 1,
-        serverNow: new Date(virtual).toISOString(),
-        status: 'active',
-        transcriptAdmissionCutoff: null,
-        participants: seats.map((seat) => ({
-          roundParticipantId: seat.id,
-          kind: 'human',
-          identity: seat.identity,
-        })),
-        segment: {
-          id: segment,
-          sequence: 0,
-          type: 'speech',
-          startedAt,
-          endedAt: web.endedAt,
-          durationMs: 3_600_000,
-        },
-        intervals: seats.map((seat, index) => ({
-          id: String(index + 1).repeat(24),
-          roundParticipantId: seat.id,
-          startedAt,
-          endedAt: web.endedAt,
-          startedVersion: 1,
-          endedVersion: web.endedAt ? 2 : null,
-        })),
-        nextIntervalId: null,
+      return historyAnswer({
+        nowMs: virtual,
+        startedAt,
+        endedAt: web.endedAt,
+        seats,
       });
     log.push({ op, body });
     if (op === 'seal')
@@ -297,18 +204,7 @@ test('two seats held through almost the whole budget lose nothing', async () => 
     if (op === 'release') return Response.json(null);
     return Response.json({ duplicate: false, revision: log.length });
   };
-  const client = createMediaWorkerClient({
-    scope: ids,
-    url: 'http://127.0.0.1/',
-    authentication: createMediaWorkerAuthentication({
-      secret: Buffer.alloc(32, 6).toString('base64url'),
-      now: nowMs,
-    }),
-    fetch: fetchWeb,
-    nowMs: clock,
-    deadlineSignal: () => AbortSignal.timeout(3000),
-    unavailableRetryMs: [0],
-  });
+  const client = signedCaptureClient(fetchWeb, clock);
   let emit: ((frame: never) => void) | undefined;
   const stop = new AbortController();
   const running = runCaptureSession(
@@ -369,17 +265,7 @@ test('two seats held through almost the whole budget lose nothing', async () => 
     );
     return {
       enough: own.filter((entry) => entry.op === 'append').length >= 110,
-      hole: longestHoleMs(
-        own
-          .filter((entry) => entry.op === 'observe')
-          .map(
-            (entry) =>
-              [
-                Date.parse(String(entry.body.observedFrom)),
-                Date.parse(String(entry.body.observedUntil)),
-              ] as const,
-          ),
-      ),
+      hole: longestObservationHoleMs(own),
       framesLost: own.find((entry) => entry.op === 'seal')?.body.framesLost,
     };
   });

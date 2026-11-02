@@ -3,7 +3,7 @@ import { debateSides, idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 
 /** Shared ordered evidence line; text is returned only by protected reads. */
-export const roundUtteranceSchema = z.strictObject({
+const utteranceFields = {
   id: idSchema,
   segmentId: idSchema,
   segmentSequence: z.int().nonnegative(),
@@ -13,7 +13,8 @@ export const roundUtteranceSchema = z.strictObject({
   roundParticipantId: idSchema,
   text: z.string(),
   complete: z.boolean(),
-});
+};
+export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
 export const TRANSCRIPT_CONTRACT_VERSION = 1;
 /** The current private transcript audience's snapshot, independent of Round version. */
@@ -98,17 +99,6 @@ export const liveTranscriptReadSchema = z.looseObject({
       ),
     }),
   ),
-  utterances: z.array(
-    z.looseObject({
-      id: idSchema,
-      segmentId: idSchema,
-      segmentSequence: z.int().nonnegative(),
-      sequence: z.int().nonnegative(),
-      startOffsetMs: z.int().nonnegative().nullable(),
-      roundParticipantId: idSchema,
-      text: z.string(),
-      complete: z.boolean(),
-    }),
-  ),
+  utterances: z.array(z.looseObject(utteranceFields)),
 });
 export type LiveTranscriptRead = z.infer<typeof liveTranscriptReadSchema>;

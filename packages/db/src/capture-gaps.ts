@@ -15,7 +15,7 @@ type Stream = {
   readonly segmentId: string;
   readonly roundParticipantId: string;
 };
-const key = (stream: Stream) =>
+export const streamKey = (stream: Stream) =>
   JSON.stringify([stream.segmentId, stream.roundParticipantId]);
 const groupBy = <T>(rows: readonly T[], of: (row: T) => string) => {
   const groups = new Map<string, T[]>();
@@ -91,9 +91,9 @@ export async function closedStreamGaps(
         inArray(roundBotPublicationWindows.segmentId, segmentIds),
       ),
     );
-  const grantsOf = groupBy(grants, key);
-  const observedOf = groupBy(observed, key);
-  const windowsOf = groupBy(windows, key);
+  const grantsOf = groupBy(grants, streamKey);
+  const observedOf = groupBy(observed, streamKey);
+  const windowsOf = groupBy(windows, streamKey);
   for (const stream of streams) {
     const segment = segments.find((row) => row.id === stream.segmentId);
     if (!segment) continue;
@@ -107,18 +107,20 @@ export async function closedStreamGaps(
     )?.kind;
     const rule = coverageRule(
       kind === 'bot' ? 'bot' : 'human',
-      grantWindows(grantsOf.get(key(stream)) ?? [], segment).map((grant) => ({
-        start: grant.start,
-        end: grant.end ?? speakingEndMs,
-      })),
-      windowsOf.get(key(stream)) ?? [],
+      grantWindows(grantsOf.get(streamKey(stream)) ?? [], segment).map(
+        (grant) => ({
+          start: grant.start,
+          end: grant.end ?? speakingEndMs,
+        }),
+      ),
+      windowsOf.get(streamKey(stream)) ?? [],
       CAPTURE_COVERAGE_TOLERANCE,
     );
     found.set(
-      key(stream),
+      streamKey(stream),
       captureGaps({
         ...rule,
-        observed: (observedOf.get(key(stream)) ?? []).map((row) => ({
+        observed: (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
           start: row.start.getTime(),
           end: row.end.getTime(),
         })),
@@ -130,4 +132,3 @@ export async function closedStreamGaps(
   }
   return found;
 }
-export const streamKey = key;

@@ -6,6 +6,21 @@ import { withBoundedRound } from './bounded-transaction.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
+/** One chunk stored by epoch 1, then a takeover; returns the new epoch. */
+async function takenOverAfterOneChunk(
+  fixture: Parameters<Parameters<typeof withBoundedRound>[0]>[0],
+  f: Awaited<ReturnType<typeof historicalCapture>>,
+) {
+  await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
+  await f.store.appendCapturedTranscript(f.clip);
+  await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
+  const { epoch } = await f.store.claimMediaWorkerLease({
+    ...f.lease,
+    leaseMs: 15000,
+  });
+  return epoch;
+}
+
 for (const mode of [
   'old-observation',
   'old-chunk',
@@ -102,13 +117,7 @@ test('a takeover seal answered late can be retried', async () => {
   await withBoundedRound(async (fixture, transaction, roundId) => {
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
-      await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
-      await f.store.appendCapturedTranscript(f.clip);
-      await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
-      const { epoch } = await f.store.claimMediaWorkerLease({
-        ...f.lease,
-        leaseMs: 15000,
-      });
+      const epoch = await takenOverAfterOneChunk(fixture, f);
       const seal = {
         ...f.stream,
         epoch,
@@ -160,13 +169,7 @@ test('a takeover seal never records fewer chunks than are stored', async () => {
   await withBoundedRound(async (fixture, transaction, roundId) => {
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
-      await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
-      await f.store.appendCapturedTranscript(f.clip);
-      await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
-      const { epoch } = await f.store.claimMediaWorkerLease({
-        ...f.lease,
-        leaseMs: 15000,
-      });
+      const epoch = await takenOverAfterOneChunk(fixture, f);
       const sealed = await f.store.sealCapturedStream({
         ...f.stream,
         epoch,

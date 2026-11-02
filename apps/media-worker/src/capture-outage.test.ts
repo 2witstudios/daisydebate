@@ -1,8 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
-import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { createMediaWorkerClient } from '@daisy/media/worker';
+import { signedCaptureClient } from './capture-client.test-support';
 import { createTrackClocks } from '@daisy/media/observation';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
@@ -20,26 +19,11 @@ setupRitewayBun();
 /** The real signed client over a scripted network: an Error is a failed fetch. */
 const signedClient = (replies: (Response | Error)[]) => {
   const paths: string[] = [];
-  const client = createMediaWorkerClient({
-    scope: {
-      roundId: 'r'.repeat(24),
-      sessionId: 's'.repeat(24),
-      workerId: 'w'.repeat(24),
-    },
-    url: 'http://127.0.0.1/',
-    authentication: createMediaWorkerAuthentication({
-      secret: Buffer.alloc(32, 6).toString('base64url'),
-      now: () => 1000,
-    }),
-    fetch: async (url) => {
-      paths.push(String(url).split('/').at(-1)!);
-      const reply = replies.shift();
-      if (!reply || reply instanceof Error) throw reply ?? new Error('down');
-      return reply;
-    },
-    nowMs: () => 0,
-    deadlineSignal: () => AbortSignal.timeout(2000),
-    unavailableRetryMs: [],
+  const client = signedCaptureClient(async (url) => {
+    paths.push(String(url).split('/').at(-1)!);
+    const reply = replies.shift();
+    if (!reply || reply instanceof Error) throw reply ?? new Error('down');
+    return reply;
   });
   return { client, paths };
 };

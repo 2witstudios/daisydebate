@@ -2,17 +2,22 @@ import { resolve } from 'node:path';
 import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
 import { systemClock } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  captureScope,
+  historyAnswer,
+  longestObservationHoleMs,
+  tokenAnswer,
+} from '../src/capture-client.test-support';
 
 setupRitewayBun();
 
 const nowMs = () => Date.parse(systemClock.now());
 const sleep = (ms: number) => Bun.sleep(ms);
 const scope = {
-  round: 'r'.repeat(24),
-  session: 's'.repeat(24),
+  round: captureScope.roundId,
+  session: captureScope.sessionId,
   seat: 'p'.repeat(24),
   identity: 'i'.repeat(24),
-  segment: 'g'.repeat(24),
 };
 type Entry = {
   readonly op: string;
@@ -66,49 +71,13 @@ function webApp() {
     }
     if ((state.lease?.expiresAt ?? 0) <= nowMs())
       return Response.json({ refusal: 'lease-expired' }, { status: 503 });
-    if (op === 'token')
-      return Response.json({
-        sessionId: scope.session,
-        roomName: 'o'.repeat(24),
-        identity: 'c'.repeat(24),
-        url: 'wss://media.invalid',
-        token: 'token',
-        expiresAt: new Date(nowMs() + 60000).toISOString(),
-      });
+    if (op === 'token') return tokenAnswer(nowMs());
     if (op === 'read')
-      return Response.json({
-        roundId: scope.round,
-        sessionId: scope.session,
-        version: 1,
-        serverNow: new Date(nowMs()).toISOString(),
-        status: 'active',
-        transcriptAdmissionCutoff: null,
-        participants: [
-          {
-            roundParticipantId: scope.seat,
-            kind: 'human',
-            identity: scope.identity,
-          },
-        ],
-        segment: {
-          id: scope.segment,
-          sequence: 0,
-          type: 'speech',
-          startedAt,
-          endedAt: state.endedAt,
-          durationMs: 3_600_000,
-        },
-        intervals: [
-          {
-            id: 'n'.repeat(24),
-            roundParticipantId: scope.seat,
-            startedAt,
-            endedAt: state.endedAt,
-            startedVersion: 1,
-            endedVersion: state.endedAt ? 2 : null,
-          },
-        ],
-        nextIntervalId: null,
+      return historyAnswer({
+        nowMs: nowMs(),
+        startedAt,
+        endedAt: state.endedAt,
+        seats: [{ id: scope.seat, identity: scope.identity }],
       });
     if (op === 'seal')
       return Response.json({ state: 'partial', revision: log.length });
@@ -172,23 +141,6 @@ const until = async (ready: () => boolean, ms: number) => {
 const running = async (child: ReturnType<typeof spawnCapture>) =>
   (await Promise.race([child.exited, sleep(0).then(() => 'alive')])) ===
   'alive';
-const holeMs = (log: readonly Entry[]) =>
-  log
-    .filter((entry) => entry.op === 'observe')
-    .map(
-      (entry) =>
-        [
-          Date.parse(String(entry.body.observedFrom)),
-          Date.parse(String(entry.body.observedUntil)),
-        ] as const,
-    )
-    .sort((a, b) => a[0] - b[0])
-    .reduce(
-      (hole, span, index, all) =>
-        index === 0 ? hole : Math.max(hole, span[0] - all[index - 1]![1]),
-      0,
-    );
-
 test('a real capture process outlives a web outage past its lease and loses nothing', async () => {
   const app = webApp();
   const child = spawnCapture(app.url(), worker('a'));
@@ -221,7 +173,7 @@ test('a real capture process outlives a web outage past its lease and loses noth
         aliveThrough,
         code,
         epochs: epochs.size,
-        hole: holeMs(app.log),
+        hole: longestObservationHoleMs(app.log),
         // One clip per second heard: the outage's speech, not a surviving tail.
         appended: app.log.filter((entry) => entry.op === 'append').length >= 18,
         framesLost: seal?.body.framesLost,
