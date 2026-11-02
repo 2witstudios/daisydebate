@@ -12,16 +12,12 @@ import {
   type Seat,
 } from '../../features/round-runtime/round-reading';
 import { initialsOf } from '../../lib/initials';
-import type {
-  Side,
-  SpeechSlot,
-} from '../../features/debate-room/documents/documents';
+import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
 import {
   judgingBallotsOf,
   judgingClockOf,
 } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
-import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 
 type Participant = RoundView['participants'][number];
@@ -44,7 +40,6 @@ const debater = (p: Seat): Debater => ({
   initials: initialsOf(p.label),
   side: sideOf[p.role],
   rating: null,
-  bot: p.kind === 'bot' ? { level: null } : null,
 });
 
 const person = (p: Participant): RoundPerson =>
@@ -204,21 +199,14 @@ export function liveRoundOf(
     judgingState: view.waitingOn?.state ?? null,
     stakes: null,
     recording: false,
-    transcribing: false,
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    voiceLevel: 0,
-    clubName: null,
     documents: [],
-    channels: [{ id: 'round', title: 'round', scope: 'round' }],
+    channels: [{ id: 'round', title: 'round' }],
     messages: [],
-    agents:
-      roundKindOf(view.competitionType) === 'rated'
-        ? []
-        : [{ id: 'assistant', title: 'Assistant', scope: 'round' }],
+    agents: [{ id: 'assistant', title: 'Assistant' }],
     agentThreads: {},
     agentPrompts: {},
-    transcript: [],
   };
 }

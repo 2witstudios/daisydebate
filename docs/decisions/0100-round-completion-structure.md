@@ -1,4 +1,4 @@
-# 0098: Round completion structure
+# 0100: Round completion structure
 
 Status: accepted by the point guard on the owner's behalf, 2026-11-02. Keeps the
 behavior of [ADR 0095](0095-honest-round-completion.md), except as stated below.

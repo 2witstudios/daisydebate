@@ -35,7 +35,7 @@ export const rankedRules = ({
     id: 'conduct',
     icon: 'users',
     title: 'Conduct',
-    body: `One profile per person, no outside help. Missing a speech by ${checkInGraceSeconds} seconds is a forfeit and a rated loss.`,
+    body: `One profile per person. Missing a speech by ${checkInGraceSeconds} seconds is a forfeit and a rated loss.`,
   },
   {
     id: 'how-it-works',

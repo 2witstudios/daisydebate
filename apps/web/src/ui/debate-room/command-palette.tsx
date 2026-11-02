@@ -14,47 +14,26 @@ import {
   type PaletteCommand,
   type RankedCommand,
 } from '../../features/debate-room/command-palette';
-import {
-  documentTemplates,
-  type FolderId,
-  type TemplateId,
-  type WorkspaceDocument,
-} from '../../features/debate-room/documents/documents';
+import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 
 export type PaletteChoice =
-  | {
-      readonly kind: 'new';
-      readonly templateId: TemplateId;
-      readonly folder: FolderId;
-    }
+  | { readonly kind: 'new' }
   | { readonly kind: 'open'; readonly documentId: string };
 
-const newFolders: readonly { readonly id: FolderId; readonly title: string }[] =
-  [
-    { id: 'round', title: 'New in this round' },
-    { id: 'library', title: 'New in my library' },
-  ];
-
-/** Every command the palette can run: a template per folder, then each file. */
+/** Every command the palette can run: a new document, then each file. */
 export function paletteCommands(
   documents: readonly WorkspaceDocument[],
 ): readonly (PaletteCommand & { readonly choice: PaletteChoice })[] {
   return [
-    ...newFolders.flatMap((folder) =>
-      documentTemplates.map((template) => ({
-        id: `new:${folder.id}:${template.id}`,
-        title: `New ${template.title}`,
-        group: folder.title,
-        keywords: ['new', 'create', ...template.keywords],
-        choice: {
-          kind: 'new',
-          templateId: template.id,
-          folder: folder.id,
-        } as const,
-      })),
-    ),
+    {
+      id: 'new:document',
+      title: 'New document',
+      group: 'New',
+      keywords: ['new', 'create', 'blank', 'flow', 'notes'],
+      choice: { kind: 'new' } as const,
+    },
     ...documents.map((doc) => ({
       id: `open:${doc.id}`,
       title: doc.title,

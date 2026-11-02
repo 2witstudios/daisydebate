@@ -8,7 +8,7 @@ import type {
 } from '@daisy/protocol';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
-import type { CommandContext } from './round-commands';
+import { debateIsOver, type CommandContext } from './round-commands';
 import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
 type Ruling = PanelRuling;
@@ -201,7 +201,7 @@ const isClosedActiveRound = (
   c.on.lifecycle().status === 'active' &&
   c.on.lifecycle().outcome === null &&
   c.on.openRow() === undefined &&
-  c.closedCount() === c.rules.segments.length;
+  debateIsOver(c);
 
 /** The caller verifies immutable freeze and settled attendance under the Round lock. */
 export function applyPanelCompletion(

@@ -10,7 +10,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const check = '20261102222436_attendance_cutoff_always_held';
+const check = '20261102231940_round_completion_structure';
 const scratch = scratchDatabase(databaseUrl, 'attendancecutoff');
 afterAll(() => scratch.drop());
 

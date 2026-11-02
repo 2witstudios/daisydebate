@@ -255,11 +255,14 @@ it runs: stop idle ones.
   optional `.githooks/pre-push` hook allows branch pushes and runs the full
   gate for an exact clean candidate pushed to main.
 - CI on a PR: the quick check, then `policy`, `invariants` and `build`,
-  plus image, audit, migrations, and Infrastructure contracts; Chromium
-  Playwright; and Isolated Room Launch unless every changed file is
-  documentation or in a known non-room area. The nightly main run adds every
-  Playwright project, and knip blocks there. Required checks: CI gate,
-  Playwright E2E, Isolated Room Launch E2E.
+  plus image, audit, migrations, and Infrastructure contracts. The only
+  required check is CI gate. Browser E2E (Chromium Playwright and Isolated
+  Room Launch) runs on main after merge, and a PR may dispatch it by choice;
+  a builder proves the specs its change touches, locally or by that dispatch.
+  Staging deploys on a green CI gate without waiting for it. A red browser run
+  on main gets an owner at once, who fixes forward or reverts. The nightly main
+  run adds every Playwright project, and knip blocks there. Strict gating
+  returns before real users ([ADR 0098](docs/decisions/0098-ci-gate-only-while-greenfield.md)).
 - `bun migrations:check`: fails a branch that rewrites, reorders, truncates,
   or chain-breaks shared migrations relative to `origin/main`. Required
   before pushing `packages/db/migrations/` changes; migration generation is

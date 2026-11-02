@@ -7,8 +7,8 @@ import type {
 import { attendancePolicy } from './attendance';
 import { finalSpeechKey } from './attendance-order';
 import {
-  applyRoundCommand,
   closePlayedRound,
+  completeWith,
   type CommandContext,
 } from './round-commands';
 
@@ -45,17 +45,15 @@ export function applyRoundAdjudication(
     return;
   }
   requireSettledTime(c, input.decision.effectiveDeadlineMs, row);
-  const speaker = participants.find(
-    (p) => p.role === target.side && p.slot === target.slot,
-  );
-  if (!speaker) throw createAppError('INVARIANT');
+  if (
+    !participants.some((p) => p.role === target.side && p.slot === target.slot)
+  )
+    throw createAppError('INVARIANT');
   if (input.decision.decision === 'forfeit') {
     const winner = target.side === 'affirmative' ? 'negative' : 'affirmative';
     if (input.decision.winner !== winner) throw createAppError('INVARIANT');
-    return applyRoundCommand(
-      { ...c, actorId: speaker.actorId },
-      { type: 'forfeit' },
-    );
+    closePlayedRound(c);
+    return completeWith(c, winner);
   }
   closePlayedRound(c);
   c.on.setLifecycle({ status: 'abandoned', completedAtMs: c.now });

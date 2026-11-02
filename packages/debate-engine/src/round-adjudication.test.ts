@@ -129,6 +129,33 @@ test('historical speech absence remains tied to its speaker after another seat h
     ],
   });
 });
+test('a settled absence still forfeits after the debate is over', () => {
+  const rules = oneOnOneRules();
+  const world = runtimeWorld({
+    status: 'active',
+    rules,
+    segments: rules.segments.map((s, index) => ({
+      id: index === 0 ? 'actual-speech' : `later-${index}`,
+      sequence: index,
+      type: s.type,
+      rulesSegmentKey: s.key,
+      startedAt: roundAt(10_000 + index * 1_000),
+      endedAt: roundAt(10_500 + index * 1_000),
+      durationMs: s.durationMs,
+    })),
+  });
+  const projection = world.adjudicate({
+    segmentId: 'actual-speech',
+    decision,
+    now: roundAt(55_000),
+  });
+  assert({
+    given: 'an attendance decision that settles after the final segment closed',
+    should: 'still forfeit the absent speaker, unlike a debater leaving',
+    actual: [projection.round?.status, projection.round?.outcome],
+    expected: ['completed', 'negative'],
+  });
+});
 test('early, foreign, wrong-side and final-speech attendance decisions refuse atomically', async () => {
   const world = opened();
   const before = world.position(roundAt(55_000));

@@ -1,30 +1,17 @@
-import type { LayoutPreset } from '../../features/debate-room/layout';
-import {
-  floorStates,
-  selfHasLiveSegment,
-  speakerIsSelf,
-  upNext,
-} from '../../features/debate-room/stage';
 import { cn } from '../cn';
-import type { Debater, RoundSnapshot } from './round';
+import type { Debater } from './round';
 
-export const sideName = { aff: 'Aff', neg: 'Neg' } as const;
+const sideName = { aff: 'Aff', neg: 'Neg' } as const;
 const sideDisc = { aff: 'bg-hue-sky', neg: 'bg-hue-clay' } as const;
 
 /** How much of a tile its occupant fills: a disc and a pill, or a caption. */
 type Look = 'large' | 'medium' | 'small';
 
-export const discLook: Readonly<Record<Look, string>> = {
+const discLook: Readonly<Record<Look, string>> = {
   large: 'size-room-disc text-3xl',
   medium: 'size-room-disc-md text-2xl',
   small: 'size-room-disc-sm text-md',
 };
-
-/** The video band: its height is the room's video size (room.css). */
-export const band =
-  'room-video-band flex shrink-0 gap-3 border-b border-border bg-surface-sunken px-4 py-3 max-narrow:gap-2 max-narrow:border-b-0 max-narrow:bg-transparent max-narrow:pt-0 max-narrow:pb-2';
-/** A phone shows both debaters as two small tiles. */
-const phonePair = 'max-narrow:grid max-narrow:grid-cols-2';
 
 /** The pill naming a large tile's part in the phase. */
 function FloorPill({
@@ -120,118 +107,4 @@ export function Tile({
       <TileCaption debater={debater} you={you} state={caption ? state : ''} />
     </figure>
   );
-}
-
-/** Next and Then: what follows the live speech, beside the speaker. */
-function UpNext({ round }: { readonly round: RoundSnapshot }) {
-  const firstName = round.opponent.name.split(/\s+/)[0] ?? round.opponent.name;
-  return (
-    <dl className="m-0 flex flex-col gap-2 rounded-lg border border-border px-4 py-3 text-sm max-narrow:hidden">
-      {upNext(round.speeches, round.liveIndex, round.self.side, firstName).map(
-        (line) => (
-          <div key={line.label} className="flex justify-between gap-3">
-            <dt className="text-ink-faint">{line.label}</dt>
-            <dd className="m-0 font-strong">{line.text}</dd>
-          </div>
-        ),
-      )}
-    </dl>
-  );
-}
-
-export type StageProps = {
-  readonly round: RoundSnapshot;
-  readonly preset: LayoutPreset;
-};
-
-const statesOf = (round: RoundSnapshot) =>
-  floorStates(
-    round.phase,
-    selfHasLiveSegment(round.speeches, round.liveIndex, round.self.side),
-  );
-
-/** The speaker large; your own view small beside it, over Next and Then. */
-function SpeakerBand({ round }: { readonly round: RoundSnapshot }) {
-  const states = statesOf(round);
-  const selfSpeaks = speakerIsSelf(round.phase);
-  const speaker = selfSpeaks ? round.self : round.opponent;
-  const other = selfSpeaks ? round.opponent : round.self;
-  return (
-    <section aria-label="Debaters" className={cn(band, phonePair)}>
-      <Tile
-        debater={speaker}
-        you={selfSpeaks}
-        state={selfSpeaks ? states.self : states.opponent}
-        look="large"
-        className="aspect-video h-full shrink"
-      />
-      <div className="flex h-full min-w-0 flex-1 flex-col gap-3 max-narrow:contents">
-        <Tile
-          debater={other}
-          you={!selfSpeaks}
-          state={selfSpeaks ? states.opponent : states.self}
-          look="small"
-          className="h-1/2 w-full"
-        />
-        <UpNext round={round} />
-      </div>
-    </section>
-  );
-}
-
-const pairLook: Readonly<
-  Record<Exclude<LayoutPreset, 'speaker'>, { look: Look; tile: string }>
-> = {
-  stage: {
-    look: 'large',
-    tile: 'aspect-video h-full max-w-1/2 shrink max-narrow:max-w-none',
-  },
-  conversation: {
-    look: 'medium',
-    tile: 'aspect-video h-full max-w-1/2 shrink max-narrow:max-w-none',
-  },
-  focus: { look: 'small', tile: 'aspect-video h-full shrink' },
-};
-
-/** Both debaters side by side, Aff on the left. */
-function PairBand({
-  round,
-  preset,
-}: StageProps & { readonly preset: Exclude<LayoutPreset, 'speaker'> }) {
-  const states = statesOf(round);
-  const { look, tile } = pairLook[preset];
-  const pair =
-    round.self.side === 'aff'
-      ? [round.self, round.opponent]
-      : [round.opponent, round.self];
-  return (
-    <section
-      aria-label="Debaters"
-      className={cn(band, phonePair, preset === 'stage' && 'justify-center')}
-    >
-      {pair.map((debater) => {
-        const you = debater.id === round.self.id;
-        return (
-          <Tile
-            key={debater.id}
-            debater={debater}
-            you={you}
-            state={you ? states.self : states.opponent}
-            look={look}
-            caption={preset === 'focus'}
-            className={tile}
-          />
-        );
-      })}
-    </section>
-  );
-}
-
-/**
- * The debaters as the layout arranges them; the judge has no tile. Video
- * tiles show initials until media arrives (ADR 0053).
- */
-export function VideoStage({ round, preset }: StageProps) {
-  if (preset === 'speaker') return <SpeakerBand round={round} />;
-  return <PairBand round={round} preset={preset} />;
 }

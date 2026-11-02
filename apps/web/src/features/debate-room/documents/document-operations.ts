@@ -4,9 +4,6 @@ import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type AppError } from '@daisy/errors';
 import {
   createDocument as buildDocument,
-  documentTemplates,
-  type SpeechSlot,
-  type TemplateId,
   type WorkspaceDocument,
 } from './documents';
 import { normalizeDocumentHtml } from '../../documents/normalize-html';
@@ -16,9 +13,9 @@ export type DebateDocumentStore = Pick<
   | 'getRound'
   | 'createDocument'
   | 'listDocuments'
+  | 'listDocumentTitles'
   | 'saveDocument'
   | 'renameDocument'
-  | 'attachRoundDocument'
 >;
 
 /** The signed-in user and their competitive actor, resolved at the edge. */
@@ -48,38 +45,13 @@ export const conflictRevision = (error: unknown): number | null =>
     ? (error as DocumentConflict).revision
     : null;
 
-const templateOf = (id: string): TemplateId =>
-  documentTemplates.find((template) => template.id === id)?.id ?? 'blank';
-
 const toStored = (record: DocumentRecord): StoredDocument => ({
   id: record.id,
   title: record.title,
-  // The workspace names the two folders it shows; scratch documents
-  // surfaced here belong to the round's work.
-  folder: record.folder === 'library' ? 'library' : 'round',
-  templateId: templateOf(record.templateId),
   html: record.html,
   createdAt: record.createdAt.toISOString(),
   updatedAt: record.updatedAt.toISOString(),
   revision: record.revision,
-});
-
-const toSlot = (
-  segment: {
-    readonly key: string;
-    readonly label: string;
-    readonly type: string;
-    readonly side: string;
-    readonly durationMs: number;
-  },
-  index: number,
-): SpeechSlot => ({
-  id: `t${index}`,
-  code: segment.key,
-  name: segment.label,
-  side: segment.side === 'affirmative' ? 'aff' : 'neg',
-  kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
-  durationMs: segment.durationMs,
 });
 
 const normalized = (html: string) => {
@@ -92,8 +64,7 @@ const normalized = (html: string) => {
 
 /**
  * The round room's document operations (ADR 0054, ADR 0058 §9). Documents
- * are the member's — owned by their actor, with no round FK; the round's
- * workspace is a view over them carried by round_document_refs. Every call
+ * are the member's, owned by their actor; a Round only opens them. Every call
  * names its principal and reaches only their documents; a round is opened
  * only by its own participant. HTML is normalized before it is stored, and
  * time and ids come from the injected clock and generator.
@@ -125,62 +96,29 @@ export function createDebateDocumentOperations({
       await ownRound(principal, roundId);
       const records = await store.listDocuments({
         ownerActorId: principal.actorId,
-        roundId,
       });
       return records.map(toStored);
     },
 
     async createDocument(
       principal: DocumentPrincipal,
-      input: {
-        readonly roundId: string;
-        readonly folder: 'round' | 'library';
-        readonly templateId: TemplateId;
-      },
+      input: { readonly roundId: string },
     ): Promise<StoredDocument> {
-      const round = await ownRound(principal, input.roundId);
-      const existingTitles = (
-        await store.listDocuments({
-          ownerActorId: principal.actorId,
-          roundId: input.roundId,
-        })
-      )
-        .filter((document) =>
-          input.folder === 'library'
-            ? document.folder === 'library'
-            : document.folder !== 'library',
-        )
-        .map((document) => document.title);
-      const personSide =
-        round.participants.find((seat) => seat.actorId === principal.actorId)
-          ?.role ?? 'affirmative';
-      const now = clock.now();
+      await ownRound(principal, input.roundId);
+      const existingTitles = await store.listDocumentTitles({
+        ownerActorId: principal.actorId,
+      });
       const built = buildDocument({
         id: ids.next(),
-        now,
-        folder: input.folder,
-        templateId: input.templateId,
+        now: clock.now(),
         existingTitles,
-        context: {
-          side: personSide === 'affirmative' ? 'aff' : 'neg',
-          speeches: round.rules.segments.map(toSlot),
-          title: '',
-        },
       });
       const record = await store.createDocument({
         id: built.id,
         ownerActorId: principal.actorId,
         title: built.title.slice(0, TITLE_MAX),
         html: normalized(built.html),
-        templateId: built.templateId,
-        folder: input.folder === 'library' ? 'library' : 'scratch',
       });
-      if (input.folder === 'round')
-        await store.attachRoundDocument({
-          roundId: input.roundId,
-          documentId: record.id,
-          role: 'notes',
-        });
       return toStored(record);
     },
 

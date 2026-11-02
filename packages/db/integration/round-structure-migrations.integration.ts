@@ -11,8 +11,8 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const noVoid = '20261102224735_ballots_have_no_void';
-const cutoffName = '20261102225403_attendance_evidence_names_the_cutoff';
+const noVoid = '20261102231940_round_completion_structure';
+const cutoffName = '20261102231940_round_completion_structure';
 const scratch = scratchDatabase(databaseUrl, 'roundstructure');
 afterAll(() => scratch.drop());
 
