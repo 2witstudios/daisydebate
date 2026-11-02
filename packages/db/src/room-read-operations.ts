@@ -5,7 +5,9 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { unresolvedAttendance } from './attendance-settlement';
+import { roundJudgingStatus } from './round-judging-status';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -49,7 +51,57 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
-export async function launchedRoundRows(
+export /** Facts only, read once for the Round's room; the engine decides what they mean. */
+async function readJudgingStatus(
+  tx: Pick<BunSQLDatabase, 'execute'>,
+  row: typeof rounds.$inferSelect,
+  participants: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly role: string;
+  }[],
+) {
+  if (row.status !== 'active' || !row.finalSegmentEndedAt) return null;
+  const [facts] = (await tx.execute(sql`select
+    clock_timestamp()::text as now,
+    exists(select 1 from round_transcript_freezes where round_id=${row.id}) as frozen,
+    exists(select 1 from round_check_in_attempts where round_id=${row.id} and state='pending') as held,
+    ${unresolvedAttendance(sql`${row.id}`, sql`clock_timestamp()`)} as unresolved,
+    coalesce((select json_agg(judge_participant_id) from ballots where round_id=${row.id} and status='submitted'),'[]'::json) as ruled,
+    coalesce((select json_agg(json_build_object(
+      'generationDeadlineAt',to_char(generation_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+      'running',status in ('queued','leased') and (pending_ballot is not null or generation_deadline_at>clock_timestamp()),
+      'holdsBallot',pending_ballot is not null)) from round_judging_jobs where round_id=${row.id} and status<>'succeeded'),'[]'::json) as jobs
+  `)) as unknown as {
+    now: string;
+    frozen: boolean;
+    held: boolean;
+    unresolved: boolean;
+    ruled: readonly string[];
+    jobs: readonly {
+      generationDeadlineAt: string;
+      running: boolean;
+      holdsBallot: boolean;
+    }[];
+  }[];
+  return roundJudgingStatus({
+    nowMs: Date.parse(facts!.now),
+    finalSegmentEnded: true,
+    frozen: facts!.frozen,
+    heldByWriter: facts!.held,
+    attendanceUnresolved: facts!.unresolved,
+    ballotDeadlineAt: row.ballotDeadlineAt?.toISOString() ?? null,
+    attendanceCutoffAt: row.attendanceResolutionCutoffAt?.toISOString() ?? null,
+    humanJudgeUnruled: participants.some(
+      (seat) =>
+        seat.role === 'judge' &&
+        seat.kind === 'human' &&
+        !facts!.ruled.includes(seat.id),
+    ),
+    jobs: facts!.jobs,
+  });
+}
+async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
 ): Promise<LaunchedRound> {
@@ -105,6 +157,7 @@ export async function launchedRoundRows(
           ),
         ),
     ),
+    judging: await readJudgingStatus(tx, row, participants),
     resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),

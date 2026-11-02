@@ -14,7 +14,7 @@ import { createAppError, isAppError } from '@daisy/errors';
 import { createRatingSweep } from '../ratings/sweep';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
-/** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
+/** Human judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
 /** An AI judging job may buy provider work for 5 minutes after the freeze (DEC-275). */
 export const AI_JUDGING_BUDGET_MS = 5 * 60_000;
@@ -45,10 +45,14 @@ export const unjudgedCompletion =
     ballotDeadlineAt,
     completeness,
     humanJudgeSeatIds,
+    runningAiSeatIds,
+    failedAiSeatIds,
   }) => {
     const decision = decideUnjudgedCompletion({
       completeness,
       humanJudgeSeatIds,
+      runningAiSeatIds,
+      failedAiSeatIds,
       judgeSeatIds: round.participants
         .filter((seat) => seat.role === 'judge')
         .map((seat) => seat.id),
@@ -71,12 +75,13 @@ export const unjudgedCompletion =
         round,
         nextSegmentId: nextId,
       }).completeUnjudged({
-        competitionType: round.competitionType,
         now,
         ballots,
         ballotDeadlineAt,
         completeness,
         humanJudgeSeatIds,
+        runningAiSeatIds,
+        failedAiSeatIds,
       }),
     };
   };

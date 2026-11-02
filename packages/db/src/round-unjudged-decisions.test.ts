@@ -53,7 +53,6 @@ const round = (overrides: Record<string, unknown> = {}): Round =>
     ...overrides,
   }) as unknown as Round;
 const durable = {
-  ladder_id: null,
   final_segment_ended_at: '2026-10-22T12:00:00.000Z',
   transcript_admission_cutoff: '2026-10-22T12:00:02.000Z',
   ballot_deadline_at: '2026-10-22T12:05:00.000Z',
@@ -180,10 +179,9 @@ test('a replay stands only while the Round is completed with the receipt outcome
   });
 });
 
-test('only a fully played casual Round is eligible, judged or not', async () => {
+test('only a fully played Round is eligible, on any ladder, judged or not', async () => {
   for (const [label, candidate] of [
     ['a missing Round', null],
-    ['a ranked Round', round({ competitionType: 'ranked' })],
     ['an unfinished segment', round({ segments: [{ endedAt: null }] })],
   ] as const)
     await assertRejects({
@@ -219,7 +217,6 @@ test('durable facts must show the frozen revision, eligible debaters and no ladd
       },
     ],
     ['no durable Round row', { durable: undefined }],
-    ['a ladder', { durable: { ...durable, ladder_id: 'ladder' } }],
     ['no final end', { durable: { ...durable, final_segment_ended_at: null } }],
     [
       'no admission cutoff',

@@ -232,7 +232,14 @@ describe('liveRoundOf during the round', () => {
   test('after the last speech', () => {
     const closedAt = startOf(rules.length);
     const room = liveRoundOf(
-      ran(rules.length, true),
+      {
+        ...ran(rules.length, true),
+        judging: {
+          state: 'human_window',
+          // The deadline the server persisted at the freeze, never recomputed here.
+          deadlineAt: new Date(origin + closedAt + 30 * 60_000).toISOString(),
+        },
+      },
       aff.actorId,
       origin + closedAt + 60_000,
     );
@@ -273,13 +280,37 @@ describe('liveRoundOf during the round', () => {
     assert({
       given:
         'the last speech’s time expired two minutes ago, its interval still open',
-      should: 'enter judging with the window counted from the scheduled end',
+      should:
+        'enter judging with no invented window before the server names one',
       actual: [room?.phase, room?.clock],
-      expected: [
-        'judging',
-        { label: 'Judging window', remainingMs: 28 * 60_000 },
-      ],
+      expected: ['judging', null],
     });
+  });
+
+  test('an AI judge has no human countdown', () => {
+    const closedAt = startOf(rules.length);
+    for (const state of ['ai_processing', 'ai_failed'] as const) {
+      const room = liveRoundOf(
+        {
+          ...ran(rules.length, true),
+          judging: {
+            state,
+            deadlineAt:
+              state === 'ai_processing'
+                ? new Date(origin + closedAt + 300_000).toISOString()
+                : null,
+          },
+        },
+        aff.actorId,
+        origin + closedAt + 60_000,
+      );
+      assert({
+        given: `the server reporting ${state}`,
+        should: 'carry that state and show no judging window',
+        actual: [room?.phase, room?.clock, room?.judgingState],
+        expected: ['judging', null, state],
+      });
+    }
   });
 
   test('an unreadable checkpoint', () => {

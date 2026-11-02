@@ -226,6 +226,8 @@ export type {
 export {
   isNamedSeat,
   roundViewSchema,
+  roundJudgingStatusSchema,
+  type RoundJudgingStatus,
   type LaunchedRound,
   type RoundSeat,
   type RoundView,

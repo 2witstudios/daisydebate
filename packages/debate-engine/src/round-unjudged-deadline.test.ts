@@ -20,6 +20,8 @@ const ballot = (
 });
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decideUnjudgedCompletion({
+    runningAiSeatIds: [],
+    failedAiSeatIds: [],
     completeness: 'complete',
     humanJudgeSeatIds: judges,
     judgeSeatIds: judges,
@@ -33,6 +35,8 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     given: 'no judge seats',
     should: 'complete at once as unjudged',
     actual: decideUnjudgedCompletion({
+      runningAiSeatIds: [],
+      failedAiSeatIds: [],
       completeness: 'complete',
       humanJudgeSeatIds: [],
       judgeSeatIds: [],
@@ -114,15 +118,16 @@ const judged = () => {
   return world;
 };
 const completion = (nowMs: number) => ({
-  competitionType: 'casual' as const,
   now: roundAt(nowMs),
   ballots: [],
   ballotDeadlineAt: roundAt(total + 1_800_000),
   completeness: 'complete' as const,
   humanJudgeSeatIds: [judge.id],
+  runningAiSeatIds: [],
+  failedAiSeatIds: [],
 });
 
-test('a judged casual Round completes without a winner only after its ballot deadline', async () => {
+test('a judged Round completes without a winner only after its ballot deadline', async () => {
   const early = judged();
   const before = early.position(roundAt(total + 1_799_999));
   await assertRejects({
@@ -130,7 +135,7 @@ test('a judged casual Round completes without a winner only after its ballot dea
     should: 'refuse and preserve the Round',
     actual: () => early.completeUnjudged(completion(total + 1_799_999)),
     code: 'INVARIANT',
-    invariantId: 'round.complete.unjudged-casual-only',
+    invariantId: 'round.complete.unjudged-played-round',
   });
   assert({
     given: 'that refusal',
@@ -180,7 +185,7 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
     expected: [
       {
         dispatchAiJudges: true,
-        ballotDeadlineMs: 1_800_000,
+        ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,
       },
       {
@@ -190,7 +195,7 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
       },
       {
         dispatchAiJudges: false,
-        ballotDeadlineMs: 0,
+        ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,
       },
     ],
@@ -200,6 +205,8 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
     humanJudges: boolean,
   ) =>
     decideUnjudgedCompletion({
+      runningAiSeatIds: [],
+      failedAiSeatIds: [],
       completeness,
       humanJudgeSeatIds: humanJudges ? [judges[0]!] : [],
       judgeSeatIds: [judges[0]!],
@@ -233,6 +240,8 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     completeness: 'complete' | 'incomplete' = 'incomplete',
   ) =>
     decideUnjudgedCompletion({
+      runningAiSeatIds: [],
+      failedAiSeatIds: [],
       completeness,
       humanJudgeSeatIds,
       judgeSeatIds: [human, ai],
@@ -248,8 +257,19 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     actual: [
       decide([human], [ballot(human, 'negative')]),
       decide([human], []),
-      decide([human], [ballot(human, 'negative')], 'complete'),
       decideUnjudgedCompletion({
+        completeness: 'complete',
+        humanJudgeSeatIds: [human],
+        judgeSeatIds: [human, ai],
+        runningAiSeatIds: [ai],
+        failedAiSeatIds: [],
+        ballots: [ballot(human, 'negative')],
+        ballotDeadlineAtMs: 61_000,
+        nowMs: 1_000,
+      }),
+      decideUnjudgedCompletion({
+        runningAiSeatIds: [],
+        failedAiSeatIds: [],
         completeness: 'incomplete',
         humanJudgeSeatIds: [human, other],
         judgeSeatIds: [human, other, ai],
@@ -270,4 +290,107 @@ test('an incomplete freeze completes once every human judge has ruled decisively
       'pending',
     ],
   });
+});
+
+test('the panel decides from each seat: every mode ends, and only a judge who can still rule holds it', () => {
+  const [human, ai, other] = judges as [string, string, string];
+  const decide = (input: {
+    readonly humans?: readonly string[];
+    readonly seats: readonly string[];
+    readonly running?: readonly string[];
+    readonly failed?: readonly string[];
+    readonly ballots?: ReturnType<typeof ballot>[];
+    readonly completeness?: 'complete' | 'incomplete';
+    readonly deadline?: number;
+  }) =>
+    decideUnjudgedCompletion({
+      completeness: input.completeness ?? 'complete',
+      humanJudgeSeatIds: input.humans ?? [],
+      judgeSeatIds: input.seats,
+      runningAiSeatIds: input.running ?? [],
+      failedAiSeatIds: input.failed ?? [],
+      ballots: input.ballots ?? [],
+      ballotDeadlineAtMs: input.deadline ?? Number.NaN,
+      nowMs: 1_000,
+    });
+  const summary = (d: ReturnType<typeof decide>) =>
+    d.kind === 'pending' ? 'pending' : `${d.ruling}:${d.outcome}`;
+  const later = 61_000;
+  const cases: [string, Parameters<typeof decide>[0], string][] = [
+    ['AI-only, job running', { seats: [ai], running: [ai] }, 'pending'],
+    [
+      'AI-only, job failed: ends at once with no 30 minute wait',
+      { seats: [ai], failed: [ai] },
+      'judging-failed:null',
+    ],
+    [
+      'AI-only, incomplete freeze',
+      { seats: [ai], completeness: 'incomplete' },
+      'transcript-incomplete:null',
+    ],
+    [
+      'two AI seats, one failed and one still running',
+      { seats: [ai, other], running: [other], failed: [ai] },
+      'pending',
+    ],
+    [
+      'two AI seats, one failed and one ruled',
+      {
+        seats: [ai, other],
+        failed: [ai],
+        ballots: [ballot(other, 'negative')],
+      },
+      'partial:negative',
+    ],
+    [
+      'mixed, AI failed, human inside the window: the human keeps it',
+      { humans: [human], seats: [human, ai], failed: [ai], deadline: later },
+      'pending',
+    ],
+    [
+      'mixed, AI failed, human ruled: no wait for the dead seat',
+      {
+        humans: [human],
+        seats: [human, ai],
+        failed: [ai],
+        deadline: later,
+        ballots: [ballot(human, 'affirmative')],
+      },
+      'partial:affirmative',
+    ],
+    [
+      'mixed, AI failed, human window over with no ballot',
+      { humans: [human], seats: [human, ai], failed: [ai], deadline: 1_000 },
+      'judges-did-not-rule:null',
+    ],
+    [
+      'mixed, human window over, AI still running',
+      { humans: [human], seats: [human, ai], running: [ai], deadline: 1_000 },
+      'pending',
+    ],
+    [
+      'a tied panel with nobody left to rule',
+      {
+        seats: [ai, other],
+        ballots: [ballot(ai, 'negative'), ballot(other, 'affirmative')],
+      },
+      'pending',
+    ],
+    [
+      'a tied panel of three with one failed seat',
+      {
+        seats: [ai, other, human],
+        failed: [human],
+        ballots: [ballot(ai, 'negative'), ballot(other, 'affirmative')],
+      },
+      'judging-failed:null',
+    ],
+  ];
+  for (const [given, input, expected] of cases)
+    assert({
+      given,
+      should: `decide ${expected}`,
+      actual: summary(decide(input)),
+      expected,
+    });
 });

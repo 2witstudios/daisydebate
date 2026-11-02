@@ -51,6 +51,7 @@ const view = {
   completedAt: null,
   outcome: null,
   unjudgedRuling: null,
+  judging: null,
   resolutionAudit: null,
   viewerIsHost: false,
   checkpoint: emptyRuntimeCheckpoint,

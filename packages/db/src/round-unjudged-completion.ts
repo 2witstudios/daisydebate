@@ -89,6 +89,29 @@ async function replay(
   return { ...receipt, replayed: true };
 }
 
+/**
+ * Whether each AI seat can still rule. A held ballot can; a job with budget
+ * can; anything else ended, even if no worker has recorded that yet.
+ */
+async function readAiSeatStates(
+  tx: BoundedTransactionContext,
+  roundId: string,
+) {
+  const rows = (await tx.execute(sql`select judge_participant_id as id,
+    (status in ('queued','leased') and (pending_ballot is not null or generation_deadline_at>clock_timestamp())) as running,
+    status from round_judging_jobs where round_id=${roundId}`)) as unknown as {
+    id: string;
+    running: boolean;
+    status: string;
+  }[];
+  return {
+    runningAiSeatIds: rows.filter((row) => row.running).map((row) => row.id),
+    failedAiSeatIds: rows
+      .filter((row) => !row.running && row.status !== 'succeeded')
+      .map((row) => row.id),
+  };
+}
+
 async function readCompletionFacts(
   tx: BoundedTransactionContext,
   input: Request,
@@ -99,7 +122,7 @@ async function readCompletionFacts(
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
-    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
+    await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
@@ -130,6 +153,7 @@ async function readCompletionFacts(
     humanJudgeSeatIds: facts.seats
       .filter((seat) => seat.role === 'judge' && seat.kind === 'human')
       .map((seat) => seat.id),
+    ...(await readAiSeatStates(tx, input.roundId)),
   };
 }
 
@@ -140,7 +164,17 @@ async function failOpenJudgingJobs(
 ) {
   await tx
     .update(roundJudgingJobs)
-    .set({ status: 'failed', leaseTokenDigest: null, leaseExpiresAt: null })
+    .set({
+      status: 'failed',
+      terminalReason: 'round_ended',
+      retryAt: null,
+      leaseTokenDigest: null,
+      leaseExpiresAt: null,
+      pendingBallot: null,
+      pendingBallotAgentRunId: null,
+      pendingBallotEpoch: null,
+      pendingBallotReceivedAt: null,
+    })
     .where(
       and(
         eq(roundJudgingJobs.roundId, roundId),

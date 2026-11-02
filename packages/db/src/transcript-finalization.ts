@@ -38,7 +38,8 @@ export type FreezeRequest = LockedRoundTickInput & {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
   }) => {
-    readonly ballotDeadlineMs: number;
+    /** Null when no human judge sits: no human window exists. */
+    readonly ballotDeadlineMs: number | null;
     readonly dispatchAiJudges: boolean;
     /** How long an AI judging job may buy provider work after the freeze (DEC-275). */
     readonly aiJudgingBudgetMs: number;
@@ -62,11 +63,16 @@ async function planFrozenJudging(
     completeness,
     humanJudges: judges!.humanJudges,
   });
-  if (!Number.isSafeInteger(plan.ballotDeadlineMs) || plan.ballotDeadlineMs < 0)
-    throw createAppError('VALIDATION');
-  await tx.execute(
-    sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
-  );
+  if (plan.ballotDeadlineMs !== null) {
+    if (
+      !Number.isSafeInteger(plan.ballotDeadlineMs) ||
+      plan.ballotDeadlineMs < 0
+    )
+      throw createAppError('VALIDATION');
+    await tx.execute(
+      sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
+    );
+  }
   if (!plan.dispatchAiJudges) return;
   if (
     !Number.isSafeInteger(plan.aiJudgingBudgetMs) ||

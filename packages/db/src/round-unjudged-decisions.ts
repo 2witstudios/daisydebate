@@ -20,7 +20,6 @@ type CommandRow = typeof roundCommands.$inferSelect;
 type HydratedRound = Awaited<ReturnType<typeof hydrateRoundRows>>;
 /** Durable Round facts read under the Round lock. */
 export type UnjudgedDurableFacts = {
-  readonly ladder_id: unknown;
   readonly final_segment_ended_at: unknown;
   readonly transcript_admission_cutoff: unknown;
   readonly ballot_deadline_at: unknown;
@@ -116,20 +115,16 @@ export function requireUnjudgedTerminal(
     throw receiptConflict();
 }
 
-/** A casual Round with every segment played; its judges, if any, may not have ruled. */
+/** A Round with every segment played; its judges, if any, may not have ruled. */
 export function requireUnjudgedRound(
   round: HydratedRound,
 ): asserts round is NonNullable<HydratedRound> {
-  if (
-    !round ||
-    round.competitionType !== 'casual' ||
-    round.segments.some((p) => p.endedAt === null)
-  )
+  if (!round || round.segments.some((p) => p.endedAt === null))
     throw ineligible();
 }
 
 /**
- * The requested freeze, eligible debaters and no ladder or rating fact. A
+ * The requested freeze, eligible debaters and no rating fact yet. A
  * judge who left cannot hold the Round open: the deadline records no ruling.
  * Returns the freeze and the ballot deadline persisted at it, as UTC ISO.
  */
@@ -150,7 +145,6 @@ export function requireUnjudgedFacts<
     freeze.revision !== input.freezeRevision ||
     input.seats.some((seat) => seat.role !== 'judge' && !seat.eligible) ||
     !durable ||
-    durable.ladder_id !== null ||
     !durable.final_segment_ended_at ||
     !durable.transcript_admission_cutoff ||
     durable.ratings

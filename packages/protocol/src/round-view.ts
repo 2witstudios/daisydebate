@@ -40,6 +40,21 @@ const anonymousJudgeSchema = z.strictObject({
  * carries the host's actor, and a human judge's identity only for that
  * judge or the host.
  */
+/** What a played Round is waiting on, with the persisted deadline when one exists. */
+export const roundJudgingStatusSchema = z.strictObject({
+  state: z.enum([
+    'closing_transcript',
+    'human_window',
+    'ai_processing',
+    'ai_failed',
+    'awaiting_attendance',
+    'held_by_writer',
+    'settling',
+  ]),
+  deadlineAt: instant.nullable(),
+});
+export type RoundJudgingStatus = z.infer<typeof roundJudgingStatusSchema>;
+
 export const roundViewSchema = z.strictObject({
   id: idSchema,
   roomId: idSchema,
@@ -57,6 +72,8 @@ export const roundViewSchema = z.strictObject({
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
   /** The unjudged finalizer's ruling, from its durable receipt; null for any other completion. */
   unjudgedRuling: unjudgedRulingSchema.nullable(),
+  /** What a played Round is waiting on; null until its speeches end. */
+  judging: roundJudgingStatusSchema.nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
   /** The draw's public envelope once the Round has ended; null otherwise. */

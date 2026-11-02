@@ -3,7 +3,6 @@ import {
   ballotLines,
   judgingBallotsOf,
   judgingClockOf,
-  JUDGING_WINDOW_MS,
 } from './judging';
 
 setupRitewayBun();
@@ -86,26 +85,62 @@ describe('ballotLines', () => {
 });
 
 describe('judgingClockOf', () => {
-  const close = Date.parse('2026-10-12T18:00:00.000Z');
-
-  test('the window after the last speech', () => {
+  const deadlineAt = new Date(600_000).toISOString();
+  test('counts only a human window, to the persisted deadline', () => {
     assert({
-      given: 'the last speech closed 5 minutes ago',
-      should: 'count down what is left of the 30-minute judging window',
-      actual: [JUDGING_WINDOW_MS, judgingClockOf(close, close + 300_000)],
-      expected: [
-        1_800_000,
-        { label: 'Judging window', remainingMs: 1_500_000 },
-      ],
+      given: 'a human window',
+      should: 'count down to the server deadline',
+      actual: judgingClockOf({ state: 'human_window', deadlineAt }, 540_000),
+      expected: { label: 'Judging window', remainingMs: 60_000 },
+    });
+    assert({
+      given: 'a human window already past',
+      should: 'stop at zero',
+      actual: judgingClockOf({ state: 'human_window', deadlineAt }, 700_000)
+        ?.remainingMs,
+      expected: 0,
+    });
+    for (const state of [
+      'ai_processing',
+      'ai_failed',
+      'held_by_writer',
+    ] as const)
+      assert({
+        given: state,
+        should: 'show no clock',
+        actual: judgingClockOf({ state, deadlineAt }, 540_000),
+        expected: null,
+      });
+    assert({
+      given: 'no status from the server',
+      should: 'invent nothing',
+      actual: judgingClockOf(null, 540_000),
+      expected: null,
     });
   });
+});
 
-  test('a window that has run out', () => {
+describe('ballotLines by server state', () => {
+  const line = (state: Parameters<typeof ballotLines>[2]) =>
+    ballotLines({ judge: 'ai', ai: null }, 'casual', state)[0]?.status;
+  test('says what the Round is really waiting on', () => {
     assert({
-      given: 'an instant past the window’s end',
-      should: 'stop at zero rather than count negative',
-      actual: judgingClockOf(close, close + 2_000_000).remainingMs,
-      expected: 0,
+      given: 'each state',
+      should: 'label it truthfully',
+      actual: [
+        line('ai_processing'),
+        line('ai_failed'),
+        line('awaiting_attendance'),
+        line('held_by_writer'),
+        line('closing_transcript'),
+      ],
+      expected: [
+        'Writing · decides the result',
+        'Could not rule',
+        'Waiting on attendance',
+        'Waiting on a check-in',
+        'Closing the transcript',
+      ],
     });
   });
 });

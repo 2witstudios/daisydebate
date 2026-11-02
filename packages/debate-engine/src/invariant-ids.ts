@@ -5,7 +5,7 @@
  * registers each id with a fixture and a test (`bun invariants`).
  */
 export const debateInvariantIds = {
-  unjudgedCasualOnly: 'round.complete.unjudged-casual-only',
+  unjudgedPlayedRound: 'round.complete.unjudged-played-round',
   failurePostponesOnly: 'debate.adjudication.failure-postpones-only',
   timestampDecides: 'debate.adjudication.timestamp-decides',
   speechTurnsOnly: 'debate.adjudication.speech-turns-only',
