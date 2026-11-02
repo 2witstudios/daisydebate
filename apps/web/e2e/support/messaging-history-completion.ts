@@ -108,6 +108,8 @@ export function testMessagingHistoryCompletion() {
           await held.releaseNavigation();
         } else {
           await held.releaseNavigation();
+          // The unresolved original command still owns its request ID.
+          expect(await composerRequestId(page)).toBe(oldId);
           await held.releaseSend();
         }
         // The member's page, not the superseded send's ?sent destination.
@@ -188,6 +190,10 @@ export function testMessagingHistoryCompletion() {
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
       await expect(page.getByLabel('Your message')).toHaveValue('');
+      // The answer empties the field before the fresh command replaces the form.
+      await expect(
+        page.getByRole('button', { name: 'Send message', exact: true }),
+      ).toBeEnabled();
       expect(await composerRequestId(page)).not.toBe(requestId);
       await durableMessage(page, journey.channelId, text);
     } finally {

@@ -144,7 +144,9 @@ outcome only and stay green without it.
 
 **Known limit.** Only navigation from inside the conversation composition supersedes.
 A shell link or browser Back in that same window can still lose to `?sent`, tracked
-on ISSUE-934.
+on ISSUE-934. A refusal whose form is already gone because the member left is not
+shown and its draft is lost; this is from reading the code and is unconfirmed,
+tracked on ISSUE-949.
 
 ### Scoped search
 

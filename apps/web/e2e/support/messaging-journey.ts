@@ -1,7 +1,7 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { idSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
-import { reportingTeardown } from './journey-teardown';
+import { reportingTeardown, runEveryStep } from './journey-teardown';
 import { createRoomAccounts } from './room-accounts';
 import { origin } from './accounts';
 import { openMessagingBrowserData } from './messaging-data';
@@ -15,6 +15,17 @@ async function openJourney(
   const signup = await createRoomAccounts(browser, 3);
   const contexts: BrowserContext[] = [];
   let data: Awaited<ReturnType<typeof openMessagingBrowserData>> | undefined;
+  const close = reportingTeardown(
+    () =>
+      runEveryStep([
+        ...contexts.map((context) => () => context.close()),
+        async () => data?.close(),
+        () => signup.dispose(),
+      ]),
+    // Soft: the test still fails, and its primary failure stays reported.
+    (teardown) =>
+      expect.soft(teardown, 'journey teardown failed').toBeUndefined(),
+  );
   try {
     data = await openMessagingBrowserData(signup.members);
     for (const member of signup.members) {
@@ -62,27 +73,10 @@ async function openJourney(
       senderUsername: signup.members[0].username,
       recipientUsername: signup.members[1].username,
       outsiderUsername: browserMemberUsername(signup.members, 2),
-      close: reportingTeardown(
-        async () => {
-          await Promise.all(contexts.map((context) => context.close()));
-          try {
-            await data?.close();
-          } finally {
-            await signup.dispose();
-          }
-        },
-        // Soft: the test still fails, and its primary failure stays reported.
-        (teardown) =>
-          expect.soft(teardown, 'journey teardown failed').toBeUndefined(),
-      ),
+      close,
     };
   } catch (error) {
-    await Promise.all(contexts.map((context) => context.close()));
-    try {
-      await data?.close();
-    } finally {
-      await signup.dispose();
-    }
+    await close();
     throw error;
   }
 }
