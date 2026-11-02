@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundUnjudgedReceiptSchema } from './round-unjudged';
+import { roundPanelReceiptSchema } from './round-panel-completion';
 import { roundCommandEnvelopeSchema } from './round-command';
 setupRitewayBun();
 const receipt = {
@@ -47,7 +47,7 @@ test('unjudged receipts describe only the original frozen completion and its rul
     assert({
       given: JSON.stringify(input),
       should: 'validate the durable receipt strictly',
-      actual: roundUnjudgedReceiptSchema.safeParse(input).success,
+      actual: roundPanelReceiptSchema.safeParse(input).success,
       expected,
     });
   assert({

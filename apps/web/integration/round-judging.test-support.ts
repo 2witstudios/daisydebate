@@ -96,13 +96,14 @@ export async function playOut(
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
-/** The judged Room with a stored bot judge assigned and both debaters ready again. */
-async function readyBotJudgedRoom(
+/** A stored AI judge assigned to the judge seat, then the named debaters ready again. */
+export async function assignAiJudgeAndReady(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  room: ReadyRoom,
+  callers: readonly Parameters<RoomFixture['consent']>[0][],
 ) {
   const judge = await f.aiJudge();
-  let room = await assembleJudgedRoom(f);
-  room = (
+  const assigned = (
     await f.command(f.host, room, {
       type: 'assign-seat',
       role: 'judge',
@@ -110,8 +111,14 @@ async function readyBotJudgedRoom(
       actorId: judge.actorId,
     })
   ).view;
-  room = await everyoneReady(f, room, [f.host, f.guest]);
-  return { room, judge };
+  return { room: await everyoneReady(f, assigned, callers), judge };
+}
+/** The judged Room with a stored bot judge assigned and both debaters ready again. */
+async function readyBotJudgedRoom(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+) {
+  const room = await assembleJudgedRoom(f);
+  return assignAiJudgeAndReady(f, room, [f.host, f.guest]);
 }
 /**
  * A bot-judged Round played out and frozen through the real finalizer.

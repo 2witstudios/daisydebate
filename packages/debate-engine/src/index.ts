@@ -26,14 +26,19 @@ export { closeRoom } from './room-consent-transitions';
 export { maintainRoom } from './room-expiry';
 export { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
-export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
+export {
+  decidePanelCompletion,
+  freezeJudgingPlan,
+} from './round-panel-completion';
 export { decideStartHorizon } from './round-start-horizon';
+export { roundWaitingOn } from './round-waiting-on';
 export {
   attendancePolicy,
   requireAttendanceWindow,
   adjudicateAttendance,
+  onTimeSpeakerReceipt,
 } from './attendance';
-export type { AttendanceWindow } from './attendance';
+export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
   effectiveAttendanceDeadline,

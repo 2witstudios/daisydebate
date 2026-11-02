@@ -57,6 +57,7 @@ const facts = (
     },
     eligibleParticipantIds: ['aff', 'neg'],
     samples: healthyThrough(openedAtMs + 50000),
+    resolutionCutoffAt: null,
     finalizedSegmentIds: [],
     now: iso(openedAtMs + 50000),
     checkIns: [],
@@ -84,8 +85,11 @@ function feature(read: Partial<AttendanceEvaluationFacts> = {}) {
       },
     } as unknown as AttendanceStore,
     evaluate: (async (input: {
+      readonly resolveOnReceipts: (f: AttendanceEvaluationFacts) => unknown;
       readonly resolve: (f: AttendanceEvaluationFacts) => unknown;
-    }) => input.resolve(facts(read))) as unknown as AttendanceEvaluator,
+    }) =>
+      input.resolveOnReceipts(facts(read)) ??
+      input.resolve(facts(read))) as unknown as AttendanceEvaluator,
     nextId: () => `command${String(++ids).padStart(17, '0')}`,
     instanceId: 'instance0000000000000000',
   });
@@ -95,16 +99,16 @@ const principal = { kind: 'human' as const, actorId: 'actor-aff' };
 
 test('evaluation resolves only settled actual-speech evidence', async () => {
   assert({
-    given: 'the scheduled speaker checked in on time with settled evidence',
-    should: 'record attendance without a competitive projection',
+    given: 'the scheduled speaker checked in on time',
+    should: 'credit the receipt without a competitive projection',
     actual: await feature({ checkIns: [stamp(speaker)] }).instance.evaluate(
       'round',
     ),
     expected: {
       segmentId: segment.id,
+      evidence: 'on_time_receipt',
       decision: 'attended',
-      effectiveDeadline: '2026-10-22T00:02:40.000000Z',
-      settledHorizon: '2026-10-22T00:02:50.000000Z',
+      receiptParticipantId: speaker,
       projection: null,
     },
   });
@@ -124,6 +128,99 @@ test('evaluation resolves only settled actual-speech evidence', async () => {
       actual: await feature(read).instance.evaluate('round'),
       expected: null,
     });
+});
+
+test('an on-time speaker is credited when availability is broken or absent', async () => {
+  for (const [given, samples] of [
+    ['no samples at all', []],
+    [
+      'permanently unhealthy samples',
+      healthyThrough(openedAtMs + 50000).map((sample) => ({
+        ...sample,
+        healthy: false,
+        cause: 'public_probe_failed',
+      })),
+    ],
+  ] as const)
+    assert({
+      given,
+      should: 'credit the receipt',
+      actual: (
+        (await feature({
+          samples: samples as never,
+          checkIns: [stamp(speaker)],
+        }).instance.evaluate('round')) as { evidence: string }
+      ).evidence,
+      expected: 'on_time_receipt',
+    });
+});
+
+test('unknown health forfeits nobody, and the persisted cutoff ends the Round with no winner', async () => {
+  const unhealthy = healthyThrough(openedAtMs + 50000).map((sample) => ({
+    ...sample,
+    healthy: false,
+    cause: 'public_probe_failed' as const,
+  }));
+  const late = {
+    participantId: speaker,
+    segmentId: segment.id,
+    receivedAt: iso(openedAtMs + 41000),
+  };
+  const absent = {
+    samples: unhealthy,
+    checkIns: [stamp(opponent)],
+  };
+  assert({
+    given: 'a missing speaker, a present opponent and unknown health',
+    should: 'postpone, never forfeit',
+    actual: await feature(absent).instance.evaluate('round'),
+    expected: null,
+  });
+  assert({
+    given: 'a late speaker with unproven health before the cutoff (DEC-278)',
+    should: 'postpone, never credit',
+    actual: await feature({
+      samples: unhealthy,
+      checkIns: [late],
+      resolutionCutoffAt: iso(openedAtMs + 60000),
+    }).instance.evaluate('round'),
+    expected: null,
+  });
+  assert({
+    given: 'no cutoff yet because the final speech has not ended',
+    should: 'postpone',
+    actual: await feature({
+      ...absent,
+      resolutionCutoffAt: null,
+      now: iso(openedAtMs + 9_000_000),
+    }).instance.evaluate('round'),
+    expected: null,
+  });
+  const ended = (await feature({
+    ...absent,
+    resolutionCutoffAt: iso(openedAtMs + 60000),
+    now: iso(openedAtMs + 60000),
+  }).instance.evaluate('round')) as {
+    evidence: string;
+    decision: string;
+    projection: { round: { status: string; outcome: unknown } };
+  };
+  assert({
+    given: 'the same window at the persisted cutoff (DEC-276)',
+    should: 'abandon on infrastructure evidence, with no winner',
+    actual: {
+      evidence: ended.evidence,
+      decision: ended.decision,
+      status: ended.projection.round.status,
+      outcome: ended.projection.round.outcome ?? null,
+    },
+    expected: {
+      evidence: 'infrastructure_unresolved',
+      decision: 'abandoned',
+      status: 'abandoned',
+      outcome: null,
+    },
+  });
 });
 
 test('a missing bot speaker receipt abandons through the shared engine projection', async () => {

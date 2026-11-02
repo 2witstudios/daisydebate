@@ -98,19 +98,17 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
   });
 });
 
-test('ranked completion retains the required outcome and practice is no competition type (DEC-233)', async () => {
+test('a ranked Round may end with no winner (DEC-277) and practice is no competition type (DEC-233)', async () => {
   await withFixture(databaseUrl, async (f) => {
-    const ranked = await rejectedBy(() =>
-      f.round({
-        ...completed,
-        rules_snapshot: zeroRules,
-        competition_type: 'ranked',
-        format_id: 'freestyle',
-        format_version: 1,
-        ladder_id: 'freestyle',
-        preset_version: 1,
-      }),
-    );
+    const rankedId = await f.round({
+      ...completed,
+      rules_snapshot: zeroRules,
+      competition_type: 'ranked',
+      format_id: 'freestyle',
+      format_version: 1,
+      ladder_id: 'freestyle',
+      preset_version: 1,
+    });
     const practice = await rejectedBy(() =>
       f.round({
         ...completed,
@@ -118,12 +116,14 @@ test('ranked completion retains the required outcome and practice is no competit
         competition_type: 'practice',
       }),
     );
+    const [ranked] =
+      await f.sql`select status,outcome from rounds where id=${rankedId}`;
     assert({
       given: 'completed ranked and practice rows without an outcome',
       should:
-        'refuse the ranked row with the lifecycle guard and the practice row as an unknown competition type',
-      actual: [ranked, practice],
-      expected: ['rounds_lifecycle_check', 'rounds_competition_type_check'],
+        'accept the ranked row, which rating discovery ignores, and refuse practice as an unknown competition type',
+      actual: [ranked.status, ranked.outcome, practice],
+      expected: ['completed', null, 'rounds_competition_type_check'],
     });
   });
 });

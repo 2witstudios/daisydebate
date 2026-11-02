@@ -40,7 +40,14 @@ function sameDecision(
   expected: AttendanceDecision,
   actual: AttendanceDecision,
 ): boolean {
+  if (expected.evidence === 'on_time_receipt')
+    return (
+      actual.evidence === 'on_time_receipt' &&
+      actual.participantId === expected.participantId &&
+      actual.receivedAtMs === expected.receivedAtMs
+    );
   if (
+    actual.evidence !== 'settled_availability' ||
     expected.decision !== actual.decision ||
     expected.effectiveDeadlineMs !== actual.effectiveDeadlineMs
   )

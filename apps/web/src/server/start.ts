@@ -44,6 +44,10 @@ const nextApp = next({ dev: false, port });
 // DATABASE_URL role that could create or alter schema objects, prepares
 // Next, and only then lets a request reach Next (ISSUE-39, ISSUE-193); a
 // refusal rejects `started` and the process exits.
+// Closed before the listener opens: a broken attendance probe is named before this
+// process takes traffic. Settled below, once the check has run.
+const probeCheck = Promise.withResolvers<void>();
+app.holdReadinessUntil(probeCheck.promise);
 const { server, started } = startProductionServer({
   app,
   nextApp,
@@ -108,6 +112,11 @@ const availability = startRoundAvailability({
   fetch: fetchPublicAttendanceProbe,
   timers: workerTimers,
 });
+// A slow read holds readiness at most 2 s: the check reports, it never refuses.
+void Promise.race([
+  availability.probeChecked,
+  new Promise((settle) => oneShotTimer.setTimeout(() => settle(null), 2000)),
+]).finally(() => probeCheck.resolve());
 const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,

@@ -7,7 +7,7 @@ import {
   ROUND_START_HORIZON_MS,
   DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
-  unjudgedCompletion,
+  panelCompletion,
 } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
@@ -30,14 +30,14 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: unjudgedCompletion(createId),
+      buildCompletion: panelCompletion(createId),
       planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
       await assertRejects({
         given: 'an unfinished actual zerojudge Room',
         should: 'refuse without terminal writes',
-        actual: () => f.store.completeUnjudgedRound(request),
+        actual: () => f.store.completePanelRound(request),
         code: 'CONFLICT',
       });
       // Component boundary: rebase before the engine creates actual segment/end/cutoff rows.
@@ -46,7 +46,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       await assertRejects({
         given: 'an immutable freeze with unresolved historical attendance',
         should: 'refuse completion',
-        actual: () => f.store.completeUnjudgedRound(request),
+        actual: () => f.store.completePanelRound(request),
         code: 'CONFLICT',
       });
       // This fixture proves consumption of the durable settlement ledger, not RT evaluator acceptance.
@@ -56,7 +56,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         given: 'a caller naming another immutable freeze revision',
         should: 'refuse without completion',
         actual: () =>
-          f.store.completeUnjudgedRound({ ...request, freezeRevision: 2 }),
+          f.store.completePanelRound({ ...request, freezeRevision: 2 }),
         code: 'CONFLICT',
       });
       const attemptId = createId();
@@ -64,7 +64,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       await assertRejects({
         given: 'a settled ledger with a durable pending receipt',
         should: 'refuse terminal completion',
-        actual: () => f.store.completeUnjudgedRound(request),
+        actual: () => f.store.completePanelRound(request),
         code: 'CONFLICT',
       });
       assert({
@@ -81,14 +81,14 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       await f.sql`update round_check_in_attempts set state='aborted',resolved_at=clock_timestamp() where attempt_id=${attemptId}`;
 
       const receipts = await Promise.all([
-        f.store.completeUnjudgedRound(request),
-        f.store.completeUnjudgedRound({ ...request, commandId: createId() }),
+        f.store.completePanelRound(request),
+        f.store.completePanelRound({ ...request, commandId: createId() }),
       ]);
       await f.store.renewServiceInstance({
         instanceId: restartedInstanceId,
         role: 'web',
       });
-      const restarted = await f.store.completeUnjudgedRound({
+      const restarted = await f.store.completePanelRound({
         ...request,
         instanceId: restartedInstanceId,
         commandId: createId(),
@@ -149,7 +149,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       commandId: envelope.commandId,
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: unjudgedCompletion(createId),
+      buildCompletion: panelCompletion(createId),
       planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
@@ -157,7 +157,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       await assertRejects({
         given: 'an internal completion reusing the accepted start command ID',
         should: 'refuse global-command collision',
-        actual: () => f.store.completeUnjudgedRound(request),
+        actual: () => f.store.completePanelRound(request),
         code: 'CONFLICT',
       });
       assert({
@@ -172,7 +172,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
         given: 'a prior durable abandoned Round',
         should: 'preserve its terminal decision',
         actual: () =>
-          f.store.completeUnjudgedRound({ ...request, commandId: createId() }),
+          f.store.completePanelRound({ ...request, commandId: createId() }),
         code: 'CONFLICT',
       });
       assert({

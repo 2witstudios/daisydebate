@@ -20,6 +20,75 @@ const bodyOf = (call: Call) =>
   JSON.parse(String(call.init.body)) as Record<string, unknown>;
 
 describe('complete', () => {
+  test('asks for schema-constrained output only from a supporting endpoint', async () => {
+    const { calls, fetch } = recording(() =>
+      Response.json({
+        choices: [
+          {
+            message: { content: '{}', refusal: null },
+            finish_reason: 'length',
+          },
+        ],
+      }),
+    );
+    const result = await createOpenRouter({ apiKey: 'k', fetch }).complete({
+      model: 'm',
+      messages: [],
+      maxTokens: 1,
+      outputSchema: { name: 'ballot', schema: { type: 'object' } },
+    });
+    assert({
+      given: 'an output schema',
+      should:
+        'send strict json_schema, require support and keep zero retention',
+      actual: {
+        format: bodyOf(calls[0]!)['response_format'],
+        provider: bodyOf(calls[0]!)['provider'],
+        finish: result.finish,
+        refused: result.refused,
+      },
+      expected: {
+        format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'ballot',
+            strict: true,
+            schema: { type: 'object' },
+          },
+        },
+        provider: { zdr: true, require_parameters: true },
+        finish: 'length',
+        refused: false,
+      },
+    });
+  });
+  test('reduces finish reasons and refusals to closed facts', async () => {
+    const read = async (choice: unknown) =>
+      createOpenRouter({
+        apiKey: 'k',
+        fetch: async () => Response.json({ choices: [choice] }),
+      }).complete({ model: 'm', messages: [], maxTokens: 1 });
+    const refused = await read({
+      message: { content: null, refusal: 'PRIVATE' },
+      finish_reason: 'vendor_specific_PRIVATE',
+    });
+    assert({
+      given: 'a refusal with an unfamiliar finish reason',
+      should: 'keep booleans and the closed finish, never the text',
+      actual: {
+        refused: refused.refused,
+        finish: refused.finish,
+        leaked: JSON.stringify(refused).includes('PRIVATE'),
+      },
+      expected: { refused: true, finish: 'other', leaked: false },
+    });
+    assert({
+      given: 'no finish reason',
+      should: 'say none',
+      actual: (await read({ message: { content: 'x' } })).finish,
+      expected: 'none',
+    });
+  });
   test('sends a chat completion with zero data retention and reads the text', async () => {
     const { calls, fetch } = recording(() =>
       Response.json({
@@ -58,6 +127,8 @@ describe('complete', () => {
       actual: result,
       expected: {
         text: 'Hello, judge.',
+        finish: 'none',
+        refused: false,
         promptTokens: 12,
         completionTokens: 4,
       },

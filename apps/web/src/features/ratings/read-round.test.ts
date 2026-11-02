@@ -3,9 +3,10 @@ import { view, aff, neg } from '../../ui/debate-room/live-round.test-support';
 import { readRoundRatings } from './read-round';
 setupRitewayBun();
 
+const seasonId = 's'.repeat(24);
+const at = '2026-10-28T00:00:00.000Z';
+
 test('a historical Round badge uses its posting rather than later established standing', async () => {
-  const seasonId = 's'.repeat(24);
-  const at = '2026-10-28T00:00:00.000Z';
   const result = await readRoundRatings(
     {
       listLadderSeasons: async () => [
@@ -19,6 +20,7 @@ test('a historical Round badge uses its posting rather than later established st
         },
       ],
       readRatingBlindings: async () => [],
+      readRoundAwaitsRating: async () => false,
       readStandings: async () => ({
         ratings: [aff, neg].map((p) => ({
           seasonId,
@@ -63,5 +65,42 @@ test('a historical Round badge uses its posting rather than later established st
       [1600, true],
       [1600, true],
     ],
+  });
+});
+
+test('a decided Round is pending exactly when the rating writer would still rate it', async () => {
+  const read = (awaits: boolean) =>
+    readRoundRatings(
+      {
+        listLadderSeasons: async () => [
+          {
+            id: seasonId,
+            name: 'Season',
+            startsAt: at,
+            endsAt: null,
+            status: 'active',
+            version: 1,
+          },
+        ],
+        readRatingBlindings: async () => [],
+        readStandings: async () => ({ ratings: [], changes: [] }),
+        readRoundAwaitsRating: async () => awaits,
+      } as never,
+      {
+        round: {
+          ...view,
+          ladderId: 'freestyle',
+          status: 'completed',
+          outcome: 'affirmative',
+        },
+        now: at,
+        viewerActorId: null,
+      },
+    );
+  assert({
+    given: 'a decided Round with no postings yet',
+    should: "answer with the writer's predicate",
+    actual: [(await read(true))?.pending, (await read(false))?.pending],
+    expected: [true, false],
   });
 });

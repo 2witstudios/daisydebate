@@ -161,7 +161,10 @@ export async function executeLockedRoundBallot(
     submittedJudgeIds: existing.map((b) => b.judgeParticipantId),
     judgeParticipantId: input.envelope.judgeParticipantId,
     now: fresh.now,
-    ballotDeadlineAt: window?.deadline ?? null,
+    // The human window is for humans; an AI seat's budget bounded its generation
+    // and a validated ballot may still submit after either (DEC-275).
+    ballotDeadlineAt:
+      input.principal.kind === 'agent' ? null : (window?.deadline ?? null),
   });
   const stored = await insertFrozenBallot(tx, input, context);
   const ballotId = stored.id;

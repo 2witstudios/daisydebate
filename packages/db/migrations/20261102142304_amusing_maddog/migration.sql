@@ -1,0 +1,2 @@
+ALTER TABLE "round_judging_jobs" ALTER COLUMN "generation_deadline_at" SET DEFAULT clock_timestamp() + interval '5 minutes';--> statement-breakpoint
+ALTER TABLE "round_judging_attempts" DROP CONSTRAINT "round_judging_attempts_category_check", ADD CONSTRAINT "round_judging_attempts_category_check" CHECK ("category" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout'));

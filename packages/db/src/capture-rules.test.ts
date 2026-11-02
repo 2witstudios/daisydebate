@@ -296,3 +296,44 @@ test('capture admission closes at freeze, cutoff or a terminal Round', async () 
     code: 'CONFLICT',
   });
 });
+
+test('a bot grant it did not use seals complete only with no evidence of speech (ISSUE-965)', () => {
+  const silent = {
+    epoch: 1,
+    observations: [],
+    chunks: { count: 0, otherEpochChunks: 0 },
+    storedChunks: 0,
+    expectedChunks: 0,
+    authority: [],
+    tolerance: { openMs: 0, closeMs: 0 },
+    grantUnused: true,
+  };
+  const heard = {
+    start: new Date(1000),
+    end: new Date(1100),
+    epoch: 1,
+  };
+  assert({
+    given:
+      'an unused grant with no evidence, a grant that is owed, then interruption, lost frames, an observation, a stored chunk and an expected chunk',
+    should: 'seal only the first complete',
+    actual: [
+      sealState(silent),
+      sealState({ ...silent, grantUnused: false }),
+      sealState({ ...silent, interrupted: true }),
+      sealState({ ...silent, framesLost: true }),
+      sealState({ ...silent, observations: [heard] }),
+      sealState({ ...silent, storedChunks: 1 }),
+      sealState({ ...silent, expectedChunks: 1 }),
+    ],
+    expected: [
+      'complete',
+      'partial',
+      'partial',
+      'partial',
+      'partial',
+      'partial',
+      'partial',
+    ],
+  });
+});
