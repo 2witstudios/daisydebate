@@ -13,14 +13,18 @@ import {
 import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
-import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
+import {
+  isTemporaryReadFailure,
+  unreadable,
+} from '../../../../../server/temporary-read';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
+import { RoundRoomReconnecting } from '../../../../../ui/debate-room/round-room-reconnecting';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -44,7 +48,7 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
-  if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (assigned.kind === 'unavailable') throw unreadable(assigned);
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
     audience: spectatorAudienceOf(round, actorId),
@@ -74,17 +78,30 @@ async function watchingRoom(
   );
 }
 
+type RoomProps = {
+  readonly params: Promise<{ id: string }>;
+  readonly searchParams: Promise<SearchParams>;
+};
+
+/**
+ * A temporary read failure never costs a speaker the room (ISSUE-927): the
+ * Round keeps running, so the page recovers by itself rather than wait on the
+ * error boundary's manual retry, which also has no page without script.
+ */
+export default async function RoundRoomPage(props: RoomProps) {
+  try {
+    return await roundRoom(props);
+  } catch (error) {
+    if (!isTemporaryReadFailure(error)) throw error;
+    return <RoundRoomReconnecting />;
+  }
+}
+
 /**
  * Fresh assigned members enter their own live view, a seatless host watches
  * as a spectator, and everyone else gets the receipt.
  */
-export default async function RoundRoomPage({
-  params,
-  searchParams,
-}: {
-  readonly params: Promise<{ id: string }>;
-  readonly searchParams: Promise<SearchParams>;
-}) {
+async function roundRoom({ params, searchParams }: RoomProps) {
   const { id } = await params;
   const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
@@ -97,7 +114,7 @@ export default async function RoundRoomPage({
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
-  if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  if (result.kind !== 'found') throw unreadable(result);
   const transcript =
     text.kind === 'found' ? (
       <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />

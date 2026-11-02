@@ -217,7 +217,7 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
         await seat.goto(path);
         await expect(
           seat.getByRole('heading', {
-            name: 'Reconnecting to your Round',
+            name: 'Reconnecting to the Round',
             exact: true,
           }),
         ).toBeVisible();

@@ -6,6 +6,15 @@ caused defects when broken. The brand (which mark on which surface, stage
 ink, brand graphics and contrast pairs) has its own guide:
 [brand usage](brand.md).
 
+## A live Round's page survives a temporary read failure
+
+The Round keeps running on the server, so its room must not wait on anyone
+pressing Try again. When a read is temporarily refused (`temporary-read.ts`:
+a capacity refusal or its 503), the room page renders an honest status page
+that holds a plain `meta refresh`, the same with and without JavaScript. It
+shows no Round state, because none was read. Any other failure stays on the
+error boundary: it is not known to pass and must not say so (ISSUE-927).
+
 ## Mutating forms work without JavaScript
 
 Owner decision, 2026-09-23 (ISSUE-18). Every form that changes state is a
