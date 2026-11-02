@@ -7,7 +7,6 @@ import {
 } from '../../../features/tournaments/bracket';
 import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
-import { LinkButton } from '../link-button/link-button';
 import { MatchCard } from './match-card';
 
 type Props = {
@@ -167,14 +166,6 @@ export function RoundList({ data }: Props) {
                     result(match)
                   )}
                 </p>
-                {match.state === 'pending' ? null : (
-                  <LinkButton
-                    href={match.state === 'live' ? '/watch' : '/recordings'}
-                    variant="ghost"
-                  >
-                    {match.state === 'live' ? 'Watch' : 'Recording'}
-                  </LinkButton>
-                )}
               </li>
             ))}
           </ul>

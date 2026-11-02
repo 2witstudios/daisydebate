@@ -198,7 +198,6 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
     reason: true,
     ctas: [
       link('See the bracket', tournamentRoutes.bracket(data.tournament.id)),
-      link('Watch the recording', '/recordings', 'secondary'),
     ],
   }),
   lost: ({ data }) => ({
@@ -208,7 +207,6 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
     body: 'Honour earned: Semifinalist',
     ctas: [
       link('Watch the final', tournamentRoutes.bracket(data.tournament.id)),
-      link('Watch your recording', '/recordings', 'secondary'),
       link('Find the next event', tournamentRoutes.index, 'ghost'),
     ],
   }),

@@ -4,7 +4,6 @@ import {
   type GridCell,
   type RobinData,
 } from '../../../features/tournaments/bracket';
-import { LinkButton } from '../link-button/link-button';
 import { cn } from '../../cn';
 
 const cell = 'px-3 py-2 text-base tabular-nums';
@@ -180,11 +179,6 @@ export function RobinRounds({ data }: { readonly data: RobinData }) {
                       </>
                     )}
                   </span>
-                  {t.winner === null ? null : (
-                    <LinkButton href="/recordings" variant="ghost">
-                      Recording
-                    </LinkButton>
-                  )}
                 </li>
               ))}
             </ul>
