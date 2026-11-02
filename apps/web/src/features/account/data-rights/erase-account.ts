@@ -116,8 +116,6 @@ export function createEraseAccountHandler({
       );
       return erasingNoteCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
     } catch (error) {
-      if (isAppError(error) && error.code === 'AUTHENTICATION')
-        return seeOther('/sign-in');
       const code = isAppError(error) ? error.code : 'INTERNAL';
       logger.log(
         'privacy.erase.failed',

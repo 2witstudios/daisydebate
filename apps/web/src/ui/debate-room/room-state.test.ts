@@ -276,3 +276,25 @@ describe('reduceRoom page/tone', () => {
     });
   });
 });
+
+test('adopted server text is marked until the next ordinary change', async () => {
+  const { adoptServerText, updateDocumentHtml } =
+    await import('../../features/debate-room/documents/documents');
+  const start = {
+    id: 'd',
+    title: 'Flow',
+    folder: 'prep',
+    templateId: 'blank',
+    html: '<p>old</p>',
+    createdAt: 'then',
+    updatedAt: 'then',
+  } as Parameters<typeof adoptServerText>[0];
+  const adopted = adoptServerText(start, '<p>server</p>', 'now');
+  const typed = updateDocumentHtml(adopted, '<p>typed</p>', 'later');
+  assert({
+    given: 'server text adopted, then an ordinary change',
+    should: 'mark the adoption, and clear the mark on the change',
+    actual: [adopted.html, adopted.textFromServer, typed.textFromServer],
+    expected: ['<p>server</p>', true, undefined],
+  });
+});

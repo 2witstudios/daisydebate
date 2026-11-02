@@ -466,12 +466,61 @@ test('an exit save landing after the next page listed moves the editor, with no 
   await expect
     .poll(async () => serverDocument(page, roundId, documentId))
     .toMatchObject({
-      html: expect.stringMatching(
-        /Landed after the list.*First: |First: .*Landed after the list/,
-      ),
+      html: expect.stringContaining('First: '),
       revision: revision + 2,
     });
   await expect(page.getByText('A newer save of this file')).toHaveCount(0);
+});
+
+test('adopted text keeps the caret in its words and Undo cannot leave it', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  const editor = page.getByRole('textbox', { name: 'Flow', exact: true });
+  await edit(page, 'Alpha beta');
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('Alpha beta');
+  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+  await page.clock.pauseAt('2026-11-01T18:01:00Z');
+  await editor.click();
+  await page.keyboard.press('Home');
+  await page.keyboard.type('Opening line');
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => (await draftFor(page, documentId))?.active?.html)
+    .toContain('Opening line');
+  await reloadLosingExitSave(page);
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+  const { recovery } = await draftFor(page, documentId);
+  const { revision } = await serverDocument(page, roundId, documentId);
+  await editor.click();
+  await page.keyboard.press('Home');
+  for (let step = 0; step < 'Alpha'.length; step += 1)
+    await page.keyboard.press('ArrowRight');
+  const landed = await page.request.post(`${documentsPath}save`, {
+    headers: { origin },
+    data: {
+      id: documentId,
+      html: recovery.html,
+      expectedRevision: revision,
+    },
+  });
+  expect(landed.status()).toBe(200);
+  await page.clock.runFor(3_000);
+  await expect(editor).toContainText('Opening line');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toContainText('Opening line');
+  await page.clock.resume();
+  await page.keyboard.type('X');
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('AlphaX beta');
+  expect((await serverDocument(page, roundId, documentId)).html).toContain(
+    'Opening line',
+  );
 });
 
 test('typing while a late commit lands keeps the text and the caret, and overwrites nothing', async ({

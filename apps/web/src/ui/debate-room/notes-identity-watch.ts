@@ -18,6 +18,7 @@ export type NotesIdentityResources = {
   readonly fetchSession: (
     signal: AbortSignal,
   ) => Promise<Pick<Response, 'ok' | 'json'>>;
+  readonly hasSignOutIntent: () => boolean;
   readonly takeSignOutIntent: () => boolean;
   readonly takeAccountClosedProof: () => boolean;
   readonly publish: (principalId: string | null) => void;
@@ -58,6 +59,9 @@ export function watchNotesIdentity(
     if (!live || pending !== null || observed === null) return;
     const controller = new AbortController();
     pending = controller;
+    // A live answer only speaks for a mark older than its question. A mark set
+    // while it was in flight may be a sign-out still committing.
+    const refusable = unavailable && resources.hasSignOutIntent();
     try {
       const response = await resources.fetchSession(controller.signal);
       if (!response.ok) return;
@@ -70,8 +74,7 @@ export function watchNotesIdentity(
       )
         return;
       if (next !== null) {
-        // A live session means any sign-out mark was refused.
-        if (unavailable) resources.takeSignOutIntent();
+        if (refusable) resources.takeSignOutIntent();
         syncPrincipal(next);
         return;
       }

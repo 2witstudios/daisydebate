@@ -125,6 +125,8 @@ export type WorkspaceDocument = {
   readonly html: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** The current text was adopted from the server, so Undo must not leave it. */
+  readonly textFromServer?: true;
 };
 
 /** "Flow", then "Flow 2", "Flow 3"… for the first title not already taken. */
@@ -166,7 +168,18 @@ export function updateDocumentHtml(
   now: string,
 ): WorkspaceDocument {
   if (html === document.html) return document;
-  return { ...document, html, updatedAt: now };
+  const { textFromServer: _adopted, ...rest } = document;
+  return { ...rest, html, updatedAt: now };
+}
+
+/** Text a late commit put on the server, which the person did not type here. */
+export function adoptServerText(
+  document: WorkspaceDocument,
+  html: string,
+  now: string,
+): WorkspaceDocument {
+  if (html === document.html) return document;
+  return { ...document, html, updatedAt: now, textFromServer: true };
 }
 
 export function renameDocument(

@@ -39,7 +39,12 @@ export function useDocumentSync(
       // the old text with the new revision.
       if (live)
         flushSync(() =>
-          dispatch({ type: 'doc/update', id, html, now: systemClock.now() }),
+          dispatch({
+            type: 'doc/server-text',
+            id,
+            html,
+            now: systemClock.now(),
+          }),
         );
     });
     const refresh = (event: StorageEvent) => {

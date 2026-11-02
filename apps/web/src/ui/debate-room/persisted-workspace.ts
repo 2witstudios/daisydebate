@@ -1,4 +1,5 @@
 import {
+  adoptServerText,
   updateDocumentHtml,
   type WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
@@ -49,6 +50,13 @@ export function reducePersistedWorkspace(
       return loadWorkspaceDocuments(state, action.documents);
     case 'doc/add':
       return appendWorkspaceDocument(state, action.document);
+    case 'doc/server-text':
+      return {
+        ...state,
+        documents: state.documents.map((d) =>
+          d.id === action.id ? adoptServerText(d, action.html, action.now) : d,
+        ),
+      };
     case 'doc/update':
       return {
         ...state,

@@ -17,6 +17,7 @@ type EditableDocument = {
   readonly id: string;
   readonly title: string;
   readonly html: string;
+  readonly textFromServer?: true;
 };
 
 type Props = {
@@ -65,9 +66,10 @@ export function DocumentEditor({
     const change = outsideTextTransaction(
       editor.state,
       createDocument(document.html, editor.schema),
+      { undoable: document.textFromServer !== true },
     );
     if (change) editor.view.dispatch(change);
-  }, [editor, document.html]);
+  }, [editor, document.html, document.textFromServer]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -43,6 +43,7 @@ const harness = ({
       log.reads += 1;
       return { ok: true, json: async () => session };
     },
+    hasSignOutIntent: () => mark,
     takeSignOutIntent: () => {
       log.intentTaken += 1;
       const taken = mark;
@@ -117,6 +118,36 @@ test('an unavailable mount settles a sign-out mark on the first session answer',
       expiredLater.log.fences,
     ],
     expected: [[], [null], 0, ['member'], 0, [], 1],
+  });
+});
+
+test('a live answer from before a sign-out cannot discard its mark', async () => {
+  const h = harness();
+  let answer: (value: Pick<Response, 'ok' | 'json'>) => void = () => {};
+  let marked = false;
+  const stop = watchNotesIdentity(undefined, {
+    ...h.resources,
+    fetchSession: () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    hasSignOutIntent: () => marked,
+    takeSignOutIntent: () => {
+      const taken = marked;
+      marked = false;
+      return taken;
+    },
+  });
+  // The form submits while the read is out.
+  marked = true;
+  answer({ ok: true, json: async () => ({ user: { id: 'member' } }) });
+  await settled();
+  stop();
+  assert({
+    given: 'a sign-out submitted while a session read was in flight',
+    should: 'keep the mark, so the landing page can still purge',
+    actual: marked,
+    expected: true,
   });
 });
 

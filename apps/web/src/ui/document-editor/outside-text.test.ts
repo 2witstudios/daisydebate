@@ -6,6 +6,7 @@ import { outsideTextTransaction } from './outside-text';
 
 setupRitewayBun();
 
+const undoable = { undoable: true };
 const schema = getSchema(documentExtensions);
 const doc = (...paragraphs: readonly string[]) =>
   schema.nodeFromJSON({
@@ -30,7 +31,7 @@ const textBeforeCaret = (state: EditorState) => {
 test('the caret stays in the same words when text arrives above it', () => {
   const state = at(['Alpha beta'], 6);
   const moved = state.apply(
-    outsideTextTransaction(state, doc('Opening line', 'Alpha beta'))!,
+    outsideTextTransaction(state, doc('Opening line', 'Alpha beta'), undoable)!,
   );
   assert({
     given: 'a caret after "Alpha" and a new paragraph arriving above',
@@ -42,7 +43,9 @@ test('the caret stays in the same words when text arrives above it', () => {
 
 test('a caret in removed text lands in text', () => {
   const state = at(['short', 'next'], 9);
-  const moved = state.apply(outsideTextTransaction(state, doc('short'))!);
+  const moved = state.apply(
+    outsideTextTransaction(state, doc('short'), undoable)!,
+  );
   assert({
     given: 'a caret in a paragraph the new text removes',
     should: 'land inside the remaining text, never between blocks',
@@ -53,7 +56,9 @@ test('a caret in removed text lands in text', () => {
 
 test('repeated text keeps the replaced range valid', () => {
   const state = at(['aaa'], 1);
-  const moved = state.apply(outsideTextTransaction(state, doc('aaaa'))!);
+  const moved = state.apply(
+    outsideTextTransaction(state, doc('aaaa'), undoable)!,
+  );
   assert({
     given: 'new text whose common start and end overlap',
     should: 'still produce exactly the new text',
@@ -62,14 +67,23 @@ test('repeated text keeps the replaced range valid', () => {
   });
 });
 
-test('outside text is neither an undo step nor a local edit', () => {
+test('only server text leaves the undo history', () => {
   const state = at(['old'], 1);
-  const tr = outsideTextTransaction(state, doc('new'))!;
+  const applied = outsideTextTransaction(state, doc('new'), undoable)!;
+  const server = outsideTextTransaction(state, doc('new'), {
+    undoable: false,
+  })!;
   assert({
-    given: 'text replaced from outside the editor',
-    should: 'stay out of the undo history and not echo back',
-    actual: [tr.getMeta('addToHistory'), tr.getMeta('preventUpdate')],
-    expected: [false, true],
+    given: 'an applied edit and adopted server text',
+    should:
+      'keep the applied edit undoable, keep server text out of history, and never echo',
+    actual: [
+      applied.getMeta('addToHistory'),
+      server.getMeta('addToHistory'),
+      applied.getMeta('preventUpdate'),
+      server.getMeta('preventUpdate'),
+    ],
+    expected: [undefined, false, true, true],
   });
 });
 
@@ -77,7 +91,7 @@ test('identical text changes nothing', () => {
   assert({
     given: 'new text equal to the editor text',
     should: 'produce no transaction',
-    actual: outsideTextTransaction(at(['same'], 2), doc('same')),
+    actual: outsideTextTransaction(at(['same'], 2), doc('same'), undoable),
     expected: null,
   });
 });

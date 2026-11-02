@@ -30,6 +30,18 @@ const pruneExpired = () => {
   }
 };
 
+const hasSignOutIntent = () => {
+  try {
+    return (
+      browserStorage(() => window.sessionStorage)?.getItem(
+        NOTES_SIGN_OUT_INTENT_KEY,
+      ) === 'yes'
+    );
+  } catch {
+    return false;
+  }
+};
+
 const takeSignOutIntent = () => {
   const storage = browserStorage(() => window.sessionStorage);
   try {
@@ -86,6 +98,7 @@ export function RoundNotesPrivacy({
             cache: 'no-store',
             signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
           }),
+        hasSignOutIntent,
         takeSignOutIntent,
         takeAccountClosedProof: () => takeNotesErasedCookie(document),
         publish: (next) =>
