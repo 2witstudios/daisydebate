@@ -12,35 +12,11 @@ const backToLive = (label: string) => (
 );
 
 /**
- * Every way opening a live Round can end without a view: signed out, not
+ * Every way opening a live Round can end without a view: not
  * available, seated or judging, removed by the host, full, not started yet.
  */
 export function SpectateRefusal({ screen }: SpectateRefusalProps) {
   switch (screen.kind) {
-    case 'signed-out':
-      return (
-        <StateCard
-          icon="eye"
-          level="h1"
-          title="Sign in to watch live debates"
-          actions={
-            <>
-              <ActionLink href={screen.signInHref} variant="primary">
-                Sign in
-              </ActionLink>
-              {backToLive('See live debates')}
-            </>
-          }
-        >
-          {screen.teaser ? (
-            <p className="rounded-md bg-surface-overlay p-3 text-sm">
-              <span className="font-strong text-live">Live</span>{' '}
-              <b className="text-ink">{screen.teaser.title}</b>
-              {`, ${screen.teaser.modeLabel}, ${screen.teaser.watching} watching`}
-            </p>
-          ) : null}
-        </StateCard>
-      );
     case 'unavailable':
       return (
         <StateCard

@@ -38,33 +38,16 @@ describe('openSpectate over the sample Rounds', () => {
     });
   });
 
-  test('signed-out visitors are sent to sign in and back', () => {
+  test('a visitor watches a public Round without an account', () => {
     const anonymous = watchViewer(false);
-    const open = openSpectate(
-      'top-of-the-ladder',
-      anonymous,
-      defaultSpectateQuery,
-      sampleWatchSource,
-    );
-    const hidden = openSpectate(
-      'closed-door',
-      anonymous,
-      defaultSpectateQuery,
-      sampleWatchSource,
-    );
     assert({
       given: 'an anonymous viewer at a public live Round and a private one',
-      should: 'show a teaser only for the public one, both signing in to it',
+      should: 'open the public one and answer unavailable for the private one',
       actual: [
-        open.kind === 'signed-out' ? open.teaser?.title : 'wrong',
-        open.kind === 'signed-out' ? open.signInHref : 'wrong',
-        hidden.kind === 'signed-out' ? hidden.teaser : 'wrong',
+        kind('top-of-the-ladder', anonymous),
+        kind('closed-door', anonymous),
       ],
-      expected: [
-        'Top of the ladder',
-        '/sign-in?next=%2Fwatch%2Ftop-of-the-ladder',
-        null,
-      ],
+      expected: ['watch', 'unavailable'],
     });
   });
 });

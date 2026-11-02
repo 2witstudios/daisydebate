@@ -77,8 +77,8 @@ export function buildResult(
 }
 
 const DESCRIPTIONS: Readonly<Record<Visibility, string>> = {
-  public: 'Anyone with an account can replay it.',
-  unlisted: 'Anyone signed in with the link can replay it.',
+  public: 'Anyone can replay it.',
+  unlisted: 'Anyone with the link can replay it.',
   private: 'Only the debaters and judges can replay it.',
 };
 
@@ -95,7 +95,7 @@ const OPTIONS: readonly {
   {
     value: 'unlisted',
     label: 'Unlisted',
-    text: 'Signed-in link holders only',
+    text: 'Anyone with the link',
   },
   {
     value: 'private',

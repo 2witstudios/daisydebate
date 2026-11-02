@@ -4,7 +4,6 @@ import { signUpMember } from './support/accounts';
 
 const publicTitles: Record<string, string> = {
   '/': 'Daisy Debate',
-  '/watch': 'Watch',
   '/leaderboard': 'Leaderboard',
   '/tournaments': 'Tournaments',
 };
@@ -14,15 +13,10 @@ const guardedTitles: Record<string, string> = {
   '/ranked': 'Ranked debate',
   '/lobby': 'Lobby',
   '/judge': 'Judge',
-  '/recordings': 'Recordings',
   '/settings': 'Settings',
   '/prep': 'Prep',
   '/train': 'Train',
 };
-
-// Pages whose heading is not their metadata title: Recordings is a section of
-// the Watch hub, so its page heading is "Watch".
-const headings: Record<string, string> = { '/recordings': 'Watch' };
 
 const expectShell = async (page: Page, route: string, title: string) => {
   await page.goto(route);
@@ -33,9 +27,7 @@ const expectShell = async (page: Page, route: string, title: string) => {
       : new RegExp(`^${title} · Daisy Debate$`),
   );
   await expect(page.locator('main h1')).toHaveText(
-    route === '/'
-      ? 'The arena for competitive debate'
-      : (headings[route] ?? title),
+    route === '/' ? 'The arena for competitive debate' : title,
   );
 };
 
@@ -44,6 +36,18 @@ test('public route shells render with their metadata titles', async ({
 }) => {
   for (const [route, title] of Object.entries(publicTitles))
     await expectShell(page, route, title);
+});
+
+test('Watch and Recordings answer with the explainer while Watch is closed', async ({
+  request,
+}) => {
+  for (const route of ['/watch', '/watch/x', '/recordings', '/recordings/x']) {
+    const response = await request.get(route, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(
+      new URL(response.headers()['location'] ?? '', 'http://x').pathname,
+    ).toBe('/coming-soon/watch');
+  }
 });
 
 test('guarded areas send visitors to sign-in and render for a member', async ({

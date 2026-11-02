@@ -6,7 +6,7 @@ export type ReplayDecision = 'unavailable' | 'processing' | 'expired' | 'watch';
 /**
  * Who may replay. Pure. A missing Round, a Round that has not ended and a
  * private recording the viewer is not seated in are one answer; a public or
- * unlisted recording is open to any account, and then its own state decides.
+ * unlisted recording is open to anyone, and then its own state decides.
  */
 export function decideReplay(
   round: WatchRound | null,

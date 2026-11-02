@@ -203,18 +203,18 @@ describe('the visibility manager', () => {
     const privateOne = viewOf('practice-with-a-friend').share;
     assert({
       given: 'an unlisted and a private recording, and the manager options',
-      should: 'say unlisted needs an account and private includes the judges',
+      should: 'say unlisted needs the link and private includes the judges',
       actual: [
         unlisted.description,
         privateOne.description,
         options.map((option) => option.text),
       ],
       expected: [
-        'Anyone signed in with the link can replay it.',
+        'Anyone with the link can replay it.',
         'Only the debaters and judges can replay it.',
         [
           'Listed in the archive',
-          'Signed-in link holders only',
+          'Anyone with the link',
           'Debaters and judges only. Not for ranked debates.',
         ],
       ],

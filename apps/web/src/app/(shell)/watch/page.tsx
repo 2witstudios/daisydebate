@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
 import { signInHref } from '../../../features/access/decision';
 import { watchSource } from '../../../features/watch/round-source';
@@ -18,6 +19,7 @@ export default async function WatchPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
   const viewer = viewerOf(await requestIdentity());
   return (

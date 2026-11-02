@@ -26,8 +26,8 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { state: 'anonymous' };
   },
 }));
-// Public pages that only read who is asking (the watch pages, the
-// leaderboard, which pins the viewer's line, and the Tournaments index) get
+// Public pages that only read who is asking (the Watch and Recordings pages,
+// the leaderboard, which pins the viewer's line, and the Tournaments index) get
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
@@ -203,12 +203,13 @@ const guardRequestsOf = async (file: string) => {
       searchParams,
     });
   } catch (error) {
-    // A page may answer 404 for the placeholder id; the guard ran first.
+    // A page may answer 404 for the placeholder id, once the guard ran, or
+    // redirect a closed destination to its explainer before any guard.
+    const digest = String((error as { digest?: unknown }).digest);
     if (
       guardCalls.length === 0 &&
-      !String((error as { digest?: unknown }).digest).startsWith(
-        'NEXT_HTTP_ERROR_FALLBACK',
-      )
+      !digest.startsWith('NEXT_HTTP_ERROR_FALLBACK') &&
+      !digest.startsWith('NEXT_REDIRECT')
     )
       throw error;
   }
@@ -233,6 +234,25 @@ const pages = [...new Glob('**/page.tsx').scanSync(appDir)]
   .map((file) => ({ file, route: routeOf(file) }))
   .sort((a, b) => a.file.localeCompare(b.file));
 
+/** Where a page redirected when rendered, or null when it did not. */
+const redirectOf = async (file: string): Promise<string | null> => {
+  const load = rendered[file];
+  if (!load) return `not rendered by this suite: ${file}`;
+  const page = (await load()).default as Page;
+  try {
+    await page({
+      params: Promise.resolve({ roundId: 'x' }),
+      searchParams: Promise.resolve({}),
+    });
+    return null;
+  } catch (error) {
+    const digest = String((error as { digest?: unknown }).digest);
+    return digest.startsWith('NEXT_REDIRECT')
+      ? (digest.split(';')[2] ?? null)
+      : null;
+  }
+};
+
 describe('guarded pages', () => {
   test('every page in a guarded area rechecks the session for its own root', async () => {
     const guarded = pages.filter(({ route }) => isGuardedPath(route));
@@ -251,7 +271,6 @@ describe('guarded pages', () => {
         '/play',
         '/prep',
         '/ranked',
-        '/recordings',
         '/rooms',
         '/rounds',
         '/settings',
@@ -279,6 +298,8 @@ describe('guarded pages', () => {
       '/',
       '/watch',
       '/watch/[roundId]',
+      '/recordings',
+      '/recordings/[roundId]',
       '/leaderboard',
       '/tournaments',
     ];
@@ -288,6 +309,23 @@ describe('guarded pages', () => {
       should: 'not call requireAccess',
       actual: await requestsOf(spectator),
       expected: spectator.map(({ file }) => ({ file, requests: [] })),
+    });
+  });
+
+  test('Watch and Recordings honour the launch flag', async () => {
+    const files = [
+      '(shell)/watch/page.tsx',
+      '(shell)/watch/[roundId]/page.tsx',
+      '(shell)/recordings/page.tsx',
+      '(shell)/recordings/[roundId]/page.tsx',
+    ];
+    const destinations: Array<string | null> = [];
+    for (const file of files) destinations.push(await redirectOf(file));
+    assert({
+      given: 'every Watch page while Watch is not launched',
+      should: 'answer with the explainer, never a screen',
+      actual: destinations,
+      expected: files.map(() => '/coming-soon/watch'),
     });
   });
 });

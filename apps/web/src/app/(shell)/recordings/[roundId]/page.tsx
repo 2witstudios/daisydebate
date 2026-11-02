@@ -1,17 +1,17 @@
 import type { Metadata } from 'next';
+import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../../features/access/decision';
 import { openReplay } from '../../../../features/watch/open-replay';
 import { parseReplayQuery } from '../../../../features/watch/replay-query';
-import { replayHref } from '../../../../features/watch/routes';
 import { watchSource } from '../../../../features/watch/round-source';
 import { viewerOf } from '../../../../features/watch/viewer';
-import { requireAccess } from '../../../../lib/access';
+import { requestIdentity } from '../../../../lib/request-session';
 import { Replay } from '../../../../ui/watch/replay/replay';
 import { ReplayRefusal } from '../../../../ui/watch/replay-refusal/replay-refusal';
 
 export const metadata: Metadata = { title: 'Replay' };
 
-/** The guarded replay of a recorded Round, with its visibility manager. */
+/** The public replay of a recorded Round; its Room's visibility decides who may open it. */
 export default async function ReplayPage({
   params,
   searchParams,
@@ -19,11 +19,11 @@ export default async function ReplayPage({
   params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
+  redirectUnlessLaunched('watch');
   const { roundId } = await params;
-  const identity = await requireAccess(replayHref(roundId), searchParams);
   const screen = openReplay(
     roundId,
-    viewerOf(identity),
+    viewerOf(await requestIdentity()),
     parseReplayQuery(await searchParams),
     watchSource,
   );

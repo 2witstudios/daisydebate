@@ -3,22 +3,10 @@ import type { WatchRound, WatchViewer } from './round';
 import { decideSpectate } from './spectate';
 import type { SpectateQuery } from './spectate-query';
 import { buildSpectateView, type SpectateView } from './spectate-view';
-import { signInToWatchHref, watchRoutes } from './routes';
-
-/** A Round's headline, shown to a signed-out visitor to invite them in. */
-type Teaser = {
-  readonly title: string;
-  readonly modeLabel: string;
-  readonly watching: number;
-};
+import { watchRoutes } from './routes';
 
 /** Everything the live route can render, one variant per screen. */
 export type SpectateScreen =
-  | {
-      readonly kind: 'signed-out';
-      readonly signInHref: string;
-      readonly teaser: Teaser | null;
-    }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'conflict'; readonly yourRoundHref: string }
   | { readonly kind: 'revoked' }
@@ -35,20 +23,6 @@ export type SpectateScreen =
     }
   | { readonly kind: 'watch'; readonly view: SpectateView };
 
-function teaserFor(round: WatchRound | null): Teaser | null {
-  if (
-    round === null ||
-    round.visibility !== 'public' ||
-    round.state.status !== 'live'
-  )
-    return null;
-  return {
-    title: round.title,
-    modeLabel: round.mode === 'ranked' ? 'Ranked' : 'Casual',
-    watching: round.state.watching,
-  };
-}
-
 /**
  * The live route's one flow driver: the Round id and the viewer decide the
  * screen.
@@ -61,12 +35,6 @@ export function openSpectate(
 ): SpectateScreen {
   const round = findRound(source, id);
   const decision = decideSpectate(round, viewer);
-  if (decision === 'signed-out')
-    return {
-      kind: 'signed-out',
-      signInHref: signInToWatchHref(id),
-      teaser: teaserFor(round),
-    };
   if (decision === 'unavailable' || round === null)
     return { kind: 'unavailable' };
   if (decision === 'conflict')
