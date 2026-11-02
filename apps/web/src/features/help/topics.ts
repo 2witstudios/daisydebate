@@ -61,6 +61,8 @@ export const helpTopics: readonly HelpTopic[] = [
       { label: 'Settings', href: '/settings' },
       { label: 'Privacy policy', href: '/privacy' },
       { label: 'Terms of service', href: '/terms' },
+      { label: 'Ranked content waiver', href: '/content-waiver' },
+      { label: 'Ranked content policy', href: '/content-policy' },
     ],
   },
 ];

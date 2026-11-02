@@ -30,6 +30,23 @@ describe('legal documents', () => {
     });
   });
 
+  test('the terms no longer say a member owns ranked content', () => {
+    const terms = termsDocument.sections
+      .flatMap((section) => section.paragraphs)
+      .join(' ');
+    assert({
+      given: 'the served terms',
+      should: 'separate ranked content, other rounds and prep',
+      actual: [
+        terms.includes('You own what you write and say'),
+        terms.includes('ranked content waiver'),
+        terms.includes('your content stays with you'),
+        terms.includes('Prep material and drives stay yours'),
+      ],
+      expected: [false, true, true, true],
+    });
+  });
+
   test('section ids are unique within a document', () => {
     assert({
       given: 'each document',
