@@ -410,6 +410,8 @@ test('a real exit save with no failure double commits once and leaves no false r
   await page.clock.pauseAt('2026-11-01T18:01:00Z');
   await typePendingEdit(page, documentId, 'Committed by the real exit');
   await page.reload();
+  // Running timers let the recheck settle a commit that lands after the list.
+  await page.clock.resume();
   await expect
     .poll(
       async () => (await serverDocument(page, roundId, documentId)).revision,

@@ -520,7 +520,10 @@ const lateCommitFixture = async () => {
     ...documentApi(
       async ({ html, expectedRevision }) => {
         sent.push({ html, expectedRevision });
-        return { status: 'conflict', revision: server.revision };
+        if (expectedRevision !== server.revision)
+          return { status: 'conflict', revision: server.revision };
+        server = { ...server, html, revision: server.revision + 1 };
+        return { status: 'saved', revision: server.revision };
       },
       () => [server],
     ),
@@ -550,29 +553,89 @@ const lateCommitFixture = async () => {
 };
 const settled = () => new Promise((resolve) => setImmediate(resolve));
 
-test('a late exit commit withdraws its offer and can never be overwritten', async () => {
+test('a late exit commit moves the editor and revision together, so it cannot be overwritten', async () => {
   const f = await lateCommitFixture();
+  const shown: [string, string][] = [];
+  f.sync.subscribeServerText((id, html) => shown.push([id, html]));
   const before = f.sync.recoveryOffers().length;
   f.commit();
   f.clock.fire();
   await settled();
   const withdrawn = [f.sync.recoveryOffers().length, f.storage.getItem(key)];
-  f.sync.change('a', '<p>SERVER plus typing</p>');
-  f.clock.fire();
+  f.sync.change('a', '<p>EXIT plus typing</p>');
   await f.sync.flush();
   assert({
-    given:
-      'an exit save committing after this page listed, then typing on the older editor text',
+    given: 'an exit save committing after this page listed, then more typing',
     should:
-      'withdraw the offer, report the conflict rather than Saved, and send nothing over it',
-    actual: [
-      before,
-      withdrawn,
-      f.events.includes('saved'),
-      f.events.at(-1),
-      f.sent,
+      'show the committed text, report no conflict, and base the next edit on it',
+    actual: [before, withdrawn, shown, f.events.includes('conflict'), f.sent],
+    expected: [
+      1,
+      [0, null],
+      [['a', '<p>EXIT</p>']],
+      false,
+      [{ html: '<p>EXIT plus typing</p>', expectedRevision: 4 }],
     ],
-    expected: [1, [0, null], false, 'conflict', []],
+  });
+});
+
+test('a pending edit keeps its text when a late commit lands', async () => {
+  const f = await lateCommitFixture();
+  const shown: string[] = [];
+  f.sync.subscribeServerText((_id, html) => shown.push(html));
+  f.sync.change('a', '<p>TYPING</p>');
+  f.commit();
+  await settled();
+  f.clock.fire();
+  await settled();
+  assert({
+    given: 'typing that has not been saved when the recheck runs',
+    should: 'never replace the editor text with the server copy',
+    actual: shown,
+    expected: [],
+  });
+});
+
+test('a purge after a fence still erases and says so', async () => {
+  const f = fixture();
+  const sync = f.owner();
+  await sync.load();
+  const fenced = sync.fence();
+  const kept = f.storage.getItem(key) !== null;
+  sync.dispose({ purge: true });
+  assert({
+    given: 'an owner fenced for an ended session, then a sign-out elsewhere',
+    should: 'keep the copy at the fence, then erase it and record the purge',
+    actual: [fenced, kept, f.storage.getItem(key), sync.closedBy()],
+    expected: [true, true, null, 'purge'],
+  });
+});
+
+test('an ordinary unmount is a release, never a fence or a purge', async () => {
+  const f = fixture();
+  const sync = f.owner();
+  await sync.load();
+  const before = sync.closedBy();
+  sync.dispose();
+  assert({
+    given: 'a room unmounting without any account change',
+    should: 'record a release',
+    actual: [before, sync.closedBy(), sync.available()],
+    expected: [null, 'released', false],
+  });
+});
+
+test('a second load replaces its late commit recheck', async () => {
+  const f = await lateCommitFixture();
+  const lists = f.lists();
+  await f.sync.load();
+  f.clock.fire();
+  await settled();
+  assert({
+    given: 'a load repeated while an earlier recheck is waiting',
+    should: 'run one recheck, not one per load',
+    actual: f.lists() - lists,
+    expected: 2,
   });
 });
 
@@ -713,6 +776,23 @@ test('an earlier edit another tab moved aside does not survive its replacement s
     should: 'leave no superseded offer behind',
     actual: [f.server().html, f.storage.getItem(key), sync.recoveryOffers()],
     expected: ['<p>A2</p>', null, []],
+  });
+});
+
+test('a restored copy another tab moved aside does not survive the next edit saving', async () => {
+  const f = fixture();
+  const sync = f.owner();
+  await sync.load();
+  sync.restoreRecovered('a', 'REC');
+  const other = f.owner({ nextGeneration: () => 'other' });
+  await other.load();
+  sync.change('a', '<p>LATER</p>');
+  await sync.flush();
+  assert({
+    given: 'a second tab moved a restored copy aside before a later edit saved',
+    should: 'leave no superseded offer behind',
+    actual: [f.server().html, f.storage.getItem(key), sync.recoveryOffers()],
+    expected: ['<p>LATER</p>', null, []],
   });
 });
 

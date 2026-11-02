@@ -90,10 +90,24 @@ export function hasPrincipalDrafts(
 /** What the root does on a server-rendered mount. Only proof of a change purges. */
 export const rootMountAction = (
   principalId: string | null,
-  signOutIntent: boolean,
+  accountEnded: boolean,
 ): 'publish' | 'keep' =>
-  principalId !== null || signOutIntent ? 'publish' : 'keep';
+  principalId !== null || accountEnded ? 'publish' : 'keep';
 
-/** Sign-out and account closure end the person's claim on the copies. */
-export const endsAccountSession = (pathname: string) =>
-  pathname === '/auth/sign-out' || pathname === '/api/privacy/erase';
+export const isSignOutPath = (pathname: string) =>
+  pathname === '/auth/sign-out';
+
+/** A session answer matters only with an identity left to lose and copies at stake. Unknown storage is not proof of absence. */
+export function needsSessionRead(
+  storage: DraftStorage,
+  observed: string | null | undefined,
+): boolean {
+  if (observed === null) return false;
+  if (observed !== undefined)
+    return hasPrincipalDrafts(storage, observed) !== false;
+  try {
+    return noteDraftKeys(storage).length > 0;
+  } catch {
+    return true;
+  }
+}

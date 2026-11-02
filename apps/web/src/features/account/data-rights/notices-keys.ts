@@ -6,3 +6,5 @@
 export const EXPORT_DATA_QUERY = 'privacyExport';
 export const ERASE_ACCOUNT_QUERY = 'privacyErase';
 export const ACCOUNT_CLOSED_QUERY = 'closed';
+/** Set only on a completed closure, so private note copies are erased on proof. */
+export const NOTES_ERASED_COOKIE = 'daisy-notes-erased';

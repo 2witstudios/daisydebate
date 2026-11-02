@@ -11,3 +11,9 @@ export function refusedNotice(status: number): string {
     return 'This file can’t be saved with your current access. Your text stays here.';
   return 'This file can no longer be saved. Reload the page.';
 }
+
+/** Why this Round's files left the screen. A purge must not promise them back. */
+export const closedFilesNotice = (reason: 'fence' | 'purge') =>
+  reason === 'purge'
+    ? 'This Round’s files are closed. Reopen the Round to load them.'
+    : 'Your session ended. Sign in and reopen the Round to get your notes back.';

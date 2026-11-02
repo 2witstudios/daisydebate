@@ -10,7 +10,11 @@ import {
   consumeWindowsOrThrow,
   type RateLimiter,
 } from '../../../server/rate-limit';
-import { ACCOUNT_CLOSED_QUERY, ERASE_ACCOUNT_QUERY } from './notices-keys';
+import {
+  ACCOUNT_CLOSED_QUERY,
+  ERASE_ACCOUNT_QUERY,
+  NOTES_ERASED_COOKIE,
+} from './notices-keys';
 import { dataRightsPolicy } from './request-policy';
 
 /** An erase form carries only its confirmation; anything larger is not one. */
@@ -87,7 +91,14 @@ export function createEraseAccountHandler({
         { operation: 'privacy.erase' },
         'Account erasure completed',
       );
-      return seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`);
+      const closed = seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`);
+      // Readable by the next page's script, which erases this browser's private
+      // note copies. It proves completion, and it names no person.
+      closed.headers.append(
+        'set-cookie',
+        `${NOTES_ERASED_COOKIE}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`,
+      );
+      return closed;
     } catch (error) {
       if (isAppError(error) && error.code === 'AUTHENTICATION')
         return seeOther('/sign-in');

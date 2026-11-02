@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { refusedNotice, RETRYING_NOTICE } from './save-notice';
+import {
+  refusedNotice,
+  RETRYING_NOTICE,
+  closedFilesNotice,
+} from './save-notice';
 
 setupRitewayBun();
 
@@ -28,5 +32,16 @@ describe('refusedNotice', () => {
       actual: [413, 401, 404].map(refusedNotice).includes(RETRYING_NOTICE),
       expected: false,
     });
+  });
+});
+
+test('a purge never promises the notes back', () => {
+  assert({
+    given: 'files closed by a purge and by an ended session',
+    should: 'promise them back only for the ended session',
+    actual: (['purge', 'fence'] as const).map((reason) =>
+      closedFilesNotice(reason).includes('get your notes back'),
+    ),
+    expected: [false, true],
   });
 });

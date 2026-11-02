@@ -81,7 +81,11 @@ export type DocumentSync = {
   readonly dispose: (options?: { readonly purge?: boolean }) => void;
   /** Stop and hide for an ended session, unless that would destroy unstored text. */
   readonly fence: () => boolean;
-  readonly closedBy: () => 'fence' | 'purge' | null;
+  readonly closedBy: () => 'released' | 'fence' | 'purge' | null;
+  /** Server text the editor should now show: this owner's own late commit. */
+  readonly subscribeServerText: (
+    listener: (id: string, html: string) => void,
+  ) => () => void;
 };
 const statusOf = (error: unknown): number | null => {
   const status = (error as { readonly status?: unknown } | null)?.status;
@@ -136,11 +140,12 @@ export function createDocumentSync({
   readonly onRecoveryChanged?: (offers: readonly NoteOffer[]) => void;
   readonly delayMs?: number;
 }): DocumentSync {
-  let disposed = false;
   let offers: readonly NoteOffer[] = [];
   let expiryHandle: unknown;
   let recheckHandle: unknown;
-  let closedBy: 'fence' | 'purge' | null = null;
+  let closedBy: 'released' | 'fence' | 'purge' | null = null;
+  const isClosed = () => closedBy !== null;
+  const serverTextListeners = new Set<(id: string, html: string) => void>();
   const revisions = new Map<string, number>();
   const serverCopies = new Map<string, string>();
   const pending = new Map<string, NoteCopy>();
@@ -245,7 +250,7 @@ export function createDocumentSync({
     const deadlines = retained.flatMap(([, snapshot]) =>
       noteCopies(snapshot.record).map((copy) => copy.expiresAt),
     );
-    if (!disposed && deadlines.length > 0)
+    if (!isClosed() && deadlines.length > 0)
       expiryHandle = timers.set(
         refreshRecovery,
         Math.min(
@@ -255,7 +260,7 @@ export function createDocumentSync({
       );
   };
   function refreshRecovery() {
-    if (disposed) return;
+    if (isClosed()) return;
     const now = wallClock();
     for (const id of revisions.keys()) read(id, now);
     publish();
@@ -291,7 +296,7 @@ export function createDocumentSync({
     schedule(id, delayMs);
   };
   const saved = (id: string, sent: NoteCopy, revision: number) => {
-    if (disposed) return;
+    if (isClosed()) return;
     revisions.set(id, revision);
     serverCopies.set(id, sent.html);
     failures.delete(id);
@@ -318,7 +323,7 @@ export function createDocumentSync({
   const conflict = async (id: string, revision: number) => {
     // A failed list establishes nothing, so it goes to the retry or refusal path.
     const doc = (await api.list(roundId)).find((one) => one.id === id);
-    if (disposed) return;
+    if (isClosed()) return;
     const own =
       doc?.revision === revision
         ? ownUnansweredCommit(unanswered.get(id) ?? [], revision, (html) =>
@@ -336,7 +341,7 @@ export function createDocumentSync({
     onConflict(id);
   };
   const failed = (id: string, sent: NoteCopy, error: unknown) => {
-    if (disposed) return;
+    if (isClosed()) return;
     const status = statusOf(error);
     if (status !== null && !retryable(status)) {
       refused.set(id, sent.generation);
@@ -360,7 +365,7 @@ export function createDocumentSync({
     schedule(id, Math.min(delayMs * 2 ** attempts, 30_000));
   };
   async function attempt(id: string, keepalive: boolean): Promise<void> {
-    if (disposed) return;
+    if (isClosed()) return;
     const sent = pending.get(id),
       expectedRevision = revisions.get(id);
     if (
@@ -390,7 +395,7 @@ export function createDocumentSync({
     } finally {
       reservation?.release();
     }
-    if (acknowledged && pending.has(id) && !disposed && !conflicted.has(id))
+    if (acknowledged && pending.has(id) && !isClosed() && !conflicted.has(id))
       await attempt(id, false);
   }
   function saveNow(id: string, keepalive = false): Promise<void> {
@@ -433,16 +438,22 @@ export function createDocumentSync({
       : null;
   };
   const flush = async (keepalive: boolean) => {
-    if (disposed) return;
+    if (isClosed()) return;
     for (const handle of handles.values()) timers.clear(handle);
     handles.clear();
     if (keepalive) for (const [id, copy] of pending) persist(id, copy);
     await Promise.all([...pending.keys()].map((id) => saveNow(id, keepalive)));
   };
-  const dispose = ({ purge = false }: { readonly purge?: boolean }) => {
-    if (disposed) return;
-    disposed = true;
-    closedBy = purge ? 'purge' : 'fence';
+  const close = (reason: 'released' | 'fence' | 'purge') => {
+    if (isClosed()) {
+      // A purge after a fence still erases, and the notice must say so.
+      if (reason !== 'purge' || closedBy === 'purge') return;
+      closedBy = 'purge';
+      drafts.purge();
+      for (const listener of listeners) listener();
+      return;
+    }
+    closedBy = reason;
     for (const handle of handles.values()) timers.clear(handle);
     timers.clear(expiryHandle);
     timers.clear(recheckHandle);
@@ -453,13 +464,13 @@ export function createDocumentSync({
     ownedDurable.clear();
     ownEarlier.clear();
     offers = [];
-    if (purge) drafts.purge();
+    if (reason === 'purge') drafts.purge();
     for (const listener of listeners) listener();
   };
   const reconcileLateCommits = async () => {
-    if (disposed) return;
+    if (isClosed()) return;
     const documents = await api.list(roundId).catch(() => null);
-    if (disposed || documents === null) return;
+    if (isClosed() || documents === null) return;
     const now = wallClock();
     for (const doc of documents) {
       if (pending.has(doc.id) || conflicted.has(doc.id)) continue;
@@ -469,23 +480,21 @@ export function createDocumentSync({
       );
       if (settled === previous.record) continue;
       write(doc.id, previous, settled, now);
-      // The editor still shows the older text, so the revision must not move:
-      // that would let the next edit overwrite this commit. Nothing sends until
-      // a reload shows the server's text.
-      if (doc.revision !== revisions.get(doc.id)) {
-        serverCopies.set(doc.id, doc.html);
-        latestRevisions.set(doc.id, doc.revision);
-        conflicted.add(doc.id);
+      // This owner's own text committed late and nothing is pending, so the
+      // editor adopts it. The revision and the visible text only move together:
+      // moving the revision alone would let the next edit overwrite the commit.
+      if (doc.revision > (revisions.get(doc.id) ?? -1)) {
+        remember([doc]);
+        for (const listener of serverTextListeners) listener(doc.id, doc.html);
       }
     }
     publish();
-    if (conflicted.size > 0) idle('');
   };
   return {
     load: async () => {
-      if (disposed) return [];
+      if (isClosed()) return [];
       const documents = await api.list(roundId);
-      if (disposed) return [];
+      if (isClosed()) return [];
       remember(documents);
       const now = wallClock();
       for (const doc of documents) {
@@ -501,6 +510,7 @@ export function createDocumentSync({
       }
       publish();
       // A previous page's exit save can commit after this list; check once.
+      timers.clear(recheckHandle);
       if (offers.length > 0)
         recheckHandle = timers.set(
           () => void reconcileLateCommits(),
@@ -509,15 +519,17 @@ export function createDocumentSync({
       return documents;
     },
     create: async (folder, templateId) => {
-      if (disposed) throw new Error('The document owner is no longer active.');
+      if (isClosed())
+        throw new Error('The document owner is no longer active.');
       const doc = await api.create({ roundId, folder, templateId });
-      if (disposed) throw new Error('The document owner is no longer active.');
+      if (isClosed())
+        throw new Error('The document owner is no longer active.');
       remember([doc]);
       return doc;
     },
     change: (id, html) => {
       const baseRevision = revisions.get(id);
-      if (disposed || baseRevision === undefined) return;
+      if (isClosed() || baseRevision === undefined) return;
       const copy = newNoteCopy({
         html,
         baseRevision,
@@ -538,7 +550,7 @@ export function createDocumentSync({
       schedule(id, delayMs);
     },
     restoreRecovered: (id, generation) => {
-      if (disposed) return null;
+      if (isClosed()) return null;
       const previous = currentOffer(id, generation);
       // Restore is the explicit choice that resolves a conflict: it saves
       // against the fresh server revision, through the ordinary CAS.
@@ -555,8 +567,11 @@ export function createDocumentSync({
         return null;
       const copy = proposal.record.active;
       // Text Restore set aside is a choice to keep, not a superseded draft.
+      const own = ownEarlier.get(id) ?? new Set<string>();
       const setAside = proposal.record.recovery?.generation;
-      if (setAside) ownEarlier.get(id)?.delete(setAside);
+      if (setAside) own.delete(setAside);
+      own.add(copy.generation);
+      ownEarlier.set(id, own);
       ownedDurable.set(id, copy.generation);
       revisions.set(id, revision);
       latestRevisions.delete(id);
@@ -566,7 +581,7 @@ export function createDocumentSync({
       return copy.html;
     },
     discardRecovered: (id, generation) => {
-      if (disposed) return false;
+      if (isClosed()) return false;
       const previous = currentOffer(id, generation);
       if (
         !previous ||
@@ -588,16 +603,20 @@ export function createDocumentSync({
       return () => listeners.delete(listener);
     },
     refreshRecovery,
-    available: () => !disposed,
+    available: () => !isClosed(),
     fence: () => {
       const unstored = [...pending].some(
         ([id, copy]) => ownedDurable.get(id) !== copy.generation,
       );
       if (unstored) return false;
-      dispose({ purge: false });
+      close('fence');
       return true;
     },
     closedBy: () => closedBy,
-    dispose: (options) => dispose(options ?? {}),
+    subscribeServerText: (listener) => {
+      serverTextListeners.add(listener);
+      return () => serverTextListeners.delete(listener);
+    },
+    dispose: ({ purge = false } = {}) => close(purge ? 'purge' : 'released'),
   };
 }

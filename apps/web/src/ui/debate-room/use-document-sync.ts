@@ -2,7 +2,9 @@
 
 import { useEffect, useState, type Dispatch } from 'react';
 import type { DocumentSync } from './document-sync';
+import { systemClock } from '@daisy/clock';
 import { isNoteDraftKey } from './note-draft-storage';
+import { closedFilesNotice } from './save-notice';
 import type { RoomAction } from './room-state';
 
 /**
@@ -30,10 +32,12 @@ export function useDocumentSync(
       if (!live || sync.available()) return;
       dispatch({ type: 'doc/loaded', documents: [] });
       setProblem(
-        sync.closedBy() === 'purge'
-          ? 'This Round’s files are closed. Reopen the Round to load them.'
-          : 'Your session ended. Sign in and reopen the Round to get your notes back.',
+        closedFilesNotice(sync.closedBy() === 'purge' ? 'purge' : 'fence'),
       );
+    });
+    const adopted = sync.subscribeServerText((id, html) => {
+      if (live)
+        dispatch({ type: 'doc/update', id, html, now: systemClock.now() });
     });
     const refresh = (event: StorageEvent) => {
       if (event.key === null || isNoteDraftKey(event.key))
@@ -45,6 +49,7 @@ export function useDocumentSync(
     return () => {
       live = false;
       unsubscribe();
+      adopted();
       window.removeEventListener('storage', refresh);
       window.removeEventListener('pagehide', flush);
       void sync.flush();

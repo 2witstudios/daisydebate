@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { systemClock } from '@daisy/clock';
+import { NOTES_ERASED_COOKIE } from '../../features/account/data-rights/notices-keys';
 import { pruneExpiredNoteDrafts } from './note-draft-storage';
 import {
   NOTES_FENCE_EVENT,
   NOTES_IDENTITY_CHECK_EVENT,
   NOTES_PRINCIPAL_KEY,
   NOTES_SIGN_OUT_INTENT_KEY,
-  hasPrincipalDrafts,
-  endsAccountSession,
+  isSignOutPath,
+  needsSessionRead,
   publishNotesPrincipal,
   readSessionPrincipal,
   rootMountAction,
@@ -45,10 +46,20 @@ const takeSignOutIntent = () => {
   }
 };
 
+/** The server's proof that this browser's account was closed, not just attempted. */
+const takeAccountClosedProof = () => {
+  const present = document.cookie
+    .split('; ')
+    .includes(`${NOTES_ERASED_COOKIE}=1`);
+  if (present)
+    document.cookie = `${NOTES_ERASED_COOKIE}=; Path=/; Max-Age=0; Secure`;
+  return present;
+};
+
 const markSignOutIntent = (event: Event) => {
   if (!(event.target instanceof HTMLFormElement)) return;
   const { pathname } = new URL(event.target.action, window.location.href);
-  if (!endsAccountSession(pathname)) return;
+  if (!isSignOutPath(pathname)) return;
   try {
     browserStorage(() => window.sessionStorage)?.setItem(
       NOTES_SIGN_OUT_INTENT_KEY,
@@ -61,8 +72,9 @@ const markSignOutIntent = (event: Event) => {
 
 /**
  * Root lifetime: private recovery outlives rooms and an expired session, but
- * never an explicit sign-out or a different account. An anonymous page is not
- * proof of sign-out, so it keeps the copies, hidden, for the same person.
+ * never an explicit sign-out, a closed account or a different account. An
+ * anonymous page is not proof of sign-out, so it keeps the copies, hidden, for
+ * the same person.
  */
 export function RoundNotesPrivacy({
   principalId,
@@ -93,9 +105,12 @@ export function RoundNotesPrivacy({
       setCleanupFailed(!publishNotesPrincipal(next));
     };
     const fence = () => window.dispatchEvent(new Event(NOTES_FENCE_EVENT));
+    // Consumed on every mount, so a refused sign-out can never purge later.
+    const signedOut = takeSignOutIntent();
     if (
       principalId !== undefined &&
-      rootMountAction(principalId, takeSignOutIntent()) === 'publish'
+      rootMountAction(principalId, signedOut || takeAccountClosedProof()) ===
+        'publish'
     )
       syncPrincipal(principalId);
     const read = async () => {
@@ -118,9 +133,12 @@ export function RoundNotesPrivacy({
           !controller.signal.aborted &&
           next !== undefined
         ) {
-          // A signed-out session only fences: expiry is not a sign-out.
-          if (next === null) fence();
-          else syncPrincipal(next);
+          if (next === null) {
+            // Expiry is not a sign-out, so this only fences. Nothing is left to
+            // observe, as on an anonymous mount.
+            fence();
+            if (observed === undefined) observed = null;
+          } else syncPrincipal(next);
         }
       } catch {
         // Offline or cancelled transport never establishes identity loss.
@@ -129,17 +147,13 @@ export function RoundNotesPrivacy({
       }
     };
     const check = async () => {
-      if (observed === null) return;
+      let needed = observed !== null;
       try {
-        if (
-          observed !== undefined &&
-          hasPrincipalDrafts(window.localStorage, observed) === false
-        )
-          return;
+        needed = needsSessionRead(window.localStorage, observed);
       } catch {
         // A denied storage getter cannot establish that no private copy exists.
       }
-      await read();
+      if (needed) await read();
     };
     const visible = () => {
       if (document.visibilityState === 'visible') void check();

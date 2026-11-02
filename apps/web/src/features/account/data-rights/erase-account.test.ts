@@ -4,7 +4,11 @@ import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import type { RateLimiter } from '../../../server/rate-limit';
 import { createEraseAccountHandler } from './erase-account';
-import { ACCOUNT_CLOSED_QUERY, ERASE_ACCOUNT_QUERY } from './notices-keys';
+import {
+  ACCOUNT_CLOSED_QUERY,
+  ERASE_ACCOUNT_QUERY,
+  NOTES_ERASED_COOKIE,
+} from './notices-keys';
 
 setupRitewayBun();
 const origin = 'http://localhost:3000';
@@ -60,7 +64,12 @@ test('a confirmed member erasure runs once with the session subject and closes t
       'a same-origin signed-in member posting the erase form with the confirmation',
     should:
       'run the erasure once with the session subject and the injected clock, and 303 to the sign-in page closed notice',
-    actual: [calls, response.status, response.headers.get('location')],
+    actual: [
+      calls,
+      response.status,
+      response.headers.get('location'),
+      response.headers.get('set-cookie'),
+    ],
     expected: [
       [
         {
@@ -70,6 +79,7 @@ test('a confirmed member erasure runs once with the session subject and closes t
       ],
       303,
       `/sign-in?${ACCOUNT_CLOSED_QUERY}=1`,
+      `${NOTES_ERASED_COOKIE}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`,
     ],
   });
 });
@@ -116,6 +126,9 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
       rateLimited.headers.get('location'),
       anonymous.headers.get('location'),
       [unconfirmed, crossOrigin, rateLimited, anonymous].map((r) => r.status),
+      [unconfirmed, crossOrigin, rateLimited, anonymous].map((r) =>
+        r.headers.get('set-cookie'),
+      ),
     ],
     expected: [
       `/settings?${ERASE_ACCOUNT_QUERY}=confirm`,
@@ -123,6 +136,7 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
       `/settings?${ERASE_ACCOUNT_QUERY}=rate-limited`,
       '/sign-in',
       [303, 303, 303, 303],
+      [null, null, null, null],
     ],
   });
 });

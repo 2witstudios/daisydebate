@@ -85,14 +85,44 @@ test('only proof of a change purges on a server-rendered mount', async () => {
   });
 });
 
-test('only sign-out and account closure end the claim on the copies', async () => {
-  const { endsAccountSession } = await import('./notes-principal');
+test('only a real sign-out form marks the intent', async () => {
+  const { isSignOutPath } = await import('./notes-principal');
   assert({
     given: 'the sign-out and account closure forms, and any other form',
-    should: 'mark only those two',
+    should: 'mark sign-out only, since the server proves a completed closure',
     actual: ['/auth/sign-out', '/api/privacy/erase', '/settings'].map(
-      endsAccountSession,
+      isSignOutPath,
     ),
-    expected: [true, true, false],
+    expected: [true, false, false],
+  });
+});
+
+test('the session is read only with an identity to lose and copies at stake', async () => {
+  const { needsSessionRead } = await import('./notes-principal');
+  const empty = memoryStorage();
+  const holding = memoryStorage();
+  holding.setItem('daisy:round-notes:draft:member:r:d', 'private');
+  const denied = {
+    ...memoryStorage(),
+    get length(): number {
+      throw new Error('denied');
+    },
+  };
+  assert({
+    given: 'each observed identity with no, some and unreadable copies',
+    should:
+      'skip the read with nothing to protect, and treat unreadable storage as at stake',
+    actual: [
+      needsSessionRead(holding, null),
+      needsSessionRead(denied, null),
+      needsSessionRead(empty, undefined),
+      needsSessionRead(holding, undefined),
+      needsSessionRead(denied, undefined),
+      needsSessionRead(empty, 'member'),
+      needsSessionRead(holding, 'member'),
+      needsSessionRead(holding, 'other'),
+      needsSessionRead(denied, 'member'),
+    ],
+    expected: [false, false, false, true, true, false, true, false, true],
   });
 });
