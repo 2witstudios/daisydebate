@@ -1,6 +1,7 @@
 import {
   ballotWireSchema,
   isDefiniteProviderFailure,
+  isTransientProviderFailure,
   judgeAnswer,
   judgeContractVersion,
   type OpenRouter,
@@ -47,8 +48,10 @@ export function createRoundJudgingOperations(input: {
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
-  /** Once, when a job ends with no ballot. Holds only the closed category. */
-  readonly jobEnded?: (category: JudgingAttemptCategory) => void;
+  /** Once, when a job ends with no ballot. Holds only a closed reason. */
+  readonly jobEnded?: (
+    reason: JudgingAttemptCategory | 'out_of_budget',
+  ) => void;
 }) {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {
@@ -58,11 +61,17 @@ export function createRoundJudgingOperations(input: {
       const attemptFailed = async (
         diagnostic: JudgingAttemptDiagnostic,
         definite: boolean,
+        final: boolean,
       ) => {
         const next = await input.store.recordRoundJudgingAttemptFailure(
           scope,
           token,
-          { diagnostic, contractVersion: judgeContractVersion, definite },
+          {
+            diagnostic,
+            contractVersion: judgeContractVersion,
+            definite,
+            final,
+          },
         );
         if (next !== 'retry') input.jobEnded?.(diagnostic.category);
       };
@@ -76,6 +85,7 @@ export function createRoundJudgingOperations(input: {
           const voice = input.voice();
           // The job may buy no more calls: it has ended failed (ISSUE-461).
           if (!(await input.store.beginRoundJudgingModelCall(scope, token))) {
+            input.jobEnded?.('out_of_budget');
             concluded = true;
             return;
           }
@@ -95,9 +105,11 @@ export function createRoundJudgingOperations(input: {
             // A release, not a failure: this worker no longer holds the lease.
             if (signal.aborted && diagnostic.category !== 'timeout')
               throw error;
+            const refused = diagnostic.category === 'provider_refused';
             await attemptFailed(
               diagnostic,
-              diagnostic.category === 'provider_refused',
+              refused,
+              refused && !isTransientProviderFailure(error),
             );
             concluded = true;
             return;
@@ -109,7 +121,7 @@ export function createRoundJudgingOperations(input: {
           await input.store.recordRoundJudgingUsage(scope, token, usage);
           const judged = judgeAnswer(answer);
           if (!judged.ok) {
-            await attemptFailed(judged.diagnostic, false);
+            await attemptFailed(judged.diagnostic, false, false);
             concluded = true;
             return;
           }

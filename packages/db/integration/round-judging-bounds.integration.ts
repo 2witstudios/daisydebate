@@ -100,6 +100,7 @@ test('the failed final permitted call ends the job on that call, not on a later 
         diagnostic: rejected,
         contractVersion: 'judge-contract@1',
         definite: false,
+        final: false,
       },
     );
     const [waiting] =
@@ -115,6 +116,7 @@ test('the failed final permitted call ends the job on that call, not on a later 
         diagnostic: rejected,
         contractVersion: 'judge-contract@1',
         definite: false,
+        final: false,
       },
     );
     const [job] =
@@ -188,6 +190,7 @@ test('a call the vendor certainly refused buys nothing; an uncertain one still c
         },
         contractVersion: 'judge-contract@1',
         definite,
+        final: false,
       });
     };
     assert({
@@ -297,6 +300,44 @@ test('the first claim pins the model for later attempts', async () => {
       expected: {
         first: 'anthropic/claude-sonnet-5.5',
         second: 'pinned/model',
+      },
+    });
+  });
+});
+
+test('a refusal that cannot heal ends the job at once, having bought nothing', async () => {
+  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
+    const claim = await jobs.claim(target);
+    await jobs.beginModelCall(claim.scope, claim.token);
+    const next = await jobs.recordAttemptFailure(claim.scope, claim.token, {
+      diagnostic: {
+        category: 'provider_refused',
+        finish: 'none',
+        issueCount: 0,
+        issues: [],
+      },
+      contractVersion: 'judge-contract@1',
+      definite: true,
+      final: true,
+    });
+    const [job] =
+      await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
+    const [paid] =
+      await fixture.sql`select count(*)::int as n from agent_runs where id=${claim.scope.agentRunId} and configuration_snapshot->>'providerOutcome' in ('unknown','received')`;
+    assert({
+      given: 'no endpoint able to serve the request',
+      should: 'end now, not retry for the whole budget, and count no paid call',
+      actual: {
+        next,
+        status: job.status,
+        reason: job.terminal_reason,
+        paid: paid.n,
+      },
+      expected: {
+        next: 'provider_refused',
+        status: 'failed',
+        reason: 'provider_refused',
+        paid: 0,
       },
     });
   });

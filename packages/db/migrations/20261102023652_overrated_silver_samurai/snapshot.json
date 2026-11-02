@@ -21067,7 +21067,7 @@
       "table": "round_judging_jobs"
     },
     {
-      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'generation_deadline', 'round_ended'))",
+      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'generation_deadline', 'provider_refused', 'round_ended'))",
       "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",

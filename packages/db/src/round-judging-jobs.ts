@@ -237,6 +237,8 @@ export function createRoundJudgingJobs(input: {
         readonly contractVersion: string;
         /** The vendor certainly did not serve this call, so it buys nothing. */
         readonly definite: boolean;
+        /** The refusal will not heal by retrying, such as no supporting endpoint. */
+        readonly final: boolean;
       },
     ): Promise<'retry' | JudgingTerminalReason> => {
       const diagnostic = judgingAttemptDiagnosticSchema.parse(
@@ -266,7 +268,9 @@ export function createRoundJudgingJobs(input: {
               },
             })
             .where(eq(agentRuns.id, run.id));
-        const ended = await judgingDispatchEnded(tx, scope);
+        const ended = input_.final
+          ? 'provider_refused'
+          : await judgingDispatchEnded(tx, scope);
         if (ended && !job.pendingBallot) {
           await failLockedJudgingJob(tx, scope, run.id, ended);
           return ended;

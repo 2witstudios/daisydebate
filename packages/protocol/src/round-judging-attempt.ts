@@ -60,6 +60,7 @@ export type JudgingAttemptCategory = (typeof judgingAttemptCategories)[number];
 export const judgingTerminalReasons = [
   'attempts_exhausted',
   'generation_deadline',
+  'provider_refused',
   'round_ended',
 ] as const;
 export type JudgingTerminalReason = (typeof judgingTerminalReasons)[number];

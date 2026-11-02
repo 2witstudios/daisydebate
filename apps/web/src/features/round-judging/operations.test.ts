@@ -50,7 +50,7 @@ function harness(complete: () => Promise<unknown>) {
     provider: 0,
     saved: 0,
     submitted: 0,
-    failures: [] as { category: string; definite: boolean }[],
+    failures: [] as { category: string; definite: boolean; final: boolean }[],
     ended: [] as string[],
     usage: 0,
   };
@@ -71,11 +71,13 @@ function harness(complete: () => Promise<unknown>) {
         input: {
           diagnostic: { category: string };
           definite: boolean;
+          final: boolean;
         },
       ) => {
         log.failures.push({
           category: input.diagnostic.category,
           definite: input.definite,
+          final: input.final,
         });
         return next;
       },
@@ -119,7 +121,9 @@ test('a rejected answer is durable at once, with usage kept and nothing submitte
       provider: 1,
       saved: 0,
       submitted: 0,
-      failures: [{ category: 'schema_rejected', definite: false }],
+      failures: [
+        { category: 'schema_rejected', definite: false, final: false },
+      ],
       ended: [],
       usage: 1,
     },
@@ -147,7 +151,7 @@ test('provider failures are classified apart', async () => {
     given: 'the vendor refusing the request',
     should: 'record a definite refusal that buys nothing',
     actual: refused.log.failures,
-    expected: [{ category: 'provider_refused', definite: true }],
+    expected: [{ category: 'provider_refused', definite: true, final: true }],
   });
   const uncertain = harness(async () => {
     throw new Error('socket lost');
@@ -157,7 +161,7 @@ test('provider failures are classified apart', async () => {
     given: 'an uncertain provider failure',
     should: 'stay counted as possibly served',
     actual: uncertain.log.failures,
-    expected: [{ category: 'provider_error', definite: false }],
+    expected: [{ category: 'provider_error', definite: false, final: false }],
   });
   const timer = new AbortController();
   timer.abort(new DOMException('late', 'TimeoutError'));
@@ -188,5 +192,34 @@ test('a released worker never records a failure for a lease it lost', async () =
     should: 'propagate without a durable attempt',
     actual: { outcome, failures: log.failures },
     expected: { outcome: 'refused', failures: [] },
+  });
+});
+
+test('a rate limit may retry, and a timeout during the call stays counted as paid', async () => {
+  const limited = harness(async () => {
+    const { createOpenRouter } = await import('@daisy/ai-voice');
+    return createOpenRouter({
+      apiKey: 'k',
+      fetch: async () => new Response('', { status: 429 }),
+    }).complete({ model: 'm', messages: [], maxTokens: 1 });
+  });
+  await limited.operations.executeClaim(claim, new AbortController().signal);
+  assert({
+    given: 'a 429',
+    should: 'buy nothing but stay retryable',
+    actual: limited.log.failures,
+    expected: [{ category: 'provider_refused', definite: true, final: false }],
+  });
+  const clock = new AbortController();
+  const late = harness(async () => {
+    clock.abort(new DOMException('late', 'TimeoutError'));
+    throw new Error('aborted');
+  });
+  await late.operations.executeClaim(claim, clock.signal);
+  assert({
+    given: 'the per-call timeout firing while the call runs',
+    should: 'record a timeout that may have been served',
+    actual: late.log.failures,
+    expected: [{ category: 'timeout', definite: false, final: false }],
   });
 });
