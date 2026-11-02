@@ -6,7 +6,6 @@ import { origin } from './accounts';
 /** Actual capture text must reach the mounted viewer before the Round ends. */
 export async function expectLiveTranscript(page: Page, roundId: string) {
   const transcript = page.locator('[aria-labelledby="live-transcript"]');
-  await transcript.getByText('Show the transcript', { exact: true }).click();
   let text = '';
   await expect(async () => {
     const response = await page.request.get(

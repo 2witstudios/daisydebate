@@ -1,15 +1,19 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
+import {
+  initialRoomState,
+  pageToneOf,
+  phonePanelOf,
+  reduceRoom,
+} from './room-state';
 
 setupRitewayBun();
 
 const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
-const rated = sampleRound('prep', 'ranked');
 
 test('an accepted recovery uses the ordinary document and tab transitions', () => {
-  const reduce = reduceRoom(casual);
+  const reduce = reduceRoom;
   const before = initialRoomState(casual);
   const updated = reduce(before, {
     type: 'doc/update',
@@ -30,88 +34,44 @@ test('an accepted recovery uses the ordinary document and tab transitions', () =
 });
 
 describe('initialRoomState', () => {
-  test('opens the round folder', () => {
+  test('opens on the transcript beside no document', () => {
     const state = initialRoomState(casual);
     assert({
-      given: 'a round with three round documents',
-      should: 'open each as a tab and show the first',
-      actual: state.tabs,
-      expected: { open: ['doc-flow', 'doc-cx', 'doc-nr'], active: 'doc-flow' },
-    });
-  });
-  test('opens on the transcript while the ballots are written', () => {
-    const judging = sampleRound('judging', 'casual');
-    assert({
-      given:
-        'the judging window of a transcribed round, then one with no transcript',
+      given: 'a new Round room',
       should:
-        'put the transcript first and show it, else open the round folder as usual',
-      actual: [
-        initialRoomState(judging).tabs,
-        initialRoomState({ ...judging, transcribing: false }).tabs,
-      ],
-      expected: [
-        {
-          open: ['transcript', 'doc-flow', 'doc-cx', 'doc-nr'],
-          active: 'transcript',
-        },
-        { open: ['doc-flow', 'doc-cx', 'doc-nr'], active: 'doc-flow' },
-      ],
-    });
-  });
-});
-
-describe('reduceRoom layout', () => {
-  test('resizing pins, choosing Auto unpins', () => {
-    const reduce = reduceRoom(casual);
-    const resized = reduce(initialRoomState(casual), {
-      type: 'layout/resize',
-      startPx: 130,
-      deltaPx: 70,
-    });
-    assert({
-      given: 'the video dragged 70px taller under Auto during prep',
-      should: 'pin Focus at the new height',
-      actual: resized.layout,
-      expected: { mode: 'focus', videoHeight: 200 },
-    });
-    assert({
-      given: 'the pinned layout and Auto chosen from the menu',
-      should: 'follow the phase again',
-      actual: reduce(resized, { type: 'layout/mode', mode: 'auto' }).layout,
-      expected: { mode: 'auto', videoHeight: null },
+        'open no document until the drive loads, show Transcript and Files, and start a phone on the document',
+      actual: [state.tabs, state.sidebar, state.filesOpen, state.phone],
+      expected: [{ open: [], active: null }, 'transcript', true, 'doc'],
     });
   });
 });
 
 describe('reduceRoom doc/create', () => {
   test('a new document from the palette', () => {
-    const reduce = reduceRoom(casual);
+    const reduce = reduceRoom;
     const state = reduce(
       { ...initialRoomState(casual), paletteOpen: true },
       {
         type: 'doc/create',
         id: 'doc-new',
         now,
-        templateId: 'flow',
-        folder: 'round',
       },
     );
     assert({
-      given: 'a flow created while a Flow exists',
-      should: 'add it under a unique title, open it and close the palette',
+      given: 'a new document',
+      should: 'add it, open it and close the palette',
       actual: {
         title: state.documents.at(-1)?.title,
         active: state.tabs.active,
         paletteOpen: state.paletteOpen,
       },
-      expected: { title: 'Flow 2', active: 'doc-new', paletteOpen: false },
+      expected: { title: 'Untitled', active: 'doc-new', paletteOpen: false },
     });
   });
 });
 
 describe('reduceRoom agent/edit', () => {
-  const reduce = reduceRoom(casual);
+  const reduce = reduceRoom;
   const apply = {
     type: 'agent/edit',
     turnId: 'a2',
@@ -134,7 +94,7 @@ describe('reduceRoom agent/edit', () => {
       should:
         'replace the removed line with the added ones in place, record the outcome and open the document',
       actual: {
-        removed: doc?.html.includes('N3 hospital exemption <span'),
+        removed: doc?.html.includes('N3 hospital exemption New'),
         inPlace: doc?.html.includes(
           '<li><p>0:15 N3 hospital exemption, call it out and move on</p></li>' +
             '<li><p>0:15 extra time on N2 weighing</p></li>' +
@@ -176,58 +136,98 @@ describe('reduceRoom agent/edit', () => {
   });
 });
 
-describe('reduceRoom drawer', () => {
-  test('a rated round has no AI tab', () => {
-    const before = initialRoomState(rated);
-    const reduce = reduceRoom(rated);
+describe('reduceRoom sidebars', () => {
+  const reduce = reduceRoom;
+  const before = initialRoomState(casual);
+
+  test('Files closes and reopens by hand', () => {
+    const closed = reduce(before, { type: 'files/toggle' });
     assert({
-      given: 'a request for the AI tab in a rated round, on either screen',
-      should: 'leave the drawer as it was',
-      actual: [
-        reduce(before, { type: 'drawer/tab', tab: 'ai' }),
-        reduce(before, { type: 'drawer/phone', tab: 'ai' }),
-      ],
-      expected: [before, before],
+      given: 'Files toggled twice',
+      should: 'close it, then open it again',
+      actual: [closed.filesOpen, reduce(closed, { type: 'files/toggle' })],
+      expected: [false, before],
     });
   });
 
-  test('closing and reopening', () => {
-    const reduce = reduceRoom(casual);
-    const closed = reduce(initialRoomState(casual), {
-      type: 'drawer/toggle',
+  test('the Round sidebar switches tabs and never closes', () => {
+    const chat = reduce(before, { type: 'sidebar/tab', tab: 'channels' });
+    assert({
+      given: 'Channels chosen, then AI chat',
+      should: 'show each in turn',
+      actual: [
+        chat.sidebar,
+        reduce(chat, { type: 'sidebar/tab', tab: 'ai' }).sidebar,
+      ],
+      expected: ['channels', 'ai'],
+    });
+  });
+
+  test('a channel opens in place and marks itself read', () => {
+    const open = reduce(before, {
+      type: 'channel/open',
+      channelId: 'prep',
+      now,
     });
     assert({
-      given: 'the open drawer toggled, then a tab chosen',
-      should: 'close it, then reopen it on that tab',
+      given: 'a channel opened from the list, then Back',
+      should: 'show its thread and mark it read, then show the list',
       actual: [
-        closed.drawerOpen,
-        reduce(closed, { type: 'drawer/tab', tab: 'chat' }),
+        [open.openChannelId, open.readMarkers.prep],
+        reduce(open, { type: 'channel/list' }).openChannelId,
       ],
-      expected: [false, { ...closed, drawer: 'chat', drawerOpen: true }],
+      expected: [['prep', now], null],
     });
   });
 
   test('the phone round tabs', () => {
-    const reduce = reduceRoom(casual);
-    const room = reduce(initialRoomState(casual), {
-      type: 'drawer/phone',
-      tab: 'room',
+    const channels = reduce(before, { type: 'phone/panel', panel: 'channels' });
+    const room = reduce(channels, { type: 'phone/panel', panel: 'room' });
+    assert({
+      given: 'Channels chosen on a phone, then Room, then Doc',
+      should: 'show one panel at a time and leave the sidebar on its last tab',
+      actual: [
+        [phonePanelOf(channels), channels.sidebar],
+        [phonePanelOf(room), room.sidebar],
+        phonePanelOf(reduce(room, { type: 'phone/panel', panel: 'doc' })),
+      ],
+      expected: [['channels', 'channels'], ['room', 'channels'], 'doc'],
+    });
+  });
+
+  test('a sidebar tab cannot disagree with the phone', () => {
+    const phone = reduce(before, { type: 'phone/panel', panel: 'ai' });
+    assert({
+      given: 'the sidebar’s tab changing while a phone shows the sidebar',
+      should: 'show that tab on the phone too',
+      actual: phonePanelOf(
+        reduce(phone, { type: 'sidebar/tab', tab: 'channels' }),
+      ),
+      expected: 'channels',
+    });
+  });
+});
+
+describe('a phone opening a file', () => {
+  test('Files gives way to the document', () => {
+    const files = reduceRoom(initialRoomState(casual), {
+      type: 'phone/panel',
+      panel: 'files',
     });
     assert({
-      given: 'Room chosen on a phone, then Doc',
-      should:
-        'show the Room tab in place of the document, then the document again',
+      given: 'a file opened and a file created from the phone’s Files panel',
+      should: 'show the document each time',
       actual: [
-        [room.drawer, room.phoneDrawer, room.drawerOpen],
-        reduce(room, { type: 'drawer/phone', tab: null }).phoneDrawer,
+        reduceRoom(files, { type: 'tabs/open', id: 'doc-flow' }).phone,
+        reduceRoom(files, { type: 'doc/create', id: 'doc-new', now }).phone,
       ],
-      expected: [['room', true, true], false],
+      expected: ['doc', 'doc'],
     });
   });
 });
 
 describe('reduceRoom doc/loaded and doc/add', () => {
-  const reduce = reduceRoom(casual);
+  const reduce = reduceRoom;
   const flow = casual.documents.find((d) => d.id === 'doc-flow')!;
 
   test('the server’s documents arrive', () => {
@@ -235,7 +235,7 @@ describe('reduceRoom doc/loaded and doc/add', () => {
     const state = reduce(empty, { type: 'doc/loaded', documents: [flow] });
     assert({
       given: 'a room with no documents loading the server’s',
-      should: 'hold them and open the round documents',
+      should: 'hold them and open the one edited last',
       actual: { ids: state.documents.map((d) => d.id), tabs: state.tabs },
       expected: {
         ids: ['doc-flow'],
@@ -263,16 +263,16 @@ describe('reduceRoom doc/loaded and doc/add', () => {
 
 describe('reduceRoom page/tone', () => {
   test('one document’s page', () => {
-    const state = reduceRoom(casual)(initialRoomState(casual), {
+    const state = reduceRoom(initialRoomState(casual), {
       type: 'page/tone',
       documentId: 'doc-flow',
       tone: 'light',
     });
     assert({
       given: 'Light chosen for Flow',
-      should: 'make Flow light and leave CX dark',
+      should: 'make Flow light and leave CX following the viewer’s theme',
       actual: [pageToneOf(state, 'doc-flow'), pageToneOf(state, 'doc-cx')],
-      expected: ['light', 'dark'],
+      expected: ['light', null],
     });
   });
 });
@@ -283,8 +283,6 @@ test('adopted server text is marked until the next ordinary change', async () =>
   const start: Parameters<typeof adoptServerText>[0] = {
     id: 'd',
     title: 'Flow',
-    folder: 'library',
-    templateId: 'blank',
     html: '<p>old</p>',
     createdAt: 'then',
     updatedAt: 'then',

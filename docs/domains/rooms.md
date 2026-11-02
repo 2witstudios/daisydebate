@@ -78,7 +78,9 @@ membership. Every terminal state frees its members:
   with no accepted command (or running pre-round prep) for that long, by
   database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
-  Round forfeits it, which ends the Round.
+  Round forfeits it, which ends the Round, until the last speech ends. After
+  that the debate is over: leaving forfeits nothing, the engine refuses a
+  forfeit, and the Round waits for its ballot.
 - **The debate ends**: the last speech ends, or the Round completes, is
   forfeited or is abandoned. Judges ballot from their Round seats.
 
@@ -91,6 +93,8 @@ Round. Beta Season 1 publication labels and themes are descriptive metadata,
 independent from rating-season authority. Only Custom asks for host-authored
 wording. Strike exposes no custom
 draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
+The Seasons page lists the current publications as a read-only input and
+gives them no link to a rating season.
 
 A Room either names its resolution (its topic) or draws one before the
 round ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). In a draw
@@ -149,7 +153,7 @@ A Round reaches one terminal state, and only once:
   opponent forfeits. Both missing abandons. A bot worker's loss abandons and
   never forfeits (ADR 0067). Media, capture or speech-to-text failure is
   never evidence of absence.
-- **Forfeit by command.** A debater can forfeit.
+- **Forfeit by command.** A debater can forfeit until the last speech ends.
 - **Abandoned before start.** A Round still scheduled past its start horizon
   (default 15 minutes after Launch) is abandoned (DEC-214).
 

@@ -7,7 +7,7 @@ import { RoundBar } from './round-bar';
 
 setupRitewayBun();
 
-/** RoundBar's leave shape; the badge test never renders its links. */
+/** RoundBar's leave shape; these tests never follow its links. */
 const noLeave: LeaveLinks = {
   confirming: false,
   stayHref: '',
@@ -15,35 +15,12 @@ const noLeave: LeaveLinks = {
   leaveHref: '/lobby',
 };
 
-describe('RoundBar', () => {
-  test('the unread badge on the closed drawer', () => {
-    const html = renderToString(
-      h(RoundBar, {
-        round: sampleRound('opponent-speaking', 'casual'),
-        drawerOpen: false,
-        unread: 3,
-        onToggleDrawer: () => {},
-        leave: noLeave,
-      }),
-    );
-    assert({
-      given: 'a closed drawer with unread chat',
-      should: 'badge the toggle at the 12px floor like the drawer badge',
-      actual: [html.includes('>3<'), html.includes('text-2xs')],
-      expected: [true, false],
-    });
-  });
-});
-
 describe('RoundBar vocabulary', () => {
   const bar = (roomNumber?: number) =>
     renderToString(
       h(RoundBar, {
         round: sampleRound('opponent-speaking', 'casual'),
         ...(roomNumber === undefined ? {} : { roomNumber }),
-        drawerOpen: true,
-        unread: 0,
-        onToggleDrawer: () => {},
         leave: noLeave,
       }),
     );

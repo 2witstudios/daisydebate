@@ -5,7 +5,9 @@ Status: accepted (owner request, 2026-10-05; design
 2026-10-12 (owner-approved redesign, design
 [Daisy Room Redesign](https://claude.ai/artifact/TStKrFHBxGakPERdMwwYey),
 Proposal page): round bar and one drawer, speaker-primary video, voice-only
-bots. Extends
+bots. Amended 2026-11-02 by [ADR 0097](0097-round-workspace.md), which replaces
+the room's layout (§1), the document templates (§3), the resizable video (§5),
+the debate marks (§7) and the fair-play rule (§8). Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
 for two narrow styling cases.
 
@@ -67,33 +69,25 @@ document. Daisy builds this itself rather than embedding another product.
    number means the same thing to every reader. Agents edit by line range
    or anchor through that one module, with the expected line count and a
    revision compare-and-swap refusing stale edits. Documents live in
-   `debate_documents` (owner, optional AI debate, folder, title, HTML,
-   revision); the templates that seed them are pure functions in
-   `features/debate-room/documents/documents.ts` that never import Tiptap.
+   `documents` (owner, title, HTML, revision).
 4. **Tiptap's injected stylesheet is off** (`injectCSS: false`): its style
    tag carries no nonce, so the CSP would refuse it. The ProseMirror base
    rules live in `app/theme/room.css` instead.
-5. **The video size is a custom property set through the CSSOM**
-   (`element.style.setProperty`), which the CSP allows, read by named
-   utilities in `room.css` (`room-video-band`, `room-workspace`); the
+5. **The tile height is a custom property set through the CSSOM**
+   (`element.style.setProperty`), which the CSP allows, read by the room's
+   rules in `room.css`; the
    room's fixed metrics are `--spacing-room-*` and `--spacing-round-*`
    theme tokens there. No style attribute and no
    arbitrary class value is introduced.
-6. **The document page may carry its own scheme.** A debater can keep a
-   dark page in a light app or the reverse. `[data-room-page]` joins
+6. **The document page follows the viewer's theme, and may carry its own
+   scheme.** A debater can choose a dark page in a light app or the reverse. `[data-room-page]` joins
    the selector list in `globals.css` that re-declares the tokens, the same
    mechanism ADR 0045 gave the brand sheet's preview panels.
-7. **Debate marks** (Aff, Neg, Extend, Dropped, New) are one Tiptap mark
-   with a `kind` attribute rendered as `data-debate-mark`, coloured by the
-   area hues and status tokens in `room.css`. A document may open with a
+7. **Page layout.** A document may open with a
    page setting, `<div data-page="landscape" data-columns="N">` (N from 2
    to 6), that lays it out in columns; without one it is portrait. Text
    size (A−/A+) is the viewer's own and never stored.
-8. **Fair play.** In a rated (ranked) round the drawer has Files, Chat
-   and Room only, Chat holds the round's own channel; the AI tab, club
-   channels and agents are hidden
-   (`features/debate-room/workspace.ts`). Recorded as DEC-108,
-   open until the owner confirms or overrules it.
+8. **Help.** Every Round offers the same help (ADR 0097).
 
 ## Consequences
 
@@ -110,8 +104,7 @@ document. Daisy builds this itself rather than embedding another product.
   unreadable stored checkpoint reads as none, so the room shows no live
   position instead of failing. Ratings, stakes, Round commands, chat
   delivery, the AI agents, media and Tech issue have no server yet: their
-  controls are shown disabled (DEC-100, DEC-178), and a ranked round lists
-  no club folder (DEC-175).
+  controls are shown disabled (DEC-100, DEC-178).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

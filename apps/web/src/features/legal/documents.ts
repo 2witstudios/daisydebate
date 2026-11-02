@@ -32,7 +32,7 @@ export const termsDocument: LegalDocument = {
       id: 'debating-here',
       heading: 'How we expect you to debate',
       paragraphs: [
-        'Argue the resolution, not the person. Harassment, threats, hate speech, doxxing, and cheating (outside help during a round, a second account, or arranged results) end a round and can end an account.',
+        'Argue the resolution, not the person. You may use any help you like during a round, including notes, other people and AI. Harassment, threats, hate speech, doxxing, and cheating (a second account or arranged results) end a round and can end an account.',
         'Judges decide on what was said in the round. A judge may give a written reason, and both debaters can see it.',
       ],
     },
