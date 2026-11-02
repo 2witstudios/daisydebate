@@ -32,10 +32,11 @@ const edit = (page: Page, text: string) =>
 const reloadLosingExitSave = async (page: Page) => {
   await page.evaluate((path) => {
     const send = window.fetch;
-    window.fetch = (input, init) =>
-      String(input).endsWith(`${path}save`)
+    Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) =>
+      String(request[0]).endsWith(`${path}save`)
         ? Promise.reject(new TypeError('Exit save lost'))
-        : send(input, init);
+        : send(...request),
+    );
   }, documentsPath);
   await page.reload();
 };
