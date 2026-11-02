@@ -22,13 +22,21 @@ import {
   saveRoundSettings,
 } from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
-import { roundViewSchema, type RoundView } from '@daisy/protocol';
+import {
+  roundMediaStateSchema,
+  roundViewSchema,
+  type RoundView,
+} from '@daisy/protocol';
 
 const TWO_MINUTE_SKEW_MS = 120_000;
 /** m:ss reads whole seconds; this journey allows one sweep of the clock face. */
 const READING_TOLERANCE_MS = 5_000;
 /** The launch minute before the first speech opens. */
 const WAIT_FOR_ROUND_READ_MS = 60_000;
+/** How far from the deadline the stale read starts: well inside its 10 s budget. */
+const STALE_READ_LEAD_MS = 6_000;
+/** The boundary bar, against the 43856 ms this journey measured before ISSUE-899. */
+const MEDIA_BOUNDARY_BAR_MS = 2_000;
 
 /* The monotonic instant this process measures: the only honest clock an e2e
    harness may read, since the browser's wall clock is this test's subject. */
@@ -164,20 +172,29 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const isServerAction = (request: RoutedRequest) =>
       request.method() === 'POST' && Boolean(request.headers()['next-action']);
     const hostActions = await routeStepped(host, roomUrl, isServerAction);
-    const guestActions = await routeStepped(guest, roomUrl, isServerAction);
+    const mediaUrl = new URL(`/api/rounds/${roundId}/media`, roomUrl).href;
+    const hostMedia = await routeStepped(
+      host,
+      `${mediaUrl}/reconcile`,
+      (request) => request.method() === 'POST',
+    );
+    const superseded: { at: number; error: string }[] = [];
+    let admissions = 0;
+    host.on('requestfailed', (request) => {
+      if (request.url() === `${mediaUrl}/reconcile`)
+        superseded.push({
+          at: elapsedMs(),
+          error: request.failure()?.errorText ?? '',
+        });
+    });
+    host.on('request', (request) => {
+      if (request.url() === `${mediaUrl}/session`) admissions++;
+    });
 
     // Delay the actual SSR response after its render seed was generated.
     // The first calibrated read must remove this six-second hydration lag.
-    const mediaAt: number[] = [];
     let documentEpoch = 0;
     host.on('domcontentloaded', () => documentEpoch++);
-    host.on('request', (request) => {
-      if (
-        request.method() === 'POST' &&
-        request.url().endsWith('/media/reconcile')
-      )
-        mediaAt.push(elapsedMs());
-    });
     documents.use(async (route) => {
       const response = await route.fetch();
       await new Promise((resolve) => setTimeout(resolve, 6000));
@@ -269,28 +286,58 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await session.detach();
     await expect(mediaStatus).toBeVisible({ timeout: 15000 });
 
-    // Observe the mounted media session's real reconcile HTTP at the speech
-    // boundary after the same-view hydration correction. No media is mocked.
+    // The real caller's media boundary, on the sampled clock. No media is mocked.
     const response = await accounts.members[0]!.context.request.get(
       `/api/rounds/${roundId}`,
     );
     const view = roundViewSchema.parse(await response.json());
     const segment = view.segments[0]!;
     const deadline = Date.parse(segment.startedAt) + segment.durationMs;
-    // Hold every Server Action for both debaters across the boundary, so a new
-    // view cannot be what reconciles here. A LiveKit permission push still can,
-    // inside the tolerance, so this does not isolate the timer on its own.
-    mediaAt.length = 0;
+    const seat = view.participants.find(
+      (participant) => participant.role === 'affirmative',
+    );
+    if (!seat || !('label' in seat))
+      throw new Error('Actual affirmative seat missing');
+    const hostMicrophone = host
+      .getByRole('figure')
+      .filter({ hasText: seat.label })
+      .locator('figcaption');
+    await expect(hostMicrophone).toContainText(/Microphone open|Speaking/, {
+      timeout: 15000,
+    });
+    const camera = await host
+      .getByLabel('Your camera', { exact: true })
+      .evaluateHandle(
+        (node) =>
+          (
+            (node as HTMLVideoElement).srcObject as MediaStream
+          ).getVideoTracks()[0]!,
+      );
+    await host.evaluate(() => {
+      const statuses: string[] = [];
+      new MutationObserver(() => {
+        for (const node of document.querySelectorAll('[role="status"]'))
+          statuses.push(node.textContent ?? '');
+      }).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      Object.assign(window, { boundaryStatuses: statuses });
+    });
+    const admissionsBefore = admissions;
+
+    // Hold this debater's Server Actions across the boundary, so no newer view
+    // can reach its media session. Only the boundary event can then abort a
+    // read: a wake never does, and the request's own deadline is 10 s away.
     let releaseActions = () => {};
     const actionsHeld = new Promise<void>((release) => {
       releaseActions = release;
     });
-    const holdActions: StepRoute = async (route) => {
+    hostActions.use(async (route) => {
       await actionsHeld;
       await route.fallback();
-    };
-    hostActions.use(holdActions);
-    guestActions.use(holdActions);
+    });
     // Calibration does not wait on that queue: a stuck action cannot hold it.
     const heldClock = witnessClockRead();
     heldClock.arm();
@@ -302,15 +349,88 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       .not.toBeNull();
     expect(heldClock.read()!.serverNowMs).not.toBeNull();
     await clockReads.pass();
-    expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
+
+    // Start the stale read close enough that its own 10 s request deadline falls
+    // well after the boundary. The peer leaving is the SDK invalidation asking.
     await expect
-      .poll(() => Math.min(...mediaAt.map((at) => Math.abs(at - deadline))), {
-        timeout: 70000,
+      .poll(async () => deadline - (await serverNow(accounts, roundId!)), {
+        timeout: 60000,
       })
-      .toBeLessThan(2000);
+      .toBeLessThan(STALE_READ_LEAD_MS);
+    const staleReply = Promise.withResolvers<unknown>();
+    const releaseStale = Promise.withResolvers<void>();
+    const staleDelivered = Promise.withResolvers<void>();
+    let staleStartedAt: number | null = null;
+    const freshReads: { startedAt: number; microphone: boolean }[] = [];
+    superseded.length = 0;
+    hostMedia.use(async (route) => {
+      const startedAt = elapsedMs();
+      if (staleStartedAt === null) {
+        staleStartedAt = startedAt;
+        const held = await route.fetch();
+        staleReply.resolve(await held.json());
+        await releaseStale.promise;
+        await route.fulfill({ response: held }).catch(() => undefined);
+        staleDelivered.resolve();
+        return;
+      }
+      const fresh = await route.fetch();
+      const state = roundMediaStateSchema.parse(await fresh.json());
+      freshReads.push({
+        startedAt,
+        microphone: state.grants.publish.includes('microphone'),
+      });
+      await route.fulfill({ response: fresh });
+    });
+    void guest.reload().catch(() => undefined);
+    const stale = roundMediaStateSchema.parse(await staleReply.promise);
+    expect(stale.grants.publish).toContain('microphone');
+    expect(staleStartedAt!).toBeLessThan(deadline - 500);
+    expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
+
+    // The boundary: the actual caller supersedes the stale read at the deadline.
+    await expect
+      .poll(() => superseded.length, {
+        timeout: deadline - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
+        intervals: [50],
+      })
+      .toBeGreaterThan(0);
+    const supersededAt = superseded[0]!;
+    expect(supersededAt.error).toContain('ERR_ABORTED');
+    expect(supersededAt.at - staleStartedAt!).toBeLessThan(9000);
+    expect(Math.abs(supersededAt.at - deadline)).toBeLessThan(
+      MEDIA_BOUNDARY_BAR_MS,
+    );
+    // The healthy transition: this debater's closed microphone, on time.
+    await expect
+      .poll(() => hostMicrophone.textContent(), {
+        timeout: deadline - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
+        intervals: [50],
+      })
+      .toContain('Microphone closed');
+    const closedAt = elapsedMs();
+    expect(closedAt - deadline).toBeLessThan(MEDIA_BOUNDARY_BAR_MS);
+    expect(freshReads.at(0)?.microphone).toBe(false);
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+
+    // The stale reply arrives late and changes nothing, and the connection held.
+    releaseStale.resolve();
+    await staleDelivered.promise;
+    await expect(hostMicrophone).toContainText('Microphone closed');
+    await hostMedia.pass();
+    const statuses = await host.evaluate(
+      () =>
+        (window as unknown as { boundaryStatuses: string[] }).boundaryStatuses,
+    );
+    expect(
+      statuses.filter((text) => /Reconnect|Connecting/.test(text)),
+    ).toEqual([]);
+    await expect(mediaStatus).toBeVisible();
+    expect(admissions).toBe(admissionsBefore);
+    expect(await camera.evaluate((track) => track.readyState)).toBe('live');
+    await camera.dispose();
     releaseActions();
-    await Promise.all([hostActions.pass(), guestActions.pass()]);
+    await hostActions.pass();
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
@@ -325,14 +445,17 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
           'agreeing400ms reply that cannot loosen the anchor',
           'renderer freeze/resume with fresh authorized read',
           'clock read reaches the server while Server Actions are held',
-          'actual media boundary',
+          'real caller boundary supersedes a held read',
+          'microphone closes with the connection untouched',
         ],
         clockStatus: await clockStatus.textContent(),
         displayDeltaMs: await displayDeltaMs(host, accounts, roundId!),
         deadlineMs: deadline,
-        closestMediaReconcileDeltaMs: Math.min(
-          ...mediaAt.map((at) => Math.abs(at - deadline)),
-        ),
+        staleReadLeadMs: deadline - staleStartedAt!,
+        boundaryAbortDeltaMs: supersededAt.at - deadline,
+        freshReadDeltaMs: freshReads.at(0)!.startedAt - deadline,
+        microphoneClosedDeltaMs: closedAt - deadline,
+        e8BaselineDeltaMs: 43856,
       }),
       contentType: 'application/json',
     });

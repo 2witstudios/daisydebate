@@ -187,7 +187,8 @@ fires once and a read sent before the true boundary would only see the old
 grant.
 
 Display/control hints and media deadlines read
-the same clock. Calibration changes rearm the actual media timeout without
+the same clock. The media follower of ISSUE-899 takes this clock as its "now" and "at deadline", and calls a deadline due only past the same lower bound.
+Calibration changes rearm the actual media timeout without
 requiring a new Round view; view updates do not replace the clock or media
 session. These are display estimates and read triggers only: commands,
 attendance, competitive deadlines and media grants remain server authority.
