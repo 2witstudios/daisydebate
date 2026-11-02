@@ -1,4 +1,4 @@
-# 0100: Operational signals report only what happened
+# 0101: Operational signals report only what happened
 
 Status: accepted by the point guard on the owner's behalf, 2026-11-02.
 Supersedes the "Cleanup missed" section and the `KNOWN_OPERATIONS` sentence of
