@@ -2,6 +2,7 @@ import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
+import { displayDeltaMs } from './support/round-clock';
 import { createHumanBallotRound } from './support/human-ballot-round';
 import {
   MEDIA_POLL,
@@ -238,6 +239,15 @@ test('network loss during a live speech restores peer sound and video without Re
     });
     await expectPeerCamera(peer);
     await expectPeerAudio(peer);
+    // Resumed play reads the server's timetable, after the outage and on a new document.
+    const onTimetable = () =>
+      expect
+        .poll(() => displayDeltaMs(source, speaker, round.id), MEDIA_POLL)
+        .toBeLessThan(2_000);
+    await onTimetable();
+    await source.reload();
+    await expectConnected(source);
+    await onTimetable();
     const state = await readMediaState(speaker, round.id);
     expect(state.state).toBe('ready');
     expect(state.grants.publish).toEqual(['camera', 'microphone']);

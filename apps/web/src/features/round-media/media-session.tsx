@@ -1,4 +1,5 @@
 'use client';
+import '../../ui/debate-room/zod-jitless';
 import { selectMediaAccount } from './account-signout-cleanup';
 import { subscribeMediaRecovery } from './media-recovery-events';
 import {
@@ -13,7 +14,6 @@ import {
 } from './request-media';
 import { createRoundViewFollower } from './follow-round-view';
 import type { MediaFailureKind } from './media-failure';
-import '../../ui/debate-room/zod-jitless';
 import {
   clearCheckedDevices,
   readCheckedDevices,
