@@ -17,7 +17,7 @@ import {
   launchImageContractChecks,
   validateLaunchPreparation,
 } from '../e2e/support/launch-browser-image-validation';
-import { launchBaseMetadata } from './launch-browser-image-archive.fixture';
+import { launchBaseMetadata } from './launch-browser-image.fixture';
 setupRitewayBun();
 const inputs = {
   version: '1.63.0',

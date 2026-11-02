@@ -133,9 +133,9 @@ acquisition fallback.
 
 An optional directory argument saves/loads `image.tar` and `receipt.json` for
 CI. The SHA-pinned Actions cache uses exact OS, architecture and input keys. Only
-same-repository PRs and main pushes save or restore; forks do neither. A PR may
-restore main's entry, which is the safe direction since PRs cannot write main's
-scope. The cache is an optimization inside that repository trust boundary, not a
+same-repository PRs and main pushes save. Everything except a fork PR may restore.
+A PR may restore main's entry, which is the safe direction since PRs cannot write
+main's scope. The cache is an optimization inside that repository trust boundary, not a
 signature or acceptance authority.
 
 The archive is the `docker save` output, unchanged. Its receipt holds the format

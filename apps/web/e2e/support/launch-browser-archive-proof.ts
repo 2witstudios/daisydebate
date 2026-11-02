@@ -165,10 +165,17 @@ try {
     if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
       throw new Error('Corrupt-cache proof could not release its reference');
     const rebuildStarted = performance.now();
+    // Expected here, so it must not post a rejection warning on the run page.
+    let controlRejection: string | null = null;
     const rebuilt = await prepareLaunchBrowserImage({
       checkout,
       archiveDirectory: corrupt,
+      onCacheRejected: (reason) => {
+        controlRejection = reason;
+      },
     });
+    if (controlRejection !== 'digest')
+      throw new Error('Corrupt-cache control was not rejected for its digest');
     if (rebuilt.image.key !== image.key)
       throw new Error('Corrupt-cache rebuild changed its input identity');
     log({

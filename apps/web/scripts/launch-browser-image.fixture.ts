@@ -1,5 +1,4 @@
 import { afterAll } from 'bun:test';
-import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -34,5 +33,3 @@ export const launchBaseMetadata = (
     Labels: image.baseLabels,
   },
 });
-export const sha = (bytes: Uint8Array | string) =>
-  `sha256:${createHash('sha256').update(bytes).digest('hex')}`;

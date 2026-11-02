@@ -14,11 +14,11 @@ import {
   launchArchiveFormat,
 } from '../e2e/support/launch-browser-image-policy';
 import { createLaunchPreparationProcess } from '../e2e/support/launch-browser-image-process';
+import { sha256 as sha } from '../e2e/support/launch-browser-image-values';
 import {
   createScratch,
   launchBaseMetadata,
-  sha,
-} from './launch-browser-image-archive.fixture';
+} from './launch-browser-image.fixture';
 
 setupRitewayBun();
 const scratch = createScratch();
@@ -151,7 +151,7 @@ test('restore verifies receipt and hash before Docker, then image identity', asy
   });
   const receipt = await Bun.file(join(good.directory, 'receipt.json')).json();
   for (const [given, value] of [
-    ['an older format', { ...receipt, format: launchArchiveFormat + 1 }],
+    ['another format', { ...receipt, format: launchArchiveFormat + 1 }],
     ['a foreign input key', { ...receipt, key: 'foreign' }],
     ['another store family', { ...receipt, store: 'containerd-overlayfs' }],
     ['an extra field', { ...receipt, extra: true }],
@@ -217,6 +217,23 @@ test('a miss is quiet, a rejection warns, and neither blocks the run', async () 
       reason: output.includes('cache-rejected: receipt'),
     },
     expected: { results: [null, null], warnings: 1, reason: true },
+  });
+});
+
+test('a control that corrupts its own entry can replace the warning', async () => {
+  const entry = await saved();
+  await Bun.write(join(entry.directory, 'image.tar'), 'corrupt');
+  const rejected: string[] = [];
+  const { output } = await captureStdout(() =>
+    restoreLaunchImageCache(entry.owner, image, entry.directory, (reason) => {
+      rejected.push(reason);
+    }),
+  );
+  assert({
+    given: 'an expected rejection in the corrupt-cache control',
+    should: 'report it to the control with no run-page annotation',
+    actual: [rejected, output.includes('::warning')],
+    expected: [['digest'], false],
   });
 });
 

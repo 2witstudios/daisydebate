@@ -144,10 +144,11 @@ export async function restoreLaunchImageCache(
   owner: Owner,
   image: LaunchImage,
   directory: string,
+  onRejected: (reason: string) => void = (reason) =>
+    warnLaunchCache('cache-rejected', image, reason),
 ) {
   const restore = await restoreLaunchImageArchive(owner, image, directory);
-  if (restore.status === 'rejected')
-    warnLaunchCache('cache-rejected', image, restore.reason);
+  if (restore.status === 'rejected') onRejected(restore.reason);
   return restore.status === 'restored' ? restore.id : null;
 }
 

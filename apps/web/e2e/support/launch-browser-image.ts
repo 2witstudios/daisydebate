@@ -95,6 +95,8 @@ export async function readLaunchImageInputs(
 export async function prepareLaunchBrowserImage(input: {
   readonly checkout: string;
   readonly archiveDirectory?: string;
+  /** Only a control that corrupts its own entry replaces the run-page warning. */
+  readonly onCacheRejected?: (reason: string) => void;
 }) {
   const owner = createLaunchPreparationProcess();
   try {
@@ -111,7 +113,12 @@ export async function prepareLaunchBrowserImage(input: {
     let id = await validatedLaunchImage(owner, image, image.tag);
     let source = 'local';
     if (!id && input.archiveDirectory) {
-      id = await restoreLaunchImageCache(owner, image, input.archiveDirectory);
+      id = await restoreLaunchImageCache(
+        owner,
+        image,
+        input.archiveDirectory,
+        input.onCacheRejected,
+      );
       source = 'archive';
     }
     if (!id) {
