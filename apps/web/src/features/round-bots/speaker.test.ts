@@ -71,6 +71,30 @@ test('provider failures stop after the bounded attempt count', async () => {
   });
   await speaker.stop();
 });
+test('a cross-examination respondent stays silent until a question ends', async () => {
+  const { speaker, log, release, settle } = harness('cross_ex', {
+    opensExchange: false,
+  });
+  speaker.wake();
+  await settle();
+  assert({
+    given: 'a respondent seat when the segment opens',
+    should: 'generate nothing and stay silent',
+    actual: [log.length, speaker.playing()],
+    expected: [0, false],
+  });
+  speaker.peer('end-of-turn');
+  speaker.wake();
+  await settle();
+  assert({
+    given: 'the questioner finishing a question',
+    should: 'answer it',
+    actual: log.filter((line) => line === 'generate').length,
+    expected: 1,
+  });
+  await release();
+  await speaker.stop();
+});
 test('cross-examination answers each peer turn once and cancels the active phrase on barge-in', async () => {
   const { speaker, log, release, settle } = harness('cross_ex');
   speaker.wake();

@@ -27,6 +27,7 @@ type SpeakerInput = Parameters<typeof createBotSpeaker>[0];
 export function harness(
   segmentType: 'speech' | 'cross_ex',
   options: {
+    readonly opensExchange?: boolean;
     readonly generate?: () => Promise<
       ReturnType<typeof answered<{ text: string; phrases: string[] }>>
     >;
@@ -42,7 +43,12 @@ export function harness(
   let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
   const speaker = createBotSpeaker({
-    claim: { scope, token: 'memory-only', segmentType },
+    claim: {
+      scope,
+      token: 'memory-only',
+      segmentType,
+      opensExchange: options.opensExchange ?? true,
+    },
     generate:
       options.generate ??
       (async () => {

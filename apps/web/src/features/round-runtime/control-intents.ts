@@ -45,20 +45,6 @@ function canPrep(view: RoundView, position: RoundPosition, self: RoundSeat) {
     (position.prepBudgetRemainingMs?.[segment.side] ?? 0) > 0
   );
 }
-function canInterrupt(
-  view: RoundView,
-  open: NonNullable<RoundPosition['openSegment']>,
-  holder: string | undefined,
-  self: RoundSeat,
-) {
-  const policy = view.rules.interaction.interruptions;
-  return (
-    holder !== self.id &&
-    policy !== null &&
-    policy.allowed !== 'disabled' &&
-    open.remainingMs >= policy.minRemainingMs
-  );
-}
 function openIntents(
   view: RoundView,
   open: NonNullable<RoundPosition['openSegment']>,
@@ -81,16 +67,14 @@ function openIntents(
         true,
       ),
     );
-  if (
-    open.type !== 'cross_ex' &&
-    view.rules.interaction.interruptions?.allowed === 'enabled'
-  )
+  const policy = view.rules.interaction.interruptions;
+  if (open.type !== 'cross_ex' && policy?.allowed === 'enabled')
     result.push(
       own(
         self,
         'interrupt',
         'Interrupt',
-        canInterrupt(view, open, holder, self),
+        holder !== self.id && open.remainingMs >= policy.minRemainingMs,
       ),
     );
   return result;

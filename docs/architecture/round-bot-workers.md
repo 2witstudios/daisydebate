@@ -217,8 +217,9 @@ attempt. Other failures count toward a bound of two attempts per claim and log
 `round.speaking.failed`. A speech claim delivers its speech once. Bots issue no
 floor commands; the runtime clock opens and closes segments.
 
-In cross-examination the speaker opens the exchange once. After that it
-answers once per ended peer turn, and repeated end-of-turn reports for the same
+In cross-examination the scheduled seat opens the exchange once, and every
+other seat stays silent until a question ends. After that each answers once per
+ended peer turn, and repeated end-of-turn reports for the same
 turn start nothing. It reads its peers' activity from the seat's own hearing
 (below), polled every 50 ms in memory; audio older than 250 ms, an unbound
 peer, a closed track and a dropped connection read as unknown. A barge-in or

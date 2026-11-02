@@ -1,5 +1,6 @@
 import {
   floorStates,
+  selfHasLiveSegment,
   liveCaptions,
   voiceBars,
 } from '../../features/debate-room/stage';
@@ -120,7 +121,10 @@ function Captions({
  * live captions stand in for its tile (owner decision 6).
  */
 export function BotStage({ round, preset }: StageProps) {
-  const state = floorStates(round.phase).opponent;
+  const state = floorStates(
+    round.phase,
+    selfHasLiveSegment(round.speeches, round.liveIndex, round.self.side),
+  ).opponent;
   const name = round.opponent.name;
   const compact = preset === 'focus';
   return (

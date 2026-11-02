@@ -11,6 +11,7 @@ test('shared Round prompt preserves each seat and incomplete captured evidence',
       name: 'CX1',
       label: 'Cross examination',
       type: 'cross_ex',
+      side: 'negative',
       durationMs: 30000,
     },
     transcript: [
@@ -48,9 +49,37 @@ test('shared Round prompt preserves each seat and incomplete captured evidence',
       messages[1]?.content.includes('negative seat 1'),
       messages[1]?.content.includes('incomplete'),
       messages[1]?.content.includes('negative seat 2'),
-      messages[1]?.content.includes('This is cross-examination'),
+      messages[1]?.content.includes('your side asks'),
     ],
     expected: [2, true, true, true, true, true, true],
+  });
+});
+
+test('a cross-examination prompt names the role the seat plays', () => {
+  const prompt = (side: 'affirmative' | 'negative') =>
+    roundDebaterMessages({
+      resolution: 'Resolved: libraries matter',
+      side: 'affirmative',
+      slot: 0,
+      persona: 'Speak clearly.',
+      segment: {
+        name: 'CX1',
+        label: 'Cross-examination',
+        type: 'cross_ex',
+        side,
+        durationMs: 30000,
+      },
+      transcript: [],
+    })[1]!.content;
+  assert({
+    given: 'the asking side, then the other side',
+    should: 'tell the bot to ask, then to answer and ask nothing',
+    actual: [
+      prompt('affirmative').includes('your side asks'),
+      prompt('negative').includes('the other side asks'),
+      prompt('negative').includes('ask nothing of your own'),
+    ],
+    expected: [true, true, true],
   });
 });
 
@@ -61,7 +90,13 @@ test('shared constructive and final speech prompts preserve canonical speech goa
       side: 'affirmative',
       slot: 0,
       persona: 'Speak clearly.',
-      segment: { name, label: name, type: 'speech', durationMs: 300000 },
+      segment: {
+        name,
+        label: name,
+        type: 'speech',
+        side: 'affirmative',
+        durationMs: 300000,
+      },
       transcript: [],
     })[1]!.content;
   assert({

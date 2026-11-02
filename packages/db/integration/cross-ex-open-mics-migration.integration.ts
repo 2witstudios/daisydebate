@@ -80,6 +80,30 @@ test(
         expected: true,
       });
 
+      const active = await f.round({
+        status: 'active',
+        current_stage: 'countdown',
+        started_at: new Date(),
+      });
+      const refused = await scratch
+        .migrate((folder) => folder <= migration)
+        .then(
+          () => '',
+          (error: unknown) => String(error),
+        );
+      assert({
+        given: 'an active Round when the release migrates',
+        should: 'refuse and leave the predecessor rows in place',
+        actual: {
+          refused: refused.includes('active Rounds'),
+          retiredNamed: JSON.stringify(
+            await f.sql`select rules_snapshot from rounds where id = ${retiredRound}`,
+          ).includes('cross_ex_only'),
+        },
+        expected: { refused: true, retiredNamed: true },
+      });
+      await f.sql`delete from rounds where id = ${active}`;
+
       await scratch.migrate((folder) => folder <= migration);
       await scratch.migrate((folder) => folder <= migration);
 

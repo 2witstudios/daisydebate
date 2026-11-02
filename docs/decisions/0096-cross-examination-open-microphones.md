@@ -31,6 +31,8 @@ respondent had to press Interrupt to answer a question.
   respondent, that is a new segment fact, not a return of the mode.
 - A bot still stops its phrase when a person talks over it. That is its hearing,
   not the `interrupt` command.
+- A bot in the scheduled seat asks first. Any other bot seat stays silent until a
+  question ends, because its microphone no longer holds it back.
 - A forward migration rewrites stored formats, presets, Rooms and Rounds, since
   their schemas are strict (ADR 0023). It follows the `resolutionDraw` backfill,
   which also rewrote published format revisions in place.
@@ -48,8 +50,9 @@ is accurate because the policy now describes speeches only and
 
 A Round cannot finish under its old mode, because no code keeps that mode. The
 release runs while the previous version serves, and that version cannot read
-migrated rows: its Launch or settings save fails during that window. So this
-release merges only when a dry run counts zero active Rounds.
+migrated rows: its Launch or settings save fails during that window. So the
+migration refuses to run while any Round is active, and the release can be
+retried once those Rounds finish.
 
 If one were live anyway, the effect lasts one segment. In an open
 cross-examination the respondent's microphone opens but no speaking interval

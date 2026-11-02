@@ -15,9 +15,18 @@ const floor: Readonly<Record<RoundPhase, FloorStates>> = {
   judging: { self: '', opponent: '' },
 };
 
-export function floorStates(phase: RoundPhase): FloorStates {
-  return floor[phase];
+/** `selfAsks` only matters in cross-examination, where the asking side is scheduled. */
+export function floorStates(phase: RoundPhase, selfAsks: boolean): FloorStates {
+  return phase === 'cross-ex' && !selfAsks
+    ? { self: 'Answering', opponent: 'Asking' }
+    : floor[phase];
 }
+
+export const selfHasLiveSegment = (
+  speeches: readonly SpeechSlot[],
+  liveIndex: number,
+  selfSide: Side,
+): boolean => speeches[liveIndex]?.side === selfSide;
 
 /** The speaker layout's large tile is yours only while you speak. */
 export function speakerIsSelf(phase: RoundPhase): boolean {

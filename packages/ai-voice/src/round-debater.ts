@@ -22,6 +22,8 @@ export function roundDebaterMessages(input: {
     readonly name: string;
     readonly label: string;
     readonly type: 'speech' | 'cross_ex';
+    /** The side this segment belongs to: in cross-examination, the side asking. */
+    readonly side: DebateSide;
     readonly durationMs: number;
   };
   readonly transcript: readonly {
@@ -40,7 +42,7 @@ export function roundDebaterMessages(input: {
     .join('\n');
   const task =
     input.segment.type === 'cross_ex'
-      ? 'This is cross-examination. Every authorized debater on both sides may speak; no assigned asker or answerer is implied. Respond to the actual captured exchange with one concise question or direct answer, at most 50 words. Distinguish your own seat from teammates. Never invent an unheard reply.'
+      ? `This is cross-examination and ${input.segment.side === input.side ? 'your side asks: ask one concise question or follow up on the last answer' : 'the other side asks: answer the last question directly, and ask nothing of your own'}, at most 50 words. Both sides' microphones are open. Respond to the actual captured exchange. Distinguish your own seat from teammates. Never invent an unheard reply.`
       : `Deliver the ${input.segment.label} (${input.segment.name}). Fit the remaining ${input.segment.durationMs} milliseconds, at most ${wordBudget(input.segment.durationMs)} spoken words. Build your side and directly address the actual opposing arguments. ${SPEECH_GOALS[input.segment.name] ?? ''} Follow the speech position: constructive presents the case; rebuttals rebuild and crystallize; final speeches introduce no new arguments.`;
   return [
     {
