@@ -1,4 +1,4 @@
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
@@ -12,7 +12,7 @@ import { roundJudgingJobs } from './schema/round-judging-jobs';
  * that can never submit stop holding the Round. One rule for the panel and the
  * room; reads round_judging_jobs by name.
  */
-const heldBallotGrace = sql`${attendanceTimingPolicy.heldBallotGraceMs}::int*interval '1 millisecond'`;
+const heldBallotGrace = sql`${judgingPolicy.heldBallotGraceMs}::int*interval '1 millisecond'`;
 export const judgingJobCanRule = sql`(round_judging_jobs.status in ('queued','leased') and (
   round_judging_jobs.generation_deadline_at>clock_timestamp()
   or (round_judging_jobs.pending_ballot is not null and (select greatest(

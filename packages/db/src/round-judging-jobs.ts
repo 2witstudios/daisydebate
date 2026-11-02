@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import {
   ballotSchema,
   judgingAttemptDiagnosticSchema,
+  judgingPolicy,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
 } from '@daisy/protocol';
@@ -33,10 +34,6 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
-/** Paid model calls one judging job may buy over all its leases (ISSUE-461). */
-const MAX_JUDGING_CALLS = 2;
-/** Wait before another attempt after a failure that may be transient. */
-const JUDGING_RETRY_MS = 5_000;
 /**
  * One paid answer per attempt, a bounded number of attempts (DEC-210's rule
  * for judges): a job that already bought its calls, or whose AI judging budget
@@ -57,7 +54,7 @@ async function judgingDispatchEnded(
     paid: number;
     late: boolean;
   }[];
-  if (facts!.paid >= MAX_JUDGING_CALLS) return 'attempts_exhausted';
+  if (facts!.paid >= judgingPolicy.maxPaidCalls) return 'attempts_exhausted';
   return facts!.late ? 'generation_deadline' : null;
 }
 /** The terminal state: no lease, never rediscovered; panel completion reads it. */
@@ -285,7 +282,7 @@ export function createRoundJudgingJobs(input: {
             status: 'queued',
             leaseTokenDigest: null,
             leaseExpiresAt: null,
-            retryAt: new Date(now.getTime() + JUDGING_RETRY_MS),
+            retryAt: new Date(now.getTime() + judgingPolicy.retryMs),
           })
           .where(judgingJobWhere(scope));
         return 'retry';

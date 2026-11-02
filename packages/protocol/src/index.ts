@@ -407,3 +407,4 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
+export { judgingPolicy } from './judging-policy';

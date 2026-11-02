@@ -37,11 +37,6 @@ export const attendanceTimingPolicy = {
    * retention, so it cannot race the evidence it waits for.
    */
   resolutionCutoffMs: 60 * 60_000,
-  /**
-   * How long a validated ballot a worker still holds keeps its Round waiting
-   * after attendance last settled, so a worker has its chance to submit it.
-   */
-  heldBallotGraceMs: 10 * 60_000,
 } as const;
 
 /**

@@ -1,10 +1,10 @@
+import { judgingPolicy } from '@daisy/protocol';
 import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
 import {
   createRoundMaintenanceOperations,
-  DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
   ROUND_START_HORIZON_MS,
 } from '../src/features/round-finalization/maintenance';
@@ -38,7 +38,7 @@ export async function withWebFinalizer<T>(
         instanceId,
         roundId,
         buildProjection: roundTickProjection(createId),
-        planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
+        planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
       }),
     );
   } finally {

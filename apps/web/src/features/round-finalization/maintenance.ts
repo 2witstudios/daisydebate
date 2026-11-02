@@ -11,12 +11,10 @@ import {
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
+import { judgingPolicy } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
-import { AI_JUDGING_BUDGET_MS } from '../round-judging/budget';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
-/** Human judges may rule for 30 minutes after the immutable freeze (DEC-201). */
-export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
 /** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
 export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type JudgingPlanner = Parameters<
@@ -29,7 +27,7 @@ export const judgingPlan =
     freezeJudgingPlan({
       ...facts,
       ballotDeadlineMs,
-      aiJudgingBudgetMs: AI_JUDGING_BUDGET_MS,
+      aiJudgingBudgetMs: judgingPolicy.aiBudgetMs,
     });
 type CompletionBuilder = Parameters<
   Database['completePanelRound']
@@ -115,7 +113,7 @@ export function createRoundMaintenanceOperations(input: {
   readonly probeRoundId: string | null;
 }) {
   const planJudging = judgingPlan(
-    input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
+    input.ballotDeadlineMs ?? judgingPolicy.humanBallotWindowMs,
   );
   const buildProjection = roundTickProjection(() => input.ids.next());
   const tickProjection = maintenanceTickProjection(
