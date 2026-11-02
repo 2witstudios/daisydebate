@@ -234,6 +234,40 @@ test('Discard of a recovery offer preserves newer editor typing', async ({
     .toContain('Newer typing survives discard');
 });
 
+test('Discard removes the recovered copy so neither page exit nor reload brings it back', async ({
+  roundFiles,
+}) => {
+  const { page, documentId, roundId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await offeredAfterReload(page, documentId, 'Discarded private text');
+  await page.unroute(`**${documentsPath}save`);
+  const server = await serverDocument(page, roundId, documentId);
+  const sends: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith(`${documentsPath}save`))
+      sends.push(request.postData() ?? '');
+  });
+  await page
+    .getByRole('button', { name: 'Discard recovered Flow', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeHidden();
+  expect(await rawDraftFor(page, documentId)).toBeNull();
+  await page.evaluate(() =>
+    window.dispatchEvent(new PageTransitionEvent('pagehide')),
+  );
+  await page.reload();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeHidden();
+  expect(sends).toEqual([]);
+  expect(await serverDocument(page, roundId, documentId)).toEqual(server);
+});
+
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
   roundFiles,
 }) => {
