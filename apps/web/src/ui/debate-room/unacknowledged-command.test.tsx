@@ -59,9 +59,7 @@ test('a pending retry is busy and cannot be sent twice', () => {
 test('a retried strike carries the turn and position the debater struck', () => {
   const html = render({
     values: {
-      version: '1',
-      commandId: id,
-      expectedVersion: '3',
+      ...original,
       type: 'strike_resolution',
       ordinal: '1',
       position: '2',

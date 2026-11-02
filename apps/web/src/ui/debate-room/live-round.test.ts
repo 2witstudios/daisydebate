@@ -219,14 +219,10 @@ describe('liveRoundOf during the round', () => {
     );
     assert({
       given: 'a debater 200 seconds into pre-round prep',
-      should: 'put them in prep on the time left, with no speech lit and the mic closed',
+      should:
+        'put them in prep on the time left, with no speech lit and the mic closed',
       actual: [room?.phase, room?.liveIndex, room?.clock, room?.micLive],
-      expected: [
-        'prep',
-        -1,
-        { label: 'Prep', remainingMs: 1_000_000 },
-        false,
-      ],
+      expected: ['prep', -1, { label: 'Prep', remainingMs: 1_000_000 }, false],
     });
   });
 

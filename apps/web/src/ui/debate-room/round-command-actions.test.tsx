@@ -64,8 +64,10 @@ test('a refused strike says so only while the strike is still open', () => {
   const opening = (step: 'strike' | 'prep') =>
     ({ opening: { step: { step } } }) as Parameters<typeof shownError>[1];
   assert({
-    given: 'a refused strike, on the strike step and then in prep, and a refused yield',
-    should: 'show the strike refusal only on the strike step, and the other always',
+    given:
+      'a refused strike, on the strike step and then in prep, and a refused yield',
+    should:
+      'show the strike refusal only on the strike step, and the other always',
     actual: [
       shownError(refused, opening('strike')),
       shownError(refused, opening('prep')),
