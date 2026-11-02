@@ -98,7 +98,8 @@ function RoundMediaSession({
       superseded: () => setMicrophoneConfirmed(false),
       retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
       readBudget: {
-        now: () => Date.parse(systemClock.now()),
+        // Monotonic: read age is elapsed time, and a clock step must not skew it.
+        now: () => performance.now(),
         ms: MEDIA_READ_BUDGET_MS,
         at: (ms, fire) => {
           const timer = setTimeout(fire, ms);

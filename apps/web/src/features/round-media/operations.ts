@@ -113,6 +113,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         else await input.wait();
       }
     } catch (error) {
+      // Readers get only the deferral, so the tracker must get the fault. A pass
+      // that reported its own failure may repeat here; it is one exception.
+      input.reporter.capture(error, {
+        requestId: input.nextId(),
+        route: '/api/rounds/:id/media/reconcile',
+        errorCode: 'INFRASTRUCTURE',
+      });
       // A pass's failure says nothing about these readers' access: they retry.
       for (const waiter of waiters) waiter.served.reject(mediaDeferred(error));
     } finally {
@@ -333,6 +340,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     read,
     holdForCapture,
     async session(roundId: string, actorId: string, signal?: AbortSignal) {
+      // Before the round lock: an admission already abandoned should cost nothing.
+      if (signal?.aborted) throw mediaDeferred();
       const response = await admit(
         roundId,
         { kind: 'human', actorId },

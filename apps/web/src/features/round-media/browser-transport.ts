@@ -273,7 +273,7 @@ export function createBrowserMediaTransport(
     work = work
       .catch(() => undefined)
       .then(async () => {
-        if (stopped) return;
+        if (stopped || lastingFailure) return;
         const desired = desiredSources(granted, permitted());
         for (const [source, track] of tracks)
           if (!desired.includes(source)) await retire(source, track, desired);
@@ -286,9 +286,10 @@ export function createBrowserMediaTransport(
     return work;
   };
   const apply = async (state: RoundMediaState) => {
+    // Before any device work: only a rebuild clears this, so no pass should run.
+    if (lastingFailure) throw lastingFailure.error;
     granted = state.grants.publish;
     await settle();
-    if (lastingFailure) throw lastingFailure.error;
   };
   const transport: BrowserMediaTransport = {
     connect: async (admission) => {

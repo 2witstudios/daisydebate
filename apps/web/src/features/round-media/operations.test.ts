@@ -623,6 +623,50 @@ test('a failed pass defers every reader rather than answering for it', async () 
   });
 });
 
+test('a fault the readers only see as a deferral still reaches the tracker', async () => {
+  const { world, affirmative } = await admitted();
+  const fault = new Error('database timeout');
+  const reported: unknown[] = [];
+  const operations = createRoundMediaOperations({
+    ...world.input,
+    reporter: { capture: (error: unknown) => void reported.push(error) },
+    store: {
+      ...world.input.store,
+      mediaReconcileProgress: () => Promise.reject(fault),
+    },
+  });
+  await operations
+    .reconcile(world.roundId, affirmative.actorId)
+    .catch(() => undefined);
+  assert({
+    given: 'a polling fault with a browser read waiting',
+    should: 'report the raw error',
+    actual: reported,
+    expected: [fault],
+  });
+});
+
+test('an abandoned admission takes no round lock', async () => {
+  const world = createMediaWorld();
+  let binds = 0;
+  const lock = world.input.store.ensureBinding;
+  world.input.store.ensureBinding = ((...args: Parameters<typeof lock>) => {
+    binds++;
+    return lock(...args);
+  }) as typeof lock;
+  const client = new AbortController();
+  client.abort();
+  await createRoundMediaOperations(world.input)
+    .session(world.roundId, world.seats[0].actorId, client.signal)
+    .catch(() => undefined);
+  assert({
+    given: 'an admission abandoned before it reached the binding',
+    should: 'not take the round lock',
+    actual: binds,
+    expected: 0,
+  });
+});
+
 test('an abandoned read takes no round lock', async () => {
   const world = createMediaWorld();
   let requests = 0;

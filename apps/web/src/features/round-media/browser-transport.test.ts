@@ -336,6 +336,23 @@ test('a failed unpublish in a permission pass still reaches the next apply', asy
   });
 });
 
+test('a known failed unpublish rejects before any device work', async () => {
+  const { stub, transport } = await liveWithFailingUnpublish();
+  await transport.apply(publish(['camera'])).catch(() => undefined);
+  const captures = stub.captured.length;
+  const failure = await transport
+    .apply(publish(['camera', 'microphone']))
+    .catch((error: Error) => error.message);
+  stub.permit([Track.Source.Camera, Track.Source.Microphone]);
+  await settle();
+  assert({
+    given: 'an unpublish already failed, then a grant and a permission change',
+    should: 'reject at once and capture nothing further',
+    actual: [failure, stub.captured.length - captures],
+    expected: ['Unpublish refused', 0],
+  });
+});
+
 test('a released room cannot overwrite the shared track list', async () => {
   const { stub, emitted, transport } = countingTrackList();
   transport.stopTracks();

@@ -242,13 +242,83 @@ test('a read let finish cannot hold the fresh read past the young limit', async 
   controller.stop();
 });
 
+test('no timer outlives what it was timing', async () => {
+  const pendings: number[] = [];
+  const scenario = async (
+    end: (
+      controller: ReturnType<typeof readController>,
+    ) => Promise<void> | void,
+  ) => {
+    const { budget, advance, pending } = fakeBudget();
+    let reads = 0;
+    const controller = readController({
+      readBudget: budget,
+      reconcile: () =>
+        ++reads === 1
+          ? Promise.resolve(snapshot)
+          : new Promise(() => undefined),
+    });
+    await controller.join();
+    void controller.reconcile(viewAt(4));
+    await settle();
+    advance(100);
+    void controller.reconcile(viewAt(5));
+    await settle();
+    advance(100);
+    void controller.reconcile(viewAt(6));
+    await settle();
+    const armed = pending();
+    await end(controller);
+    await settle();
+    pendings.push(armed, pending());
+    controller.stop();
+    await settle();
+  };
+  await scenario((controller) => controller.stop());
+  await scenario((controller) => void controller.reconnect());
+  assert({
+    given:
+      'a budget and a let-finish timer running, then a stop or a reconnect',
+    should: 'leave no timer behind',
+    actual: pendings,
+    expected: [2, 0, 2, 0],
+  });
+});
+
+test('a failed read clears the claim even behind a device failure', async () => {
+  let reads = 0;
+  let confirmed = true;
+  const controller = readController({
+    reconcile: async () => {
+      if (++reads === 2) throw mediaFailure(503);
+      return snapshot;
+    },
+    received: () => {
+      confirmed = true;
+    },
+    superseded: () => {
+      confirmed = false;
+    },
+  });
+  await controller.join();
+  controller.deviceFailed();
+  await controller.reconcile({ kind: 'wake' });
+  assert({
+    given: 'a device failure shown, then a wake read that fails',
+    should: 'stop treating the last answer as current',
+    actual: confirmed,
+    expected: false,
+  });
+  controller.stop();
+});
+
 test('a read let finish spends no attempt after its retry pause', async () => {
-  let nowMs = 0;
+  const { budget, advance } = fakeBudget();
   let reads = 0;
   const pause = Promise.withResolvers<void>();
   const inPause = Promise.withResolvers<void>();
   const controller = readController({
-    readBudget: { now: () => nowMs, ms: 40_000, at: () => () => undefined },
+    readBudget: budget,
     retry: {
       delaysMs: [500],
       wait: () => {
@@ -269,7 +339,7 @@ test('a read let finish spends no attempt after its retry pause', async () => {
   void controller.reconcile(viewAt(5));
   await inPause.promise;
   const whilePaused = reads;
-  nowMs += 100;
+  advance(100);
   void controller.reconcile(viewAt(6));
   pause.resolve();
   await settle();
@@ -355,12 +425,12 @@ test('a device failure while out of date is not overwritten when reads recover',
 });
 
 test('in a burst a young read finishes, is fenced, and the newest read applies', async () => {
-  let nowMs = 0;
+  const { budget, advance } = fakeBudget();
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const applied: string[] = [];
   const controller = readController({
-    readBudget: { now: () => nowMs, ms: 40_000, at: () => () => undefined },
+    readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
       const reply = Promise.withResolvers<unknown>();
@@ -384,7 +454,7 @@ test('in a burst a young read finishes, is fenced, and the newest read applies',
   void controller.reconcile(viewAt(4));
   await settle();
   const firstAborted = signals[1]!.aborted;
-  nowMs += 500;
+  advance(500);
   void controller.reconcile(viewAt(5));
   await settle();
   const youngAborted = signals[2]!.aborted;
@@ -417,11 +487,11 @@ test('in a burst a young read finishes, is fenced, and the newest read applies',
 });
 
 test('a read past the young limit is still aborted in a burst', async () => {
-  let nowMs = 0;
+  const { budget, advance } = fakeBudget();
   const signals: AbortSignal[] = [];
   let reads = 0;
   const controller = readController({
-    readBudget: { now: () => nowMs, ms: 40_000, at: () => () => undefined },
+    readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
       return ++reads === 1
@@ -434,7 +504,7 @@ test('a read past the young limit is still aborted in a burst', async () => {
   await settle();
   void controller.reconcile(viewAt(4));
   await settle();
-  nowMs += 2_000;
+  advance(2_000);
   void controller.reconcile(viewAt(5));
   await settle();
   assert({
@@ -447,12 +517,12 @@ test('a read past the young limit is still aborted in a burst', async () => {
 });
 
 test('a fenced read does not spend retries', async () => {
-  let nowMs = 0;
+  const { budget, advance } = fakeBudget();
   let reads = 0;
   const first = Promise.withResolvers<unknown>();
   const second = Promise.withResolvers<unknown>();
   const controller = readController({
-    readBudget: { now: () => nowMs, ms: 40_000, at: () => () => undefined },
+    readBudget: budget,
     retry: { delaysMs: [1, 1, 1], wait: async () => undefined },
     reconcile: () => {
       reads++;
@@ -467,7 +537,7 @@ test('a fenced read does not spend retries', async () => {
   await settle();
   void controller.reconcile(viewAt(4));
   await settle();
-  nowMs += 100;
+  advance(100);
   void controller.reconcile(viewAt(5));
   await settle();
   second.reject(mediaFailure(503));
@@ -485,7 +555,7 @@ test('an answered read ends the burst, so the next newer view aborts at once', a
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const controller = readController({
-    readBudget: { now: () => 0, ms: 40_000, at: () => () => undefined },
+    readBudget: fakeBudget().budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
       const reply = Promise.withResolvers<unknown>();

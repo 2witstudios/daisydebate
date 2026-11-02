@@ -137,6 +137,7 @@ export const fakeBudget = (ms = 40_000) => {
         return () => void timers.delete(timer);
       },
     },
+    pending: () => timers.size,
     advance: (by: number) => {
       nowMs += by;
       for (const timer of [...timers])

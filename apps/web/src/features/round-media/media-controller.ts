@@ -54,6 +54,8 @@ type Connection = {
   deviceFailed: boolean;
   /** Running from the first supersession since the last answer. */
   cancelBudget: (() => void) | null;
+  /** Running while a superseded read is let finish; one read at a time. */
+  cancelLetFinish: (() => void) | null;
   supersededSinceAnswer: number;
   queued: boolean;
   read: ReadTicket | null;
@@ -80,7 +82,10 @@ export function createMediaController(input: {
   readonly received?: (state: RoundMediaState) => void;
   /** The last answer is no longer current; `received` reports the next one. */
   readonly superseded?: () => void;
-  /** How long reads may go unanswered before live tracks show as out of date. */
+  /**
+   * How long reads may go unanswered before live tracks show as out of date.
+   * Its clock also paces reads in a burst, so without it every supersession aborts.
+   */
   readonly readBudget?: {
     readonly now: () => number;
     readonly ms: number;
@@ -228,6 +233,9 @@ export function createMediaController(input: {
    * carries no authority risk: live tracks stay up and the next event reads again.
    */
   const readUnanswered = (owner: Connection, error: unknown) => {
+    // Whatever the Round shows now, its last answer could not be confirmed.
+    input.superseded?.();
+    if (!active(owner)) return;
     if (isMediaRefusal(error)) fail(owner.generation, error);
     else if (owner.wentLive) showOutOfDate(owner);
     else fail(owner.generation, error);
@@ -263,6 +271,8 @@ export function createMediaController(input: {
         if (current(owner, ticket)) fail(owner.generation, error);
       } finally {
         owner.signal.removeEventListener('abort', cancel);
+        owner.cancelLetFinish?.();
+        owner.cancelLetFinish = null;
         owner.read = null;
       }
     }
@@ -287,6 +297,7 @@ export function createMediaController(input: {
       wentLive: false,
       deviceFailed: false,
       cancelBudget: null,
+      cancelLetFinish: null,
       supersededSinceAnswer: 0,
       queued: false,
       read: null,
@@ -358,8 +369,8 @@ export function createMediaController(input: {
     owner.supersededSinceAnswer++;
     if (pacing === 'abort') inFlight.abort.abort();
     // Let finish, not let hang: a stalled read must not hold the fresh one.
-    else if (budget)
-      budget.at(
+    else if (budget && !owner.cancelLetFinish)
+      owner.cancelLetFinish = budget.at(
         MEDIA_READ_LET_FINISH_MS - (budget.now() - inFlight.startedAtMs),
         () => inFlight.abort.abort(),
       );
