@@ -24,6 +24,19 @@ const logger = { log: () => {} } as unknown as Parameters<
   typeof createWebSocketHandlers
 >[0]['logger'];
 
+const fakeSocket = (
+  closes: number[],
+  send: (frame: unknown) => unknown = () => 1,
+) =>
+  ({
+    data: { origin: 'https://app.example.test' } as SocketData,
+    send,
+    getBufferedAmount: () => 0,
+    close: (code: number) => closes.push(code),
+    subscribe: () => true,
+    unsubscribe: () => {},
+  }) as unknown as ServerWebSocket<SocketData>;
+
 /** The close a socket's check ends in, for one answer from each check. */
 async function closeAfter(
   checks: Pick<
@@ -33,14 +46,7 @@ async function closeAfter(
 ) {
   const closes: number[] = [];
   const reported: unknown[] = [];
-  const ws = {
-    data: { origin: 'https://app.example.test' } as SocketData,
-    send: () => 1,
-    getBufferedAmount: () => 0,
-    close: (code: number) => closes.push(code),
-    subscribe: () => true,
-    unsubscribe: () => {},
-  } as unknown as ServerWebSocket<SocketData>;
+  const ws = fakeSocket(closes);
   const handlers = createWebSocketHandlers({
     logger,
     timers: {
@@ -88,14 +94,7 @@ test('a check answering after the hello deadline, before its timer fires, closes
   const sent: unknown[] = [];
   const rejections: unknown[] = [];
   let elapsed = 0;
-  const ws = {
-    data: { origin: 'https://app.example.test' } as SocketData,
-    send: (frame: unknown) => sent.push(frame),
-    getBufferedAmount: () => 0,
-    close: (code: number) => closes.push(code),
-    subscribe: () => true,
-    unsubscribe: () => {},
-  } as unknown as ServerWebSocket<SocketData>;
+  const ws = fakeSocket(closes, (frame) => sent.push(frame));
   const handlers = createWebSocketHandlers({
     logger: {
       log: (_event: string, fields: { cause?: unknown }) =>
