@@ -23,7 +23,7 @@ const summaryOf = (offer: ChallengeList['incoming'][number]) =>
 const stageAccept =
   'min-h-nav-target rounded-sm bg-stage-accent px-4 text-sm font-bold text-stage-accent-ink disabled:opacity-60';
 const stageDecline =
-  'min-h-nav-target rounded-sm px-3 text-sm font-semibold text-stage-muted hover:text-stage-ink';
+  'min-h-nav-target rounded-sm px-3 text-sm font-semibold text-stage-ink-muted hover:text-stage-ink';
 
 function IncomingCard({
   offer,
@@ -55,19 +55,19 @@ function IncomingCard({
     <section
       aria-label={`Challenge from @${offer.username}`}
       className={cn(
-        'bg-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
+        'bg-surface-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-stage-muted text-xs font-bold tracking-wide uppercase">
+      <p className="text-stage-ink-muted text-xs font-bold tracking-wide uppercase">
         Challenge
       </p>
       <p className="font-display text-lg leading-tight font-semibold">
         @{offer.username}
       </p>
-      <p className="text-stage-muted text-sm">{summaryOf(offer)}</p>
+      <p className="text-stage-ink-muted text-sm">{summaryOf(offer)}</p>
       {notice ? (
-        <p role="status" className="text-stage-muted text-sm">
+        <p role="status" className="text-stage-ink-muted text-sm">
           {notice}
         </p>
       ) : null}
@@ -106,11 +106,11 @@ function AcceptedCard({
     <section
       aria-label={`@${offer.username} accepted`}
       className={cn(
-        'bg-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
+        'bg-surface-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-stage-muted text-sm">@{offer.username} accepted</p>
+      <p className="text-stage-ink-muted text-sm">@{offer.username} accepted</p>
       <a
         href={`/rooms/${offer.roomId}`}
         className={cn(

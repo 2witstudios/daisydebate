@@ -24,7 +24,7 @@ export const nextReadDelayMs = (input: {
   readonly now: number;
   readonly lastReadAt: number;
   readonly onlineCount: number;
-  /** A CSPRNG-free unit value is fine here: this spreads load, it guards nothing. */
+  /** A unit value that spreads the load. */
   readonly jitter: number;
 }): number => {
   const floor = rosterFloorMs(input.onlineCount);

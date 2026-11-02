@@ -1,7 +1,7 @@
 'use client';
 
 import { chosenStatuses, type ChosenStatus } from '@daisy/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   presenceFormUnavailable,
   type PresenceFormState,
@@ -81,12 +81,9 @@ export function StatusForm({
     {},
     presenceFormUnavailable,
   );
-  const [current, setCurrent] = useState(chosen);
+  const current = answer.status ?? chosen;
   useEffect(() => {
-    if (answer.status) {
-      setCurrent(answer.status);
-      online?.refresh();
-    }
+    if (answer.status) online?.refresh();
     // Refresh once per answer; `online` changes with every roster read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer]);

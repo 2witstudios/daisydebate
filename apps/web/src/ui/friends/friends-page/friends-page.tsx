@@ -3,8 +3,6 @@ import type { ReactNode } from 'react';
 import type { FriendList } from '@daisy/protocol';
 import type { FriendFormState } from '../../../features/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
-import { buttonClass } from '../../components/button/button-class';
-import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import type { FormAction } from '../../form-action/form-action';

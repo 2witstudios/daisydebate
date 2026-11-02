@@ -49,7 +49,7 @@ export function OnlineControls() {
           className={tab}
         >
           All{' '}
-          <span className="font-normal text-ink-faint">
+          <span className="font-book text-ink-faint">
             {roster.counts.everyone}
           </span>
         </button>
@@ -60,7 +60,7 @@ export function OnlineControls() {
           className={tab}
         >
           Friends{' '}
-          <span className="font-normal text-ink-faint">
+          <span className="font-book text-ink-faint">
             {roster.counts.friends}
           </span>
         </button>
@@ -131,7 +131,7 @@ export function OnlineRail({
           <div className="flex items-center justify-between gap-2">
             <h2 className="flex items-baseline gap-2 font-display text-xl leading-tight font-semibold">
               Online{' '}
-              <span className="font-sans text-sm font-semibold text-ink-muted">
+              <span className="text-sm font-semibold text-ink-muted">
                 {roster.counts.everyone}
               </span>
             </h2>

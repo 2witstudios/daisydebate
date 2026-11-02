@@ -22,7 +22,10 @@ import {
   type ReactNode,
 } from 'react';
 import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
-import { tabConnection } from '../../features/realtime/browser-adapters';
+import {
+  systemScheduler,
+  tabConnection,
+} from '../../features/realtime/browser-adapters';
 import {
   nextReadDelayMs,
   ROSTER_CEILING_MS,
@@ -126,11 +129,13 @@ export function OnlineProvider({
   const lastRead = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shown = useRef({ filter, query, count: roster.counts.everyone });
-  shown.current = { filter, query, count: roster.counts.everyone };
+  useEffect(() => {
+    shown.current = { filter, query, count: roster.counts.everyone };
+  }, [filter, query, roster.counts.everyone]);
 
   const readRoster = useCallback(async () => {
     const { filter: wanted, query: named } = shown.current;
-    lastRead.current = Date.now();
+    lastRead.current = systemScheduler.now();
     const { value, response } = await readJson(
       rosterUrl(wanted, named),
       parseRoster,
@@ -158,10 +163,10 @@ export function OnlineProvider({
         void readRoster();
       },
       nextReadDelayMs({
-        now: Date.now(),
+        now: systemScheduler.now(),
         lastReadAt: lastRead.current,
         onlineCount: shown.current.count,
-        jitter: Math.random(),
+        jitter: systemScheduler.random(),
       }),
     );
   }, [readRoster]);
