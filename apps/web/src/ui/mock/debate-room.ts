@@ -192,7 +192,6 @@ export function sampleRound(
     ballots: { judge: 'human', ai: 'ready' },
     judgingState: null,
     stakes: competition === 'ranked' ? { win: 14, loss: 12 } : null,
-    recording: true,
     speeches,
     liveIndex: at.liveIndex,
     clock: at.clock,
