@@ -18,11 +18,8 @@ import {
 } from './email-change/email-change';
 import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
 import { createSuppressionCheck } from './mail/suppression-check';
-import {
-  betterAuthLogger,
-  keepingRefusal,
-  reportAuthFailure,
-} from './failure-report';
+import { betterAuthLogger, reportAuthFailure } from './failure-report';
+import { keepingSessionRefusal } from './sessions/session-refusal';
 import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
 import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
@@ -251,7 +248,7 @@ const composeBetterAuth = (dependencies: {
  * cannot set cookies, so a refresh would slide the row but not the browser's.
  */
 const sessionReaderOf = (instance: AuthInstance) => (headers: Headers) =>
-  keepingRefusal(() =>
+  keepingSessionRefusal(() =>
     instance.api.getSession({ headers, query: { disableRefresh: true } }),
   );
 

@@ -1,10 +1,10 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   isReportedCapacityRefusal,
   isCapacityRefusal,
   markCapacityRefusalReported,
 } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
+import { hearSessionRefusal } from './sessions/session-refusal';
 
 /**
  * One authentication failure, reported once. A capacity refusal is work
@@ -29,23 +29,6 @@ export function reportAuthFailure(
   }
 }
 
-const heardRefusal = new AsyncLocalStorage<{ refusal?: unknown }>();
-/**
- * Better Auth logs a session read's refusal and rethrows a bare error without
- * its cause, so its logger is the only place left to hear it. This fails the
- * read with the refusal itself, so a caller can tell work that never ran.
- */
-export function keepingRefusal<T>(read: () => Promise<T>): Promise<T> {
-  const heard: { refusal?: unknown } = {};
-  return heardRefusal.run(heard, async () => {
-    try {
-      return await read();
-    } catch (error) {
-      throw heard.refusal ?? error;
-    }
-  });
-}
-
 /**
  * Better Auth's logger. Its default prints driver errors verbatim (SQL text,
  * bound tokens and emails), so only the severity reaches the application
@@ -56,8 +39,7 @@ export function keepingRefusal<T>(read: () => Promise<T>): Promise<T> {
 export const betterAuthLogger = (logger: Logger) => ({
   log: (level: string, _message: string, ...details: unknown[]) => {
     const refusal = details.find(isCapacityRefusal);
-    const heard = heardRefusal.getStore();
-    if (heard && refusal !== undefined) heard.refusal = refusal;
+    if (refusal !== undefined) hearSessionRefusal(refusal);
     if (refusal !== undefined)
       reportAuthFailure(
         logger,

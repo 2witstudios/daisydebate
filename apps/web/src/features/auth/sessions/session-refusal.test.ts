@@ -4,12 +4,12 @@ import { memoryAdapter } from '@better-auth/memory-adapter';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
-import { resolveSession } from '../../lib/identity';
+import { resolveSession } from '../../../lib/identity';
 import {
   authTestEnv,
   composeAuthServer,
   memoryTables,
-} from './auth-server.test-support';
+} from '../auth-server.test-support';
 
 setupRitewayBun();
 
