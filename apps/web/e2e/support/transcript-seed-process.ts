@@ -10,6 +10,9 @@ import { requireLaunchSlot } from './room-launch-slot';
  * as capture's append would: the line, the stream's count and the revision.
  * Text here is fixture wording, never a person's speech.
  */
+const digest = (value: string) =>
+  new Bun.CryptoHasher('sha3-256').update(value).digest('hex');
+
 if (import.meta.main) {
   const checkout = resolve(import.meta.dir, '../../../..');
   const slot = requireLaunchSlot(checkout, process.env);
@@ -35,9 +38,10 @@ if (import.meta.main) {
         values(${roundId},${line.segment_id},${line.participant_id})
         on conflict do nothing`;
       for (let at = from; at < from + count; at++) {
+        const clipKey = digest(`${roundId}:${at}:clip`);
         await tx`
-          insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,capture_start_offset_ms,created_at)
-          values(${createId()},${roundId},${line.segment_id},${line.participant_id},${at},${`Fixture line ${at}.`},true,${355 + at * 1000},now())`;
+          insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,clip_key,capture_track_id,capture_start_offset_ms,capture_duration_ms,capture_worker_epoch,capture_body_digest,created_at)
+          values(${createId()},${roundId},${line.segment_id},${line.participant_id},${at},${`Fixture line ${at}.`},true,${clipKey},'fixture-track',${355 + at * 1000},1000,1,${digest(clipKey)},now())`;
         await tx`
           insert into round_transcripts(round_id,revision) values(${roundId},1)
           on conflict (round_id) do update set revision=round_transcripts.revision+1`;

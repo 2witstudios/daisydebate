@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { type Page } from '@playwright/test';
+import { actualSpeech } from './support/attendance-browser';
 import { createHumanBallotRound } from './support/human-ballot-round';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { expect, openPage, test } from './support/fixtures';
@@ -41,6 +42,8 @@ test('committed transcript survives reads failing and returning, and clears on r
   const { members } = accounts;
   try {
     const round = await createHumanBallotRound(members, 0);
+    // A segment exists once its speech has really begun.
+    await actualSpeech(members[0]!.context.request, round.id);
     await seed(round.id, 0, 120);
     const page = await openPage(members[0]!.context, 'transcript recovery');
     await page.goto(`/rounds/${round.id}/room`);
