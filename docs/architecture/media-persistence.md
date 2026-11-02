@@ -126,11 +126,14 @@ contain no audio/text and follow Round erasure. The separate judging window ends
 
 Expected streams use the stable `(segment_id, round_participant_id)` key from
 nonempty actual historical speaking intervals. They must be discovered from
-history, never merely from seal rows that happen to exist. A bot is expected
-only in a segment where it holds a credited publication window: every frame it
-sends is credited first, so a bot with no credit never spoke and nothing of it
-is missing (ISSUE-965). A human is expected for every grant, since a dead
-microphone leaves no other evidence. `transcript_segments`
+history, never merely from seal rows that happen to exist. A bot owes no stream
+for a grant it did not use: not its scheduled turn, and no credited publication
+window. Its worker seals that stream complete with zero chunks when it has no
+evidence of speech, and the finalizer does not expect it (ISSUE-965). A bot
+heard with no credit has at most one refused batch of frames, and any
+observation or chunk still seals partial. A bot's scheduled turn stays owed, and
+a human owes every grant, so a failed speech or a dead microphone still freezes
+incomplete. `transcript_segments`
 stores `open`, `complete` or `partial`, with received and declared chunk counts.
 A finalizer can insert a missing stream directly as partial with zero chunks.
 Closed complete/partial records are immutable. Matching counts is necessary for
@@ -320,9 +323,9 @@ required (ISSUE-806), so more captured evidence near the cutoff never turns
 complete into partial (ISSUE-807). A human's grants have no terminal zone. Both tolerances are injected policy
 (`coverageTolerance`, which web composition sets to
 `CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
-`@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants and,
-for a bot, its credited windows by the finalizer, never inferred absent from
-the seal table.
+`@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by
+the finalizer, less a bot's unused grants, never inferred absent from the seal
+table.
 
 Real bounded PostgreSQL component proof covers duplicate/conflicting clips,
 coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
