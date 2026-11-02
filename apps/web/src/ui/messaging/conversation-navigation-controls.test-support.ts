@@ -7,7 +7,6 @@ export async function initiateConversationNavigation(
   scenario: string,
   act: typeof reactAct,
 ) {
-  const document = win.document as unknown as Document;
   if (['edit', 'modified'].includes(scenario!)) {
     const edit = [...host.querySelectorAll('a')].find(
       (link) => link.textContent === 'Edit or remove your message',
