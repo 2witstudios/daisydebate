@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   launchImageIdentity,
   launchDaemonImageContract,
@@ -545,20 +548,47 @@ test('only measured daemon image-store contracts select receipt identity', () =>
   });
 });
 
-test('the artifact trust check runs as the home owner and proves its access', () => {
+test('the artifact trust check runs as the home owner and only no such file counts as absent', () => {
   const image = launchImageIdentity(inputs);
   const args = launchImageFilesystemArgs(image, 'daisy-image-fixture', imageId);
   const script = args.at(-1)!;
+  const directory = mkdtempSync(join(tmpdir(), 'daisy-trust-check-'));
+  const present = join(directory, 'present');
+  const locked = join(directory, 'locked');
+  mkdirSync(present);
+  mkdirSync(locked);
+  chmodSync(locked, 0o000);
+  const absent = (path: string) =>
+    Bun.spawnSync([
+      'sh',
+      '-ec',
+      `${script.slice(0, script.indexOf('; absent /fixture'))}; absent "${path}"`,
+    ]).exitCode;
+  try {
+    assert({
+      given: 'a path that is missing, present, or behind a permission error',
+      should:
+        'pass only the missing path, so a denied stat cannot read as absent',
+      actual: [
+        absent(join(directory, 'missing')),
+        absent(present),
+        absent(join(locked, 'nssdb')),
+      ],
+      expected: [0, 1, 1],
+    });
+  } finally {
+    chmodSync(locked, 0o700);
+    rmSync(directory, { recursive: true, force: true });
+  }
   assert({
     given: 'nssdb paths under a mode-750 home',
-    should:
-      'run as pwuser with no capabilities, checking access before any absence test',
+    should: 'run as pwuser with no capabilities, checking every fixture path',
     actual: [
       args[args.indexOf('--user') + 1],
       args[args.indexOf('--cap-drop') + 1],
-      script.startsWith('test -x /home/pwuser;'),
-      script.includes('test ! -e /home/pwuser/.pki/nssdb'),
-      script.includes('test ! -e /home/pwuser/.local/share/pki/nssdb'),
+      script.includes('absent /fixture/ca.crt'),
+      script.includes('absent /home/pwuser/.pki/nssdb'),
+      script.includes('absent /home/pwuser/.local/share/pki/nssdb'),
     ],
     expected: ['pwuser', 'ALL', true, true, true],
   });

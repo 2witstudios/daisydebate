@@ -471,10 +471,11 @@ jobs:
         run: |
           key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)
           echo "key=$key" >> "$GITHUB_OUTPUT"
-      # Exact input/platform keys only. Cache is a repository/event-scoped
-      # optimization; the shared preparer validates metadata and receipt again.
+      # Exact input keys only. Cache is a repository-scoped optimization and forks
+      # never restore it; the shared preparer validates receipt and image again.
       - name: Restore prepared Launch browser archive
         id: launch-image-cache
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         timeout-minutes: 8
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -486,14 +487,19 @@ jobs:
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image.ts .cache/launch-browser-image
       - name: Prove owned preparation deadline, configuration and cleanup
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+        env:
+          LAUNCH_IMAGE_CACHE_HIT: ${{ steps.launch-image-cache.outputs.cache-hit }}
       - name: Prove exact archive load, timing and rejection boundaries
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-archive-proof.ts
+        env:
+          LAUNCH_IMAGE_CACHE_HIT: ${{ steps.launch-image-cache.outputs.cache-hit }}
       - name: Prove prepared browser trust, repository isolation and cleanup
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
       # After the proofs, so a cache hit means they passed on these exact inputs.
       - name: Save trusted prepared Launch browser archive
         if: >-
           steps.launch-image-cache.outputs.cache-hit != 'true' &&
+          hashFiles('.pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image/receipt.json') != '' &&
           ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
         timeout-minutes: 8

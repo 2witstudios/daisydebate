@@ -228,8 +228,9 @@ try {
     ]);
     if (seed.exitCode !== 0 || commit.exitCode !== 0)
       throw new Error('Seeded trust negative could not be constructed');
-    if ((await checkedImage(seededTag).exited) === 0)
-      throw new Error('Filesystem check accepted seeded fixture trust');
+    // Exit 1 is the check's own refusal; Docker's own failures exit 125.
+    if ((await checkedImage(seededTag).exited) !== 1)
+      throw new Error('Filesystem check did not refuse seeded fixture trust');
   } finally {
     Bun.spawnSync(['docker', 'container', 'rm', '--force', seededName], {
       stdout: 'ignore',

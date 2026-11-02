@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
-import { isDigest, record } from './launch-browser-image-values';
-import { launchArchiveFormat } from './launch-browser-image-archive-policy';
+import { isDigest, record, sha256 } from './launch-browser-image-values';
 import base from './launch-browser-image-base.json';
 
 const proxyNames = [
@@ -21,6 +19,7 @@ const safeEnv: readonly string[] = [
 ];
 const isSafeName = /^daisy-image-[a-z0-9]+$/;
 export const launchDependencyRevision = base.refresh;
+export const launchArchiveFormat = 1;
 const launchImageStores = ['overlay2', 'containerd-overlayfs'] as const;
 export type LaunchImageStore = (typeof launchImageStores)[number];
 
@@ -42,21 +41,19 @@ export function launchImageIdentity(input: {
     !launchImageStores.includes(input.store)
   )
     throw new Error('Unsupported Launch browser image inputs');
-  const key = createHash('sha256')
-    .update(
-      JSON.stringify({
-        version: input.version,
-        coreVersion: input.coreVersion,
-        platform: input.platform,
-        store: input.store,
-        archiveFormat: launchArchiveFormat,
-        recipe: input.recipe,
-        toolchain: input.toolchain,
-        refresh: input.refresh,
-        base,
-      }),
-    )
-    .digest('hex');
+  const key = sha256(
+    JSON.stringify({
+      version: input.version,
+      coreVersion: input.coreVersion,
+      platform: input.platform,
+      store: input.store,
+      archiveFormat: launchArchiveFormat,
+      recipe: input.recipe,
+      toolchain: input.toolchain,
+      refresh: input.refresh,
+      base,
+    }),
+  ).slice('sha256:'.length);
   const preparationLabels = {
     ...base.labels,
     'io.daisy.launch.inputs': key,
@@ -161,8 +158,8 @@ export function launchImagePrepareArgs(
 
 /**
  * Fixture trust must be absent from the artifact. Runs as pwuser because root
- * without capabilities cannot enter its mode-750 home, where `test ! -e` would
- * pass on a permission error; the first check proves that access.
+ * without capabilities cannot enter its mode-750 home. Only "no such file" counts
+ * as absent: `test ! -e` would also pass on a permission error.
  */
 export function launchImageFilesystemArgs(
   image: LaunchImage,
@@ -192,11 +189,11 @@ export function launchImageFilesystemArgs(
     id,
     '-ec',
     [
-      'test -x /home/pwuser',
-      'test ! -e /fixture/ca.crt',
-      'test ! -e /usr/local/share/ca-certificates/daisy-isolated-proof.crt',
-      'test ! -e /home/pwuser/.local/share/pki/nssdb',
-      'test ! -e /home/pwuser/.pki/nssdb',
+      'absent() { if out=$(ls -d "$1" 2>&1); then exit 1; fi; case "$out" in *"No such file or directory"*) ;; *) exit 1 ;; esac; }',
+      'absent /fixture/ca.crt',
+      'absent /usr/local/share/ca-certificates/daisy-isolated-proof.crt',
+      'absent /home/pwuser/.local/share/pki/nssdb',
+      'absent /home/pwuser/.pki/nssdb',
       'command -v certutil >/dev/null',
       'test -f /usr/local/share/daisy-launch-packages.txt',
       'test ! -L /usr/local/share/daisy-launch-packages.txt',
@@ -250,7 +247,7 @@ export function readLaunchPackages(output: string): string | null {
     !inventory.includes(`libnss3-tools\t${base.nssVersion}\n`)
   )
     return null;
-  return `sha256:${createHash('sha256').update(inventory).digest('hex')}`;
+  return sha256(inventory);
 }
 export const launchPreparationRemaining = (
   budget: number,

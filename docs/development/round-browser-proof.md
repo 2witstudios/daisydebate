@@ -116,7 +116,7 @@ verified on success, failure and interruption, including partial creation and
 commit failures. Commit uses a unique temporary local tag until validation;
 failed partial outputs are removed. No shared Docker configuration, builder,
 container, image reference or global prune is changed. Docker CLI/daemon
-versions, the recipe, descriptor, implementation, Bun version, lockfile,
+versions, the recipe, descriptor, implementation, Bun version,
 platform and explicit dependency refresh revision participate in cache identity.
 
 The descriptor records full upstream index/native manifest/config digests,
@@ -132,44 +132,34 @@ needs the pinned artifact host; warm runtime has no package download or image
 acquisition fallback.
 
 An optional directory argument saves/loads `image.tar` and `receipt.json` for
-CI. Existing SHA-pinned Actions cache uses exact OS/architecture/input keys;
-only same-repository PR and main-push events save; forks/manual runs cannot publish
-reusable caches. GitHub ref scoping applies. Local and restored images undergo
-configuration, layer, package and filesystem checks, independently of cache-hit
-metadata. Cache is an optimization within its repository/event trust boundary,
-not a signature or acceptance authority. A rejected archive gets one bounded
-rebuild; failed writes remove their own partial files. A CI cache entry cannot be
-replaced under its key, so a rejected entry rebuilds on every run until its key
-changes: bump `refresh` in the base descriptor or delete the entry. A cache hit
-holds only the prepared image and needs no network. It saves only after the
-lifecycle, archive and trust proofs pass, and its key covers those first two, so
-on a hit they log `not-run-cache-hit` where they would need the upstream base;
-any changed input is a miss that runs them in full. The eight-minute deadline
-control is manual: `bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+CI. The SHA-pinned Actions cache uses exact OS, architecture and input keys. Only
+same-repository PRs and main pushes save or restore; forks do neither. A PR may
+restore main's entry, which is the safe direction since PRs cannot write main's
+scope. The cache is an optimization inside that repository trust boundary, not a
+signature or acceptance authority.
+
+The archive is the `docker save` output, unchanged. Its receipt holds the format
+version, input key, store family, image ID and the archive's streamed SHA-256, and
+is compared exactly. Restore checks the receipt and hash, runs `docker load`, and
+then applies the full image validation, so the receipt detects corruption and the
+image checks decide identity. The store family comes from `docker info` and selects
+the expected image ID: the config digest on classic `overlay2`, the manifest digest
+on containerd `overlayfs`. Family and format are in the cache key.
+
+A plain miss is quiet. A rejected entry emits a `cache-rejected` warning annotation
+naming its reason, then rebuilds from pinned digests under the same eight-minute
+owner, and never fails the run. A CI entry cannot be replaced under its key, so a
+rejected one rebuilds on every run until its key changes: bump `refresh` in the
+base descriptor or delete the entry. A refused save emits a `cache-refused` warning,
+publishes nothing and keeps the valid image.
+
+A cache hit holds only the prepared image and needs no network. Its entry saves only
+after the lifecycle, archive and trust proofs pass, and the key covers the first
+two. So on a real hit, signalled by the cache step, they log `not-run-cache-hit`
+where they would need the upstream base. Any changed input is a miss that runs them
+in full, and outside CI an absent base is acquired. The eight-minute deadline control
+is manual: `bun apps/web/e2e/support/launch-browser-preparation-proof.ts
 --full-budget`; CI proves the same owner under a 40-second budget.
-
-The archive has one format and one reader. A format-2 archive holds exactly the
-OCI index, its single manifest, that manifest's config and ordered layers, the
-mirrored Docker `manifest.json` and `oci-layout`. Restore refuses anything else
-before Docker sees it: an extra object, entry type or path, a foreign tag,
-annotation or platform, or a hash, size or DiffID that disagrees with the chain.
-There is no raw fallback. The receipt binds format, input key and the store
-family measured from `docker info` to the verified config and manifest digests.
-The family alone selects the image ID: the config digest on classic `overlay2`,
-the manifest digest on containerd `overlayfs`. Family and format are both in the
-cache key.
-
-The one producer is `saveLaunchImageArchive`. An export already in that shape is
-published unchanged, which is what containerd writes. Moby's classic exporter
-also writes one V1 config per layer and a `repositories` file outside the graph.
-Those bytes are fully determined by the image config, so the producer recomputes
-them exactly (`launchExporterLegacyObjects`, from Moby v28 `tarexport`) and omits
-them only on an exact match of the whole set. Any other object refuses the save and
-nothing is filtered. The preparation path logs a refusal and continues without a
-cache, since it already holds a valid image; the archive proof fails on it. Retained entries are copied byte for byte and no layer is
-transcoded. Hashing, copying, loading and cleanup all stream in bounded chunks
-under the same eight-minute owner. A classic daemon running outside UTC writes a
-different epoch timestamp, so its save refuses rather than guessing.
 
 A `labelCount` refusal means the commit added or dropped an image label, as a
 Docker Desktop release could. Inspect the label name yourself, and if it is

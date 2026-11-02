@@ -12,7 +12,7 @@ import {
 } from './launch-browser-image-build';
 import {
   cacheLaunchImage,
-  restoreLaunchImageArchive,
+  restoreLaunchImageCache,
 } from './launch-browser-image-cache';
 import { createLaunchPreparationProcess } from './launch-browser-image-process';
 
@@ -52,33 +52,32 @@ export async function readLaunchDockerContract(owner: Owner) {
     );
   return { ...contract, engine: version };
 }
+const launchImageInputFiles = [
+  'launch-browser-image-recipe.sh',
+  'launch-browser-image-policy.ts',
+  'launch-browser-image.ts',
+  'launch-browser-image-process.ts',
+  'launch-browser-image-build.ts',
+  'launch-browser-image-cache.ts',
+  'launch-browser-image-validation.ts',
+  'launch-browser-image-values.ts',
+  // A cache hit vouches for the proofs that ran before its save.
+  'launch-browser-preparation-proof.ts',
+  'launch-browser-archive-proof.ts',
+];
 export async function readLaunchImageInputs(
   checkout: string,
   platform: string,
   engine: string,
   store: LaunchImageStore,
+  readSource: (name: string) => Promise<string> = (name) =>
+    Bun.file(resolve(import.meta.dir, name)).text(),
 ) {
   const manifest = await Bun.file(
     resolve(checkout, 'apps/web/package.json'),
   ).json();
-  const files = [
-    'launch-browser-image-recipe.sh',
-    'launch-browser-image-policy.ts',
-    'launch-browser-image.ts',
-    'launch-browser-image-process.ts',
-    'launch-browser-image-archive-policy.ts',
-    'launch-browser-image-export-policy.ts',
-    'launch-browser-image-archive.ts',
-    'launch-browser-image-build.ts',
-    'launch-browser-image-cache.ts',
-    'launch-browser-image-validation.ts',
-    'launch-browser-image-values.ts',
-    // A cache hit vouches for the proofs that ran before its save.
-    'launch-browser-preparation-proof.ts',
-    'launch-browser-archive-proof.ts',
-  ];
   const [recipe, ...implementation] = await Promise.all(
-    files.map((name) => Bun.file(resolve(import.meta.dir, name)).text()),
+    launchImageInputFiles.map(readSource),
   );
   const bun = await Bun.file(resolve(checkout, '.bun-version')).text();
   const image = launchImageIdentity({
@@ -112,13 +111,8 @@ export async function prepareLaunchBrowserImage(input: {
     let id = await validatedLaunchImage(owner, image, image.tag);
     let source = 'local';
     if (!id && input.archiveDirectory) {
-      id = await restoreLaunchImageArchive(
-        owner,
-        image,
-        input.archiveDirectory,
-      );
+      id = await restoreLaunchImageCache(owner, image, input.archiveDirectory);
       source = 'archive';
-      if (!id) announceLaunchImage('cache-rejected-or-missing', image);
     }
     if (!id) {
       source = 'prepare';

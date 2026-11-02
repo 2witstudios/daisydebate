@@ -23,10 +23,13 @@ const { image } = await readLaunchImageInputs(
   engine,
   store,
 );
-// A cache hit restores only the prepared image and must not need the network.
-// Its key covers this proof and the cache saves after it, so it already passed
-// on these exact inputs. Any changed input is a miss, which has the base.
-if (!(await launchBaseIsPresent(prerequisite, image))) {
+// A real CI cache hit stays offline: its key covers this proof and its entry was
+// saved only after the proof passed on these exact inputs. Anywhere else, an absent
+// base is acquired and the proof runs in full.
+if (
+  process.env.LAUNCH_IMAGE_CACHE_HIT === 'true' &&
+  !(await launchBaseIsPresent(prerequisite, image))
+) {
   process.stdout.write(
     `${JSON.stringify({ event: 'browser.image.preparation.proof', outcome: 'not-run-cache-hit', inputs: image.key, platform })}\n`,
   );

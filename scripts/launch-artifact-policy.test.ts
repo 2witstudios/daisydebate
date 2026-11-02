@@ -122,7 +122,17 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
   const workflow = Bun.YAML.parse(
     await Bun.file('.github/workflows/e2e.yml').text(),
   ) as {
-    jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+    jobs: Record<
+      string,
+      {
+        steps: {
+          name?: string;
+          run?: string;
+          if?: string;
+          env?: Record<string, string>;
+        }[];
+      }
+    >;
   };
   const steps = workflow.jobs['room-launch']!.steps;
   const position = (name: string) =>
@@ -131,7 +141,7 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
   assert({
     given: 'the native job',
     should:
-      'fail on an unresolved key rather than cache under an empty one, and save after every proof',
+      'fail on an unresolved key, never restore on a fork, save only a real archive after every proof, and pass the real hit signal',
     actual: {
       keyLine: steps
         .find(
@@ -144,11 +154,26 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
         'Prove prepared browser trust, repository isolation and cleanup',
       ].every((name) => position(name) >= 0 && position(name) < save),
       beforeSuite: save < position('Run real isolated Launch browser suite'),
+      restoreGuard: steps.find(
+        (step) => step.name === 'Restore prepared Launch browser archive',
+      )?.if,
+      saveRequiresReceipt: steps[save]?.if?.includes("receipt.json') != ''"),
+      hitSignal: [
+        'Prove owned preparation deadline, configuration and cleanup',
+        'Prove exact archive load, timing and rejection boundaries',
+      ].map((name) => steps[position(name)]?.env?.LAUNCH_IMAGE_CACHE_HIT),
     },
     expected: {
       keyLine: 'key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)',
       afterProofs: true,
       beforeSuite: true,
+      restoreGuard:
+        "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      saveRequiresReceipt: true,
+      hitSignal: [
+        '${{ steps.launch-image-cache.outputs.cache-hit }}',
+        '${{ steps.launch-image-cache.outputs.cache-hit }}',
+      ],
     },
   });
 });
